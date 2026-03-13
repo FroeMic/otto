@@ -19,7 +19,7 @@ import {
 } from "./types";
 
 const fakeHetznerClient = new FakeHetznerClient();
-const STEP_DELAY_MS = 1_000;
+const STEP_DELAY_MS = 10_000;
 
 export async function processProvisionTenantServerJob(
   job: ClaimedJob,
