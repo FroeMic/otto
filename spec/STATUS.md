@@ -13,7 +13,13 @@
   - fake provider metadata and IPs are written back to the dashboard
 - The Hetzner client and minimal cloud-init renderer now exist in `web/`, and the worker will use the real provider when `HETZNER_API_TOKEN` is configured.
 - The real Hetzner path now waits for an SSH banner before finishing provisioning.
-- Runtime file upload, command execution, and config apply are still not implemented.
+- The real Hetzner path now performs an initial runtime bootstrap over SSH before marking the tenant ready.
+- Otto can now:
+  - execute remote SSH commands
+  - upload runtime files to `/opt/openclaw`
+  - write `openclaw.json` and bootstrap metadata
+  - verify those files on the host before marking the tenant ready
+- Full runtime restart and health verification are still not implemented.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -33,11 +39,11 @@
 
 ## Next recommended implementation step
 
-- Add the first operations visibility slice from `TODO_07_operations_and_observability.md`.
-- Then return to the real-provider half of Step 4:
-  - persist richer Hetzner metadata on `tenant_servers`
-  - validate image compatibility before create
-  - implement real SSH exec/file upload and runtime apply
+- Extend the runtime bootstrap into a first real runtime apply:
+  - render the full OpenClaw runtime file set
+  - upload Docker/runtime manifests alongside `openclaw.json`
+  - run the first remote setup/restart commands
+  - add a post-apply verification step before `ready`
 
 ## Open questions
 

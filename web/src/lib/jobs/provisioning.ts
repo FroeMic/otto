@@ -1,11 +1,13 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
-import { tenantServers, tenants } from "@/db/schema";
+import { tenantDesiredStates, tenantServers, tenants } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { HetznerClient } from "@/lib/hetzner/client";
 import { renderCloudInit } from "@/lib/hetzner/cloud-init";
 import { FakeHetznerClient } from "@/lib/hetzner/fake";
+import type { OpenClawTenantConfig } from "@/lib/openclaw/config";
+import { RuntimeManager } from "@/lib/runtime/manager";
 import { SshClient } from "@/lib/ssh/client";
 
 import {
@@ -23,6 +25,7 @@ import {
 } from "./types";
 
 const fakeHetznerClient = new FakeHetznerClient();
+const runtimeManager = new RuntimeManager();
 const sshClient = new SshClient();
 const STEP_DELAY_MS = 10_000;
 
@@ -51,6 +54,9 @@ export async function processProvisionTenantServerJob(
         return;
       case PROVISIONING_STEPS.waitForSsh:
         await waitForSsh(job.id, payload);
+        return;
+      case PROVISIONING_STEPS.bootstrapRuntime:
+        await bootstrapRuntime(job.id, payload);
         return;
       case PROVISIONING_STEPS.markServerReady:
         await markServerReady(job.id, payload);
@@ -120,6 +126,7 @@ async function createServer(
   await updateTenantServer(payload.tenantId, {
     provider,
     providerServerId: createdServer.id,
+    sshUsername: getEnv().RUNTIME_SSH_USERNAME,
     status: "creating_server",
   });
 
@@ -304,6 +311,82 @@ async function waitForSsh(
   logRequeue(
     jobId,
     payload.tenantId,
+    PROVISIONING_STEPS.bootstrapRuntime,
+    payload.providerServerId,
+  );
+  await requeueJob(
+    jobId,
+    {
+      ...payload,
+      step: PROVISIONING_STEPS.bootstrapRuntime,
+    },
+    new Date(Date.now() + getProvisioningDelayMs()),
+  );
+}
+
+async function bootstrapRuntime(
+  jobId: string,
+  payload: ProvisionTenantServerPayload,
+) {
+  if (!payload.ipv4 || !payload.providerServerId) {
+    throw new Error(
+      "Provisioning job cannot bootstrap runtime without server metadata",
+    );
+  }
+
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.bootstrapRuntime,
+    `bootstrapping runtime on ${payload.ipv4}`,
+  );
+  await updateTenantServer(payload.tenantId, {
+    status: "bootstrapping_runtime",
+  });
+
+  if (getProvisioningProvider() === "hetzner") {
+    await appendJobEvent(
+      jobId,
+      "bootstrapping_runtime",
+      "Applying initial runtime files over SSH",
+      {
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+      },
+    );
+
+    const desiredState = await getLatestDesiredState(payload.tenantId);
+
+    await runtimeManager.bootstrapTenantRuntime(
+      {
+        host: payload.ipv4,
+        port: getEnv().RUNTIME_SSH_PORT,
+        username: getEnv().RUNTIME_SSH_USERNAME,
+      },
+      {
+        desiredStateVersion: desiredState.version,
+        openClawConfig: buildOpenClawTenantConfig(
+          payload.tenantId,
+          desiredState.configJson,
+        ),
+        tenantId: payload.tenantId,
+      },
+    );
+  }
+
+  await appendJobEvent(
+    jobId,
+    "bootstrapping_runtime",
+    `${getProvisioningProvider()} runtime bootstrap completed`,
+    {
+      ipv4: payload.ipv4,
+      providerServerId: payload.providerServerId,
+    },
+  );
+
+  logRequeue(
+    jobId,
+    payload.tenantId,
     PROVISIONING_STEPS.markServerReady,
     payload.providerServerId,
   );
@@ -376,6 +459,7 @@ async function updateTenantServer(
     ipv4?: string | null;
     provider?: string;
     providerServerId?: string;
+    sshUsername?: string;
     status: string;
   },
 ) {
@@ -389,6 +473,7 @@ async function updateTenantServer(
       ...(input.providerServerId
         ? { providerServerId: input.providerServerId }
         : {}),
+      ...(input.sshUsername ? { sshUsername: input.sshUsername } : {}),
       status: input.status,
       updatedAt: new Date(),
     })
@@ -423,6 +508,62 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown provisioning error";
+}
+
+async function getLatestDesiredState(tenantId: string) {
+  const db = getDb();
+  const [desiredState] = await db
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  if (!desiredState) {
+    throw new Error(`No desired state found for tenant ${tenantId}`);
+  }
+
+  return desiredState;
+}
+
+function buildOpenClawTenantConfig(
+  tenantId: string,
+  configJson: unknown,
+): OpenClawTenantConfig {
+  const config = parseRecord(configJson);
+
+  return {
+    integrations: Array.isArray(config.integrations)
+      ? config.integrations.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [],
+    prompts: parseStringRecord(config.prompts),
+    tenantId,
+  };
+}
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function parseStringRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => {
+      return typeof entry[1] === "string";
+    }),
+  );
 }
 
 function logStep(

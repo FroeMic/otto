@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { Client, type ConnectConfig } from "ssh2";
 import SftpClient from "ssh2-sftp-client";
 
 import { getEnv, normalizePrivateKeyValue } from "@/lib/env";
@@ -18,23 +19,103 @@ export type SshExecResult = {
   exitCode: number | null;
 };
 
-type SftpConnectConfig = {
-  agent?: string;
-  host: string;
-  port: number;
-  privateKey?: string;
-  readyTimeout: number;
-  username: string;
+export type SshExecOptions = {
+  timeoutMs?: number;
 };
 
 export class SshClient {
   async exec(
-    _connection: SshConnection,
-    _command: string,
+    connection: SshConnection,
+    command: string,
+    options: SshExecOptions = {},
   ): Promise<SshExecResult> {
-    throw new Error(
-      "SshClient.exec is not implemented yet. Use a lower-level SSH exec client in a later slice.",
-    );
+    const env = getEnv();
+    const client = new Client();
+    const connectConfig = await buildConnectConfig(connection);
+
+    return await new Promise<SshExecResult>((resolve, reject) => {
+      let stdout = "";
+      let stderr = "";
+      let exitCode: number | null = null;
+      let settled = false;
+      const timeoutMs = options.timeoutMs ?? env.RUNTIME_SSH_COMMAND_TIMEOUT_MS;
+      const timeout = setTimeout(() => {
+        rejectOnce(
+          new Error(
+            `SSH command timed out after ${timeoutMs}ms: ${command.slice(0, 120)}`,
+          ),
+        );
+      }, timeoutMs);
+
+      client.on("ready", () => {
+        client.exec(command, (error, stream) => {
+          if (error) {
+            rejectOnce(error);
+            return;
+          }
+
+          stream.on("close", (code: number | undefined) => {
+            exitCode = typeof code === "number" ? code : null;
+            resolveOnce({
+              exitCode,
+              stderr,
+              stdout,
+            });
+          });
+
+          stream.on("data", (chunk: Buffer | string) => {
+            stdout += chunk.toString();
+          });
+
+          stream.stderr.on("data", (chunk: Buffer | string) => {
+            stderr += chunk.toString();
+          });
+        });
+      });
+
+      client.on("error", (error) => {
+        rejectOnce(error);
+      });
+
+      client.on("close", () => {
+        if (!settled && exitCode === null) {
+          rejectOnce(
+            new Error(
+              `SSH connection closed before command completed: ${command.slice(0, 120)}`,
+            ),
+          );
+        }
+      });
+
+      try {
+        client.connect(connectConfig);
+      } catch (error) {
+        rejectOnce(
+          error instanceof Error ? error : new Error("Unknown SSH exec error"),
+        );
+      }
+
+      function finalize() {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+        client.removeAllListeners();
+        client.end();
+      }
+
+      function resolveOnce(result: SshExecResult) {
+        finalize();
+        resolve(result);
+      }
+
+      function rejectOnce(error: Error) {
+        finalize();
+        reject(error);
+      }
+    });
   }
 
   async writeFileAtomic(
@@ -88,7 +169,7 @@ export class SshClient {
 
 async function buildConnectConfig(
   connection: SshConnection,
-): Promise<SftpConnectConfig> {
+): Promise<ConnectConfig> {
   const env = getEnv();
   const privateKey = connection.privateKey ?? (await resolvePrivateKey());
   const agent = !privateKey ? process.env.SSH_AUTH_SOCK : undefined;

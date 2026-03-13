@@ -22,6 +22,11 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(5000),
+  RUNTIME_SSH_COMMAND_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
   RUNTIME_SSH_PORT: z.coerce.number().int().positive().default(22),
   RUNTIME_SSH_READY_TIMEOUT_MS: z.coerce
     .number()

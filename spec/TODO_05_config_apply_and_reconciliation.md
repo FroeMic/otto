@@ -127,10 +127,10 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
 
 - [ ] define desired-state tables
 - [ ] implement config renderers
-- [ ] implement SSH client wrapper
-- [ ] implement atomic remote file writes over SFTP
+- [x] implement SSH client wrapper
+- [x] implement atomic remote file writes over SFTP
 - [ ] define runtime apply step states
-- [ ] implement runtime wrapper
+- [x] implement runtime wrapper
 - [ ] record apply runs and logs
 
 ## Open questions
