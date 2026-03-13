@@ -26,7 +26,7 @@ docker compose up -d
 Default local database URL:
 
 ```bash
-postgres://postgres:postgres@127.0.0.1:5432/otto
+postgres://postgres:postgres@127.0.0.1:5433/otto
 ```
 
 Stop the local database:
