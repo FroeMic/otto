@@ -15,7 +15,7 @@ Connect Slack through the control plane with one shared Otto Slack app, a web-ba
 
 ## Dependencies
 
-- `TODO_02_auth_and_tenant_model.md`
+- `DONE_02_auth_and_tenant_model.md`
 - `TODO_04_runtime_packaging.md`
 - `TODO_05_config_apply_and_reconciliation.md`
 

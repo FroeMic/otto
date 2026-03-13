@@ -27,7 +27,7 @@ This folder is the source of truth for implementation planning and session-to-se
 
 1. `TODO_00_architecture_and_job_runtime.md`
 2. `TODO_01_repo_foundation.md`
-3. `TODO_02_auth_and_tenant_model.md`
+3. `DONE_02_auth_and_tenant_model.md`
 4. `TODO_03_provisioning_workflow.md`
 5. `TODO_04_runtime_packaging.md`
 6. `TODO_05_config_apply_and_reconciliation.md`

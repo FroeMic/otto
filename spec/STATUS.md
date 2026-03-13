@@ -4,7 +4,8 @@
 
 - Repository state is still mostly bootstrap.
 - `web/` now has initial env, schema, worker, and service scaffolding.
-- Durable job storage and provider interfaces are defined, but queue execution and provisioning handlers are not implemented yet.
+- WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
+- Durable job storage and provider interfaces are defined, but queue execution and real provisioning handlers are not implemented yet.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -24,8 +25,8 @@
 
 ## Next recommended implementation step
 
-- Execute Step 3 of `FIRST_INCREMENT_PLAN.md`.
-- Treat `TODO_02_auth_and_tenant_model.md` as the next main implementation checklist.
+- Execute Step 4 of `FIRST_INCREMENT_PLAN.md`.
+- Treat `TODO_03_provisioning_workflow.md` as the next main implementation checklist.
 
 ## Open questions
 

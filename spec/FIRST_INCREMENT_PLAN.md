@@ -78,7 +78,7 @@ Exit check:
 
 Goal:
 
-- complete the minimum from `TODO_02` required to create tenants
+- complete the minimum from `DONE_02` required to create tenants
 
 Deliverables:
 

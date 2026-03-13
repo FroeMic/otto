@@ -1,4 +1,4 @@
-# TODO 02: Auth And Tenant Model
+# DONE 02: Auth And Tenant Model
 
 ## Goal
 
@@ -32,14 +32,13 @@ Establish user identity, organization ownership, and the first tenant records in
 
 ## Status checklist
 
-- [ ] choose auth provider and session model
-- [ ] create user and organization schema
-- [ ] create tenant schema
-- [ ] add tenant creation UI
-- [ ] enqueue provisioning job on create
+- [x] choose auth provider and session model
+- [x] create user and organization schema
+- [x] create tenant schema
+- [x] add tenant creation UI
+- [x] enqueue provisioning job on create
 
 ## Open questions
 
-- Is WorkOS still required, or is simpler auth acceptable for v1?
 - Decision: use WorkOS.
-  – Yes use WORKOS!!
+- Note: organization switching can stay deferred until provisioning and operations are in place.

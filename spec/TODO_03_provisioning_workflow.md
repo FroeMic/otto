@@ -15,7 +15,7 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 
 - `TODO_00_architecture_and_job_runtime.md`
 - `TODO_01_repo_foundation.md`
-- `TODO_02_auth_and_tenant_model.md`
+- `DONE_02_auth_and_tenant_model.md`
 
 ## Implementation notes
 
