@@ -15,6 +15,19 @@ export type RuntimeFile = {
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
 
+  async waitForHostBootstrap(connection: SshConnection): Promise<void> {
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        "cloud-init status --wait >/dev/null",
+        "command -v docker >/dev/null",
+        "systemctl is-active --quiet docker",
+        "id openclaw >/dev/null",
+      ]),
+      { timeoutMs: getEnv().RUNTIME_SSH_READY_TIMEOUT_MS },
+    );
+  }
+
   async bootstrapTenantRuntime(
     connection: SshConnection,
     input: {

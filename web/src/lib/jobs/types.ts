@@ -19,6 +19,7 @@ export const PROVISIONING_STEPS = {
   waitForHetznerAction: "wait_for_hetzner_action",
   fetchServerIp: "fetch_server_ip",
   waitForSsh: "wait_for_ssh",
+  waitForHostBootstrap: "wait_for_host_bootstrap",
   bootstrapRuntime: "bootstrap_runtime",
   startRuntime: "start_runtime",
   verifyRuntime: "verify_runtime",

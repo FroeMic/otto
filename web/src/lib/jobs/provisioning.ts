@@ -56,6 +56,9 @@ export async function processProvisionTenantServerJob(
       case PROVISIONING_STEPS.waitForSsh:
         await waitForSsh(job.id, payload);
         return;
+      case PROVISIONING_STEPS.waitForHostBootstrap:
+        await waitForHostBootstrap(job.id, payload);
+        return;
       case PROVISIONING_STEPS.bootstrapRuntime:
         await bootstrapRuntime(job.id, payload);
         return;
@@ -312,6 +315,70 @@ async function waitForSsh(
     `${getProvisioningProvider()} server is reachable over SSH`,
     {
       ipv4: payload.ipv4,
+    },
+  );
+
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForHostBootstrap,
+    payload.providerServerId,
+  );
+  await requeueJob(
+    jobId,
+    {
+      ...payload,
+      step: PROVISIONING_STEPS.waitForHostBootstrap,
+    },
+    new Date(Date.now() + getProvisioningDelayMs()),
+  );
+}
+
+async function waitForHostBootstrap(
+  jobId: string,
+  payload: ProvisionTenantServerPayload,
+) {
+  if (!payload.ipv4 || !payload.providerServerId) {
+    throw new Error(
+      "Provisioning job cannot wait for host bootstrap without server metadata",
+    );
+  }
+
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForHostBootstrap,
+    `waiting for cloud-init and Docker on ${payload.ipv4}`,
+  );
+  await updateTenantServer(payload.tenantId, {
+    status: "waiting_for_host_bootstrap",
+  });
+
+  if (getProvisioningProvider() === "hetzner") {
+    await appendJobEvent(
+      jobId,
+      "waiting_for_host_bootstrap",
+      "Waiting for cloud-init and Docker on tenant server",
+      {
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+      },
+    );
+
+    await runtimeManager.waitForHostBootstrap({
+      host: payload.ipv4,
+      port: getEnv().RUNTIME_SSH_PORT,
+      username: getEnv().RUNTIME_SSH_USERNAME,
+    });
+  }
+
+  await appendJobEvent(
+    jobId,
+    "waiting_for_host_bootstrap",
+    "Tenant host bootstrap completed",
+    {
+      ipv4: payload.ipv4,
+      providerServerId: payload.providerServerId,
     },
   );
 
