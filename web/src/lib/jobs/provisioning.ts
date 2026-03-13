@@ -661,6 +661,10 @@ function buildOpenClawTenantConfig(
   configJson: unknown,
 ): OpenClawTenantConfig {
   const config = parseRecord(configJson);
+  const env = getEnv();
+  const hasSlackTokens =
+    Boolean(env.RUNTIME_SLACK_APP_TOKEN) &&
+    Boolean(env.RUNTIME_SLACK_BOT_TOKEN);
 
   return {
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
@@ -671,6 +675,14 @@ function buildOpenClawTenantConfig(
         )
       : [],
     prompts: parseStringRecord(config.prompts),
+    ...(hasSlackTokens
+      ? {
+          slack: {
+            enabled: true,
+            mode: "socket" as const,
+          },
+        }
+      : {}),
     tenantId,
     workspacePath: "/home/node/.openclaw/workspace",
   };

@@ -20,6 +20,8 @@ const envSchema = z.object({
   RUNTIME_OPENCLAW_IMAGE: z
     .string()
     .default("ghcr.io/openclaw/openclaw:latest"),
+  RUNTIME_SLACK_APP_TOKEN: z.string().optional(),
+  RUNTIME_SLACK_BOT_TOKEN: z.string().optional(),
   RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
     .number()
     .int()

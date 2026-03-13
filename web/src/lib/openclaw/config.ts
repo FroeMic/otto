@@ -1,6 +1,10 @@
 export type OpenClawTenantConfig = {
   authTokenEnvVar: string;
   gatewayPort: number;
+  slack?: {
+    enabled: boolean;
+    mode: "socket";
+  };
   tenantId: string;
   integrations: string[];
   prompts: Record<string, string>;
@@ -24,6 +28,19 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         mode: "local",
         port: config.gatewayPort,
       },
+      ...(config.slack
+        ? {
+            channels: {
+              slack: {
+                allowFrom: ["*"],
+                dmPolicy: "open",
+                enabled: config.slack.enabled,
+                groupPolicy: "open",
+                mode: config.slack.mode,
+              },
+            },
+          }
+        : {}),
     },
     null,
     2,
