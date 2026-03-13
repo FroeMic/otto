@@ -124,9 +124,7 @@ export class RuntimeManager {
       connection,
       buildShellCommand([
         "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway",
-        `docker exec openclaw-gateway sh -lc ${shellQuote(
-          "node dist/index.js health",
-        )}`,
+        `for attempt in $(seq 1 30); do if curl -fsS http://127.0.0.1:18789/healthz >/dev/null; then exit 0; fi; sleep 2; done; exit 1`,
       ]),
       { timeoutMs: 120_000 },
     );
