@@ -430,6 +430,13 @@ function logRequeue(
 async function createProviderServer(tenantId: string) {
   if (getProvisioningProvider() === "hetzner") {
     const env = getEnv();
+    const sshKeys = env.HETZNER_SSH_KEY_NAMES.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    console.info(
+      `[worker] tenant ${tenantId} hetzner config: server_type=${env.HETZNER_DEFAULT_SERVER_TYPE} image=${env.HETZNER_DEFAULT_IMAGE} location=${env.HETZNER_DEFAULT_LOCATION} ssh_keys=${sshKeys.join(",") || "none"}`,
+    );
 
     return getHetznerClient().createServer({
       image: env.HETZNER_DEFAULT_IMAGE,
@@ -441,9 +448,7 @@ async function createProviderServer(tenantId: string) {
       location: env.HETZNER_DEFAULT_LOCATION,
       name: buildHetznerServerName(tenantId),
       serverType: env.HETZNER_DEFAULT_SERVER_TYPE,
-      sshKeys: env.HETZNER_SSH_KEY_NAMES.split(",")
-        .map((value) => value.trim())
-        .filter(Boolean),
+      sshKeys,
       userData: renderCloudInit(),
     });
   }

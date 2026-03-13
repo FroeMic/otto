@@ -27,6 +27,7 @@ docker compose up -d
 6. To use real Hetzner provisioning instead of the fake local path, set:
    - `HETZNER_API_TOKEN`
    - optionally `HETZNER_DEFAULT_LOCATION`, `HETZNER_DEFAULT_SERVER_TYPE`, `HETZNER_DEFAULT_IMAGE`, and `HETZNER_SSH_KEY_NAMES`
+   - make sure the chosen `server_type` is still available in the chosen `location`
 7. Install dependencies.
 8. Generate migrations with `npm run db:generate`.
 9. Apply migrations with `npm run db:migrate`.

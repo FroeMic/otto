@@ -8,7 +8,7 @@ const envSchema = z.object({
   HETZNER_API_BASE_URL: z.url().default("https://api.hetzner.cloud/v1"),
   HETZNER_API_TOKEN: z.string().optional(),
   HETZNER_DEFAULT_IMAGE: z.string().default("ubuntu-24.04"),
-  HETZNER_DEFAULT_LOCATION: z.string().default("nbg1"),
+  HETZNER_DEFAULT_LOCATION: z.string().default("ash"),
   HETZNER_DEFAULT_SERVER_TYPE: z.string().default("cpx21"),
   HETZNER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HETZNER_SSH_KEY_NAMES: z.string().default(""),

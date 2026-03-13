@@ -81,6 +81,8 @@ export class HetznerClient {
   }
 
   async createServer(input: HetznerCreateServerInput): Promise<HetznerServer> {
+    await this.validateServerTypeLocation(input.serverType, input.location);
+
     const payload = {
       image: input.image,
       labels: input.labels,
@@ -139,6 +141,35 @@ export class HetznerClient {
     return response.servers.map((server) =>
       normalizeHetznerServer(server, null),
     );
+  }
+
+  async validateServerTypeLocation(
+    serverTypeName: string,
+    locationName: string,
+  ): Promise<void> {
+    const searchParams = new URLSearchParams({
+      name: serverTypeName,
+    });
+    const response = await this.request<{
+      server_types: HetznerServerTypeResponse[];
+    }>(`/server_types?${searchParams.toString()}`);
+    const serverType = response.server_types.find(
+      (candidate) => candidate.name === serverTypeName,
+    );
+
+    if (!serverType) {
+      throw new Error(`Hetzner server type ${serverTypeName} was not found`);
+    }
+
+    const availableLocations = serverType.locations
+      .filter((location) => isLocationCurrentlyAvailable(location.deprecation))
+      .map((location) => location.name);
+
+    if (!availableLocations.includes(locationName)) {
+      throw new Error(
+        `Hetzner server type ${serverTypeName} is not currently available in ${locationName}. Available locations: ${availableLocations.join(", ") || "none"}`,
+      );
+    }
   }
 
   async rebootServer(serverId: string): Promise<string | null> {
@@ -251,6 +282,17 @@ type HetznerServerResponse = {
   status: string;
 };
 
+type HetznerServerTypeResponse = {
+  locations: Array<{
+    deprecation?: {
+      announced?: string | null;
+      unavailable_after?: string | null;
+    } | null;
+    name: string;
+  }>;
+  name: string;
+};
+
 function normalizeHetznerServer(
   server: HetznerServerResponse,
   actionId: number | null,
@@ -271,4 +313,19 @@ function normalizeHetznerServer(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLocationCurrentlyAvailable(
+  deprecation:
+    | {
+        unavailable_after?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  if (!deprecation?.unavailable_after) {
+    return true;
+  }
+
+  return new Date(deprecation.unavailable_after).getTime() > Date.now();
 }
