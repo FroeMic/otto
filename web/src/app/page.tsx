@@ -90,7 +90,7 @@ export default async function Home() {
                 {`WORKOS_CLIENT_ID=
 WORKOS_API_KEY=
 WORKOS_COOKIE_PASSWORD=
-NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/callback`}
+NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
               </pre>
             </div>
             <div>
