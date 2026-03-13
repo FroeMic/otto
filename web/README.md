@@ -76,6 +76,12 @@ From the repo root, run both together:
 npm run dev:all
 ```
 
+Test the configured OpenAI runtime key directly:
+
+```bash
+bun run test:openai-token
+```
+
 ## Directory highlights
 
 - `src/app`: Next.js routes and layouts
