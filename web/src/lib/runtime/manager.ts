@@ -12,6 +12,9 @@ export type RuntimeFile = {
   mode?: number;
 };
 
+const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
+const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
+
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
 
@@ -120,14 +123,41 @@ export class RuntimeManager {
   }
 
   async checkGatewayHealth(connection: SshConnection): Promise<void> {
-    await this.execChecked(
-      connection,
-      buildShellCommand([
-        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway",
-        `for attempt in $(seq 1 30); do if curl -fsS http://127.0.0.1:18789/healthz >/dev/null; then exit 0; fi; sleep 2; done; exit 1`,
-      ]),
-      { timeoutMs: 120_000 },
-    );
+    try {
+      for (let attempt = 1; attempt <= GATEWAY_HEALTH_MAX_ATTEMPTS; attempt++) {
+        const result = await this.sshClient.exec(
+          connection,
+          buildShellCommand([
+            "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+            "curl -fsS http://127.0.0.1:18789/healthz >/dev/null",
+          ]),
+          { timeoutMs: 30_000 },
+        );
+
+        if (result.exitCode === 0) {
+          return;
+        }
+
+        const status = await this.getGatewayStatusSummary(connection);
+
+        console.info(
+          `[worker] gateway health check attempt ${attempt}/${GATEWAY_HEALTH_MAX_ATTEMPTS}: waiting for ${connection.host}:18789 (container ${status})`,
+        );
+
+        if (attempt < GATEWAY_HEALTH_MAX_ATTEMPTS) {
+          await sleep(GATEWAY_HEALTH_POLL_INTERVAL_MS);
+        }
+      }
+
+      throw new Error(
+        `Gateway health check did not succeed after ${GATEWAY_HEALTH_MAX_ATTEMPTS} attempts over ${Math.round((GATEWAY_HEALTH_MAX_ATTEMPTS * GATEWAY_HEALTH_POLL_INTERVAL_MS) / 1000)}s`,
+      );
+    } catch (error) {
+      const diagnostics = await this.getGatewayDiagnostics(connection);
+      const message = error instanceof Error ? error.message : "Unknown error";
+
+      throw new Error(`${message}\n\nGateway diagnostics:\n${diagnostics}`);
+    }
   }
 
   private async execChecked(
@@ -142,6 +172,41 @@ export class RuntimeManager {
         `Remote command failed with exit code ${result.exitCode ?? "unknown"}: ${result.stderr || result.stdout || command}`,
       );
     }
+  }
+
+  private async getGatewayDiagnostics(connection: SshConnection) {
+    const result = await this.sshClient.exec(
+      connection,
+      buildShellCommand([
+        "echo '=== docker ps ==='",
+        "docker ps -a --filter name=openclaw-gateway --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'",
+        "echo",
+        "echo '=== docker inspect ==='",
+        "docker inspect openclaw-gateway --format 'status={{.State.Status}} restartCount={{.RestartCount}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} exitCode={{.State.ExitCode}} error={{.State.Error}}' 2>/dev/null || true",
+        "echo",
+        "echo '=== docker logs ==='",
+        "docker logs openclaw-gateway --tail 200 2>&1 || true",
+      ]),
+      { timeoutMs: 30_000 },
+    );
+
+    return (
+      result.stdout ||
+      result.stderr ||
+      "No diagnostics available"
+    ).trim();
+  }
+
+  private async getGatewayStatusSummary(connection: SshConnection) {
+    const result = await this.sshClient.exec(
+      connection,
+      buildShellCommand([
+        "docker inspect openclaw-gateway --format 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} restartCount={{.RestartCount}} exitCode={{.State.ExitCode}}' 2>/dev/null || echo 'missing'",
+      ]),
+      { timeoutMs: 15_000 },
+    );
+
+    return (result.stdout || result.stderr || "unknown").trim();
   }
 }
 
@@ -174,4 +239,8 @@ function buildRuntimeEnvFile(input: { gatewayToken: string }) {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
