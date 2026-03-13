@@ -336,6 +336,11 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                           <p className="mt-1 text-sm text-stone-700">
                             {tenant.serverStatus ?? "not created yet"}
                           </p>
+                          {tenant.ipv4 ? (
+                            <p className="mt-1 text-xs text-stone-500">
+                              {tenant.ipv4}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ))

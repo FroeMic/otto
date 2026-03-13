@@ -5,7 +5,12 @@
 - Repository state is still mostly bootstrap.
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
-- Durable job storage and provider interfaces are defined, but queue execution and real provisioning handlers are not implemented yet.
+- The local fake provisioning slice now works end to end:
+  - queued `provision_tenant_server` jobs are claimed by the worker
+  - job steps are persisted and resumable across claims
+  - tenant and server rows advance to `ready`
+  - fake provider metadata and IPs are written back to the dashboard
+- Real Hetzner provisioning, SSH readiness checks, and config apply are still not implemented.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -25,8 +30,11 @@
 
 ## Next recommended implementation step
 
-- Execute Step 4 of `FIRST_INCREMENT_PLAN.md`.
-- Treat `TODO_03_provisioning_workflow.md` as the next main implementation checklist.
+- Finish the real-provider half of Step 4 from `FIRST_INCREMENT_PLAN.md`.
+- Treat `TODO_03_provisioning_workflow.md` as the active checklist, but start with:
+  - a real Hetzner client
+  - persisted Hetzner metadata on `tenant_servers`
+  - replacement of the fake provider in the provisioning handler
 
 ## Open questions
 
