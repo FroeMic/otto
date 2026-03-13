@@ -1,5 +1,8 @@
 import "dotenv/config";
 
+import { createPrivateKey } from "node:crypto";
+import fs from "node:fs";
+
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -12,6 +15,8 @@ const envSchema = z.object({
   HETZNER_DEFAULT_SERVER_TYPE: z.string().default("cpx21"),
   HETZNER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HETZNER_SSH_KEY_NAMES: z.string().default(""),
+  RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
+  RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
   RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
     .number()
     .int()
@@ -23,6 +28,7 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(300000),
+  RUNTIME_SSH_USERNAME: z.string().default("root"),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
 });
@@ -37,5 +43,82 @@ export function getEnv(): AppEnv {
   }
 
   cachedEnv = envSchema.parse(process.env);
+  validateRuntimeSshEnv(cachedEnv);
   return cachedEnv;
+}
+
+export function getRuntimeSshAuthSource() {
+  const env = getEnv();
+
+  return resolveRuntimeSshAuthSource(env);
+}
+
+export function normalizePrivateKeyValue(value: string) {
+  return value.includes("\\n") ? value.replaceAll("\\n", "\n") : value;
+}
+
+function validateRuntimeSshEnv(env: AppEnv) {
+  const authSource = resolveRuntimeSshAuthSource(env);
+
+  if (authSource === "env") {
+    const privateKey = env.RUNTIME_DEPLOY_PRIVATE_KEY;
+
+    if (!privateKey) {
+      throw new Error(
+        "RUNTIME_DEPLOY_PRIVATE_KEY auth was selected but the variable is empty",
+      );
+    }
+
+    assertPrivateKeyIsValid(
+      normalizePrivateKeyValue(privateKey),
+      "RUNTIME_DEPLOY_PRIVATE_KEY",
+    );
+    return;
+  }
+
+  if (authSource === "path") {
+    const keyPath = env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH;
+
+    if (!keyPath) {
+      throw new Error(
+        "RUNTIME_DEPLOY_PRIVATE_KEY_PATH auth was selected but the variable is empty",
+      );
+    }
+
+    if (!fs.existsSync(keyPath)) {
+      throw new Error(
+        `RUNTIME_DEPLOY_PRIVATE_KEY_PATH does not exist: ${keyPath}`,
+      );
+    }
+
+    const key = fs.readFileSync(keyPath, "utf8");
+    assertPrivateKeyIsValid(key, "RUNTIME_DEPLOY_PRIVATE_KEY_PATH");
+  }
+}
+
+function assertPrivateKeyIsValid(key: string, source: string) {
+  try {
+    createPrivateKey(key);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown private key error";
+
+    throw new Error(`${source} is not a valid private key: ${message}`);
+  }
+}
+
+function resolveRuntimeSshAuthSource(env: AppEnv) {
+  if (env.RUNTIME_DEPLOY_PRIVATE_KEY) {
+    return "env";
+  }
+
+  if (env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH) {
+    return "path";
+  }
+
+  if (process.env.SSH_AUTH_SOCK) {
+    return "agent";
+  }
+
+  return "none";
 }

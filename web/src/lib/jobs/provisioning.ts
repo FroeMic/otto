@@ -288,7 +288,7 @@ async function waitForSsh(
     await sshClient.waitUntilReachable({
       host: payload.ipv4,
       port: getEnv().RUNTIME_SSH_PORT,
-      username: "openclaw",
+      username: getEnv().RUNTIME_SSH_USERNAME,
     });
   }
 

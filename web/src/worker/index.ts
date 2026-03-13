@@ -1,10 +1,13 @@
-import { getEnv } from "../lib/env";
+import { getEnv, getRuntimeSshAuthSource } from "../lib/env";
 import { runWorkerIteration } from "../lib/jobs/worker";
 
 async function main() {
   const env = getEnv();
 
   console.info("[worker] starting otto worker");
+  console.info(
+    `[worker] runtime SSH auth source: ${getRuntimeSshAuthSource()}`,
+  );
 
   while (true) {
     const processedCount = await runWorkerIteration();

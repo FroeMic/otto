@@ -1,12 +1,15 @@
-import net from "node:net";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-import { getEnv } from "@/lib/env";
+import SftpClient from "ssh2-sftp-client";
+
+import { getEnv, normalizePrivateKeyValue } from "@/lib/env";
 
 export type SshConnection = {
   host: string;
   port?: number;
-  username: string;
   privateKey?: string;
+  username?: string;
 };
 
 export type SshExecResult = {
@@ -15,109 +18,117 @@ export type SshExecResult = {
   exitCode: number | null;
 };
 
+type SftpConnectConfig = {
+  agent?: string;
+  host: string;
+  port: number;
+  privateKey?: string;
+  readyTimeout: number;
+  username: string;
+};
+
 export class SshClient {
   async exec(
     _connection: SshConnection,
     _command: string,
   ): Promise<SshExecResult> {
-    throw new Error("SshClient.exec is not implemented yet");
+    throw new Error(
+      "SshClient.exec is not implemented yet. Use a lower-level SSH exec client in a later slice.",
+    );
   }
 
   async writeFileAtomic(
-    _connection: SshConnection,
-    _targetPath: string,
-    _contents: string,
-    _mode = 0o600,
+    connection: SshConnection,
+    targetPath: string,
+    contents: string,
+    mode = 0o600,
   ): Promise<void> {
-    throw new Error("SshClient.writeFileAtomic is not implemented yet");
+    const client = new SftpClient("otto-write-file");
+
+    try {
+      await client.connect(await buildConnectConfig(connection));
+
+      const remoteDirectory = path.posix.dirname(targetPath);
+      const tempPath = `${targetPath}.tmp-${Date.now()}`;
+
+      await client.mkdir(remoteDirectory, true);
+      await client.put(Buffer.from(contents, "utf8"), tempPath);
+      await client.rename(tempPath, targetPath);
+      await client.chmod(targetPath, mode);
+    } finally {
+      await safeEnd(client);
+    }
   }
 
-  async waitUntilReachable(_connection: SshConnection): Promise<void> {
+  async waitUntilReachable(connection: SshConnection): Promise<void> {
     const env = getEnv();
     const deadline = Date.now() + env.RUNTIME_SSH_READY_TIMEOUT_MS;
     let lastError: Error | null = null;
 
     while (Date.now() < deadline) {
+      const client = new SftpClient("otto-wait-for-ssh");
+
       try {
-        await waitForSshBanner({
-          connectTimeoutMs: env.RUNTIME_SSH_CONNECT_TIMEOUT_MS,
-          host: _connection.host,
-          port: _connection.port ?? env.RUNTIME_SSH_PORT,
-        });
+        await client.connect(await buildConnectConfig(connection));
         return;
       } catch (error) {
         lastError =
           error instanceof Error ? error : new Error("Unknown SSH error");
         await sleep(2_000);
+      } finally {
+        await safeEnd(client);
       }
     }
 
     throw new Error(
-      `SSH did not become reachable for ${_connection.host}:${_connection.port ?? env.RUNTIME_SSH_PORT} within ${env.RUNTIME_SSH_READY_TIMEOUT_MS}ms${lastError ? ` (${lastError.message})` : ""}`,
+      `SSH did not become reachable for ${connection.host}:${connection.port ?? env.RUNTIME_SSH_PORT} within ${env.RUNTIME_SSH_READY_TIMEOUT_MS}ms${lastError ? ` (${lastError.message})` : ""}`,
     );
   }
 }
 
-async function waitForSshBanner(input: {
-  connectTimeoutMs: number;
-  host: string;
-  port: number;
-}) {
-  await new Promise<void>((resolve, reject) => {
-    const socket = net.createConnection({
-      host: input.host,
-      port: input.port,
-    });
+async function buildConnectConfig(
+  connection: SshConnection,
+): Promise<SftpConnectConfig> {
+  const env = getEnv();
+  const privateKey = connection.privateKey ?? (await resolvePrivateKey());
+  const agent = !privateKey ? process.env.SSH_AUTH_SOCK : undefined;
 
-    let settled = false;
+  if (!privateKey && !agent) {
+    throw new Error(
+      "SSH authentication is not configured. Set RUNTIME_DEPLOY_PRIVATE_KEY, RUNTIME_DEPLOY_PRIVATE_KEY_PATH, or run with SSH_AUTH_SOCK available.",
+    );
+  }
 
-    function finish(callback: () => void) {
-      if (settled) {
-        return;
-      }
+  return {
+    ...(agent ? { agent } : {}),
+    ...(privateKey ? { privateKey } : {}),
+    host: connection.host,
+    port: connection.port ?? env.RUNTIME_SSH_PORT,
+    readyTimeout: env.RUNTIME_SSH_CONNECT_TIMEOUT_MS,
+    username: connection.username ?? env.RUNTIME_SSH_USERNAME,
+  };
+}
 
-      settled = true;
-      socket.removeAllListeners();
-      socket.destroy();
-      callback();
-    }
+async function resolvePrivateKey() {
+  const env = getEnv();
 
-    socket.setTimeout(input.connectTimeoutMs);
+  if (env.RUNTIME_DEPLOY_PRIVATE_KEY) {
+    return normalizePrivateKeyValue(env.RUNTIME_DEPLOY_PRIVATE_KEY);
+  }
 
-    socket.on("data", (buffer) => {
-      const banner = buffer.toString("utf8");
+  if (env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH) {
+    return await fs.readFile(env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH, "utf8");
+  }
 
-      if (banner.startsWith("SSH-")) {
-        finish(resolve);
-      }
-    });
+  return undefined;
+}
 
-    socket.on("timeout", () => {
-      finish(() =>
-        reject(
-          new Error(
-            `Timed out waiting for SSH banner from ${input.host}:${input.port}`,
-          ),
-        ),
-      );
-    });
-
-    socket.on("error", (error) => {
-      finish(() => reject(error));
-    });
-
-    socket.on("close", () => {
-      if (!settled) {
-        finish(() =>
-          reject(
-            new Error(
-              `Connection closed before SSH banner from ${input.host}:${input.port}`,
-            ),
-          ),
-        );
-      }
-    });
-  });
+async function safeEnd(client: SftpClient) {
+  try {
+    await client.end();
+  } catch {
+    // ssh2-sftp-client can emit cleanup noise on end/close; ignore during shutdown.
+  }
 }
 
 function sleep(ms: number) {
