@@ -103,7 +103,12 @@ async function createServer(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  logStep(jobId, payload.tenantId, PROVISIONING_STEPS.createServer, "creating fake server");
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.createServer,
+    "creating fake server",
+  );
   const createdServer = await fakeHetznerClient.createServer({
     tenantId: payload.tenantId,
   });
