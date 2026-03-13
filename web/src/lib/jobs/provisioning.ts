@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
@@ -57,6 +58,12 @@ export async function processProvisionTenantServerJob(
         return;
       case PROVISIONING_STEPS.bootstrapRuntime:
         await bootstrapRuntime(job.id, payload);
+        return;
+      case PROVISIONING_STEPS.startRuntime:
+        await startRuntime(job.id, payload);
+        return;
+      case PROVISIONING_STEPS.verifyRuntime:
+        await verifyRuntime(job.id, payload);
         return;
       case PROVISIONING_STEPS.markServerReady:
         await markServerReady(job.id, payload);
@@ -365,6 +372,7 @@ async function bootstrapRuntime(
       },
       {
         desiredStateVersion: desiredState.version,
+        gatewayToken: buildGatewayToken(),
         openClawConfig: buildOpenClawTenantConfig(
           payload.tenantId,
           desiredState.configJson,
@@ -378,6 +386,125 @@ async function bootstrapRuntime(
     jobId,
     "bootstrapping_runtime",
     `${getProvisioningProvider()} runtime bootstrap completed`,
+    {
+      ipv4: payload.ipv4,
+      providerServerId: payload.providerServerId,
+    },
+  );
+
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.startRuntime,
+    payload.providerServerId,
+  );
+  await requeueJob(
+    jobId,
+    {
+      ...payload,
+      step: PROVISIONING_STEPS.startRuntime,
+    },
+    new Date(Date.now() + getProvisioningDelayMs()),
+  );
+}
+
+async function startRuntime(
+  jobId: string,
+  payload: ProvisionTenantServerPayload,
+) {
+  if (!payload.ipv4 || !payload.providerServerId) {
+    throw new Error(
+      "Provisioning job cannot start runtime without server metadata",
+    );
+  }
+
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.startRuntime,
+    `starting OpenClaw runtime on ${payload.ipv4}`,
+  );
+  await updateTenantServer(payload.tenantId, {
+    status: "starting_runtime",
+  });
+
+  if (getProvisioningProvider() === "hetzner") {
+    await appendJobEvent(
+      jobId,
+      "starting_runtime",
+      "Starting OpenClaw container on tenant server",
+      {
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+        runtimeImage: getEnv().RUNTIME_OPENCLAW_IMAGE,
+      },
+    );
+
+    await runtimeManager.restartGateway({
+      host: payload.ipv4,
+      port: getEnv().RUNTIME_SSH_PORT,
+      username: getEnv().RUNTIME_SSH_USERNAME,
+    });
+  }
+
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.verifyRuntime,
+    payload.providerServerId,
+  );
+  await requeueJob(
+    jobId,
+    {
+      ...payload,
+      step: PROVISIONING_STEPS.verifyRuntime,
+    },
+    new Date(Date.now() + getProvisioningDelayMs()),
+  );
+}
+
+async function verifyRuntime(
+  jobId: string,
+  payload: ProvisionTenantServerPayload,
+) {
+  if (!payload.ipv4 || !payload.providerServerId) {
+    throw new Error(
+      "Provisioning job cannot verify runtime without server metadata",
+    );
+  }
+
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.verifyRuntime,
+    `verifying OpenClaw runtime on ${payload.ipv4}`,
+  );
+  await updateTenantServer(payload.tenantId, {
+    status: "verifying_runtime",
+  });
+
+  if (getProvisioningProvider() === "hetzner") {
+    await appendJobEvent(
+      jobId,
+      "verifying_runtime",
+      "Checking OpenClaw gateway health",
+      {
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+      },
+    );
+
+    await runtimeManager.checkGatewayHealth({
+      host: payload.ipv4,
+      port: getEnv().RUNTIME_SSH_PORT,
+      username: getEnv().RUNTIME_SSH_USERNAME,
+    });
+  }
+
+  await appendJobEvent(
+    jobId,
+    "verifying_runtime",
+    "OpenClaw runtime health check passed",
     {
       ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
@@ -536,6 +663,8 @@ function buildOpenClawTenantConfig(
   const config = parseRecord(configJson);
 
   return {
+    authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+    gatewayPort: 18789,
     integrations: Array.isArray(config.integrations)
       ? config.integrations.filter(
           (value): value is string => typeof value === "string",
@@ -543,6 +672,7 @@ function buildOpenClawTenantConfig(
       : [],
     prompts: parseStringRecord(config.prompts),
     tenantId,
+    workspacePath: "/home/node/.openclaw/workspace",
   };
 }
 
@@ -564,6 +694,10 @@ function parseStringRecord(value: unknown) {
       return typeof entry[1] === "string";
     }),
   );
+}
+
+function buildGatewayToken() {
+  return randomBytes(24).toString("base64url");
 }
 
 function logStep(

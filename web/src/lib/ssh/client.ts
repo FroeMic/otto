@@ -125,20 +125,24 @@ export class SshClient {
     mode = 0o600,
   ): Promise<void> {
     const client = new SftpClient("otto-write-file");
+    const remoteDirectory = path.posix.dirname(targetPath);
+    const tempPath = `${targetPath}.tmp-${Date.now()}`;
 
     try {
       await client.connect(await buildConnectConfig(connection));
 
-      const remoteDirectory = path.posix.dirname(targetPath);
-      const tempPath = `${targetPath}.tmp-${Date.now()}`;
-
       await client.mkdir(remoteDirectory, true);
       await client.put(Buffer.from(contents, "utf8"), tempPath);
-      await client.rename(tempPath, targetPath);
-      await client.chmod(targetPath, mode);
     } finally {
       await safeEnd(client);
     }
+
+    await this.exec(
+      connection,
+      `bash -lc ${shellQuote(
+        `chmod ${formatFileMode(mode)} ${shellEscape(tempPath)} && mv -f ${shellEscape(tempPath)} ${shellEscape(targetPath)}`,
+      )}`,
+    );
   }
 
   async waitUntilReachable(connection: SshConnection): Promise<void> {
@@ -214,4 +218,16 @@ async function safeEnd(client: SftpClient) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatFileMode(mode: number) {
+  return mode.toString(8);
+}
+
+function shellEscape(value: string) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }

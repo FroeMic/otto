@@ -20,6 +20,8 @@ export const PROVISIONING_STEPS = {
   fetchServerIp: "fetch_server_ip",
   waitForSsh: "wait_for_ssh",
   bootstrapRuntime: "bootstrap_runtime",
+  startRuntime: "start_runtime",
+  verifyRuntime: "verify_runtime",
   markServerReady: "mark_server_ready",
 } as const;
 

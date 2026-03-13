@@ -17,6 +17,9 @@ const envSchema = z.object({
   HETZNER_SSH_KEY_NAMES: z.string().default(""),
   RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
+  RUNTIME_OPENCLAW_IMAGE: z
+    .string()
+    .default("ghcr.io/openclaw/openclaw:latest"),
   RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
     .number()
     .int()

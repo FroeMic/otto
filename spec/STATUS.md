@@ -17,9 +17,10 @@
 - Otto can now:
   - execute remote SSH commands
   - upload runtime files to `/opt/openclaw`
-  - write `openclaw.json` and bootstrap metadata
+  - write `openclaw.json`, `.env`, and bootstrap metadata
   - verify those files on the host before marking the tenant ready
-- Full runtime restart and health verification are still not implemented.
+- Otto can also start the official OpenClaw container on the tenant VPS and verify it with `openclaw health`.
+- The first runtime start path currently uses direct `docker run` with host networking and loopback binding; Docker Compose is still deferred.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -40,10 +41,10 @@
 ## Next recommended implementation step
 
 - Extend the runtime bootstrap into a first real runtime apply:
-  - render the full OpenClaw runtime file set
-  - upload Docker/runtime manifests alongside `openclaw.json`
-  - run the first remote setup/restart commands
-  - add a post-apply verification step before `ready`
+  - verify the full create-tenant -> worker -> runtime-start path on a fresh tenant
+  - surface runtime/container health in the dashboard
+  - decide whether to keep direct `docker run` for v1 or install Docker Compose explicitly on tenant hosts
+  - persist any runtime access metadata the control plane will need later
 
 ## Open questions
 

@@ -29,11 +29,11 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
 
 ## Status checklist
 
-- [ ] choose image build strategy
+- [x] choose image build strategy
 - [ ] define compose file
-- [ ] validate loopback-only binding
-- [ ] verify non-root runtime
+- [x] validate loopback-only binding
+- [x] verify non-root runtime
 
 ## Open questions
 
-- Should image build and publish happen inside this repo or from an upstream runtime repo?
+- Should v1 keep the current direct `docker run` start path, or should Otto install Docker Compose on tenant hosts before calling runtime apply complete?

@@ -1,3 +1,4 @@
+import { getEnv } from "@/lib/env";
 import {
   type OpenClawTenantConfig,
   renderOpenClawConfig,
@@ -19,22 +20,28 @@ export class RuntimeManager {
     input: {
       tenantId: string;
       desiredStateVersion: number;
+      gatewayToken: string;
       openClawConfig: OpenClawTenantConfig;
     },
   ): Promise<void> {
     await this.execChecked(
       connection,
       buildShellCommand([
-        "mkdir -p /opt/openclaw/config",
+        "mkdir -p /opt/openclaw/home/workspace",
         "mkdir -p /opt/openclaw/runtime",
       ]),
     );
 
     await this.applyTenantFiles(connection, [
       {
-        path: "/opt/openclaw/config/openclaw.json",
+        path: "/opt/openclaw/home/openclaw.json",
         contents: renderOpenClawConfig(input.openClawConfig),
         mode: 0o640,
+      },
+      {
+        path: "/opt/openclaw/home/.env",
+        contents: `OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}\n`,
+        mode: 0o600,
       },
       {
         path: "/opt/openclaw/runtime/bootstrap-metadata.json",
@@ -55,16 +62,38 @@ export class RuntimeManager {
       connection,
       buildShellCommand([
         "chown -R openclaw:openclaw /opt/openclaw",
-        "test -s /opt/openclaw/config/openclaw.json",
+        "test -s /opt/openclaw/home/openclaw.json",
+        "test -s /opt/openclaw/home/.env",
         "test -s /opt/openclaw/runtime/bootstrap-metadata.json",
       ]),
     );
   }
 
-  async applyTenantFiles(
-    connection: SshConnection,
-    files: RuntimeFile[],
-  ): Promise<void> {
+  async restartGateway(connection: SshConnection): Promise<void> {
+    const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
+
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        `docker pull ${shellQuoteForShell(image)}`,
+        "docker rm -f openclaw-gateway >/dev/null 2>&1 || true",
+        [
+          "docker run -d",
+          "--name openclaw-gateway",
+          "--restart unless-stopped",
+          "--network host",
+          "--user 1000:1001",
+          "--env-file /opt/openclaw/home/.env",
+          "-v /opt/openclaw/home:/home/node/.openclaw",
+          shellQuoteForShell(image),
+          "node dist/index.js gateway --port 18789",
+        ].join(" "),
+      ]),
+      { timeoutMs: 300_000 },
+    );
+  }
+
+  async applyTenantFiles(connection: SshConnection, files: RuntimeFile[]) {
     for (const file of files) {
       await this.sshClient.writeFileAtomic(
         connection,
@@ -75,16 +104,25 @@ export class RuntimeManager {
     }
   }
 
-  async restartGateway(_connection: SshConnection): Promise<void> {
-    throw new Error("RuntimeManager.restartGateway is not implemented yet");
+  async checkGatewayHealth(connection: SshConnection): Promise<void> {
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway",
+        `docker exec openclaw-gateway sh -lc ${shellQuote(
+          "node dist/index.js health",
+        )}`,
+      ]),
+      { timeoutMs: 120_000 },
+    );
   }
 
-  async checkGatewayHealth(_connection: SshConnection): Promise<void> {
-    throw new Error("RuntimeManager.checkGatewayHealth is not implemented yet");
-  }
-
-  private async execChecked(connection: SshConnection, command: string) {
-    const result = await this.sshClient.exec(connection, command);
+  private async execChecked(
+    connection: SshConnection,
+    command: string,
+    options?: { timeoutMs?: number },
+  ) {
+    const result = await this.sshClient.exec(connection, command, options);
 
     if (result.exitCode !== 0) {
       throw new Error(
@@ -99,5 +137,9 @@ function buildShellCommand(commands: string[]) {
 }
 
 function shellQuote(value: string) {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function shellQuoteForShell(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
