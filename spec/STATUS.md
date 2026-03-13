@@ -4,6 +4,7 @@
 
 - Repository state is still mostly bootstrap.
 - `web/` now has initial env, schema, worker, and service scaffolding.
+- Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
 - The local fake provisioning slice now works end to end:
   - queued `provision_tenant_server` jobs are claimed by the worker
@@ -30,8 +31,8 @@
 
 ## Next recommended implementation step
 
-- Finish the real-provider half of Step 4 from `FIRST_INCREMENT_PLAN.md`.
-- Treat `TODO_03_provisioning_workflow.md` as the active checklist, but start with:
+- Add the first operations visibility slice from `TODO_07_operations_and_observability.md`.
+- Then return to the real-provider half of Step 4:
   - a real Hetzner client
   - persisted Hetzner metadata on `tenant_servers`
   - replacement of the fake provider in the provisioning handler

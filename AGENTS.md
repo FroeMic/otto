@@ -32,6 +32,7 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - `web/` is the control plane app.
 - `spec/` stores planning state and implementation sequencing.
 - Placeholder docs should be replaced when they become misleading.
+- Use `bun run ...` as the default way to invoke scripts for `web/` work unless a task specifically requires `npm`.
 
 ## When making changes
 

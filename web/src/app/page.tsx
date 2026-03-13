@@ -311,37 +311,116 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                     organization.tenants.map((tenant) => (
                       <div
                         key={tenant.id}
-                        className="grid gap-3 border border-stone-200 bg-stone-50 p-4 sm:grid-cols-[1.2fr_0.8fr_0.8fr]"
+                        className="grid gap-4 border border-stone-200 bg-stone-50 p-4"
                       >
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
-                            Tenant
-                          </p>
-                          <p className="mt-1 text-lg font-medium text-stone-950">
-                            {tenant.name}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
-                            Tenant status
-                          </p>
-                          <p className="mt-1 text-sm text-stone-700">
-                            {tenant.status}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
-                            Server
-                          </p>
-                          <p className="mt-1 text-sm text-stone-700">
-                            {tenant.serverStatus ?? "not created yet"}
-                          </p>
-                          {tenant.ipv4 ? (
-                            <p className="mt-1 text-xs text-stone-500">
-                              {tenant.ipv4}
+                        <div className="grid gap-3 sm:grid-cols-[1.2fr_0.8fr_0.8fr]">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                              Tenant
                             </p>
-                          ) : null}
+                            <p className="mt-1 text-lg font-medium text-stone-950">
+                              {tenant.name}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                              Tenant status
+                            </p>
+                            <p className="mt-1 text-sm text-stone-700">
+                              {tenant.status}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                              Server
+                            </p>
+                            <p className="mt-1 text-sm text-stone-700">
+                              {tenant.serverStatus ?? "not created yet"}
+                            </p>
+                            {tenant.ipv4 ? (
+                              <p className="mt-1 text-xs text-stone-500">
+                                {tenant.ipv4}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
+
+                        {tenant.latestJob ? (
+                          <div className="grid gap-3 border-t border-stone-200 pt-4">
+                            <div className="grid gap-3 sm:grid-cols-[0.7fr_0.7fr_0.7fr_1.9fr]">
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                                  Latest job
+                                </p>
+                                <p className="mt-1 text-sm text-stone-700">
+                                  {tenant.latestJob.status}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                                  Current step
+                                </p>
+                                <p className="mt-1 text-sm text-stone-700">
+                                  {tenant.latestJob.step ?? "not set"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                                  Attempt
+                                </p>
+                                <p className="mt-1 text-sm text-stone-700">
+                                  {tenant.latestJob.attempt}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                                  Job id
+                                </p>
+                                <p className="mt-1 break-all text-sm text-stone-700">
+                                  {tenant.latestJob.id}
+                                </p>
+                              </div>
+                            </div>
+
+                            {tenant.latestJob.error ? (
+                              <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                                {tenant.latestJob.error}
+                              </div>
+                            ) : null}
+
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                                Event timeline
+                              </p>
+                              <div className="mt-3 grid gap-2">
+                                {tenant.latestJob.events.length === 0 ? (
+                                  <p className="text-sm text-stone-600">
+                                    No events recorded yet.
+                                  </p>
+                                ) : (
+                                  tenant.latestJob.events.map((event) => (
+                                    <div
+                                      key={`${tenant.latestJob?.id}-${event.eventType}-${event.createdAt.toISOString()}`}
+                                      className="flex flex-col gap-1 border border-stone-200 bg-white/80 p-3 sm:flex-row sm:items-baseline sm:justify-between"
+                                    >
+                                      <div>
+                                        <p className="text-sm font-medium text-stone-900">
+                                          {event.message}
+                                        </p>
+                                        <p className="text-xs uppercase tracking-[0.25em] text-stone-500">
+                                          {event.eventType}
+                                        </p>
+                                      </div>
+                                      <p className="text-xs text-stone-500">
+                                        {formatTimestamp(event.createdAt)}
+                                      </p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     ))
                   )}
@@ -353,4 +432,11 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
       </main>
     </div>
   );
+}
+
+function formatTimestamp(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(value);
 }

@@ -3,6 +3,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
+  jobEvents,
+  jobRuns,
   memberships,
   organizations,
   tenantDesiredStates,
@@ -20,12 +22,26 @@ export type DashboardOrganization = {
   name: string;
   role: string;
   tenants: Array<{
+    createdAt: Date;
     id: string;
+    ipv4: string | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
     name: string;
     status: string;
     serverStatus: string | null;
-    ipv4: string | null;
-    createdAt: Date;
   }>;
 };
 
@@ -79,18 +95,86 @@ export async function getDashboardOrganizations(
 
   const tenantRows = await db
     .select({
+      createdAt: tenants.createdAt,
       id: tenants.id,
+      ipv4: tenantServers.ipv4,
       organizationId: tenants.organizationId,
       name: tenants.name,
       status: tenants.status,
-      createdAt: tenants.createdAt,
       serverStatus: tenantServers.status,
-      ipv4: tenantServers.ipv4,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(inArray(tenants.organizationId, organizationIds))
     .orderBy(desc(tenants.createdAt));
+
+  const tenantIds = tenantRows.map((tenant) => tenant.id);
+
+  const latestJobRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            attempt: jobRuns.attempt,
+            createdAt: jobRuns.createdAt,
+            error: jobRuns.error,
+            finishedAt: jobRuns.finishedAt,
+            id: jobRuns.id,
+            payloadJson: jobRuns.payloadJson,
+            startedAt: jobRuns.startedAt,
+            status: jobRuns.status,
+            tenantId: jobRuns.tenantId,
+          })
+          .from(jobRuns)
+          .where(inArray(jobRuns.tenantId, tenantIds))
+          .orderBy(desc(jobRuns.createdAt));
+
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+
+  for (const job of latestJobRows) {
+    if (!job.tenantId || latestJobsByTenant.has(job.tenantId)) {
+      continue;
+    }
+
+    latestJobsByTenant.set(job.tenantId, job);
+  }
+
+  const latestJobIds = Array.from(latestJobsByTenant.values()).map(
+    (job) => job.id,
+  );
+
+  const jobEventRows =
+    latestJobIds.length === 0
+      ? []
+      : await db
+          .select({
+            createdAt: jobEvents.createdAt,
+            eventType: jobEvents.eventType,
+            jobRunId: jobEvents.jobRunId,
+            message: jobEvents.message,
+          })
+          .from(jobEvents)
+          .where(inArray(jobEvents.jobRunId, latestJobIds))
+          .orderBy(desc(jobEvents.createdAt));
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
 
   return organizationRows.map((organization) => ({
     id: organization.organizationId,
@@ -100,14 +184,65 @@ export async function getDashboardOrganizations(
     tenants: tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
       .map((tenant) => ({
+        createdAt: tenant.createdAt,
         id: tenant.id,
+        ipv4: tenant.ipv4,
+        latestJob: buildLatestJobSummary(
+          latestJobsByTenant.get(tenant.id) ?? null,
+          jobEventsByJobRunId,
+        ),
         name: tenant.name,
         status: tenant.status,
         serverStatus: tenant.serverStatus,
-        ipv4: tenant.ipv4,
-        createdAt: tenant.createdAt,
       })),
   }));
+}
+
+function buildLatestJobSummary(
+  job: {
+    attempt: number;
+    error: string | null;
+    finishedAt: Date | null;
+    id: string;
+    payloadJson: unknown;
+    startedAt: Date | null;
+    status: string;
+  } | null,
+  jobEventsByJobRunId: Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >,
+) {
+  if (!job) {
+    return null;
+  }
+
+  const payload = parseRecord(job.payloadJson);
+  const step = typeof payload.step === "string" ? payload.step : null;
+  const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse();
+
+  return {
+    attempt: job.attempt,
+    error: job.error,
+    events,
+    finishedAt: job.finishedAt,
+    id: job.id,
+    startedAt: job.startedAt,
+    status: job.status,
+    step,
+  };
+}
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
 }
 
 export async function createWorkspaceWithFirstTenant(input: {
