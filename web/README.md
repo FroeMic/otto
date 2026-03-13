@@ -34,7 +34,7 @@ docker compose up -d
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
-   - `RUNTIME_SLACK_BOT_TOKEN` is now only a local fallback; real tenant onboarding should capture the tenant-specific bot token from Slack OAuth
+   - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, Otto falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution
 7. Install dependencies.

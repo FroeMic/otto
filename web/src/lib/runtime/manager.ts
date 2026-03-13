@@ -241,8 +241,6 @@ function buildRuntimeEnvFile(input: {
 
   if (input.slackBotToken) {
     lines.push(`SLACK_BOT_TOKEN=${input.slackBotToken}`);
-  } else if (env.RUNTIME_SLACK_BOT_TOKEN) {
-    lines.push(`SLACK_BOT_TOKEN=${env.RUNTIME_SLACK_BOT_TOKEN}`);
   }
 
   return `${lines.join("\n")}\n`;

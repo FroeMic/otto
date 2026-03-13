@@ -735,8 +735,7 @@ function buildOpenClawTenantConfig(
   const config = parseRecord(configJson);
   const env = getEnv();
   const hasSlackTokens =
-    Boolean(env.RUNTIME_SLACK_APP_TOKEN) &&
-    Boolean(slackBotToken || env.RUNTIME_SLACK_BOT_TOKEN);
+    Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(slackBotToken);
 
   return {
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
