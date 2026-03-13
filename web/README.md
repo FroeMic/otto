@@ -19,9 +19,10 @@ docker compose up -d
 ```
 
 3. Set `DATABASE_URL` to the local database if you changed it from the default.
-4. Install dependencies.
-5. Generate migrations with `npm run db:generate`.
-6. Apply migrations with `npm run db:migrate`.
+4. If you are testing WorkOS auth locally, generate a `WORKOS_COOKIE_PASSWORD` with `openssl rand -base64 24` and keep it at 32+ characters.
+5. Install dependencies.
+6. Generate migrations with `npm run db:generate`.
+7. Apply migrations with `npm run db:migrate`.
 
 Default local database URL:
 

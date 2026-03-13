@@ -8,7 +8,7 @@
     "start": "next start",
     "worker": "tsx src/worker/index.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node src/scripts/wait-for-db.mjs && drizzle-kit migrate",
     "lint": "biome check",
     "format": "biome format --write"
   },

@@ -1,15 +1,12 @@
 import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
-import {
-  type NextFetchEvent,
-  type NextRequest,
-  NextResponse,
-} from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 import { hasWorkOSConfig } from "@/lib/workos";
 
 const authMiddleware = authkitMiddleware();
 
-export default function proxy(request: NextRequest, event: NextFetchEvent) {
+export function middleware(request: NextRequest, event: NextFetchEvent) {
   if (!hasWorkOSConfig()) {
     return NextResponse.next();
   }

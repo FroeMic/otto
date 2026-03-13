@@ -13,7 +13,11 @@ export function hasWorkOSConfig() {
   const env = getWorkOSEnv();
 
   return Boolean(
-    env.clientId && env.apiKey && env.cookiePassword && env.redirectUri,
+    env.clientId &&
+      env.apiKey &&
+      env.cookiePassword &&
+      env.cookiePassword.length >= 32 &&
+      env.redirectUri,
   );
 }
 
