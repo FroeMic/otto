@@ -6,6 +6,7 @@ import { getEnv } from "@/lib/env";
 import { HetznerClient } from "@/lib/hetzner/client";
 import { renderCloudInit } from "@/lib/hetzner/cloud-init";
 import { FakeHetznerClient } from "@/lib/hetzner/fake";
+import { SshClient } from "@/lib/ssh/client";
 
 import {
   appendJobEvent,
@@ -22,6 +23,7 @@ import {
 } from "./types";
 
 const fakeHetznerClient = new FakeHetznerClient();
+const sshClient = new SshClient();
 const STEP_DELAY_MS = 10_000;
 
 export async function processProvisionTenantServerJob(
@@ -172,7 +174,7 @@ async function waitForServerAction(
   await appendJobEvent(
     jobId,
     "waiting_for_server_action",
-    "Fake server action completed",
+    `${getProvisioningProvider()} server action completed`,
     {
       actionId: payload.actionId,
       provider: getProvisioningProvider(),
@@ -221,11 +223,16 @@ async function fetchServerIp(
     status: "fetching_server_ip",
   });
 
-  await appendJobEvent(jobId, "fetching_server_ip", "Fetched fake server IP", {
-    ipv4: server.ipv4,
-    provider: getProvisioningProvider(),
-    providerServerId: payload.providerServerId,
-  });
+  await appendJobEvent(
+    jobId,
+    "fetching_server_ip",
+    `Fetched ${getProvisioningProvider()} server IP`,
+    {
+      ipv4: server.ipv4,
+      provider: getProvisioningProvider(),
+      providerServerId: payload.providerServerId,
+    },
+  );
 
   console.info(
     `[worker] job ${jobId} tenant ${payload.tenantId} got ${getProvisioningProvider()} IP ${server.ipv4}`,
@@ -267,10 +274,28 @@ async function waitForSsh(
     status: "waiting_for_ssh",
   });
 
+  if (getProvisioningProvider() === "hetzner") {
+    await appendJobEvent(
+      jobId,
+      "waiting_for_ssh",
+      "Waiting for SSH banner on Hetzner server",
+      {
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+      },
+    );
+
+    await sshClient.waitUntilReachable({
+      host: payload.ipv4,
+      port: getEnv().RUNTIME_SSH_PORT,
+      username: "openclaw",
+    });
+  }
+
   await appendJobEvent(
     jobId,
     "waiting_for_ssh",
-    "Fake server is reachable over SSH",
+    `${getProvisioningProvider()} server is reachable over SSH`,
     {
       ipv4: payload.ipv4,
     },

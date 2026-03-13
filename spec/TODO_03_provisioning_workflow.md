@@ -132,7 +132,7 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 - [ ] define provisioning workflow states
 - [ ] persist server metadata
 - [ ] implement action polling with retry/backoff
-- [ ] implement server type and image validation
+- [ ] implement image validation
 - [ ] enqueue config apply on success
 
 ## Open questions

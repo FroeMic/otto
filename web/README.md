@@ -28,6 +28,7 @@ docker compose up -d
    - `HETZNER_API_TOKEN`
    - optionally `HETZNER_DEFAULT_LOCATION`, `HETZNER_DEFAULT_SERVER_TYPE`, `HETZNER_DEFAULT_IMAGE`, and `HETZNER_SSH_KEY_NAMES`
    - make sure the chosen `server_type` is still available in the chosen `location`
+   - optionally tune `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH readiness checks
 7. Install dependencies.
 8. Generate migrations with `npm run db:generate`.
 9. Apply migrations with `npm run db:migrate`.

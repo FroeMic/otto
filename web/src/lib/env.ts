@@ -12,6 +12,17 @@ const envSchema = z.object({
   HETZNER_DEFAULT_SERVER_TYPE: z.string().default("cpx21"),
   HETZNER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HETZNER_SSH_KEY_NAMES: z.string().default(""),
+  RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5000),
+  RUNTIME_SSH_PORT: z.coerce.number().int().positive().default(22),
+  RUNTIME_SSH_READY_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300000),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
 });
