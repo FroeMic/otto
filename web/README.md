@@ -20,7 +20,10 @@ docker compose up -d
 
 3. Set `DATABASE_URL` to the local database if you changed it from the default.
 4. If you are testing WorkOS auth locally, generate a `WORKOS_COOKIE_PASSWORD` with `openssl rand -base64 24` and keep it at 32+ characters.
-5. Set the WorkOS redirect URI to `http://localhost:3000/auth/callback`.
+5. In the WorkOS dashboard, set:
+   - Redirect URI: `http://localhost:3000/auth/callback`
+   - App homepage URL: `http://localhost:3000`
+   - Sign-in endpoint: `http://localhost:3000/auth/sign-in`
 6. Install dependencies.
 7. Generate migrations with `npm run db:generate`.
 8. Apply migrations with `npm run db:migrate`.

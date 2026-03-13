@@ -1,9 +1,4 @@
-import {
-  getSignInUrl,
-  getSignUpUrl,
-  signOut,
-  withAuth,
-} from "@workos-inc/authkit-nextjs";
+import { signOut, withAuth } from "@workos-inc/authkit-nextjs";
 import { revalidatePath } from "next/cache";
 
 import { Button } from "@/components/ui/button";
@@ -112,11 +107,6 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
   const auth = await withAuth();
 
   if (!auth.user) {
-    const [signInUrl, signUpUrl] = await Promise.all([
-      getSignInUrl({ returnTo: "/" }),
-      getSignUpUrl({ returnTo: "/" }),
-    ]);
-
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#efe4c7_0%,#e9dcc0_24%,#d4c3a0_52%,#8a6a42_100%)] px-6 py-10 text-stone-950">
         <main className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl gap-8 border border-stone-300/60 bg-stone-50/90 p-8 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_24px_80px_rgba(50,40,22,0.18)] lg:grid-cols-[1.25fr_0.75fr] lg:p-12">
@@ -138,13 +128,13 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
             <div className="flex flex-wrap gap-3">
               <a
                 className="inline-flex h-11 items-center justify-center border border-stone-950 bg-stone-950 px-5 text-sm font-medium text-stone-50 transition-colors hover:bg-stone-800"
-                href={signUpUrl}
+                href="/auth/sign-up"
               >
                 Create account
               </a>
               <a
                 className="inline-flex h-11 items-center justify-center border border-stone-400 bg-stone-100 px-5 text-sm font-medium text-stone-900 transition-colors hover:bg-stone-200"
-                href={signInUrl}
+                href="/auth/sign-in"
               >
                 Sign in
               </a>
