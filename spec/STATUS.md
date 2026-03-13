@@ -11,9 +11,15 @@
 - Prefer a database-backed workflow engine inside the Next.js repo before adopting `trigger.dev`.
 - Keep the code structured so `trigger.dev` can be introduced later behind a job interface if the simpler approach stops being sufficient.
 
+## Current product target
+
+- Build the first internal alpha defined in `FIRST_INCREMENT_PLAN.md`.
+- Scope that alpha to tenant creation, durable provisioning jobs, and dashboard visibility.
+
 ## Next recommended implementation step
 
-- Execute `TODO_00_architecture_and_job_runtime.md`.
+- Execute Step 1 of `FIRST_INCREMENT_PLAN.md`.
+- Use `TODO_00_architecture_and_job_runtime.md` as the implementation checklist for that step.
 
 ## Open questions
 

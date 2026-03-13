@@ -8,8 +8,9 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 
 1. Read `spec/README.md`.
 2. Read `spec/STATUS.md`.
-3. Read the first incomplete `spec/TODO_*.md` in sequence unless the user explicitly redirects the priority.
-4. Skim any related code before proposing architecture changes.
+3. Read `spec/FIRST_INCREMENT_PLAN.md` if the work is still aimed at the first shipping slice.
+4. Read the first incomplete `spec/TODO_*.md` in sequence unless the user explicitly redirects the priority.
+5. Skim any related code before proposing architecture changes.
 
 ## Planning rules
 
