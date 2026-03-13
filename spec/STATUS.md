@@ -21,6 +21,7 @@
   - verify those files on the host before marking the tenant ready
 - Otto can also start the official OpenClaw container on the tenant VPS and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with host networking and loopback binding; Docker Compose is still deferred.
+- Slack runtime projection can now be preconfigured from control-plane env via `RUNTIME_SLACK_APP_TOKEN` and `RUNTIME_SLACK_BOT_TOKEN` before the OAuth/install flow exists.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.

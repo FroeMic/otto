@@ -40,7 +40,9 @@ export class RuntimeManager {
       },
       {
         path: "/opt/openclaw/home/.env",
-        contents: `OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}\n`,
+        contents: buildRuntimeEnvFile({
+          gatewayToken: input.gatewayToken,
+        }),
         mode: 0o600,
       },
       {
@@ -142,4 +144,19 @@ function shellQuote(value: string) {
 
 function shellQuoteForShell(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function buildRuntimeEnvFile(input: { gatewayToken: string }) {
+  const env = getEnv();
+  const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
+
+  if (env.RUNTIME_SLACK_APP_TOKEN) {
+    lines.push(`SLACK_APP_TOKEN=${env.RUNTIME_SLACK_APP_TOKEN}`);
+  }
+
+  if (env.RUNTIME_SLACK_BOT_TOKEN) {
+    lines.push(`SLACK_BOT_TOKEN=${env.RUNTIME_SLACK_BOT_TOKEN}`);
+  }
+
+  return `${lines.join("\n")}\n`;
 }
