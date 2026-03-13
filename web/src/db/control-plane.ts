@@ -324,7 +324,6 @@ function parseRecord(value: unknown): Record<string, unknown> {
 
 export async function createWorkspaceOnboardingDraft(input: {
   workspaceName: string;
-  tenantName: string;
   user: User;
 }) {
   const workos = getWorkOS();
@@ -349,6 +348,7 @@ export async function createWorkspaceOnboardingDraft(input: {
       })
       .returning({
         id: organizations.id,
+        name: organizations.name,
       });
 
     await tx.insert(memberships).values({
@@ -360,7 +360,7 @@ export async function createWorkspaceOnboardingDraft(input: {
     await tx.insert(tenantOnboardingSessions).values({
       organizationId: createdOrganization.id,
       status: "draft",
-      tenantName: input.tenantName,
+      tenantName: deriveTenantName(createdOrganization.name),
       userId: syncedUser.id,
     });
 
@@ -372,7 +372,6 @@ export async function createWorkspaceOnboardingDraft(input: {
 
 export async function createOnboardingDraftForOrganization(input: {
   organizationId: string;
-  tenantName: string;
   userExternalId: string;
 }) {
   const db = getDb();
@@ -380,10 +379,12 @@ export async function createOnboardingDraftForOrganization(input: {
   const authorizedMembership = await db
     .select({
       organizationId: memberships.organizationId,
+      organizationName: organizations.name,
       userId: users.id,
     })
     .from(memberships)
     .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
     .where(
       and(
         eq(memberships.organizationId, input.organizationId),
@@ -414,7 +415,7 @@ export async function createOnboardingDraftForOrganization(input: {
       .update(tenantOnboardingSessions)
       .set({
         status: "draft",
-        tenantName: input.tenantName,
+        tenantName: deriveTenantName(authorizedMembership[0].organizationName),
         updatedAt: new Date(),
       })
       .where(eq(tenantOnboardingSessions.id, existingDraft[0].id));
@@ -425,7 +426,7 @@ export async function createOnboardingDraftForOrganization(input: {
   await db.insert(tenantOnboardingSessions).values({
     organizationId: input.organizationId,
     status: "draft",
-    tenantName: input.tenantName,
+    tenantName: deriveTenantName(authorizedMembership[0].organizationName),
     userId: authorizedMembership[0].userId,
   });
 }
@@ -487,6 +488,10 @@ export async function completeSlackOnboardingAndProvision(input: {
   const now = new Date();
 
   const createdTenant = await db.transaction(async (tx) => {
+    const finalTenantName = deriveTenantName(
+      input.slackTeamName || authorizedSession.tenantName,
+    );
+
     await tx
       .update(tenantOnboardingSessions)
       .set({
@@ -498,6 +503,7 @@ export async function completeSlackOnboardingAndProvision(input: {
         slackTeamId: input.slackTeamId,
         slackTeamName: input.slackTeamName,
         status: "slack_connected",
+        tenantName: finalTenantName,
         updatedAt: now,
       })
       .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
@@ -506,7 +512,7 @@ export async function completeSlackOnboardingAndProvision(input: {
       .insert(tenants)
       .values({
         organizationId: authorizedSession.organizationId,
-        name: authorizedSession.tenantName,
+        name: finalTenantName,
         status: "provisioning",
       })
       .returning({
@@ -575,6 +581,15 @@ export async function getTenantSlackBotToken(tenantId: string) {
   }
 
   return decryptControlPlaneSecret(row.slackBotTokenCiphertext);
+}
+
+function deriveTenantName(name: string) {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "tenant";
 }
 
 export async function createTenantForOrganization(input: {

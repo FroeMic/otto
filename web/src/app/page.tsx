@@ -23,15 +23,13 @@ async function createWorkspaceAction(formData: FormData) {
 
   const { user } = await withAuth({ ensureSignedIn: true });
   const workspaceName = formData.get("workspaceName")?.toString().trim();
-  const tenantName = formData.get("tenantName")?.toString().trim();
 
-  if (!workspaceName || !tenantName) {
-    throw new Error("Workspace name and tenant name are required");
+  if (!workspaceName) {
+    throw new Error("Workspace name is required");
   }
 
   await createWorkspaceOnboardingDraft({
     workspaceName,
-    tenantName,
     user,
   });
 
@@ -43,15 +41,13 @@ async function createTenantAction(formData: FormData) {
 
   const { user } = await withAuth({ ensureSignedIn: true });
   const organizationId = formData.get("organizationId")?.toString();
-  const tenantName = formData.get("tenantName")?.toString().trim();
 
-  if (!organizationId || !tenantName) {
-    throw new Error("Organization and tenant name are required");
+  if (!organizationId) {
+    throw new Error("Organization is required");
   }
 
   await createOnboardingDraftForOrganization({
     organizationId,
-    tenantName,
     userExternalId: user.id,
   });
 
@@ -214,8 +210,8 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
               },
               {
                 eyebrow: "Step 2",
-                text: "Save the tenant name as a resumable onboarding draft.",
-                title: "Tenant draft",
+                text: "Otto will derive a tenant name automatically from your workspace and Slack team.",
+                title: "Tenant naming",
               },
               {
                 eyebrow: "Step 3",
@@ -248,8 +244,9 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                 </p>
                 <p className="text-sm leading-7 text-stone-700">
                   This action creates the workspace in WorkOS, mirrors it into
-                  Postgres, and creates a persisted onboarding draft instead of
-                  provisioning immediately.
+                  Postgres, and creates a persisted onboarding draft with an
+                  auto-generated tenant name instead of provisioning
+                  immediately.
                 </p>
               </div>
 
@@ -270,22 +267,6 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                     required
                     className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
                     placeholder="Northstar Labs"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label
-                    className="text-xs uppercase tracking-[0.3em] text-stone-400"
-                    htmlFor="tenantName"
-                  >
-                    Tenant draft name
-                  </label>
-                  <input
-                    id="tenantName"
-                    name="tenantName"
-                    required
-                    className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
-                    placeholder="northstar-prod"
                   />
                 </div>
 
@@ -319,6 +300,9 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                         <p className="mt-2 text-lg font-medium text-stone-900">
                           {organization.onboardingDraft.tenantName}
                         </p>
+                        <p className="text-sm leading-6 text-stone-700">
+                          Tenant name is auto-generated for now.
+                        </p>
                         <p className="mt-2 text-sm leading-6 text-stone-700">
                           Status: {organization.onboardingDraft.status}
                         </p>
@@ -347,27 +331,14 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                         value={organization.id}
                       />
 
-                      <div className="grid gap-2">
-                        <label
-                          className="text-xs uppercase tracking-[0.3em] text-stone-400"
-                          htmlFor={`tenantName-${organization.id}`}
-                        >
-                          Tenant draft name
-                        </label>
-                        <input
-                          id={`tenantName-${organization.id}`}
-                          name="tenantName"
-                          required
-                          defaultValue={
-                            organization.onboardingDraft?.tenantName
-                          }
-                          className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
-                          placeholder="northstar-prod"
-                        />
-                      </div>
+                      <p className="text-sm leading-7 text-stone-300">
+                        Otto auto-generates one tenant name per Slack workspace
+                        for this v1 flow. You only need to continue into Slack
+                        install.
+                      </p>
 
                       <Button type="submit" size="lg">
-                        Save onboarding draft
+                        Continue onboarding
                       </Button>
                     </form>
 
