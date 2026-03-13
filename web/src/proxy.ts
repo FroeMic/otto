@@ -6,7 +6,7 @@ import { hasWorkOSConfig } from "@/lib/workos";
 
 const authMiddleware = authkitMiddleware();
 
-export function middleware(request: NextRequest, event: NextFetchEvent) {
+export function proxy(request: NextRequest, event: NextFetchEvent) {
   if (!hasWorkOSConfig()) {
     return NextResponse.next();
   }
