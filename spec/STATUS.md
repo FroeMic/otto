@@ -29,6 +29,8 @@
   - signed-in users with no provisioned tenants now land in an onboarding UI instead of immediate provisioning
   - workspace creation now creates an onboarding draft instead of provisioning a tenant immediately
   - provisioning remains intentionally blocked until the Slack OAuth step exists
+- Slack OAuth routes now exist under `/oauth/start/slack` and `/oauth/callback/slack`, and the callback can complete onboarding by storing the tenant bot token and starting provisioning.
+- The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -49,10 +51,10 @@
 ## Next recommended implementation step
 
 - Rework signup into a Slack-gated onboarding flow:
-  - implement Slack OAuth start/callback routes bound to tenant onboarding
-  - store the tenant-specific Slack bot token centrally before provisioning
-  - start Hetzner provisioning only after Slack install succeeds
-  - stop depending on shared `RUNTIME_SLACK_BOT_TOKEN` for tenant installs
+  - verify the real Slack OAuth round-trip against the shared Slack app config
+  - surface Slack install errors and success states more explicitly in the onboarding UI
+  - decide whether to move the onboarding screen from `/` to a dedicated `/onboarding` route
+  - migrate away from the temporary onboarding-record token storage to dedicated integration tables if needed
 
 ## Open questions
 

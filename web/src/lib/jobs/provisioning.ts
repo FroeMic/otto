@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
+import { getTenantSlackBotToken } from "@/db/control-plane";
 import { tenantDesiredStates, tenantServers, tenants } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { HetznerClient } from "@/lib/hetzner/client";
@@ -430,6 +431,7 @@ async function bootstrapRuntime(
     );
 
     const desiredState = await getLatestDesiredState(payload.tenantId);
+    const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
 
     await runtimeManager.bootstrapTenantRuntime(
       {
@@ -443,7 +445,9 @@ async function bootstrapRuntime(
         openClawConfig: buildOpenClawTenantConfig(
           payload.tenantId,
           desiredState.configJson,
+          slackBotToken,
         ),
+        slackBotToken,
         tenantId: payload.tenantId,
       },
     );
@@ -726,12 +730,13 @@ async function getLatestDesiredState(tenantId: string) {
 function buildOpenClawTenantConfig(
   tenantId: string,
   configJson: unknown,
+  slackBotToken?: string | null,
 ): OpenClawTenantConfig {
   const config = parseRecord(configJson);
   const env = getEnv();
   const hasSlackTokens =
     Boolean(env.RUNTIME_SLACK_APP_TOKEN) &&
-    Boolean(env.RUNTIME_SLACK_BOT_TOKEN);
+    Boolean(slackBotToken || env.RUNTIME_SLACK_BOT_TOKEN);
 
   return {
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",

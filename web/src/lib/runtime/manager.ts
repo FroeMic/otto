@@ -38,6 +38,7 @@ export class RuntimeManager {
       desiredStateVersion: number;
       gatewayToken: string;
       openClawConfig: OpenClawTenantConfig;
+      slackBotToken?: string | null;
     },
   ): Promise<void> {
     await this.execChecked(
@@ -58,6 +59,7 @@ export class RuntimeManager {
         path: "/opt/openclaw/home/.env",
         contents: buildRuntimeEnvFile({
           gatewayToken: input.gatewayToken,
+          slackBotToken: input.slackBotToken,
         }),
         mode: 0o600,
       },
@@ -222,7 +224,10 @@ function shellQuoteForShell(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-function buildRuntimeEnvFile(input: { gatewayToken: string }) {
+function buildRuntimeEnvFile(input: {
+  gatewayToken: string;
+  slackBotToken?: string | null;
+}) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
 
@@ -234,7 +239,9 @@ function buildRuntimeEnvFile(input: { gatewayToken: string }) {
     lines.push(`SLACK_APP_TOKEN=${env.RUNTIME_SLACK_APP_TOKEN}`);
   }
 
-  if (env.RUNTIME_SLACK_BOT_TOKEN) {
+  if (input.slackBotToken) {
+    lines.push(`SLACK_BOT_TOKEN=${input.slackBotToken}`);
+  } else if (env.RUNTIME_SLACK_BOT_TOKEN) {
     lines.push(`SLACK_BOT_TOKEN=${env.RUNTIME_SLACK_BOT_TOKEN}`);
   }
 

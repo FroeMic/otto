@@ -13,6 +13,10 @@ import {
   tenants,
   users,
 } from "@/db/schema";
+import {
+  decryptControlPlaneSecret,
+  encryptControlPlaneSecret,
+} from "@/lib/crypto";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
 import { getWorkOS } from "@/lib/workos";
@@ -23,6 +27,7 @@ export type DashboardOrganization = {
   onboardingDraft: {
     createdAt: Date;
     id: string;
+    slackTeamName: string | null;
     slackConnectedAt: Date | null;
     status: string;
     tenantName: string;
@@ -106,8 +111,10 @@ export async function getDashboardOrganizations(
       createdAt: tenantOnboardingSessions.createdAt,
       id: tenantOnboardingSessions.id,
       organizationId: tenantOnboardingSessions.organizationId,
+      slackTeamName: tenantOnboardingSessions.slackTeamName,
       slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
       status: tenantOnboardingSessions.status,
+      tenantId: tenantOnboardingSessions.tenantId,
       tenantName: tenantOnboardingSessions.tenantName,
       userId: tenantOnboardingSessions.userId,
     })
@@ -248,6 +255,7 @@ function buildOnboardingDraftSummary(
   onboarding: {
     createdAt: Date;
     id: string;
+    slackTeamName: string | null;
     slackConnectedAt: Date | null;
     status: string;
     tenantName: string;
@@ -260,6 +268,7 @@ function buildOnboardingDraftSummary(
   return {
     createdAt: onboarding.createdAt,
     id: onboarding.id,
+    slackTeamName: onboarding.slackTeamName,
     slackConnectedAt: onboarding.slackConnectedAt,
     status: onboarding.status,
     tenantName: onboarding.tenantName,
@@ -419,6 +428,153 @@ export async function createOnboardingDraftForOrganization(input: {
     tenantName: input.tenantName,
     userId: authorizedMembership[0].userId,
   });
+}
+
+export async function getOnboardingDraftForUser(input: {
+  onboardingSessionId: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+
+  const [session] = await db
+    .select({
+      id: tenantOnboardingSessions.id,
+      organizationId: tenantOnboardingSessions.organizationId,
+      slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
+      slackTeamId: tenantOnboardingSessions.slackTeamId,
+      status: tenantOnboardingSessions.status,
+      tenantId: tenantOnboardingSessions.tenantId,
+      tenantName: tenantOnboardingSessions.tenantName,
+      userId: users.id,
+    })
+    .from(tenantOnboardingSessions)
+    .innerJoin(users, eq(tenantOnboardingSessions.userId, users.id))
+    .where(
+      and(
+        eq(tenantOnboardingSessions.id, input.onboardingSessionId),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .limit(1);
+
+  if (!session) {
+    throw new Error("Onboarding draft not found");
+  }
+
+  return session;
+}
+
+export async function completeSlackOnboardingAndProvision(input: {
+  botToken: string;
+  installerUserId: string | null;
+  onboardingSessionId: string;
+  scopeCsv: string;
+  slackBotUserId: string | null;
+  slackTeamId: string;
+  slackTeamName: string | null;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const authorizedSession = await getOnboardingDraftForUser({
+    onboardingSessionId: input.onboardingSessionId,
+    userExternalId: input.userExternalId,
+  });
+
+  if (authorizedSession.tenantId) {
+    return { tenantId: authorizedSession.tenantId };
+  }
+
+  const now = new Date();
+
+  const createdTenant = await db.transaction(async (tx) => {
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        slackBotTokenCiphertext: encryptControlPlaneSecret(input.botToken),
+        slackBotUserId: input.slackBotUserId,
+        slackConnectedAt: now,
+        slackInstalledAt: now,
+        slackScopeCsv: input.scopeCsv,
+        slackTeamId: input.slackTeamId,
+        slackTeamName: input.slackTeamName,
+        status: "slack_connected",
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    const [tenant] = await tx
+      .insert(tenants)
+      .values({
+        organizationId: authorizedSession.organizationId,
+        name: authorizedSession.tenantName,
+        status: "provisioning",
+      })
+      .returning({
+        id: tenants.id,
+      });
+
+    await tx.insert(tenantServers).values({
+      tenantId: tenant.id,
+      provider: "hetzner",
+      sshUsername: "openclaw",
+      status: "creating",
+    });
+
+    await tx.insert(tenantDesiredStates).values({
+      tenantId: tenant.id,
+      version: 1,
+      configJson: {
+        integrations: ["slack"],
+        prompts: {},
+        slack: {
+          installerUserId: input.installerUserId,
+          slackBotUserId: input.slackBotUserId,
+          teamId: input.slackTeamId,
+          teamName: input.slackTeamName,
+        },
+      },
+    });
+
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        completedAt: now,
+        status: "completed",
+        tenantId: tenant.id,
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    return tenant;
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.provisionTenantServer,
+    payload: {
+      tenantId: createdTenant.id,
+      step: "create_server",
+    },
+  });
+
+  return createdTenant;
+}
+
+export async function getTenantSlackBotToken(tenantId: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      slackBotTokenCiphertext: tenantOnboardingSessions.slackBotTokenCiphertext,
+    })
+    .from(tenantOnboardingSessions)
+    .where(eq(tenantOnboardingSessions.tenantId, tenantId))
+    .orderBy(desc(tenantOnboardingSessions.createdAt))
+    .limit(1);
+
+  if (!row?.slackBotTokenCiphertext) {
+    return null;
+  }
+
+  return decryptControlPlaneSecret(row.slackBotTokenCiphertext);
 }
 
 export async function createTenantForOrganization(input: {

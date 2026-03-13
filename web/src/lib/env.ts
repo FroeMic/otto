@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 
 import { utils as ssh2Utils } from "ssh2";
@@ -24,6 +25,14 @@ const envSchema = z.object({
   RUNTIME_MODEL_PRIMARY: z.string().default("openai/gpt-5.4"),
   RUNTIME_SLACK_APP_TOKEN: z.string().optional(),
   RUNTIME_SLACK_BOT_TOKEN: z.string().optional(),
+  SLACK_BOT_SCOPES: z
+    .string()
+    .default(
+      "app_mentions:read,channels:history,chat:write,groups:history,im:history,im:write,mpim:history",
+    ),
+  SLACK_CLIENT_ID: z.string().optional(),
+  SLACK_CLIENT_SECRET: z.string().optional(),
+  SLACK_REDIRECT_URI: z.string().url().optional(),
   RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
     .number()
     .int()
@@ -41,6 +50,8 @@ const envSchema = z.object({
     .positive()
     .default(300000),
   RUNTIME_SSH_USERNAME: z.string().default("root"),
+  CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
+  CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
 });
@@ -63,6 +74,50 @@ export function getRuntimeSshAuthSource() {
   const env = getEnv();
 
   return resolveRuntimeSshAuthSource(env);
+}
+
+export function getControlPlaneEncryptionSecret() {
+  return resolveControlPlaneSecret(
+    getEnv().CONTROL_PLANE_ENCRYPTION_SECRET,
+    "CONTROL_PLANE_ENCRYPTION_SECRET",
+  );
+}
+
+export function getControlPlaneOAuthStateSecret() {
+  return resolveControlPlaneSecret(
+    getEnv().CONTROL_PLANE_OAUTH_STATE_SECRET,
+    "CONTROL_PLANE_OAUTH_STATE_SECRET",
+  );
+}
+
+export function getSlackOAuthConfig() {
+  const env = getEnv();
+
+  if (
+    !env.SLACK_CLIENT_ID ||
+    !env.SLACK_CLIENT_SECRET ||
+    !env.SLACK_REDIRECT_URI
+  ) {
+    throw new Error("Slack OAuth is not fully configured");
+  }
+
+  return {
+    botScopes: env.SLACK_BOT_SCOPES.split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean),
+    clientId: env.SLACK_CLIENT_ID,
+    clientSecret: env.SLACK_CLIENT_SECRET,
+    redirectUri: env.SLACK_REDIRECT_URI,
+  };
+}
+
+export function hasSlackOAuthConfig() {
+  try {
+    getSlackOAuthConfig();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function normalizePrivateKeyValue(value: string) {
@@ -144,4 +199,25 @@ function resolveRuntimeSshAuthSource(env: AppEnv) {
   }
 
   return "none";
+}
+
+function resolveControlPlaneSecret(
+  value: string | undefined,
+  envVarName: string,
+) {
+  if (value) {
+    return deriveFixedLengthSecret(value);
+  }
+
+  if (process.env.WORKOS_COOKIE_PASSWORD) {
+    return deriveFixedLengthSecret(process.env.WORKOS_COOKIE_PASSWORD);
+  }
+
+  throw new Error(
+    `${envVarName} is not set and WORKOS_COOKIE_PASSWORD is unavailable for fallback`,
+  );
+}
+
+function deriveFixedLengthSecret(value: string) {
+  return crypto.createHash("sha256").update(value).digest();
 }

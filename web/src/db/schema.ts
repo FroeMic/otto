@@ -89,8 +89,17 @@ export const tenantOnboardingSessions = pgTable(
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
     tenantName: text("tenant_name").notNull(),
     status: varchar("status", { length: 64 }).notNull(),
+    slackBotTokenCiphertext: text("slack_bot_token_ciphertext"),
+    slackBotUserId: varchar("slack_bot_user_id", { length: 255 }),
+    slackInstalledAt: timestamp("slack_installed_at", { withTimezone: true }),
+    slackScopeCsv: text("slack_scope_csv"),
+    slackTeamId: varchar("slack_team_id", { length: 255 }),
+    slackTeamName: text("slack_team_name"),
     slackConnectedAt: timestamp("slack_connected_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -103,6 +112,9 @@ export const tenantOnboardingSessions = pgTable(
   (table) => ({
     organizationIdx: index("tenant_onboarding_sessions_organization_id_idx").on(
       table.organizationId,
+    ),
+    tenantIdx: index("tenant_onboarding_sessions_tenant_id_idx").on(
+      table.tenantId,
     ),
     userIdx: index("tenant_onboarding_sessions_user_id_idx").on(table.userId),
     statusIdx: index("tenant_onboarding_sessions_status_idx").on(table.status),

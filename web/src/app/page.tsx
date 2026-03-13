@@ -7,6 +7,7 @@ import {
   createWorkspaceOnboardingDraft,
   getDashboardOrganizations,
 } from "@/db/control-plane";
+import { hasSlackOAuthConfig } from "@/lib/env";
 import { hasWorkOSConfig } from "@/lib/workos";
 
 export const dynamic = "force-dynamic";
@@ -172,6 +173,7 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
   const hasProvisionedTenants = organizations.some(
     (organization) => organization.tenants.length > 0,
   );
+  const slackOAuthConfigured = hasSlackOAuthConfig();
 
   if (!hasProvisionedTenants) {
     return (
@@ -323,7 +325,7 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                         <p className="text-sm leading-6 text-stone-700">
                           Slack:{" "}
                           {organization.onboardingDraft.slackConnectedAt
-                            ? "connected"
+                            ? `connected${organization.onboardingDraft.slackTeamName ? ` to ${organization.onboardingDraft.slackTeamName}` : ""}`
                             : "not connected yet"}
                         </p>
                       </div>
@@ -375,17 +377,26 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
                           Next step
                         </p>
                         <h3 className="mt-2 text-lg font-semibold">
-                          Slack install will live here
+                          Install Slack
                         </h3>
                         <p className="mt-2 text-sm leading-6 text-stone-700">
-                          The next slice adds Slack OAuth start and callback
-                          routes. Until then, provisioning is intentionally
-                          blocked after saving the onboarding draft.
+                          {slackOAuthConfigured
+                            ? "Install the shared Otto Slack app for this workspace. The callback will save the workspace bot token and then start provisioning automatically."
+                            : "Slack OAuth is not configured yet in the control plane env, so onboarding cannot continue past the draft step."}
                         </p>
                       </div>
-                      <Button type="button" size="lg" disabled>
-                        Install Slack (next slice)
-                      </Button>
+                      {organization.onboardingDraft && slackOAuthConfigured ? (
+                        <a
+                          className="inline-flex h-11 items-center justify-center border border-stone-950 bg-stone-950 px-5 text-sm font-medium text-stone-50 transition-colors hover:bg-stone-800"
+                          href={`/oauth/start/slack?onboardingSessionId=${organization.onboardingDraft.id}`}
+                        >
+                          Install Slack
+                        </a>
+                      ) : (
+                        <Button type="button" size="lg" disabled>
+                          Install Slack
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </article>

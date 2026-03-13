@@ -15,6 +15,13 @@
       "when": 1773419247577,
       "tag": "0001_noisy_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773420071972,
+      "tag": "0002_high_harrier",
+      "breakpoints": true
     }
   ]
 }
