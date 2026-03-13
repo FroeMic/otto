@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Otto Web
 
-## Getting Started
+Otto `web` is the control-plane application for tenant onboarding, provisioning, and operations.
 
-First, run the development server:
+## Responsibilities
+
+- Next.js request-response UI and API work
+- WorkOS authentication and tenant management
+- durable job state stored in Postgres
+- a dedicated worker process for provisioning and later runtime apply flows
+
+## Local setup
+
+1. Copy `.env.example` to `.env`.
+2. Set `DATABASE_URL` to a local Postgres instance.
+3. Install dependencies.
+4. Generate migrations with `npm run db:generate`.
+5. Apply migrations with `npm run db:migrate`.
+
+## Local development
+
+Run the web app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run the worker:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run worker
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Directory highlights
 
-## Learn More
+- `src/app`: Next.js routes and layouts
+- `src/db`: schema and database client
+- `src/lib/jobs`: durable job model and worker logic
+- `src/lib/hetzner`: infrastructure provider wrapper
+- `src/lib/ssh`: SSH primitives
+- `src/lib/runtime`: tenant runtime management
+- `src/lib/openclaw`: OpenClaw-specific config rendering
+- `src/worker`: worker process entrypoint
 
-To learn more about Next.js, take a look at the following resources:
+## Current status
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- repository foundation and architecture scaffolding are in progress
+- provisioning and runtime logic are not implemented yet
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- route handlers should stay thin
+- long-running work must go through the worker
+- `trigger.dev` is intentionally deferred for the first increment

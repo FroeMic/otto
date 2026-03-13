@@ -67,13 +67,15 @@ Lock the control-plane architecture and introduce a durable background job model
 
 ## Status checklist
 
-- [ ] define control-plane module boundaries
-- [ ] define job tables
-- [ ] define provisioning job states
-- [ ] define config apply job states
-- [ ] document escalation path to `trigger.dev`
+- [x] define control-plane module boundaries
+- [x] define job tables
+- [x] define provisioning job states
+- [x] define config apply job states
+- [x] document escalation path to `trigger.dev`
 
 ## Open questions
 
 - Will the worker have direct DB access and shared code with `web/`, or should it be a separate package immediately?
 - Do we need advisory locks or `FOR UPDATE SKIP LOCKED` semantics from day one?
+- Current decision: keep the worker in `web/` for now and share the same env, schema, and service modules.
+- Current direction: use `FOR UPDATE SKIP LOCKED` semantics when job claiming is implemented.
