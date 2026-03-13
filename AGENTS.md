@@ -38,6 +38,8 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - Update the relevant spec checklist as work progresses.
 - Update `spec/STATUS.md` if the next recommended step, architecture decision, or blockers change.
 - Prefer small, reviewable increments that satisfy one spec at a time.
+- Do not add env vars, config contracts, or service scaffolding until there is a code path in the current increment that uses them.
+- Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
 - Push committed work to `origin` regularly so progress is not stranded only in the local workspace.
 
