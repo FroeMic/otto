@@ -79,6 +79,36 @@ export const tenants = pgTable(
   }),
 );
 
+export const tenantOnboardingSessions = pgTable(
+  "tenant_onboarding_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantName: text("tenant_name").notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    slackConnectedAt: timestamp("slack_connected_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("tenant_onboarding_sessions_organization_id_idx").on(
+      table.organizationId,
+    ),
+    userIdx: index("tenant_onboarding_sessions_user_id_idx").on(table.userId),
+    statusIdx: index("tenant_onboarding_sessions_status_idx").on(table.status),
+  }),
+);
+
 export const tenantServers = pgTable(
   "tenant_servers",
   {

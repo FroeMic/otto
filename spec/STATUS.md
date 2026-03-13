@@ -24,6 +24,11 @@
 - Runtime bootstrap can now preconfigure the tenant gateway with `OPENAI_API_KEY` and a default model via `RUNTIME_OPENAI_API_KEY` and `RUNTIME_MODEL_PRIMARY`.
 - Slack runtime projection can now be preconfigured from control-plane env via `RUNTIME_SLACK_APP_TOKEN` and `RUNTIME_SLACK_BOT_TOKEN` before the OAuth/install flow exists.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
+- The first onboarding-flow slice is now implemented:
+  - tenant onboarding drafts are persisted in Postgres
+  - signed-in users with no provisioned tenants now land in an onboarding UI instead of immediate provisioning
+  - workspace creation now creates an onboarding draft instead of provisioning a tenant immediately
+  - provisioning remains intentionally blocked until the Slack OAuth step exists
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
@@ -44,7 +49,6 @@
 ## Next recommended implementation step
 
 - Rework signup into a Slack-gated onboarding flow:
-  - add onboarding draft state and UI steps after sign-in
   - implement Slack OAuth start/callback routes bound to tenant onboarding
   - store the tenant-specific Slack bot token centrally before provisioning
   - start Hetzner provisioning only after Slack install succeeds

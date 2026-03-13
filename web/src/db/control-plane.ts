@@ -8,6 +8,7 @@ import {
   memberships,
   organizations,
   tenantDesiredStates,
+  tenantOnboardingSessions,
   tenantServers,
   tenants,
   users,
@@ -19,6 +20,13 @@ import { getWorkOS } from "@/lib/workos";
 export type DashboardOrganization = {
   id: string;
   externalId: string;
+  onboardingDraft: {
+    createdAt: Date;
+    id: string;
+    slackConnectedAt: Date | null;
+    status: string;
+    tenantName: string;
+  } | null;
   name: string;
   role: string;
   tenants: Array<{
@@ -92,6 +100,41 @@ export async function getDashboardOrganizations(
   }
 
   const organizationIds = organizationRows.map((row) => row.organizationId);
+
+  const onboardingRows = await db
+    .select({
+      createdAt: tenantOnboardingSessions.createdAt,
+      id: tenantOnboardingSessions.id,
+      organizationId: tenantOnboardingSessions.organizationId,
+      slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
+      status: tenantOnboardingSessions.status,
+      tenantName: tenantOnboardingSessions.tenantName,
+      userId: tenantOnboardingSessions.userId,
+    })
+    .from(tenantOnboardingSessions)
+    .innerJoin(users, eq(tenantOnboardingSessions.userId, users.id))
+    .where(
+      and(
+        inArray(tenantOnboardingSessions.organizationId, organizationIds),
+        eq(users.externalId, userExternalId),
+      ),
+    )
+    .orderBy(desc(tenantOnboardingSessions.createdAt));
+
+  const onboardingByOrganization = new Map<
+    string,
+    (typeof onboardingRows)[number]
+  >();
+
+  for (const onboarding of onboardingRows) {
+    if (onboarding.status === "completed") {
+      continue;
+    }
+
+    if (!onboardingByOrganization.has(onboarding.organizationId)) {
+      onboardingByOrganization.set(onboarding.organizationId, onboarding);
+    }
+  }
 
   const tenantRows = await db
     .select({
@@ -179,6 +222,9 @@ export async function getDashboardOrganizations(
   return organizationRows.map((organization) => ({
     id: organization.organizationId,
     externalId: organization.organizationExternalId,
+    onboardingDraft: buildOnboardingDraftSummary(
+      onboardingByOrganization.get(organization.organizationId) ?? null,
+    ),
     name: organization.organizationName,
     role: organization.role,
     tenants: tenantRows
@@ -196,6 +242,28 @@ export async function getDashboardOrganizations(
         serverStatus: tenant.serverStatus,
       })),
   }));
+}
+
+function buildOnboardingDraftSummary(
+  onboarding: {
+    createdAt: Date;
+    id: string;
+    slackConnectedAt: Date | null;
+    status: string;
+    tenantName: string;
+  } | null,
+) {
+  if (!onboarding) {
+    return null;
+  }
+
+  return {
+    createdAt: onboarding.createdAt,
+    id: onboarding.id,
+    slackConnectedAt: onboarding.slackConnectedAt,
+    status: onboarding.status,
+    tenantName: onboarding.tenantName,
+  };
 }
 
 function buildLatestJobSummary(
@@ -245,7 +313,7 @@ function parseRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export async function createWorkspaceWithFirstTenant(input: {
+export async function createWorkspaceOnboardingDraft(input: {
   workspaceName: string;
   tenantName: string;
   user: User;
@@ -263,7 +331,7 @@ export async function createWorkspaceWithFirstTenant(input: {
     userId: input.user.id,
   });
 
-  const localOrganization = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const [createdOrganization] = await tx
       .insert(organizations)
       .values({
@@ -280,45 +348,76 @@ export async function createWorkspaceWithFirstTenant(input: {
       role: "admin",
     });
 
-    const [tenant] = await tx
-      .insert(tenants)
-      .values({
-        organizationId: createdOrganization.id,
-        name: input.tenantName,
-        status: "provisioning",
-      })
-      .returning({
-        id: tenants.id,
-      });
-
-    await tx.insert(tenantServers).values({
-      tenantId: tenant.id,
-      provider: "hetzner",
-      sshUsername: "openclaw",
-      status: "creating",
-    });
-
-    await tx.insert(tenantDesiredStates).values({
-      tenantId: tenant.id,
-      version: 1,
-      configJson: {
-        integrations: [],
-        prompts: {},
-      },
+    await tx.insert(tenantOnboardingSessions).values({
+      organizationId: createdOrganization.id,
+      status: "draft",
+      tenantName: input.tenantName,
+      userId: syncedUser.id,
     });
 
     return {
       organizationId: createdOrganization.id,
-      tenantId: tenant.id,
     };
   });
+}
 
-  await enqueueJob({
-    jobType: JOB_TYPES.provisionTenantServer,
-    payload: {
-      tenantId: localOrganization.tenantId,
-      step: "create_server",
-    },
+export async function createOnboardingDraftForOrganization(input: {
+  organizationId: string;
+  tenantName: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+
+  const authorizedMembership = await db
+    .select({
+      organizationId: memberships.organizationId,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(
+      and(
+        eq(memberships.organizationId, input.organizationId),
+        eq(users.externalId, input.userExternalId),
+      ),
+    );
+
+  if (authorizedMembership.length === 0) {
+    throw new Error("You do not have access to this organization");
+  }
+
+  const existingDraft = await db
+    .select({
+      id: tenantOnboardingSessions.id,
+    })
+    .from(tenantOnboardingSessions)
+    .where(
+      and(
+        eq(tenantOnboardingSessions.organizationId, input.organizationId),
+        eq(tenantOnboardingSessions.userId, authorizedMembership[0].userId),
+      ),
+    )
+    .orderBy(desc(tenantOnboardingSessions.createdAt))
+    .limit(1);
+
+  if (existingDraft[0]) {
+    await db
+      .update(tenantOnboardingSessions)
+      .set({
+        status: "draft",
+        tenantName: input.tenantName,
+        updatedAt: new Date(),
+      })
+      .where(eq(tenantOnboardingSessions.id, existingDraft[0].id));
+
+    return;
+  }
+
+  await db.insert(tenantOnboardingSessions).values({
+    organizationId: input.organizationId,
+    status: "draft",
+    tenantName: input.tenantName,
+    userId: authorizedMembership[0].userId,
   });
 }
 

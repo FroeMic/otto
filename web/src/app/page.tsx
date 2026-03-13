@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 
 import { Button } from "@/components/ui/button";
 import {
-  createTenantForOrganization,
-  createWorkspaceWithFirstTenant,
+  createOnboardingDraftForOrganization,
+  createWorkspaceOnboardingDraft,
   getDashboardOrganizations,
 } from "@/db/control-plane";
 import { hasWorkOSConfig } from "@/lib/workos";
@@ -28,7 +28,7 @@ async function createWorkspaceAction(formData: FormData) {
     throw new Error("Workspace name and tenant name are required");
   }
 
-  await createWorkspaceWithFirstTenant({
+  await createWorkspaceOnboardingDraft({
     workspaceName,
     tenantName,
     user,
@@ -48,7 +48,7 @@ async function createTenantAction(formData: FormData) {
     throw new Error("Organization and tenant name are required");
   }
 
-  await createTenantForOrganization({
+  await createOnboardingDraftForOrganization({
     organizationId,
     tenantName,
     userExternalId: user.id,
@@ -169,6 +169,233 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/auth/callback`}
   }
 
   const organizations = await getDashboardOrganizations(auth.user.id);
+  const hasProvisionedTenants = organizations.some(
+    (organization) => organization.tenants.length > 0,
+  );
+
+  if (!hasProvisionedTenants) {
+    return (
+      <div className="min-h-screen bg-[linear-gradient(135deg,#efe6d0_0%,#ddd1b2_32%,#b39263_100%)] px-6 py-10 text-stone-950">
+        <main className="mx-auto flex max-w-6xl flex-col gap-6 border border-stone-300/70 bg-stone-50/90 p-8 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_24px_80px_rgba(50,40,22,0.15)] lg:p-12">
+          <section className="flex flex-col gap-6 border-b border-stone-300 pb-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-4">
+              <p className="text-xs font-medium uppercase tracking-[0.35em] text-stone-500">
+                Otto Onboarding
+              </p>
+              <div className="space-y-2">
+                <h1 className="text-4xl leading-tight font-semibold sm:text-5xl">
+                  Install Slack before the first tenant is provisioned.
+                </h1>
+                <p className="max-w-3xl text-base leading-7 text-stone-600">
+                  Signed in as{" "}
+                  <span className="font-medium">{auth.user.email}</span>. The
+                  first tenant now starts as an onboarding draft. Slack OAuth
+                  will become the gate that turns the draft into a real
+                  provisioned runtime.
+                </p>
+              </div>
+            </div>
+
+            <form action={signOutAction}>
+              <Button type="submit" variant="outline" size="lg">
+                Sign out
+              </Button>
+            </form>
+          </section>
+
+          <section className="grid gap-4 border border-stone-300 bg-white/70 p-6 lg:grid-cols-4">
+            {[
+              {
+                eyebrow: "Step 1",
+                text: "Create the workspace that will own the tenant.",
+                title: "Workspace",
+              },
+              {
+                eyebrow: "Step 2",
+                text: "Save the tenant name as a resumable onboarding draft.",
+                title: "Tenant draft",
+              },
+              {
+                eyebrow: "Step 3",
+                text: "Install the shared Otto Slack app and capture the workspace bot token.",
+                title: "Slack install",
+              },
+              {
+                eyebrow: "Step 4",
+                text: "Only after Slack is connected should Otto provision the Hetzner box.",
+                title: "Provision",
+              },
+            ].map((step) => (
+              <div key={step.eyebrow} className="border border-stone-200 p-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                  {step.eyebrow}
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">{step.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-stone-700">
+                  {step.text}
+                </p>
+              </div>
+            ))}
+          </section>
+
+          {organizations.length === 0 ? (
+            <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="space-y-4 border border-stone-300 bg-white/70 p-6">
+                <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                  Current slice
+                </p>
+                <p className="text-sm leading-7 text-stone-700">
+                  This action creates the workspace in WorkOS, mirrors it into
+                  Postgres, and creates a persisted onboarding draft instead of
+                  provisioning immediately.
+                </p>
+              </div>
+
+              <form
+                action={createWorkspaceAction}
+                className="grid gap-4 border border-stone-300 bg-stone-950 p-6 text-stone-50"
+              >
+                <div className="grid gap-2">
+                  <label
+                    className="text-xs uppercase tracking-[0.3em] text-stone-400"
+                    htmlFor="workspaceName"
+                  >
+                    Workspace name
+                  </label>
+                  <input
+                    id="workspaceName"
+                    name="workspaceName"
+                    required
+                    className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
+                    placeholder="Northstar Labs"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <label
+                    className="text-xs uppercase tracking-[0.3em] text-stone-400"
+                    htmlFor="tenantName"
+                  >
+                    Tenant draft name
+                  </label>
+                  <input
+                    id="tenantName"
+                    name="tenantName"
+                    required
+                    className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
+                    placeholder="northstar-prod"
+                  />
+                </div>
+
+                <Button type="submit" size="lg" className="mt-2">
+                  Start onboarding
+                </Button>
+              </form>
+            </section>
+          ) : (
+            <section className="grid gap-6">
+              {organizations.map((organization) => (
+                <article
+                  key={organization.id}
+                  className="grid gap-6 border border-stone-300 bg-white/70 p-6 lg:grid-cols-[0.85fr_1.15fr]"
+                >
+                  <div className="space-y-3">
+                    <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                      Workspace
+                    </p>
+                    <h2 className="text-2xl font-semibold">
+                      {organization.name}
+                    </h2>
+                    <p className="text-sm leading-6 text-stone-600">
+                      Role: {organization.role}
+                    </p>
+                    {organization.onboardingDraft ? (
+                      <div className="border border-stone-200 bg-stone-100/80 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                          Current onboarding draft
+                        </p>
+                        <p className="mt-2 text-lg font-medium text-stone-900">
+                          {organization.onboardingDraft.tenantName}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-stone-700">
+                          Status: {organization.onboardingDraft.status}
+                        </p>
+                        <p className="text-sm leading-6 text-stone-700">
+                          Slack:{" "}
+                          {organization.onboardingDraft.slackConnectedAt
+                            ? "connected"
+                            : "not connected yet"}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm leading-6 text-stone-700">
+                        No onboarding draft exists for this workspace yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid gap-4">
+                    <form
+                      action={createTenantAction}
+                      className="grid gap-4 border border-stone-300 bg-stone-950 p-6 text-stone-50"
+                    >
+                      <input
+                        type="hidden"
+                        name="organizationId"
+                        value={organization.id}
+                      />
+
+                      <div className="grid gap-2">
+                        <label
+                          className="text-xs uppercase tracking-[0.3em] text-stone-400"
+                          htmlFor={`tenantName-${organization.id}`}
+                        >
+                          Tenant draft name
+                        </label>
+                        <input
+                          id={`tenantName-${organization.id}`}
+                          name="tenantName"
+                          required
+                          defaultValue={
+                            organization.onboardingDraft?.tenantName
+                          }
+                          className="h-12 border border-stone-600 bg-stone-900 px-3 text-sm text-stone-50 outline-none transition-colors focus:border-stone-300"
+                          placeholder="northstar-prod"
+                        />
+                      </div>
+
+                      <Button type="submit" size="lg">
+                        Save onboarding draft
+                      </Button>
+                    </form>
+
+                    <div className="grid gap-3 border border-dashed border-stone-400 bg-stone-100 p-6">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.3em] text-stone-500">
+                          Next step
+                        </p>
+                        <h3 className="mt-2 text-lg font-semibold">
+                          Slack install will live here
+                        </h3>
+                        <p className="mt-2 text-sm leading-6 text-stone-700">
+                          The next slice adds Slack OAuth start and callback
+                          routes. Until then, provisioning is intentionally
+                          blocked after saving the onboarding draft.
+                        </p>
+                      </div>
+                      <Button type="button" size="lg" disabled>
+                        Install Slack (next slice)
+                      </Button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </section>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[linear-gradient(135deg,#efe6d0_0%,#ddd1b2_32%,#b39263_100%)] px-6 py-10 text-stone-950">
