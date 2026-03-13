@@ -1,6 +1,7 @@
 export type OpenClawTenantConfig = {
   authTokenEnvVar: string;
   gatewayPort: number;
+  primaryModel?: string;
   slack?: {
     enabled: boolean;
     mode: "socket";
@@ -16,6 +17,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     {
       agents: {
         defaults: {
+          ...(config.primaryModel
+            ? {
+                model: {
+                  primary: config.primaryModel,
+                },
+              }
+            : {}),
           workspace: config.workspacePath,
         },
       },

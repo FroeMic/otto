@@ -674,6 +674,7 @@ function buildOpenClawTenantConfig(
           (value): value is string => typeof value === "string",
         )
       : [],
+    primaryModel: env.RUNTIME_MODEL_PRIMARY,
     prompts: parseStringRecord(config.prompts),
     ...(hasSlackTokens
       ? {

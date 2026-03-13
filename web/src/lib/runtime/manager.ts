@@ -150,6 +150,10 @@ function buildRuntimeEnvFile(input: { gatewayToken: string }) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
 
+  if (env.RUNTIME_OPENAI_API_KEY) {
+    lines.push(`OPENAI_API_KEY=${env.RUNTIME_OPENAI_API_KEY}`);
+  }
+
   if (env.RUNTIME_SLACK_APP_TOKEN) {
     lines.push(`SLACK_APP_TOKEN=${env.RUNTIME_SLACK_APP_TOKEN}`);
   }
