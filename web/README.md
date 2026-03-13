@@ -60,6 +60,12 @@ Run the worker:
 npm run worker
 ```
 
+From the repo root, run both together:
+
+```bash
+npm run dev:all
+```
+
 ## Directory highlights
 
 - `src/app`: Next.js routes and layouts

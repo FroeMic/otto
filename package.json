@@ -1,0 +1,11 @@
+{
+  "name": "otto",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "worker": "npm --prefix web run worker",
+    "dev:all": "npm --prefix web run dev:all",
+    "lint": "npm --prefix web run lint",
+    "build": "npm --prefix web run build"
+  }
+}
