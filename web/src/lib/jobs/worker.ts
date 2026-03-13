@@ -21,6 +21,11 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 export async function runWorkerIteration(): Promise<number> {
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
+  if (jobs.length === 0) {
+    console.info("[worker] no available jobs");
+    return 0;
+  }
+
   for (const job of jobs) {
     try {
       await processClaimedJob(job);

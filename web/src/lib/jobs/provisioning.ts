@@ -31,6 +31,7 @@ export async function processProvisionTenantServerJob(
   }
 
   const payload = parseProvisionPayload(job.payload);
+  logStep(job.id, payload.tenantId, payload.step, "starting");
 
   try {
     switch (payload.step) {
@@ -53,6 +54,9 @@ export async function processProvisionTenantServerJob(
         throw new Error(`Unsupported provisioning step: ${payload.step}`);
     }
   } catch (error) {
+    console.error(
+      `[worker] job ${job.id} tenant ${payload.tenantId} step ${payload.step} failed: ${getErrorMessage(error)}`,
+    );
     await markTenantProvisioningFailed(payload.tenantId);
     await appendJobEvent(job.id, "failed", "Provisioning failed", {
       error: getErrorMessage(error),
@@ -99,6 +103,7 @@ async function createServer(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
+  logStep(jobId, payload.tenantId, PROVISIONING_STEPS.createServer, "creating fake server");
   const createdServer = await fakeHetznerClient.createServer({
     tenantId: payload.tenantId,
   });
@@ -114,6 +119,12 @@ async function createServer(
     providerServerId: createdServer.id,
   });
 
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForHetznerAction,
+    createdServer.id,
+  );
   await requeueJob(
     jobId,
     {
@@ -136,6 +147,12 @@ async function waitForServerAction(
     );
   }
 
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForHetznerAction,
+    `waiting for action ${payload.actionId}`,
+  );
   await fakeHetznerClient.waitForServerAction(
     payload.providerServerId,
     payload.actionId,
@@ -155,6 +172,12 @@ async function waitForServerAction(
     },
   );
 
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.fetchServerIp,
+    payload.providerServerId,
+  );
   await requeueJob(
     jobId,
     {
@@ -175,6 +198,12 @@ async function fetchServerIp(
     );
   }
 
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.fetchServerIp,
+    `fetching IP for ${payload.providerServerId}`,
+  );
   const server = await fakeHetznerClient.getServer(payload.providerServerId);
 
   await updateTenantServer(payload.tenantId, {
@@ -187,6 +216,15 @@ async function fetchServerIp(
     providerServerId: payload.providerServerId,
   });
 
+  console.info(
+    `[worker] job ${jobId} tenant ${payload.tenantId} got fake IP ${server.ipv4}`,
+  );
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForSsh,
+    payload.providerServerId,
+  );
   await requeueJob(
     jobId,
     {
@@ -208,6 +246,12 @@ async function waitForSsh(
     );
   }
 
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.waitForSsh,
+    `waiting for SSH on ${payload.ipv4}`,
+  );
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_ssh",
   });
@@ -221,6 +265,12 @@ async function waitForSsh(
     },
   );
 
+  logRequeue(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.markServerReady,
+    payload.providerServerId,
+  );
   await requeueJob(
     jobId,
     {
@@ -239,6 +289,12 @@ async function markServerReady(
     throw new Error("Provisioning job cannot complete without server metadata");
   }
 
+  logStep(
+    jobId,
+    payload.tenantId,
+    PROVISIONING_STEPS.markServerReady,
+    `marking ready with IP ${payload.ipv4}`,
+  );
   const db = getDb();
 
   await db.transaction(async (tx) => {
@@ -272,6 +328,10 @@ async function markServerReady(
     provider: "fake",
     providerServerId: payload.providerServerId,
   });
+
+  console.info(
+    `[worker] job ${jobId} tenant ${payload.tenantId} ready on fake server ${payload.providerServerId} (${payload.ipv4})`,
+  );
 }
 
 async function updateTenantServer(
@@ -327,4 +387,29 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown provisioning error";
+}
+
+function logStep(
+  jobId: string,
+  tenantId: string,
+  step: ProvisioningStep | undefined,
+  message: string,
+) {
+  console.info(
+    `[worker] job ${jobId} tenant ${tenantId} step ${step ?? "unknown"}: ${message}`,
+  );
+}
+
+function logRequeue(
+  jobId: string,
+  tenantId: string,
+  nextStep: ProvisioningStep,
+  providerServerId?: string,
+) {
+  const availableAt = new Date(Date.now() + STEP_DELAY_MS).toISOString();
+  const serverText = providerServerId ? ` server ${providerServerId}` : "";
+
+  console.info(
+    `[worker] job ${jobId} tenant ${tenantId}${serverText} requeued for ${nextStep} at ${availableAt}`,
+  );
 }
