@@ -24,9 +24,12 @@ docker compose up -d
    - Redirect URI: `http://localhost:3000/auth/callback`
    - App homepage URL: `http://localhost:3000`
    - Sign-in endpoint: `http://localhost:3000/auth/sign-in`
-6. Install dependencies.
-7. Generate migrations with `npm run db:generate`.
-8. Apply migrations with `npm run db:migrate`.
+6. To use real Hetzner provisioning instead of the fake local path, set:
+   - `HETZNER_API_TOKEN`
+   - optionally `HETZNER_DEFAULT_LOCATION`, `HETZNER_DEFAULT_SERVER_TYPE`, `HETZNER_DEFAULT_IMAGE`, and `HETZNER_SSH_KEY_NAMES`
+7. Install dependencies.
+8. Generate migrations with `npm run db:generate`.
+9. Apply migrations with `npm run db:migrate`.
 
 Default local database URL:
 

@@ -125,10 +125,10 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 
 ## Status checklist
 
-- [ ] implement Hetzner API client
+- [x] implement Hetzner API client
 - [ ] define normalized Hetzner service interfaces
-- [ ] define Hetzner env-backed defaults
-- [ ] implement cloud-init renderer
+- [x] define Hetzner env-backed defaults
+- [x] implement cloud-init renderer
 - [ ] define provisioning workflow states
 - [ ] persist server metadata
 - [ ] implement action polling with retry/backoff

@@ -11,6 +11,7 @@
   - job steps are persisted and resumable across claims
   - tenant and server rows advance to `ready`
   - fake provider metadata and IPs are written back to the dashboard
+- The Hetzner client and minimal cloud-init renderer now exist in `web/`, and the worker will use the real provider when `HETZNER_API_TOKEN` is configured.
 - Real Hetzner provisioning, SSH readiness checks, and config apply are still not implemented.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
@@ -33,9 +34,9 @@
 
 - Add the first operations visibility slice from `TODO_07_operations_and_observability.md`.
 - Then return to the real-provider half of Step 4:
-  - a real Hetzner client
-  - persisted Hetzner metadata on `tenant_servers`
-  - replacement of the fake provider in the provisioning handler
+  - validate server type and image before create
+  - persist richer Hetzner metadata on `tenant_servers`
+  - replace the placeholder SSH-ready step with a real SSH reachability check
 
 ## Open questions
 

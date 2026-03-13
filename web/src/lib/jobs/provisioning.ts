@@ -2,6 +2,9 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { tenantServers, tenants } from "@/db/schema";
+import { getEnv } from "@/lib/env";
+import { HetznerClient } from "@/lib/hetzner/client";
+import { renderCloudInit } from "@/lib/hetzner/cloud-init";
 import { FakeHetznerClient } from "@/lib/hetzner/fake";
 
 import {
@@ -107,20 +110,19 @@ async function createServer(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.createServer,
-    "creating fake server",
+    `creating ${getProvisioningProvider()} server`,
   );
-  const createdServer = await fakeHetznerClient.createServer({
-    tenantId: payload.tenantId,
-  });
+  const createdServer = await createProviderServer(payload.tenantId);
+  const provider = getProvisioningProvider();
 
   await updateTenantServer(payload.tenantId, {
-    provider: "fake",
+    provider,
     providerServerId: createdServer.id,
     status: "creating_server",
   });
 
-  await appendJobEvent(jobId, "creating_server", "Created fake server", {
-    provider: "fake",
+  await appendJobEvent(jobId, "creating_server", `Created ${provider} server`, {
+    provider,
     providerServerId: createdServer.id,
   });
 
@@ -138,7 +140,7 @@ async function createServer(
       providerServerId: createdServer.id,
       step: PROVISIONING_STEPS.waitForHetznerAction,
     },
-    new Date(Date.now() + STEP_DELAY_MS),
+    new Date(Date.now() + getProvisioningDelayMs()),
   );
 }
 
@@ -158,7 +160,7 @@ async function waitForServerAction(
     PROVISIONING_STEPS.waitForHetznerAction,
     `waiting for action ${payload.actionId}`,
   );
-  await fakeHetznerClient.waitForServerAction(
+  await getProvisioningClient().waitForServerAction(
     payload.providerServerId,
     payload.actionId,
   );
@@ -173,6 +175,7 @@ async function waitForServerAction(
     "Fake server action completed",
     {
       actionId: payload.actionId,
+      provider: getProvisioningProvider(),
       providerServerId: payload.providerServerId,
     },
   );
@@ -189,7 +192,7 @@ async function waitForServerAction(
       ...payload,
       step: PROVISIONING_STEPS.fetchServerIp,
     },
-    new Date(Date.now() + STEP_DELAY_MS),
+    new Date(Date.now() + getProvisioningDelayMs()),
   );
 }
 
@@ -209,7 +212,9 @@ async function fetchServerIp(
     PROVISIONING_STEPS.fetchServerIp,
     `fetching IP for ${payload.providerServerId}`,
   );
-  const server = await fakeHetznerClient.getServer(payload.providerServerId);
+  const server = await getProvisioningClient().getServer(
+    payload.providerServerId,
+  );
 
   await updateTenantServer(payload.tenantId, {
     ipv4: server.ipv4,
@@ -218,11 +223,12 @@ async function fetchServerIp(
 
   await appendJobEvent(jobId, "fetching_server_ip", "Fetched fake server IP", {
     ipv4: server.ipv4,
+    provider: getProvisioningProvider(),
     providerServerId: payload.providerServerId,
   });
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} got fake IP ${server.ipv4}`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} got ${getProvisioningProvider()} IP ${server.ipv4}`,
   );
   logRequeue(
     jobId,
@@ -237,7 +243,7 @@ async function fetchServerIp(
       ipv4: server.ipv4,
       step: PROVISIONING_STEPS.waitForSsh,
     },
-    new Date(Date.now() + STEP_DELAY_MS),
+    new Date(Date.now() + getProvisioningDelayMs()),
   );
 }
 
@@ -282,7 +288,7 @@ async function waitForSsh(
       ...payload,
       step: PROVISIONING_STEPS.markServerReady,
     },
-    new Date(Date.now() + STEP_DELAY_MS),
+    new Date(Date.now() + getProvisioningDelayMs()),
   );
 }
 
@@ -307,7 +313,7 @@ async function markServerReady(
       .update(tenantServers)
       .set({
         ipv4: payload.ipv4,
-        provider: "fake",
+        provider: getProvisioningProvider(),
         providerServerId: payload.providerServerId,
         status: "ready",
         updatedAt: new Date(),
@@ -330,19 +336,19 @@ async function markServerReady(
 
   await markJobSucceeded(jobId, {
     ipv4: payload.ipv4,
-    provider: "fake",
+    provider: getProvisioningProvider(),
     providerServerId: payload.providerServerId,
   });
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} ready on fake server ${payload.providerServerId} (${payload.ipv4})`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${getProvisioningProvider()} server ${payload.providerServerId} (${payload.ipv4})`,
   );
 }
 
 async function updateTenantServer(
   tenantId: string,
   input: {
-    ipv4?: string;
+    ipv4?: string | null;
     provider?: string;
     providerServerId?: string;
     status: string;
@@ -353,7 +359,7 @@ async function updateTenantServer(
   await db
     .update(tenantServers)
     .set({
-      ...(input.ipv4 ? { ipv4: input.ipv4 } : {}),
+      ...(input.ipv4 !== undefined ? { ipv4: input.ipv4 } : {}),
       ...(input.provider ? { provider: input.provider } : {}),
       ...(input.providerServerId
         ? { providerServerId: input.providerServerId }
@@ -411,10 +417,64 @@ function logRequeue(
   nextStep: ProvisioningStep,
   providerServerId?: string,
 ) {
-  const availableAt = new Date(Date.now() + STEP_DELAY_MS).toISOString();
+  const availableAt = new Date(
+    Date.now() + getProvisioningDelayMs(),
+  ).toISOString();
   const serverText = providerServerId ? ` server ${providerServerId}` : "";
 
   console.info(
     `[worker] job ${jobId} tenant ${tenantId}${serverText} requeued for ${nextStep} at ${availableAt}`,
   );
+}
+
+async function createProviderServer(tenantId: string) {
+  if (getProvisioningProvider() === "hetzner") {
+    const env = getEnv();
+
+    return getHetznerClient().createServer({
+      image: env.HETZNER_DEFAULT_IMAGE,
+      labels: {
+        "otto/managed": "true",
+        "otto/runtime": "openclaw",
+        "otto/tenant_id": tenantId,
+      },
+      location: env.HETZNER_DEFAULT_LOCATION,
+      name: buildHetznerServerName(tenantId),
+      serverType: env.HETZNER_DEFAULT_SERVER_TYPE,
+      sshKeys: env.HETZNER_SSH_KEY_NAMES.split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      userData: renderCloudInit(),
+    });
+  }
+
+  return fakeHetznerClient.createServer({ tenantId });
+}
+
+function buildHetznerServerName(tenantId: string) {
+  return `otto-${tenantId.slice(0, 12)}`;
+}
+
+function getProvisioningClient() {
+  return getProvisioningProvider() === "hetzner"
+    ? getHetznerClient()
+    : fakeHetznerClient;
+}
+
+function getProvisioningDelayMs() {
+  return getProvisioningProvider() === "hetzner" ? 0 : STEP_DELAY_MS;
+}
+
+function getProvisioningProvider() {
+  return getEnv().HETZNER_API_TOKEN ? "hetzner" : "fake";
+}
+
+let cachedHetznerClient: HetznerClient | null = null;
+
+function getHetznerClient() {
+  if (!cachedHetznerClient) {
+    cachedHetznerClient = new HetznerClient();
+  }
+
+  return cachedHetznerClient;
 }
