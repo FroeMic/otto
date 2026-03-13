@@ -41,3 +41,5 @@ Establish user identity, organization ownership, and the first tenant records in
 ## Open questions
 
 - Is WorkOS still required, or is simpler auth acceptable for v1?
+- Decision: use WorkOS.
+  – Yes use WORKOS!!

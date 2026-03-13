@@ -46,3 +46,5 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 ## Open questions
 
 - Do we need server deletion and rebuild flows in the first pass?
+- Decision: no, not for v1.
+- No, not for the first version

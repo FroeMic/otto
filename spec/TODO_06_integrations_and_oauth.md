@@ -37,3 +37,5 @@ Connect integrations like Slack through the control plane and project the result
 ## Open questions
 
 - Which integration is the first must-have for launch?
+- Decision: Slack.
+  – Slack
