@@ -188,7 +188,7 @@ export class HetznerClient {
 
     while (Date.now() < deadline) {
       const response = await this.request<HetznerActionResponse>(
-        `/servers/${serverId}/actions/${actionId}`,
+        `/actions/${actionId}`,
       );
 
       const action = response.action;

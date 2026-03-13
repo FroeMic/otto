@@ -322,13 +322,13 @@ Docs:
 - [Soft-reboot a Server](https://docs.hetzner.cloud/reference/cloud#tag/server-actions/reboot_server)
 - [Rebuild a Server from an Image](https://docs.hetzner.cloud/reference/cloud#tag/server-actions/rebuild_server)
 
-### `GET /servers/{id}/actions/{action_id}`
+### `GET /actions/{action_id}`
 
 This is the main polling endpoint we need.
 
 Use for:
 
-- polling a specific server action after `create`, `rebuild`, `reboot`, `poweroff`, `poweron`, `reset`, or `shutdown`
+- polling a specific action after `create`, `rebuild`, `reboot`, `poweroff`, `poweron`, `reset`, or `shutdown`
 
 Important response fields:
 
@@ -343,6 +343,13 @@ Important response fields:
 This should back:
 
 - `hetzner.waitForServerAction(serverId, actionId)`
+
+Implementation note from live API testing on March 13, 2026:
+
+- polling `GET /servers/{id}/actions/{action_id}` returned `not_found`
+- polling `GET /actions/{action_id}` returned the expected action payload
+
+For the Otto client, treat `GET /actions/{action_id}` as the canonical polling route.
 
 ### `GET /servers/{id}/actions`
 
@@ -804,7 +811,7 @@ If the goal is one tenant VPS with no extra storage, the actual minimum Hetzner 
 - `GET /images`
 - `POST /servers`
 - `GET /servers/{id}`
-- `GET /servers/{id}/actions/{action_id}`
+- `GET /actions/{action_id}`
 - `DELETE /servers/{id}`
 - `POST /servers/{id}/actions/reboot`
 - `POST /servers/{id}/actions/rebuild`
@@ -836,7 +843,7 @@ Recommended sequence:
 1. validate server type with `GET /server_types`
 2. validate image with `GET /images`
 3. `POST /servers`
-4. poll `GET /servers/{id}/actions/{action_id}`
+4. poll `GET /actions/{action_id}`
 5. `GET /servers/{id}`
 6. wait for SSH
 7. apply config over SSH
@@ -879,4 +886,3 @@ This matters because Hetzner has recently changed:
 - deprecation signaling
 - server request/response location fields
 - rebuild capabilities
-
