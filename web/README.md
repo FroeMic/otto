@@ -12,10 +12,34 @@ Otto `web` is the control-plane application for tenant onboarding, provisioning,
 ## Local setup
 
 1. Copy `.env.example` to `.env`.
-2. Set `DATABASE_URL` to a local Postgres instance.
-3. Install dependencies.
-4. Generate migrations with `npm run db:generate`.
-5. Apply migrations with `npm run db:migrate`.
+2. Start local Postgres with Docker:
+
+```bash
+docker compose up -d
+```
+
+3. Set `DATABASE_URL` to the local database if you changed it from the default.
+4. Install dependencies.
+5. Generate migrations with `npm run db:generate`.
+6. Apply migrations with `npm run db:migrate`.
+
+Default local database URL:
+
+```bash
+postgres://postgres:postgres@127.0.0.1:5432/otto
+```
+
+Stop the local database:
+
+```bash
+docker compose down
+```
+
+Remove the database volume too:
+
+```bash
+docker compose down -v
+```
 
 ## Local development
 
