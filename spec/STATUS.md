@@ -33,6 +33,15 @@
 - The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
+- `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
+- The first app-shell rebuild slice is now implemented in `web/`:
+  - dedicated `/login` and `/register` pages exist
+  - organizations now carry a unique slug for user-facing routes
+  - root now redirects into slug-based workspace routes
+  - the authenticated shell now uses a shadcn sidebar with org switcher, requested nav items, and a bottom user menu
+  - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
+  - the Slack OAuth routes now return users to the slug-scoped Slack integration page
+- The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
 
@@ -47,17 +56,20 @@
 
 - Build the first internal alpha defined in `FIRST_INCREMENT_PLAN.md`.
 - Scope that alpha to tenant creation, durable provisioning jobs, and dashboard visibility.
+- In parallel, prepare the authenticated app-shell rebuild so the product can move to org-scoped workspace UI after the current bootstrap slice.
 
 ## Next recommended implementation step
 
-- Rework signup into a Slack-gated onboarding flow:
-  - verify the real Slack OAuth round-trip against the shared Slack app config
-  - surface Slack install errors and success states more explicitly in the onboarding UI
-  - decide whether to move the onboarding screen from `/` to a dedicated `/onboarding` route
-  - migrate away from the temporary onboarding-record token storage to dedicated integration tables if needed
+- Continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
+  - running the new slug migration in active environments
+  - replacing the temporary WorkOS account link with a verified account-management handoff if available
+  - deciding whether to keep hiding the backend tenant model completely in product copy
+  - implementing the prefixed ID strategy or explicitly deferring it
+- In parallel, keep validating the real Slack OAuth round-trip against the shared Slack app config and harden reconnect / error states in the new Slack integration page.
 
 ## Open questions
 
 - Will the control plane be self-hosted as a long-running Node process or deployed onto a serverless platform with strict execution limits?
 - Is WorkOS still the preferred auth provider, or should auth be deferred until core provisioning is proven?
 - Should the runtime image be built and published before provisioning starts, or is a temporary bootstrap image acceptable for the first internal alpha?
+- When the prefixed ID strategy is implemented, should primary keys be migrated directly or should stable public IDs be added alongside the existing UUIDs first?

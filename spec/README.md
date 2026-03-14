@@ -33,6 +33,8 @@ This folder is the source of truth for implementation planning and session-to-se
 6. `TODO_05_config_apply_and_reconciliation.md`
 7. `TODO_06_integrations_and_oauth.md`
 8. `TODO_07_operations_and_observability.md`
+9. `TODO_08_signup_to_slack_onboarding_flow.md`
+10. `TODO_09_ui_app_shell_and_onboarding_rebuild.md`
 
 ## Trigger.dev decision
 

@@ -24,6 +24,14 @@ import { getWorkOS } from "@/lib/workos";
 export type DashboardOrganization = {
   id: string;
   externalId: string;
+  latestOnboardingSession: {
+    createdAt: Date;
+    id: string;
+    slackTeamName: string | null;
+    slackConnectedAt: Date | null;
+    status: string;
+    tenantName: string;
+  } | null;
   onboardingDraft: {
     createdAt: Date;
     id: string;
@@ -34,6 +42,7 @@ export type DashboardOrganization = {
   } | null;
   name: string;
   role: string;
+  slug: string;
   tenants: Array<{
     createdAt: Date;
     id: string;
@@ -93,6 +102,7 @@ export async function getDashboardOrganizations(
       organizationId: organizations.id,
       organizationExternalId: organizations.externalId,
       organizationName: organizations.name,
+      organizationSlug: organizations.slug,
       role: memberships.role,
     })
     .from(memberships)
@@ -132,8 +142,16 @@ export async function getDashboardOrganizations(
     string,
     (typeof onboardingRows)[number]
   >();
+  const latestOnboardingByOrganization = new Map<
+    string,
+    (typeof onboardingRows)[number]
+  >();
 
   for (const onboarding of onboardingRows) {
+    if (!latestOnboardingByOrganization.has(onboarding.organizationId)) {
+      latestOnboardingByOrganization.set(onboarding.organizationId, onboarding);
+    }
+
     if (onboarding.status === "completed") {
       continue;
     }
@@ -229,11 +247,15 @@ export async function getDashboardOrganizations(
   return organizationRows.map((organization) => ({
     id: organization.organizationId,
     externalId: organization.organizationExternalId,
+    latestOnboardingSession: buildOnboardingDraftSummary(
+      latestOnboardingByOrganization.get(organization.organizationId) ?? null,
+    ),
     onboardingDraft: buildOnboardingDraftSummary(
       onboardingByOrganization.get(organization.organizationId) ?? null,
     ),
     name: organization.organizationName,
     role: organization.role,
+    slug: organization.organizationSlug,
     tenants: tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
       .map((tenant) => ({
@@ -324,11 +346,29 @@ function parseRecord(value: unknown): Record<string, unknown> {
 
 export async function createWorkspaceOnboardingDraft(input: {
   workspaceName: string;
+  workspaceSlug: string;
   user: User;
 }) {
   const workos = getWorkOS();
   const db = getDb();
   const syncedUser = await syncUserFromSession(input.user);
+  const normalizedSlug = normalizeOrganizationSlug(input.workspaceSlug);
+
+  if (!normalizedSlug) {
+    throw new Error("Workspace slug is required");
+  }
+
+  const [existingOrganization] = await db
+    .select({
+      id: organizations.id,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, normalizedSlug))
+    .limit(1);
+
+  if (existingOrganization) {
+    throw new Error("Workspace slug is already in use");
+  }
 
   const organization = await workos.organizations.createOrganization({
     name: input.workspaceName,
@@ -345,6 +385,7 @@ export async function createWorkspaceOnboardingDraft(input: {
       .values({
         externalId: organization.id,
         name: organization.name,
+        slug: normalizedSlug,
       })
       .returning({
         id: organizations.id,
@@ -431,6 +472,22 @@ export async function createOnboardingDraftForOrganization(input: {
   });
 }
 
+export async function getOrganizationWorkspaceBySlug(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const organizations = await getDashboardOrganizations(input.userExternalId);
+  const organization = organizations.find(
+    (item) => item.slug === input.orgSlug,
+  );
+
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  return organization;
+}
+
 export async function getOnboardingDraftForUser(input: {
   onboardingSessionId: string;
   userExternalId: string;
@@ -441,6 +498,7 @@ export async function getOnboardingDraftForUser(input: {
     .select({
       id: tenantOnboardingSessions.id,
       organizationId: tenantOnboardingSessions.organizationId,
+      organizationSlug: organizations.slug,
       slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
       slackTeamId: tenantOnboardingSessions.slackTeamId,
       status: tenantOnboardingSessions.status,
@@ -450,6 +508,10 @@ export async function getOnboardingDraftForUser(input: {
     })
     .from(tenantOnboardingSessions)
     .innerJoin(users, eq(tenantOnboardingSessions.userId, users.id))
+    .innerJoin(
+      organizations,
+      eq(tenantOnboardingSessions.organizationId, organizations.id),
+    )
     .where(
       and(
         eq(tenantOnboardingSessions.id, input.onboardingSessionId),
@@ -482,7 +544,10 @@ export async function completeSlackOnboardingAndProvision(input: {
   });
 
   if (authorizedSession.tenantId) {
-    return { tenantId: authorizedSession.tenantId };
+    return {
+      organizationSlug: authorizedSession.organizationSlug,
+      tenantId: authorizedSession.tenantId,
+    };
   }
 
   const now = new Date();
@@ -562,7 +627,10 @@ export async function completeSlackOnboardingAndProvision(input: {
     },
   });
 
-  return createdTenant;
+  return {
+    organizationSlug: authorizedSession.organizationSlug,
+    tenantId: createdTenant.id,
+  };
 }
 
 export async function getTenantSlackBotToken(tenantId: string) {
@@ -590,6 +658,14 @@ function deriveTenantName(name: string) {
     .replace(/^-+|-+$/g, "");
 
   return slug || "tenant";
+}
+
+function normalizeOrganizationSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export async function createTenantForOrganization(input: {

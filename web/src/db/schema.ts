@@ -13,6 +13,7 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   externalId: varchar("external_id", { length: 255 }).notNull().unique(),
   name: text("name").notNull(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

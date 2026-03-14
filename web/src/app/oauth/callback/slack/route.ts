@@ -7,6 +7,7 @@ import { exchangeSlackCodeForBotToken } from "@/lib/slack";
 
 type SlackOAuthState = {
   onboardingSessionId: string;
+  orgSlug: string;
   userExternalId: string;
 };
 
@@ -16,10 +17,24 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
+  let decodedState: SlackOAuthState | null = null;
+
+  if (state) {
+    try {
+      decodedState = verifyOAuthState<SlackOAuthState>(state);
+    } catch {
+      decodedState = null;
+    }
+  }
 
   if (error) {
     return NextResponse.redirect(
-      new URL(`/?slack_error=${encodeURIComponent(error)}`, request.url),
+      new URL(
+        decodedState?.orgSlug
+          ? `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(error)}`
+          : `/login?slack_error=${encodeURIComponent(error)}`,
+        request.url,
+      ),
     );
   }
 
@@ -30,7 +45,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const decodedState = verifyOAuthState<SlackOAuthState>(state);
+  if (!decodedState) {
+    return NextResponse.json(
+      { error: "Invalid Slack OAuth state" },
+      { status: 400 },
+    );
+  }
 
   if (decodedState.userExternalId !== user.id) {
     return NextResponse.json(
@@ -41,7 +61,7 @@ export async function GET(request: Request) {
 
   const installation = await exchangeSlackCodeForBotToken(code);
 
-  await completeSlackOnboardingAndProvision({
+  const result = await completeSlackOnboardingAndProvision({
     botToken: installation.botToken,
     installerUserId: installation.installerUserId,
     onboardingSessionId: decodedState.onboardingSessionId,
@@ -52,5 +72,10 @@ export async function GET(request: Request) {
     userExternalId: user.id,
   });
 
-  return NextResponse.redirect(new URL("/?slack_connected=1", request.url));
+  return NextResponse.redirect(
+    new URL(
+      `/${result.organizationSlug}/integrations/slack?slack_connected=1`,
+      request.url,
+    ),
+  );
 }

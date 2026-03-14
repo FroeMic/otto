@@ -34,6 +34,21 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - Placeholder docs should be replaced when they become misleading.
 - Use `bun run ...` as the default way to invoke scripts for `web/` work unless a task specifically requires `npm`.
 
+## Available skills
+
+- shadcn: Manages shadcn components and blocks for the web app. Use for shadcn CLI usage, component selection, sidebar blocks, forms, and UI composition in `web/`. (file: /Users/michaelfrohlich/Repositories/otto/web/.agents/skills/shadcn/SKILL.md)
+- vercel-composition-patterns: Use for React component API and composition decisions in `web/`. (file: /Users/michaelfrohlich/Repositories/otto/web/.agents/skills/vercel-composition-patterns/SKILL.md)
+- vercel-react-best-practices: Use for React and Next.js implementation decisions in `web/`. (file: /Users/michaelfrohlich/Repositories/otto/web/.agents/skills/vercel-react-best-practices/SKILL.md)
+- web-design-guidelines: Use for layout and UI structure work in `web/`. (file: /Users/michaelfrohlich/Repositories/otto/web/.agents/skills/web-design-guidelines/SKILL.md)
+
+## Skill trigger rules
+
+- If working in `web/` on UI, layout, forms, navigation, settings, onboarding, or shadcn components, use the `shadcn` skill first.
+- If designing React component APIs in `web/`, use `vercel-composition-patterns`.
+- If implementing React or Next.js UI behavior in `web/`, use `vercel-react-best-practices`.
+- If doing visual or layout planning in `web/`, use `web-design-guidelines`.
+- When working anywhere under `web/`, inspect relevant skills under `/Users/michaelfrohlich/Repositories/otto/web/.agents/skills/` before implementing UI changes.
+
 ## When making changes
 
 - Update the relevant spec checklist as work progresses.

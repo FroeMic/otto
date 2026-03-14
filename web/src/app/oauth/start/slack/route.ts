@@ -32,11 +32,17 @@ export async function GET(request: Request) {
   });
 
   if (onboardingSession.tenantId) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(
+      new URL(
+        `/${onboardingSession.organizationSlug}/integrations/slack`,
+        request.url,
+      ),
+    );
   }
 
   const state = signOAuthState({
     onboardingSessionId,
+    orgSlug: onboardingSession.organizationSlug,
     userExternalId: user.id,
   });
 
