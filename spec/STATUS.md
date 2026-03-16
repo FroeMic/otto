@@ -31,6 +31,12 @@
   - provisioning remains intentionally blocked until the Slack OAuth step exists
 - Slack OAuth routes now exist under `/oauth/start/slack` and `/oauth/callback/slack`, and the callback can complete onboarding by storing the tenant bot token and starting provisioning.
 - The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
+- Slack control-plane state is now more durable:
+  - `tenant_integrations`, `slack_installations`, and `integration_secrets` now persist the canonical Slack installation state
+  - generic `messaging_workspaces`, `messaging_workspace_members`, and `messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
+  - Slack OAuth failures are now recorded on the onboarding session and surfaced back in the onboarding and Slack integration pages
+  - reconnect / retry is now supported while an organization is still in setup
+  - reconnect after the runtime is already ready is still deferred until `TODO_05_config_apply_and_reconciliation.md` can project the updated token onto an existing tenant
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -60,12 +66,14 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
+- Continue `TODO_05_config_apply_and_reconciliation.md` and `TODO_06_integrations_and_oauth.md` by:
+  - implementing `apply_tenant_config` so Slack token changes can be pushed onto already-provisioned tenants
+  - versioning and re-rendering desired state after Slack connect or reconnect
+  - deciding whether reconnect after runtime launch should block on a successful apply before the UI reports success
+- In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available
-  - deciding whether to keep hiding the backend tenant model completely in product copy
   - implementing the prefixed ID strategy or explicitly deferring it
-- In parallel, keep validating the real Slack OAuth round-trip against the shared Slack app config and harden reconnect / error states in the new Slack integration page.
 
 ## Open questions
 

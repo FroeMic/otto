@@ -205,6 +205,32 @@ Recommended tables:
   - `key_version`
   - `created_at`
   - `rotated_at`
+- `messaging_workspaces`
+  - `id`
+  - `tenant_integration_id`
+  - `external_workspace_id`
+  - `display_name`
+  - `sync_status`
+  - `last_synced_at`
+  - `last_sync_error`
+- `messaging_workspace_members`
+  - `id`
+  - `messaging_workspace_id`
+  - `external_member_id`
+  - `display_name`
+  - `member_type`
+  - `is_deleted`
+  - `profile_json`
+  - `last_synced_at`
+- `messaging_conversations`
+  - `id`
+  - `messaging_workspace_id`
+  - `external_conversation_id`
+  - `name`
+  - `conversation_type`
+  - `is_archived`
+  - `metadata_json`
+  - `last_synced_at`
 
 Secret types for Slack:
 
@@ -388,9 +414,9 @@ Deliverables:
 
 - [ ] decide public distribution vs Marketplace timing
 - [ ] write Slack app manifest template and scope list
-- [ ] define integration and secret schema
-- [ ] implement OAuth entry and callback routes
-- [ ] encrypt stored Slack secrets
+- [x] define integration and secret schema
+- [x] implement OAuth entry and callback routes
+- [x] encrypt stored Slack secrets
 - [ ] implement shared Slack ingress router
 - [ ] render Slack runtime config into desired state
 - [ ] trigger apply after connect or token change

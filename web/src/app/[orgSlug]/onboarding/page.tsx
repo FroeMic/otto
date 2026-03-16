@@ -19,6 +19,7 @@ import {
   getCurrentOnboardingSession,
   getPrimaryAgent,
   getRuntimeStatusLabel,
+  getSlackErrorMessage,
   isOrganizationUnlocked,
   isSlackConnected,
 } from "@/lib/workspace";
@@ -98,6 +99,9 @@ export default async function OrganizationOnboardingPage({
   const canStartSlackOAuth =
     Boolean(onboardingSessionId) && hasSlackOAuthConfig();
   const slackIsConnected = isSlackConnected(organization);
+  const slackError = getSlackErrorMessage(organization);
+  const slackTeamName =
+    organization.slackIntegration?.teamName ?? onboardingSession?.slackTeamName;
   const ottoStatus = getRuntimeStatusLabel(organization);
 
   return (
@@ -160,16 +164,20 @@ export default async function OrganizationOnboardingPage({
               {slackIsConnected ? "Slack App Installed" : "Slack Not Connected"}
             </Badge>
             <p>
-              {slackIsConnected && onboardingSession?.slackConnectedAt
-                ? `Connected${onboardingSession.slackTeamName ? ` to ${onboardingSession.slackTeamName}` : ""}.`
-                : "Slack is not connected yet."}
+              {slackIsConnected
+                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}.`
+                : slackError
+                  ? `Last connection attempt failed: ${slackError}`
+                  : "Slack is not connected yet."}
             </p>
-            {!slackIsConnected && canStartSlackOAuth && onboardingSessionId ? (
+            {(!slackIsConnected || Boolean(slackError)) &&
+            canStartSlackOAuth &&
+            onboardingSessionId ? (
               <a
                 className={buttonVariants({ variant: "default" })}
                 href={`/oauth/start/slack?onboardingSessionId=${onboardingSessionId}`}
               >
-                Add to Slack
+                {slackError ? "Retry Slack connection" : "Add to Slack"}
               </a>
             ) : null}
             {!hasSlackOAuthConfig() ? (

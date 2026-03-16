@@ -1,9 +1,17 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
-import { completeSlackOnboardingAndProvision } from "@/db/control-plane";
+import {
+  completeSlackOnboardingAndProvision,
+  recordMessagingWorkspaceSyncFailure,
+  recordSlackOauthFailure,
+  syncMessagingDirectoryForTenantIntegration,
+} from "@/db/control-plane";
 import { verifyOAuthState } from "@/lib/crypto";
-import { exchangeSlackCodeForBotToken } from "@/lib/slack";
+import {
+  exchangeSlackCodeForBotToken,
+  fetchSlackMessagingDirectory,
+} from "@/lib/slack";
 
 type SlackOAuthState = {
   onboardingSessionId: string;
@@ -28,6 +36,14 @@ export async function GET(request: Request) {
   }
 
   if (error) {
+    if (decodedState) {
+      await recordSlackOauthFailure({
+        error,
+        onboardingSessionId: decodedState.onboardingSessionId,
+        userExternalId: user.id,
+      });
+    }
+
     return NextResponse.redirect(
       new URL(
         decodedState?.orgSlug
@@ -59,23 +75,69 @@ export async function GET(request: Request) {
     );
   }
 
-  const installation = await exchangeSlackCodeForBotToken(code);
+  try {
+    const installation = await exchangeSlackCodeForBotToken(code);
 
-  const result = await completeSlackOnboardingAndProvision({
-    botToken: installation.botToken,
-    installerUserId: installation.installerUserId,
-    onboardingSessionId: decodedState.onboardingSessionId,
-    scopeCsv: installation.scopeCsv,
-    slackBotUserId: installation.slackBotUserId,
-    slackTeamId: installation.teamId,
-    slackTeamName: installation.teamName,
-    userExternalId: user.id,
-  });
+    const result = await completeSlackOnboardingAndProvision({
+      botToken: installation.botToken,
+      installerUserId: installation.installerUserId,
+      onboardingSessionId: decodedState.onboardingSessionId,
+      scopeCsv: installation.scopeCsv,
+      slackBotUserId: installation.slackBotUserId,
+      slackTeamId: installation.teamId,
+      slackTeamName: installation.teamName,
+      userExternalId: user.id,
+    });
 
-  return NextResponse.redirect(
-    new URL(
-      `/${result.organizationSlug}/integrations/slack?slack_connected=1`,
-      request.url,
-    ),
-  );
+    try {
+      const directory = await fetchSlackMessagingDirectory(
+        installation.botToken,
+      );
+
+      await syncMessagingDirectoryForTenantIntegration({
+        conversations: directory.conversations,
+        externalWorkspaceId: installation.teamId,
+        members: directory.members,
+        tenantIntegrationId: result.tenantIntegrationId,
+        workspaceDisplayName: installation.teamName,
+      });
+    } catch (directoryError) {
+      await recordMessagingWorkspaceSyncFailure({
+        error: getErrorMessage(directoryError),
+        externalWorkspaceId: installation.teamId,
+        tenantIntegrationId: result.tenantIntegrationId,
+        workspaceDisplayName: installation.teamName,
+      });
+    }
+
+    return NextResponse.redirect(
+      new URL(
+        `/${result.organizationSlug}/integrations/slack?slack_connected=1`,
+        request.url,
+      ),
+    );
+  } catch (oauthError) {
+    const message = getErrorMessage(oauthError);
+
+    await recordSlackOauthFailure({
+      error: message,
+      onboardingSessionId: decodedState.onboardingSessionId,
+      userExternalId: user.id,
+    });
+
+    return NextResponse.redirect(
+      new URL(
+        `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(message)}`,
+        request.url,
+      ),
+    );
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Slack could not be connected";
 }
