@@ -3,11 +3,14 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
+  integrationSecrets,
   jobEvents,
   jobRuns,
   memberships,
   organizations,
+  slackInstallations,
   tenantDesiredStates,
+  tenantIntegrations,
   tenantOnboardingSessions,
   tenantServers,
   tenants,
@@ -21,27 +24,40 @@ import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
 import { getWorkOS } from "@/lib/workos";
 
+const SLACK_PROVIDER_KEY = "slack";
+const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
+
+type OnboardingSessionSummary = {
+  createdAt: Date;
+  id: string;
+  slackConnectedAt: Date | null;
+  slackOauthError: string | null;
+  slackOauthErrorAt: Date | null;
+  slackTeamName: string | null;
+  status: string;
+  tenantName: string;
+};
+
+type SlackIntegrationSummary = {
+  connectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  status: string;
+  teamName: string | null;
+};
+
+type DbTransaction = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
+
 export type DashboardOrganization = {
   id: string;
   externalId: string;
-  latestOnboardingSession: {
-    createdAt: Date;
-    id: string;
-    slackTeamName: string | null;
-    slackConnectedAt: Date | null;
-    status: string;
-    tenantName: string;
-  } | null;
-  onboardingDraft: {
-    createdAt: Date;
-    id: string;
-    slackTeamName: string | null;
-    slackConnectedAt: Date | null;
-    status: string;
-    tenantName: string;
-  } | null;
+  latestOnboardingSession: OnboardingSessionSummary | null;
+  onboardingDraft: OnboardingSessionSummary | null;
   name: string;
   role: string;
+  slackIntegration: SlackIntegrationSummary | null;
   slug: string;
   tenants: Array<{
     createdAt: Date;
@@ -121,6 +137,8 @@ export async function getDashboardOrganizations(
       createdAt: tenantOnboardingSessions.createdAt,
       id: tenantOnboardingSessions.id,
       organizationId: tenantOnboardingSessions.organizationId,
+      slackOauthError: tenantOnboardingSessions.slackOauthError,
+      slackOauthErrorAt: tenantOnboardingSessions.slackOauthErrorAt,
       slackTeamName: tenantOnboardingSessions.slackTeamName,
       slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
       status: tenantOnboardingSessions.status,
@@ -177,6 +195,42 @@ export async function getDashboardOrganizations(
     .orderBy(desc(tenants.createdAt));
 
   const tenantIds = tenantRows.map((tenant) => tenant.id);
+  const slackIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            status: tenantIntegrations.status,
+            teamName: slackInstallations.slackTeamName,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            slackInstallations,
+            eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+            ),
+          );
+
+  const slackIntegrationsByTenant = new Map<
+    string,
+    (typeof slackIntegrationRows)[number]
+  >();
+
+  for (const integration of slackIntegrationRows) {
+    if (slackIntegrationsByTenant.has(integration.tenantId)) {
+      continue;
+    }
+
+    slackIntegrationsByTenant.set(integration.tenantId, integration);
+  }
 
   const latestJobRows =
     tenantIds.length === 0
@@ -244,19 +298,8 @@ export async function getDashboardOrganizations(
     jobEventsByJobRunId.set(event.jobRunId, existingEvents);
   }
 
-  return organizationRows.map((organization) => ({
-    id: organization.organizationId,
-    externalId: organization.organizationExternalId,
-    latestOnboardingSession: buildOnboardingDraftSummary(
-      latestOnboardingByOrganization.get(organization.organizationId) ?? null,
-    ),
-    onboardingDraft: buildOnboardingDraftSummary(
-      onboardingByOrganization.get(organization.organizationId) ?? null,
-    ),
-    name: organization.organizationName,
-    role: organization.role,
-    slug: organization.organizationSlug,
-    tenants: tenantRows
+  return organizationRows.map((organization) => {
+    const organizationTenants = tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
       .map((tenant) => ({
         createdAt: tenant.createdAt,
@@ -269,19 +312,33 @@ export async function getDashboardOrganizations(
         name: tenant.name,
         status: tenant.status,
         serverStatus: tenant.serverStatus,
-      })),
-  }));
+      }));
+    const primaryTenant = organizationTenants[0] ?? null;
+
+    return {
+      id: organization.organizationId,
+      externalId: organization.organizationExternalId,
+      latestOnboardingSession: buildOnboardingDraftSummary(
+        latestOnboardingByOrganization.get(organization.organizationId) ?? null,
+      ),
+      onboardingDraft: buildOnboardingDraftSummary(
+        onboardingByOrganization.get(organization.organizationId) ?? null,
+      ),
+      name: organization.organizationName,
+      role: organization.role,
+      slackIntegration: buildSlackIntegrationSummary(
+        primaryTenant
+          ? (slackIntegrationsByTenant.get(primaryTenant.id) ?? null)
+          : null,
+      ),
+      slug: organization.organizationSlug,
+      tenants: organizationTenants,
+    };
+  });
 }
 
 function buildOnboardingDraftSummary(
-  onboarding: {
-    createdAt: Date;
-    id: string;
-    slackTeamName: string | null;
-    slackConnectedAt: Date | null;
-    status: string;
-    tenantName: string;
-  } | null,
+  onboarding: OnboardingSessionSummary | null,
 ) {
   if (!onboarding) {
     return null;
@@ -290,10 +347,28 @@ function buildOnboardingDraftSummary(
   return {
     createdAt: onboarding.createdAt,
     id: onboarding.id,
+    slackOauthError: onboarding.slackOauthError,
+    slackOauthErrorAt: onboarding.slackOauthErrorAt,
     slackTeamName: onboarding.slackTeamName,
     slackConnectedAt: onboarding.slackConnectedAt,
     status: onboarding.status,
     tenantName: onboarding.tenantName,
+  };
+}
+
+function buildSlackIntegrationSummary(
+  integration: SlackIntegrationSummary | null,
+) {
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    connectedAt: integration.connectedAt,
+    lastError: integration.lastError,
+    lastErrorAt: integration.lastErrorAt,
+    status: integration.status,
+    teamName: integration.teamName,
   };
 }
 
@@ -455,6 +530,8 @@ export async function createOnboardingDraftForOrganization(input: {
     await db
       .update(tenantOnboardingSessions)
       .set({
+        slackOauthError: null,
+        slackOauthErrorAt: null,
         status: "draft",
         tenantName: deriveTenantName(authorizedMembership[0].organizationName),
         updatedAt: new Date(),
@@ -500,10 +577,13 @@ export async function getOnboardingDraftForUser(input: {
       organizationId: tenantOnboardingSessions.organizationId,
       organizationSlug: organizations.slug,
       slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
+      slackOauthError: tenantOnboardingSessions.slackOauthError,
       slackTeamId: tenantOnboardingSessions.slackTeamId,
+      serverStatus: tenantServers.status,
       status: tenantOnboardingSessions.status,
       tenantId: tenantOnboardingSessions.tenantId,
       tenantName: tenantOnboardingSessions.tenantName,
+      tenantStatus: tenants.status,
       userId: users.id,
     })
     .from(tenantOnboardingSessions)
@@ -512,6 +592,8 @@ export async function getOnboardingDraftForUser(input: {
       organizations,
       eq(tenantOnboardingSessions.organizationId, organizations.id),
     )
+    .leftJoin(tenants, eq(tenantOnboardingSessions.tenantId, tenants.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(
       and(
         eq(tenantOnboardingSessions.id, input.onboardingSessionId),
@@ -544,9 +626,41 @@ export async function completeSlackOnboardingAndProvision(input: {
   });
 
   if (authorizedSession.tenantId) {
+    const tenantId = authorizedSession.tenantId;
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tenantOnboardingSessions)
+        .set({
+          slackBotTokenCiphertext: encryptControlPlaneSecret(input.botToken),
+          slackBotUserId: input.slackBotUserId,
+          slackConnectedAt: now,
+          slackInstalledAt: now,
+          slackOauthError: null,
+          slackOauthErrorAt: null,
+          slackScopeCsv: input.scopeCsv,
+          slackTeamId: input.slackTeamId,
+          slackTeamName: input.slackTeamName,
+          updatedAt: now,
+        })
+        .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+      await upsertSlackIntegrationForTenant(tx, {
+        botToken: input.botToken,
+        installerUserId: input.installerUserId,
+        now,
+        scopeCsv: input.scopeCsv,
+        slackBotUserId: input.slackBotUserId,
+        slackTeamId: input.slackTeamId,
+        slackTeamName: input.slackTeamName,
+        tenantId,
+      });
+    });
+
     return {
       organizationSlug: authorizedSession.organizationSlug,
-      tenantId: authorizedSession.tenantId,
+      tenantId,
     };
   }
 
@@ -564,6 +678,8 @@ export async function completeSlackOnboardingAndProvision(input: {
         slackBotUserId: input.slackBotUserId,
         slackConnectedAt: now,
         slackInstalledAt: now,
+        slackOauthError: null,
+        slackOauthErrorAt: null,
         slackScopeCsv: input.scopeCsv,
         slackTeamId: input.slackTeamId,
         slackTeamName: input.slackTeamName,
@@ -583,6 +699,17 @@ export async function completeSlackOnboardingAndProvision(input: {
       .returning({
         id: tenants.id,
       });
+
+    await upsertSlackIntegrationForTenant(tx, {
+      botToken: input.botToken,
+      installerUserId: input.installerUserId,
+      now,
+      scopeCsv: input.scopeCsv,
+      slackBotUserId: input.slackBotUserId,
+      slackTeamId: input.slackTeamId,
+      slackTeamName: input.slackTeamName,
+      tenantId: tenant.id,
+    });
 
     await tx.insert(tenantServers).values({
       tenantId: tenant.id,
@@ -633,8 +760,64 @@ export async function completeSlackOnboardingAndProvision(input: {
   };
 }
 
+export async function recordSlackOauthFailure(input: {
+  error: string;
+  onboardingSessionId: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const authorizedSession = await getOnboardingDraftForUser({
+    onboardingSessionId: input.onboardingSessionId,
+    userExternalId: input.userExternalId,
+  });
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        slackOauthError: input.error,
+        slackOauthErrorAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    if (!authorizedSession.tenantId) {
+      return;
+    }
+
+    await recordSlackIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedSession.tenantId,
+    });
+  });
+}
+
 export async function getTenantSlackBotToken(tenantId: string) {
   const db = getDb();
+  const [integrationSecret] = await db
+    .select({
+      ciphertext: integrationSecrets.ciphertext,
+    })
+    .from(integrationSecrets)
+    .innerJoin(
+      tenantIntegrations,
+      eq(integrationSecrets.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationSecrets.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
+      ),
+    )
+    .limit(1);
+
+  if (integrationSecret?.ciphertext) {
+    return decryptControlPlaneSecret(integrationSecret.ciphertext);
+  }
+
   const [row] = await db
     .select({
       slackBotTokenCiphertext: tenantOnboardingSessions.slackBotTokenCiphertext,
@@ -649,6 +832,173 @@ export async function getTenantSlackBotToken(tenantId: string) {
   }
 
   return decryptControlPlaneSecret(row.slackBotTokenCiphertext);
+}
+
+async function upsertSlackIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    botToken: string;
+    installerUserId: string | null;
+    now: Date;
+    scopeCsv: string;
+    slackBotUserId: string | null;
+    slackTeamId: string;
+    slackTeamName: string | null;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: SLACK_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  const [existingInstallation] = await tx
+    .select({
+      id: slackInstallations.id,
+    })
+    .from(slackInstallations)
+    .where(eq(slackInstallations.tenantIntegrationId, tenantIntegrationId))
+    .limit(1);
+
+  if (existingInstallation) {
+    await tx
+      .update(slackInstallations)
+      .set({
+        installerUserId: input.installerUserId,
+        installedAt: input.now,
+        scopeCsv: input.scopeCsv,
+        slackBotUserId: input.slackBotUserId,
+        slackTeamId: input.slackTeamId,
+        slackTeamName: input.slackTeamName,
+        updatedAt: input.now,
+      })
+      .where(eq(slackInstallations.id, existingInstallation.id));
+  } else {
+    await tx.insert(slackInstallations).values({
+      installedAt: input.now,
+      installerUserId: input.installerUserId,
+      scopeCsv: input.scopeCsv,
+      slackBotUserId: input.slackBotUserId,
+      slackTeamId: input.slackTeamId,
+      slackTeamName: input.slackTeamName,
+      tenantIntegrationId,
+    });
+  }
+
+  const [existingSecret] = await tx
+    .select({
+      id: integrationSecrets.id,
+    })
+    .from(integrationSecrets)
+    .where(
+      and(
+        eq(integrationSecrets.tenantIntegrationId, tenantIntegrationId),
+        eq(integrationSecrets.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
+      ),
+    )
+    .limit(1);
+
+  if (existingSecret) {
+    await tx
+      .update(integrationSecrets)
+      .set({
+        ciphertext: encryptControlPlaneSecret(input.botToken),
+        rotatedAt: input.now,
+      })
+      .where(eq(integrationSecrets.id, existingSecret.id));
+    return;
+  }
+
+  await tx.insert(integrationSecrets).values({
+    ciphertext: encryptControlPlaneSecret(input.botToken),
+    secretType: SLACK_BOT_TOKEN_SECRET_TYPE,
+    tenantIntegrationId,
+  });
+}
+
+async function recordSlackIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: SLACK_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
 }
 
 function deriveTenantName(name: string) {

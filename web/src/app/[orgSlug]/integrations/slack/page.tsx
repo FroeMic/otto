@@ -16,8 +16,10 @@ import {
   getCurrentOnboardingSession,
   getPrimaryAgent,
   getRuntimeStatusLabel,
+  getSlackErrorMessage,
   getSlackStatusLabel,
   isOrganizationUnlocked,
+  isSlackConnected,
 } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +45,19 @@ export default async function SlackIntegrationPage({
   const session = getCurrentOnboardingSession(organization);
   const agent = getPrimaryAgent(organization);
   const sessionId = session?.id ?? null;
-  const slackIsConnected = Boolean(session?.slackConnectedAt);
+  const slackIsConnected = isSlackConnected(organization);
+  const persistedSlackError = getSlackErrorMessage(organization);
+  const effectiveSlackError = slackError ?? persistedSlackError;
+  const connectedAt =
+    organization.slackIntegration?.connectedAt ?? session?.slackConnectedAt;
+  const slackTeamName =
+    organization.slackIntegration?.teamName ?? session?.slackTeamName;
   const ottoIsReady = isOrganizationUnlocked(organization);
+  const canRetrySlackDuringSetup =
+    hasSlackOAuthConfig() &&
+    Boolean(sessionId) &&
+    (!slackIsConnected || Boolean(effectiveSlackError)) &&
+    !ottoIsReady;
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,10 +78,10 @@ export default async function SlackIntegrationPage({
         </Card>
       ) : null}
 
-      {slackError ? (
+      {effectiveSlackError ? (
         <Card>
           <CardContent className="pt-6 text-sm">
-            Slack could not be connected. {slackError}
+            Slack could not be connected. {effectiveSlackError}
           </CardContent>
         </Card>
       ) : null}
@@ -82,8 +95,8 @@ export default async function SlackIntegrationPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {session?.slackConnectedAt
-              ? `Connected${session.slackTeamName ? ` to ${session.slackTeamName}` : ""} on ${session.slackConnectedAt.toLocaleString()}.`
+            {connectedAt
+              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
               : "Slack is not connected yet."}
           </CardContent>
         </Card>
@@ -104,23 +117,24 @@ export default async function SlackIntegrationPage({
           <CardHeader>
             <CardTitle>Next action</CardTitle>
             <CardDescription>
-              {!slackIsConnected
-                ? "Connect Slack so your team can start using Otto there."
-                : !ottoIsReady
-                  ? "Finish the last setup steps to unlock Otto."
-                  : "Everything is connected. Open Otto and start using it."}
+              {effectiveSlackError && !ottoIsReady
+                ? "Retry Slack so Otto can finish setup."
+                : !slackIsConnected
+                  ? "Connect Slack so your team can start using Otto there."
+                  : !ottoIsReady
+                    ? "Finish the last setup steps to unlock Otto."
+                    : "Everything is connected. Open Otto and start using it."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {hasSlackOAuthConfig() &&
-            session &&
-            !slackIsConnected &&
-            sessionId ? (
+            {canRetrySlackDuringSetup && sessionId ? (
               <a
                 className={buttonVariants({ variant: "default" })}
                 href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
               >
-                Add to Slack
+                {effectiveSlackError
+                  ? "Retry Slack connection"
+                  : "Add to Slack"}
               </a>
             ) : null}
             {slackIsConnected && !ottoIsReady ? (

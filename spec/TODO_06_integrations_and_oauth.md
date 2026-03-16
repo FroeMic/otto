@@ -388,9 +388,9 @@ Deliverables:
 
 - [ ] decide public distribution vs Marketplace timing
 - [ ] write Slack app manifest template and scope list
-- [ ] define integration and secret schema
-- [ ] implement OAuth entry and callback routes
-- [ ] encrypt stored Slack secrets
+- [x] define integration and secret schema
+- [x] implement OAuth entry and callback routes
+- [x] encrypt stored Slack secrets
 - [ ] implement shared Slack ingress router
 - [ ] render Slack runtime config into desired state
 - [ ] trigger apply after connect or token change

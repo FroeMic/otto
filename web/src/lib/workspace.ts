@@ -16,8 +16,18 @@ export function getCurrentOnboardingSession(
 
 export function isSlackConnected(organization: DashboardOrganization) {
   return Boolean(
-    organization.latestOnboardingSession?.slackConnectedAt ||
+    organization.slackIntegration?.connectedAt ||
+      organization.latestOnboardingSession?.slackConnectedAt ||
       organization.onboardingDraft?.slackConnectedAt,
+  );
+}
+
+export function getSlackErrorMessage(organization: DashboardOrganization) {
+  return (
+    organization.slackIntegration?.lastError ||
+    organization.onboardingDraft?.slackOauthError ||
+    organization.latestOnboardingSession?.slackOauthError ||
+    null
   );
 }
 
@@ -48,7 +58,11 @@ export function getSlackStatusLabel(organization: DashboardOrganization) {
     return "Connected";
   }
 
-  if (organization.onboardingDraft) {
+  if (getSlackErrorMessage(organization)) {
+    return "Needs attention";
+  }
+
+  if (organization.onboardingDraft || organization.latestOnboardingSession) {
     return "Pending";
   }
 

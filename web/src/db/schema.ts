@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -101,6 +102,10 @@ export const tenantOnboardingSessions = pgTable(
     slackScopeCsv: text("slack_scope_csv"),
     slackTeamId: varchar("slack_team_id", { length: 255 }),
     slackTeamName: text("slack_team_name"),
+    slackOauthError: text("slack_oauth_error"),
+    slackOauthErrorAt: timestamp("slack_oauth_error_at", {
+      withTimezone: true,
+    }),
     slackConnectedAt: timestamp("slack_connected_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -119,6 +124,90 @@ export const tenantOnboardingSessions = pgTable(
     ),
     userIdx: index("tenant_onboarding_sessions_user_id_idx").on(table.userId),
     statusIdx: index("tenant_onboarding_sessions_status_idx").on(table.status),
+  }),
+);
+
+export const tenantIntegrations = pgTable(
+  "tenant_integrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    providerStatusIdx: index("tenant_integrations_provider_status_idx").on(
+      table.providerKey,
+      table.status,
+    ),
+    tenantIdx: index("tenant_integrations_tenant_id_idx").on(table.tenantId),
+    tenantProviderUniqueIdx: uniqueIndex(
+      "tenant_integrations_tenant_id_provider_key_idx",
+    ).on(table.tenantId, table.providerKey),
+  }),
+);
+
+export const slackInstallations = pgTable(
+  "slack_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    slackTeamId: varchar("slack_team_id", { length: 255 }).notNull(),
+    slackTeamName: text("slack_team_name"),
+    slackBotUserId: varchar("slack_bot_user_id", { length: 255 }),
+    installerUserId: varchar("installer_user_id", { length: 255 }),
+    scopeCsv: text("scope_csv"),
+    installedAt: timestamp("installed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "slack_installations_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
+export const integrationSecrets = pgTable(
+  "integration_secrets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    secretType: varchar("secret_type", { length: 64 }).notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    keyVersion: integer("key_version").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+  },
+  (table) => ({
+    tenantIntegrationIdx: index(
+      "integration_secrets_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+    tenantIntegrationSecretTypeUniqueIdx: uniqueIndex(
+      "integration_secrets_tenant_integration_id_secret_type_idx",
+    ).on(table.tenantIntegrationId, table.secretType),
   }),
 );
 
