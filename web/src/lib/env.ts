@@ -27,7 +27,7 @@ const envSchema = z.object({
   SLACK_BOT_SCOPES: z
     .string()
     .default(
-      "app_mentions:read,channels:history,chat:write,groups:history,im:history,im:write,mpim:history",
+      "app_mentions:read,channels:history,channels:read,chat:write,groups:history,groups:read,im:history,im:write,mpim:history,users:read",
     ),
   SLACK_CLIENT_ID: z.string().optional(),
   SLACK_CLIENT_SECRET: z.string().optional(),

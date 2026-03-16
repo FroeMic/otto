@@ -33,6 +33,7 @@ docker compose up -d
    - to preconfigure the default OpenAI model, set `RUNTIME_OPENAI_API_KEY` and optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`
+   - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so Otto can cache workspace members and channels
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, Otto falls back to `WORKOS_COOKIE_PASSWORD`

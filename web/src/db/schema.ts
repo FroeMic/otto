@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -208,6 +209,106 @@ export const integrationSecrets = pgTable(
     tenantIntegrationSecretTypeUniqueIdx: uniqueIndex(
       "integration_secrets_tenant_integration_id_secret_type_idx",
     ).on(table.tenantIntegrationId, table.secretType),
+  }),
+);
+
+export const messagingWorkspaces = pgTable(
+  "messaging_workspaces",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    externalWorkspaceId: varchar("external_workspace_id", {
+      length: 255,
+    }).notNull(),
+    displayName: text("display_name"),
+    syncStatus: varchar("sync_status", { length: 64 }).notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
+    lastSyncErrorAt: timestamp("last_sync_error_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "messaging_workspaces_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+    workspaceExternalIdUniqueIdx: uniqueIndex(
+      "messaging_workspaces_tenant_integration_id_external_workspace_id_idx",
+    ).on(table.tenantIntegrationId, table.externalWorkspaceId),
+  }),
+);
+
+export const messagingWorkspaceMembers = pgTable(
+  "messaging_workspace_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    messagingWorkspaceId: uuid("messaging_workspace_id")
+      .references(() => messagingWorkspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    externalMemberId: varchar("external_member_id", { length: 255 }).notNull(),
+    username: varchar("username", { length: 255 }),
+    displayName: text("display_name"),
+    fullName: text("full_name"),
+    email: varchar("email", { length: 320 }),
+    avatarUrl: text("avatar_url"),
+    memberType: varchar("member_type", { length: 64 }).notNull(),
+    isDeleted: boolean("is_deleted").default(false).notNull(),
+    profileJson: jsonb("profile_json"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    workspaceMemberIdx: index(
+      "messaging_workspace_members_workspace_id_idx",
+    ).on(table.messagingWorkspaceId),
+    workspaceMemberUniqueIdx: uniqueIndex(
+      "messaging_workspace_members_workspace_id_external_member_id_idx",
+    ).on(table.messagingWorkspaceId, table.externalMemberId),
+  }),
+);
+
+export const messagingConversations = pgTable(
+  "messaging_conversations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    messagingWorkspaceId: uuid("messaging_workspace_id")
+      .references(() => messagingWorkspaces.id, { onDelete: "cascade" })
+      .notNull(),
+    externalConversationId: varchar("external_conversation_id", {
+      length: 255,
+    }).notNull(),
+    name: text("name"),
+    conversationType: varchar("conversation_type", { length: 64 }).notNull(),
+    topic: text("topic"),
+    purpose: text("purpose"),
+    isArchived: boolean("is_archived").default(false).notNull(),
+    metadataJson: jsonb("metadata_json"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    workspaceConversationIdx: index(
+      "messaging_conversations_workspace_id_idx",
+    ).on(table.messagingWorkspaceId),
+    workspaceConversationUniqueIdx: uniqueIndex(
+      "messaging_conversations_workspace_id_external_conversation_id_idx",
+    ).on(table.messagingWorkspaceId, table.externalConversationId),
   }),
 );
 

@@ -33,6 +33,7 @@
 - The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
 - Slack control-plane state is now more durable:
   - `tenant_integrations`, `slack_installations`, and `integration_secrets` now persist the canonical Slack installation state
+  - generic `messaging_workspaces`, `messaging_workspace_members`, and `messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
   - Slack OAuth failures are now recorded on the onboarding session and surfaced back in the onboarding and Slack integration pages
   - reconnect / retry is now supported while an organization is still in setup
   - reconnect after the runtime is already ready is still deferred until `TODO_05_config_apply_and_reconciliation.md` can project the updated token onto an existing tenant

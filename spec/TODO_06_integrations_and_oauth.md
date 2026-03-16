@@ -205,6 +205,32 @@ Recommended tables:
   - `key_version`
   - `created_at`
   - `rotated_at`
+- `messaging_workspaces`
+  - `id`
+  - `tenant_integration_id`
+  - `external_workspace_id`
+  - `display_name`
+  - `sync_status`
+  - `last_synced_at`
+  - `last_sync_error`
+- `messaging_workspace_members`
+  - `id`
+  - `messaging_workspace_id`
+  - `external_member_id`
+  - `display_name`
+  - `member_type`
+  - `is_deleted`
+  - `profile_json`
+  - `last_synced_at`
+- `messaging_conversations`
+  - `id`
+  - `messaging_workspace_id`
+  - `external_conversation_id`
+  - `name`
+  - `conversation_type`
+  - `is_archived`
+  - `metadata_json`
+  - `last_synced_at`
 
 Secret types for Slack:
 

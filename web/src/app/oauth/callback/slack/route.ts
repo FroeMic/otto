@@ -3,10 +3,15 @@ import { NextResponse } from "next/server";
 
 import {
   completeSlackOnboardingAndProvision,
+  recordMessagingWorkspaceSyncFailure,
   recordSlackOauthFailure,
+  syncMessagingDirectoryForTenantIntegration,
 } from "@/db/control-plane";
 import { verifyOAuthState } from "@/lib/crypto";
-import { exchangeSlackCodeForBotToken } from "@/lib/slack";
+import {
+  exchangeSlackCodeForBotToken,
+  fetchSlackMessagingDirectory,
+} from "@/lib/slack";
 
 type SlackOAuthState = {
   onboardingSessionId: string;
@@ -83,6 +88,27 @@ export async function GET(request: Request) {
       slackTeamName: installation.teamName,
       userExternalId: user.id,
     });
+
+    try {
+      const directory = await fetchSlackMessagingDirectory(
+        installation.botToken,
+      );
+
+      await syncMessagingDirectoryForTenantIntegration({
+        conversations: directory.conversations,
+        externalWorkspaceId: installation.teamId,
+        members: directory.members,
+        tenantIntegrationId: result.tenantIntegrationId,
+        workspaceDisplayName: installation.teamName,
+      });
+    } catch (directoryError) {
+      await recordMessagingWorkspaceSyncFailure({
+        error: getErrorMessage(directoryError),
+        externalWorkspaceId: installation.teamId,
+        tenantIntegrationId: result.tenantIntegrationId,
+        workspaceDisplayName: installation.teamName,
+      });
+    }
 
     return NextResponse.redirect(
       new URL(

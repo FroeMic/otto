@@ -7,6 +7,9 @@ import {
   jobEvents,
   jobRuns,
   memberships,
+  messagingConversations,
+  messagingWorkspaceMembers,
+  messagingWorkspaces,
   organizations,
   slackInstallations,
   tenantDesiredStates,
@@ -44,6 +47,28 @@ type SlackIntegrationSummary = {
   lastErrorAt: Date | null;
   status: string;
   teamName: string | null;
+};
+
+type MessagingDirectoryMemberInput = {
+  avatarUrl: string | null;
+  displayName: string | null;
+  email: string | null;
+  externalMemberId: string;
+  fullName: string | null;
+  isDeleted: boolean;
+  memberType: string;
+  profileJson: unknown;
+  username: string | null;
+};
+
+type MessagingConversationInput = {
+  conversationType: string;
+  externalConversationId: string;
+  isArchived: boolean;
+  metadataJson: unknown;
+  name: string | null;
+  purpose: string | null;
+  topic: string | null;
 };
 
 type DbTransaction = Parameters<
@@ -628,6 +653,7 @@ export async function completeSlackOnboardingAndProvision(input: {
   if (authorizedSession.tenantId) {
     const tenantId = authorizedSession.tenantId;
     const now = new Date();
+    let tenantIntegrationId = "";
 
     await db.transaction(async (tx) => {
       await tx
@@ -646,7 +672,7 @@ export async function completeSlackOnboardingAndProvision(input: {
         })
         .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
 
-      await upsertSlackIntegrationForTenant(tx, {
+      tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
         botToken: input.botToken,
         installerUserId: input.installerUserId,
         now,
@@ -660,6 +686,7 @@ export async function completeSlackOnboardingAndProvision(input: {
 
     return {
       organizationSlug: authorizedSession.organizationSlug,
+      tenantIntegrationId,
       tenantId,
     };
   }
@@ -700,7 +727,7 @@ export async function completeSlackOnboardingAndProvision(input: {
         id: tenants.id,
       });
 
-    await upsertSlackIntegrationForTenant(tx, {
+    const tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
       botToken: input.botToken,
       installerUserId: input.installerUserId,
       now,
@@ -743,7 +770,10 @@ export async function completeSlackOnboardingAndProvision(input: {
       })
       .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
 
-    return tenant;
+    return {
+      id: tenant.id,
+      tenantIntegrationId,
+    };
   });
 
   await enqueueJob({
@@ -757,6 +787,7 @@ export async function completeSlackOnboardingAndProvision(input: {
   return {
     organizationSlug: authorizedSession.organizationSlug,
     tenantId: createdTenant.id,
+    tenantIntegrationId: createdTenant.tenantIntegrationId,
   };
 }
 
@@ -791,6 +822,142 @@ export async function recordSlackOauthFailure(input: {
       now,
       tenantId: authorizedSession.tenantId,
     });
+  });
+}
+
+export async function syncMessagingDirectoryForTenantIntegration(input: {
+  conversations: MessagingConversationInput[];
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  members: MessagingDirectoryMemberInput[];
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const member of input.members) {
+      if (!member.externalMemberId) {
+        continue;
+      }
+
+      await tx
+        .insert(messagingWorkspaceMembers)
+        .values({
+          avatarUrl: member.avatarUrl,
+          displayName: member.displayName,
+          email: member.email,
+          externalMemberId: member.externalMemberId,
+          fullName: member.fullName,
+          isDeleted: member.isDeleted,
+          lastSyncedAt: now,
+          memberType: member.memberType,
+          messagingWorkspaceId,
+          profileJson: normalizeJsonValue(member.profileJson),
+          username: member.username,
+        })
+        .onConflictDoUpdate({
+          target: [
+            messagingWorkspaceMembers.messagingWorkspaceId,
+            messagingWorkspaceMembers.externalMemberId,
+          ],
+          set: {
+            avatarUrl: member.avatarUrl,
+            displayName: member.displayName,
+            email: member.email,
+            fullName: member.fullName,
+            isDeleted: member.isDeleted,
+            lastSyncedAt: now,
+            memberType: member.memberType,
+            profileJson: normalizeJsonValue(member.profileJson),
+            updatedAt: now,
+            username: member.username,
+          },
+        });
+    }
+
+    for (const conversation of input.conversations) {
+      if (!conversation.externalConversationId) {
+        continue;
+      }
+
+      await tx
+        .insert(messagingConversations)
+        .values({
+          conversationType: conversation.conversationType,
+          externalConversationId: conversation.externalConversationId,
+          isArchived: conversation.isArchived,
+          lastSyncedAt: now,
+          messagingWorkspaceId,
+          metadataJson: normalizeJsonValue(conversation.metadataJson),
+          name: conversation.name,
+          purpose: conversation.purpose,
+          topic: conversation.topic,
+        })
+        .onConflictDoUpdate({
+          target: [
+            messagingConversations.messagingWorkspaceId,
+            messagingConversations.externalConversationId,
+          ],
+          set: {
+            conversationType: conversation.conversationType,
+            isArchived: conversation.isArchived,
+            lastSyncedAt: now,
+            metadataJson: normalizeJsonValue(conversation.metadataJson),
+            name: conversation.name,
+            purpose: conversation.purpose,
+            topic: conversation.topic,
+            updatedAt: now,
+          },
+        });
+    }
+
+    await tx
+      .update(messagingWorkspaces)
+      .set({
+        lastSyncError: null,
+        lastSyncErrorAt: null,
+        lastSyncedAt: now,
+        syncStatus: "succeeded",
+        updatedAt: now,
+      })
+      .where(eq(messagingWorkspaces.id, messagingWorkspaceId));
+  });
+}
+
+export async function recordMessagingWorkspaceSyncFailure(input: {
+  error: string;
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    await tx
+      .update(messagingWorkspaces)
+      .set({
+        lastSyncError: input.error,
+        lastSyncErrorAt: now,
+        syncStatus: "failed",
+        updatedAt: now,
+      })
+      .where(eq(messagingWorkspaces.id, messagingWorkspaceId));
   });
 }
 
@@ -832,6 +999,53 @@ export async function getTenantSlackBotToken(tenantId: string) {
   }
 
   return decryptControlPlaneSecret(row.slackBotTokenCiphertext);
+}
+
+async function upsertMessagingWorkspace(
+  tx: DbTransaction,
+  input: {
+    externalWorkspaceId: string;
+    now: Date;
+    tenantIntegrationId: string;
+    workspaceDisplayName: string | null;
+  },
+) {
+  const [existingWorkspace] = await tx
+    .select({
+      id: messagingWorkspaces.id,
+    })
+    .from(messagingWorkspaces)
+    .where(
+      eq(messagingWorkspaces.tenantIntegrationId, input.tenantIntegrationId),
+    )
+    .limit(1);
+
+  if (existingWorkspace) {
+    await tx
+      .update(messagingWorkspaces)
+      .set({
+        displayName: input.workspaceDisplayName,
+        externalWorkspaceId: input.externalWorkspaceId,
+        updatedAt: input.now,
+      })
+      .where(eq(messagingWorkspaces.id, existingWorkspace.id));
+
+    return existingWorkspace.id;
+  }
+
+  const [workspace] = await tx
+    .insert(messagingWorkspaces)
+    .values({
+      displayName: input.workspaceDisplayName,
+      externalWorkspaceId: input.externalWorkspaceId,
+      syncStatus: "pending",
+      tenantIntegrationId: input.tenantIntegrationId,
+    })
+    .returning({
+      id: messagingWorkspaces.id,
+    });
+
+  return workspace.id;
 }
 
 async function upsertSlackIntegrationForTenant(
@@ -944,7 +1158,7 @@ async function upsertSlackIntegrationForTenant(
         rotatedAt: input.now,
       })
       .where(eq(integrationSecrets.id, existingSecret.id));
-    return;
+    return tenantIntegrationId;
   }
 
   await tx.insert(integrationSecrets).values({
@@ -952,6 +1166,8 @@ async function upsertSlackIntegrationForTenant(
     secretType: SLACK_BOT_TOKEN_SECRET_TYPE,
     tenantIntegrationId,
   });
+
+  return tenantIntegrationId;
 }
 
 async function recordSlackIntegrationError(
@@ -999,6 +1215,14 @@ async function recordSlackIntegrationError(
       updatedAt: input.now,
     })
     .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+function normalizeJsonValue(value: unknown) {
+  if (value === undefined) {
+    return null;
+  }
+
+  return value;
 }
 
 function deriveTenantName(name: string) {
