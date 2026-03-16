@@ -125,13 +125,13 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
 
 ## Status checklist
 
-- [ ] define desired-state tables
-- [ ] implement config renderers
+- [x] define desired-state tables
+- [x] implement config renderers
 - [x] implement SSH client wrapper
 - [x] implement atomic remote file writes over SFTP
-- [ ] define runtime apply step states
+- [x] define runtime apply step states
 - [x] implement runtime wrapper
-- [ ] record apply runs and logs
+- [x] record apply runs and logs
 
 ## Open questions
 

@@ -418,8 +418,8 @@ Deliverables:
 - [x] implement OAuth entry and callback routes
 - [x] encrypt stored Slack secrets
 - [ ] implement shared Slack ingress router
-- [ ] render Slack runtime config into desired state
-- [ ] trigger apply after connect or token change
+- [x] render Slack runtime config into desired state
+- [x] trigger apply after connect or token change
 - [ ] add reconnect and disconnect flows
 - [ ] decide whether token rotation is enabled in v1
 

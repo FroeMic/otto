@@ -43,7 +43,13 @@
   - generic `messaging_workspaces`, `messaging_workspace_members`, and `messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
   - Slack OAuth failures are now recorded on the onboarding session and surfaced back in the onboarding and Slack integration pages
   - reconnect / retry is now supported while an organization is still in setup
-  - reconnect after the runtime is already ready is still deferred until `TODO_05_config_apply_and_reconciliation.md` can project the updated token onto an existing tenant
+  - reconnect after the tenant runtime is already ready is now supported through desired-state versioning plus `apply_tenant_config`
+- The config-apply slice is now implemented:
+  - `tenant_desired_states` versions are now unique per tenant and Slack reconnects create new desired-state versions instead of mutating prior state
+  - `tenant_runtime_secrets` now persist runtime-only secrets such as the OpenClaw gateway token under control-plane encryption
+  - `tenant_apply_runs` now record queued, running, succeeded, and failed apply attempts per desired-state version
+  - the worker now handles `apply_tenant_config` by writing runtime files atomically, restarting the tenant runtime, and verifying health
+  - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -73,14 +79,15 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_05_config_apply_and_reconciliation.md` and `TODO_06_integrations_and_oauth.md` by:
-  - implementing `apply_tenant_config` so Slack token changes can be pushed onto already-provisioned tenants
-  - versioning and re-rendering desired state after Slack connect or reconnect
-  - deciding whether reconnect after runtime launch should block on a successful apply before the UI reports success
+- Continue `TODO_06_integrations_and_oauth.md` by:
+  - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
+  - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
+  - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available
   - implementing the prefixed ID strategy or explicitly deferring it
+  - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
 
 ## Open questions
 

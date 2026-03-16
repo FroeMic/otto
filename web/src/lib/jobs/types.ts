@@ -30,11 +30,13 @@ export type ProvisioningStep =
   (typeof PROVISIONING_STEPS)[keyof typeof PROVISIONING_STEPS];
 
 export const APPLY_STEPS = {
-  compileDesiredState: "compile_desired_state",
-  uploadRuntimeFiles: "upload_runtime_files",
-  restartRuntime: "restart_runtime",
-  verifyRuntime: "verify_runtime",
-  markApplyComplete: "mark_apply_complete",
+  loadingDesiredState: "loading_desired_state",
+  renderingFiles: "rendering_files",
+  writingFiles: "writing_files",
+  restartingRuntime: "restarting_runtime",
+  verifyingRuntime: "verifying_runtime",
+  succeeded: "succeeded",
+  failed: "failed",
 } as const;
 
 export type ApplyStep = (typeof APPLY_STEPS)[keyof typeof APPLY_STEPS];

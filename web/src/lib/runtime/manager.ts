@@ -12,6 +12,13 @@ export type RuntimeFile = {
   mode?: number;
 };
 
+export type ApplyTenantConfigResult = {
+  restartStderr: string;
+  restartStdout: string;
+  verifyStderr: string;
+  verifyStdout: string;
+};
+
 const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
 const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
 
@@ -41,6 +48,86 @@ export class RuntimeManager {
       slackBotToken?: string | null;
     },
   ): Promise<void> {
+    await this.ensureRuntimeDirectories(connection);
+    await this.writeTenantConfigFiles(connection, {
+      desiredStateVersion: input.desiredStateVersion,
+      gatewayToken: input.gatewayToken,
+      metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
+      metadataTimestampKey: "bootstrappedAt",
+      openClawConfig: input.openClawConfig,
+      slackBotToken: input.slackBotToken,
+      tenantId: input.tenantId,
+    });
+    await this.verifyTenantConfigFiles(
+      connection,
+      "/opt/openclaw/runtime/bootstrap-metadata.json",
+    );
+  }
+
+  async restartGateway(connection: SshConnection): Promise<void> {
+    await this.restartGatewayWithResult(connection);
+  }
+
+  async applyTenantConfig(
+    connection: SshConnection,
+    input: {
+      desiredStateVersion: number;
+      gatewayToken: string;
+      openClawConfig: OpenClawTenantConfig;
+      slackBotToken?: string | null;
+      tenantId: string;
+    },
+  ): Promise<ApplyTenantConfigResult> {
+    await this.ensureRuntimeDirectories(connection);
+    await this.writeTenantConfigFiles(connection, {
+      desiredStateVersion: input.desiredStateVersion,
+      gatewayToken: input.gatewayToken,
+      metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      metadataTimestampKey: "appliedAt",
+      openClawConfig: input.openClawConfig,
+      slackBotToken: input.slackBotToken,
+      tenantId: input.tenantId,
+    });
+    await this.verifyTenantConfigFiles(
+      connection,
+      "/opt/openclaw/runtime/apply-metadata.json",
+    );
+
+    const restart = await this.restartGatewayWithResult(connection);
+    const verify = await this.checkGatewayHealthWithResult(connection);
+
+    return {
+      restartStderr: restart.stderr,
+      restartStdout: restart.stdout,
+      verifyStderr: verify.stderr,
+      verifyStdout: verify.stdout,
+    };
+  }
+
+  async readRuntimeEnvValue(
+    connection: SshConnection,
+    envVarName: string,
+  ): Promise<string | null> {
+    const result = await this.sshClient.exec(
+      connection,
+      buildShellCommand([
+        `test -f /opt/openclaw/home/.env`,
+        `source /opt/openclaw/home/.env >/dev/null 2>&1`,
+        `printf '%s' "\${${envVarName}:-}"`,
+      ]),
+      { timeoutMs: 15_000 },
+    );
+
+    if (result.exitCode !== 0) {
+      return null;
+    }
+
+    const value = result.stdout.trim();
+
+    return value.length > 0 ? value : null;
+  }
+
+  async ensureRuntimeDirectories(connection: SshConnection) {
     await this.execChecked(
       connection,
       buildShellCommand([
@@ -48,51 +135,53 @@ export class RuntimeManager {
         "mkdir -p /opt/openclaw/runtime",
       ]),
     );
+  }
 
-    await this.applyTenantFiles(connection, [
-      {
-        path: "/opt/openclaw/home/openclaw.json",
-        contents: renderOpenClawConfig(input.openClawConfig),
-        mode: 0o640,
-      },
-      {
-        path: "/opt/openclaw/home/.env",
-        contents: buildRuntimeEnvFile({
-          gatewayToken: input.gatewayToken,
-          slackBotToken: input.slackBotToken,
-        }),
-        mode: 0o600,
-      },
-      {
-        path: "/opt/openclaw/runtime/bootstrap-metadata.json",
-        contents: JSON.stringify(
-          {
-            desiredStateVersion: input.desiredStateVersion,
-            bootstrappedAt: new Date().toISOString(),
-            tenantId: input.tenantId,
-          },
-          null,
-          2,
-        ),
-        mode: 0o640,
-      },
-    ]);
+  async writeTenantConfigFiles(
+    connection: SshConnection,
+    input: {
+      desiredStateVersion: number;
+      gatewayToken: string;
+      metadataPath: string;
+      metadataTimestampKey: string;
+      openClawConfig: OpenClawTenantConfig;
+      slackBotToken?: string | null;
+      tenantId: string;
+    },
+  ) {
+    await this.applyTenantFiles(
+      connection,
+      buildTenantRuntimeFiles({
+        desiredStateVersion: input.desiredStateVersion,
+        gatewayToken: input.gatewayToken,
+        metadataPath: input.metadataPath,
+        metadataTimestampKey: input.metadataTimestampKey,
+        openClawConfig: input.openClawConfig,
+        slackBotToken: input.slackBotToken,
+        tenantId: input.tenantId,
+      }),
+    );
+  }
 
+  async verifyTenantConfigFiles(
+    connection: SshConnection,
+    metadataPath: string,
+  ) {
     await this.execChecked(
       connection,
       buildShellCommand([
         "chown -R openclaw:openclaw /opt/openclaw",
         "test -s /opt/openclaw/home/openclaw.json",
         "test -s /opt/openclaw/home/.env",
-        "test -s /opt/openclaw/runtime/bootstrap-metadata.json",
+        `test -s ${shellQuoteForShell(metadataPath)}`,
       ]),
     );
   }
 
-  async restartGateway(connection: SshConnection): Promise<void> {
+  async restartGatewayWithResult(connection: SshConnection) {
     const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
 
-    await this.execChecked(
+    return await this.execChecked(
       connection,
       buildShellCommand([
         `docker pull ${shellQuoteForShell(image)}`,
@@ -125,19 +214,23 @@ export class RuntimeManager {
   }
 
   async checkGatewayHealth(connection: SshConnection): Promise<void> {
+    await this.checkGatewayHealthWithResult(connection);
+  }
+
+  async checkGatewayHealthWithResult(connection: SshConnection) {
     try {
       for (let attempt = 1; attempt <= GATEWAY_HEALTH_MAX_ATTEMPTS; attempt++) {
         const result = await this.sshClient.exec(
           connection,
           buildShellCommand([
             "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-            "curl -fsS http://127.0.0.1:18789/healthz >/dev/null",
+            "curl -fsS http://127.0.0.1:18789/healthz",
           ]),
           { timeoutMs: 30_000 },
         );
 
         if (result.exitCode === 0) {
-          return;
+          return result;
         }
 
         const status = await this.getGatewayStatusSummary(connection);
@@ -174,6 +267,8 @@ export class RuntimeManager {
         `Remote command failed with exit code ${result.exitCode ?? "unknown"}: ${result.stderr || result.stdout || command}`,
       );
     }
+
+    return result;
   }
 
   private async getGatewayDiagnostics(connection: SshConnection) {
@@ -244,6 +339,45 @@ function buildRuntimeEnvFile(input: {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function buildTenantRuntimeFiles(input: {
+  desiredStateVersion: number;
+  gatewayToken: string;
+  metadataPath: string;
+  metadataTimestampKey: string;
+  openClawConfig: OpenClawTenantConfig;
+  slackBotToken?: string | null;
+  tenantId: string;
+}): RuntimeFile[] {
+  return [
+    {
+      path: "/opt/openclaw/home/openclaw.json",
+      contents: renderOpenClawConfig(input.openClawConfig),
+      mode: 0o640,
+    },
+    {
+      path: "/opt/openclaw/home/.env",
+      contents: buildRuntimeEnvFile({
+        gatewayToken: input.gatewayToken,
+        slackBotToken: input.slackBotToken,
+      }),
+      mode: 0o600,
+    },
+    {
+      path: input.metadataPath,
+      contents: JSON.stringify(
+        {
+          desiredStateVersion: input.desiredStateVersion,
+          [input.metadataTimestampKey]: new Date().toISOString(),
+          tenantId: input.tenantId,
+        },
+        null,
+        2,
+      ),
+      mode: 0o640,
+    },
+  ];
 }
 
 function sleep(ms: number) {

@@ -31,19 +31,6 @@ export async function GET(request: Request) {
     userExternalId: user.id,
   });
 
-  if (
-    onboardingSession.tenantId &&
-    onboardingSession.tenantStatus === "ready" &&
-    onboardingSession.serverStatus === "ready"
-  ) {
-    return NextResponse.redirect(
-      new URL(
-        `/${onboardingSession.organizationSlug}/integrations/slack?slack_error=${encodeURIComponent("Slack reconnect after Otto is ready is not available yet.")}`,
-        request.url,
-      ),
-    );
-  }
-
   const state = signOAuthState({
     onboardingSessionId,
     orgSlug: onboardingSession.organizationSlug,
