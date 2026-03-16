@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import type { User } from "@workos-inc/node";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
@@ -12,9 +14,11 @@ import {
   messagingWorkspaces,
   organizations,
   slackInstallations,
+  tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
   tenantOnboardingSessions,
+  tenantRuntimeSecrets,
   tenantServers,
   tenants,
   users,
@@ -29,6 +33,7 @@ import { getWorkOS } from "@/lib/workos";
 
 const SLACK_PROVIDER_KEY = "slack";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
+const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
 
 type OnboardingSessionSummary = {
   createdAt: Date;
@@ -47,6 +52,14 @@ type SlackIntegrationSummary = {
   lastErrorAt: Date | null;
   status: string;
   teamName: string | null;
+};
+
+type TenantApplyRunSummary = {
+  desiredStateVersion: number;
+  error: string | null;
+  finishedAt: Date | null;
+  startedAt: Date | null;
+  status: string;
 };
 
 type MessagingDirectoryMemberInput = {
@@ -103,6 +116,13 @@ export type DashboardOrganization = {
       step: string | null;
     } | null;
     name: string;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
     status: string;
     serverStatus: string | null;
   }>;
@@ -323,6 +343,35 @@ export async function getDashboardOrganizations(
     jobEventsByJobRunId.set(event.jobRunId, existingEvents);
   }
 
+  const latestApplyRunRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+            error: tenantApplyRuns.error,
+            finishedAt: tenantApplyRuns.finishedAt,
+            startedAt: tenantApplyRuns.startedAt,
+            status: tenantApplyRuns.status,
+            tenantId: tenantApplyRuns.tenantId,
+          })
+          .from(tenantApplyRuns)
+          .where(inArray(tenantApplyRuns.tenantId, tenantIds))
+          .orderBy(desc(tenantApplyRuns.createdAt));
+
+  const latestApplyRunsByTenant = new Map<
+    string,
+    (typeof latestApplyRunRows)[number]
+  >();
+
+  for (const applyRun of latestApplyRunRows) {
+    if (latestApplyRunsByTenant.has(applyRun.tenantId)) {
+      continue;
+    }
+
+    latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+  }
+
   return organizationRows.map((organization) => {
     const organizationTenants = tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
@@ -330,6 +379,9 @@ export async function getDashboardOrganizations(
         createdAt: tenant.createdAt,
         id: tenant.id,
         ipv4: tenant.ipv4,
+        latestApplyRun: buildTenantApplyRunSummary(
+          latestApplyRunsByTenant.get(tenant.id) ?? null,
+        ),
         latestJob: buildLatestJobSummary(
           latestJobsByTenant.get(tenant.id) ?? null,
           jobEventsByJobRunId,
@@ -394,6 +446,20 @@ function buildSlackIntegrationSummary(
     lastErrorAt: integration.lastErrorAt,
     status: integration.status,
     teamName: integration.teamName,
+  };
+}
+
+function buildTenantApplyRunSummary(applyRun: TenantApplyRunSummary | null) {
+  if (!applyRun) {
+    return null;
+  }
+
+  return {
+    desiredStateVersion: applyRun.desiredStateVersion,
+    error: applyRun.error,
+    finishedAt: applyRun.finishedAt,
+    startedAt: applyRun.startedAt,
+    status: applyRun.status,
   };
 }
 
@@ -654,6 +720,10 @@ export async function completeSlackOnboardingAndProvision(input: {
     const tenantId = authorizedSession.tenantId;
     const now = new Date();
     let tenantIntegrationId = "";
+    let desiredStateVersion = 0;
+    const shouldEnqueueApply =
+      authorizedSession.tenantStatus === "ready" &&
+      authorizedSession.serverStatus === "ready";
 
     await db.transaction(async (tx) => {
       await tx
@@ -682,10 +752,31 @@ export async function completeSlackOnboardingAndProvision(input: {
         slackTeamName: input.slackTeamName,
         tenantId,
       });
+
+      desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId,
+        })
+      ).version;
+
+      if (shouldEnqueueApply) {
+        await markSlackIntegrationPendingApply(tx, {
+          now,
+          tenantId,
+        });
+      }
     });
+
+    if (shouldEnqueueApply) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion,
+        tenantId,
+      });
+    }
 
     return {
       organizationSlug: authorizedSession.organizationSlug,
+      applyQueued: shouldEnqueueApply,
       tenantIntegrationId,
       tenantId,
     };
@@ -745,19 +836,8 @@ export async function completeSlackOnboardingAndProvision(input: {
       status: "creating",
     });
 
-    await tx.insert(tenantDesiredStates).values({
+    await createNextDesiredStateVersion(tx, {
       tenantId: tenant.id,
-      version: 1,
-      configJson: {
-        integrations: ["slack"],
-        prompts: {},
-        slack: {
-          installerUserId: input.installerUserId,
-          slackBotUserId: input.slackBotUserId,
-          teamId: input.slackTeamId,
-          teamName: input.slackTeamName,
-        },
-      },
     });
 
     await tx
@@ -785,6 +865,7 @@ export async function completeSlackOnboardingAndProvision(input: {
   });
 
   return {
+    applyQueued: false,
     organizationSlug: authorizedSession.organizationSlug,
     tenantId: createdTenant.id,
     tenantIntegrationId: createdTenant.tenantIntegrationId,
@@ -999,6 +1080,154 @@ export async function getTenantSlackBotToken(tenantId: string) {
   }
 
   return decryptControlPlaneSecret(row.slackBotTokenCiphertext);
+}
+
+export async function getLatestTenantDesiredState(tenantId: string) {
+  const db = getDb();
+  const [desiredState] = await db
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  if (!desiredState) {
+    throw new Error(`No desired state found for tenant ${tenantId}`);
+  }
+
+  return desiredState;
+}
+
+export async function getTenantDesiredStateByVersion(input: {
+  tenantId: string;
+  version: number;
+}) {
+  const db = getDb();
+  const [desiredState] = await db
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(
+      and(
+        eq(tenantDesiredStates.tenantId, input.tenantId),
+        eq(tenantDesiredStates.version, input.version),
+      ),
+    )
+    .limit(1);
+
+  if (!desiredState) {
+    throw new Error(
+      `Desired state version ${input.version} not found for tenant ${input.tenantId}`,
+    );
+  }
+
+  return desiredState;
+}
+
+export async function getTenantRuntimeGatewayToken(tenantId: string) {
+  const db = getDb();
+  const [secret] = await db
+    .select({
+      ciphertext: tenantRuntimeSecrets.ciphertext,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, tenantId),
+        eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
+      ),
+    )
+    .limit(1);
+
+  if (!secret?.ciphertext) {
+    return null;
+  }
+
+  return decryptControlPlaneSecret(secret.ciphertext);
+}
+
+export async function ensureTenantRuntimeGatewayToken(tenantId: string) {
+  const existingToken = await getTenantRuntimeGatewayToken(tenantId);
+
+  if (existingToken) {
+    return existingToken;
+  }
+
+  const gatewayToken = buildGatewayToken();
+  await storeTenantRuntimeGatewayToken({
+    gatewayToken,
+    tenantId,
+  });
+
+  return gatewayToken;
+}
+
+export async function storeTenantRuntimeGatewayToken(input: {
+  gatewayToken: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const ciphertext = encryptControlPlaneSecret(input.gatewayToken);
+
+  const [existingSecret] = await db
+    .select({
+      id: tenantRuntimeSecrets.id,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
+        eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
+      ),
+    )
+    .limit(1);
+
+  if (existingSecret) {
+    await db
+      .update(tenantRuntimeSecrets)
+      .set({
+        ciphertext,
+        rotatedAt: now,
+      })
+      .where(eq(tenantRuntimeSecrets.id, existingSecret.id));
+
+    return;
+  }
+
+  await db.insert(tenantRuntimeSecrets).values({
+    ciphertext,
+    secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
+    tenantId: input.tenantId,
+  });
+}
+
+export async function enqueueTenantConfigApply(input: {
+  desiredStateVersion: number;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.applyTenantConfig,
+    payload: {
+      desiredStateVersion: input.desiredStateVersion,
+      tenantId: input.tenantId,
+    },
+  });
+
+  await db.insert(tenantApplyRuns).values({
+    desiredStateVersion: input.desiredStateVersion,
+    jobRunId: jobId,
+    status: "queued",
+    tenantId: input.tenantId,
+  });
+
+  return jobId;
 }
 
 async function upsertMessagingWorkspace(
@@ -1217,6 +1446,114 @@ async function recordSlackIntegrationError(
     .where(eq(tenantIntegrations.id, existingIntegration.id));
 }
 
+async function createNextDesiredStateVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [latestDesiredState] = await tx
+    .select({
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, input.tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+
+  const [createdDesiredState] = await tx
+    .insert(tenantDesiredStates)
+    .values({
+      configJson,
+      tenantId: input.tenantId,
+      version: nextVersion,
+    })
+    .returning({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    });
+
+  return createdDesiredState;
+}
+
+async function compileTenantDesiredStateConfig(
+  tx: DbTransaction,
+  tenantId: string,
+) {
+  const [slackIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      installerUserId: slackInstallations.installerUserId,
+      slackBotUserId: slackInstallations.slackBotUserId,
+      slackTeamId: slackInstallations.slackTeamId,
+      slackTeamName: slackInstallations.slackTeamName,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      slackInstallations,
+      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  const config: Record<string, unknown> = {
+    integrations: [],
+    prompts: {},
+  };
+
+  if (
+    slackIntegration?.connectedAt &&
+    !slackIntegration.disconnectedAt &&
+    slackIntegration.slackTeamId
+  ) {
+    config.integrations = ["slack"];
+    config.slack = {
+      installerUserId: slackIntegration.installerUserId,
+      slackBotUserId: slackIntegration.slackBotUserId,
+      teamId: slackIntegration.slackTeamId,
+      teamName: slackIntegration.slackTeamName,
+    };
+  }
+
+  return config;
+}
+
+async function markSlackIntegrationPendingApply(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: null,
+      lastErrorAt: null,
+      status: "pending_apply",
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    );
+}
+
+function buildGatewayToken() {
+  return randomBytes(24).toString("base64url");
+}
+
 function normalizeJsonValue(value: unknown) {
   if (value === undefined) {
     return null;
@@ -1285,13 +1622,8 @@ export async function createTenantForOrganization(input: {
       status: "creating",
     });
 
-    await tx.insert(tenantDesiredStates).values({
+    await createNextDesiredStateVersion(tx, {
       tenantId: tenant.id,
-      version: 1,
-      configJson: {
-        integrations: [],
-        prompts: {},
-      },
     });
 
     return tenant;

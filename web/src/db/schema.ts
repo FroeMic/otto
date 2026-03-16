@@ -354,6 +354,9 @@ export const tenantDesiredStates = pgTable(
   },
   (table) => ({
     tenantIdx: index("tenant_desired_states_tenant_id_idx").on(table.tenantId),
+    tenantVersionUniqueIdx: uniqueIndex(
+      "tenant_desired_states_tenant_id_version_idx",
+    ).on(table.tenantId, table.version),
   }),
 );
 
@@ -388,6 +391,67 @@ export const jobRuns = pgTable(
       table.availableAt,
     ),
     tenantIdx: index("job_runs_tenant_id_idx").on(table.tenantId),
+  }),
+);
+
+export const tenantRuntimeSecrets = pgTable(
+  "tenant_runtime_secrets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    secretType: varchar("secret_type", { length: 64 }).notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    keyVersion: integer("key_version").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_runtime_secrets_tenant_id_idx").on(table.tenantId),
+    tenantSecretTypeUniqueIdx: uniqueIndex(
+      "tenant_runtime_secrets_tenant_id_secret_type_idx",
+    ).on(table.tenantId, table.secretType),
+  }),
+);
+
+export const tenantApplyRuns = pgTable(
+  "tenant_apply_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    jobRunId: uuid("job_run_id")
+      .references(() => jobRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    desiredStateVersion: integer("desired_state_version").notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    error: text("error"),
+    restartStdout: text("restart_stdout"),
+    restartStderr: text("restart_stderr"),
+    verifyStdout: text("verify_stdout"),
+    verifyStderr: text("verify_stderr"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    jobRunUniqueIdx: uniqueIndex("tenant_apply_runs_job_run_id_idx").on(
+      table.jobRunId,
+    ),
+    tenantIdx: index("tenant_apply_runs_tenant_id_idx").on(table.tenantId),
+    tenantStatusIdx: index("tenant_apply_runs_tenant_id_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
   }),
 );
 

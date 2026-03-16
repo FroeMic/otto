@@ -1,14 +1,17 @@
-import { randomBytes } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
-import { getTenantSlackBotToken } from "@/db/control-plane";
-import { tenantDesiredStates, tenantServers, tenants } from "@/db/schema";
+import {
+  ensureTenantRuntimeGatewayToken,
+  getLatestTenantDesiredState,
+  getTenantSlackBotToken,
+} from "@/db/control-plane";
+import { tenantServers, tenants } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { HetznerClient } from "@/lib/hetzner/client";
 import { renderCloudInit } from "@/lib/hetzner/cloud-init";
 import { FakeHetznerClient } from "@/lib/hetzner/fake";
-import type { OpenClawTenantConfig } from "@/lib/openclaw/config";
+import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
 import { RuntimeManager } from "@/lib/runtime/manager";
 import { SshClient } from "@/lib/ssh/client";
 
@@ -430,7 +433,10 @@ async function bootstrapRuntime(
       },
     );
 
-    const desiredState = await getLatestDesiredState(payload.tenantId);
+    const desiredState = await getLatestTenantDesiredState(payload.tenantId);
+    const gatewayToken = await ensureTenantRuntimeGatewayToken(
+      payload.tenantId,
+    );
     const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
 
     await runtimeManager.bootstrapTenantRuntime(
@@ -441,12 +447,12 @@ async function bootstrapRuntime(
       },
       {
         desiredStateVersion: desiredState.version,
-        gatewayToken: buildGatewayToken(),
-        openClawConfig: buildOpenClawTenantConfig(
-          payload.tenantId,
-          desiredState.configJson,
+        gatewayToken,
+        openClawConfig: buildOpenClawTenantConfig({
+          configJson: desiredState.configJson,
           slackBotToken,
-        ),
+          tenantId: payload.tenantId,
+        }),
         slackBotToken,
         tenantId: payload.tenantId,
       },
@@ -706,82 +712,6 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown provisioning error";
-}
-
-async function getLatestDesiredState(tenantId: string) {
-  const db = getDb();
-  const [desiredState] = await db
-    .select({
-      configJson: tenantDesiredStates.configJson,
-      version: tenantDesiredStates.version,
-    })
-    .from(tenantDesiredStates)
-    .where(eq(tenantDesiredStates.tenantId, tenantId))
-    .orderBy(desc(tenantDesiredStates.version))
-    .limit(1);
-
-  if (!desiredState) {
-    throw new Error(`No desired state found for tenant ${tenantId}`);
-  }
-
-  return desiredState;
-}
-
-function buildOpenClawTenantConfig(
-  tenantId: string,
-  configJson: unknown,
-  slackBotToken?: string | null,
-): OpenClawTenantConfig {
-  const config = parseRecord(configJson);
-  const env = getEnv();
-  const hasSlackTokens =
-    Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(slackBotToken);
-
-  return {
-    authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
-    gatewayPort: 18789,
-    integrations: Array.isArray(config.integrations)
-      ? config.integrations.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [],
-    primaryModel: env.RUNTIME_MODEL_PRIMARY,
-    prompts: parseStringRecord(config.prompts),
-    ...(hasSlackTokens
-      ? {
-          slack: {
-            enabled: true,
-            mode: "socket" as const,
-          },
-        }
-      : {}),
-    tenantId,
-    workspacePath: "/home/node/.openclaw/workspace",
-  };
-}
-
-function parseRecord(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function parseStringRecord(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, string] => {
-      return typeof entry[1] === "string";
-    }),
-  );
-}
-
-function buildGatewayToken() {
-  return randomBytes(24).toString("base64url");
 }
 
 function logStep(

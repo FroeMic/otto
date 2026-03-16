@@ -15,8 +15,9 @@ import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
   getPrimaryAgent,
+  getPrimaryAgentLatestApplyRun,
+  getRuntimeApplyStatusLabel,
   getRuntimeStatusLabel,
-  getSlackErrorMessage,
   getSlackStatusLabel,
   isOrganizationUnlocked,
   isSlackConnected,
@@ -44,10 +45,28 @@ export default async function SlackIntegrationPage({
 
   const session = getCurrentOnboardingSession(organization);
   const agent = getPrimaryAgent(organization);
+  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
   const sessionId = session?.id ?? null;
   const slackIsConnected = isSlackConnected(organization);
-  const persistedSlackError = getSlackErrorMessage(organization);
-  const effectiveSlackError = slackError ?? persistedSlackError;
+  const integrationStatus = organization.slackIntegration?.status ?? null;
+  const onboardingSlackError =
+    organization.onboardingDraft?.slackOauthError ??
+    organization.latestOnboardingSession?.slackOauthError ??
+    null;
+  const connectionError =
+    integrationStatus === "error"
+      ? (organization.slackIntegration?.lastError ?? onboardingSlackError)
+      : onboardingSlackError;
+  const effectiveSlackError = slackError ?? connectionError;
+  const runtimeApplyStatusLabel = getRuntimeApplyStatusLabel(organization);
+  const runtimeApplyError =
+    integrationStatus === "apply_failed"
+      ? (organization.slackIntegration?.lastError ??
+        latestApplyRun?.error ??
+        null)
+      : latestApplyRun?.status === "failed"
+        ? latestApplyRun.error
+        : null;
   const connectedAt =
     organization.slackIntegration?.connectedAt ?? session?.slackConnectedAt;
   const slackTeamName =
@@ -58,6 +77,20 @@ export default async function SlackIntegrationPage({
     Boolean(sessionId) &&
     (!slackIsConnected || Boolean(effectiveSlackError)) &&
     !ottoIsReady;
+  const runtimeApplyIsActive =
+    integrationStatus === "pending_apply" ||
+    integrationStatus === "applying" ||
+    latestApplyRun?.status === "queued" ||
+    latestApplyRun?.status === "loading_desired_state" ||
+    latestApplyRun?.status === "rendering_files" ||
+    latestApplyRun?.status === "writing_files" ||
+    latestApplyRun?.status === "restarting_runtime" ||
+    latestApplyRun?.status === "verifying_runtime";
+  const canReconnectSlack =
+    hasSlackOAuthConfig() &&
+    Boolean(sessionId) &&
+    slackIsConnected &&
+    !runtimeApplyIsActive;
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,7 +103,7 @@ export default async function SlackIntegrationPage({
         </p>
       </section>
 
-      {slackConnected ? (
+      {slackConnected && !runtimeApplyIsActive ? (
         <Card>
           <CardContent className="pt-6 text-sm">
             Slack is connected.
@@ -86,6 +119,24 @@ export default async function SlackIntegrationPage({
         </Card>
       ) : null}
 
+      {runtimeApplyIsActive ? (
+        <Card>
+          <CardContent className="pt-6 text-sm">
+            Slack is connected. The control plane is applying the updated Slack
+            config to the tenant runtime now.
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {runtimeApplyError ? (
+        <Card>
+          <CardContent className="pt-6 text-sm">
+            Slack is connected, but the latest tenant runtime update failed.{" "}
+            {runtimeApplyError}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
@@ -95,9 +146,15 @@ export default async function SlackIntegrationPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {connectedAt
-              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
-              : "Slack is not connected yet."}
+            {connectedAt && integrationStatus === "pending_apply"
+              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. A tenant runtime update is queued.`
+              : connectedAt && integrationStatus === "applying"
+                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The tenant runtime is being updated now.`
+                : connectedAt && integrationStatus === "apply_failed"
+                  ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The latest tenant runtime update failed.`
+                  : connectedAt
+                    ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
+                    : "Slack is not connected yet."}
           </CardContent>
         </Card>
         <Card>
@@ -105,25 +162,36 @@ export default async function SlackIntegrationPage({
             <CardTitle>Otto status</CardTitle>
             <CardDescription>
               Current status: {getRuntimeStatusLabel(organization)}
+              {runtimeApplyStatusLabel
+                ? `. Latest update: ${runtimeApplyStatusLabel}`
+                : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {agent
-              ? "Otto is still finishing a few setup steps in the background."
-              : "Otto will finish getting ready after Slack is connected."}
+            {runtimeApplyIsActive
+              ? "The control plane is pushing the latest Slack config onto the tenant runtime."
+              : runtimeApplyError
+                ? "The tenant runtime is still on the last good config until the update succeeds."
+                : agent
+                  ? "Otto is still finishing a few setup steps in the background."
+                  : "Otto will finish getting ready after Slack is connected."}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle>Next action</CardTitle>
             <CardDescription>
-              {effectiveSlackError && !ottoIsReady
-                ? "Retry Slack so Otto can finish setup."
-                : !slackIsConnected
-                  ? "Connect Slack so your team can start using Otto there."
-                  : !ottoIsReady
-                    ? "Finish the last setup steps to unlock Otto."
-                    : "Everything is connected. Open Otto and start using it."}
+              {runtimeApplyIsActive
+                ? "Wait for the tenant runtime update to complete."
+                : runtimeApplyError
+                  ? "Reconnect Slack to retry the tenant runtime update."
+                  : effectiveSlackError && !ottoIsReady
+                    ? "Retry Slack so Otto can finish setup."
+                    : !slackIsConnected
+                      ? "Connect Slack so your team can start using Otto there."
+                      : !ottoIsReady
+                        ? "Finish the last setup steps to unlock Otto."
+                        : "Everything is connected. Open Otto and start using it."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -135,6 +203,14 @@ export default async function SlackIntegrationPage({
                 {effectiveSlackError
                   ? "Retry Slack connection"
                   : "Add to Slack"}
+              </a>
+            ) : null}
+            {canReconnectSlack && sessionId && ottoIsReady ? (
+              <a
+                className={buttonVariants({ variant: "default" })}
+                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
+              >
+                {runtimeApplyError ? "Reconnect Slack" : "Reconnect Slack"}
               </a>
             ) : null}
             {slackIsConnected && !ottoIsReady ? (

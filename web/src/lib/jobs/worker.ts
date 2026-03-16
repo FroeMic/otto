@@ -1,5 +1,6 @@
 import { getEnv } from "@/lib/env";
 
+import { processApplyTenantConfigJob } from "./apply";
 import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
 import type { ClaimedJob } from "./types";
@@ -9,6 +10,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   console.info(`[worker] claimed job ${job.id} (${job.jobType})`);
 
   switch (job.jobType) {
+    case JOB_TYPES.applyTenantConfig:
+      await processApplyTenantConfigJob(job);
+      return;
     case JOB_TYPES.provisionTenantServer:
       await processProvisionTenantServerJob(job);
       return;

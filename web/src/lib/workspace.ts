@@ -31,6 +31,42 @@ export function getSlackErrorMessage(organization: DashboardOrganization) {
   );
 }
 
+export function getPrimaryAgentLatestApplyRun(
+  organization: DashboardOrganization,
+) {
+  return getPrimaryAgent(organization)?.latestApplyRun ?? null;
+}
+
+export function getRuntimeApplyStatusLabel(
+  organization: DashboardOrganization,
+) {
+  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
+
+  if (!latestApplyRun) {
+    return null;
+  }
+
+  switch (latestApplyRun.status) {
+    case "queued":
+    case "pending_apply":
+      return "Queued";
+    case "loading_desired_state":
+    case "rendering_files":
+    case "writing_files":
+    case "restarting_runtime":
+    case "verifying_runtime":
+    case "applying":
+      return "Applying";
+    case "succeeded":
+      return "Applied";
+    case "failed":
+    case "apply_failed":
+      return "Failed";
+    default:
+      return latestApplyRun.status;
+  }
+}
+
 export function isRuntimeReady(organization: DashboardOrganization) {
   const agent = getPrimaryAgent(organization);
 
