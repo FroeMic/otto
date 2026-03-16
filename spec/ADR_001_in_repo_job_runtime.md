@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-Otto needs durable background work for tenant provisioning and later for config apply. These workflows include retries, external API polling, SSH reachability checks, and explicit state transitions. The repository is still at an early stage, and the product shape is not stable enough to justify a separate workflow platform yet.
+The control plane needs durable background work for tenant provisioning and later for config apply. These workflows include retries, external API polling, SSH reachability checks, and explicit state transitions. The repository is still at an early stage, and the product shape is not stable enough to justify a separate workflow platform yet.
 
 ## Decision
 
-For v1, Otto will run a Postgres-backed job system inside the existing repository instead of introducing `trigger.dev`.
+For v1, the control plane will run a Postgres-backed job system inside the existing repository instead of introducing `trigger.dev`.
 
 The control plane is split like this:
 
@@ -100,7 +100,7 @@ Step progression:
 
 ### Negative
 
-- Worker lifecycle and reliability are Otto’s responsibility.
+- Worker lifecycle and reliability are the control plane’s responsibility.
 - Retry semantics and observability need to be implemented internally.
 - More manual work if workflows become highly concurrent or fan out.
 

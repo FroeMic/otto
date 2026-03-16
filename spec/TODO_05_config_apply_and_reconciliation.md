@@ -104,7 +104,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - OpenClaw runs in a container on the tenant VPS
   - the host has an `openclaw` user and runtime directories under `/home/openclaw`
   - the gateway binds only to `127.0.0.1`
-  - the control plane applies tenant-specific state over SSH
+  - the control plane applies tenant runtime state over SSH
   - the control plane authenticates with one deploy key pair managed by env, not an operator laptop key
 - Security constraints:
   - no tenant secrets baked into cloud-init

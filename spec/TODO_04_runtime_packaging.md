@@ -36,4 +36,4 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
 
 ## Open questions
 
-- Should v1 keep the current direct `docker run` start path, or should Otto install Docker Compose on tenant hosts before calling runtime apply complete?
+- Should v1 keep the current direct `docker run` start path, or should the control plane install Docker Compose on tenant hosts before calling runtime apply complete?

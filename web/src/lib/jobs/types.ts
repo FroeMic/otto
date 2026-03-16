@@ -53,7 +53,7 @@ export type ApplyTenantConfigPayload = {
   step?: ApplyStep;
 };
 
-export type OttoJobPayload =
+export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
       payload: ProvisionTenantServerPayload;

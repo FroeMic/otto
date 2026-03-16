@@ -42,7 +42,7 @@ The important correction is ingress routing:
 
 - outgoing Slack API calls can use tenant-specific bot tokens on the tenant VPS
 - incoming Slack events, slash commands, and interactive payloads cannot be routed to the correct tenant VPS by token alone when using one shared Slack app
-- Otto therefore needs a shared Slack ingress endpoint under an Otto-controlled domain, plus tenant-aware routing behind it
+- The control plane therefore needs a shared Slack ingress endpoint under a control-plane-owned domain, plus tenant-aware routing behind it
 
 ## Proposed architecture
 
@@ -69,7 +69,7 @@ Add control-plane routes:
 
 Responsibilities:
 
-- require an authenticated Otto user and tenant context before starting install
+- require an authenticated control-plane user and tenant context before starting install
 - create a signed OAuth state payload that binds:
   - tenant ID
   - organization ID
@@ -82,7 +82,7 @@ Responsibilities:
 
 ### 3. Shared Slack ingress router
 
-Add Otto-owned public endpoints for Slack webhooks, for example:
+Add control-plane-owned public endpoints for Slack webhooks, for example:
 
 - `POST /api/integrations/slack/events`
 - `POST /api/integrations/slack/interactivity`
@@ -114,7 +114,7 @@ Recommended tenant runtime material:
 - workspace/team ID
 - optional enterprise ID
 - selected Slack channel configuration
-- Otto-generated internal webhook path or tenant runtime endpoint metadata
+- control-plane-generated internal webhook path or tenant runtime endpoint metadata
 
 Keep only in the control plane:
 
@@ -125,7 +125,7 @@ Keep only in the control plane:
 
 Signing secret handling:
 
-- preferred end state: validate Slack signatures centrally and forward internally with Otto authentication
+- preferred end state: validate Slack signatures centrally and forward internally with control-plane authentication
 - acceptable v1 fallback if required by vanilla OpenClaw: mirror the app signing secret to tenant runtime config and raw-proxy the request unchanged
 - if the fallback is used, explicitly document the blast-radius tradeoff because one shared app means one shared signing secret across all tenants
 
@@ -136,8 +136,8 @@ Signing secret handling:
 Write a checked-in Slack app manifest template that captures:
 
 - app name and support metadata
-- redirect URLs for Otto web OAuth
-- event subscriptions and interactivity endpoints on the Otto domain
+- redirect URLs for the control-plane web OAuth flow
+- event subscriptions and interactivity endpoints on the control-plane domain
 - required bot scopes
 - optional user scopes if OpenClaw needs them
 
@@ -162,7 +162,7 @@ Reason:
 
 Use HTTP mode for the shared app rollout.
 
-Do not use Socket Mode for the shared public app unless Otto moves Slack event handling into one centralized service instead of one runtime per tenant VPS.
+Do not use Socket Mode for the shared public app unless the control plane moves Slack event handling into one centralized service instead of one runtime per tenant VPS.
 
 ## Control-plane data model plan
 
@@ -275,8 +275,8 @@ Add a Slack section to tenant desired state that can render into the runtime con
 V1 recommendation:
 
 - configure OpenClaw in Slack HTTP mode on the tenant VPS
-- expose only an Otto-internal ingress target on the VPS
-- keep the tenant runtime behind Otto routing instead of public tenant-managed Slack endpoints
+- expose only a control-plane-managed ingress target on the VPS
+- keep the tenant runtime behind control-plane routing instead of public tenant-managed Slack endpoints
 
 Config projection should include:
 
@@ -323,7 +323,7 @@ If low-latency proxying proves fragile, move step 4 behind the existing job/even
 
 Initial recommendation:
 
-- do not enable Slack token rotation until Otto has a background refresh flow and re-apply path
+- do not enable Slack token rotation until the control plane has a background refresh flow and re-apply path
 
 If token rotation is enabled later:
 
@@ -426,6 +426,6 @@ Deliverables:
 ## Open questions
 
 - Is the first release target an install link with public distribution, or a full Slack Marketplace listing?
-- Can unmodified OpenClaw accept Otto-forwarded webhook traffic after central signature verification, or must the raw Slack request be proxied to the tenant runtime?
+- Can unmodified OpenClaw accept control-plane-forwarded webhook traffic after central signature verification, or must the raw Slack request be proxied to the tenant runtime?
 - Do we support exactly one Slack workspace per tenant in v1, or multiple installations per tenant?
 - Do we need Enterprise Grid org installs in v1, or can we defer them until after single-workspace installs are stable?

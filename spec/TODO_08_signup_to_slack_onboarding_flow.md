@@ -54,9 +54,9 @@ not:
 - user enters tenant name
 - user clicks `Install Slack`
 - browser is redirected to Slack OAuth with tenant-bound state
-- callback returns to Otto
-- Otto stores the Slack installation and bot token
-- Otto shows onboarding completion state
+- callback returns to the control plane
+- the control plane stores the Slack installation and bot token
+- the control plane shows onboarding completion state
 - user clicks `Provision tenant`
 - tenant creation finalizes and the provisioning job starts with tenant-specific Slack config
 

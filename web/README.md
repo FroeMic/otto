@@ -1,6 +1,6 @@
-# Otto Web
+# Otto Control Plane (`web`)
 
-Otto `web` is the control-plane application for tenant onboarding, provisioning, and operations.
+`web/` is the control-plane application for Otto tenant onboarding, provisioning, and operations.
 
 ## Responsibilities
 
@@ -33,10 +33,10 @@ docker compose up -d
    - to preconfigure the default OpenAI model, set `RUNTIME_OPENAI_API_KEY` and optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`
-   - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so Otto can cache workspace members and channels
+   - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
-   - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, Otto falls back to `WORKOS_COOKIE_PASSWORD`
+   - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution
 7. Install dependencies.
 8. Generate migrations with `npm run db:generate`.

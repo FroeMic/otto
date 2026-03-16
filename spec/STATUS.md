@@ -1,5 +1,12 @@
 # Otto Status
 
+## Terminology
+
+- `Otto` means the product/brand and the user-facing agent experience.
+- `control plane` means the backend system: `web/`, API routes, worker, orchestration logic, and DB-backed management.
+- `tenant runtime` means the provisioned runtime running on a tenant server.
+- `tenant server` means the provisioned VPS/host.
+
 ## Current state
 
 - Repository state is still mostly bootstrap.
@@ -14,12 +21,12 @@
 - The Hetzner client and minimal cloud-init renderer now exist in `web/`, and the worker will use the real provider when `HETZNER_API_TOKEN` is configured.
 - The real Hetzner path now waits for an SSH banner before finishing provisioning.
 - The real Hetzner path now performs an initial runtime bootstrap over SSH before marking the tenant ready.
-- Otto can now:
+- The control plane can now:
   - execute remote SSH commands
   - upload runtime files to `/opt/openclaw`
   - write `openclaw.json`, `.env`, and bootstrap metadata
-  - verify those files on the host before marking the tenant ready
-- Otto can also start the official OpenClaw container on the tenant VPS and verify it with `openclaw health`.
+  - verify those files on the tenant server before marking the tenant ready
+- The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with host networking and loopback binding; Docker Compose is still deferred.
 - Runtime bootstrap can now preconfigure the tenant gateway with `OPENAI_API_KEY` and a default model via `RUNTIME_OPENAI_API_KEY` and `RUNTIME_MODEL_PRIMARY`.
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
@@ -56,7 +63,7 @@
 - Prefer a database-backed workflow engine inside the Next.js repo before adopting `trigger.dev`.
 - Keep the code structured so `trigger.dev` can be introduced later behind a job interface if the simpler approach stops being sufficient.
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
-- If Otto ships one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus Otto-owned shared ingress.
+- If the control plane uses one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus control-plane-owned shared ingress.
 
 ## Current product target
 

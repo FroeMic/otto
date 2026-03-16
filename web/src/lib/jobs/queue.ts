@@ -3,10 +3,10 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { jobEvents, jobRuns } from "@/db/schema";
 
-import type { ClaimedJob, OttoJobPayload } from "./types";
+import type { ClaimedJob, ControlPlaneJobPayload } from "./types";
 import { JOB_STATUSES } from "./types";
 
-export async function enqueueJob(job: OttoJobPayload): Promise<string> {
+export async function enqueueJob(job: ControlPlaneJobPayload): Promise<string> {
   const db = getDb();
 
   const [createdJob] = await db

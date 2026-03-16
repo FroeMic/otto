@@ -4,7 +4,7 @@ import { runWorkerIteration } from "../lib/jobs/worker";
 async function main() {
   const env = getEnv();
 
-  console.info("[worker] starting otto worker");
+  console.info("[worker] starting control-plane worker");
   console.info(
     `[worker] runtime SSH auth source: ${getRuntimeSshAuthSource()}`,
   );
