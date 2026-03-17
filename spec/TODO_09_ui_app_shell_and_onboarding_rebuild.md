@@ -7,7 +7,7 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 ## Scope
 
 - replace the current bootstrap dashboard with a proper authenticated app shell
-- add dedicated login and invite-aware registration pages under `app.*`
+- add a dedicated login page and direct WorkOS signup entry under `app.*`
 - introduce organization-scoped routes under `/{orgSlug}/...`
 - add a sidebar layout with:
   - organization switcher and organization settings access at the top
@@ -48,13 +48,13 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 ### Public routes
 
 - `/login`
-- `/register`
+- `/auth/sign-up`
 
 ## Public auth redesign
 
 ### Design direction
 
-- keep `/login` and `/register` on one shared split-screen layout modeled after shadcn `login-02`
+- keep the public auth entry around a split-screen layout modeled after shadcn `login-02`
 - do not install `login-02` wholesale, because Otto no longer needs email or password fields and the block would overwrite existing base `button`, `input`, and `separator` primitives
 - use the left panel as the product intro and action area:
   - Otto avatar
@@ -67,11 +67,8 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 
 - `/login`:
   - primary action: sign in with WorkOS
-  - secondary action: create account
-- `/register`:
-  - primary action: sign up with WorkOS
-  - secondary action: I already have an account
-- keep both pages visually identical enough that they feel like one public entry system rather than two unrelated pages
+  - secondary action: create account via WorkOS signup
+- keep sign-in and sign-up visually aligned so they feel like one public entry system rather than two unrelated pages
 
 ### Left panel composition
 
@@ -271,7 +268,7 @@ Organization settings:
 
 ### Step 1: account creation
 
-- user logs in, or reaches the invite-aware registration page
+- user logs in, or reaches the direct WorkOS signup entry
 - if the user belongs to no organization, redirect to `/onboarding/create-organization`
 
 ### Step 2: organization creation
@@ -367,7 +364,7 @@ Likely additions during implementation:
 
 1. Lock route, onboarding gate, and ID decisions.
 2. Introduce prefixed IDs for `users` and `organizations`, then extend as needed.
-3. Split auth into dedicated `/login` and `/register` pages.
+3. Split auth into a dedicated `/login` page plus direct WorkOS signup handoff.
 4. Redesign the public auth shell around the Otto avatar, short copy, and `PixelLiquidBg` right panel.
 5. Add the authenticated app shell and sidebar.
 6. Add organization creation with unique slug.
@@ -381,8 +378,7 @@ Likely additions during implementation:
 - [x] define slug-based org route map
 - [x] define one-Otto-per-org product framing
 - [x] define sidebar shell and fixed status rail
-- [x] define dedicated login and registration pages
-- [x] define the public auth redesign direction for `/login` and `/register`
+- [x] define the public auth entry and WorkOS signup handoff
 - [x] define onboarding gate and create-organization flow
 - [x] define settings split between user and organization
 - [x] define a dedicated Slack integration state page
@@ -391,8 +387,7 @@ Likely additions during implementation:
 
 ## Acceptance criteria
 
-- unauthenticated users see dedicated login and register pages, and the register page can carry invite-only access messaging when public signup is disabled
-- unauthenticated users see dedicated login and register pages with direct WorkOS sign-in / sign-up entry points
+- unauthenticated users see a dedicated login page with direct WorkOS sign-in / sign-up entry points
 - public auth pages share one coherent Otto-branded split layout rather than generic centered cards
 - the left panel presents Otto avatar, short copy, and only the required auth actions
 - the right panel uses the requested pixelated liquid background treatment on desktop without blocking core auth actions on smaller screens

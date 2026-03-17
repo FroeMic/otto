@@ -54,19 +54,19 @@
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
 - The first app-shell rebuild slice is now implemented in `web/`:
-  - dedicated `/login` and `/register` pages exist
+  - a dedicated `/login` page exists and public signup now hands off directly to WorkOS
   - organizations now carry a unique slug for user-facing routes
   - root now redirects into slug-based workspace routes
   - the authenticated shell now uses a shadcn sidebar with org switcher, requested nav items, and a bottom user menu
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
 - The public-auth redesign is now implemented:
-  - `/login` and `/register` share an Otto-branded split auth shell inspired by `login-02` without importing the full block
+  - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
   - the desktop panel uses the requested `PixelLiquidBg` treatment with lighter mobile / reduced-motion behavior
 - WorkOS public signup is now re-enabled while workspace activation stays gated internally:
   - `/auth/sign-up` now starts the real WorkOS signup flow again
-  - `/register` is now a direct WorkOS signup entry point again
+  - `/register` has been removed in favor of direct signup handoff to `/auth/sign-up`
   - organizations now carry an internal `is_ready` flag that defaults to `false`
   - users with a newly created workspace are held on a non-shell waiting page until the org is marked ready
   - Slack OAuth, provisioning, and the org-scoped shell are blocked until `organizations.is_ready = true`

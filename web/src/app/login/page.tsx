@@ -26,7 +26,7 @@ export default async function LoginPage() {
           </a>
           <Link
             className={buttonVariants({ size: "lg", variant: "outline" })}
-            href="/register"
+            href="/auth/sign-up"
           >
             Create your account
           </Link>
