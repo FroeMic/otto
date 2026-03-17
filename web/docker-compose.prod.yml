@@ -1,0 +1,90 @@
+name: otto-control-plane
+
+x-app-env: &app-env
+  env_file:
+    - .env
+  environment:
+    HOSTNAME: 0.0.0.0
+    NODE_ENV: production
+    PORT: 3000
+  image: ${OTTO_IMAGE:-otto-control-plane:local}
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-otto}
+      POSTGRES_USER: ${POSTGRES_USER:-otto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - otto_control_plane_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["ops"]
+    restart: "no"
+
+  web:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npm", "run", "worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.9-alpine
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      OTTO_DOMAIN: ${OTTO_DOMAIN:?set OTTO_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - otto_control_plane_caddy_data:/data
+      - otto_control_plane_caddy_config:/config
+
+volumes:
+  otto_control_plane_caddy_config:
+  otto_control_plane_caddy_data:
+  otto_control_plane_postgres_data:

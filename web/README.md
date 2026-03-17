@@ -65,19 +65,19 @@ docker compose down -v
 Run the web app:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Run the worker:
 
 ```bash
-npm run worker
+bun run worker
 ```
 
 From the repo root, run both together:
 
 ```bash
-npm run dev:all
+bun run dev:all
 ```
 
 Test the configured OpenAI runtime key directly:
@@ -99,11 +99,48 @@ bun run test:openai-token
 
 ## Current status
 
-- repository foundation and architecture scaffolding are in progress
-- provisioning and runtime logic are not implemented yet
+- the control plane can provision Hetzner tenant servers through the worker
+- runtime bootstrap and config apply now execute over SSH
+- production deployment artifacts now exist for one public control-plane VPS with local Postgres and a dedicated worker
 
 ## Notes
 
 - route handlers should stay thin
 - long-running work must go through the worker
 - `trigger.dev` is intentionally deferred for the first increment
+
+## Production deployment
+
+The production stack now lives in:
+
+- `Dockerfile`
+- `docker-compose.prod.yml`
+- `Caddyfile`
+- `.env.production.example`
+
+On the server, copy `.env.production.example` to `.env`, fill in the secrets, then build and deploy the stack:
+
+```bash
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml --profile ops run --rm migrate
+docker compose -f docker-compose.prod.yml up -d
+```
+
+The production layout is:
+
+- `caddy` terminates public HTTPS for `OTTO_DOMAIN`
+- `web` serves the Next.js control plane on the internal Docker network
+- `worker` runs the durable job loop as a separate container
+- `postgres` stores control-plane state on a persistent Docker volume
+
+The web container exposes `/healthz` for readiness checks.
+
+## Hetzner host hardening
+
+For the control-plane host, keep the UI public but keep operator access private:
+
+1. Install Tailscale on the VPS and verify admin access over the tailnet first.
+2. Expose only `80` and `443` publicly in the Hetzner firewall.
+3. Remove any public firewall rule for `22`.
+4. Disable password auth in `sshd`.
+5. Keep Hetzner console access as the recovery path if Tailscale is misconfigured.

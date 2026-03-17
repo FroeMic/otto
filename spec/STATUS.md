@@ -63,6 +63,11 @@
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
+- The control plane deployment target is now more explicit:
+  - self-host one public control-plane VPS on Hetzner
+  - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose
+  - keep the web UI public over HTTPS but keep operator SSH access private over Tailscale only
+  - expose a `/healthz` route for container and reverse-proxy readiness checks
 
 ## Active architectural decision
 
@@ -70,6 +75,7 @@
 - Keep the code structured so `trigger.dev` can be introduced later behind a job interface if the simpler approach stops being sufficient.
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
 - If the control plane uses one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus control-plane-owned shared ingress.
+- Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 
 ## Current product target
 
@@ -91,7 +97,6 @@
 
 ## Open questions
 
-- Will the control plane be self-hosted as a long-running Node process or deployed onto a serverless platform with strict execution limits?
 - Is WorkOS still the preferred auth provider, or should auth be deferred until core provisioning is proven?
 - Should the runtime image be built and published before provisioning starts, or is a temporary bootstrap image acceptable for the first internal alpha?
 - When the prefixed ID strategy is implemented, should primary keys be migrated directly or should stable public IDs be added alongside the existing UUIDs first?
