@@ -46,12 +46,14 @@ export default async function WaitForAccessPage({
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
               <p className="text-xs tracking-[0.18em] uppercase text-muted-foreground">
-                Workspace access
+                Access queue
               </p>
-              <CardTitle>We&apos;re reviewing {organization.name}</CardTitle>
+              <CardTitle>
+                You&apos;re on the list for {organization.name}
+              </CardTitle>
               <CardDescription>
-                Your workspace has been created, but Otto is still locked until
-                we mark this organization as ready internally.
+                Your workspace is created. We&apos;ll open Otto for your team as
+                soon as this workspace reaches the front of the queue.
               </CardDescription>
             </div>
             <Link
@@ -64,9 +66,9 @@ export default async function WaitForAccessPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
           <p>
-            Once {organization.name} is approved, the Slack connection step,
-            provisioning flow, and the main workspace UI will unlock
-            automatically.
+            You don&apos;t need to do anything else right now. Once{" "}
+            {organization.name} is activated, Slack setup, provisioning, and the
+            full Otto workspace will unlock automatically.
           </p>
           <p>
             Otto link:{" "}

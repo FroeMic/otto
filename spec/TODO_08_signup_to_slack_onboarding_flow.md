@@ -90,7 +90,6 @@ The UI should not enqueue `provision_tenant_server` until:
 ### Step 2a. Workspace activation is separate from signup
 
 - WorkOS signup can stay publicly enabled
-- waitlist capture can stay live in parallel for teams not yet rolled out
 - creating a workspace must not immediately unlock the org-scoped shell
 - the control plane needs an internal `organizations.is_ready` gate before users can:
   - enter the main org shell

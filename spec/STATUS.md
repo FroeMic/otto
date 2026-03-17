@@ -64,10 +64,9 @@
   - `/login` and `/register` share an Otto-branded split auth shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
   - the desktop panel uses the requested `PixelLiquidBg` treatment with lighter mobile / reduced-motion behavior
-  - `/register` now captures a real waitlist form persisted in Postgres instead of a placeholder invite-only note
 - WorkOS public signup is now re-enabled while workspace activation stays gated internally:
   - `/auth/sign-up` now starts the real WorkOS signup flow again
-  - `/register` still keeps the waitlist form, but now also offers direct WorkOS signup
+  - `/register` is now a direct WorkOS signup entry point again
   - organizations now carry an internal `is_ready` flag that defaults to `false`
   - users with a newly created workspace are held on a non-shell waiting page until the org is marked ready
   - Slack OAuth, provisioning, and the org-scoped shell are blocked until `organizations.is_ready = true`

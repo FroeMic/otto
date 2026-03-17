@@ -16,7 +16,7 @@ export default async function LoginPage() {
 
   return (
     <PublicAuthShell
-      subtitle="Sign in to your Otto workspace, or create a new account and request access for your team."
+      subtitle="Sign in to your Otto workspace, or create a new account and join the access queue for your team."
       title="Your Team's Otto"
     >
       <div className="flex flex-col gap-6">
@@ -32,8 +32,8 @@ export default async function LoginPage() {
           </Link>
         </div>
         <p className="text-sm text-muted-foreground">
-          Otto still rolls out per workspace, so signup and workspace access can
-          unlock on separate timelines.
+          Otto rolls out workspace by workspace, so account creation and access
+          approval can happen on different timelines.
         </p>
       </div>
     </PublicAuthShell>

@@ -67,9 +67,9 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 
 - `/login`:
   - primary action: sign in with WorkOS
-  - secondary action: join waitlist / invite-only access
+  - secondary action: create account
 - `/register`:
-  - primary action: join waitlist or request access
+  - primary action: sign up with WorkOS
   - secondary action: I already have an account
 - keep both pages visually identical enough that they feel like one public entry system rather than two unrelated pages
 
@@ -114,17 +114,6 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
   - `Your Team’s Otto`
 - subtitle:
   - `Invite-only access to the agent workspace, Slack setup, and runtime control plane.`
-
-### Waitlist capture
-
-- collect:
-  - name
-  - email
-  - whether the user wants Otto for themselves or a team
-  - where they heard about Otto
-  - what they want to use Otto for
-- persist waitlist submissions in Postgres so the page is operational rather than placeholder UI
-- treat the last two fields as optional
 
 ### Authenticated onboarding routes
 
@@ -403,6 +392,7 @@ Likely additions during implementation:
 ## Acceptance criteria
 
 - unauthenticated users see dedicated login and register pages, and the register page can carry invite-only access messaging when public signup is disabled
+- unauthenticated users see dedicated login and register pages with direct WorkOS sign-in / sign-up entry points
 - public auth pages share one coherent Otto-branded split layout rather than generic centered cards
 - the left panel presents Otto avatar, short copy, and only the required auth actions
 - the right panel uses the requested pixelated liquid background treatment on desktop without blocking core auth actions on smaller screens
@@ -425,4 +415,3 @@ Likely additions during implementation:
 - How aggressively should the backend `tenant` language be hidden from the first UI pass versus only translated in page copy?
 - Should the Slack integration detail page also expose low-level diagnostic fields, or stay strictly product-level in the first pass?
 - When the prefixed ID migration happens, should it convert primary keys directly or introduce separate stable public IDs first?
-- Should the waitlist CTA point to a dedicated Otto route, an external form, or an email handoff in the first pass?
