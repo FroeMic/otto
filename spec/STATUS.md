@@ -68,6 +68,10 @@
   - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose
   - keep the web UI public over HTTPS but keep operator SSH access private over Tailscale only
   - expose a `/healthz` route for container and reverse-proxy readiness checks
+- WorkOS auth configuration is now moving to explicit server-side runtime settings:
+  - use `WORKOS_REDIRECT_URI` for the callback URL
+  - use `WORKOS_BASE_URL` for the externally visible app origin in Docker / reverse-proxy deployments
+  - keep `NEXT_PUBLIC_WORKOS_REDIRECT_URI` only as a backward-compatibility fallback if older environments still set it
 
 ## Active architectural decision
 

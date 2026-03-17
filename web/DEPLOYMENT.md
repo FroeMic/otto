@@ -40,7 +40,8 @@ Set at least:
 - `WORKOS_CLIENT_ID`
 - `WORKOS_API_KEY`
 - `WORKOS_COOKIE_PASSWORD`
-- `NEXT_PUBLIC_WORKOS_REDIRECT_URI`
+- `WORKOS_REDIRECT_URI`
+- `WORKOS_BASE_URL`
 - `SLACK_CLIENT_ID`
 - `SLACK_CLIENT_SECRET`
 - `SLACK_REDIRECT_URI`
@@ -72,6 +73,9 @@ Verify:
 
 - `https://<your-domain>/healthz` returns `200`
 - the `web` and `worker` containers stay healthy
+- `WORKOS_REDIRECT_URI` points at the public callback URL
+- `WORKOS_BASE_URL` matches the public app origin
+- `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS and Slack redirect URIs point at the public domain
 
 ## 6. Harden SSH

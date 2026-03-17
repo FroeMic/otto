@@ -24,7 +24,13 @@ docker compose up -d
    - Redirect URI: `http://localhost:3000/auth/callback`
    - App homepage URL: `http://localhost:3000`
    - Sign-in endpoint: `http://localhost:3000/auth/sign-in`
-6. To use real Hetzner provisioning instead of the fake local path, set:
+6. Set the WorkOS runtime env vars:
+   - `WORKOS_CLIENT_ID`
+   - `WORKOS_API_KEY`
+   - `WORKOS_COOKIE_PASSWORD`
+   - `WORKOS_REDIRECT_URI`
+   - optionally `WORKOS_BASE_URL` when running behind Docker or another reverse proxy
+7. To use real Hetzner provisioning instead of the fake local path, set:
    - `HETZNER_API_TOKEN`
    - optionally `HETZNER_DEFAULT_LOCATION`, `HETZNER_DEFAULT_SERVER_TYPE`, `HETZNER_DEFAULT_IMAGE`, and `HETZNER_SSH_KEY_NAMES`
    - make sure the chosen `server_type` is still available in the chosen `location`
@@ -38,9 +44,9 @@ docker compose up -d
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution
-7. Install dependencies.
-8. Generate migrations with `npm run db:generate`.
-9. Apply migrations with `npm run db:migrate`.
+8. Install dependencies.
+9. Generate migrations with `npm run db:generate`.
+10. Apply migrations with `npm run db:migrate`.
 
 Default local database URL:
 
@@ -134,6 +140,8 @@ The production layout is:
 - `postgres` stores control-plane state on a persistent Docker volume
 
 The web container exposes `/healthz` for readiness checks.
+Set `WORKOS_REDIRECT_URI` to the public callback URL and `WORKOS_BASE_URL` to the public app origin so AuthKit callbacks and Docker-hosted redirects stay on the production hostname.
+The hosted `*.authkit.app` domain itself still follows the configured `WORKOS_CLIENT_ID` / `WORKOS_API_KEY`, so production must use the production WorkOS environment credentials.
 
 ## Hetzner host hardening
 

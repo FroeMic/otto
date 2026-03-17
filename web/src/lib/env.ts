@@ -51,8 +51,14 @@ const envSchema = z.object({
   RUNTIME_SSH_USERNAME: z.string().default("root"),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
+  WORKOS_API_KEY: z.string().optional(),
+  WORKOS_BASE_URL: z.string().url().optional(),
+  WORKOS_CLIENT_ID: z.string().optional(),
+  WORKOS_COOKIE_PASSWORD: z.string().optional(),
+  WORKOS_REDIRECT_URI: z.string().url().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
+  NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
