@@ -30,6 +30,7 @@ docker compose up -d
    - `WORKOS_COOKIE_PASSWORD`
    - `WORKOS_REDIRECT_URI`
    - optionally `WORKOS_BASE_URL` when running behind Docker or another reverse proxy
+   - optionally `CONTROL_PLANE_BASE_URL` to force absolute redirects to the public app origin
 7. To use real Hetzner provisioning instead of the fake local path, set:
    - `HETZNER_API_TOKEN`
    - optionally `HETZNER_DEFAULT_LOCATION`, `HETZNER_DEFAULT_SERVER_TYPE`, `HETZNER_DEFAULT_IMAGE`, and `HETZNER_SSH_KEY_NAMES`
@@ -134,7 +135,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 The production layout is:
 
-- `caddy` terminates public HTTPS for `OTTO_DOMAIN`
+- `caddy` terminates public HTTPS for `CONTROL_PLANE_DOMAIN`
 - `web` serves the Next.js control plane on the internal Docker network
 - `worker` runs the durable job loop as a separate container
 - `postgres` stores control-plane state on a persistent Docker volume
@@ -142,6 +143,7 @@ The production layout is:
 
 The web container exposes `/healthz` for readiness checks.
 Set `WORKOS_REDIRECT_URI` to the public callback URL and `WORKOS_BASE_URL` to the public app origin so AuthKit callbacks and Docker-hosted redirects stay on the production hostname.
+Set `CONTROL_PLANE_BASE_URL` to the same public origin so Slack OAuth and other absolute redirects do not fall back to an internal proxy host.
 The hosted `*.authkit.app` domain itself still follows the configured `WORKOS_CLIENT_ID` / `WORKOS_API_KEY`, so production must use the production WorkOS environment credentials.
 
 From a laptop on the tailnet, connect through an SSH tunnel:

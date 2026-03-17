@@ -76,7 +76,7 @@ services:
       web:
         condition: service_healthy
     environment:
-      OTTO_DOMAIN: ${OTTO_DOMAIN:?set OTTO_DOMAIN in .env}
+      CONTROL_PLANE_DOMAIN: ${CONTROL_PLANE_DOMAIN:?set CONTROL_PLANE_DOMAIN in .env}
     ports:
       - "80:80"
       - "443:443"

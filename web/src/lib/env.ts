@@ -50,6 +50,7 @@ const envSchema = z.object({
     .default(300000),
   RUNTIME_SSH_USERNAME: z.string().default("root"),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
+  CONTROL_PLANE_BASE_URL: z.string().url().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
@@ -95,6 +96,20 @@ export function getControlPlaneOAuthStateSecret() {
   );
 }
 
+export function getControlPlaneBaseUrl() {
+  const env = getEnv();
+
+  return (
+    env.CONTROL_PLANE_BASE_URL ??
+    env.WORKOS_BASE_URL ??
+    deriveBaseUrlFromUri(
+      env.WORKOS_REDIRECT_URI ??
+        env.SLACK_REDIRECT_URI ??
+        env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
+    )
+  );
+}
+
 export function getSlackOAuthConfig() {
   const env = getEnv();
 
@@ -127,6 +142,18 @@ export function hasSlackOAuthConfig() {
 
 export function normalizePrivateKeyValue(value: string) {
   return value.includes("\\n") ? value.replaceAll("\\n", "\n") : value;
+}
+
+function deriveBaseUrlFromUri(uri?: string) {
+  if (!uri) {
+    return "";
+  }
+
+  try {
+    return new URL(uri).origin;
+  } catch {
+    return "";
+  }
 }
 
 function validateRuntimeSshEnv(env: AppEnv) {

@@ -1,4 +1,4 @@
-{$OTTO_DOMAIN} {
+{$CONTROL_PLANE_DOMAIN} {
   encode gzip zstd
 
   header {

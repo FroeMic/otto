@@ -8,6 +8,7 @@ import {
   syncMessagingDirectoryForTenantIntegration,
 } from "@/db/control-plane";
 import { verifyOAuthState } from "@/lib/crypto";
+import { getControlPlaneBaseUrl } from "@/lib/env";
 import {
   exchangeSlackCodeForBotToken,
   fetchSlackMessagingDirectory,
@@ -22,6 +23,7 @@ type SlackOAuthState = {
 export async function GET(request: Request) {
   const { user } = await withAuth({ ensureSignedIn: true });
   const url = new URL(request.url);
+  const redirectBaseUrl = getControlPlaneBaseUrl() || request.url;
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
         decodedState?.orgSlug
           ? `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(error)}`
           : `/login?slack_error=${encodeURIComponent(error)}`,
-        request.url,
+        redirectBaseUrl,
       ),
     );
   }
@@ -113,7 +115,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       new URL(
         `/${result.organizationSlug}/integrations/slack?slack_connected=1`,
-        request.url,
+        redirectBaseUrl,
       ),
     );
   } catch (oauthError) {
@@ -128,7 +130,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       new URL(
         `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(message)}`,
-        request.url,
+        redirectBaseUrl,
       ),
     );
   }

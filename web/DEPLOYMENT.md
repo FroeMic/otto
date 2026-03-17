@@ -34,9 +34,10 @@ cp .env.production.example .env
 
 Set at least:
 
-- `OTTO_DOMAIN`
+- `CONTROL_PLANE_DOMAIN`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
+- `CONTROL_PLANE_BASE_URL`
 - `WORKOS_CLIENT_ID`
 - `WORKOS_API_KEY`
 - `WORKOS_COOKIE_PASSWORD`
@@ -74,6 +75,7 @@ Verify:
 - `https://<your-domain>/healthz` returns `200`
 - the `web` and `worker` containers stay healthy
 - Postgres answers on `127.0.0.1:5433` on the host
+- `CONTROL_PLANE_BASE_URL` matches the public app origin
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public app origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
