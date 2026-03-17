@@ -2,14 +2,8 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PublicAuthShell } from "@/components/public-auth-shell";
 import { buttonVariants } from "@/components/ui/button-variants";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -21,27 +15,27 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-10">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign in to Otto</CardTitle>
-          <CardDescription>
-            Your team agent lives here. Sign in to open Otto and continue where
-            you left off.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+    <PublicAuthShell
+      subtitle="Invite-only access to the agent workspace, Slack setup, and runtime control plane."
+      title="Your Team's Otto"
+    >
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
           <a className={buttonVariants({ size: "lg" })} href="/auth/sign-in">
-            Continue
+            Log in with WorkOS
           </a>
           <Link
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href="/register"
           >
-            Invite-only access
+            Join the waitlist
           </Link>
-        </CardContent>
-      </Card>
-    </main>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Already invited? Use your WorkOS account to continue where your team
+          left off.
+        </p>
+      </div>
+    </PublicAuthShell>
   );
 }

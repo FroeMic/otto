@@ -50,6 +50,31 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 - `/login`
 - `/register`
 
+## Public auth redesign
+
+### Design direction
+
+- keep `/login` and `/register` on one shared split-screen layout modeled after shadcn `login-02`
+- keep the left panel as the product intro and action area:
+  - Otto avatar
+  - short title
+  - short subtitle
+  - route-specific CTA content
+- use the right panel for the requested `PixelLiquidBg` treatment
+- keep `/login` focused on WorkOS sign-in plus a waitlist path
+- turn `/register` into the real waitlist entry point instead of a dead-end invite-only note
+
+### Waitlist capture
+
+- collect:
+  - name
+  - email
+  - whether the user wants Otto for themselves or a team
+  - where they heard about Otto
+  - what they want to use Otto for
+- persist waitlist submissions in Postgres so the page is operational rather than placeholder UI
+- treat the last two fields as optional
+
 ### Authenticated onboarding routes
 
 - `/onboarding/create-organization`
