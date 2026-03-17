@@ -138,10 +138,18 @@ The production layout is:
 - `web` serves the Next.js control plane on the internal Docker network
 - `worker` runs the durable job loop as a separate container
 - `postgres` stores control-plane state on a persistent Docker volume
+- `postgres` is also bound to `127.0.0.1:5433` on the host for operator access over SSH / Tailscale
 
 The web container exposes `/healthz` for readiness checks.
 Set `WORKOS_REDIRECT_URI` to the public callback URL and `WORKOS_BASE_URL` to the public app origin so AuthKit callbacks and Docker-hosted redirects stay on the production hostname.
 The hosted `*.authkit.app` domain itself still follows the configured `WORKOS_CLIENT_ID` / `WORKOS_API_KEY`, so production must use the production WorkOS environment credentials.
+
+From a laptop on the tailnet, connect through an SSH tunnel:
+
+```bash
+ssh -L 5433:127.0.0.1:5433 root@otto-control-plane
+psql 'postgres://otto:<password>@127.0.0.1:5433/otto'
+```
 
 ## Hetzner host hardening
 

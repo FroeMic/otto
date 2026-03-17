@@ -73,10 +73,18 @@ Verify:
 
 - `https://<your-domain>/healthz` returns `200`
 - the `web` and `worker` containers stay healthy
+- Postgres answers on `127.0.0.1:5433` on the host
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public app origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS and Slack redirect URIs point at the public domain
+
+To connect from a laptop over Tailscale, forward that host-only Postgres port:
+
+```bash
+ssh -L 5433:127.0.0.1:5433 root@otto-control-plane
+psql 'postgres://otto:<password>@127.0.0.1:5433/otto'
+```
 
 ## 6. Harden SSH
 
