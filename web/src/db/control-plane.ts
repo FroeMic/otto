@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type { User } from "@workos-inc/node";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -17,6 +17,8 @@ import {
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
+  tenantManagedConfigVersions,
+  tenantManagedFileVersions,
   tenantOnboardingSessions,
   tenantRuntimeSecrets,
   tenantServers,
@@ -29,6 +31,12 @@ import {
 } from "@/lib/crypto";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
+import {
+  buildManagedBootstrapFileContent,
+  getManagedBootstrapFileDefinitions,
+  isManagedBootstrapFilePath,
+  type ManagedBootstrapFilePath,
+} from "@/lib/openclaw/managed-config";
 import { getWorkOS } from "@/lib/workos";
 
 const SLACK_PROVIDER_KEY = "slack";
@@ -60,6 +68,25 @@ type TenantApplyRunSummary = {
   finishedAt: Date | null;
   startedAt: Date | null;
   status: string;
+};
+
+export type TenantManagedConfigFile = {
+  checksum: string;
+  description: string;
+  label: string;
+  path: ManagedBootstrapFilePath;
+  renderedContent: string;
+  sharedContent: string;
+  systemContent: string;
+};
+
+export type TenantManagedConfig = {
+  createdAt: Date;
+  createdByExternalId: string | null;
+  createdByType: string;
+  files: TenantManagedConfigFile[];
+  summary: string | null;
+  version: number;
 };
 
 type MessagingDirectoryMemberInput = {
@@ -1237,6 +1264,100 @@ export async function getLatestTenantDesiredState(tenantId: string) {
   return desiredState;
 }
 
+export async function getLatestTenantManagedConfig(
+  tenantId: string,
+): Promise<TenantManagedConfig> {
+  const db = getDb();
+  const latestVersion = await db.transaction(async (tx) =>
+    ensureLatestTenantManagedConfigVersion(tx, {
+      tenantId,
+    }),
+  );
+
+  return getTenantManagedConfigByVersion({
+    tenantId,
+    version: latestVersion.version,
+  });
+}
+
+export async function getTenantManagedConfigByVersion(input: {
+  tenantId: string;
+  version: number;
+}): Promise<TenantManagedConfig> {
+  const db = getDb();
+  const [configVersion] = await db
+    .select({
+      createdAt: tenantManagedConfigVersions.createdAt,
+      createdByExternalId: tenantManagedConfigVersions.createdByExternalId,
+      createdByType: tenantManagedConfigVersions.createdByType,
+      id: tenantManagedConfigVersions.id,
+      summary: tenantManagedConfigVersions.summary,
+      version: tenantManagedConfigVersions.version,
+    })
+    .from(tenantManagedConfigVersions)
+    .where(
+      and(
+        eq(tenantManagedConfigVersions.tenantId, input.tenantId),
+        eq(tenantManagedConfigVersions.version, input.version),
+      ),
+    )
+    .limit(1);
+
+  if (!configVersion) {
+    throw new Error(
+      `Managed config version ${input.version} not found for tenant ${input.tenantId}`,
+    );
+  }
+
+  const fileRows = await db
+    .select({
+      checksum: tenantManagedFileVersions.checksum,
+      path: tenantManagedFileVersions.path,
+      sharedContent: tenantManagedFileVersions.sharedContent,
+      systemContent: tenantManagedFileVersions.systemContent,
+    })
+    .from(tenantManagedFileVersions)
+    .where(
+      eq(
+        tenantManagedFileVersions.tenantManagedConfigVersionId,
+        configVersion.id,
+      ),
+    );
+
+  const files = getManagedBootstrapFileDefinitions()
+    .map((definition) => {
+      const fileRow = fileRows.find((row) => row.path === definition.path);
+
+      if (!fileRow) {
+        return null;
+      }
+
+      return {
+        checksum: fileRow.checksum,
+        description: definition.description,
+        label: definition.label,
+        path: definition.path,
+        renderedContent: buildManagedBootstrapFileContent({
+          path: definition.path,
+          sharedContent: fileRow.sharedContent,
+          systemContent: fileRow.systemContent,
+        }),
+        sharedContent: fileRow.sharedContent,
+        systemContent: fileRow.systemContent,
+      };
+    })
+    .filter((file): file is TenantManagedConfigFile => file !== null);
+
+  return {
+    createdAt: configVersion.createdAt,
+    createdByExternalId: configVersion.createdByExternalId,
+    createdByType: configVersion.createdByType,
+    files,
+    summary: configVersion.summary,
+    version: configVersion.version,
+  };
+}
+
 export async function getTenantDesiredStateByVersion(input: {
   tenantId: string;
   version: number;
@@ -1263,6 +1384,141 @@ export async function getTenantDesiredStateByVersion(input: {
   }
 
   return desiredState;
+}
+
+export async function updateTenantManagedFileSharedContent(input: {
+  filePath: ManagedBootstrapFilePath;
+  orgSlug: string;
+  sharedContent: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantManagedFileSharedContentForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    filePath: input.filePath,
+    sharedContent: input.sharedContent,
+    summary: `Updated ${input.filePath}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantManagedFileSharedContentForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  filePath: ManagedBootstrapFilePath;
+  sharedContent: string;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const normalizedSharedContent = input.sharedContent.trim();
+
+  if (!normalizedSharedContent) {
+    throw new Error("Shared managed content cannot be empty");
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const latestConfig = await ensureLatestTenantManagedConfigVersion(tx, {
+      tenantId: input.tenantId,
+    });
+    const latestFiles = await tx
+      .select({
+        path: tenantManagedFileVersions.path,
+        sharedContent: tenantManagedFileVersions.sharedContent,
+        systemContent: tenantManagedFileVersions.systemContent,
+      })
+      .from(tenantManagedFileVersions)
+      .where(
+        eq(
+          tenantManagedFileVersions.tenantManagedConfigVersionId,
+          latestConfig.id,
+        ),
+      );
+
+    const targetFile = latestFiles.find((file) => file.path === input.filePath);
+
+    if (!targetFile) {
+      throw new Error(`Managed file ${input.filePath} is missing`);
+    }
+
+    if (targetFile.sharedContent === normalizedSharedContent) {
+      return {
+        applyQueued: false,
+        changed: false,
+      };
+    }
+
+    const [createdVersion] = await tx
+      .insert(tenantManagedConfigVersions)
+      .values({
+        createdByExternalId: input.createdByExternalId ?? null,
+        createdByType: input.createdByType,
+        summary: input.summary ?? `Updated ${input.filePath}`,
+        tenantId: input.tenantId,
+        version: latestConfig.version + 1,
+      })
+      .returning({
+        id: tenantManagedConfigVersions.id,
+        version: tenantManagedConfigVersions.version,
+      });
+
+    await tx.insert(tenantManagedFileVersions).values(
+      latestFiles.map((file) => {
+        const sharedContent =
+          file.path === input.filePath
+            ? normalizedSharedContent
+            : file.sharedContent;
+
+        return {
+          checksum: createManagedFileChecksum({
+            path: assertManagedBootstrapFilePath(file.path),
+            sharedContent,
+            systemContent: file.systemContent,
+          }),
+          path: file.path,
+          sharedContent,
+          systemContent: file.systemContent,
+          tenantManagedConfigVersionId: createdVersion.id,
+        };
+      }),
+    );
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      desiredStateVersion,
+      managedConfigVersion: createdVersion.version,
+    };
+  });
+
+  if (!result.changed) {
+    return result;
+  }
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function getTenantRuntimeGatewayToken(tenantId: string) {
@@ -1341,6 +1597,31 @@ export async function storeTenantRuntimeGatewayToken(input: {
     secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
     tenantId: input.tenantId,
   });
+}
+
+export async function getTenantByRuntimeGatewayToken(gatewayToken: string) {
+  const db = getDb();
+  const runtimeSecrets = await db
+    .select({
+      ciphertext: tenantRuntimeSecrets.ciphertext,
+      tenantId: tenantRuntimeSecrets.tenantId,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
+    );
+
+  for (const secret of runtimeSecrets) {
+    const storedToken = decryptControlPlaneSecret(secret.ciphertext);
+
+    if (tokensMatch(storedToken, gatewayToken)) {
+      return {
+        tenantId: secret.tenantId,
+      };
+    }
+  }
+
+  return null;
 }
 
 export async function enqueueTenantConfigApply(input: {
@@ -1619,6 +1900,9 @@ async function compileTenantDesiredStateConfig(
   tx: DbTransaction,
   tenantId: string,
 ) {
+  const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
+    tenantId,
+  });
   const [slackIntegration] = await tx
     .select({
       connectedAt: tenantIntegrations.connectedAt,
@@ -1643,6 +1927,7 @@ async function compileTenantDesiredStateConfig(
 
   const config: Record<string, unknown> = {
     integrations: [],
+    managedConfigVersion: managedConfig.version,
     prompts: {},
   };
 
@@ -1661,6 +1946,99 @@ async function compileTenantDesiredStateConfig(
   }
 
   return config;
+}
+
+async function ensureLatestTenantManagedConfigVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingVersion] = await tx
+    .select({
+      id: tenantManagedConfigVersions.id,
+      version: tenantManagedConfigVersions.version,
+    })
+    .from(tenantManagedConfigVersions)
+    .where(eq(tenantManagedConfigVersions.tenantId, input.tenantId))
+    .orderBy(desc(tenantManagedConfigVersions.version))
+    .limit(1);
+
+  if (existingVersion) {
+    return existingVersion;
+  }
+
+  return createInitialTenantManagedConfigVersion(tx, {
+    tenantId: input.tenantId,
+  });
+}
+
+async function createInitialTenantManagedConfigVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [createdVersion] = await tx
+    .insert(tenantManagedConfigVersions)
+    .values({
+      createdByType: "system",
+      summary: "Seeded initial managed bootstrap files",
+      tenantId: input.tenantId,
+      version: 1,
+    })
+    .returning({
+      id: tenantManagedConfigVersions.id,
+      version: tenantManagedConfigVersions.version,
+    });
+
+  await tx.insert(tenantManagedFileVersions).values(
+    getManagedBootstrapFileDefinitions().map((definition) => ({
+      checksum: createManagedFileChecksum({
+        path: definition.path,
+        sharedContent: definition.defaultSharedContent,
+        systemContent: definition.systemContent,
+      }),
+      path: definition.path,
+      sharedContent: definition.defaultSharedContent,
+      systemContent: definition.systemContent,
+      tenantManagedConfigVersionId: createdVersion.id,
+    })),
+  );
+
+  return createdVersion;
+}
+
+async function getAuthorizedLatestTenantForOrganization(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const [tenantRow] = await db
+    .select({
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantStatus: tenants.status,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenantRow) {
+    return null;
+  }
+
+  return buildTenantRuntimeState(tenantRow);
 }
 
 async function markSlackIntegrationPendingApply(
@@ -1688,6 +2066,89 @@ async function markSlackIntegrationPendingApply(
 
 function buildGatewayToken() {
   return randomBytes(24).toString("base64url");
+}
+
+async function getTenantRuntimeState(tx: DbTransaction, tenantId: string) {
+  const [tenantRow] = await tx
+    .select({
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  if (!tenantRow) {
+    throw new Error(`Tenant ${tenantId} not found`);
+  }
+
+  return buildTenantRuntimeState(tenantRow);
+}
+
+function buildTenantRuntimeState(tenantRow: {
+  serverStatus: string | null;
+  tenantId: string;
+  tenantStatus: string;
+}) {
+  return {
+    isRuntimeReady:
+      tenantRow.tenantStatus === "ready" && tenantRow.serverStatus === "ready",
+    tenantId: tenantRow.tenantId,
+  };
+}
+
+export function getManagedConfigVersionFromConfigJson(configJson: unknown) {
+  const config = parseRecord(configJson);
+  const managedConfigVersion = config.managedConfigVersion;
+
+  if (
+    typeof managedConfigVersion !== "number" ||
+    !Number.isInteger(managedConfigVersion) ||
+    managedConfigVersion < 1
+  ) {
+    return null;
+  }
+
+  return managedConfigVersion;
+}
+
+function createManagedFileChecksum(input: {
+  path: ManagedBootstrapFilePath;
+  sharedContent: string;
+  systemContent: string;
+}) {
+  return createHash("sha256")
+    .update(
+      buildManagedBootstrapFileContent({
+        path: input.path,
+        sharedContent: input.sharedContent,
+        systemContent: input.systemContent,
+      }),
+    )
+    .digest("hex");
+}
+
+function assertManagedBootstrapFilePath(
+  value: string,
+): ManagedBootstrapFilePath {
+  if (!isManagedBootstrapFilePath(value)) {
+    throw new Error(`Unsupported managed bootstrap file path: ${value}`);
+  }
+
+  return value;
+}
+
+function tokensMatch(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function normalizeJsonValue(value: unknown) {

@@ -71,6 +71,13 @@
       "when": 1773758371266,
       "tag": "0009_melodic_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773769994267,
+      "tag": "0010_last_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

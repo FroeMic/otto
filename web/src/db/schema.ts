@@ -361,6 +361,62 @@ export const tenantDesiredStates = pgTable(
   }),
 );
 
+export const tenantManagedConfigVersions = pgTable(
+  "tenant_managed_config_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    version: integer("version").notNull(),
+    createdByType: varchar("created_by_type", { length: 64 }).notNull(),
+    createdByExternalId: varchar("created_by_external_id", { length: 255 }),
+    summary: text("summary"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_managed_config_versions_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    tenantVersionUniqueIdx: uniqueIndex(
+      "tenant_managed_config_versions_tenant_id_version_idx",
+    ).on(table.tenantId, table.version),
+  }),
+);
+
+export const tenantManagedFileVersions = pgTable(
+  "tenant_managed_file_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantManagedConfigVersionId: uuid("tenant_managed_config_version_id")
+      .references(() => tenantManagedConfigVersions.id, { onDelete: "cascade" })
+      .notNull(),
+    path: varchar("path", { length: 255 }).notNull(),
+    checksum: varchar("checksum", { length: 64 }).notNull(),
+    systemContent: text("system_content").notNull(),
+    sharedContent: text("shared_content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    configVersionIdx: index(
+      "tenant_managed_file_versions_config_version_id_idx",
+    ).on(table.tenantManagedConfigVersionId),
+    configVersionPathUniqueIdx: uniqueIndex(
+      "tenant_managed_file_versions_config_version_id_path_idx",
+    ).on(table.tenantManagedConfigVersionId, table.path),
+  }),
+);
+
 export const jobRuns = pgTable(
   "job_runs",
   {
