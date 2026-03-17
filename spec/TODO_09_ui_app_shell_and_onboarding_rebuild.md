@@ -7,7 +7,7 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 ## Scope
 
 - replace the current bootstrap dashboard with a proper authenticated app shell
-- add dedicated login and registration pages under `app.*`
+- add dedicated login and invite-aware registration pages under `app.*`
 - introduce organization-scoped routes under `/{orgSlug}/...`
 - add a sidebar layout with:
   - organization switcher and organization settings access at the top
@@ -49,6 +49,31 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 
 - `/login`
 - `/register`
+
+## Public auth redesign
+
+### Design direction
+
+- keep `/login` and `/register` on one shared split-screen layout modeled after shadcn `login-02`
+- keep the left panel as the product intro and action area:
+  - Otto avatar
+  - short title
+  - short subtitle
+  - route-specific CTA content
+- use the right panel for the requested `PixelLiquidBg` treatment
+- keep `/login` focused on WorkOS sign-in plus a waitlist path
+- turn `/register` into the real waitlist entry point instead of a dead-end invite-only note
+
+### Waitlist capture
+
+- collect:
+  - name
+  - email
+  - whether the user wants Otto for themselves or a team
+  - where they heard about Otto
+  - what they want to use Otto for
+- persist waitlist submissions in Postgres so the page is operational rather than placeholder UI
+- treat the last two fields as optional
 
 ### Authenticated onboarding routes
 
@@ -206,7 +231,7 @@ Organization settings:
 
 ### Step 1: account creation
 
-- user registers or logs in
+- user logs in, or reaches the invite-aware registration page
 - if the user belongs to no organization, redirect to `/onboarding/create-organization`
 
 ### Step 2: organization creation
@@ -323,7 +348,7 @@ Likely additions during implementation:
 
 ## Acceptance criteria
 
-- unauthenticated users see dedicated login and register pages
+- unauthenticated users see dedicated login and register pages, and the register page can carry invite-only access messaging when public signup is disabled
 - authenticated users with no organization are forced into organization creation
 - organization creation requires a unique slug
 - authenticated users with incomplete org setup are routed into onboarding
