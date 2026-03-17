@@ -1,5 +1,4 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -58,12 +57,12 @@ export default async function CreateOrganizationPage() {
                 the short link you will use to come back here.
               </CardDescription>
             </div>
-            <Link
+            <a
               className={buttonVariants({ size: "sm", variant: "ghost" })}
               href="/auth/sign-out"
             >
               Log out
-            </Link>
+            </a>
           </div>
         </CardHeader>
         <CardContent>

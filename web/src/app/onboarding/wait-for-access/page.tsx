@@ -1,5 +1,4 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -56,12 +55,12 @@ export default async function WaitForAccessPage({
                 soon as this workspace reaches the front of the queue.
               </CardDescription>
             </div>
-            <Link
+            <a
               className={buttonVariants({ size: "sm", variant: "ghost" })}
               href="/auth/sign-out"
             >
               Log out
-            </Link>
+            </a>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
