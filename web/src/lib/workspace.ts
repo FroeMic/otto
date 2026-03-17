@@ -1,7 +1,19 @@
 import type { DashboardOrganization } from "@/db/control-plane";
 
+export function getPendingAccessPath(orgSlug?: string) {
+  if (!orgSlug) {
+    return "/onboarding/wait-for-access";
+  }
+
+  return `/onboarding/wait-for-access?orgSlug=${encodeURIComponent(orgSlug)}`;
+}
+
 export function getPrimaryAgent(organization: DashboardOrganization) {
   return organization.tenants[0] ?? null;
+}
+
+export function isOrganizationReady(organization: DashboardOrganization) {
+  return organization.isReady;
 }
 
 export function getCurrentOnboardingSession(
@@ -78,10 +90,18 @@ export function isRuntimeReady(organization: DashboardOrganization) {
 }
 
 export function isOrganizationUnlocked(organization: DashboardOrganization) {
-  return isSlackConnected(organization) && isRuntimeReady(organization);
+  return (
+    isOrganizationReady(organization) &&
+    isSlackConnected(organization) &&
+    isRuntimeReady(organization)
+  );
 }
 
 export function getOrganizationHomePath(organization: DashboardOrganization) {
+  if (!isOrganizationReady(organization)) {
+    return getPendingAccessPath(organization.slug);
+  }
+
   if (isOrganizationUnlocked(organization)) {
     return `/${organization.slug}/agent`;
   }

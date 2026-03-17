@@ -16,7 +16,7 @@ export default async function LoginPage() {
 
   return (
     <PublicAuthShell
-      subtitle="Invite-only access to the agent workspace, Slack setup, and runtime control plane."
+      subtitle="Sign in to your Otto workspace, or create a new account and request access for your team."
       title="Your Team's Otto"
     >
       <div className="flex flex-col gap-6">
@@ -28,12 +28,12 @@ export default async function LoginPage() {
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href="/register"
           >
-            Join the waitlist
+            Create your account
           </Link>
         </div>
         <p className="text-sm text-muted-foreground">
-          Already invited? Use your WorkOS account to continue where your team
-          left off.
+          Otto still rolls out per workspace, so signup and workspace access can
+          unlock on separate timelines.
         </p>
       </div>
     </PublicAuthShell>

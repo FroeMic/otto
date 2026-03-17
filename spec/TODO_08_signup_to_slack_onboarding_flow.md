@@ -82,9 +82,21 @@ Suggested onboarding steps:
 
 The UI should not enqueue `provision_tenant_server` until:
 
+- organization is internally marked ready
 - workspace exists
 - tenant draft exists
 - Slack installation is connected for that tenant
+
+### Step 2a. Workspace activation is separate from signup
+
+- WorkOS signup can stay publicly enabled
+- waitlist capture can stay live in parallel for teams not yet rolled out
+- creating a workspace must not immediately unlock the org-scoped shell
+- the control plane needs an internal `organizations.is_ready` gate before users can:
+  - enter the main org shell
+  - connect Slack
+  - provision the tenant runtime
+- until then, users should land on a waiting / review state outside the main shell
 
 ### Step 3. Onboarding status is resumable
 
@@ -247,6 +259,7 @@ Deliverables:
 Exit check:
 
 - no new tenant is provisioned without a Slack installation
+- no organization can reach Slack install or provisioning until it is internally marked ready
 
 ### Step 4. Project per-tenant Slack credentials to runtime
 

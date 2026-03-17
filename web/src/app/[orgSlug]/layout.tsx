@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { OrganizationShell } from "@/components/organization-shell";
 import { getDashboardOrganizations } from "@/db/control-plane";
+import { getPendingAccessPath, isOrganizationReady } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,10 @@ export default async function OrganizationLayout({
 
   if (!currentOrganization) {
     notFound();
+  }
+
+  if (!isOrganizationReady(currentOrganization)) {
+    redirect(getPendingAccessPath(currentOrganization.slug));
   }
 
   const userName =

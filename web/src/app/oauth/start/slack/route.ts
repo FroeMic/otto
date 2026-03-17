@@ -5,6 +5,7 @@ import { getOnboardingDraftForUser } from "@/db/control-plane";
 import { signOAuthState } from "@/lib/crypto";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import { buildSlackInstallUrl } from "@/lib/slack";
+import { getPendingAccessPath } from "@/lib/workspace";
 
 export async function GET(request: Request) {
   const { user } = await withAuth({ ensureSignedIn: true });
@@ -30,6 +31,15 @@ export async function GET(request: Request) {
     onboardingSessionId,
     userExternalId: user.id,
   });
+
+  if (!onboardingSession.organizationIsReady) {
+    return NextResponse.redirect(
+      new URL(
+        getPendingAccessPath(onboardingSession.organizationSlug),
+        request.url,
+      ),
+    );
+  }
 
   const state = signOAuthState({
     onboardingSessionId,

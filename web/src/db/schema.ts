@@ -14,6 +14,7 @@ import {
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   externalId: varchar("external_id", { length: 255 }).notNull().unique(),
+  isReady: boolean("is_ready").default(false).notNull(),
   name: text("name").notNull(),
   slug: varchar("slug", { length: 128 }).notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true })

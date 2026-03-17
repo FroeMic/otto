@@ -100,6 +100,7 @@ export type WaitlistSignupInput = {
 export type DashboardOrganization = {
   id: string;
   externalId: string;
+  isReady: boolean;
   latestOnboardingSession: OnboardingSessionSummary | null;
   onboardingDraft: OnboardingSessionSummary | null;
   name: string;
@@ -209,6 +210,7 @@ export async function getDashboardOrganizations(
     .select({
       organizationId: organizations.id,
       organizationExternalId: organizations.externalId,
+      organizationIsReady: organizations.isReady,
       organizationName: organizations.name,
       organizationSlug: organizations.slug,
       role: memberships.role,
@@ -442,6 +444,7 @@ export async function getDashboardOrganizations(
     return {
       id: organization.organizationId,
       externalId: organization.organizationExternalId,
+      isReady: organization.organizationIsReady,
       latestOnboardingSession: buildOnboardingDraftSummary(
         latestOnboardingByOrganization.get(organization.organizationId) ?? null,
       ),
@@ -597,6 +600,7 @@ export async function createWorkspaceOnboardingDraft(input: {
       .insert(organizations)
       .values({
         externalId: organization.id,
+        isReady: false,
         name: organization.name,
         slug: normalizedSlug,
       })
@@ -633,6 +637,7 @@ export async function createOnboardingDraftForOrganization(input: {
   const authorizedMembership = await db
     .select({
       organizationId: memberships.organizationId,
+      organizationIsReady: organizations.isReady,
       organizationName: organizations.name,
       userId: users.id,
     })
@@ -648,6 +653,10 @@ export async function createOnboardingDraftForOrganization(input: {
 
   if (authorizedMembership.length === 0) {
     throw new Error("You do not have access to this organization");
+  }
+
+  if (!authorizedMembership[0].organizationIsReady) {
+    throw new Error("Organization is not ready for setup yet");
   }
 
   const existingDraft = await db
@@ -713,6 +722,7 @@ export async function getOnboardingDraftForUser(input: {
     .select({
       id: tenantOnboardingSessions.id,
       organizationId: tenantOnboardingSessions.organizationId,
+      organizationIsReady: organizations.isReady,
       organizationSlug: organizations.slug,
       slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
       slackOauthError: tenantOnboardingSessions.slackOauthError,
@@ -762,6 +772,10 @@ export async function completeSlackOnboardingAndProvision(input: {
     onboardingSessionId: input.onboardingSessionId,
     userExternalId: input.userExternalId,
   });
+
+  if (!authorizedSession.organizationIsReady) {
+    throw new Error("Organization is not ready for Slack or provisioning yet");
+  }
 
   if (authorizedSession.tenantId) {
     const tenantId = authorizedSession.tenantId;

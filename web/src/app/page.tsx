@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { getDashboardOrganizations } from "@/db/control-plane";
 import { hasWorkOSConfig } from "@/lib/workos";
-import { getOrganizationHomePath } from "@/lib/workspace";
+import { getOrganizationHomePath, isOrganizationReady } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -39,5 +39,9 @@ export default async function Home() {
     redirect("/onboarding/create-organization");
   }
 
-  redirect(getOrganizationHomePath(organizations[0]));
+  const readyOrganization =
+    organizations.find((organization) => isOrganizationReady(organization)) ??
+    organizations[0];
+
+  redirect(getOrganizationHomePath(readyOrganization));
 }

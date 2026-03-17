@@ -65,10 +65,12 @@
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
   - the desktop panel uses the requested `PixelLiquidBg` treatment with lighter mobile / reduced-motion behavior
   - `/register` now captures a real waitlist form persisted in Postgres instead of a placeholder invite-only note
-- WorkOS public signup can now be disabled cleanly in the UI:
-  - `/register` now acts as an invite-only access page
-  - `/auth/sign-up` now redirects back to `/register` instead of initiating a public signup flow
-  - `/login` no longer advertises self-serve account creation
+- WorkOS public signup is now re-enabled while workspace activation stays gated internally:
+  - `/auth/sign-up` now starts the real WorkOS signup flow again
+  - `/register` still keeps the waitlist form, but now also offers direct WorkOS signup
+  - organizations now carry an internal `is_ready` flag that defaults to `false`
+  - users with a newly created workspace are held on a non-shell waiting page until the org is marked ready
+  - Slack OAuth, provisioning, and the org-scoped shell are blocked until `organizations.is_ready = true`
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
@@ -107,6 +109,7 @@
   - replacing the temporary WorkOS account link with a verified account-management handoff if available
   - implementing the prefixed ID strategy or explicitly deferring it
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
+  - deciding how operators will flip `organizations.is_ready` without using direct SQL
 
 ## Open questions
 

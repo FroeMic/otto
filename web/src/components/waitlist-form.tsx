@@ -5,7 +5,6 @@ import {
   CheckCircleIcon,
   CircleNotchIcon,
 } from "@phosphor-icons/react";
-import Link from "next/link";
 import * as React from "react";
 import { useFormStatus } from "react-dom";
 
@@ -187,13 +186,6 @@ function WaitlistForm() {
             }
           >
             {state.message}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Already invited?{" "}
-            <Link className="underline underline-offset-4" href="/login">
-              Sign in
-            </Link>
-            .
           </p>
         </div>
       </form>

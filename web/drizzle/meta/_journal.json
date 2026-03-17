@@ -57,6 +57,13 @@
       "when": 1773754249220,
       "tag": "0007_bitter_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773757669648,
+      "tag": "0008_complete_eternity",
+      "breakpoints": true
     }
   ]
 }
