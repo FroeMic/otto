@@ -19,22 +19,16 @@ export default async function LoginPage() {
       subtitle="Sign in to your Otto workspace, or create a new account and join the access queue for your team."
       title="Your Team's Otto"
     >
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
-          <a className={buttonVariants({ size: "lg" })} href="/auth/sign-in">
-            Log in with WorkOS
-          </a>
-          <Link
-            className={buttonVariants({ size: "lg", variant: "outline" })}
-            href="/auth/sign-up"
-          >
-            Create your account
-          </Link>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Otto rolls out workspace by workspace, so account creation and access
-          approval can happen on different timelines.
-        </p>
+      <div className="flex flex-col gap-3">
+        <a className={buttonVariants({ size: "lg" })} href="/auth/sign-in">
+          Log in with WorkOS
+        </a>
+        <Link
+          className={buttonVariants({ size: "lg", variant: "outline" })}
+          href="/auth/sign-up"
+        >
+          Create your account
+        </Link>
       </div>
     </PublicAuthShell>
   );
