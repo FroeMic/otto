@@ -61,6 +61,7 @@
   - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
   - `runtime-image/Dockerfile` layers that plugin into `/app/extensions/otto-managed-config` on top of an upstream OpenClaw image
   - rendered tenant runtime config now enables the plugin and allowlists it as an optional tool when the control plane can derive a public base URL
+  - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.

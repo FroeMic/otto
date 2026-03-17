@@ -15,6 +15,12 @@ From the repo root:
 docker build -f runtime-image/Dockerfile -t otto/openclaw-runtime:local .
 ```
 
+Or use the publish helper:
+
+```bash
+IMAGE_TAG=2026.3.14-1 ./publish-runtime-image.sh
+```
+
 To pin a specific upstream OpenClaw base image:
 
 ```bash
@@ -22,6 +28,40 @@ docker build \
   -f runtime-image/Dockerfile \
   --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.14 \
   -t ghcr.io/froemic/otto-openclaw:2026.3.14-1 .
+```
+
+With the helper:
+
+```bash
+IMAGE_TAG=2026.3.14-1 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.14 \
+./publish-runtime-image.sh
+```
+
+## Publish to GHCR
+
+The helper defaults to:
+
+- `IMAGE_REPO=ghcr.io/froemic/otto-openclaw`
+- `PLATFORMS=linux/amd64`
+
+Authenticate once with Docker, or provide:
+
+```bash
+export GHCR_USERNAME=<github-username>
+export GHCR_TOKEN=<github-personal-access-token-or-actions-token>
+```
+
+Then publish:
+
+```bash
+IMAGE_TAG=2026.3.14-1 ./publish-runtime-image.sh
+```
+
+For a local-only build without pushing:
+
+```bash
+IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 ```
 
 ## Use

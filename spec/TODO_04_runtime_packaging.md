@@ -37,6 +37,7 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
 
 - [x] choose image build strategy
 - [x] define monorepo-owned custom runtime image layering for Otto plugins
+- [x] document a repeatable GHCR publish path for the custom runtime image
 - [ ] define compose file
 - [x] validate loopback-only binding
 - [x] verify non-root runtime
