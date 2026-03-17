@@ -2,7 +2,10 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
+  getLatestTenantManagedConfig,
+  getManagedConfigVersionFromConfigJson,
   getTenantDesiredStateByVersion,
+  getTenantManagedConfigByVersion,
   getTenantRuntimeGatewayToken,
   getTenantSlackBotToken,
   storeTenantRuntimeGatewayToken,
@@ -112,6 +115,15 @@ export async function processApplyTenantConfigJob(
       slackBotToken,
       tenantId: payload.tenantId,
     });
+    const managedConfigVersion = getManagedConfigVersionFromConfigJson(
+      desiredState.configJson,
+    );
+    const managedConfig = managedConfigVersion
+      ? await getTenantManagedConfigByVersion({
+          tenantId: payload.tenantId,
+          version: managedConfigVersion,
+        })
+      : await getLatestTenantManagedConfig(payload.tenantId);
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.writingFiles,
@@ -131,6 +143,10 @@ export async function processApplyTenantConfigJob(
       gatewayToken,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
+      managedBootstrapFiles: managedConfig.files.map((file) => ({
+        contents: file.renderedContent,
+        filename: file.path,
+      })),
       openClawConfig,
       slackBotToken,
       tenantId: payload.tenantId,

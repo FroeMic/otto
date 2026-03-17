@@ -12,6 +12,11 @@ export type RuntimeFile = {
   mode?: number;
 };
 
+export type ManagedBootstrapRuntimeFile = {
+  filename: string;
+  contents: string;
+};
+
 export type ApplyTenantConfigResult = {
   restartStderr: string;
   restartStdout: string;
@@ -44,6 +49,7 @@ export class RuntimeManager {
       tenantId: string;
       desiredStateVersion: number;
       gatewayToken: string;
+      managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
     },
@@ -52,6 +58,7 @@ export class RuntimeManager {
     await this.writeTenantConfigFiles(connection, {
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
+      managedBootstrapFiles: input.managedBootstrapFiles,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       metadataTimestampKey: "bootstrappedAt",
       openClawConfig: input.openClawConfig,
@@ -73,6 +80,7 @@ export class RuntimeManager {
     input: {
       desiredStateVersion: number;
       gatewayToken: string;
+      managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
       tenantId: string;
@@ -82,6 +90,7 @@ export class RuntimeManager {
     await this.writeTenantConfigFiles(connection, {
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
+      managedBootstrapFiles: input.managedBootstrapFiles,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
       openClawConfig: input.openClawConfig,
@@ -142,6 +151,7 @@ export class RuntimeManager {
     input: {
       desiredStateVersion: number;
       gatewayToken: string;
+      managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       metadataPath: string;
       metadataTimestampKey: string;
       openClawConfig: OpenClawTenantConfig;
@@ -154,6 +164,7 @@ export class RuntimeManager {
       buildTenantRuntimeFiles({
         desiredStateVersion: input.desiredStateVersion,
         gatewayToken: input.gatewayToken,
+        managedBootstrapFiles: input.managedBootstrapFiles,
         metadataPath: input.metadataPath,
         metadataTimestampKey: input.metadataTimestampKey,
         openClawConfig: input.openClawConfig,
@@ -173,6 +184,9 @@ export class RuntimeManager {
         "chown -R openclaw:openclaw /opt/openclaw",
         "test -s /opt/openclaw/home/openclaw.json",
         "test -s /opt/openclaw/home/.env",
+        "test -s /opt/openclaw/home/workspace/AGENTS.md",
+        "test -s /opt/openclaw/home/workspace/IDENTITY.md",
+        "test -s /opt/openclaw/home/workspace/TOOLS.md",
         `test -s ${shellQuoteForShell(metadataPath)}`,
       ]),
     );
@@ -344,6 +358,7 @@ function buildRuntimeEnvFile(input: {
 function buildTenantRuntimeFiles(input: {
   desiredStateVersion: number;
   gatewayToken: string;
+  managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
   metadataPath: string;
   metadataTimestampKey: string;
   openClawConfig: OpenClawTenantConfig;
@@ -351,6 +366,11 @@ function buildTenantRuntimeFiles(input: {
   tenantId: string;
 }): RuntimeFile[] {
   return [
+    ...input.managedBootstrapFiles.map((file) => ({
+      contents: file.contents,
+      mode: 0o640,
+      path: `/opt/openclaw/home/workspace/${file.filename}`,
+    })),
     {
       path: "/opt/openclaw/home/openclaw.json",
       contents: renderOpenClawConfig(input.openClawConfig),

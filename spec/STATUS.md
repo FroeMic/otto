@@ -50,6 +50,12 @@
   - `tenant_apply_runs` now record queued, running, succeeded, and failed apply attempts per desired-state version
   - the worker now handles `apply_tenant_config` by writing runtime files atomically, restarting the tenant runtime, and verifying health
   - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
+- The first managed-bootstrap-files slice is now implemented:
+  - `tenant_managed_config_versions` and `tenant_managed_file_versions` now store canonical managed bootstrap files in the control plane
+  - the control plane now seeds and versions `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` separately from the writable workspace
+  - desired state now pins a specific managed config version so bootstrap and later apply runs project deterministic file contents into the tenant runtime workspace root
+  - the settings page now exposes locked system blocks plus a shared editable block for those files and saves changes through the existing apply pipeline
+  - a runtime-authenticated internal API now exists at `/api/internal/runtime/managed-config` so a future OpenClaw plugin can list, read, and update those managed files using the tenant gateway token
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -88,6 +94,7 @@
 - Prefer a database-backed workflow engine inside the Next.js repo before adopting `trigger.dev`.
 - Keep the code structured so `trigger.dev` can be introduced later behind a job interface if the simpler approach stops being sufficient.
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
+- Prefer control-plane-owned managed bootstrap files projected onto the tenant runtime over treating local runtime edits as the source of truth for `AGENTS.md`, `IDENTITY.md`, or `TOOLS.md`.
 - If the control plane uses one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus control-plane-owned shared ingress.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 
@@ -103,6 +110,9 @@
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
+- Continue the managed-bootstrap-files slice by:
+  - wiring an OpenClaw plugin to the new runtime-authenticated managed-config API so Otto can mutate the shared editable managed-config blocks without direct local writes becoming authoritative
+  - expanding managed config beyond `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` only after the agent-tool workflow is in place
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available

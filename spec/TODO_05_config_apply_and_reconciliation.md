@@ -77,6 +77,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - load the target desired-state version
   - render `openclaw.json`
   - render the runtime env file if needed
+  - render any managed bootstrap files that should be projected onto the runtime
   - upload files atomically
   - optionally run a validation step
   - restart the gateway
@@ -105,6 +106,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - the host has an `openclaw` user and runtime directories under `/home/openclaw`
   - the gateway binds only to `127.0.0.1`
   - the control plane applies tenant runtime state over SSH
+  - control-plane-managed bootstrap files such as `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` are projected into the OpenClaw workspace root at the exact paths the runtime expects
   - the control plane authenticates with one deploy key pair managed by env, not an operator laptop key
 - Security constraints:
   - no tenant secrets baked into cloud-init
@@ -112,6 +114,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - no host root requirement for the OpenClaw process
   - no Docker socket mounted into the runtime container
   - prefer host key verification through `RUNTIME_SSH_KNOWN_HOSTS` instead of blindly trusting first use
+  - any runtime-initiated edits to managed bootstrap files must flow back through a control-plane API authenticated by the tenant gateway token instead of local file writes becoming authoritative
 - Keep the interface job-runner agnostic:
   - a Postgres worker can call these wrappers now
   - a Trigger.dev adapter can call the same wrappers later

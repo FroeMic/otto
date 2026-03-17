@@ -4,6 +4,9 @@ import { getDb } from "@/db/client";
 import {
   ensureTenantRuntimeGatewayToken,
   getLatestTenantDesiredState,
+  getLatestTenantManagedConfig,
+  getManagedConfigVersionFromConfigJson,
+  getTenantManagedConfigByVersion,
   getTenantSlackBotToken,
 } from "@/db/control-plane";
 import { tenantServers, tenants } from "@/db/schema";
@@ -438,6 +441,15 @@ async function bootstrapRuntime(
       payload.tenantId,
     );
     const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
+    const managedConfigVersion = getManagedConfigVersionFromConfigJson(
+      desiredState.configJson,
+    );
+    const managedConfig = managedConfigVersion
+      ? await getTenantManagedConfigByVersion({
+          tenantId: payload.tenantId,
+          version: managedConfigVersion,
+        })
+      : await getLatestTenantManagedConfig(payload.tenantId);
 
     await runtimeManager.bootstrapTenantRuntime(
       {
@@ -448,6 +460,10 @@ async function bootstrapRuntime(
       {
         desiredStateVersion: desiredState.version,
         gatewayToken,
+        managedBootstrapFiles: managedConfig.files.map((file) => ({
+          contents: file.renderedContent,
+          filename: file.path,
+        })),
         openClawConfig: buildOpenClawTenantConfig({
           configJson: desiredState.configJson,
           slackBotToken,
