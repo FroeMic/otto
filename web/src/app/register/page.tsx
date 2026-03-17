@@ -24,22 +24,19 @@ export default async function RegisterPage() {
     <main className="flex min-h-screen items-center justify-center px-6 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create your Otto</CardTitle>
+          <CardTitle>Invite-only access</CardTitle>
           <CardDescription>
-            Set up Otto for your team, connect Slack, and get your agent ready
-            to work where your team already works.
+            Otto sign-up is currently limited to invited teams. Ask your Otto
+            admin for an invitation before trying to create an account.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <a className={buttonVariants({ size: "lg" })} href="/auth/sign-up">
-            Continue
-          </a>
-          <Link
-            className={buttonVariants({ size: "lg", variant: "outline" })}
-            href="/login"
-          >
+          <Link className={buttonVariants({ size: "lg" })} href="/login">
             I already have an account
           </Link>
+          <p className="text-center text-sm text-muted-foreground">
+            Need access? Contact the workspace owner who invited your team.
+          </p>
         </CardContent>
       </Card>
     </main>

@@ -7,7 +7,7 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 ## Scope
 
 - replace the current bootstrap dashboard with a proper authenticated app shell
-- add dedicated login and registration pages under `app.*`
+- add dedicated login and invite-aware registration pages under `app.*`
 - introduce organization-scoped routes under `/{orgSlug}/...`
 - add a sidebar layout with:
   - organization switcher and organization settings access at the top
@@ -206,7 +206,7 @@ Organization settings:
 
 ### Step 1: account creation
 
-- user registers or logs in
+- user logs in, or reaches the invite-aware registration page
 - if the user belongs to no organization, redirect to `/onboarding/create-organization`
 
 ### Step 2: organization creation
@@ -323,7 +323,7 @@ Likely additions during implementation:
 
 ## Acceptance criteria
 
-- unauthenticated users see dedicated login and register pages
+- unauthenticated users see dedicated login and register pages, and the register page can carry invite-only access messaging when public signup is disabled
 - authenticated users with no organization are forced into organization creation
 - organization creation requires a unique slug
 - authenticated users with incomplete org setup are routed into onboarding

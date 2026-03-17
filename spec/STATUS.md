@@ -60,6 +60,10 @@
   - the authenticated shell now uses a shadcn sidebar with org switcher, requested nav items, and a bottom user menu
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
+- WorkOS public signup can now be disabled cleanly in the UI:
+  - `/register` now acts as an invite-only access page
+  - `/auth/sign-up` now redirects back to `/register` instead of initiating a public signup flow
+  - `/login` no longer advertises self-serve account creation
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.

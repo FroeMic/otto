@@ -1,4 +1,3 @@
-import { getSignUpUrl } from "@workos-inc/authkit-nextjs";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { hasWorkOSConfig } from "@/lib/workos";
@@ -12,7 +11,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  const signUpUrl = await getSignUpUrl({ returnTo: getReturnTo(request) });
+  const registerUrl = new URL("/register", request.url);
+  registerUrl.searchParams.set("returnTo", getReturnTo(request));
 
-  return NextResponse.redirect(signUpUrl);
+  return NextResponse.redirect(registerUrl);
 }

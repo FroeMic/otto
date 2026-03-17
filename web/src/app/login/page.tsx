@@ -38,7 +38,7 @@ export default async function LoginPage() {
             className={buttonVariants({ size: "lg", variant: "outline" })}
             href="/register"
           >
-            Create an account
+            Invite-only access
           </Link>
         </CardContent>
       </Card>
