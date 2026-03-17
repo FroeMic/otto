@@ -2,14 +2,17 @@ import { handleAuth } from "@workos-inc/authkit-nextjs";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { syncUserFromSession } from "@/db/control-plane";
-import { hasWorkOSConfig } from "@/lib/workos";
+import { getWorkOSAuthConfig, hasWorkOSConfig } from "@/lib/workos";
 
-const authHandler = handleAuth({
-  returnPathname: "/",
-  onSuccess: async ({ user }) => {
-    await syncUserFromSession(user);
-  },
-});
+function getAuthHandler() {
+  return handleAuth({
+    baseURL: getWorkOSAuthConfig().baseURL,
+    returnPathname: "/",
+    onSuccess: async ({ user }) => {
+      await syncUserFromSession(user);
+    },
+  });
+}
 
 export function GET(request: NextRequest) {
   if (!hasWorkOSConfig()) {
@@ -19,5 +22,5 @@ export function GET(request: NextRequest) {
     );
   }
 
-  return authHandler(request);
+  return getAuthHandler()(request);
 }
