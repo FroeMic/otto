@@ -60,14 +60,15 @@
   - the authenticated shell now uses a shadcn sidebar with org switcher, requested nav items, and a bottom user menu
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
+- The public-auth redesign is now implemented:
+  - `/login` and `/register` share an Otto-branded split auth shell inspired by `login-02` without importing the full block
+  - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
+  - the desktop panel uses the requested `PixelLiquidBg` treatment with lighter mobile / reduced-motion behavior
+  - `/register` now captures a real waitlist form persisted in Postgres instead of a placeholder invite-only note
 - WorkOS public signup can now be disabled cleanly in the UI:
   - `/register` now acts as an invite-only access page
   - `/auth/sign-up` now redirects back to `/register` instead of initiating a public signup flow
   - `/login` no longer advertises self-serve account creation
-- The next public-auth slice should replace the temporary invite-only card with:
-  - a shared Otto-branded split auth shell for `/login` and `/register`
-  - a real waitlist signup form stored in Postgres
-  - the requested pixelated background treatment on the desktop panel
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
@@ -102,8 +103,6 @@
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
-  - redesigning `/login` and `/register` around the Otto-branded split auth shell
-  - replacing the invite-only placeholder with the real waitlist form and persistence
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available
   - implementing the prefixed ID strategy or explicitly deferring it

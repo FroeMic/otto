@@ -55,14 +55,65 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 ### Design direction
 
 - keep `/login` and `/register` on one shared split-screen layout modeled after shadcn `login-02`
-- keep the left panel as the product intro and action area:
+- do not install `login-02` wholesale, because Otto no longer needs email or password fields and the block would overwrite existing base `button`, `input`, and `separator` primitives
+- use the left panel as the product intro and action area:
   - Otto avatar
   - short title
   - short subtitle
-  - route-specific CTA content
-- use the right panel for the requested `PixelLiquidBg` treatment
-- keep `/login` focused on WorkOS sign-in plus a waitlist path
-- turn `/register` into the real waitlist entry point instead of a dead-end invite-only note
+  - one or two clear auth actions depending on route
+- use the right panel as a branded motion surface built with the `PixelLiquidBg` component from `ui.unlumen.com/components/pixel-liquid-bg`
+
+### Per-route behavior
+
+- `/login`:
+  - primary action: sign in with WorkOS
+  - secondary action: join waitlist / invite-only access
+- `/register`:
+  - primary action: join waitlist or request access
+  - secondary action: I already have an account
+- keep both pages visually identical enough that they feel like one public entry system rather than two unrelated pages
+
+### Left panel composition
+
+- top-left Otto wordmark or compact brand mark
+- centered content stack with:
+  - Otto avatar image from the provided pixel-art portrait
+  - title in a stronger display treatment than the rest of the app shell
+  - one-sentence subtitle that explains Otto as the team agent / control plane
+  - compact CTA stack using existing shadcn button variants
+- keep copy intentionally short; avoid feature grids, social proof, or long marketing sections in this first pass
+
+### Right panel composition
+
+- desktop and large tablet only; collapse or hide on smaller screens
+- full-height `PixelLiquidBg` canvas with Otto-aligned palette tuning
+- keep the panel decorative rather than interactive
+- allow a subtle overlay frame or status badge only if it does not compete with the left-side CTA
+
+### Asset and implementation notes
+
+- add the Otto avatar as a real app asset under `web/public` and render it with `next/image`
+- because `PixelLiquidBg` is a heavy Three.js surface, isolate it to a client component and keep the surrounding page server-rendered
+- tune the background conservatively for auth:
+  - lower `resolution` on smaller viewports
+  - use a moderate `pixelSize`
+  - disable or simplify motion when `prefers-reduced-motion` is set
+- do not introduce email inputs, password fields, separators, or third-party social login affordances
+- prefer a small shared auth-shell component over duplicated page markup
+
+### Mobile behavior
+
+- stack into a single-column layout
+- prioritize avatar, title, subtitle, and buttons above the fold
+- either hide the pixel background entirely on mobile or reduce it to a shallow decorative band behind the header area
+- keep interaction cost low and avoid making the auth entry feel heavier than the authenticated app
+
+### Suggested starter copy
+
+- title:
+  - `Your Team’s Otto`
+- subtitle:
+  - `Invite-only access to the agent workspace, Slack setup, and runtime control plane.`
 
 ### Waitlist capture
 
@@ -307,6 +358,7 @@ Recommendation for the first pass:
 - use Bun-oriented commands during implementation
 - install the sidebar block instead of recreating the shell from scratch
 - prefer `bunx shadcn@latest add sidebar-08` in `web/` for the shell starting point
+- use `login-02` only as a layout reference for the public auth shell, not as a direct overwrite target
 - do not customize shadcn component colors in the prototype pass
 - prefer composition over custom primitive creation
 
@@ -327,12 +379,13 @@ Likely additions during implementation:
 1. Lock route, onboarding gate, and ID decisions.
 2. Introduce prefixed IDs for `users` and `organizations`, then extend as needed.
 3. Split auth into dedicated `/login` and `/register` pages.
-4. Add the authenticated app shell and sidebar.
-5. Add organization creation with unique slug.
-6. Add onboarding redirect logic and org setup gate.
-7. Build the `Agent` page as the first unlocked destination.
-8. Add scaffold pages for Integrations, Skills, Scheduled Tasks, and Settings.
-9. Wire onboarding state to real Slack and provisioning readiness.
+4. Redesign the public auth shell around the Otto avatar, short copy, and `PixelLiquidBg` right panel.
+5. Add the authenticated app shell and sidebar.
+6. Add organization creation with unique slug.
+7. Add onboarding redirect logic and org setup gate.
+8. Build the `Agent` page as the first unlocked destination.
+9. Add scaffold pages for Integrations, Skills, Scheduled Tasks, and Settings.
+10. Wire onboarding state to real Slack and provisioning readiness.
 
 ## Status checklist
 
@@ -340,6 +393,7 @@ Likely additions during implementation:
 - [x] define one-Otto-per-org product framing
 - [x] define sidebar shell and fixed status rail
 - [x] define dedicated login and registration pages
+- [x] define the public auth redesign direction for `/login` and `/register`
 - [x] define onboarding gate and create-organization flow
 - [x] define settings split between user and organization
 - [x] define a dedicated Slack integration state page
@@ -349,6 +403,9 @@ Likely additions during implementation:
 ## Acceptance criteria
 
 - unauthenticated users see dedicated login and register pages, and the register page can carry invite-only access messaging when public signup is disabled
+- public auth pages share one coherent Otto-branded split layout rather than generic centered cards
+- the left panel presents Otto avatar, short copy, and only the required auth actions
+- the right panel uses the requested pixelated liquid background treatment on desktop without blocking core auth actions on smaller screens
 - authenticated users with no organization are forced into organization creation
 - organization creation requires a unique slug
 - authenticated users with incomplete org setup are routed into onboarding
@@ -368,3 +425,4 @@ Likely additions during implementation:
 - How aggressively should the backend `tenant` language be hidden from the first UI pass versus only translated in page copy?
 - Should the Slack integration detail page also expose low-level diagnostic fields, or stay strictly product-level in the first pass?
 - When the prefixed ID migration happens, should it convert primary keys directly or introduce separate stable public IDs first?
+- Should the waitlist CTA point to a dedicated Otto route, an external form, or an email handoff in the first pass?
