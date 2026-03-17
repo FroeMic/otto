@@ -130,6 +130,14 @@ export type DashboardOrganization = {
 };
 
 export async function syncUserFromSession(user: User) {
+  const syncedUser = await upsertLocalUser(user);
+
+  await backfillOrganizationsFromWorkOS(user.id, syncedUser.id);
+
+  return syncedUser;
+}
+
+async function upsertLocalUser(user: Pick<User, "email" | "id">) {
   const db = getDb();
 
   const [upsertedUser] = await db
@@ -159,19 +167,12 @@ export async function getDashboardOrganizations(
 ): Promise<DashboardOrganization[]> {
   const db = getDb();
 
-  const organizationRows = await db
-    .select({
-      organizationId: organizations.id,
-      organizationExternalId: organizations.externalId,
-      organizationIsReady: organizations.isReady,
-      organizationName: organizations.name,
-      organizationSlug: organizations.slug,
-      role: memberships.role,
-    })
-    .from(memberships)
-    .innerJoin(users, eq(memberships.userId, users.id))
-    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
-    .where(eq(users.externalId, userExternalId));
+  let organizationRows = await getDashboardOrganizationRows(userExternalId);
+
+  if (organizationRows.length === 0) {
+    await backfillOrganizationsFromWorkOS(userExternalId);
+    organizationRows = await getDashboardOrganizationRows(userExternalId);
+  }
 
   if (organizationRows.length === 0) {
     return [];
@@ -415,6 +416,127 @@ export async function getDashboardOrganizations(
       tenants: organizationTenants,
     };
   });
+}
+
+async function getDashboardOrganizationRows(userExternalId: string) {
+  const db = getDb();
+
+  return db
+    .select({
+      organizationId: organizations.id,
+      organizationExternalId: organizations.externalId,
+      organizationIsReady: organizations.isReady,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      role: memberships.role,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(eq(users.externalId, userExternalId));
+}
+
+async function backfillOrganizationsFromWorkOS(
+  userExternalId: string,
+  localUserId?: string,
+) {
+  const db = getDb();
+  const workos = getWorkOS();
+  const workosUser = await workos.userManagement.getUser(userExternalId);
+  const localUser =
+    localUserId !== undefined
+      ? { id: localUserId }
+      : await upsertLocalUser(workosUser);
+  const workosMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      userId: userExternalId,
+    })
+  ).autoPagination();
+  const activeMemberships = workosMemberships.filter(
+    (membership) => membership.status === "active",
+  );
+
+  if (activeMemberships.length === 0) {
+    return;
+  }
+
+  const externalOrganizationIds = activeMemberships.map(
+    (membership) => membership.organizationId,
+  );
+  const existingOrganizations = await db
+    .select({
+      externalId: organizations.externalId,
+      id: organizations.id,
+      name: organizations.name,
+    })
+    .from(organizations)
+    .where(inArray(organizations.externalId, externalOrganizationIds));
+  const organizationsByExternalId = new Map(
+    existingOrganizations.map((organization) => [
+      organization.externalId,
+      organization,
+    ]),
+  );
+  const existingMembershipRows = await db
+    .select({
+      organizationId: memberships.organizationId,
+    })
+    .from(memberships)
+    .where(eq(memberships.userId, localUser.id));
+  const existingMembershipOrgIds = new Set(
+    existingMembershipRows.map((membership) => membership.organizationId),
+  );
+
+  for (const membership of activeMemberships) {
+    let localOrganization = organizationsByExternalId.get(
+      membership.organizationId,
+    );
+
+    if (!localOrganization) {
+      const slug = await generateOrganizationSlugFromWorkOS(
+        membership.organizationName,
+        membership.organizationId,
+      );
+      const [createdOrganization] = await db
+        .insert(organizations)
+        .values({
+          externalId: membership.organizationId,
+          isReady: false,
+          name: membership.organizationName,
+          slug,
+        })
+        .returning({
+          externalId: organizations.externalId,
+          id: organizations.id,
+          name: organizations.name,
+        });
+
+      localOrganization = createdOrganization;
+      organizationsByExternalId.set(
+        createdOrganization.externalId,
+        createdOrganization,
+      );
+    } else if (localOrganization.name !== membership.organizationName) {
+      await db
+        .update(organizations)
+        .set({
+          name: membership.organizationName,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, localOrganization.id));
+    }
+
+    if (existingMembershipOrgIds.has(localOrganization.id)) {
+      continue;
+    }
+
+    await db.insert(memberships).values({
+      organizationId: localOrganization.id,
+      role: membership.role.slug,
+      userId: localUser.id,
+    });
+    existingMembershipOrgIds.add(localOrganization.id);
+  }
 }
 
 function buildOnboardingDraftSummary(
@@ -1591,6 +1713,57 @@ function normalizeOrganizationSlug(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+async function generateOrganizationSlugFromWorkOS(
+  organizationName: string,
+  organizationExternalId: string,
+) {
+  const db = getDb();
+  const baseSlug = normalizeOrganizationSlug(organizationName) || "workspace";
+  const externalIdSuffix = organizationExternalId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(-8);
+  const fallbackSlug = externalIdSuffix
+    ? `${baseSlug}-${externalIdSuffix}`
+    : `${baseSlug}-workspace`;
+  const candidates = [baseSlug, fallbackSlug];
+
+  for (const candidate of candidates) {
+    const [existingOrganization] = await db
+      .select({
+        externalId: organizations.externalId,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, candidate))
+      .limit(1);
+
+    if (
+      !existingOrganization ||
+      existingOrganization.externalId === organizationExternalId
+    ) {
+      return candidate;
+    }
+  }
+
+  for (let index = 2; ; index += 1) {
+    const candidate = `${fallbackSlug}-${index}`;
+    const [existingOrganization] = await db
+      .select({
+        externalId: organizations.externalId,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, candidate))
+      .limit(1);
+
+    if (
+      !existingOrganization ||
+      existingOrganization.externalId === organizationExternalId
+    ) {
+      return candidate;
+    }
+  }
 }
 
 export async function createTenantForOrganization(input: {
