@@ -1,8 +1,12 @@
-import { getEnv } from "@/lib/env";
+import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 
 export type OpenClawTenantConfig = {
   authTokenEnvVar: string;
   gatewayPort: number;
+  managedConfigPlugin?: {
+    id: string;
+    timeoutMs: number;
+  };
   primaryModel?: string;
   slack?: {
     enabled: boolean;
@@ -29,6 +33,24 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
+      ...(config.managedConfigPlugin
+        ? {
+            plugins: {
+              allow: [config.managedConfigPlugin.id],
+              entries: {
+                [config.managedConfigPlugin.id]: {
+                  config: {
+                    timeoutMs: config.managedConfigPlugin.timeoutMs,
+                  },
+                  enabled: true,
+                },
+              },
+            },
+            tools: {
+              alsoAllow: [config.managedConfigPlugin.id],
+            },
+          }
+        : {}),
       gateway: {
         auth: {
           mode: "token",
@@ -64,6 +86,7 @@ export function buildOpenClawTenantConfig(input: {
 }): OpenClawTenantConfig {
   const config = parseRecord(input.configJson);
   const env = getEnv();
+  const controlPlaneBaseUrl = getControlPlaneBaseUrl();
   const hasSlackTokens =
     Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(input.slackBotToken);
 
@@ -77,6 +100,14 @@ export function buildOpenClawTenantConfig(input: {
       : [],
     primaryModel: env.RUNTIME_MODEL_PRIMARY,
     prompts: parseStringRecord(config.prompts),
+    ...(controlPlaneBaseUrl
+      ? {
+          managedConfigPlugin: {
+            id: "otto-managed-config",
+            timeoutMs: 15_000,
+          },
+        }
+      : {}),
     ...(hasSlackTokens
       ? {
           slack: {

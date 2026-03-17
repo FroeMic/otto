@@ -1,0 +1,15 @@
+{
+  "id": "otto-managed-config",
+  "name": "Otto Managed Config",
+  "description": "Managed bootstrap file tools backed by the Otto control plane.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000
+      }
+    }
+  }
+}

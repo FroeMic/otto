@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   getLatestTenantManagedConfig,
+  ManagedConfigVersionConflictError,
   updateTenantManagedFileSharedContentForTenant,
 } from "@/db/control-plane";
 import { isManagedBootstrapFilePath } from "@/lib/openclaw/managed-config";
@@ -11,6 +12,7 @@ import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
   filePath: z.string(),
   sharedContent: z.string(),
   summary: z.string().trim().min(1).max(500).optional(),
@@ -76,6 +78,7 @@ export async function PATCH(request: Request) {
     const result = await updateTenantManagedFileSharedContentForTenant({
       createdByExternalId: null,
       createdByType: "runtime",
+      expectedVersion: body.expectedVersion,
       filePath: body.filePath,
       sharedContent: body.sharedContent,
       summary:
@@ -102,6 +105,17 @@ export async function PATCH(request: Request) {
 
 function handleRuntimeRouteError(error: unknown) {
   if (error instanceof Error) {
+    if (error instanceof ManagedConfigVersionConflictError) {
+      return json(
+        {
+          currentVersion: error.currentVersion,
+          error: error.message,
+          expectedVersion: error.expectedVersion,
+        },
+        409,
+      );
+    }
+
     if (
       error.message === "Missing runtime bearer token" ||
       error.message === "Invalid runtime bearer token"

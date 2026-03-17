@@ -28,6 +28,7 @@ async function updateManagedConfigAction(formData: FormData) {
   const { user } = await withAuth({ ensureSignedIn: true });
   const orgSlug = formData.get("orgSlug")?.toString();
   const filePath = formData.get("filePath")?.toString();
+  const expectedVersionValue = formData.get("expectedVersion")?.toString();
   const sharedContent = formData.get("sharedContent")?.toString();
 
   if (!orgSlug || !filePath || !sharedContent) {
@@ -39,6 +40,9 @@ async function updateManagedConfigAction(formData: FormData) {
   }
 
   await updateTenantManagedFileSharedContent({
+    expectedVersion: expectedVersionValue
+      ? Number.parseInt(expectedVersionValue, 10)
+      : undefined,
     filePath,
     orgSlug,
     sharedContent,
@@ -170,6 +174,11 @@ export default async function SettingsPage({
                             type="hidden"
                             name="filePath"
                             value={file.path}
+                          />
+                          <input
+                            type="hidden"
+                            name="expectedVersion"
+                            value={managedConfig.version}
                           />
                           <input type="hidden" name="orgSlug" value={orgSlug} />
                           <Textarea

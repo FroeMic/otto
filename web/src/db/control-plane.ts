@@ -111,6 +111,17 @@ type MessagingConversationInput = {
   topic: string | null;
 };
 
+export class ManagedConfigVersionConflictError extends Error {
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Managed config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
+    );
+  }
+}
+
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
@@ -1387,6 +1398,7 @@ export async function getTenantDesiredStateByVersion(input: {
 }
 
 export async function updateTenantManagedFileSharedContent(input: {
+  expectedVersion?: number;
   filePath: ManagedBootstrapFilePath;
   orgSlug: string;
   sharedContent: string;
@@ -1404,6 +1416,7 @@ export async function updateTenantManagedFileSharedContent(input: {
   return updateTenantManagedFileSharedContentForTenant({
     createdByExternalId: input.userExternalId,
     createdByType: "user",
+    expectedVersion: input.expectedVersion,
     filePath: input.filePath,
     sharedContent: input.sharedContent,
     summary: `Updated ${input.filePath}`,
@@ -1414,6 +1427,7 @@ export async function updateTenantManagedFileSharedContent(input: {
 export async function updateTenantManagedFileSharedContentForTenant(input: {
   createdByExternalId?: string | null;
   createdByType: "runtime" | "user";
+  expectedVersion?: number;
   filePath: ManagedBootstrapFilePath;
   sharedContent: string;
   summary?: string;
@@ -1430,6 +1444,17 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
     const latestConfig = await ensureLatestTenantManagedConfigVersion(tx, {
       tenantId: input.tenantId,
     });
+
+    if (
+      input.expectedVersion !== undefined &&
+      latestConfig.version !== input.expectedVersion
+    ) {
+      throw new ManagedConfigVersionConflictError(
+        input.expectedVersion,
+        latestConfig.version,
+      );
+    }
+
     const latestFiles = await tx
       .select({
         path: tenantManagedFileVersions.path,
@@ -1454,6 +1479,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
       return {
         applyQueued: false,
         changed: false,
+        currentVersion: latestConfig.version,
       };
     }
 
@@ -1502,6 +1528,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       changed: true,
+      currentVersion: createdVersion.version,
       desiredStateVersion,
       managedConfigVersion: createdVersion.version,
     };
