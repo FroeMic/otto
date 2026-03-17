@@ -42,6 +42,20 @@ const waitlistSchema = z.object({
     .transform((value) => (value.length > 0 ? value : null)),
 });
 
+function getErrorLogDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    value: error,
+  };
+}
+
 export async function submitWaitlistSignupAction(
   _previousState: WaitlistFormState,
   formData: FormData,
@@ -62,6 +76,8 @@ export async function submitWaitlistSignupAction(
     };
   }
 
+  console.log("[waitlist] submit payload", parsed.data);
+
   try {
     await upsertWaitlistSignup(parsed.data);
 
@@ -71,7 +87,14 @@ export async function submitWaitlistSignupAction(
         "You are on the list. We will reach out when Otto is ready for your setup.",
       status: "success",
     };
-  } catch {
+  } catch (error) {
+    console.error("[waitlist] failed to save signup", {
+      email: parsed.data.email,
+      name: parsed.data.name,
+      usagePreference: parsed.data.usagePreference,
+      ...getErrorLogDetails(error),
+    });
+
     return {
       fieldErrors: {},
       message: "We could not save your request. Try again.",

@@ -165,31 +165,39 @@ export async function syncUserFromSession(user: User) {
 export async function upsertWaitlistSignup(input: WaitlistSignupInput) {
   const db = getDb();
 
-  const [signup] = await db
-    .insert(waitlistSignups)
-    .values({
-      email: input.email,
-      heardAboutOtto: input.heardAboutOtto,
-      name: input.name,
-      usagePreference: input.usagePreference,
-      useCase: input.useCase,
-    })
-    .onConflictDoUpdate({
-      target: waitlistSignups.email,
-      set: {
+  try {
+    const [signup] = await db
+      .insert(waitlistSignups)
+      .values({
+        email: input.email,
         heardAboutOtto: input.heardAboutOtto,
         name: input.name,
-        updatedAt: new Date(),
         usagePreference: input.usagePreference,
         useCase: input.useCase,
-      },
-    })
-    .returning({
-      email: waitlistSignups.email,
-      id: waitlistSignups.id,
-    });
+      })
+      .onConflictDoUpdate({
+        target: waitlistSignups.email,
+        set: {
+          heardAboutOtto: input.heardAboutOtto,
+          name: input.name,
+          updatedAt: new Date(),
+          usagePreference: input.usagePreference,
+          useCase: input.useCase,
+        },
+      })
+      .returning({
+        email: waitlistSignups.email,
+        id: waitlistSignups.id,
+      });
 
-  return signup;
+    return signup;
+  } catch (error) {
+    console.error("[waitlist] db upsert failed", {
+      email: input.email,
+      error,
+    });
+    throw error;
+  }
 }
 
 export async function getDashboardOrganizations(

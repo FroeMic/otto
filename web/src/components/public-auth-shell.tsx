@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { PixelLiquidBg } from "@/components/pixel-liquid-bg";
+import { PixelLiquidBg } from "@/components/unlumen-ui/pixel-liquid-bg";
 import { cn } from "@/lib/utils";
 
 type PublicAuthShellProps = {
@@ -64,7 +64,7 @@ function PublicAuthShell({
           darkPalette={["#0f0b09", "#26160f", "#6b3b22", "#bf7c54", "#f0d0ae"]}
           lightPalette={["#fff8ef", "#f2dfcb", "#d9af86", "#9f5b3b", "#4b2516"]}
           mouseForce={7}
-          pixelSize={18}
+          pixelSize={32}
           resolution={0.38}
         >
           <div className="absolute inset-x-10 bottom-10 flex justify-end">
