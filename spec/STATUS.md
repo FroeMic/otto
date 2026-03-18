@@ -27,7 +27,7 @@
   - write `openclaw.json`, `.env`, and bootstrap metadata
   - verify those files on the tenant server before marking the tenant ready
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
-- The first runtime start path currently uses direct `docker run` with host networking and loopback binding; Docker Compose is still deferred.
+- The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
 - Runtime bootstrap can now preconfigure the tenant gateway with `OPENAI_API_KEY` and a default model via `RUNTIME_OPENAI_API_KEY` and `RUNTIME_MODEL_PRIMARY`.
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.

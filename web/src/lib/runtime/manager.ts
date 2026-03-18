@@ -1,5 +1,7 @@
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import {
+  OPENCLAW_GATEWAY_CONTAINER_PORT,
+  OPENCLAW_GATEWAY_HOST_PORT,
   type OpenClawTenantConfig,
   renderOpenClawConfig,
 } from "@/lib/openclaw/config";
@@ -207,11 +209,12 @@ export class RuntimeManager {
           "docker run -d",
           "--name openclaw-gateway",
           "--restart unless-stopped",
-          "--network host",
+          `-p 127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}:${OPENCLAW_GATEWAY_CONTAINER_PORT}`,
+          "--user 1000:1001",
           "--env-file /opt/openclaw/home/.env",
           "-v /opt/openclaw/home:/home/node/.openclaw",
           shellQuoteForShell(image),
-          "node dist/index.js gateway --port 18789",
+          `node dist/index.js gateway --port ${OPENCLAW_GATEWAY_CONTAINER_PORT}`,
         ].join(" "),
       ]),
       { timeoutMs: 300_000 },
@@ -286,7 +289,7 @@ export class RuntimeManager {
           connection,
           buildShellCommand([
             "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-            "curl -fsS http://127.0.0.1:18789/healthz",
+            `curl -fsS http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}/healthz`,
           ]),
           { timeoutMs: 30_000 },
         );
@@ -298,7 +301,7 @@ export class RuntimeManager {
         const status = await this.getGatewayStatusSummary(connection);
 
         console.info(
-          `[worker] gateway health check attempt ${attempt}/${GATEWAY_HEALTH_MAX_ATTEMPTS}: waiting for ${connection.host}:18789 (container ${status})`,
+          `[worker] gateway health check attempt ${attempt}/${GATEWAY_HEALTH_MAX_ATTEMPTS}: waiting for ${connection.host}:${OPENCLAW_GATEWAY_HOST_PORT} (container ${status})`,
         );
 
         if (attempt < GATEWAY_HEALTH_MAX_ATTEMPTS) {

@@ -18,6 +18,10 @@ export type OpenClawTenantConfig = {
   workspacePath: string;
 };
 
+export const OPENCLAW_GATEWAY_BIND = "all";
+export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
+export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
+
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   return JSON.stringify(
     {
@@ -56,7 +60,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           mode: "token",
           token: `\${${config.authTokenEnvVar}}`,
         },
-        bind: "loopback",
+        bind: OPENCLAW_GATEWAY_BIND,
         mode: "local",
         port: config.gatewayPort,
       },
@@ -92,7 +96,7 @@ export function buildOpenClawTenantConfig(input: {
 
   return {
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
-    gatewayPort: 18789,
+    gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
     integrations: Array.isArray(config.integrations)
       ? config.integrations.filter(
           (value): value is string => typeof value === "string",

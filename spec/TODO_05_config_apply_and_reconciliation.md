@@ -104,7 +104,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
 - Runtime assumptions for v1:
   - OpenClaw runs in a container on the tenant VPS
   - the host has an `openclaw` user and runtime directories under `/home/openclaw`
-  - the gateway binds only to `127.0.0.1`
+  - the gateway listens on all container interfaces so Docker port publishing works, while the host publish can stay bound to `127.0.0.1` unless external ingress is intentionally enabled
   - the control plane applies tenant runtime state over SSH
   - control-plane-managed bootstrap files such as `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` are projected into the OpenClaw workspace root at the exact paths the runtime expects
   - the control plane authenticates with one deploy key pair managed by env, not an operator laptop key

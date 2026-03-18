@@ -19,7 +19,6 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
 
 - Treat runtime packaging as a separate concern from provisioning.
 - Pin OpenClaw version and any system dependencies.
-- The initial container should bind only to loopback on the VPS.
 - The monorepo should own Otto-specific OpenClaw plugins and build a thin
   custom runtime image layer on top of upstream OpenClaw instead of forking the
   whole runtime repo.
@@ -28,6 +27,7 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
   bundled plugins.
 - Pin the upstream OpenClaw base image to an actual published container tag
   such as `ghcr.io/openclaw/openclaw:2026.3.13-1`, not only a Git release name.
+- The initial container should listen on all container interfaces, but publish only the required host port and prefer host-loopback binding unless a public ingress is explicitly required.
 
 ## Exit criteria
 
@@ -41,7 +41,7 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
 - [x] define monorepo-owned custom runtime image layering for Otto plugins
 - [x] document a repeatable GHCR publish path for the custom runtime image
 - [ ] define compose file
-- [x] validate loopback-only binding
+- [x] validate host-loopback-only publish with container-wide binding
 - [x] verify non-root runtime
 
 ## Open questions
