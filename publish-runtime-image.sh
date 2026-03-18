@@ -5,14 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/froemic/otto-openclaw}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-OPENCLAW_BASE_IMAGE="${OPENCLAW_BASE_IMAGE:-ghcr.io/openclaw/openclaw:latest}"
+OPENCLAW_BASE_IMAGE="${OPENCLAW_BASE_IMAGE:-ghcr.io/openclaw/openclaw:2026.3.13}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 PUSH_IMAGE="${PUSH_IMAGE:-1}"
 LOAD_IMAGE="${LOAD_IMAGE:-0}"
 
 if [[ -z "${IMAGE_TAG}" ]]; then
   echo "IMAGE_TAG is required." >&2
-  echo "Example: IMAGE_TAG=2026.3.14-1 ./publish-runtime-image.sh" >&2
+  echo "Example: IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh" >&2
   exit 1
 fi
 

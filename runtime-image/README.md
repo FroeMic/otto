@@ -18,7 +18,7 @@ docker build -f runtime-image/Dockerfile -t otto/openclaw-runtime:local .
 Or use the publish helper:
 
 ```bash
-IMAGE_TAG=2026.3.14-1 ./publish-runtime-image.sh
+IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
 ```
 
 To pin a specific upstream OpenClaw base image:
@@ -26,15 +26,15 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.14 \
-  -t ghcr.io/froemic/otto-openclaw:2026.3.14-1 .
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13 \
+  -t ghcr.io/froemic/otto-openclaw:2026.3.13-2 .
 ```
 
 With the helper:
 
 ```bash
-IMAGE_TAG=2026.3.14-1 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.14 \
+IMAGE_TAG=2026.3.13-2 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13 \
 ./publish-runtime-image.sh
 ```
 
@@ -55,7 +55,7 @@ export GHCR_TOKEN=<github-personal-access-token-or-actions-token>
 Then publish:
 
 ```bash
-IMAGE_TAG=2026.3.14-1 ./publish-runtime-image.sh
+IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
 ```
 
 For a local-only build without pushing:
@@ -69,7 +69,7 @@ IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 Point the control plane at the published custom image:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.14-1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.13-2
 ```
 
 Tenant provisioning and later `apply_tenant_config` runs will then pull this
