@@ -52,10 +52,15 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       }
     : undefined;
   const slack = config.slack;
+  const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0;
   const slackChannelConfig = slack
     ? {
         ackReaction: slack.ackReactionEnabled ? "eyes" : "",
-        allowFrom: slack.allowedUserIds,
+        ...(slackDirectMessagesEnabled
+          ? {
+              allowFrom: slack.allowedUserIds,
+            }
+          : {}),
         channels: Object.fromEntries(
           slack.allowedChannelIds.map((channelId) => [
             channelId,
@@ -66,7 +71,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           ]),
         ),
         dangerouslyAllowNameMatching: false,
-        dmPolicy: "allowlist",
+        dmPolicy: slackDirectMessagesEnabled ? "allowlist" : "disabled",
         enabled: slack.enabled,
         groupPolicy: "allowlist",
         mode: slack.mode,
