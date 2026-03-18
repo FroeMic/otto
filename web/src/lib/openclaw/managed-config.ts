@@ -218,7 +218,7 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "",
       "Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.",
       "",
-      "## Otto-managed Files",
+      "## Control Plane Managed Files",
       "",
       "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md`.",
       "- Use normal file and exec tools for everything else in the workspace.",
