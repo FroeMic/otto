@@ -41,7 +41,7 @@ export type OpenClawTenantConfig = {
   workspacePath: string;
 };
 
-export const OPENCLAW_GATEWAY_BIND = "all";
+export const OPENCLAW_GATEWAY_BIND = "lan";
 export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 

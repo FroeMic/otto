@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { GatewayAccessCard } from "@/app/[orgSlug]/(app)/agent/_components/gateway-access-card";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getTenantRuntimeGatewayToken } from "@/db/control-plane";
 import {
   getPrimaryAgent,
   getRuntimeStatusLabel,
@@ -40,6 +42,18 @@ function getLatestActivitySummary(event: { createdAt: Date; message: string }) {
   };
 }
 
+function getDashboardUrl() {
+  return "http://127.0.0.1:18791/";
+}
+
+function getSshTunnelCommand(ipv4: string | null) {
+  if (!ipv4) {
+    return null;
+  }
+
+  return `ssh -N -L 18791:127.0.0.1:18791 root@${ipv4}`;
+}
+
 export default async function AgentStatusPage({
   params,
 }: {
@@ -54,6 +68,9 @@ export default async function AgentStatusPage({
   }
 
   const agent = getPrimaryAgent(organization);
+  const gatewayToken = agent
+    ? await getTenantRuntimeGatewayToken(agent.id)
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -90,6 +107,12 @@ export default async function AgentStatusPage({
           </CardContent>
         </Card>
       </div>
+
+      <GatewayAccessCard
+        dashboardUrl={getDashboardUrl()}
+        gatewayToken={gatewayToken}
+        sshTunnelCommand={getSshTunnelCommand(agent?.ipv4 ?? null)}
+      />
 
       <Card>
         <CardHeader>
