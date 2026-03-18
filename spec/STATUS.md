@@ -126,6 +126,8 @@
   - the Slack integration page now uses a single-column settings layout with compact status, dialog-managed allowlists, and a sticky unsaved-changes save bar
   - Slack channel policy now supports `Only pre-configured channels` vs `All channels Otto is added to`
   - the channel-management dialog can now add Otto to public Slack channels, remove Otto from joined channels, and show private-channel invite guidance
+  - Slack settings page loads now refresh the synced Slack directory before rendering and fall back to cached data with an inline warning if the live refresh fails
+  - `All channels Otto is added to` now renders to OpenClaw as `groupPolicy: "open"` with a wildcard channel mention policy instead of incorrectly behaving like a manual allowlist
   - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`
   - the existing Otto runtime plugin now also exposes list/read/patch tools for runtime config surfaces through `/api/internal/runtime/config-surfaces/...`
 

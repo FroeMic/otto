@@ -6,7 +6,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Separator } from "@/components/ui/separator";
-import { getTenantSlackRuntimeConfigSurface } from "@/db/control-plane";
+import {
+  getTenantSlackRuntimeConfigSurface,
+  refreshTenantSlackDirectory,
+} from "@/db/control-plane";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
@@ -145,6 +148,12 @@ export default async function SlackIntegrationPage({
     Boolean(sessionId) &&
     slackIsConnected &&
     !runtimeApplyIsActive;
+  const slackDirectoryRefresh = slackIsConnected
+    ? await refreshTenantSlackDirectory({
+        orgSlug,
+        userExternalId: user.id,
+      })
+    : null;
   const slackRuntimeConfigSurface = slackIsConnected
     ? await getTenantSlackRuntimeConfigSurface({
         orgSlug,
@@ -224,6 +233,16 @@ export default async function SlackIntegrationPage({
           <Alert variant={statusAlert.variant}>
             <AlertTitle>{statusAlert.title}</AlertTitle>
             <AlertDescription>{statusAlert.description}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {slackDirectoryRefresh?.error ? (
+          <Alert>
+            <AlertTitle>Slack directory could not be refreshed</AlertTitle>
+            <AlertDescription>
+              Showing the last synced Slack users and channels instead.{" "}
+              {slackDirectoryRefresh.error}
+            </AlertDescription>
           </Alert>
         ) : null}
       </section>

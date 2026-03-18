@@ -1541,6 +1541,27 @@ export async function getTenantSlackRuntimeConfigSurface(input: {
   });
 }
 
+export async function refreshTenantSlackDirectory(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return {
+      error: "Organization tenant not found",
+      refreshed: false,
+    };
+  }
+
+  return refreshTenantSlackDirectoryForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
 export async function listTenantRuntimeConfigSurfaces(input: {
   orgSlug: string;
   userExternalId: string;
@@ -1655,12 +1676,9 @@ export async function updateTenantSlackChannelMembershipForTenant(input: {
     });
   }
 
-  const directory = await fetchSlackMessagingDirectory(botToken);
-
-  await syncMessagingDirectoryForTenantIntegration({
-    conversations: directory.conversations,
+  await refreshSlackDirectoryForInstallation({
+    botToken,
     externalWorkspaceId: installation.slackInstallation.slackTeamId,
-    members: directory.members,
     tenantIntegrationId: installation.slackInstallation.tenantIntegrationId,
     workspaceDisplayName: installation.slackInstallation.slackTeamName,
   });
@@ -2568,6 +2586,89 @@ async function getConnectedSlackInstallationForTenant(
   }
 
   return slackInstallation;
+}
+
+async function refreshTenantSlackDirectoryForTenant(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+  const slackInstallation = await db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+  });
+
+  if (!slackInstallation) {
+    return {
+      error: null,
+      refreshed: false,
+    };
+  }
+
+  const botToken = await getTenantSlackBotToken(input.tenantId);
+
+  if (!botToken) {
+    const error =
+      "Slack bot token is unavailable, so the Slack directory could not be refreshed";
+
+    await recordMessagingWorkspaceSyncFailure({
+      error,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error,
+      refreshed: false,
+    };
+  }
+
+  try {
+    await refreshSlackDirectoryForInstallation({
+      botToken,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error: null,
+      refreshed: true,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown Slack refresh failure";
+
+    await recordMessagingWorkspaceSyncFailure({
+      error: message,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error: message,
+      refreshed: false,
+    };
+  }
+}
+
+async function refreshSlackDirectoryForInstallation(input: {
+  botToken: string;
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+}) {
+  const directory = await fetchSlackMessagingDirectory(input.botToken);
+
+  await syncMessagingDirectoryForTenantIntegration({
+    conversations: directory.conversations,
+    externalWorkspaceId: input.externalWorkspaceId,
+    members: directory.members,
+    tenantIntegrationId: input.tenantIntegrationId,
+    workspaceDisplayName: input.workspaceDisplayName,
+  });
 }
 
 async function validateSlackRuntimeConfigSemantics(

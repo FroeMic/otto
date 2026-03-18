@@ -61,19 +61,30 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
               allowFrom: slack.allowedUserIds,
             }
           : {}),
-        channels: Object.fromEntries(
-          slack.allowedChannelIds.map((channelId) => [
-            channelId,
-            {
-              allow: true,
-              requireMention: slack.requireMentionInChannels,
-            },
-          ]),
-        ),
+        channels:
+          slack.channelAccessMode === "member_of_channels"
+            ? {
+                "*": {
+                  allow: true,
+                  requireMention: slack.requireMentionInChannels,
+                },
+              }
+            : Object.fromEntries(
+                slack.allowedChannelIds.map((channelId) => [
+                  channelId,
+                  {
+                    allow: true,
+                    requireMention: slack.requireMentionInChannels,
+                  },
+                ]),
+              ),
         dangerouslyAllowNameMatching: false,
         dmPolicy: slackDirectMessagesEnabled ? "allowlist" : "disabled",
         enabled: slack.enabled,
-        groupPolicy: "allowlist",
+        groupPolicy:
+          slack.channelAccessMode === "member_of_channels"
+            ? "open"
+            : "allowlist",
         mode: slack.mode,
         replyToMode: "off",
         replyToModeByChatType: {

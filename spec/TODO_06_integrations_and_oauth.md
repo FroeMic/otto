@@ -309,6 +309,8 @@ Implemented foundation:
 - control-plane write helpers now validate Slack user and channel IDs against the synced `messaging_*` directory tables before accepting config changes
 - the Slack control plane can now manage channel membership directly for public channels by calling Slack join/leave APIs and resyncing the directory
 - when `channelAccessMode = member_of_channels`, desired state now derives the effective Slack channel set from joined-channel membership instead of the stored manual allowlist
+- the Slack settings page now refreshes the synced Slack directory on load so channels Otto was invited to directly in Slack appear without a separate manual sync step
+- OpenClaw projection now maps `channelAccessMode = member_of_channels` to Slack `groupPolicy = "open"` with a wildcard channel mention policy, instead of incorrectly keeping Slack on channel allowlist mode
 
 This keeps one generic storage path for future plugin and tool config without creating one table per tool.
 
