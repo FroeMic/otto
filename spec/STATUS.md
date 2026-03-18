@@ -73,6 +73,9 @@
   - the authenticated shell now uses a shadcn sidebar with org switcher, requested nav items, and a bottom user menu
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
+  - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
+  - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
+  - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
@@ -102,7 +105,7 @@
 - Keep the code structured so `trigger.dev` can be introduced later behind a job interface if the simpler approach stops being sufficient.
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
 - Prefer control-plane-owned managed bootstrap files projected onto the tenant runtime over treating local runtime edits as the source of truth for `AGENTS.md`, `IDENTITY.md`, or `TOOLS.md`.
-- If the control plane uses one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus control-plane-owned shared ingress.
+- Slack transport stays on Socket Mode for the current config/policy slice; revisit centralized HTTP ingress only when the shared-app routing model forces it.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 
 ## Current product target
@@ -114,13 +117,22 @@
 ## Next recommended implementation step
 
 - Continue `TODO_06_integrations_and_oauth.md` by:
+  - replacing the current permissive Slack desired-state defaults with a canonical Slack policy model:
+    - keep Slack transport fixed to Socket Mode for now
+    - DM access should default to a fixed allowlist policy, not `allowFrom: ["*"]`
+    - channel access should default to `groupPolicy = "allowlist"` with selected channel IDs only
+    - channel replies should default to Slack threads
+    - mention-gating should default on across selected channels
+  - adding a generic tenant-scoped runtime config table so Slack policy and future plugin/tool config can share one schema-driven storage path instead of one table per integration
+  - defining one shared validation/write pipeline so both UI and agent config changes use the same schema validation, semantic checks, optimistic concurrency, desired-state compilation, and apply queueing
+  - building the Slack integration settings UI around the synced `messaging_*` directory tables so user and channel allowlists use real Slack IDs and names
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
 - Continue the managed-bootstrap-files slice by:
   - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` plugin instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
-  - expanding managed config beyond `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` only after the agent-tool workflow is in place
+  - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available

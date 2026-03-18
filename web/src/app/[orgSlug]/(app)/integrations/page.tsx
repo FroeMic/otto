@@ -1,7 +1,7 @@
-import { withAuth } from "@workos-inc/authkit-nextjs";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getDashboardOrganizations } from "@/db/control-plane";
 import { getSlackStatusLabel, isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +19,9 @@ export default async function IntegrationsPage({
 }: {
   params: Promise<{ orgSlug: string }>;
 }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug } = await params;
-  const organizations = await getDashboardOrganizations(user.id);
-  const organization = organizations.find((item) => item.slug === orgSlug);
-
-  if (!organization) {
-    notFound();
-  }
+  const { currentOrganization: organization } =
+    await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);
@@ -52,13 +46,14 @@ export default async function IntegrationsPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-muted-foreground">
-            See whether Otto is connected to Slack and finish setup if needed.
+            See whether Otto is connected to Slack and take care of any setup or
+            repair steps.
           </p>
           <Link
             className={buttonVariants({ variant: "default" })}
             href={`/${organization.slug}/integrations/slack`}
           >
-            Open Slack integration
+            Open Slack
           </Link>
         </CardContent>
       </Card>

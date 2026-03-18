@@ -1,5 +1,6 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -10,10 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  createOnboardingDraftForOrganization,
-  getDashboardOrganizations,
-} from "@/db/control-plane";
+import { createOnboardingDraftForOrganization } from "@/db/control-plane";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
@@ -80,17 +78,12 @@ export default async function OrganizationOnboardingPage({
 }: {
   params: Promise<{ orgSlug: string }>;
 }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug } = await params;
-  const organizations = await getDashboardOrganizations(user.id);
-  const organization = organizations.find((item) => item.slug === orgSlug);
-
-  if (!organization) {
-    notFound();
-  }
+  const { currentOrganization: organization } =
+    await loadOrganizationRouteContext(orgSlug);
 
   if (isOrganizationUnlocked(organization)) {
-    redirect(`/${organization.slug}/agent`);
+    redirect(`/${organization.slug}/agent/status`);
   }
 
   const onboardingSession = getCurrentOnboardingSession(organization);
@@ -135,9 +128,9 @@ export default async function OrganizationOnboardingPage({
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>1. Team details</CardTitle>
+            <CardTitle>1. Workspace details</CardTitle>
             <CardDescription>
-              Your team name and Otto link are already set up.
+              Your workspace name and Otto link are already set up.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
@@ -161,7 +154,7 @@ export default async function OrganizationOnboardingPage({
               }
               variant={slackIsConnected ? "outline" : "secondary"}
             >
-              {slackIsConnected ? "Slack App Installed" : "Slack Not Connected"}
+              {slackIsConnected ? "Slack connected" : "Slack not connected"}
             </Badge>
             <p>
               {slackIsConnected
@@ -204,7 +197,7 @@ export default async function OrganizationOnboardingPage({
           <CardHeader>
             <CardTitle>Start setup</CardTitle>
             <CardDescription>
-              Start the setup flow for this team before you connect Slack.
+              Start the setup flow for this workspace before you connect Slack.
             </CardDescription>
           </CardHeader>
           <CardContent>

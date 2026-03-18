@@ -1335,29 +1335,30 @@ export async function getTenantManagedConfigByVersion(input: {
       ),
     );
 
-  const files = getManagedBootstrapFileDefinitions()
-    .map((definition) => {
-      const fileRow = fileRows.find((row) => row.path === definition.path);
+  const files = getManagedBootstrapFileDefinitions().map((definition) => {
+    const fileRow = fileRows.find((row) => row.path === definition.path);
+    const sharedContent =
+      fileRow?.sharedContent ?? definition.defaultSharedContent;
+    const systemContent = definition.systemContent;
 
-      if (!fileRow) {
-        return null;
-      }
-
-      return {
-        checksum: fileRow.checksum,
-        description: definition.description,
-        label: definition.label,
+    return {
+      checksum: createManagedFileChecksum({
         path: definition.path,
-        renderedContent: buildManagedBootstrapFileContent({
-          path: definition.path,
-          sharedContent: fileRow.sharedContent,
-          systemContent: fileRow.systemContent,
-        }),
-        sharedContent: fileRow.sharedContent,
-        systemContent: fileRow.systemContent,
-      };
-    })
-    .filter((file): file is TenantManagedConfigFile => file !== null);
+        sharedContent,
+        systemContent,
+      }),
+      description: definition.description,
+      label: definition.label,
+      path: definition.path,
+      renderedContent: buildManagedBootstrapFileContent({
+        path: definition.path,
+        sharedContent,
+        systemContent,
+      }),
+      sharedContent,
+      systemContent,
+    };
+  });
 
   return {
     createdAt: configVersion.createdAt,
@@ -1469,7 +1470,24 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
         ),
       );
 
-    const targetFile = latestFiles.find((file) => file.path === input.filePath);
+    const completeLatestFiles = getManagedBootstrapFileDefinitions().map(
+      (definition) => {
+        const existingFile = latestFiles.find(
+          (file) => file.path === definition.path,
+        );
+
+        return {
+          path: definition.path,
+          sharedContent:
+            existingFile?.sharedContent ?? definition.defaultSharedContent,
+          systemContent: definition.systemContent,
+        };
+      },
+    );
+
+    const targetFile = completeLatestFiles.find(
+      (file) => file.path === input.filePath,
+    );
 
     if (!targetFile) {
       throw new Error(`Managed file ${input.filePath} is missing`);
@@ -1498,7 +1516,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
       });
 
     await tx.insert(tenantManagedFileVersions).values(
-      latestFiles.map((file) => {
+      completeLatestFiles.map((file) => {
         const sharedContent =
           file.path === input.filePath
             ? normalizedSharedContent

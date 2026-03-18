@@ -103,7 +103,7 @@ export function getOrganizationHomePath(organization: DashboardOrganization) {
   }
 
   if (isOrganizationUnlocked(organization)) {
-    return `/${organization.slug}/agent`;
+    return `/${organization.slug}/agent/status`;
   }
 
   return `/${organization.slug}/onboarding`;
