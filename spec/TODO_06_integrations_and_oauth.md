@@ -291,6 +291,27 @@ Config projection should exclude:
 - raw OAuth code exchange state
 - refresh logic
 
+## Slack runtime config substrate
+
+The control plane should not keep Slack policy only as ad hoc fields inside desired state.
+
+Implemented foundation:
+
+- generic tenant-scoped runtime config rows now live in one shared table
+- the first concrete row is `channel/slack`
+- Slack policy is stored canonically as:
+  - `allowedUserIds`
+  - `allowedChannelIds`
+  - `answerInThreads`
+  - `channelAccessMode`
+  - `requireMentionInChannels`
+- desired state is now compiled from that canonical row instead of hardcoded permissive Slack defaults
+- control-plane write helpers now validate Slack user and channel IDs against the synced `messaging_*` directory tables before accepting config changes
+- the Slack control plane can now manage channel membership directly for public channels by calling Slack join/leave APIs and resyncing the directory
+- when `channelAccessMode = member_of_channels`, desired state now derives the effective Slack channel set from joined-channel membership instead of the stored manual allowlist
+
+This keeps one generic storage path for future plugin and tool config without creating one table per tool.
+
 ## Routing strategy plan
 
 Because one shared app receives payloads for many workspaces, routing must be explicit.
@@ -423,8 +444,14 @@ Deliverables:
 - [x] define integration and secret schema
 - [x] implement OAuth entry and callback routes
 - [x] encrypt stored Slack secrets
+- [x] add generic runtime config storage for tenant-scoped Slack policy
+- [x] add shared server-side validation helpers for Slack runtime config writes
+- [x] expose Slack runtime config through control-plane APIs and the Slack integration UI
+- [x] expose Slack runtime config through runtime-authenticated internal APIs for agent/plugin use
+- [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
+- [x] add Slack channel join/leave actions in the control plane for public-channel membership management
 - [ ] implement shared Slack ingress router
-- [x] render Slack runtime config into desired state
+- [x] render Slack policy from canonical runtime config into desired state
 - [x] trigger apply after connect or token change
 - [ ] add reconnect and disconnect flows
 - [ ] decide whether token rotation is enabled in v1

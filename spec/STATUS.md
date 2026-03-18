@@ -116,6 +116,18 @@
 - Runtime config verification now checks for the projected audio config on the tenant host after bootstrap/apply writes.
 - Slack OAuth scope defaults now include `files:read` for fresh installs that need Slack-hosted audio attachment access.
 - Focused tests now cover Slack scope detection and OpenClaw audio config rendering.
+- The first Slack runtime-config foundation is now implemented:
+  - `tenant_runtime_config_entries` stores canonical tenant-scoped runtime config in one generic table
+  - the first seeded surface is `channel/slack`
+  - Slack allowlist and thread policy now compile from canonical config instead of hardcoded open defaults
+  - control-plane helpers can now read/update Slack runtime config with optimistic concurrency and semantic validation against synced Slack directory data
+- The Slack runtime-config surface is now implemented end to end:
+  - the Slack integration page now exposes `answerInThreads`, global user allowlist, selected-channel allowlist, and global require-mention controls
+  - the Slack integration page now uses a single-column settings layout with compact status, dialog-managed allowlists, and a sticky unsaved-changes save bar
+  - Slack channel policy now supports `Only pre-configured channels` vs `All channels Otto is added to`
+  - the channel-management dialog can now add Otto to public Slack channels, remove Otto from joined channels, and show private-channel invite guidance
+  - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`
+  - the existing Otto runtime plugin now also exposes list/read/patch tools for runtime config surfaces through `/api/internal/runtime/config-surfaces/...`
 
 ## Current product target
 
@@ -126,18 +138,10 @@
 ## Next recommended implementation step
 
 - Continue `TODO_06_integrations_and_oauth.md` by:
-  - replacing the current permissive Slack desired-state defaults with a canonical Slack policy model:
-    - keep Slack transport fixed to Socket Mode for now
-    - DM access should default to a fixed allowlist policy, not `allowFrom: ["*"]`
-    - channel access should default to `groupPolicy = "allowlist"` with selected channel IDs only
-    - channel replies should default to Slack threads
-    - mention-gating should default on across selected channels
-  - adding a generic tenant-scoped runtime config table so Slack policy and future plugin/tool config can share one schema-driven storage path instead of one table per integration
-  - defining one shared validation/write pipeline so both UI and agent config changes use the same schema validation, semantic checks, optimistic concurrency, desired-state compilation, and apply queueing
-  - building the Slack integration settings UI around the synced `messaging_*` directory tables so user and channel allowlists use real Slack IDs and names
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
+  - manually verifying that the new control-plane UI and runtime plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
   - preserving the raw Slack attachment semantics needed for `TODO_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Manually verify `TODO_10_voice_note_understanding.md` against a real Slack voice note on a provisioned tenant runtime:
   - confirm a fresh install with `files:read` can transcribe a voice note

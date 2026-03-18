@@ -1,4 +1,8 @@
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
+import {
+  getDefaultSlackRuntimeConfig,
+  parseSlackRuntimeConfig,
+} from "@/lib/slack-config";
 
 export type OpenClawAudioModelConfig = {
   model: string;
@@ -22,8 +26,14 @@ export type OpenClawTenantConfig = {
   };
   primaryModel?: string;
   slack?: {
+    ackReactionEnabled: boolean;
+    allowedChannelIds: string[];
+    allowedUserIds: string[];
+    answerInThreads: boolean;
+    channelAccessMode: "manual_allowlist" | "member_of_channels";
     enabled: boolean;
     mode: "socket";
+    requireMentionInChannels: boolean;
   };
   tenantId: string;
   integrations: string[];
@@ -39,6 +49,37 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const pluginTools = config.managedConfigPlugin
     ? {
         alsoAllow: [config.managedConfigPlugin.id],
+      }
+    : undefined;
+  const slack = config.slack;
+  const slackChannelConfig = slack
+    ? {
+        ackReaction: slack.ackReactionEnabled ? "eyes" : "",
+        allowFrom: slack.allowedUserIds,
+        channels: Object.fromEntries(
+          slack.allowedChannelIds.map((channelId) => [
+            channelId,
+            {
+              allow: true,
+              requireMention: slack.requireMentionInChannels,
+            },
+          ]),
+        ),
+        dangerouslyAllowNameMatching: false,
+        dmPolicy: "allowlist",
+        enabled: slack.enabled,
+        groupPolicy: "allowlist",
+        mode: slack.mode,
+        replyToMode: "off",
+        replyToModeByChatType: {
+          channel: slack.answerInThreads ? "all" : "off",
+          direct: "off",
+          group: "off",
+        },
+        thread: {
+          historyScope: "thread",
+          initialHistoryLimit: 20,
+        },
       }
     : undefined;
   const mediaTools = config.audio
@@ -108,16 +149,10 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         mode: "local",
         port: config.gatewayPort,
       },
-      ...(config.slack
+      ...(slackChannelConfig
         ? {
             channels: {
-              slack: {
-                allowFrom: ["*"],
-                dmPolicy: "open",
-                enabled: config.slack.enabled,
-                groupPolicy: "open",
-                mode: config.slack.mode,
-              },
+              slack: slackChannelConfig,
             },
           }
         : {}),
@@ -138,6 +173,7 @@ export function buildOpenClawTenantConfig(input: {
   const hasSlackTokens =
     Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(input.slackBotToken);
   const audio = parseAudioConfig(config.media);
+  const slackPolicy = parseSlackPolicy(config.slack);
 
   return {
     ...(audio ? { audio } : {}),
@@ -161,8 +197,14 @@ export function buildOpenClawTenantConfig(input: {
     ...(hasSlackTokens
       ? {
           slack: {
+            ackReactionEnabled: slackPolicy.ackReactionEnabled,
+            allowedChannelIds: slackPolicy.allowedChannelIds,
+            allowedUserIds: slackPolicy.allowedUserIds,
+            answerInThreads: slackPolicy.answerInThreads,
+            channelAccessMode: slackPolicy.channelAccessMode,
             enabled: true,
             mode: "socket" as const,
+            requireMentionInChannels: slackPolicy.requireMentionInChannels,
           },
         }
       : {}),
@@ -189,6 +231,43 @@ function parseStringRecord(value: unknown) {
       return typeof entry[1] === "string";
     }),
   );
+}
+
+function parseStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (entry): entry is string => typeof entry === "string" && entry.length > 0,
+  );
+}
+
+function parseSlackPolicy(value: unknown) {
+  const slackConfig = parseRecord(value);
+
+  return parseSlackRuntimeConfig({
+    ackReactionEnabled:
+      typeof slackConfig.ackReactionEnabled === "boolean"
+        ? slackConfig.ackReactionEnabled
+        : typeof slackConfig.ackReaction === "string"
+          ? slackConfig.ackReaction.trim().length > 0
+          : getDefaultSlackRuntimeConfig().ackReactionEnabled,
+    allowedChannelIds: parseStringArray(slackConfig.allowedChannelIds),
+    allowedUserIds: parseStringArray(slackConfig.allowedUserIds),
+    answerInThreads:
+      typeof slackConfig.answerInThreads === "boolean"
+        ? slackConfig.answerInThreads
+        : getDefaultSlackRuntimeConfig().answerInThreads,
+    channelAccessMode:
+      slackConfig.channelAccessMode === "member_of_channels"
+        ? "member_of_channels"
+        : getDefaultSlackRuntimeConfig().channelAccessMode,
+    requireMentionInChannels:
+      typeof slackConfig.requireMentionInChannels === "boolean"
+        ? slackConfig.requireMentionInChannels
+        : getDefaultSlackRuntimeConfig().requireMentionInChannels,
+  });
 }
 
 function parseAudioConfig(

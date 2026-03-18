@@ -20,6 +20,7 @@ import {
   tenantManagedConfigVersions,
   tenantManagedFileVersions,
   tenantOnboardingSessions,
+  tenantRuntimeConfigEntries,
   tenantRuntimeSecrets,
   tenantServers,
   tenants,
@@ -37,6 +38,25 @@ import {
   isManagedBootstrapFilePath,
   type ManagedBootstrapFilePath,
 } from "@/lib/openclaw/managed-config";
+import {
+  fetchSlackMessagingDirectory,
+  joinSlackChannel,
+  leaveSlackChannel,
+} from "@/lib/slack";
+import {
+  getDefaultSlackRuntimeConfig,
+  parseSlackRuntimeConfig,
+  SLACK_RUNTIME_CONFIG_DESCRIPTION,
+  SLACK_RUNTIME_CONFIG_LABEL,
+  SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+  SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+  SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+  type SlackRuntimeConfig,
+  slackRuntimeConfigJsonSchema,
+  slackRuntimeConfigPatchSchema,
+  slackRuntimeConfigUiHints,
+} from "@/lib/slack-config";
 import { getWorkOS } from "@/lib/workos";
 
 const SLACK_PROVIDER_KEY = "slack";
@@ -111,6 +131,41 @@ type MessagingConversationInput = {
   topic: string | null;
 };
 
+export type TenantSlackRuntimeConfig = {
+  ackReactionEnabled: boolean;
+  allowedChannelIds: string[];
+  allowedUserIds: string[];
+  answerInThreads: boolean;
+  channelAccessMode: "manual_allowlist" | "member_of_channels";
+  enabled: boolean;
+  entryVersion: number;
+  requireMentionInChannels: boolean;
+  schemaVersion: string;
+};
+
+export type SlackRuntimeConfigDirectoryOption = {
+  memberCount?: number | null;
+  description: string | null;
+  id: string;
+  isArchived?: boolean;
+  isMember?: boolean;
+  label: string;
+  secondaryLabel: string | null;
+  visibility?: "private" | "public" | null;
+};
+
+export type TenantSlackRuntimeConfigSurface = {
+  availableChannels: SlackRuntimeConfigDirectoryOption[];
+  availableUsers: SlackRuntimeConfigDirectoryOption[];
+  config: TenantSlackRuntimeConfig;
+  description: string;
+  key: string;
+  kind: string;
+  label: string;
+  schema: typeof slackRuntimeConfigJsonSchema;
+  uiHints: typeof slackRuntimeConfigUiHints;
+};
+
 export class ManagedConfigVersionConflictError extends Error {
   constructor(
     readonly expectedVersion: number,
@@ -118,6 +173,17 @@ export class ManagedConfigVersionConflictError extends Error {
   ) {
     super(
       `Managed config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
+    );
+  }
+}
+
+export class TenantRuntimeConfigVersionConflictError extends Error {
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Runtime config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
     );
   }
 }
@@ -1425,6 +1491,248 @@ export async function updateTenantManagedFileSharedContent(input: {
   });
 }
 
+export async function getTenantSlackRuntimeConfig(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantSlackRuntimeConfig | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!slackIntegration) {
+      return null;
+    }
+
+    const slackConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    return buildTenantSlackRuntimeConfig(slackConfig);
+  });
+}
+
+export async function getTenantSlackRuntimeConfigSurface(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantSlackRuntimeConfigSurface | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  return getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function listTenantRuntimeConfigSurfaces(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const slackSurface = await getTenantSlackRuntimeConfigSurface(input);
+
+  return slackSurface ? [slackSurface] : [];
+}
+
+export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
+  tenantId: string;
+}): Promise<TenantSlackRuntimeConfigSurface | null> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!slackIntegration) {
+      return null;
+    }
+
+    const [slackConfig, directory] = await Promise.all([
+      getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+        tenantId: input.tenantId,
+      }),
+      getSlackDirectoryOptions(tx, {
+        tenantId: input.tenantId,
+      }),
+    ]);
+
+    return {
+      availableChannels: directory.channels,
+      availableUsers: directory.users,
+      config: buildTenantSlackRuntimeConfig(slackConfig),
+      description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
+      key: SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+      kind: SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+      label: SLACK_RUNTIME_CONFIG_LABEL,
+      schema: slackRuntimeConfigJsonSchema,
+      uiHints: slackRuntimeConfigUiHints,
+    };
+  });
+}
+
+export async function updateTenantSlackChannelMembership(input: {
+  action: "join" | "leave";
+  channelId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantSlackChannelMembershipForTenant({
+    action: input.action,
+    channelId: input.channelId,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantSlackChannelMembershipForTenant(input: {
+  action: "join" | "leave";
+  channelId: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const installation = await db.transaction(async (tx) => {
+    const slackInstallation = await getConnectedSlackInstallationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!slackInstallation) {
+      throw new Error(
+        "Slack must be connected before Otto can join or leave channels",
+      );
+    }
+
+    const runtimeConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    return {
+      channelAccessMode: runtimeConfig.config.channelAccessMode,
+      slackInstallation,
+    };
+  });
+  const botToken = await getTenantSlackBotToken(input.tenantId);
+
+  if (!botToken) {
+    throw new Error(
+      "Slack bot token is unavailable, so Otto cannot update channel membership",
+    );
+  }
+
+  if (input.action === "join") {
+    await joinSlackChannel({
+      botToken,
+      channelId: input.channelId,
+    });
+  } else {
+    await leaveSlackChannel({
+      botToken,
+      channelId: input.channelId,
+    });
+  }
+
+  const directory = await fetchSlackMessagingDirectory(botToken);
+
+  await syncMessagingDirectoryForTenantIntegration({
+    conversations: directory.conversations,
+    externalWorkspaceId: installation.slackInstallation.slackTeamId,
+    members: directory.members,
+    tenantIntegrationId: installation.slackInstallation.tenantIntegrationId,
+    workspaceDisplayName: installation.slackInstallation.slackTeamName,
+  });
+
+  let applyQueued = false;
+
+  if (installation.channelAccessMode === "member_of_channels") {
+    const applyResult = await db.transaction(async (tx) => {
+      const desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: input.tenantId,
+        })
+      ).version;
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+      return {
+        applyQueued: tenantRuntime.isRuntimeReady,
+        desiredStateVersion,
+      };
+    });
+
+    if (applyResult.applyQueued) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion: applyResult.desiredStateVersion,
+        tenantId: input.tenantId,
+      });
+      applyQueued = true;
+    }
+  }
+
+  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: input.tenantId,
+  });
+
+  if (!surface) {
+    throw new Error(
+      "Slack runtime config surface not found after channel update",
+    );
+  }
+
+  return {
+    applyQueued,
+    surface,
+  };
+}
+
+export async function updateTenantSlackRuntimeConfig(input: {
+  expectedEntryVersion?: number;
+  orgSlug: string;
+  patch: Partial<SlackRuntimeConfig>;
+  summary?: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantSlackRuntimeConfigForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedEntryVersion: input.expectedEntryVersion,
+    patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+    summary: input.summary,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
 export async function updateTenantManagedFileSharedContentForTenant(input: {
   createdByExternalId?: string | null;
   createdByType: "runtime" | "user";
@@ -1555,6 +1863,104 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
   if (!result.changed) {
     return result;
   }
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function updateTenantSlackRuntimeConfigForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  patch: Partial<SlackRuntimeConfig>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!slackIntegration) {
+      throw new Error(
+        "Slack must be connected before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (
+      typeof input.expectedEntryVersion === "number" &&
+      currentConfig.entryVersion !== input.expectedEntryVersion
+    ) {
+      throw new TenantRuntimeConfigVersionConflictError(
+        input.expectedEntryVersion,
+        currentConfig.entryVersion,
+      );
+    }
+
+    const nextConfig = parseSlackRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+
+    await validateSlackRuntimeConfigSemantics(tx, {
+      config: nextConfig,
+      tenantId: input.tenantId,
+    });
+
+    if (
+      currentConfig.enabled &&
+      JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)
+    ) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentEntryVersion: currentConfig.entryVersion,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: input.summary ?? "Updated Slack runtime config",
+        configJson: nextConfig,
+        entryVersion: nextEntryVersion,
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: nextEntryVersion,
+      desiredStateVersion,
+    };
+  });
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
@@ -1982,9 +2388,32 @@ async function compileTenantDesiredStateConfig(
     !slackIntegration.disconnectedAt &&
     slackIntegration.slackTeamId
   ) {
-    config.integrations = ["slack"];
+    const slackRuntimeConfig = await getOrCreateTenantSlackRuntimeConfigEntry(
+      tx,
+      {
+        tenantId,
+      },
+    );
+
+    if (slackRuntimeConfig.enabled) {
+      config.integrations = ["slack"];
+    }
+
+    const effectiveAllowedChannelIds =
+      slackRuntimeConfig.config.channelAccessMode === "member_of_channels"
+        ? await getSlackMemberChannelIds(tx, {
+            tenantId,
+          })
+        : slackRuntimeConfig.config.allowedChannelIds;
+
     config.slack = {
+      allowedChannelIds: effectiveAllowedChannelIds,
+      allowedUserIds: slackRuntimeConfig.config.allowedUserIds,
+      answerInThreads: slackRuntimeConfig.config.answerInThreads,
+      channelAccessMode: slackRuntimeConfig.config.channelAccessMode,
       installerUserId: slackIntegration.installerUserId,
+      requireMentionInChannels:
+        slackRuntimeConfig.config.requireMentionInChannels,
       slackBotUserId: slackIntegration.slackBotUserId,
       teamId: slackIntegration.slackTeamId,
       teamName: slackIntegration.slackTeamName,
@@ -2002,6 +2431,419 @@ async function compileTenantDesiredStateConfig(
   }
 
   return config;
+}
+
+async function getOrCreateTenantSlackRuntimeConfigEntry(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingEntry] = await tx
+    .select({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    })
+    .from(tenantRuntimeConfigEntries)
+    .where(
+      and(
+        eq(tenantRuntimeConfigEntries.tenantId, input.tenantId),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKind,
+          SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+        ),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKey,
+          SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+        ),
+      ),
+    )
+    .limit(1);
+
+  if (existingEntry) {
+    return {
+      config: parseSlackRuntimeConfig(existingEntry.configJson),
+      entryVersion: existingEntry.entryVersion,
+      enabled: existingEntry.enabled,
+      id: existingEntry.id,
+      schemaVersion: existingEntry.schemaVersion,
+    };
+  }
+
+  const now = new Date();
+  const defaultConfig = getDefaultSlackRuntimeConfig();
+  const [createdEntry] = await tx
+    .insert(tenantRuntimeConfigEntries)
+    .values({
+      changeSummary: "Seeded default Slack runtime config",
+      configJson: defaultConfig,
+      createdByType: "system",
+      enabled: true,
+      lastValidatedAt: now,
+      schemaSource: SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
+      schemaVersion: SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+      surfaceKey: SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+      surfaceKind: SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+      tenantId: input.tenantId,
+      updatedAt: now,
+      updatedByType: "system",
+    })
+    .returning({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    });
+
+  return {
+    config: parseSlackRuntimeConfig(createdEntry.configJson),
+    entryVersion: createdEntry.entryVersion,
+    enabled: createdEntry.enabled,
+    id: createdEntry.id,
+    schemaVersion: createdEntry.schemaVersion,
+  };
+}
+
+async function getConnectedSlackIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [slackIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!slackIntegration?.connectedAt || slackIntegration.disconnectedAt) {
+    return null;
+  }
+
+  return slackIntegration;
+}
+
+async function getConnectedSlackInstallationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [slackInstallation] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      slackTeamId: slackInstallations.slackTeamId,
+      slackTeamName: slackInstallations.slackTeamName,
+      tenantIntegrationId: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .innerJoin(
+      slackInstallations,
+      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!slackInstallation?.connectedAt || slackInstallation.disconnectedAt) {
+    return null;
+  }
+
+  return slackInstallation;
+}
+
+async function validateSlackRuntimeConfigSemantics(
+  tx: DbTransaction,
+  input: {
+    config: SlackRuntimeConfig;
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: messagingWorkspaces.id,
+    })
+    .from(messagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    if (
+      input.config.allowedChannelIds.length === 0 &&
+      input.config.allowedUserIds.length === 0
+    ) {
+      return;
+    }
+
+    throw new Error(
+      "Slack directory is unavailable, so Slack allowlists cannot be updated yet",
+    );
+  }
+
+  const [members, conversations] = await Promise.all([
+    tx
+      .select({
+        externalMemberId: messagingWorkspaceMembers.externalMemberId,
+      })
+      .from(messagingWorkspaceMembers)
+      .where(eq(messagingWorkspaceMembers.messagingWorkspaceId, workspace.id)),
+    tx
+      .select({
+        externalConversationId: messagingConversations.externalConversationId,
+        isArchived: messagingConversations.isArchived,
+      })
+      .from(messagingConversations)
+      .where(eq(messagingConversations.messagingWorkspaceId, workspace.id)),
+  ]);
+
+  const validUserIds = new Set(
+    members.map((member) => member.externalMemberId),
+  );
+  const conversationsById = new Map(
+    conversations.map((conversation) => [
+      conversation.externalConversationId,
+      conversation,
+    ]),
+  );
+
+  const missingUserIds = input.config.allowedUserIds.filter(
+    (userId) => !validUserIds.has(userId),
+  );
+
+  if (missingUserIds.length > 0) {
+    throw new Error(
+      `Unknown Slack user IDs in allowlist: ${missingUserIds.join(", ")}`,
+    );
+  }
+
+  if (input.config.channelAccessMode === "member_of_channels") {
+    return;
+  }
+
+  const missingChannelIds = input.config.allowedChannelIds.filter(
+    (channelId) => !conversationsById.has(channelId),
+  );
+
+  if (missingChannelIds.length > 0) {
+    throw new Error(
+      `Unknown Slack channel IDs in allowlist: ${missingChannelIds.join(", ")}`,
+    );
+  }
+
+  const archivedChannelIds = input.config.allowedChannelIds.filter(
+    (channelId) => conversationsById.get(channelId)?.isArchived,
+  );
+
+  if (archivedChannelIds.length > 0) {
+    throw new Error(
+      `Archived Slack channels cannot be allowlisted: ${archivedChannelIds.join(", ")}`,
+    );
+  }
+}
+
+async function getSlackDirectoryOptions(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: messagingWorkspaces.id,
+    })
+    .from(messagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    return {
+      channels: [] as SlackRuntimeConfigDirectoryOption[],
+      users: [] as SlackRuntimeConfigDirectoryOption[],
+    };
+  }
+
+  const [members, conversations] = await Promise.all([
+    tx
+      .select({
+        displayName: messagingWorkspaceMembers.displayName,
+        externalMemberId: messagingWorkspaceMembers.externalMemberId,
+        fullName: messagingWorkspaceMembers.fullName,
+        isDeleted: messagingWorkspaceMembers.isDeleted,
+        username: messagingWorkspaceMembers.username,
+      })
+      .from(messagingWorkspaceMembers)
+      .where(eq(messagingWorkspaceMembers.messagingWorkspaceId, workspace.id))
+      .orderBy(
+        messagingWorkspaceMembers.displayName,
+        messagingWorkspaceMembers.username,
+      ),
+    tx
+      .select({
+        conversationType: messagingConversations.conversationType,
+        externalConversationId: messagingConversations.externalConversationId,
+        isArchived: messagingConversations.isArchived,
+        metadataJson: messagingConversations.metadataJson,
+        name: messagingConversations.name,
+        purpose: messagingConversations.purpose,
+        topic: messagingConversations.topic,
+      })
+      .from(messagingConversations)
+      .where(eq(messagingConversations.messagingWorkspaceId, workspace.id))
+      .orderBy(messagingConversations.name),
+  ]);
+
+  return {
+    channels: conversations.map((conversation) => ({
+      description: conversation.topic ?? conversation.purpose ?? null,
+      id: conversation.externalConversationId,
+      isArchived: conversation.isArchived,
+      isMember: getSlackChannelMembership(conversation.metadataJson),
+      label: conversation.name
+        ? `#${conversation.name}`
+        : conversation.externalConversationId,
+      memberCount: getSlackChannelMemberCount(conversation.metadataJson),
+      secondaryLabel: conversation.externalConversationId,
+      visibility: getSlackChannelVisibility(conversation.conversationType),
+    })),
+    users: members
+      .filter((member) => !member.isDeleted)
+      .map((member) => ({
+        description: member.fullName ?? null,
+        id: member.externalMemberId,
+        label:
+          member.displayName ??
+          member.fullName ??
+          member.username ??
+          member.externalMemberId,
+        secondaryLabel: member.username ? `@${member.username}` : null,
+      })),
+  };
+}
+
+async function getSlackMemberChannelIds(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: messagingWorkspaces.id,
+    })
+    .from(messagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    return [];
+  }
+
+  const conversations = await tx
+    .select({
+      externalConversationId: messagingConversations.externalConversationId,
+      isArchived: messagingConversations.isArchived,
+      metadataJson: messagingConversations.metadataJson,
+    })
+    .from(messagingConversations)
+    .where(eq(messagingConversations.messagingWorkspaceId, workspace.id))
+    .orderBy(messagingConversations.name);
+
+  return conversations
+    .filter(
+      (conversation) =>
+        !conversation.isArchived &&
+        getSlackChannelMembership(conversation.metadataJson),
+    )
+    .map((conversation) => conversation.externalConversationId);
+}
+
+function getSlackChannelVisibility(conversationType: string) {
+  if (conversationType === "private_channel") {
+    return "private" as const;
+  }
+
+  if (conversationType === "channel") {
+    return "public" as const;
+  }
+
+  return null;
+}
+
+function getSlackChannelMemberCount(metadataJson: unknown) {
+  if (!metadataJson || typeof metadataJson !== "object") {
+    return null;
+  }
+
+  const numMembers = (metadataJson as { num_members?: unknown }).num_members;
+
+  return typeof numMembers === "number" ? numMembers : null;
+}
+
+function getSlackChannelMembership(metadataJson: unknown) {
+  if (!metadataJson || typeof metadataJson !== "object") {
+    return false;
+  }
+
+  return Boolean((metadataJson as { is_member?: unknown }).is_member);
+}
+
+function buildTenantSlackRuntimeConfig(input: {
+  config: SlackRuntimeConfig;
+  enabled: boolean;
+  entryVersion: number;
+  schemaVersion: string;
+}): TenantSlackRuntimeConfig {
+  return {
+    ...input.config,
+    enabled: input.enabled,
+    entryVersion: input.entryVersion,
+    schemaVersion: input.schemaVersion,
+  };
 }
 
 async function ensureLatestTenantManagedConfigVersion(

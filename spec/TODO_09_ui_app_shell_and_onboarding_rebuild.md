@@ -230,8 +230,13 @@ Initial content:
 - after connection, a policy editor for:
   - answering in threads
   - one global Slack user allowlist
-  - one selected-channel allowlist backed by synced Slack directory data
+  - a channel access mode for either a selected-channel allowlist or all channels Otto has been added to
+  - one selected-channel allowlist backed by synced Slack directory data when manual channel mode is active
   - one global require-mention toggle across the selected channels
+- render the policy editor as a single-column settings document rather than a dashboard grid
+- show only the currently selected users and channels on the page
+- move add/remove flows for users and channels into searchable modal dialogs so the saved allowlists stay easy to audit
+- let the channel dialog add Otto to public channels, remove Otto from joined channels, and explain when private-channel invites still need to happen in Slack
 
 ### Skills
 
