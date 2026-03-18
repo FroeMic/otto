@@ -1,6 +1,19 @@
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 
+export type OpenClawAudioModelConfig = {
+  model: string;
+  provider: string;
+};
+
+export type OpenClawTenantAudioConfig = {
+  echoTranscript?: boolean;
+  enabled: boolean;
+  maxBytes?: number;
+  models: OpenClawAudioModelConfig[];
+};
+
 export type OpenClawTenantConfig = {
+  audio?: OpenClawTenantAudioConfig;
   authTokenEnvVar: string;
   gatewayPort: number;
   managedConfigPlugin?: {
@@ -23,6 +36,32 @@ export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
+  const pluginTools = config.managedConfigPlugin
+    ? {
+        alsoAllow: [config.managedConfigPlugin.id],
+      }
+    : undefined;
+  const mediaTools = config.audio
+    ? {
+        media: {
+          audio: {
+            ...(typeof config.audio.echoTranscript === "boolean"
+              ? {
+                  echoTranscript: config.audio.echoTranscript,
+                }
+              : {}),
+            enabled: config.audio.enabled,
+            ...(typeof config.audio.maxBytes === "number"
+              ? {
+                  maxBytes: config.audio.maxBytes,
+                }
+              : {}),
+            models: config.audio.models,
+          },
+        },
+      }
+    : undefined;
+
   return JSON.stringify(
     {
       agents: {
@@ -50,8 +89,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                 },
               },
             },
+          }
+        : {}),
+      ...(pluginTools || mediaTools
+        ? {
             tools: {
-              alsoAllow: [config.managedConfigPlugin.id],
+              ...(pluginTools ?? {}),
+              ...(mediaTools ?? {}),
             },
           }
         : {}),
@@ -93,8 +137,10 @@ export function buildOpenClawTenantConfig(input: {
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
   const hasSlackTokens =
     Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(input.slackBotToken);
+  const audio = parseAudioConfig(config.media);
 
   return {
+    ...(audio ? { audio } : {}),
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
     gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
     integrations: Array.isArray(config.integrations)
@@ -143,4 +189,45 @@ function parseStringRecord(value: unknown) {
       return typeof entry[1] === "string";
     }),
   );
+}
+
+function parseAudioConfig(
+  value: unknown,
+): OpenClawTenantAudioConfig | undefined {
+  const mediaConfig = parseRecord(value);
+  const audioConfig = parseRecord(mediaConfig.audio);
+  const provider = audioConfig.provider;
+  const model = audioConfig.model;
+
+  if (
+    audioConfig.enabled !== true ||
+    typeof provider !== "string" ||
+    provider.length === 0 ||
+    typeof model !== "string" ||
+    model.length === 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(typeof audioConfig.echoTranscript === "boolean"
+      ? {
+          echoTranscript: audioConfig.echoTranscript,
+        }
+      : {}),
+    enabled: true,
+    ...(typeof audioConfig.maxBytes === "number" &&
+    Number.isInteger(audioConfig.maxBytes) &&
+    audioConfig.maxBytes > 0
+      ? {
+          maxBytes: audioConfig.maxBytes,
+        }
+      : {}),
+    models: [
+      {
+        model,
+        provider,
+      },
+    ],
+  };
 }
