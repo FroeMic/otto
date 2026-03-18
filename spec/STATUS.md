@@ -103,7 +103,16 @@
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
 - Prefer control-plane-owned managed bootstrap files projected onto the tenant runtime over treating local runtime edits as the source of truth for `AGENTS.md`, `IDENTITY.md`, or `TOOLS.md`.
 - If the control plane uses one shared Slack app, do not route Slack directly to each tenant VPS with Socket Mode; use HTTP mode plus control-plane-owned shared ingress.
+- Voice-note support is now captured in `TODO_10_voice_note_understanding.md`; the first slice should project OpenClaw audio transcription config now, while preserving compatibility with the later shared Slack HTTP-ingress design in `TODO_06_integrations_and_oauth.md`.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
+
+## Recent progress
+
+- Tenant desired state now projects OpenClaw audio transcription defaults for Slack-connected runtimes.
+- Tenant `openclaw.json` rendering now includes `tools.media.audio` with an OpenAI transcription model when desired state enables audio understanding.
+- Runtime config verification now checks for the projected audio config on the tenant host after bootstrap/apply writes.
+- Slack OAuth scope defaults now include `files:read` for fresh installs that need Slack-hosted audio attachment access.
+- Focused tests now cover Slack scope detection and OpenClaw audio config rendering.
 
 ## Current product target
 
@@ -117,10 +126,18 @@
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
+  - preserving the raw Slack attachment semantics needed for `TODO_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
+- Manually verify `TODO_10_voice_note_understanding.md` against a real Slack voice note on a provisioned tenant runtime:
+  - confirm a fresh install with `files:read` can transcribe a voice note
+  - confirm an older install without `files:read` shows reconnect-needed guidance until Slack is reconnected
 - Continue the managed-bootstrap-files slice by:
   - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` plugin instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
   - expanding managed config beyond `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` only after the agent-tool workflow is in place
+- After the shared Slack ingress direction is locked, implement `TODO_10_voice_note_understanding.md` by:
+  - extending desired state with OpenClaw audio transcription defaults
+  - rendering `tools.media.audio` into tenant `openclaw.json`
+  - adding `files:read` to Slack scope defaults for fresh installs
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available

@@ -67,10 +67,10 @@ export class RuntimeManager {
       slackBotToken: input.slackBotToken,
       tenantId: input.tenantId,
     });
-    await this.verifyTenantConfigFiles(
-      connection,
-      "/opt/openclaw/runtime/bootstrap-metadata.json",
-    );
+    await this.verifyTenantConfigFiles(connection, {
+      metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
+      openClawConfig: input.openClawConfig,
+    });
   }
 
   async restartGateway(connection: SshConnection): Promise<void> {
@@ -99,10 +99,10 @@ export class RuntimeManager {
       slackBotToken: input.slackBotToken,
       tenantId: input.tenantId,
     });
-    await this.verifyTenantConfigFiles(
-      connection,
-      "/opt/openclaw/runtime/apply-metadata.json",
-    );
+    await this.verifyTenantConfigFiles(connection, {
+      metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      openClawConfig: input.openClawConfig,
+    });
 
     const restart = await this.restartGatewayWithResult(connection);
     const verify = await this.checkGatewayHealthWithResult(connection);
@@ -181,20 +181,36 @@ export class RuntimeManager {
 
   async verifyTenantConfigFiles(
     connection: SshConnection,
-    metadataPath: string,
+    input: {
+      metadataPath: string;
+      openClawConfig: OpenClawTenantConfig;
+    },
   ) {
-    await this.execChecked(
-      connection,
-      buildShellCommand([
-        "chown -R openclaw:openclaw /opt/openclaw",
-        "test -s /opt/openclaw/home/openclaw.json",
-        "test -s /opt/openclaw/home/.env",
-        "test -s /opt/openclaw/home/workspace/AGENTS.md",
-        "test -s /opt/openclaw/home/workspace/IDENTITY.md",
-        "test -s /opt/openclaw/home/workspace/TOOLS.md",
-        `test -s ${shellQuoteForShell(metadataPath)}`,
-      ]),
-    );
+    const commands = [
+      "chown -R openclaw:openclaw /opt/openclaw",
+      "test -s /opt/openclaw/home/openclaw.json",
+      "test -s /opt/openclaw/home/.env",
+      "test -s /opt/openclaw/home/workspace/AGENTS.md",
+      "test -s /opt/openclaw/home/workspace/IDENTITY.md",
+      "test -s /opt/openclaw/home/workspace/TOOLS.md",
+      `test -s ${shellQuoteForShell(input.metadataPath)}`,
+    ];
+
+    if (input.openClawConfig.audio?.enabled) {
+      const firstAudioModel = input.openClawConfig.audio.models[0]?.model;
+
+      commands.push(
+        "grep -F '\"audio\"' /opt/openclaw/home/openclaw.json >/dev/null",
+      );
+
+      if (firstAudioModel) {
+        commands.push(
+          `grep -F ${shellQuoteForShell(firstAudioModel)} /opt/openclaw/home/openclaw.json >/dev/null`,
+        );
+      }
+    }
+
+    await this.execChecked(connection, buildShellCommand(commands));
   }
 
   async restartGatewayWithResult(connection: SshConnection) {

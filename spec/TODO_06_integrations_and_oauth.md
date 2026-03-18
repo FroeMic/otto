@@ -304,6 +304,11 @@ Recommended v1 router behavior:
 5. persist a delivery event row
 6. retry or dead-letter failed deliveries
 
+Compatibility requirement for `TODO_10_voice_note_understanding.md`:
+
+- preserve the Slack attachment metadata and private file URL semantics that OpenClaw expects for media download
+- avoid transforming inbound Slack payloads into a custom shape that would stop tenant runtimes from downloading and transcribing voice notes with the tenant bot token
+
 Recommended supporting tables:
 
 - `slack_ingress_deliveries`
@@ -383,6 +388,7 @@ Deliverables:
 - tenant lookup by team or enterprise ID
 - forwarding or proxy path to tenant runtime
 - delivery logging
+- preserve enough raw Slack attachment semantics for tenant runtimes to keep downloading private audio attachments for voice-note transcription
 
 ### Step 5: project config to OpenClaw and apply
 

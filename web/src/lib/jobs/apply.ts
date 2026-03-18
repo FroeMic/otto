@@ -151,10 +151,10 @@ export async function processApplyTenantConfigJob(
       slackBotToken,
       tenantId: payload.tenantId,
     });
-    await runtimeManager.verifyTenantConfigFiles(
-      runtimeConnection,
-      "/opt/openclaw/runtime/apply-metadata.json",
-    );
+    await runtimeManager.verifyTenantConfigFiles(runtimeConnection, {
+      metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      openClawConfig,
+    });
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.restartingRuntime,

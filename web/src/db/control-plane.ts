@@ -1955,6 +1955,7 @@ async function compileTenantDesiredStateConfig(
   const config: Record<string, unknown> = {
     integrations: [],
     managedConfigVersion: managedConfig.version,
+    media: {},
     prompts: {},
   };
 
@@ -1969,6 +1970,16 @@ async function compileTenantDesiredStateConfig(
       slackBotUserId: slackIntegration.slackBotUserId,
       teamId: slackIntegration.slackTeamId,
       teamName: slackIntegration.slackTeamName,
+    };
+    config.media = {
+      audio: {
+        attachmentsMode: "first",
+        echoTranscript: false,
+        enabled: true,
+        maxBytes: 20 * 1024 * 1024,
+        model: "gpt-4o-mini-transcribe",
+        provider: "openai",
+      },
     };
   }
 
