@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/env";
+import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import {
   type OpenClawTenantConfig,
   renderOpenClawConfig,
@@ -339,9 +339,14 @@ function buildRuntimeEnvFile(input: {
 }) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
+  const controlPlaneBaseUrl = getControlPlaneBaseUrl();
 
   if (env.RUNTIME_OPENAI_API_KEY) {
     lines.push(`OPENAI_API_KEY=${env.RUNTIME_OPENAI_API_KEY}`);
+  }
+
+  if (controlPlaneBaseUrl) {
+    lines.push(`OTTO_CONTROL_PLANE_BASE_URL=${controlPlaneBaseUrl}`);
   }
 
   if (env.RUNTIME_SLACK_APP_TOKEN) {

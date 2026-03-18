@@ -37,6 +37,7 @@ docker compose up -d
    - make sure the chosen `server_type` is still available in the chosen `location`
    - set one of `RUNTIME_DEPLOY_PRIVATE_KEY`, `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`, or rely on a loaded local SSH agent
    - optionally override `RUNTIME_OPENCLAW_IMAGE` if you need a non-default OpenClaw runtime image
+   - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
    - to preconfigure the default OpenAI model, set `RUNTIME_OPENAI_API_KEY` and optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`

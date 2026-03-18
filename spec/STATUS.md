@@ -56,6 +56,13 @@
   - desired state now pins a specific managed config version so bootstrap and later apply runs project deterministic file contents into the tenant runtime workspace root
   - the settings page now exposes locked system blocks plus a shared editable block for those files and saves changes through the existing apply pipeline
   - a runtime-authenticated internal API now exists at `/api/internal/runtime/managed-config` so a future OpenClaw plugin can list, read, and update those managed files using the tenant gateway token
+  - managed-config writes can now carry an expected version to avoid silent user/agent overwrites, and the tenant runtime now receives `OTTO_CONTROL_PLANE_BASE_URL` in `.env` for future plugin callbacks
+- The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
+  - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
+  - `runtime-image/Dockerfile` layers that plugin into `/app/extensions/otto-managed-config` on top of an upstream OpenClaw image
+  - rendered tenant runtime config now enables the plugin and allowlists it as an optional tool when the control plane can derive a public base URL
+  - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
+  - the plugin implementation is now aligned with the released OpenClaw `2026.3.13-1` native plugin shape (plain exported plugin object + `configSchema`) instead of the newer helper-based API
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -111,7 +118,8 @@
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
 - Continue the managed-bootstrap-files slice by:
-  - wiring an OpenClaw plugin to the new runtime-authenticated managed-config API so Otto can mutate the shared editable managed-config blocks without direct local writes becoming authoritative
+  - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` plugin instead of the raw upstream image
+  - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
   - expanding managed config beyond `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` only after the agent-tool workflow is in place
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments

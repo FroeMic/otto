@@ -1,0 +1,76 @@
+# Otto Runtime Image
+
+This directory defines the thin Otto-owned runtime image layer that extends the
+upstream OpenClaw image with Otto-specific runtime plugins.
+
+## Current contents
+
+- bundled `otto-managed-config` plugin under `/app/extensions/otto-managed-config`
+
+## Build
+
+From the repo root:
+
+```bash
+docker build -f runtime-image/Dockerfile -t otto/openclaw-runtime:local .
+```
+
+Or use the publish helper:
+
+```bash
+IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
+```
+
+To pin a specific upstream OpenClaw base image:
+
+```bash
+docker build \
+  -f runtime-image/Dockerfile \
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1 \
+  -t ghcr.io/froemic/otto-openclaw:2026.3.13-2 .
+```
+
+With the helper:
+
+```bash
+IMAGE_TAG=2026.3.13-2 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1 \
+./publish-runtime-image.sh
+```
+
+## Publish to GHCR
+
+The helper defaults to:
+
+- `IMAGE_REPO=ghcr.io/froemic/otto-openclaw`
+- `PLATFORMS=linux/amd64`
+
+Authenticate once with Docker, or provide:
+
+```bash
+export GHCR_USERNAME=<github-username>
+export GHCR_TOKEN=<github-personal-access-token-or-actions-token>
+```
+
+Then publish:
+
+```bash
+IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
+```
+
+For a local-only build without pushing:
+
+```bash
+IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
+```
+
+## Use
+
+Point the control plane at the published custom image:
+
+```bash
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.13-2
+```
+
+Tenant provisioning and later `apply_tenant_config` runs will then pull this
+image instead of the raw upstream OpenClaw image.

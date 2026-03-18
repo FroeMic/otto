@@ -49,6 +49,7 @@ Set at least:
 - one of `RUNTIME_DEPLOY_PRIVATE_KEY` or `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`
 - `CONTROL_PLANE_ENCRYPTION_SECRET`
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
+- `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
 Use the internal Postgres hostname in `DATABASE_URL`, for example:
 
@@ -57,6 +58,21 @@ DATABASE_URL=postgres://otto:change-me@postgres:5432/otto
 ```
 
 ## 4. Build and migrate
+
+If you are using the Otto-managed runtime image with bundled runtime plugins, build
+and publish it from the repo root first:
+
+```bash
+IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
+```
+
+Then set:
+
+```bash
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.13-2
+```
+
+on the control-plane host before rebuilding the production stack.
 
 ```bash
 docker compose -f docker-compose.prod.yml build
