@@ -26,7 +26,7 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13 \
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1 \
   -t ghcr.io/froemic/otto-openclaw:2026.3.13-2 .
 ```
 
@@ -34,7 +34,7 @@ With the helper:
 
 ```bash
 IMAGE_TAG=2026.3.13-2 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.3.13-1 \
 ./publish-runtime-image.sh
 ```
 

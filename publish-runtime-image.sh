@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/froemic/otto-openclaw}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-OPENCLAW_BASE_IMAGE="${OPENCLAW_BASE_IMAGE:-ghcr.io/openclaw/openclaw:2026.3.13}"
+OPENCLAW_BASE_IMAGE="${OPENCLAW_BASE_IMAGE:-ghcr.io/openclaw/openclaw:2026.3.13-1}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 PUSH_IMAGE="${PUSH_IMAGE:-1}"
 LOAD_IMAGE="${LOAD_IMAGE:-0}"
