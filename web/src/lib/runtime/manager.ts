@@ -192,6 +192,8 @@ export class RuntimeManager {
       "test -s /opt/openclaw/home/.env",
       "test -s /opt/openclaw/home/workspace/AGENTS.md",
       "test -s /opt/openclaw/home/workspace/IDENTITY.md",
+      "test -s /opt/openclaw/home/workspace/SOUL.md",
+      "test -s /opt/openclaw/home/workspace/USERS.md",
       "test -s /opt/openclaw/home/workspace/TOOLS.md",
       `test -s ${shellQuoteForShell(input.metadataPath)}`,
     ];

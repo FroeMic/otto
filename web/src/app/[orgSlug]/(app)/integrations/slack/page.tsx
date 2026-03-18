@@ -1,7 +1,6 @@
-import { withAuth } from "@workos-inc/authkit-nextjs";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
@@ -10,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getDashboardOrganizations } from "@/db/control-plane";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
@@ -32,16 +30,11 @@ export default async function SlackIntegrationPage({
   params: Promise<{ orgSlug: string }>;
   searchParams: Promise<{ slack_connected?: string; slack_error?: string }>;
 }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug } = await params;
   const { slack_connected: slackConnected, slack_error: slackError } =
     await searchParams;
-  const organizations = await getDashboardOrganizations(user.id);
-  const organization = organizations.find((item) => item.slug === orgSlug);
-
-  if (!organization) {
-    notFound();
-  }
+  const { currentOrganization: organization } =
+    await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
   const agent = getPrimaryAgent(organization);
@@ -98,8 +91,8 @@ export default async function SlackIntegrationPage({
         <p className="text-sm text-muted-foreground">Integrations / Slack</p>
         <h1 className="text-3xl font-semibold">Slack connection</h1>
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Add Otto to Slack so your team can ask for help, delegate work, and
-          get results back where conversations already happen.
+          Add Otto to Slack so your team can ask for help and keep work moving
+          where conversations already happen.
         </p>
       </section>
 
@@ -122,8 +115,7 @@ export default async function SlackIntegrationPage({
       {runtimeApplyIsActive ? (
         <Card>
           <CardContent className="pt-6 text-sm">
-            Slack is connected. The control plane is applying the updated Slack
-            config to the tenant runtime now.
+            Slack is connected. Otto is updating in the background now.
           </CardContent>
         </Card>
       ) : null}
@@ -131,7 +123,7 @@ export default async function SlackIntegrationPage({
       {runtimeApplyError ? (
         <Card>
           <CardContent className="pt-6 text-sm">
-            Slack is connected, but the latest tenant runtime update failed.{" "}
+            Slack is connected, but the latest Otto update did not finish.{" "}
             {runtimeApplyError}
           </CardContent>
         </Card>
@@ -147,11 +139,11 @@ export default async function SlackIntegrationPage({
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             {connectedAt && integrationStatus === "pending_apply"
-              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. A tenant runtime update is queued.`
+              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. Otto will pick up the new Slack connection shortly.`
               : connectedAt && integrationStatus === "applying"
-                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The tenant runtime is being updated now.`
+                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. Otto is updating now.`
                 : connectedAt && integrationStatus === "apply_failed"
-                  ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The latest tenant runtime update failed.`
+                  ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The latest Otto update did not finish.`
                   : connectedAt
                     ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
                     : "Slack is not connected yet."}
@@ -163,15 +155,15 @@ export default async function SlackIntegrationPage({
             <CardDescription>
               Current status: {getRuntimeStatusLabel(organization)}
               {runtimeApplyStatusLabel
-                ? `. Latest update: ${runtimeApplyStatusLabel}`
+                ? `. Latest sync: ${runtimeApplyStatusLabel}`
                 : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             {runtimeApplyIsActive
-              ? "The control plane is pushing the latest Slack config onto the tenant runtime."
+              ? "Otto is picking up the latest Slack settings now."
               : runtimeApplyError
-                ? "The tenant runtime is still on the last good config until the update succeeds."
+                ? "Otto stays on the last good setup until the next update succeeds."
                 : agent
                   ? "Otto is still finishing a few setup steps in the background."
                   : "Otto will finish getting ready after Slack is connected."}
@@ -182,9 +174,9 @@ export default async function SlackIntegrationPage({
             <CardTitle>Next action</CardTitle>
             <CardDescription>
               {runtimeApplyIsActive
-                ? "Wait for the tenant runtime update to complete."
+                ? "Wait for Otto to finish updating."
                 : runtimeApplyError
-                  ? "Reconnect Slack to retry the tenant runtime update."
+                  ? "Reconnect Slack to try the update again."
                   : effectiveSlackError && !ottoIsReady
                     ? "Retry Slack so Otto can finish setup."
                     : !slackIsConnected
@@ -210,7 +202,7 @@ export default async function SlackIntegrationPage({
                 className={buttonVariants({ variant: "default" })}
                 href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
               >
-                {runtimeApplyError ? "Reconnect Slack" : "Reconnect Slack"}
+                Reconnect Slack
               </a>
             ) : null}
             {slackIsConnected && !ottoIsReady ? (
@@ -224,7 +216,7 @@ export default async function SlackIntegrationPage({
             {ottoIsReady ? (
               <Link
                 className={buttonVariants({ variant: "default" })}
-                href={`/${organization.slug}/agent`}
+                href={`/${organization.slug}/agent/status`}
               >
                 Open Otto
               </Link>

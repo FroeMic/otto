@@ -34,12 +34,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { DashboardOrganization } from "@/db/control-plane";
+import { isSlackConnected } from "@/lib/workspace";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
-  currentOrganization: {
-    name: string;
-    slug: string;
-  };
+  currentOrganization: DashboardOrganization;
   organizations: Array<{
     name: string;
     slug: string;
@@ -57,10 +56,11 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const slackIsConnected = isSlackConnected(currentOrganization);
 
   const navItems = [
     {
-      href: `/${currentOrganization.slug}/agent`,
+      href: `/${currentOrganization.slug}/agent/status`,
       icon: <RobotIcon />,
       title: "Agent",
     },
@@ -110,7 +110,7 @@ export function AppSidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-64">
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Teams</DropdownMenuLabel>
+                  <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
                   {organizations.map((organization) => (
                     <DropdownMenuItem
                       key={organization.slug}
@@ -124,11 +124,13 @@ export function AppSidebar({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   render={
-                    <Link href={`/${currentOrganization.slug}/settings`} />
+                    <Link
+                      href={`/${currentOrganization.slug}/settings/workspace`}
+                    />
                   }
                 >
                   <GearIcon />
-                  Team settings
+                  Workspace settings
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -162,7 +164,7 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel>Setup</SidebarGroupLabel>
+          <SidebarGroupLabel>Connections</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -173,8 +175,21 @@ export function AppSidebar({
                     />
                   }
                 >
-                  <ArrowsClockwiseIcon />
-                  <span>Connect Slack</span>
+                  {slackIsConnected ? (
+                    <>
+                      <PlugsConnectedIcon />
+                      <span>Slack</span>
+                      <span
+                        aria-hidden="true"
+                        className="ml-auto size-2 rounded-full bg-emerald-500"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <ArrowsClockwiseIcon />
+                      <span>Connect Slack</span>
+                    </>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

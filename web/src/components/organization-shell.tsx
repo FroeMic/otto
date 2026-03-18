@@ -55,10 +55,7 @@ export function OrganizationShell({
   return (
     <SidebarProvider>
       <AppSidebar
-        currentOrganization={{
-          name: currentOrganization.name,
-          slug: currentOrganization.slug,
-        }}
+        currentOrganization={currentOrganization}
         organizations={organizations}
         user={user}
       />
@@ -74,7 +71,7 @@ export function OrganizationShell({
               {currentOrganization.name}
             </span>
             <span className="text-xs text-muted-foreground">
-              /{currentOrganization.slug}
+              Workspace overview
             </span>
           </div>
         </header>

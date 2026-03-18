@@ -1,0 +1,44 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { cn } from "@/lib/utils";
+
+const AGENT_TABS = [
+  {
+    href: (orgSlug: string) => `/${orgSlug}/agent/prompts`,
+    label: "Configuration",
+  },
+  {
+    href: (orgSlug: string) => `/${orgSlug}/agent/status`,
+    label: "Status",
+  },
+] as const;
+
+export function AgentTabs({ orgSlug }: { orgSlug: string }) {
+  const pathname = usePathname();
+
+  return (
+    <div className="inline-flex w-fit items-center rounded-none bg-muted p-[3px] text-xs text-muted-foreground">
+      {AGENT_TABS.map((tab) => {
+        const href = tab.href(orgSlug);
+        const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+        return (
+          <Link
+            key={href}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "inline-flex h-7 items-center justify-center rounded-none border border-transparent px-2.5 text-xs font-medium transition-colors hover:text-foreground",
+              isActive ? "bg-background text-foreground" : "text-foreground/60",
+            )}
+            href={href}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}

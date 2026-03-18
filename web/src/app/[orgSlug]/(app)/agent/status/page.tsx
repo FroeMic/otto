@@ -1,6 +1,6 @@
-import { withAuth } from "@workos-inc/authkit-nextjs";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getDashboardOrganizations } from "@/db/control-plane";
 import {
   getPrimaryAgent,
   getRuntimeStatusLabel,
@@ -27,19 +26,28 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function AgentPage({
+function formatTimestamp(value: Date) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value);
+}
+
+function getLatestActivitySummary(event: { createdAt: Date; message: string }) {
+  return {
+    message: event.message || "Otto recorded a new update.",
+    time: formatTimestamp(event.createdAt),
+  };
+}
+
+export default async function AgentStatusPage({
   params,
 }: {
   params: Promise<{ orgSlug: string }>;
 }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug } = await params;
-  const organizations = await getDashboardOrganizations(user.id);
-  const organization = organizations.find((item) => item.slug === orgSlug);
-
-  if (!organization) {
-    notFound();
-  }
+  const { currentOrganization: organization } =
+    await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);
@@ -49,15 +57,6 @@ export default async function AgentPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">Agent</p>
-        <h1 className="text-3xl font-semibold">How Otto is doing</h1>
-        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Check whether Otto is connected, ready to help, and what happened most
-          recently while it was getting set up.
-        </p>
-      </section>
-
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
@@ -72,7 +71,7 @@ export default async function AgentPage({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Status</CardTitle>
+            <CardTitle>Availability</CardTitle>
             <CardDescription>Whether Otto is ready to help</CardDescription>
           </CardHeader>
           <CardContent>
@@ -84,19 +83,20 @@ export default async function AgentPage({
         <Card>
           <CardHeader>
             <CardTitle>Agent</CardTitle>
-            <CardDescription>Your team's Otto</CardDescription>
+            <CardDescription>Your workspace assistant</CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {agent ? agent.name : "Otto is still being prepared."}
+            {agent ? agent.name : "Otto is still getting ready."}
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent setup activity</CardTitle>
+          <CardTitle>Recent activity</CardTitle>
           <CardDescription>
-            The latest steps Otto went through while getting ready.
+            The latest updates from Otto while it was being prepared for your
+            workspace.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -104,26 +104,28 @@ export default async function AgentPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Update</TableHead>
+                  <TableHead>Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {agent.latestJob.events.map((event) => (
-                  <TableRow
-                    key={`${event.eventType}-${event.createdAt.toISOString()}`}
-                  >
-                    <TableCell>{event.eventType}</TableCell>
-                    <TableCell>{event.message}</TableCell>
-                    <TableCell>{event.createdAt.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
+                {agent.latestJob.events.map((event) => {
+                  const activity = getLatestActivitySummary(event);
+
+                  return (
+                    <TableRow
+                      key={`${event.eventType}-${event.createdAt.toISOString()}`}
+                    >
+                      <TableCell>{activity.message}</TableCell>
+                      <TableCell>{activity.time}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No setup activity has been recorded yet.
+              No activity has been recorded yet.
             </p>
           )}
         </CardContent>

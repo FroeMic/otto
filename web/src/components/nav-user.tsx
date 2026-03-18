@@ -84,19 +84,21 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem
                 render={
-                  <Link
-                    href={`/${currentOrganizationSlug}/settings#user-settings`}
-                  />
+                  <Link href={`/${currentOrganizationSlug}/settings/user`} />
                 }
               >
                 <UserIcon />
                 User settings
               </DropdownMenuItem>
               <DropdownMenuItem
-                render={<Link href={`/${currentOrganizationSlug}/settings`} />}
+                render={
+                  <Link
+                    href={`/${currentOrganizationSlug}/settings/workspace`}
+                  />
+                }
               >
                 <GearIcon />
-                Team settings
+                Workspace settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

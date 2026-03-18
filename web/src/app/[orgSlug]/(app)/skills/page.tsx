@@ -1,6 +1,6 @@
-import { withAuth } from "@workos-inc/authkit-nextjs";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import {
   Card,
   CardContent,
@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getDashboardOrganizations } from "@/db/control-plane";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +17,9 @@ export default async function SkillsPage({
 }: {
   params: Promise<{ orgSlug: string }>;
 }) {
-  const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug } = await params;
-  const organizations = await getDashboardOrganizations(user.id);
-  const organization = organizations.find((item) => item.slug === orgSlug);
-
-  if (!organization) {
-    notFound();
-  }
+  const { currentOrganization: organization } =
+    await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);

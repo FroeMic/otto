@@ -185,6 +185,7 @@ Purpose:
 - show overall health of the organization's Otto agent
 - show whether onboarding is complete
 - show runtime and Slack status clearly
+- provide a route-backed instructions view so users can review and edit Otto's shared guidance without leaving the Agent area
 
 Initial content:
 
@@ -192,6 +193,7 @@ Initial content:
 - Slack connection card
 - onboarding checklist if incomplete
 - recent activity / latest job summary
+- a second top-level Agent tab for instructions, with separate system and shared sections for managed instruction files
 
 ### Integrations
 
@@ -225,6 +227,11 @@ Initial content:
 - last connected timestamp if known
 - onboarding dependency status
 - primary action to connect or reconnect Slack
+- after connection, a policy editor for:
+  - answering in threads
+  - one global Slack user allowlist
+  - one selected-channel allowlist backed by synced Slack directory data
+  - one global require-mention toggle across the selected channels
 
 ### Skills
 
@@ -263,6 +270,13 @@ Organization settings:
 - organization name
 - organization slug
 - later admin settings
+
+Implementation note:
+
+- the first UI slice should use a dedicated settings shell instead of reusing the main app navigation
+- recommended settings routes:
+  - `/{orgSlug}/settings/user`
+  - `/{orgSlug}/settings/workspace`
 
 ## Onboarding flow
 
@@ -382,6 +396,8 @@ Likely additions during implementation:
 - [x] define onboarding gate and create-organization flow
 - [x] define settings split between user and organization
 - [x] define a dedicated Slack integration state page
+- [x] implement a dedicated settings shell with sectioned navigation
+- [x] implement route-backed Agent status and instruction views
 - [ ] implement prefixed database IDs such as `org_*` and `user_*`
 - [ ] replace the temporary generic WorkOS account link with a verified account-management handoff if WorkOS exposes one for this setup
 
@@ -394,14 +410,17 @@ Likely additions during implementation:
 - authenticated users with no organization are forced into organization creation
 - organization creation requires a unique slug
 - authenticated users with incomplete org setup are routed into onboarding
-- authenticated users with complete org setup land in `/{orgSlug}/agent`
+- authenticated users with complete org setup land in `/{orgSlug}/agent/status`
 - the sidebar contains the requested top org dropdown and bottom user dropdown
 - the primary nav contains:
   - Agent
   - Integrations
   - Skills
   - Scheduled Tasks
+- settings uses its own sidebar with route-backed user and workspace sections
+- the Agent area exposes route-backed status and instruction views
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder
+- the Slack page can render real member and channel selectors from synced Slack directory tables when available
 - settings includes both user and organization sections
 - prototype UI uses shadcn building blocks without custom color work
 

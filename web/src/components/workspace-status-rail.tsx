@@ -11,11 +11,15 @@ export function WorkspaceStatusRail({
 }: {
   organization: DashboardOrganization;
 }) {
+  const teamName =
+    organization.slackIntegration?.teamName ??
+    organization.latestOnboardingSession?.slackTeamName;
+
   return (
     <footer className="sticky bottom-0 z-10 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex flex-col gap-3 px-4 py-3 text-xs md:flex-row md:items-center md:justify-between md:px-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{organization.slug}</Badge>
+          <Badge variant="outline">{organization.name}</Badge>
           <Badge variant="secondary">
             Slack: {getSlackStatusLabel(organization)}
           </Badge>
@@ -31,9 +35,9 @@ export function WorkspaceStatusRail({
           </Badge>
         </div>
         <p className="text-muted-foreground">
-          {organization.latestOnboardingSession?.slackTeamName
-            ? `Connected to ${organization.latestOnboardingSession.slackTeamName}`
-            : "Slack not connected yet"}
+          {teamName
+            ? `Slack is connected to ${teamName}.`
+            : "Connect Slack to bring Otto into your workspace."}
         </p>
       </div>
     </footer>
