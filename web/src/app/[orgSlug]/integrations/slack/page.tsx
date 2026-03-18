@@ -67,9 +67,6 @@ export default async function SlackIntegrationPage({
       : latestApplyRun?.status === "failed"
         ? latestApplyRun.error
         : null;
-  const voiceNoteReconnectNeeded =
-    slackIsConnected &&
-    (organization.slackIntegration?.missingScopes.length ?? 0) > 0;
   const connectedAt =
     organization.slackIntegration?.connectedAt ?? session?.slackConnectedAt;
   const slackTeamName =
@@ -140,16 +137,6 @@ export default async function SlackIntegrationPage({
         </Card>
       ) : null}
 
-      {voiceNoteReconnectNeeded ? (
-        <Card>
-          <CardContent className="pt-6 text-sm">
-            Slack is connected, but this installation needs to be reconnected
-            before Otto can understand voice notes. The current Slack bot token
-            is missing file access required to download audio attachments.
-          </CardContent>
-        </Card>
-      ) : null}
-
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
@@ -159,17 +146,15 @@ export default async function SlackIntegrationPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {voiceNoteReconnectNeeded
-              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}, but reconnect Slack to grant file access for voice-note transcription.`
-              : connectedAt && integrationStatus === "pending_apply"
-                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. A tenant runtime update is queued.`
-                : connectedAt && integrationStatus === "applying"
-                  ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The tenant runtime is being updated now.`
-                  : connectedAt && integrationStatus === "apply_failed"
-                    ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The latest tenant runtime update failed.`
-                    : connectedAt
-                      ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
-                      : "Slack is not connected yet."}
+            {connectedAt && integrationStatus === "pending_apply"
+              ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. A tenant runtime update is queued.`
+              : connectedAt && integrationStatus === "applying"
+                ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The tenant runtime is being updated now.`
+                : connectedAt && integrationStatus === "apply_failed"
+                  ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""}. The latest tenant runtime update failed.`
+                  : connectedAt
+                    ? `Connected${slackTeamName ? ` to ${slackTeamName}` : ""} on ${connectedAt.toLocaleString()}.`
+                    : "Slack is not connected yet."}
           </CardContent>
         </Card>
         <Card>
@@ -196,30 +181,20 @@ export default async function SlackIntegrationPage({
           <CardHeader>
             <CardTitle>Next action</CardTitle>
             <CardDescription>
-              {voiceNoteReconnectNeeded && canReconnectSlack
-                ? "Reconnect Slack to enable voice-note transcription."
-                : runtimeApplyIsActive
-                  ? "Wait for the tenant runtime update to complete."
-                  : runtimeApplyError
-                    ? "Reconnect Slack to retry the tenant runtime update."
-                    : effectiveSlackError && !ottoIsReady
-                      ? "Retry Slack so Otto can finish setup."
-                      : !slackIsConnected
-                        ? "Connect Slack so your team can start using Otto there."
-                        : !ottoIsReady
-                          ? "Finish the last setup steps to unlock Otto."
-                          : "Everything is connected. Open Otto and start using it."}
+              {runtimeApplyIsActive
+                ? "Wait for the tenant runtime update to complete."
+                : runtimeApplyError
+                  ? "Reconnect Slack to retry the tenant runtime update."
+                  : effectiveSlackError && !ottoIsReady
+                    ? "Retry Slack so Otto can finish setup."
+                    : !slackIsConnected
+                      ? "Connect Slack so your team can start using Otto there."
+                      : !ottoIsReady
+                        ? "Finish the last setup steps to unlock Otto."
+                        : "Everything is connected. Open Otto and start using it."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {voiceNoteReconnectNeeded && canReconnectSlack && sessionId ? (
-              <a
-                className={buttonVariants({ variant: "default" })}
-                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
-              >
-                Reconnect Slack for voice notes
-              </a>
-            ) : null}
             {canRetrySlackDuringSetup && sessionId ? (
               <a
                 className={buttonVariants({ variant: "default" })}
@@ -230,10 +205,7 @@ export default async function SlackIntegrationPage({
                   : "Add to Slack"}
               </a>
             ) : null}
-            {canReconnectSlack &&
-            sessionId &&
-            ottoIsReady &&
-            !voiceNoteReconnectNeeded ? (
+            {canReconnectSlack && sessionId && ottoIsReady ? (
               <a
                 className={buttonVariants({ variant: "default" })}
                 href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}

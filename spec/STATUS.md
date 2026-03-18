@@ -111,7 +111,7 @@
 - Tenant desired state now projects OpenClaw audio transcription defaults for Slack-connected runtimes.
 - Tenant `openclaw.json` rendering now includes `tools.media.audio` with an OpenAI transcription model when desired state enables audio understanding.
 - Runtime config verification now checks for the projected audio config on the tenant host after bootstrap/apply writes.
-- Slack OAuth scope defaults now include `files:read`, and the Slack integration page now surfaces reconnect-needed guidance when older installs are missing the scope required for voice-note downloads.
+- Slack OAuth scope defaults now include `files:read` for fresh installs that need Slack-hosted audio attachment access.
 - Focused tests now cover Slack scope detection and OpenClaw audio config rendering.
 
 ## Current product target
@@ -137,7 +137,7 @@
 - After the shared Slack ingress direction is locked, implement `TODO_10_voice_note_understanding.md` by:
   - extending desired state with OpenClaw audio transcription defaults
   - rendering `tools.media.audio` into tenant `openclaw.json`
-  - adding `files:read` to Slack scope defaults and surfacing reconnect-needed state for older installs
+  - adding `files:read` to Slack scope defaults for fresh installs
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - replacing the temporary WorkOS account link with a verified account-management handoff if available

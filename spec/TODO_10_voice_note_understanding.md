@@ -52,7 +52,6 @@ So this spec must not introduce a payload transformation or runtime contract tha
 - Do not echo transcripts back into Slack in v1.
 - Process only the first audio attachment in v1.
 - Request `files:read` in Slack bot scopes so OpenClaw can download Slack-hosted private audio attachments.
-- Treat missing required Slack scope on older installs as a reconnect-needed state, not as a silent runtime failure.
 
 ## Why this shape
 
@@ -125,11 +124,7 @@ Implementation expectations:
 
 - add `files:read` to the default `SLACK_BOT_SCOPES`
 - preserve existing Slack behavior for text-only installs
-- detect installs whose stored `scopeCsv` predates the new scope
-- surface those installs as reconnect-needed in the Slack integration UI
-- after reconnect, queue a normal runtime apply if the tenant runtime is already provisioned
-
-This keeps the user-facing failure mode explicit instead of letting voice notes fail silently.
+- treat fresh Slack installs as the only supported starting point for this slice
 
 ## Shared ingress compatibility plan
 
@@ -174,12 +169,10 @@ Exit check:
 Deliverables:
 
 - default Slack bot scopes include `files:read`
-- older installs missing the scope are detectable from stored install state
-- Slack integration UI can show reconnect-needed guidance
 
 Exit check:
 
-- fresh installs have the required scope and old installs are surfaced clearly
+- fresh installs have the required scope
 
 ### Step 4. Verify apply and runtime behavior
 
@@ -210,7 +203,6 @@ Exit check:
 - rendered tenant `openclaw.json` includes the expected `tools.media.audio` configuration
 - rendered tenant `.env` still includes `OPENAI_API_KEY` when `RUNTIME_OPENAI_API_KEY` is configured
 - new Slack installs request `files:read`
-- older Slack installs without `files:read` are surfaced as reconnect-needed
 - a Slack voice note under the configured runtime size cap is transcribed and used as message input
 - command parsing continues to work when the original message is a voice note transcript
 - no custom runtime-image change is required for the v1 rollout

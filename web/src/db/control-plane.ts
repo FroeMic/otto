@@ -37,10 +37,6 @@ import {
   isManagedBootstrapFilePath,
   type ManagedBootstrapFilePath,
 } from "@/lib/openclaw/managed-config";
-import {
-  getMissingSlackScopes,
-  SLACK_VOICE_NOTE_REQUIRED_SCOPES,
-} from "@/lib/slack-scopes";
 import { getWorkOS } from "@/lib/workos";
 
 const SLACK_PROVIDER_KEY = "slack";
@@ -62,17 +58,6 @@ type SlackIntegrationSummary = {
   connectedAt: Date | null;
   lastError: string | null;
   lastErrorAt: Date | null;
-  scopeCsv: string | null;
-  status: string;
-  teamName: string | null;
-};
-
-type DashboardSlackIntegrationSummary = {
-  connectedAt: Date | null;
-  lastError: string | null;
-  lastErrorAt: Date | null;
-  missingScopes: string[];
-  scopeCsv: string | null;
   status: string;
   teamName: string | null;
 };
@@ -149,7 +134,7 @@ export type DashboardOrganization = {
   onboardingDraft: OnboardingSessionSummary | null;
   name: string;
   role: string;
-  slackIntegration: DashboardSlackIntegrationSummary | null;
+  slackIntegration: SlackIntegrationSummary | null;
   slug: string;
   tenants: Array<{
     createdAt: Date;
@@ -304,7 +289,6 @@ export async function getDashboardOrganizations(
             connectedAt: tenantIntegrations.connectedAt,
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
-            scopeCsv: slackInstallations.scopeCsv,
             status: tenantIntegrations.status,
             teamName: slackInstallations.slackTeamName,
             tenantId: tenantIntegrations.tenantId,
@@ -623,11 +607,6 @@ function buildSlackIntegrationSummary(
     connectedAt: integration.connectedAt,
     lastError: integration.lastError,
     lastErrorAt: integration.lastErrorAt,
-    missingScopes: getMissingSlackScopes(
-      integration.scopeCsv,
-      SLACK_VOICE_NOTE_REQUIRED_SCOPES,
-    ),
-    scopeCsv: integration.scopeCsv,
     status: integration.status,
     teamName: integration.teamName,
   };
