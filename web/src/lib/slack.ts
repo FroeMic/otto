@@ -4,6 +4,9 @@ const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_USERS_LIST_URL = "https://slack.com/api/users.list";
 const SLACK_CONVERSATIONS_LIST_URL = "https://slack.com/api/conversations.list";
+const SLACK_CONVERSATIONS_JOIN_URL = "https://slack.com/api/conversations.join";
+const SLACK_CONVERSATIONS_LEAVE_URL =
+  "https://slack.com/api/conversations.leave";
 
 type SlackOAuthResponse = {
   access_token?: string;
@@ -52,7 +55,9 @@ type SlackConversation = {
   is_archived?: boolean;
   is_channel?: boolean;
   is_group?: boolean;
+  is_member?: boolean;
   name?: string;
+  num_members?: number;
   purpose?: {
     value?: string;
   };
@@ -140,6 +145,30 @@ export async function fetchSlackMessagingDirectory(botToken: string) {
   };
 }
 
+export async function joinSlackChannel(input: {
+  botToken: string;
+  channelId: string;
+}) {
+  return postSlackConversationMutation({
+    botToken: input.botToken,
+    channelId: input.channelId,
+    endpoint: SLACK_CONVERSATIONS_JOIN_URL,
+    ignoreErrors: new Set(["already_in_channel"]),
+  });
+}
+
+export async function leaveSlackChannel(input: {
+  botToken: string;
+  channelId: string;
+}) {
+  return postSlackConversationMutation({
+    botToken: input.botToken,
+    channelId: input.channelId,
+    endpoint: SLACK_CONVERSATIONS_LEAVE_URL,
+    ignoreErrors: new Set(["not_in_channel"]),
+  });
+}
+
 async function fetchAllSlackUsers(botToken: string) {
   return fetchSlackPages<SlackUser, SlackUsersListResponse>({
     botToken,
@@ -206,6 +235,34 @@ async function fetchSlackPages<
   } while (cursor);
 
   return items;
+}
+
+async function postSlackConversationMutation(input: {
+  botToken: string;
+  channelId: string;
+  endpoint: string;
+  ignoreErrors?: Set<string>;
+}) {
+  const response = await fetch(input.endpoint, {
+    body: new URLSearchParams({
+      channel: input.channelId,
+    }),
+    headers: {
+      Authorization: `Bearer ${input.botToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+  });
+  const body = (await response.json()) as SlackPaginatedResponse;
+
+  if (
+    (!response.ok || !body.ok) &&
+    !input.ignoreErrors?.has(body.error ?? "")
+  ) {
+    throw new Error(
+      `Slack API request failed${body.error ? `: ${body.error}` : ""}`,
+    );
+  }
 }
 
 function getSlackConversationType(conversation: SlackConversation) {

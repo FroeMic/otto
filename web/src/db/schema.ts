@@ -313,6 +313,44 @@ export const messagingConversations = pgTable(
   }),
 );
 
+export const tenantRuntimeConfigEntries = pgTable(
+  "tenant_runtime_config_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    surfaceKind: varchar("surface_kind", { length: 64 }).notNull(),
+    surfaceKey: varchar("surface_key", { length: 255 }).notNull(),
+    schemaSource: varchar("schema_source", { length: 64 }).notNull(),
+    schemaVersion: varchar("schema_version", { length: 64 }).notNull(),
+    entryVersion: integer("entry_version").default(1).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    configJson: jsonb("config_json").notNull(),
+    lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+    lastValidationError: text("last_validation_error"),
+    createdByType: varchar("created_by_type", { length: 64 }).notNull(),
+    createdByExternalId: varchar("created_by_external_id", { length: 255 }),
+    updatedByType: varchar("updated_by_type", { length: 64 }).notNull(),
+    updatedByExternalId: varchar("updated_by_external_id", { length: 255 }),
+    changeSummary: text("change_summary"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_runtime_config_entries_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    tenantSurfaceUniqueIdx: uniqueIndex(
+      "tenant_runtime_config_entries_tenant_id_surface_kind_surface_key_idx",
+    ).on(table.tenantId, table.surfaceKind, table.surfaceKey),
+  }),
+);
+
 export const tenantServers = pgTable(
   "tenant_servers",
   {
