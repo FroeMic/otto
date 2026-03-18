@@ -159,19 +159,22 @@ export class RuntimeManager {
       tenantId: string;
     },
   ) {
-    await this.applyTenantFiles(
-      connection,
-      buildTenantRuntimeFiles({
-        desiredStateVersion: input.desiredStateVersion,
-        gatewayToken: input.gatewayToken,
-        managedBootstrapFiles: input.managedBootstrapFiles,
-        metadataPath: input.metadataPath,
-        metadataTimestampKey: input.metadataTimestampKey,
-        openClawConfig: input.openClawConfig,
-        slackBotToken: input.slackBotToken,
-        tenantId: input.tenantId,
-      }),
-    );
+    const runtimeFiles = buildTenantRuntimeFiles({
+      desiredStateVersion: input.desiredStateVersion,
+      gatewayToken: input.gatewayToken,
+      managedBootstrapFiles: input.managedBootstrapFiles,
+      metadataPath: input.metadataPath,
+      metadataTimestampKey: input.metadataTimestampKey,
+      openClawConfig: input.openClawConfig,
+      slackBotToken: input.slackBotToken,
+      tenantId: input.tenantId,
+    });
+
+    await this.applyTenantFiles(connection, runtimeFiles);
+    await this.normalizeTenantRuntimeFilePermissions(connection, {
+      managedBootstrapFiles: input.managedBootstrapFiles,
+      metadataPath: input.metadataPath,
+    });
   }
 
   async verifyTenantConfigFiles(
@@ -205,7 +208,6 @@ export class RuntimeManager {
           "--name openclaw-gateway",
           "--restart unless-stopped",
           "--network host",
-          "--user 1000:1001",
           "--env-file /opt/openclaw/home/.env",
           "-v /opt/openclaw/home:/home/node/.openclaw",
           shellQuoteForShell(image),
@@ -225,6 +227,52 @@ export class RuntimeManager {
         file.mode,
       );
     }
+  }
+
+  async normalizeTenantRuntimeFilePermissions(
+    connection: SshConnection,
+    input: {
+      managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+      metadataPath: string;
+    },
+  ) {
+    const managedFilePaths = input.managedBootstrapFiles.map(
+      (file) => `/opt/openclaw/home/workspace/${file.filename}`,
+    );
+
+    const ownershipTargets = [
+      "/opt/openclaw",
+      "/opt/openclaw/home",
+      "/opt/openclaw/home/workspace",
+      "/opt/openclaw/runtime",
+      "/opt/openclaw/home/openclaw.json",
+      "/opt/openclaw/home/.env",
+      input.metadataPath,
+      ...managedFilePaths,
+    ];
+
+    const quotedOwnershipTargets = ownershipTargets
+      .map((path) => shellQuoteForShell(path))
+      .join(" ");
+
+    const quotedManagedFilePaths = managedFilePaths
+      .map((path) => shellQuoteForShell(path))
+      .join(" ");
+
+    const commands = [
+      "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/workspace /opt/openclaw/runtime",
+      `chown openclaw:openclaw ${quotedOwnershipTargets}`,
+      "chmod 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/workspace /opt/openclaw/runtime",
+      "chmod 640 /opt/openclaw/home/openclaw.json",
+      "chmod 600 /opt/openclaw/home/.env",
+      `chmod 640 ${shellQuoteForShell(input.metadataPath)}`,
+    ];
+
+    if (quotedManagedFilePaths.length > 0) {
+      commands.push(`chmod 640 ${quotedManagedFilePaths}`);
+    }
+
+    await this.execChecked(connection, buildShellCommand(commands));
   }
 
   async checkGatewayHealth(connection: SshConnection): Promise<void> {
