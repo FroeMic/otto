@@ -1,4 +1,5 @@
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
+import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
 import {
   getDefaultSlackRuntimeConfig,
   parseSlackRuntimeConfig,
@@ -99,6 +100,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         },
       }
     : undefined;
+  if (slackChannelConfig) {
+    validateOpenClawSlackConfig(slackChannelConfig);
+  }
   const mediaTools = config.audio
     ? {
         media: {
