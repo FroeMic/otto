@@ -5,15 +5,32 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/froemic/otto-openclaw}"
 IMAGE_TAG="${IMAGE_TAG:-}"
+IMAGE_REVISION="${IMAGE_REVISION:-1}"
 OPENCLAW_BASE_IMAGE="${OPENCLAW_BASE_IMAGE:-ghcr.io/openclaw/openclaw:2026.3.13-1}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 PUSH_IMAGE="${PUSH_IMAGE:-1}"
 LOAD_IMAGE="${LOAD_IMAGE:-0}"
 
 if [[ -z "${IMAGE_TAG}" ]]; then
-  echo "IMAGE_TAG is required." >&2
-  echo "Example: IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh" >&2
-  exit 1
+  if [[ "${OPENCLAW_BASE_IMAGE}" == *@* ]]; then
+    echo "IMAGE_TAG cannot be derived from a digest-pinned OPENCLAW_BASE_IMAGE." >&2
+    echo "Set IMAGE_TAG explicitly when using a digest." >&2
+    exit 1
+  fi
+
+  BASE_IMAGE_TAG="${OPENCLAW_BASE_IMAGE##*:}"
+
+  if [[ -z "${BASE_IMAGE_TAG}" || "${BASE_IMAGE_TAG}" == "${OPENCLAW_BASE_IMAGE}" ]]; then
+    echo "OPENCLAW_BASE_IMAGE must include a tag, or IMAGE_TAG must be set explicitly." >&2
+    exit 1
+  fi
+
+  if ! [[ "${IMAGE_REVISION}" =~ ^[0-9]+$ ]]; then
+    echo "IMAGE_REVISION must be a positive integer." >&2
+    exit 1
+  fi
+
+  IMAGE_TAG="${BASE_IMAGE_TAG}.${IMAGE_REVISION}"
 fi
 
 if [[ "${PUSH_IMAGE}" != "0" && -n "${GHCR_TOKEN:-}" ]]; then
@@ -49,6 +66,7 @@ BUILD_ARGS+=("${ROOT_DIR}")
 echo "Building runtime image:"
 echo "  IMAGE_REPO=${IMAGE_REPO}"
 echo "  IMAGE_TAG=${IMAGE_TAG}"
+echo "  IMAGE_REVISION=${IMAGE_REVISION}"
 echo "  OPENCLAW_BASE_IMAGE=${OPENCLAW_BASE_IMAGE}"
 echo "  PLATFORMS=${PLATFORMS}"
 

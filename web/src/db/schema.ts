@@ -324,6 +324,9 @@ export const tenantRuntimeConfigEntries = pgTable(
     surfaceKey: varchar("surface_key", { length: 255 }).notNull(),
     schemaSource: varchar("schema_source", { length: 64 }).notNull(),
     schemaVersion: varchar("schema_version", { length: 64 }).notNull(),
+    installState: varchar("install_state", { length: 64 })
+      .default("installed")
+      .notNull(),
     entryVersion: integer("entry_version").default(1).notNull(),
     enabled: boolean("enabled").default(true).notNull(),
     configJson: jsonb("config_json").notNull(),
@@ -348,6 +351,42 @@ export const tenantRuntimeConfigEntries = pgTable(
     tenantSurfaceUniqueIdx: uniqueIndex(
       "tenant_runtime_config_entries_tenant_id_surface_kind_surface_key_idx",
     ).on(table.tenantId, table.surfaceKind, table.surfaceKey),
+  }),
+);
+
+export const tenantRuntimeConfigMutations = pgTable(
+  "tenant_runtime_config_mutations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantRuntimeConfigEntryId: uuid("tenant_runtime_config_entry_id").references(
+      () => tenantRuntimeConfigEntries.id,
+      { onDelete: "set null" },
+    ),
+    actorType: varchar("actor_type", { length: 64 }).notNull(),
+    actorExternalId: varchar("actor_external_id", { length: 255 }),
+    mutationType: varchar("mutation_type", { length: 64 }).notNull(),
+    expectedEntryVersion: integer("expected_entry_version"),
+    resultingEntryVersion: integer("resulting_entry_version"),
+    patchJson: jsonb("patch_json"),
+    resultJson: jsonb("result_json"),
+    desiredStateVersion: integer("desired_state_version"),
+    applyRunId: uuid("apply_run_id").references(() => tenantApplyRuns.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_runtime_config_mutations_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    entryIdx: index(
+      "tenant_runtime_config_mutations_entry_id_idx",
+    ).on(table.tenantRuntimeConfigEntryId),
   }),
 );
 

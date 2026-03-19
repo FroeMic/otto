@@ -1,0 +1,15 @@
+{
+  "id": "otto-tool-config",
+  "name": "Otto Tool Config",
+  "description": "Tool configuration and lifecycle tools backed by the Otto control plane.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000
+      }
+    }
+  }
+}

@@ -85,6 +85,13 @@
       "when": 1773868742177,
       "tag": "0011_regular_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773879632996,
+      "tag": "0012_vengeful_madripoor",
+      "breakpoints": true
     }
   ]
 }

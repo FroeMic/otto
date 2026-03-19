@@ -1,14 +1,13 @@
 import { emptyPluginConfigSchema } from "openclaw/plugin-sdk/core";
 
 const MANAGED_FILE_PATHS = ["AGENTS.md", "IDENTITY.md", "TOOLS.md"];
-const RUNTIME_CONFIG_SURFACES = [{ kind: "channel", key: "slack" }];
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 const plugin = {
   id: "otto-managed-config",
-  name: "Otto Control Plane",
+  name: "Otto Managed Config",
   description:
-    "Managed bootstrap and runtime config tools backed by the Otto control plane.",
+    "Managed bootstrap file tools backed by the Otto control plane.",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
     api.registerTool(
@@ -82,124 +81,6 @@ const plugin = {
         },
         async execute(_id, params) {
           return buildToolResult(await patchManagedFile(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "list_runtime_config_surfaces",
-        description:
-          "List the runtime config surfaces Otto exposes through the control plane, including Slack policy config.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {},
-        },
-        async execute() {
-          return buildToolResult(await listRuntimeConfigSurfaces(api));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "read_runtime_config_surface",
-        description:
-          "Read the current runtime config, schema, and picker options for a control-plane-backed surface such as Slack.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            surfaceKey: {
-              type: "string",
-              enum: RUNTIME_CONFIG_SURFACES.map((surface) => surface.key),
-            },
-            surfaceKind: {
-              type: "string",
-              enum: RUNTIME_CONFIG_SURFACES.map((surface) => surface.kind),
-            },
-          },
-          required: ["surfaceKind", "surfaceKey"],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await readRuntimeConfigSurface(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "patch_runtime_config_surface",
-        description:
-          "Update a runtime config surface through the Otto control plane using optimistic concurrency and server-side validation.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            expectedEntryVersion: {
-              type: "integer",
-              minimum: 1,
-            },
-            patch: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                allowedChannelIds: {
-                  items: {
-                    type: "string",
-                    minLength: 1,
-                  },
-                  type: "array",
-                },
-                allowedUserIds: {
-                  items: {
-                    type: "string",
-                    minLength: 1,
-                  },
-                  type: "array",
-                },
-                answerInThreads: {
-                  type: "boolean",
-                },
-                ackReactionEnabled: {
-                  type: "boolean",
-                },
-                channelAccessMode: {
-                  type: "string",
-                  enum: ["manual_allowlist", "member_of_channels"],
-                },
-                requireMentionInChannels: {
-                  type: "boolean",
-                },
-              },
-            },
-            summary: {
-              type: "string",
-              minLength: 1,
-              maxLength: 500,
-            },
-            surfaceKey: {
-              type: "string",
-              enum: RUNTIME_CONFIG_SURFACES.map((surface) => surface.key),
-            },
-            surfaceKind: {
-              type: "string",
-              enum: RUNTIME_CONFIG_SURFACES.map((surface) => surface.kind),
-            },
-          },
-          required: [
-            "expectedEntryVersion",
-            "patch",
-            "surfaceKind",
-            "surfaceKey",
-          ],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await patchRuntimeConfigSurface(api, params));
         },
       },
       { optional: true },
@@ -315,130 +196,8 @@ async function patchManagedFile(api, params) {
   };
 }
 
-async function listRuntimeConfigSurfaces(api) {
-  const response = await requestControlPlane(api, {
-    method: "GET",
-    path: "/api/internal/runtime/config-surfaces",
-  });
-
-  if (!response.ok) {
-    return response;
-  }
-
-  return {
-    ok: true,
-    surfaces: response.data.surfaces.map((surface) => ({
-      description: surface.description,
-      key: surface.key,
-      kind: surface.kind,
-      label: surface.label,
-    })),
-  };
-}
-
-async function readRuntimeConfigSurface(api, params) {
-  const surface = normalizeRuntimeConfigSurface(params);
-
-  if (!surface) {
-    return {
-      ok: false,
-      error:
-        "surfaceKind/surfaceKey must identify a supported Otto runtime config surface.",
-    };
-  }
-
-  const response = await requestControlPlane(api, {
-    method: "GET",
-    path: `/api/internal/runtime/config-surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}`,
-  });
-
-  if (!response.ok) {
-    return response;
-  }
-
-  return {
-    ok: true,
-    surface: response.data,
-  };
-}
-
-async function patchRuntimeConfigSurface(api, params) {
-  const surface = normalizeRuntimeConfigSurface(params);
-  const expectedEntryVersion =
-    typeof params?.expectedEntryVersion === "number"
-      ? params.expectedEntryVersion
-      : null;
-  const patch =
-    params?.patch &&
-    typeof params.patch === "object" &&
-    !Array.isArray(params.patch)
-      ? params.patch
-      : null;
-  const summary =
-    typeof params?.summary === "string" ? params.summary : undefined;
-
-  if (!surface) {
-    return {
-      ok: false,
-      error:
-        "surfaceKind/surfaceKey must identify a supported Otto runtime config surface.",
-    };
-  }
-
-  if (!expectedEntryVersion || !Number.isInteger(expectedEntryVersion)) {
-    return {
-      ok: false,
-      error:
-        "expectedEntryVersion is required and must come from a prior read_runtime_config_surface call.",
-    };
-  }
-
-  if (!patch) {
-    return {
-      ok: false,
-      error: "patch must be an object.",
-    };
-  }
-
-  const response = await requestControlPlane(api, {
-    method: "PATCH",
-    path: `/api/internal/runtime/config-surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}`,
-    body: {
-      expectedEntryVersion,
-      patch,
-      ...(summary ? { summary } : {}),
-    },
-  });
-
-  if (!response.ok) {
-    return response;
-  }
-
-  return {
-    ok: true,
-    applyQueued: response.data.applyQueued,
-    changed: response.data.changed,
-    currentEntryVersion: response.data.currentEntryVersion,
-    desiredStateVersion: response.data.desiredStateVersion,
-    surface: response.data.surface,
-  };
-}
-
 function normalizeManagedFilePath(value) {
   return MANAGED_FILE_PATHS.includes(value) ? value : null;
-}
-
-function normalizeRuntimeConfigSurface(params) {
-  const surfaceKind =
-    typeof params?.surfaceKind === "string" ? params.surfaceKind : "";
-  const surfaceKey =
-    typeof params?.surfaceKey === "string" ? params.surfaceKey : "";
-
-  return (
-    RUNTIME_CONFIG_SURFACES.find(
-      (surface) => surface.kind === surfaceKind && surface.key === surfaceKey,
-    ) ?? null
-  );
 }
 
 function buildToolResult(payload) {
