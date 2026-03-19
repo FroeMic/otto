@@ -1,33 +1,31 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { validateTenantToolConfigChangeForTenant } from "@/db/control-plane";
+import {
+  applyTenantSlackPolicyActionForTenant,
+  TenantRuntimeConfigVersionConflictError,
+} from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
+import { parseSlackPolicyAction } from "@/tools/slack/policy";
 
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
-  patch: z.record(z.string(), z.unknown()),
+  action: z.unknown(),
+  expectedEntryVersion: z.number().int().positive().optional(),
+  summary: z.string().trim().min(1).max(500).optional(),
 });
 
-export async function POST(
-  request: Request,
-  context: {
-    params: Promise<{
-      surfaceKey: string;
-      surfaceKind: string;
-    }>;
-  },
-) {
+export async function POST(request: Request) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const { surfaceKey, surfaceKind } = await context.params;
     const body = requestSchema.parse(await request.json());
-    const result = await validateTenantToolConfigChangeForTenant({
+    const result = await applyTenantSlackPolicyActionForTenant({
+      action: parseSlackPolicyAction(body.action),
+      createdByExternalId: null,
       createdByType: "runtime",
-      patch: body.patch,
-      surfaceKey,
-      surfaceKind,
+      expectedEntryVersion: body.expectedEntryVersion,
+      summary: body.summary,
       tenantId,
     });
 
@@ -38,9 +36,20 @@ export async function POST(
         {
           code: "schema_invalid",
           fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid tool config payload",
+          message: "Invalid Slack policy action payload",
         },
         400,
+      );
+    }
+
+    if (error instanceof TenantRuntimeConfigVersionConflictError) {
+      return json(
+        {
+          code: "stale_version",
+          currentEntryVersion: error.currentVersion,
+          message: error.message,
+        },
+        409,
       );
     }
 
@@ -76,7 +85,7 @@ function handleRuntimeRouteError(error: unknown) {
   return json(
     {
       code: "tool_config_failed",
-      message: "Tool config validation failed",
+      message: "Slack policy action failed",
     },
     500,
   );

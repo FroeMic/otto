@@ -1,8 +1,17 @@
 import { and, eq } from "drizzle-orm";
 
-import { messagingConversations, messagingWorkspaceMembers, messagingWorkspaces, tenantIntegrations } from "@/db/schema";
-import { type DbTransaction } from "@/tools/server-types";
-import { type SlackRuntimeConfig } from "@/lib/slack-config";
+import type { SlackRuntimeConfig } from "@/lib/slack-config";
+import {
+  messagingConversations,
+  messagingWorkspaceMembers,
+  messagingWorkspaces,
+  tenantIntegrations,
+} from "@/db/schema";
+import type { DbTransaction } from "@/tools/server-types";
+import {
+  deriveSlackPolicyEffects,
+  type SlackPolicyDerivedEffects,
+} from "@/tools/slack/policy";
 
 const SLACK_PROVIDER_KEY = "slack";
 
@@ -43,7 +52,7 @@ export async function getSlackDirectoryOptionsForTenant(
         id: messagingConversations.externalConversationId,
         isArchived: messagingConversations.isArchived,
         label: messagingConversations.name,
-        memberCount: messagingConversations.metadataJson,
+        metadataJson: messagingConversations.metadataJson,
         purpose: messagingConversations.purpose,
         type: messagingConversations.conversationType,
       })
@@ -66,13 +75,19 @@ export async function getSlackDirectoryOptionsForTenant(
       description: channel.purpose ?? channel.description ?? null,
       id: channel.id,
       isArchived: channel.isArchived,
+      isMember:
+        channel.metadataJson &&
+        typeof channel.metadataJson === "object" &&
+        "is_member" in channel.metadataJson
+          ? Boolean(channel.metadataJson.is_member)
+          : false,
       label: channel.label ?? channel.id,
       memberCount:
-        channel.memberCount &&
-        typeof channel.memberCount === "object" &&
-        "num_members" in channel.memberCount &&
-        typeof channel.memberCount.num_members === "number"
-          ? channel.memberCount.num_members
+        channel.metadataJson &&
+        typeof channel.metadataJson === "object" &&
+        "num_members" in channel.metadataJson &&
+        typeof channel.metadataJson.num_members === "number"
+          ? channel.metadataJson.num_members
           : null,
       secondaryLabel: channel.type === "private_channel" ? "Private" : "Public",
       visibility: channel.type === "private_channel" ? "private" : "public",
@@ -150,4 +165,23 @@ export async function validateSlackRuntimeConfigSemanticsForTenant(
       `Slack channels are archived and cannot be allowlisted: ${archivedChannelIds.join(", ")}`,
     );
   }
+}
+
+export async function evaluateSlackPolicyForTenant(
+  tx: DbTransaction,
+  input: {
+    config: SlackRuntimeConfig;
+    currentConfig?: SlackRuntimeConfig;
+    tenantId: string;
+  },
+): Promise<SlackPolicyDerivedEffects> {
+  const { availableChannels } = await getSlackDirectoryOptionsForTenant(tx, {
+    tenantId: input.tenantId,
+  });
+
+  return deriveSlackPolicyEffects({
+    config: input.config,
+    currentConfig: input.currentConfig,
+    directoryChannels: availableChannels,
+  });
 }

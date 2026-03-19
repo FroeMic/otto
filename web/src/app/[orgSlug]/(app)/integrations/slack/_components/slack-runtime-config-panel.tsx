@@ -41,6 +41,10 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import {
+  deriveSlackPolicyEffects,
+  isSlackPolicyDestructive,
+} from "@/tools/slack/policy";
 
 type SlackDirectoryOption = {
   memberCount?: number | null;
@@ -64,10 +68,17 @@ type SlackRuntimeConfigSurface = {
     channelAccessMode: "manual_allowlist" | "member_of_channels";
     enabled: boolean;
     entryVersion: number;
+    installState: "installed" | "uninstalled";
     requireMentionInChannels: boolean;
     schemaVersion: string;
   };
   description: string;
+  derivedEffects?: {
+    wouldDisableChannelReplies?: boolean;
+    wouldDisableDMs?: boolean;
+    warnings?: string[];
+    wouldFullyLockOutSlack?: boolean;
+  };
   key: string;
   kind: string;
   label: string;
@@ -645,9 +656,24 @@ export function SlackRuntimeConfigPanel(props: {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
   const [isChannelsDialogOpen, setIsChannelsDialogOpen] = useState(false);
+  const [isDangerDialogOpen, setIsDangerDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const hasChanges = !areConfigsEqual(draft, surface.config);
+  const draftEffects = useMemo(
+    () =>
+      deriveSlackPolicyEffects({
+        config: draft,
+        currentConfig: surface.config,
+        directoryChannels: surface.availableChannels.map((channel) => ({
+          id: channel.id,
+          isArchived: channel.isArchived,
+          isMember: channel.isMember,
+        })),
+      }),
+    [draft, surface.availableChannels, surface.config],
+  );
+  const requiresDestructiveConfirmation = isSlackPolicyDestructive(draftEffects);
   const selectedUsers = useMemo(
     () =>
       getSelectedDirectoryEntries(surface.availableUsers, draft.allowedUserIds),
@@ -742,6 +768,7 @@ export function SlackRuntimeConfigPanel(props: {
   function resetDraft() {
     setDraft(surface.config);
     setErrorMessage(null);
+    setIsDangerDialogOpen(false);
     setSuccessMessage(null);
   }
 
@@ -803,7 +830,7 @@ export function SlackRuntimeConfigPanel(props: {
     router.refresh();
   }
 
-  function saveDraft() {
+  function submitDraft(options?: { allowDestructiveChanges?: boolean }) {
     startTransition(() => {
       void (async () => {
         setErrorMessage(null);
@@ -813,6 +840,8 @@ export function SlackRuntimeConfigPanel(props: {
           `/api/runtime-config/${props.orgSlug}/surfaces/${surface.kind}/${surface.key}`,
           {
             body: JSON.stringify({
+              allowDestructiveChanges:
+                options?.allowDestructiveChanges === true,
               expectedEntryVersion: surface.config.entryVersion,
               patch: {
                 ackReactionEnabled: draft.ackReactionEnabled,
@@ -848,6 +877,7 @@ export function SlackRuntimeConfigPanel(props: {
           return;
         }
 
+        setIsDangerDialogOpen(false);
         setSurface(payload.surface);
         setDraft(payload.surface.config);
         setSuccessMessage(
@@ -856,6 +886,15 @@ export function SlackRuntimeConfigPanel(props: {
         router.refresh();
       })();
     });
+  }
+
+  function saveDraft() {
+    if (requiresDestructiveConfirmation) {
+      setIsDangerDialogOpen(true);
+      return;
+    }
+
+    submitDraft();
   }
 
   return (
@@ -872,6 +911,18 @@ export function SlackRuntimeConfigPanel(props: {
             <Alert>
               <AlertTitle>Slack settings saved</AlertTitle>
               <AlertDescription>{successMessage}</AlertDescription>
+            </Alert>
+          ) : null}
+          {draftEffects.warnings.length > 0 ? (
+            <Alert>
+              <AlertTitle>Review Slack reachability changes</AlertTitle>
+              <AlertDescription>
+                <ul className="flex list-disc flex-col gap-1 pl-4">
+                  {draftEffects.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
             </Alert>
           ) : null}
 
@@ -1095,6 +1146,52 @@ export function SlackRuntimeConfigPanel(props: {
         }}
         onOpenChange={setIsChannelsDialogOpen}
       />
+
+      <Dialog open={isDangerDialogOpen} onOpenChange={setIsDangerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm destructive Slack change</DialogTitle>
+            <DialogDescription>
+              This change will reduce how people can reach Otto in Slack. Otto
+              blocks these changes for agents, and the dashboard requires an
+              explicit confirmation before saving them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 px-5 pb-5">
+            <Alert variant="destructive">
+              <AlertTitle>Slack reachability will be reduced</AlertTitle>
+              <AlertDescription>
+                <ul className="flex list-disc flex-col gap-1 pl-4">
+                  {draftEffects.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDangerDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isPending}
+              type="button"
+              variant="destructive"
+              onClick={() =>
+                submitDraft({
+                  allowDestructiveChanges: true,
+                })
+              }
+            >
+              {isPending ? "Saving..." : "Save anyway"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {hasChanges ? (
         <div className="sticky bottom-4 z-20">

@@ -55,6 +55,156 @@ const plugin = {
 
     api.registerTool(
       {
+        name: "get_slack_policy",
+        description:
+          "Read Otto's current Slack policy, including derived reachability effects and the semantic operations agents should use instead of raw patch updates.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        async execute() {
+          return buildToolResult(await getSlackPolicy(api));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "preview_slack_policy_action",
+        description:
+          "Preview a semantic Slack policy action before applying it. Use this instead of validate_tool_change for Slack.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            action: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                channelIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                },
+                type: {
+                  type: "string",
+                  enum: [
+                    "add_allowed_users",
+                    "remove_allowed_users",
+                    "add_allowed_channels",
+                    "remove_allowed_channels",
+                    "set_channel_access_mode",
+                    "set_answer_in_threads",
+                    "set_require_mentions",
+                    "set_ack_reaction",
+                  ],
+                },
+                userIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                },
+                value: {
+                  anyOf: [
+                    { type: "boolean" },
+                    {
+                      type: "string",
+                      enum: ["manual_allowlist", "member_of_channels"],
+                    },
+                  ],
+                },
+              },
+              required: ["type"],
+            },
+          },
+          required: ["action"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await previewSlackPolicyAction(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "apply_slack_policy_action",
+        description:
+          "Apply a semantic Slack policy action through the Otto control plane. Use this instead of apply_tool_change for Slack.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            action: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                channelIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                },
+                type: {
+                  type: "string",
+                  enum: [
+                    "add_allowed_users",
+                    "remove_allowed_users",
+                    "add_allowed_channels",
+                    "remove_allowed_channels",
+                    "set_channel_access_mode",
+                    "set_answer_in_threads",
+                    "set_require_mentions",
+                    "set_ack_reaction",
+                  ],
+                },
+                userIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                },
+                value: {
+                  anyOf: [
+                    { type: "boolean" },
+                    {
+                      type: "string",
+                      enum: ["manual_allowlist", "member_of_channels"],
+                    },
+                  ],
+                },
+              },
+              required: ["type"],
+            },
+            expectedEntryVersion: {
+              type: "integer",
+              minimum: 1,
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["action", "expectedEntryVersion"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await applySlackPolicyAction(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
         name: "validate_tool_change",
         description:
           "Dry-run validation for a tool config patch without persisting it.",
@@ -254,6 +404,13 @@ async function getConfigurableTool(api, params) {
   };
 }
 
+async function getSlackPolicy(api) {
+  return await getConfigurableTool(api, {
+    surfaceKey: "slack",
+    surfaceKind: "channel",
+  });
+}
+
 async function validateToolChange(api, params) {
   const surface = normalizeSurface(params);
   const patch = normalizePatch(params?.patch);
@@ -262,6 +419,14 @@ async function validateToolChange(api, params) {
     return {
       ok: false,
       error: "surfaceKind and surfaceKey must be non-empty strings.",
+    };
+  }
+
+  if (isSlackSurface(surface)) {
+    return {
+      ok: false,
+      error:
+        "Raw Slack config patching is disabled for agents. Use get_slack_policy and preview_slack_policy_action instead.",
     };
   }
 
@@ -307,6 +472,14 @@ async function applyToolChange(api, params) {
     };
   }
 
+  if (isSlackSurface(surface)) {
+    return {
+      ok: false,
+      error:
+        "Raw Slack config patching is disabled for agents. Use get_slack_policy and apply_slack_policy_action instead.",
+    };
+  }
+
   if (!expectedEntryVersion || !Number.isInteger(expectedEntryVersion)) {
     return {
       ok: false,
@@ -328,6 +501,78 @@ async function applyToolChange(api, params) {
     body: {
       expectedEntryVersion,
       patch,
+      ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    ...response.data,
+  };
+}
+
+async function previewSlackPolicyAction(api, params) {
+  const action = normalizeSlackPolicyAction(params?.action);
+
+  if (!action) {
+    return {
+      ok: false,
+      error: "action must be a valid Slack policy action object.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/tool-config/slack/policy/validate",
+    body: {
+      action,
+    },
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    ...response.data,
+  };
+}
+
+async function applySlackPolicyAction(api, params) {
+  const action = normalizeSlackPolicyAction(params?.action);
+  const expectedEntryVersion =
+    typeof params?.expectedEntryVersion === "number"
+      ? params.expectedEntryVersion
+      : null;
+  const summary =
+    typeof params?.summary === "string" ? params.summary : undefined;
+
+  if (!action) {
+    return {
+      ok: false,
+      error: "action must be a valid Slack policy action object.",
+    };
+  }
+
+  if (!expectedEntryVersion || !Number.isInteger(expectedEntryVersion)) {
+    return {
+      ok: false,
+      error:
+        "expectedEntryVersion is required and must come from a prior get_slack_policy call.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/tool-config/slack/policy/apply",
+    body: {
+      action,
+      expectedEntryVersion,
       ...(summary ? { summary } : {}),
     },
   });
@@ -448,6 +693,18 @@ function normalizePatch(value) {
   }
 
   return value;
+}
+
+function normalizeSlackPolicyAction(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value;
+}
+
+function isSlackSurface(surface) {
+  return surface.kind === "channel" && surface.key === "slack";
 }
 
 function buildToolResult(payload) {

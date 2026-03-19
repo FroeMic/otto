@@ -65,6 +65,13 @@ import {
   listToolDefinitions,
   normalizeInstallState,
 } from "@/tools";
+import {
+  applySlackPolicyAction,
+  isSlackPolicyDestructive,
+  type SlackPolicyAction,
+  type SlackPolicyDerivedEffects,
+} from "@/tools/slack/policy";
+import { evaluateSlackPolicyForTenant } from "@/tools/server";
 import type {
   ToolInstallState,
   ToolSurfaceAction,
@@ -169,10 +176,16 @@ export type SlackRuntimeConfigDirectoryOption = {
 };
 
 export type TenantSlackRuntimeConfigSurface = {
+  agentOperations?: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
   availableChannels: SlackRuntimeConfigDirectoryOption[];
   availableUsers: SlackRuntimeConfigDirectoryOption[];
   config: TenantSlackRuntimeConfig;
   description: string;
+  derivedEffects?: SlackPolicyDerivedEffects;
   fieldMeanings: Array<{
     description: string;
     key: string;
@@ -1682,6 +1695,7 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
 }
 
 export async function validateTenantToolConfigChange(input: {
+  createdByType?: "runtime" | "system" | "user";
   orgSlug: string;
   patch: Record<string, unknown>;
   surfaceKey: string;
@@ -1698,6 +1712,7 @@ export async function validateTenantToolConfigChange(input: {
   }
 
   return validateTenantToolConfigChangeForTenant({
+    createdByType: input.createdByType,
     patch: input.patch,
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
@@ -1706,6 +1721,7 @@ export async function validateTenantToolConfigChange(input: {
 }
 
 export async function validateTenantToolConfigChangeForTenant(input: {
+  createdByType?: "runtime" | "system" | "user";
   patch: Record<string, unknown>;
   surfaceKey: string;
   surfaceKind: string;
@@ -1721,7 +1737,14 @@ export async function validateTenantToolConfigChangeForTenant(input: {
     input.surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
     input.surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
   ) {
+    if (input.createdByType === "runtime") {
+      throw new Error(
+        "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
+      );
+    }
+
     return validateTenantSlackRuntimeConfigChangeForTenant({
+      createdByType: input.createdByType ?? "user",
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
       tenantId: input.tenantId,
     });
@@ -1731,6 +1754,7 @@ export async function validateTenantToolConfigChangeForTenant(input: {
 }
 
 export async function applyTenantToolConfigChange(input: {
+  allowDestructiveChanges?: boolean;
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
   expectedEntryVersion?: number;
@@ -1758,6 +1782,7 @@ export async function applyTenantToolConfigChange(input: {
   }
 
   return applyTenantToolConfigChangeForTenant({
+    allowDestructiveChanges: input.allowDestructiveChanges,
     createdByExternalId: actorExternalId,
     createdByType: input.createdByType,
     expectedEntryVersion: input.expectedEntryVersion,
@@ -1770,6 +1795,7 @@ export async function applyTenantToolConfigChange(input: {
 }
 
 export async function applyTenantToolConfigChangeForTenant(input: {
+  allowDestructiveChanges?: boolean;
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
   expectedEntryVersion?: number;
@@ -1793,7 +1819,14 @@ export async function applyTenantToolConfigChangeForTenant(input: {
     input.surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
     input.surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
   ) {
+    if (input.createdByType === "runtime") {
+      throw new Error(
+        "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
+      );
+    }
+
     const result = await updateTenantSlackRuntimeConfigForTenant({
+      allowDestructiveChanges: input.allowDestructiveChanges,
       createdByExternalId: input.createdByExternalId,
       createdByType: input.createdByType,
       expectedEntryVersion: input.expectedEntryVersion,
@@ -1906,14 +1939,20 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
           installState: slackConfig.installState,
         })
       : [];
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: slackConfig.config,
+      tenantId: input.tenantId,
+    });
 
     return {
+      agentOperations: definition?.agentOperations ?? [],
       availableChannels: directory.channels,
       availableUsers: directory.users,
       actionMeanings: definition?.actionMeanings ?? [],
       allowedActions,
       config: buildTenantSlackRuntimeConfig(slackConfig),
       description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
+      derivedEffects: effects,
       fieldMeanings: definition?.fieldMeanings ?? [],
       id: getToolSurfaceId(
         SLACK_RUNTIME_CONFIG_SURFACE_KIND,
@@ -2046,6 +2085,7 @@ export async function updateTenantSlackChannelMembershipForTenant(input: {
 }
 
 export async function updateTenantSlackRuntimeConfig(input: {
+  allowDestructiveChanges?: boolean;
   expectedEntryVersion?: number;
   orgSlug: string;
   patch: Partial<SlackRuntimeConfig>;
@@ -2062,6 +2102,7 @@ export async function updateTenantSlackRuntimeConfig(input: {
   }
 
   return updateTenantSlackRuntimeConfigForTenant({
+    allowDestructiveChanges: input.allowDestructiveChanges,
     createdByExternalId: input.userExternalId,
     createdByType: "user",
     expectedEntryVersion: input.expectedEntryVersion,
@@ -2072,6 +2113,7 @@ export async function updateTenantSlackRuntimeConfig(input: {
 }
 
 export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
+  createdByType: "runtime" | "system" | "user";
   patch: Partial<SlackRuntimeConfig>;
   tenantId: string;
 }) {
@@ -2095,19 +2137,124 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
       config: nextConfig,
       tenantId: input.tenantId,
     });
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+      throw new Error(
+        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
+      );
+    }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
     });
 
     return {
+      effects,
       nextConfig,
       surface,
       validation: {
         ok: true,
+        warnings: effects.warnings,
       },
     };
   });
+}
+
+export async function validateTenantSlackPolicyActionForTenant(input: {
+  action: SlackPolicyAction;
+  createdByType: "runtime" | "system" | "user";
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error("Slack config must be installed before it can be updated");
+    }
+
+    const nextConfig = applySlackPolicyAction(currentConfig.config, input.action);
+
+    await validateSlackRuntimeConfigSemantics(tx, {
+      config: nextConfig,
+      tenantId: input.tenantId,
+    });
+
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+      throw new Error(
+        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
+      );
+    }
+
+    const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+
+    return {
+      action: input.action,
+      effects,
+      nextConfig,
+      surface,
+      validation: {
+        ok: true,
+        warnings: effects.warnings,
+      },
+    };
+  });
+}
+
+export async function applyTenantSlackPolicyActionForTenant(input: {
+  action: SlackPolicyAction;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  summary?: string;
+  tenantId: string;
+}) {
+  const validation = await validateTenantSlackPolicyActionForTenant({
+    action: input.action,
+    createdByType: input.createdByType,
+    tenantId: input.tenantId,
+  });
+
+  const result = await updateTenantSlackRuntimeConfigForTenant({
+    allowDestructiveChanges: false,
+    createdByExternalId: input.createdByExternalId,
+    createdByType: input.createdByType,
+    expectedEntryVersion: input.expectedEntryVersion,
+    patch: validation.nextConfig,
+    summary:
+      input.summary ??
+      `Applied Slack policy action: ${input.action.type.replaceAll("_", " ")}`,
+    tenantId: input.tenantId,
+  });
+  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return {
+    ...result,
+    action: input.action,
+    surface,
+    validation: {
+      ok: true,
+      warnings: validation.effects.warnings,
+    },
+  };
 }
 
 export async function updateTenantManagedFileSharedContentForTenant(input: {
@@ -2252,6 +2399,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
 }
 
 export async function updateTenantSlackRuntimeConfigForTenant(input: {
+  allowDestructiveChanges?: boolean;
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
   expectedEntryVersion?: number;
@@ -2298,6 +2446,27 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       config: nextConfig,
       tenantId: input.tenantId,
     });
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+      throw new Error(
+        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
+      );
+    }
+
+    if (
+      input.createdByType === "user" &&
+      isSlackPolicyDestructive(effects) &&
+      !input.allowDestructiveChanges
+    ) {
+      throw new Error(
+        "This Slack settings change would disable direct messages or channel replies. Confirm the destructive change in the dashboard before saving it.",
+      );
+    }
 
     if (
       JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)
@@ -2353,6 +2522,7 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       changed: true,
       currentEntryVersion: nextEntryVersion,
       desiredStateVersion,
+      effects,
       installState: "installed" as const,
     };
   });
