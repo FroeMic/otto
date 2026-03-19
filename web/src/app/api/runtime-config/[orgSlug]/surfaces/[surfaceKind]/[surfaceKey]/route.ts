@@ -3,21 +3,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  getTenantSlackRuntimeConfigSurface,
+  applyTenantToolConfigChange,
+  getTenantToolConfigSurface,
   TenantRuntimeConfigVersionConflictError,
-  updateTenantSlackRuntimeConfig,
 } from "@/db/control-plane";
-import {
-  SLACK_RUNTIME_CONFIG_SURFACE_KEY,
-  SLACK_RUNTIME_CONFIG_SURFACE_KIND,
-  slackRuntimeConfigPatchSchema,
-} from "@/lib/slack-config";
 
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
   expectedEntryVersion: z.number().int().positive().optional(),
-  patch: slackRuntimeConfigPatchSchema,
+  patch: z.record(z.string(), z.unknown()),
   summary: z.string().trim().min(1).max(500).optional(),
 });
 
@@ -33,17 +28,10 @@ export async function GET(
 ) {
   const { user } = await withAuth({ ensureSignedIn: true });
   const { orgSlug, surfaceKey, surfaceKind } = await context.params;
-
-  if (!isSupportedSurface(surfaceKind, surfaceKey)) {
-    return errorResponse(
-      "surface_not_found",
-      "Unsupported runtime config surface",
-      404,
-    );
-  }
-
-  const surface = await getTenantSlackRuntimeConfigSurface({
+  const surface = await getTenantToolConfigSurface({
     orgSlug,
+    surfaceKey,
+    surfaceKind,
     userExternalId: user.id,
   });
 
@@ -71,32 +59,19 @@ export async function PATCH(
   try {
     const { user } = await withAuth({ ensureSignedIn: true });
     const { orgSlug, surfaceKey, surfaceKind } = await context.params;
-
-    if (!isSupportedSurface(surfaceKind, surfaceKey)) {
-      return errorResponse(
-        "surface_not_found",
-        "Unsupported runtime config surface",
-        404,
-      );
-    }
-
     const body = patchSchema.parse(await request.json());
-    const result = await updateTenantSlackRuntimeConfig({
+    const result = await applyTenantToolConfigChange({
+      createdByType: "user",
       expectedEntryVersion: body.expectedEntryVersion,
       orgSlug,
       patch: body.patch,
       summary: body.summary,
-      userExternalId: user.id,
-    });
-    const surface = await getTenantSlackRuntimeConfigSurface({
-      orgSlug,
+      surfaceKey,
+      surfaceKind,
       userExternalId: user.id,
     });
 
-    return json({
-      ...result,
-      surface,
-    });
+    return json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -140,13 +115,6 @@ export async function PATCH(
       500,
     );
   }
-}
-
-function isSupportedSurface(surfaceKind: string, surfaceKey: string) {
-  return (
-    surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
-    surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  );
 }
 
 function errorResponse(code: string, message: string, status: number) {

@@ -20,10 +20,10 @@ export type OpenClawTenantConfig = {
   audio?: OpenClawTenantAudioConfig;
   authTokenEnvVar: string;
   gatewayPort: number;
-  managedConfigPlugin?: {
+  ottoPlugins?: Array<{
     id: string;
     timeoutMs: number;
-  };
+  }>;
   primaryModel?: string;
   slack?: {
     ackReactionEnabled: boolean;
@@ -46,9 +46,10 @@ export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
-  const pluginTools = config.managedConfigPlugin
+  const pluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const pluginTools = pluginIds.length > 0
     ? {
-        alsoAllow: [config.managedConfigPlugin.id],
+        alsoAllow: pluginIds,
       }
     : undefined;
   const slack = config.slack;
@@ -133,18 +134,21 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
-      ...(config.managedConfigPlugin
+      ...(config.ottoPlugins && config.ottoPlugins.length > 0
         ? {
             plugins: {
-              allow: [config.managedConfigPlugin.id],
-              entries: {
-                [config.managedConfigPlugin.id]: {
-                  config: {
-                    timeoutMs: config.managedConfigPlugin.timeoutMs,
+              allow: pluginIds,
+              entries: Object.fromEntries(
+                config.ottoPlugins.map((plugin) => [
+                  plugin.id,
+                  {
+                    config: {
+                      timeoutMs: plugin.timeoutMs,
+                    },
+                    enabled: true,
                   },
-                  enabled: true,
-                },
-              },
+                ]),
+              ),
             },
           }
         : {}),
@@ -204,10 +208,16 @@ export function buildOpenClawTenantConfig(input: {
     prompts: parseStringRecord(config.prompts),
     ...(controlPlaneBaseUrl
       ? {
-          managedConfigPlugin: {
-            id: "otto-managed-config",
-            timeoutMs: 15_000,
-          },
+          ottoPlugins: [
+            {
+              id: "otto-managed-config",
+              timeoutMs: 15_000,
+            },
+            {
+              id: "otto-tool-config",
+              timeoutMs: 15_000,
+            },
+          ],
         }
       : {}),
     ...(hasSlackTokens

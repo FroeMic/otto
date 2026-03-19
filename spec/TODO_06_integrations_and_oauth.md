@@ -314,6 +314,13 @@ Implemented foundation:
 
 This keeps one generic storage path for future plugin and tool config without creating one table per tool.
 
+The next layer on top of this substrate is now in place as well:
+
+- `web/src/tools/` acts as the control-plane-owned registry for configurable tool surfaces
+- `tenant_runtime_config_entries.install_state` plus `tenant_runtime_config_mutations` now cover lifecycle state and audit history without per-tool tables
+- runtime-authenticated agent access now goes through `/api/internal/runtime/tool-config/...`
+- `runtime-plugins/otto-tool-config` now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
+
 ## Routing strategy plan
 
 Because one shared app receives payloads for many workspaces, routing must be explicit.
@@ -450,6 +457,7 @@ Deliverables:
 - [x] add shared server-side validation helpers for Slack runtime config writes
 - [x] expose Slack runtime config through control-plane APIs and the Slack integration UI
 - [x] expose Slack runtime config through runtime-authenticated internal APIs for agent/plugin use
+- [x] add a registry-backed tool-surface layer plus generic runtime plugin for agent-managed tool config
 - [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
 - [x] add Slack channel join/leave actions in the control plane for public-channel membership management
 - [ ] implement shared Slack ingress router

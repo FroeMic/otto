@@ -63,13 +63,13 @@ If you are using the Otto-managed runtime image with bundled runtime plugins, bu
 and publish it from the repo root first:
 
 ```bash
-IMAGE_TAG=2026.3.13-2 ./publish-runtime-image.sh
+IMAGE_REVISION=1 ./publish-runtime-image.sh
 ```
 
 Then set:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.13-2
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.3.13-1.1
 ```
 
 on the control-plane host before rebuilding the production stack.

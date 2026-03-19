@@ -18,10 +18,16 @@ describe("renderOpenClawConfig", () => {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
       gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
       integrations: ["slack"],
-      managedConfigPlugin: {
-        id: "otto-managed-config",
-        timeoutMs: 15_000,
-      },
+      ottoPlugins: [
+        {
+          id: "otto-managed-config",
+          timeoutMs: 15_000,
+        },
+        {
+          id: "otto-tool-config",
+          timeoutMs: 15_000,
+        },
+      ],
       prompts: {},
       tenantId: "tenant_123",
       workspacePath: "/home/node/.openclaw/workspace",
@@ -29,7 +35,14 @@ describe("renderOpenClawConfig", () => {
 
     const renderedConfig = JSON.parse(renderOpenClawConfig(config));
 
-    assert.deepEqual(renderedConfig.tools.alsoAllow, ["otto-managed-config"]);
+    assert.deepEqual(renderedConfig.tools.alsoAllow, [
+      "otto-managed-config",
+      "otto-tool-config",
+    ]);
+    assert.deepEqual(renderedConfig.plugins.allow, [
+      "otto-managed-config",
+      "otto-tool-config",
+    ]);
     assert.deepEqual(renderedConfig.tools.media.audio, {
       enabled: true,
       maxBytes: 20 * 1024 * 1024,
