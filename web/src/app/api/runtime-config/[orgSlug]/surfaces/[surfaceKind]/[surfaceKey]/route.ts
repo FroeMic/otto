@@ -11,6 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
+  allowDestructiveChanges: z.boolean().optional(),
   expectedEntryVersion: z.number().int().positive().optional(),
   patch: z.record(z.string(), z.unknown()),
   summary: z.string().trim().min(1).max(500).optional(),
@@ -61,6 +62,7 @@ export async function PATCH(
     const { orgSlug, surfaceKey, surfaceKind } = await context.params;
     const body = patchSchema.parse(await request.json());
     const result = await applyTenantToolConfigChange({
+      allowDestructiveChanges: body.allowDestructiveChanges,
       createdByType: "user",
       expectedEntryVersion: body.expectedEntryVersion,
       orgSlug,

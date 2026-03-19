@@ -19,6 +19,7 @@ import {
 import type { DbTransaction } from "@/tools/server-types";
 import type {
   ToolActionMeaning,
+  ToolAgentOperation,
   ToolFieldMeaning,
   ToolSurfaceDefinition,
 } from "@/tools/types";
@@ -30,13 +31,13 @@ type SlackToolOptions = Awaited<
 const fieldMeanings: ToolFieldMeaning[] = [
   {
     description:
-      "Slack user IDs that are allowed to start direct-message conversations with Otto.",
+      "Slack user IDs that are allowed to start direct-message conversations with Otto. IMPORTANT: clearing this list disables all direct messages to Otto.",
     key: "allowedUserIds",
     label: "Allowed users",
   },
   {
     description:
-      "Slack channel IDs Otto is allowed to answer in when channel access mode is set to a manual allowlist.",
+      "Slack channel IDs Otto is allowed to answer in when channel access mode is set to a manual allowlist. IMPORTANT: keeping this empty while channel access mode is 'manual_allowlist' disables all channel replies.",
     key: "allowedChannelIds",
     label: "Allowed channels",
   },
@@ -63,6 +64,27 @@ const fieldMeanings: ToolFieldMeaning[] = [
       "When enabled, Otto reacts with :eyes: to acknowledge Slack events it is processing.",
     key: "ackReactionEnabled",
     label: "Ack reaction",
+  },
+];
+
+const agentOperations: ToolAgentOperation[] = [
+  {
+    description:
+      "Read the current Slack policy surface, including derived reachability effects and safe semantic actions for agents.",
+    key: "get_slack_policy",
+    label: "Get Slack policy",
+  },
+  {
+    description:
+      "Preview a semantic Slack policy action, such as adding users or changing channel access mode, before persisting it.",
+    key: "preview_slack_policy_action",
+    label: "Preview Slack policy action",
+  },
+  {
+    description:
+      "Apply a semantic Slack policy action through the control plane without sending a raw config patch.",
+    key: "apply_slack_policy_action",
+    label: "Apply Slack policy action",
   },
 ];
 
@@ -111,6 +133,7 @@ export const slackToolSurfaceDefinition: ToolSurfaceDefinition<
   SlackToolOptions
 > = {
   actionMeanings,
+  agentOperations,
   async buildOptions(context) {
     return getSlackDirectoryOptionsForTenant(context.tx as DbTransaction, {
       tenantId: context.tenantId,

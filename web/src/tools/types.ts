@@ -24,6 +24,12 @@ export type ToolActionMeaning = {
   label: string;
 };
 
+export type ToolAgentOperation = {
+  description: string;
+  key: string;
+  label: string;
+};
+
 export type ToolSurfaceLifecycleState = {
   enabled: boolean;
   installState: ToolInstallState;
@@ -34,6 +40,7 @@ export type ToolSurfaceResponse<
   Options extends Record<string, unknown> = Record<string, never>,
 > = {
   actionMeanings: ToolActionMeaning[];
+  agentOperations?: ToolAgentOperation[];
   allowedActions: ToolSurfaceAction[];
   config: Config & {
     enabled: boolean;
@@ -42,6 +49,7 @@ export type ToolSurfaceResponse<
     schemaVersion: string;
   };
   description: string;
+  derivedEffects?: Record<string, unknown>;
   fieldMeanings: ToolFieldMeaning[];
   id: string;
   key: string;
@@ -66,6 +74,7 @@ export type ToolSurfaceDefinition<
   Options extends Record<string, unknown> = Record<string, never>,
 > = {
   actionMeanings: ToolActionMeaning[];
+  agentOperations?: ToolAgentOperation[];
   buildOptions: (context: {
     orgSlug?: string;
     tenantId: string;
