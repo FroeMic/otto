@@ -240,10 +240,12 @@ function resolveTimeoutMs(api) {
 async function requestControlPlane(api, input) {
   const baseUrl = resolveControlPlaneBaseUrl();
   const token = resolveGatewayToken();
+  const timeoutMs = resolveTimeoutMs(api);
 
   if (!baseUrl) {
     return {
       ok: false,
+      code: "control_plane_env_missing",
       error:
         "OTTO_CONTROL_PLANE_BASE_URL is not set in the runtime environment.",
     };
@@ -252,12 +254,13 @@ async function requestControlPlane(api, input) {
   if (!token) {
     return {
       ok: false,
+      code: "control_plane_env_missing",
       error: "OPENCLAW_GATEWAY_TOKEN is not set in the runtime environment.",
     };
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), resolveTimeoutMs(api));
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${baseUrl}${input.path}`, {
@@ -280,20 +283,62 @@ async function requestControlPlane(api, input) {
       };
     }
 
-    return {
-      ok: false,
+    const errorMessage = getControlPlaneErrorMessage({
+      data,
+      input,
+      response,
+      timeoutMs,
+    });
+    logPluginError("Control-plane request failed", {
+      baseUrl,
+      error: errorMessage,
+      method: input.method,
+      path: input.path,
+      responseData: data,
       status: response.status,
-      ...(data && typeof data === "object"
-        ? data
-        : { error: "Managed config request failed." }),
+      timeoutMs,
+    });
+
+    return {
+      code: "control_plane_http_error",
+      details:
+        data && typeof data === "object" && !Array.isArray(data) ? data : undefined,
+      error: errorMessage,
+      method: input.method,
+      ok: false,
+      path: input.path,
+      status: response.status,
     };
   } catch (error) {
-    return {
-      ok: false,
+    const errorMessage = getControlPlaneFetchErrorMessage({
+      baseUrl,
+      error,
+      input,
+      timeoutMs,
+    });
+    logPluginError("Control-plane request threw", {
+      baseUrl,
       error:
         error instanceof Error
-          ? error.message
-          : "Managed config request failed.",
+          ? {
+              message: error.message,
+              name: error.name,
+            }
+          : String(error),
+      method: input.method,
+      path: input.path,
+      timeoutMs,
+    });
+
+    return {
+      code:
+        error instanceof Error && error.name === "AbortError"
+          ? "control_plane_timeout"
+          : "control_plane_request_failed",
+      error: errorMessage,
+      method: input.method,
+      ok: false,
+      path: input.path,
     };
   } finally {
     clearTimeout(timeout);
@@ -309,4 +354,39 @@ async function parseJsonResponse(response) {
   }
 
   return await response.json();
+}
+
+function getControlPlaneErrorMessage(input) {
+  const upstreamMessage =
+    input.data && typeof input.data === "object"
+      ? typeof input.data.message === "string"
+        ? input.data.message
+        : typeof input.data.error === "string"
+          ? input.data.error
+          : null
+      : null;
+
+  return upstreamMessage
+    ? `${input.input.method} ${input.input.path} failed with ${input.response.status}: ${upstreamMessage}`
+    : `${input.input.method} ${input.input.path} failed with ${input.response.status}. Check control-plane web logs for the corresponding request.`;
+}
+
+function getControlPlaneFetchErrorMessage(input) {
+  if (input.error instanceof Error && input.error.name === "AbortError") {
+    return `${input.input.method} ${input.input.path} timed out after ${input.timeoutMs}ms while calling the Otto control plane. Check runtime reachability to ${input.baseUrl}, inspect control-plane web logs, or increase the plugin timeoutMs.`;
+  }
+
+  if (input.error instanceof Error) {
+    return `${input.input.method} ${input.input.path} failed before a response was received: ${input.error.message}`;
+  }
+
+  return `${input.input.method} ${input.input.path} failed before a response was received.`;
+}
+
+function logPluginError(message, details) {
+  try {
+    console.error(`[otto-managed-config] ${message}`, details);
+  } catch {
+    // Ignore logging failures inside the plugin runtime.
+  }
 }
