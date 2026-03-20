@@ -57,6 +57,7 @@
   - the settings page now exposes locked system blocks plus a shared editable block for those files and saves changes through the existing apply pipeline
   - a runtime-authenticated internal API now exists at `/api/internal/runtime/managed-config` so a future OpenClaw plugin can list, read, and update those managed files using the tenant gateway token
   - managed-config writes can now carry an expected version to avoid silent user/agent overwrites, and the tenant runtime now receives `OTTO_CONTROL_PLANE_BASE_URL` in `.env` for future plugin callbacks
+  - rendered `TOOLS.md` system instructions now inject the Otto base URL plus the current workspace slug, so Otto can answer with full control-plane URLs like the Slack settings page instead of only relative paths
 - The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
   - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
   - `runtime-plugins/otto-runtime-config` now contains a second native OpenClaw plugin that exposes generic runtime-surface read, validate, apply, lifecycle, and reapply tools backed by the control plane

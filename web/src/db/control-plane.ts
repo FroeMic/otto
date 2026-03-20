@@ -31,10 +31,12 @@ import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
 } from "@/lib/crypto";
+import { getControlPlaneBaseUrl } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
 import {
   buildManagedBootstrapFileContent,
+  buildManagedBootstrapSystemContent,
   getManagedBootstrapFileDefinitions,
   isManagedBootstrapFilePath,
   type ManagedBootstrapFilePath,
@@ -1474,6 +1476,7 @@ export async function getTenantManagedConfigByVersion(input: {
   version: number;
 }): Promise<TenantManagedConfig> {
   const db = getDb();
+  const organizationSlugPromise = getOrganizationSlugForTenant(input.tenantId);
   const [configVersion] = await db
     .select({
       createdAt: tenantManagedConfigVersions.createdAt,
@@ -1513,11 +1516,21 @@ export async function getTenantManagedConfigByVersion(input: {
       ),
     );
 
+  const runtimeContext = {
+    ottoBaseUrl: getControlPlaneBaseUrl(),
+    workspaceSlug: await organizationSlugPromise,
+  };
+
   const files = getManagedBootstrapFileDefinitions().map((definition) => {
     const fileRow = fileRows.find((row) => row.path === definition.path);
     const sharedContent =
       fileRow?.sharedContent ?? definition.defaultSharedContent;
     const systemContent = definition.systemContent;
+    const effectiveSystemContent = buildManagedBootstrapSystemContent({
+      path: definition.path,
+      runtimeContext,
+      systemContent,
+    });
 
     return {
       checksum: createManagedFileChecksum({
@@ -1530,11 +1543,12 @@ export async function getTenantManagedConfigByVersion(input: {
       path: definition.path,
       renderedContent: buildManagedBootstrapFileContent({
         path: definition.path,
+        runtimeContext,
         sharedContent,
         systemContent,
       }),
       sharedContent,
-      systemContent,
+      systemContent: effectiveSystemContent,
     };
   });
 

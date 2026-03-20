@@ -21,6 +21,12 @@ export type ManagedBootstrapFileInput = {
   path: ManagedBootstrapFilePath;
   systemContent: string;
   sharedContent: string;
+  runtimeContext?: ManagedBootstrapRuntimeContext;
+};
+
+export type ManagedBootstrapRuntimeContext = {
+  ottoBaseUrl?: string | null;
+  workspaceSlug?: string | null;
 };
 
 const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
@@ -268,11 +274,13 @@ export function isManagedBootstrapFilePath(
 export function buildManagedBootstrapFileContent(
   input: ManagedBootstrapFileInput,
 ) {
+  const systemContent = buildManagedBootstrapSystemContent(input);
+
   return [
     `# ${input.path}`,
     "",
     "<!-- BEGIN SYSTEM -->",
-    input.systemContent.trim(),
+    systemContent,
     "<!-- END SYSTEM -->",
     "",
     "<!-- BEGIN SHARED -->",
@@ -280,4 +288,53 @@ export function buildManagedBootstrapFileContent(
     "<!-- END SHARED -->",
     "",
   ].join("\n");
+}
+
+export function buildManagedBootstrapSystemContent(
+  input: Pick<
+    ManagedBootstrapFileInput,
+    "path" | "systemContent" | "runtimeContext"
+  >,
+) {
+  const baseSystemContent = input.systemContent.trim();
+
+  if (input.path !== "TOOLS.md") {
+    return baseSystemContent;
+  }
+
+  const ottoBaseUrl = normalizeOttoBaseUrl(input.runtimeContext?.ottoBaseUrl);
+  const workspaceSlug = normalizeWorkspaceSlug(
+    input.runtimeContext?.workspaceSlug,
+  );
+
+  if (!ottoBaseUrl || !workspaceSlug) {
+    return baseSystemContent;
+  }
+
+  return [
+    baseSystemContent,
+    "",
+    "## Otto Control Plane Context",
+    "",
+    "- When a user asks where to change Otto settings in the UI, answer with the full URL when possible.",
+    `- Otto base URL: ${ottoBaseUrl}`,
+    `- Current workspace slug: ${workspaceSlug}`,
+    "",
+    "### Known UI URLs",
+    "",
+    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations`,
+    `- Slack settings: ${ottoBaseUrl}/${workspaceSlug}/integrations/slack`,
+    `- Tools: ${ottoBaseUrl}/${workspaceSlug}/tools`,
+    `- Web Search settings: ${ottoBaseUrl}/${workspaceSlug}/tools/web/search`,
+  ].join("\n");
+}
+
+function normalizeOttoBaseUrl(value?: string | null) {
+  const trimmed = value?.trim().replace(/\/+$/, "");
+  return trimmed || null;
+}
+
+function normalizeWorkspaceSlug(value?: string | null) {
+  const trimmed = value?.trim().replace(/^\/+|\/+$/g, "");
+  return trimmed || null;
 }
