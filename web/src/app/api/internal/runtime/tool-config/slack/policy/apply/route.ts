@@ -17,8 +17,14 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const start = Date.now();
+  const route = "POST /api/internal/runtime/tool-config/slack/policy/apply";
+  console.log(`[runtime-route] ${route} — start`);
+
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
+    console.log(`[runtime-route] ${route} — authed tenant=${tenantId}, applying…`);
+
     const body = requestSchema.parse(await request.json());
     const result = await applyTenantSlackPolicyActionForTenant({
       action: parseSlackPolicyAction(body.action),
@@ -29,8 +35,11 @@ export async function POST(request: Request) {
       tenantId,
     });
 
+    console.log(`[runtime-route] ${route} — 200 OK (${Date.now() - start}ms)`);
     return json(result);
   } catch (error) {
+    console.error(`[runtime-route] ${route} — error after ${Date.now() - start}ms:`, error instanceof Error ? error.message : error);
+
     if (error instanceof z.ZodError) {
       return json(
         {

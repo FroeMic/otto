@@ -14,9 +14,15 @@ export async function GET(
     }>;
   },
 ) {
+  const start = Date.now();
+  const { surfaceKey, surfaceKind } = await context.params;
+  const route = `GET /api/internal/runtime/tool-config/surfaces/${surfaceKind}/${surfaceKey}`;
+  console.log(`[runtime-route] ${route} — start`);
+
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const { surfaceKey, surfaceKind } = await context.params;
+    console.log(`[runtime-route] ${route} — authed tenant=${tenantId}, fetching surface…`);
+
     const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey,
       surfaceKind,
@@ -24,6 +30,7 @@ export async function GET(
     });
 
     if (!surface) {
+      console.log(`[runtime-route] ${route} — surface not found (${Date.now() - start}ms)`);
       return json(
         {
           code: "surface_not_found",
@@ -33,8 +40,10 @@ export async function GET(
       );
     }
 
+    console.log(`[runtime-route] ${route} — 200 OK (${Date.now() - start}ms)`);
     return json(surface);
   } catch (error) {
+    console.error(`[runtime-route] ${route} — error after ${Date.now() - start}ms:`, error instanceof Error ? error.message : error);
     return handleRuntimeRouteError(error);
   }
 }

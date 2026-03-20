@@ -8,7 +8,7 @@ let client: postgres.Sql | null = null;
 export function getDb() {
   if (!client) {
     client = postgres(getEnv().DATABASE_URL, {
-      max: 1,
+      max: 10,
     });
   }
 
