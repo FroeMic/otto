@@ -38,7 +38,7 @@ function handleRuntimeRouteError(error: unknown) {
   if (error instanceof Error) {
     return json(
       {
-        code: "tool_config_failed",
+        code: "runtime_surface_failed",
         message: error.message,
       },
       400,
@@ -47,8 +47,8 @@ function handleRuntimeRouteError(error: unknown) {
 
   return json(
     {
-      code: "tool_config_failed",
-      message: "Tool config request failed",
+      code: "runtime_surface_failed",
+      message: "Runtime surface request failed",
     },
     500,
   );

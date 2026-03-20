@@ -22,7 +22,7 @@ for (const definition of registry) {
   }
 
   if (registrySurfaceKeys.has(surfaceId)) {
-    throw new Error(`Duplicate tool surface definition: ${surfaceId}`);
+    throw new Error(`Duplicate runtime surface definition: ${surfaceId}`);
   }
 
   registryIds.add(definition.id);

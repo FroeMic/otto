@@ -1,69 +1,47 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  applyTenantSlackPolicyActionForTenant,
-  TenantRuntimeConfigVersionConflictError,
-} from "@/db/control-plane";
+import { reapplyTenantToolSurfaceForTenant } from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
-import { parseSlackPolicyAction } from "@/tools/slack/policy";
 
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
-  action: z.unknown(),
-  expectedEntryVersion: z.number().int().positive().optional(),
   summary: z.string().trim().min(1).max(500).optional(),
 });
 
-export async function POST(request: Request) {
-  const start = Date.now();
-  const route = "POST /api/internal/runtime/tool-config/slack/policy/apply";
-  console.log(`[runtime-route] ${route} — start`);
-
+export async function POST(
+  request: Request,
+  context: {
+    params: Promise<{
+      surfaceKey: string;
+      surfaceKind: string;
+    }>;
+  },
+) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    console.log(
-      `[runtime-route] ${route} — authed tenant=${tenantId}, applying…`,
-    );
-
+    const { surfaceKey, surfaceKind } = await context.params;
     const body = requestSchema.parse(await request.json());
-    const result = await applyTenantSlackPolicyActionForTenant({
-      action: parseSlackPolicyAction(body.action),
+    const result = await reapplyTenantToolSurfaceForTenant({
       createdByExternalId: null,
       createdByType: "runtime",
-      expectedEntryVersion: body.expectedEntryVersion,
       summary: body.summary,
+      surfaceKey,
+      surfaceKind,
       tenantId,
     });
 
-    console.log(`[runtime-route] ${route} — 200 OK (${Date.now() - start}ms)`);
     return json(result);
   } catch (error) {
-    console.error(
-      `[runtime-route] ${route} — error after ${Date.now() - start}ms:`,
-      error instanceof Error ? error.message : error,
-    );
-
     if (error instanceof z.ZodError) {
       return json(
         {
           code: "schema_invalid",
           fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid Slack policy action payload",
+          message: "Invalid reapply payload",
         },
         400,
-      );
-    }
-
-    if (error instanceof TenantRuntimeConfigVersionConflictError) {
-      return json(
-        {
-          code: "stale_version",
-          currentEntryVersion: error.currentVersion,
-          message: error.message,
-        },
-        409,
       );
     }
 
@@ -98,8 +76,8 @@ function handleRuntimeRouteError(error: unknown) {
 
   return json(
     {
-      code: "tool_config_failed",
-      message: "Slack policy action failed",
+      code: "runtime_surface_failed",
+      message: "Runtime surface reapply failed",
     },
     500,
   );

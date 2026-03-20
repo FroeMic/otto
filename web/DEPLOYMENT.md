@@ -112,7 +112,7 @@ npm run verify:runtime-surface -- <org-slug> web search
 ```
 
 That script authenticates with the tenant gateway token and calls the same
-internal control-plane surface endpoints the `otto-tool-config` runtime plugin
+internal control-plane surface endpoints the `otto-runtime-config` runtime plugin
 uses. On the tenant server itself, you can also verify file projection with:
 
 ```bash

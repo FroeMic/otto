@@ -46,12 +46,12 @@ async function main() {
   const listResponse = await fetchRuntimeSurface({
     baseUrl,
     gatewayToken,
-    path: "/api/internal/runtime/tool-config/surfaces",
+    path: "/api/internal/runtime/surfaces",
   });
   const surfaceResponse = await fetchRuntimeSurface({
     baseUrl,
     gatewayToken,
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surfaceKind)}/${encodeURIComponent(surfaceKey)}`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surfaceKind)}/${encodeURIComponent(surfaceKey)}`,
   });
 
   console.log(
@@ -71,7 +71,7 @@ async function main() {
           ? listResponse.surfaces.map((surface: { id?: string }) => surface.id)
           : [],
         verificationNotes: [
-          "These responses are fetched with the tenant runtime gateway token against the same internal control-plane endpoints the otto-tool-config plugin uses.",
+          "These responses are fetched with the tenant runtime gateway token against the same internal control-plane endpoints the otto-runtime-config plugin uses.",
           "If the custom Otto runtime image is deployed, the runtime plugin should expose matching surface data to the agent.",
         ],
       },

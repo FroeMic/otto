@@ -13,7 +13,7 @@ const requestSchema = z.object({
 
 export async function POST(request: Request) {
   const start = Date.now();
-  const route = "POST /api/internal/runtime/tool-config/slack/policy/validate";
+  const route = "POST /api/internal/runtime/slack/policy/validate";
   console.log(`[runtime-route] ${route} — start`);
 
   try {
@@ -79,7 +79,7 @@ function handleRuntimeRouteError(error: unknown) {
 
   return json(
     {
-      code: "tool_config_failed",
+      code: "runtime_surface_failed",
       message: "Slack policy validation failed",
     },
     500,

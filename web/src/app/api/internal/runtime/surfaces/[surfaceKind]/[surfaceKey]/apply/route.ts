@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  setTenantToolInstallStateForTenant,
+  applyTenantToolConfigChangeForTenant,
   TenantRuntimeConfigVersionConflictError,
 } from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
@@ -10,9 +10,8 @@ import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
-  enabled: z.boolean().optional(),
   expectedEntryVersion: z.number().int().positive().optional(),
-  installState: z.enum(["installed", "uninstalled"]),
+  patch: z.record(z.string(), z.unknown()),
   summary: z.string().trim().min(1).max(500).optional(),
 });
 
@@ -29,12 +28,11 @@ export async function POST(
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
     const { surfaceKey, surfaceKind } = await context.params;
     const body = requestSchema.parse(await request.json());
-    const result = await setTenantToolInstallStateForTenant({
+    const result = await applyTenantToolConfigChangeForTenant({
       createdByExternalId: null,
       createdByType: "runtime",
-      enabled: body.enabled,
       expectedEntryVersion: body.expectedEntryVersion,
-      installState: body.installState,
+      patch: body.patch,
       summary: body.summary,
       surfaceKey,
       surfaceKind,
@@ -48,7 +46,7 @@ export async function POST(
         {
           code: "schema_invalid",
           fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid tool state payload",
+          message: "Invalid runtime surface payload",
         },
         400,
       );
@@ -96,8 +94,8 @@ function handleRuntimeRouteError(error: unknown) {
 
   return json(
     {
-      code: "tool_config_failed",
-      message: "Tool state change failed",
+      code: "runtime_surface_failed",
+      message: "Runtime surface apply failed",
     },
     500,
   );

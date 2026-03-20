@@ -2771,7 +2771,7 @@ export async function setTenantToolInstallStateForTenant(input: {
 
       if (!slackIntegration) {
         throw new Error(
-          "Slack must be connected before its tool surface can be installed",
+          "Slack must be connected before its runtime surface can be installed",
         );
       }
     }
@@ -2781,7 +2781,7 @@ export async function setTenantToolInstallStateForTenant(input: {
       typeof input.enabled === "boolean" &&
       input.enabled
     ) {
-      throw new Error("An uninstalled tool surface cannot be enabled");
+      throw new Error("An uninstalled runtime surface cannot be enabled");
     }
 
     const nextEnabled =
@@ -2829,12 +2829,12 @@ export async function setTenantToolInstallStateForTenant(input: {
         changeSummary:
           input.summary ??
           (mutationType === "install"
-            ? "Installed tool surface"
+            ? "Installed runtime surface"
             : mutationType === "uninstall"
-              ? "Uninstalled tool surface"
+              ? "Uninstalled runtime surface"
               : mutationType === "enable"
-                ? "Enabled tool surface"
-                : "Disabled tool surface"),
+                ? "Enabled runtime surface"
+                : "Disabled runtime surface"),
         enabled: nextEnabled,
         entryVersion: nextEntryVersion,
         installState: input.installState,
@@ -2942,7 +2942,7 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
       desiredStateVersion,
       mutationType: "reapply",
       resultJson: {
-        summary: input.summary ?? "Reapplied tool surface",
+        summary: input.summary ?? "Reapplied runtime surface",
       },
       resultingEntryVersion: currentConfig.entryVersion,
       tenantId: input.tenantId,

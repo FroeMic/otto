@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-import { validateTenantToolConfigChangeForTenant } from "@/db/control-plane";
+import { getTenantToolConfigSurfaceForTenant } from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
 
-const requestSchema = z.object({
-  patch: z.record(z.string(), z.unknown()),
-});
-
-export async function POST(
+export async function GET(
   request: Request,
   context: {
     params: Promise<{
@@ -19,31 +14,43 @@ export async function POST(
     }>;
   },
 ) {
+  const start = Date.now();
+  const { surfaceKey, surfaceKind } = await context.params;
+  const route = `GET /api/internal/runtime/surfaces/${surfaceKind}/${surfaceKey}`;
+  console.log(`[runtime-route] ${route} — start`);
+
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const { surfaceKey, surfaceKind } = await context.params;
-    const body = requestSchema.parse(await request.json());
-    const result = await validateTenantToolConfigChangeForTenant({
-      createdByType: "runtime",
-      patch: body.patch,
+    console.log(
+      `[runtime-route] ${route} — authed tenant=${tenantId}, fetching surface…`,
+    );
+
+    const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey,
       surfaceKind,
       tenantId,
     });
 
-    return json(result);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (!surface) {
+      console.log(
+        `[runtime-route] ${route} — surface not found (${Date.now() - start}ms)`,
+      );
       return json(
         {
-          code: "schema_invalid",
-          fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid tool config payload",
+          code: "surface_not_found",
+          message: "Unsupported runtime surface",
         },
-        400,
+        404,
       );
     }
 
+    console.log(`[runtime-route] ${route} — 200 OK (${Date.now() - start}ms)`);
+    return json(surface);
+  } catch (error) {
+    console.error(
+      `[runtime-route] ${route} — error after ${Date.now() - start}ms:`,
+      error instanceof Error ? error.message : error,
+    );
     return handleRuntimeRouteError(error);
   }
 }
@@ -66,7 +73,7 @@ function handleRuntimeRouteError(error: unknown) {
   if (error instanceof Error) {
     return json(
       {
-        code: "semantic_invalid",
+        code: "runtime_surface_failed",
         message: error.message,
       },
       400,
@@ -75,8 +82,8 @@ function handleRuntimeRouteError(error: unknown) {
 
   return json(
     {
-      code: "tool_config_failed",
-      message: "Tool config validation failed",
+      code: "runtime_surface_failed",
+      message: "Runtime surface request failed",
     },
     500,
   );

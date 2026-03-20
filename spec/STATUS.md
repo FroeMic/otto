@@ -59,7 +59,7 @@
   - managed-config writes can now carry an expected version to avoid silent user/agent overwrites, and the tenant runtime now receives `OTTO_CONTROL_PLANE_BASE_URL` in `.env` for future plugin callbacks
 - The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
   - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
-  - `runtime-plugins/otto-tool-config` now contains a second native OpenClaw plugin that exposes generic tool-surface read, validate, apply, lifecycle, and reapply tools backed by the control plane
+  - `runtime-plugins/otto-runtime-config` now contains a second native OpenClaw plugin that exposes generic runtime-surface read, validate, apply, lifecycle, and reapply tools backed by the control plane
   - `runtime-image/Dockerfile` now layers both Otto plugins into `/app/extensions/`
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
@@ -132,18 +132,18 @@
   - Slack settings page loads now refresh the synced Slack directory before rendering and fall back to cached data with an inline warning if the live refresh fails
   - `All channels Otto is added to` now renders to OpenClaw as `groupPolicy: "open"` with a wildcard channel mention policy instead of incorrectly behaving like a manual allowlist
   - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`
-- The generic tool-surface registry and mutation flow is now implemented:
-  - `web/src/tools/` now holds registry-backed tool-surface definitions with colocated schema/defaults/semantic validation metadata
+- The generic runtime-surface registry and mutation flow is now implemented:
+  - `web/src/tools/` now holds registry-backed runtime-surface definitions with colocated schema/defaults/semantic validation metadata
   - `tenant_runtime_config_entries` now also stores `install_state`, and `tenant_runtime_config_mutations` now records user/agent/system lifecycle and config mutations
-  - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/tool-config/...`
-  - the new `otto-tool-config` plugin now exposes `list_configurable_tools`, `get_configurable_tool`, `validate_tool_change`, `apply_tool_change`, `set_tool_install_state`, and `reapply_tool`
+  - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
+  - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
 - The first non-Slack runtime surface is now implemented for global web search:
   - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface
   - desired-state compilation now resolves Brave web search config from control-plane env and projects it into tenant runtime config
   - tenant runtime bootstrap and apply now write `BRAVE_API_KEY` into `.env` and render `tools.web.search` into `openclaw.json`
   - the authenticated app shell now includes a `Tools` section with a read-only Brave Web Search detail page, while Slack remains under `Integrations`
   - runtime surfaces now carry explicit `surfaceType` and `uiGroup` metadata so UI and agent consumers can distinguish `Integrations` vs `Tools` without hardcoded Slack heuristics
-  - `otto-tool-config` keeps its stable plugin ID, but now also exposes surface-oriented alias tools such as `list_configurable_surfaces` and `get_configurable_surface`
+  - the runtime plugin and route contract now use surface-oriented naming consistently for synchronized rollout
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
 
 ## Current product target
@@ -158,16 +158,16 @@
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
-  - manually verifying that the control-plane UI, `otto-tool-config` plugin aliases, and older `/api/internal/runtime/config-surfaces/...` compatibility path can all update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
+  - manually verifying that the control-plane UI and `otto-runtime-config` plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
   - running `npm run verify:runtime-surface -- <org-slug> web search` against a provisioned tenant after Brave env vars are set in the deployed control plane
   - preserving the raw Slack attachment semantics needed for `TODO_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Manually verify `TODO_10_voice_note_understanding.md` against a real Slack voice note on a provisioned tenant runtime:
   - confirm a fresh install with `files:read` can transcribe a voice note
   - confirm an older install without `files:read` shows reconnect-needed guidance until Slack is reconnected
 - Continue the managed-bootstrap-files slice by:
-  - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` and `otto-tool-config` plugins instead of the raw upstream image
+  - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` and `otto-runtime-config` plugins instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
-  - verifying end to end that `list_configurable_tools`, `get_configurable_tool`, `validate_tool_change`, `apply_tool_change`, `set_tool_install_state`, and `reapply_tool` appear in a tenant runtime and drive the shared tool-surface mutation flow
+  - verifying end to end that `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface` appear in a tenant runtime and drive the shared runtime-surface mutation flow
   - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
 - After the shared Slack ingress direction is locked, implement `TODO_10_voice_note_understanding.md` by:
   - extending desired state with OpenClaw audio transcription defaults

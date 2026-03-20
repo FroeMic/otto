@@ -1,7 +1,7 @@
 {
-  "id": "otto-tool-config",
-  "name": "Otto Tool Config",
-  "description": "Tool configuration and lifecycle tools backed by the Otto control plane.",
+  "id": "otto-runtime-config",
+  "name": "Otto Runtime Config",
+  "description": "Runtime surface configuration and lifecycle tools backed by the Otto control plane.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

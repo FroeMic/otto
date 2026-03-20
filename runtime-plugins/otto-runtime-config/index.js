@@ -3,29 +3,12 @@ import { emptyPluginConfigSchema } from "openclaw/plugin-sdk/core";
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 const plugin = {
-  id: "otto-tool-config",
+  id: "otto-runtime-config",
   name: "Otto Runtime Config",
   description:
     "Runtime surface configuration and lifecycle tools backed by the Otto control plane.",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
-    api.registerTool(
-      {
-        name: "list_configurable_tools",
-        description:
-          "List the runtime surfaces Otto exposes through the control plane, including current lifecycle state and allowed actions.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {},
-        },
-        async execute() {
-          return buildToolResult(await listConfigurableTools(api));
-        },
-      },
-      { optional: true },
-    );
-
     api.registerTool(
       {
         name: "list_configurable_surfaces",
@@ -38,33 +21,6 @@ const plugin = {
         },
         async execute() {
           return buildToolResult(await listConfigurableTools(api));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "get_configurable_tool",
-        description:
-          "Read one configurable runtime surface, including its current config, field meanings, options, and allowed actions.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            surfaceKey: {
-              type: "string",
-              minLength: 1,
-            },
-            surfaceKind: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: ["surfaceKind", "surfaceKey"],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await getConfigurableTool(api, params));
         },
       },
       { optional: true },
@@ -118,7 +74,7 @@ const plugin = {
       {
         name: "preview_slack_policy_action",
         description:
-          "Preview a semantic Slack policy action before applying it. Use this instead of validate_tool_change for Slack.",
+          "Preview a semantic Slack policy action before applying it. Use this instead of validate_surface_change for Slack.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -180,7 +136,7 @@ const plugin = {
       {
         name: "apply_slack_policy_action",
         description:
-          "Apply a semantic Slack policy action through the Otto control plane. Use this instead of apply_tool_change for Slack.",
+          "Apply a semantic Slack policy action through the Otto control plane. Use this instead of apply_surface_change for Slack.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -249,37 +205,6 @@ const plugin = {
 
     api.registerTool(
       {
-        name: "validate_tool_change",
-        description:
-          "Dry-run validation for a runtime surface config patch without persisting it.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            patch: {
-              type: "object",
-              additionalProperties: true,
-            },
-            surfaceKey: {
-              type: "string",
-              minLength: 1,
-            },
-            surfaceKind: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: ["patch", "surfaceKind", "surfaceKey"],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await validateToolChange(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
         name: "validate_surface_change",
         description:
           "Dry-run validation for a runtime surface config patch without persisting it.",
@@ -304,51 +229,6 @@ const plugin = {
         },
         async execute(_id, params) {
           return buildToolResult(await validateToolChange(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "apply_tool_change",
-        description:
-          "Apply a validated config patch to a runtime surface through the Otto control plane.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            expectedEntryVersion: {
-              type: "integer",
-              minimum: 1,
-            },
-            patch: {
-              type: "object",
-              additionalProperties: true,
-            },
-            summary: {
-              type: "string",
-              minLength: 1,
-              maxLength: 500,
-            },
-            surfaceKey: {
-              type: "string",
-              minLength: 1,
-            },
-            surfaceKind: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: [
-            "expectedEntryVersion",
-            "patch",
-            "surfaceKind",
-            "surfaceKey",
-          ],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await applyToolChange(api, params));
         },
       },
       { optional: true },
@@ -394,54 +274,6 @@ const plugin = {
         },
         async execute(_id, params) {
           return buildToolResult(await applyToolChange(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "set_tool_install_state",
-        description:
-          "Install, uninstall, enable, or disable a configurable runtime surface. To enable or disable, pass the current installState plus the desired enabled value.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            enabled: {
-              type: "boolean",
-            },
-            expectedEntryVersion: {
-              type: "integer",
-              minimum: 1,
-            },
-            installState: {
-              type: "string",
-              enum: ["installed", "uninstalled"],
-            },
-            summary: {
-              type: "string",
-              minLength: 1,
-              maxLength: 500,
-            },
-            surfaceKey: {
-              type: "string",
-              minLength: 1,
-            },
-            surfaceKind: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: [
-            "expectedEntryVersion",
-            "installState",
-            "surfaceKind",
-            "surfaceKey",
-          ],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await setToolInstallState(api, params));
         },
       },
       { optional: true },
@@ -497,38 +329,6 @@ const plugin = {
 
     api.registerTool(
       {
-        name: "reapply_tool",
-        description:
-          "Re-run desired-state compilation and queue a tenant apply for a runtime surface without changing its saved config.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            summary: {
-              type: "string",
-              minLength: 1,
-              maxLength: 500,
-            },
-            surfaceKey: {
-              type: "string",
-              minLength: 1,
-            },
-            surfaceKind: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: ["surfaceKind", "surfaceKey"],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await reapplyTool(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
         name: "reapply_surface",
         description:
           "Re-run desired-state compilation and queue a tenant apply for a runtime surface without changing its saved config.",
@@ -566,7 +366,7 @@ export default plugin;
 async function listConfigurableTools(api) {
   const response = await requestControlPlane(api, {
     method: "GET",
-    path: "/api/internal/runtime/tool-config/surfaces",
+    path: "/api/internal/runtime/surfaces",
   });
 
   if (!response.ok) {
@@ -591,7 +391,7 @@ async function getConfigurableTool(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "GET",
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}`,
   });
 
   if (!response.ok) {
@@ -639,7 +439,7 @@ async function validateToolChange(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/validate`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/validate`,
     body: {
       patch,
     },
@@ -684,7 +484,7 @@ async function applyToolChange(api, params) {
     return {
       ok: false,
       error:
-        "expectedEntryVersion is required and must come from a prior get_configurable_surface or get_configurable_tool call.",
+        "expectedEntryVersion is required and must come from a prior get_configurable_surface call.",
     };
   }
 
@@ -697,7 +497,7 @@ async function applyToolChange(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/apply`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/apply`,
     body: {
       expectedEntryVersion,
       patch,
@@ -727,7 +527,7 @@ async function previewSlackPolicyAction(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: "/api/internal/runtime/tool-config/slack/policy/validate",
+    path: "/api/internal/runtime/slack/policy/validate",
     body: {
       action,
     },
@@ -769,7 +569,7 @@ async function applySlackPolicyAction(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: "/api/internal/runtime/tool-config/slack/policy/apply",
+    path: "/api/internal/runtime/slack/policy/apply",
     body: {
       action,
       expectedEntryVersion,
@@ -820,13 +620,13 @@ async function setToolInstallState(api, params) {
     return {
       ok: false,
       error:
-        "expectedEntryVersion is required and must come from a prior get_configurable_surface or get_configurable_tool call.",
+        "expectedEntryVersion is required and must come from a prior get_configurable_surface call.",
     };
   }
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/state`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/state`,
     body: {
       ...(typeof enabled === "boolean" ? { enabled } : {}),
       expectedEntryVersion,
@@ -859,7 +659,7 @@ async function reapplyTool(api, params) {
 
   const response = await requestControlPlane(api, {
     method: "POST",
-    path: `/api/internal/runtime/tool-config/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/reapply`,
+    path: `/api/internal/runtime/surfaces/${encodeURIComponent(surface.kind)}/${encodeURIComponent(surface.key)}/reapply`,
     body: summary ? { summary } : {},
   });
 
@@ -1092,7 +892,7 @@ function getControlPlaneFetchErrorMessage(input) {
 
 function logPluginError(message, details) {
   try {
-    console.error(`[otto-tool-config] ${message}`, details);
+    console.error(`[otto-runtime-config] ${message}`, details);
   } catch {
     // Ignore logging failures inside the plugin runtime.
   }

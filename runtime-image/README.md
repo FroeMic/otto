@@ -6,7 +6,7 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 ## Current contents
 
 - bundled `otto-managed-config` plugin under `/app/extensions/otto-managed-config`
-- bundled `otto-tool-config` plugin under `/app/extensions/otto-tool-config`
+- bundled `otto-runtime-config` plugin under `/app/extensions/otto-runtime-config`
 
 ## Build
 

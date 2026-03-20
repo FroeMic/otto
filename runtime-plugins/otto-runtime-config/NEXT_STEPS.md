@@ -2,7 +2,7 @@
 
 This plugin now supports two layers:
 
-- generic tool-surface operations for low-risk tools
+- generic runtime-surface operations for low-risk tools
 - custom semantic Slack policy operations for a high-risk tool
 
 That split is intentional, but the control-plane framework is not fully generic yet.
@@ -74,15 +74,6 @@ Most tools should keep using:
 - `apply_surface_change`
 - `set_surface_state`
 - `reapply_surface`
-
-Compatibility aliases remain available for now:
-
-- `list_configurable_tools`
-- `get_configurable_tool`
-- `validate_tool_change`
-- `apply_tool_change`
-- `set_tool_install_state`
-- `reapply_tool`
 
 Only tools with domain-specific or destructive semantics should add custom
 operations like Slack did.

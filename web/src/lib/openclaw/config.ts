@@ -274,7 +274,7 @@ export function buildOpenClawTenantConfig(input: {
               timeoutMs: 15_000,
             },
             {
-              id: "otto-tool-config",
+              id: "otto-runtime-config",
               timeoutMs: 15_000,
             },
           ],

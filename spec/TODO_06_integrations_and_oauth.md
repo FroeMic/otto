@@ -316,14 +316,14 @@ This keeps one generic storage path for future plugin and tool config without cr
 
 The next layer on top of this substrate is now in place as well:
 
-- `web/src/tools/` acts as the control-plane-owned registry for configurable tool surfaces
+- `web/src/tools/` acts as the control-plane-owned registry for configurable runtime surfaces
 - `tenant_runtime_config_entries.install_state` plus `tenant_runtime_config_mutations` now cover lifecycle state and audit history without per-tool tables
-- runtime-authenticated agent access now goes through `/api/internal/runtime/tool-config/...`
-- `runtime-plugins/otto-tool-config` now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
+- runtime-authenticated agent access now goes through `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
+- `runtime-plugins/otto-runtime-config` now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
 - the first non-Slack surface is now `web/search`, resolved from control-plane env instead of tenant DB state
 - tenant desired-state compilation now projects Brave web search into `tools.web.search` plus runtime `.env`, so globally managed web search is visible in both the UI and runtime surface APIs without becoming tenant-editable
 - runtime surface payloads now carry explicit `surfaceType` and `uiGroup` metadata so the same registry can back both `Integrations` and `Tools`
-- `otto-tool-config` keeps its stable plugin ID but now also exposes surface-oriented alias tool names such as `list_configurable_surfaces` and `get_configurable_surface`
+- the runtime plugin and route contract now use surface-oriented naming consistently
 
 ## Routing strategy plan
 
@@ -461,10 +461,10 @@ Deliverables:
 - [x] add shared server-side validation helpers for Slack runtime config writes
 - [x] expose Slack runtime config through control-plane APIs and the Slack integration UI
 - [x] expose Slack runtime config through runtime-authenticated internal APIs for agent/plugin use
-- [x] add a registry-backed tool-surface layer plus generic runtime plugin for agent-managed tool config
+- [x] add a registry-backed runtime-surface layer plus generic runtime plugin for agent-managed runtime config
 - [x] add the first non-Slack env-backed runtime surface for global web search
 - [x] project Brave web search into tenant runtime config and env as a read-only control-plane-managed surface
-- [x] add explicit runtime-surface grouping metadata plus surface-oriented plugin aliases while keeping the existing plugin ID stable
+- [x] add explicit runtime-surface grouping metadata and rename the runtime plugin contract to surface-oriented naming
 - [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
 - [x] add Slack channel join/leave actions in the control plane for public-channel membership management
 - [ ] implement shared Slack ingress router

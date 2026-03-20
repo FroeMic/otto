@@ -92,31 +92,31 @@ const actionMeanings: ToolActionMeaning[] = [
   {
     action: "install",
     description:
-      "Install this tool surface with its default config so it starts participating in desired-state compilation.",
+      "Install this runtime surface with its default config so it starts participating in desired-state compilation.",
     label: "Install",
   },
   {
     action: "uninstall",
     description:
-      "Uninstall this tool surface from the tenant runtime while preserving the last saved config for later reinstall.",
+      "Uninstall this runtime surface from the tenant runtime while preserving the last saved config for later reinstall.",
     label: "Uninstall",
   },
   {
     action: "enable",
     description:
-      "Enable the installed tool surface so its config is projected into tenant desired state.",
+      "Enable the installed runtime surface so its config is projected into tenant desired state.",
     label: "Enable",
   },
   {
     action: "disable",
     description:
-      "Disable the installed tool surface without deleting its saved config.",
+      "Disable the installed runtime surface without deleting its saved config.",
     label: "Disable",
   },
   {
     action: "update",
     description:
-      "Update the config for this installed tool surface after validation succeeds.",
+      "Update the config for this installed runtime surface after validation succeeds.",
     label: "Update config",
   },
   {
