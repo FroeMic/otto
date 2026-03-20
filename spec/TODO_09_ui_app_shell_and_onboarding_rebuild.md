@@ -15,6 +15,7 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
   - primary navigation for:
     - Agent
     - Integrations
+    - Tools
     - Skills
     - Scheduled Tasks
 - gate users into onboarding when:
@@ -122,6 +123,8 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 - `/{orgSlug}/agent`
 - `/{orgSlug}/integrations`
 - `/{orgSlug}/integrations/slack`
+- `/{orgSlug}/tools`
+- `/{orgSlug}/tools/{surfaceKind}/{surfaceKey}`
 - `/{orgSlug}/skills`
 - `/{orgSlug}/scheduled-tasks`
 - `/{orgSlug}/settings`
@@ -154,6 +157,7 @@ The user settings section is org-independent in data ownership, but it can still
 - middle:
   - Agent
   - Integrations
+  - Tools
   - Skills
   - Scheduled Tasks
 - bottom:
@@ -207,6 +211,19 @@ Initial content:
 - link to dedicated Slack integration page
 - reconnect / repair path
 - placeholder list for later integrations
+
+### Tools
+
+Purpose:
+
+- show agent capabilities that Otto can project into the tenant runtime
+- distinguish global read-only capabilities from future integration-backed capabilities
+
+Initial content:
+
+- Brave Web Search status
+- link to a read-only detail page for the `web/search` surface
+- placeholder list for future capability surfaces
 
 ### Slack integration detail
 
@@ -390,7 +407,8 @@ Likely additions during implementation:
 7. Add onboarding redirect logic and org setup gate.
 8. Build the `Agent` page as the first unlocked destination.
 9. Add scaffold pages for Integrations, Skills, Scheduled Tasks, and Settings.
-10. Wire onboarding state to real Slack and provisioning readiness.
+10. Add a `Tools` area for registry-backed runtime surfaces that are not vendor connection flows.
+11. Wire onboarding state to real Slack and provisioning readiness.
 
 ## Status checklist
 
@@ -403,6 +421,7 @@ Likely additions during implementation:
 - [x] define a dedicated Slack integration state page
 - [x] implement a dedicated settings shell with sectioned navigation
 - [x] implement route-backed Agent status and instruction views
+- [x] implement a `Tools` section in the authenticated app shell
 - [ ] implement prefixed database IDs such as `org_*` and `user_*`
 - [ ] replace the temporary generic WorkOS account link with a verified account-management handoff if WorkOS exposes one for this setup
 
@@ -420,11 +439,14 @@ Likely additions during implementation:
 - the primary nav contains:
   - Agent
   - Integrations
+  - Tools
   - Skills
   - Scheduled Tasks
 - settings uses its own sidebar with route-backed user and workspace sections
 - the Agent area exposes route-backed status and instruction views
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder
+- `/{orgSlug}/tools` lists runtime capability surfaces that are not shown as integrations
+- a read-only Brave Web Search detail page is reachable from the Tools section
 - the Slack page can render real member and channel selectors from synced Slack directory tables when available
 - settings includes both user and organization sections
 - prototype UI uses shadcn building blocks without custom color work

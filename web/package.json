@@ -9,6 +9,7 @@
     "start": "next start",
     "worker": "tsx src/worker/index.ts",
     "test:openai-token": "node src/scripts/test-openai-token.mjs",
+    "verify:runtime-surface": "tsx src/scripts/verify-runtime-surface.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/scripts/wait-for-db.mjs && drizzle-kit migrate",
     "lint": "biome check",

@@ -77,6 +77,40 @@ describe("renderOpenClawConfig", () => {
       validateOpenClawSlackConfig(renderedConfig.channels.slack),
     );
   });
+
+  it("renders Brave web search config into OpenClaw tools", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      webSearch: {
+        brave: {
+          mode: "web",
+        },
+        cacheTtlMinutes: 15,
+        enabled: true,
+        maxResults: 5,
+        provider: "brave",
+        timeoutSeconds: 30,
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.tools.web.search, {
+      brave: {
+        mode: "web",
+      },
+      cacheTtlMinutes: 15,
+      enabled: true,
+      maxResults: 5,
+      provider: "brave",
+      timeoutSeconds: 30,
+    });
+  });
 });
 
 describe("validateOpenClawSlackConfig", () => {

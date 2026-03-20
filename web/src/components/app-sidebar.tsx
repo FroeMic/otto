@@ -9,6 +9,7 @@ import {
   LightningIcon,
   PlugsConnectedIcon,
   RobotIcon,
+  WrenchIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -68,6 +69,11 @@ export function AppSidebar({
       href: `/${currentOrganization.slug}/integrations`,
       icon: <PlugsConnectedIcon />,
       title: "Integrations",
+    },
+    {
+      href: `/${currentOrganization.slug}/tools`,
+      icon: <WrenchIcon />,
+      title: "Tools",
     },
     {
       href: `/${currentOrganization.slug}/skills`,

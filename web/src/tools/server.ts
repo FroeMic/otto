@@ -1,12 +1,11 @@
 import { and, eq } from "drizzle-orm";
-
-import type { SlackRuntimeConfig } from "@/lib/slack-config";
 import {
   messagingConversations,
   messagingWorkspaceMembers,
   messagingWorkspaces,
   tenantIntegrations,
 } from "@/db/schema";
+import type { SlackRuntimeConfig } from "@/lib/slack-config";
 import type { DbTransaction } from "@/tools/server-types";
 import {
   deriveSlackPolicyEffects,
@@ -110,12 +109,10 @@ export async function validateSlackRuntimeConfigSemanticsForTenant(
     tenantId: string;
   },
 ) {
-  const { availableChannels, availableUsers } = await getSlackDirectoryOptionsForTenant(
-    tx,
-    {
+  const { availableChannels, availableUsers } =
+    await getSlackDirectoryOptionsForTenant(tx, {
       tenantId: input.tenantId,
-    },
-  );
+    });
 
   if (
     availableChannels.length === 0 &&
@@ -154,10 +151,11 @@ export async function validateSlackRuntimeConfigSemanticsForTenant(
     );
   }
 
-  const archivedChannelIds = input.config.allowedChannelIds.filter((channelId) =>
-    availableChannels.some(
-      (channel) => channel.id === channelId && channel.isArchived,
-    ),
+  const archivedChannelIds = input.config.allowedChannelIds.filter(
+    (channelId) =>
+      availableChannels.some(
+        (channel) => channel.id === channelId && channel.isArchived,
+      ),
   );
 
   if (archivedChannelIds.length > 0) {

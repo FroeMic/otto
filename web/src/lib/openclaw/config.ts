@@ -4,6 +4,8 @@ import {
   getDefaultSlackRuntimeConfig,
   parseSlackRuntimeConfig,
 } from "@/lib/slack-config";
+import type { OpenClawWebSearchConfig } from "@/lib/web-search-config";
+import { parseWebSearchRuntimeConfig } from "@/lib/web-search-config";
 
 export type OpenClawAudioModelConfig = {
   model: string;
@@ -39,6 +41,7 @@ export type OpenClawTenantConfig = {
   tenantId: string;
   integrations: string[];
   prompts: Record<string, string>;
+  webSearch?: OpenClawWebSearchConfig;
   workspacePath: string;
 };
 
@@ -48,11 +51,12 @@ export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const pluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
-  const pluginTools = pluginIds.length > 0
-    ? {
-        alsoAllow: pluginIds,
-      }
-    : undefined;
+  const pluginTools =
+    pluginIds.length > 0
+      ? {
+          alsoAllow: pluginIds,
+        }
+      : undefined;
   const slack = config.slack;
   const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0;
   const slackChannelConfig = slack
@@ -123,6 +127,56 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         },
       }
     : undefined;
+  const webTools = config.webSearch
+    ? {
+        web: {
+          search: {
+            ...(config.webSearch.brave
+              ? {
+                  brave: config.webSearch.brave,
+                }
+              : {}),
+            ...(typeof config.webSearch.cacheTtlMinutes === "number"
+              ? {
+                  cacheTtlMinutes: config.webSearch.cacheTtlMinutes,
+                }
+              : {}),
+            enabled: config.webSearch.enabled,
+            ...(config.webSearch.gemini
+              ? {
+                  gemini: config.webSearch.gemini,
+                }
+              : {}),
+            ...(config.webSearch.grok
+              ? {
+                  grok: config.webSearch.grok,
+                }
+              : {}),
+            ...(config.webSearch.kimi
+              ? {
+                  kimi: config.webSearch.kimi,
+                }
+              : {}),
+            ...(typeof config.webSearch.maxResults === "number"
+              ? {
+                  maxResults: config.webSearch.maxResults,
+                }
+              : {}),
+            ...(config.webSearch.perplexity
+              ? {
+                  perplexity: config.webSearch.perplexity,
+                }
+              : {}),
+            provider: config.webSearch.provider,
+            ...(typeof config.webSearch.timeoutSeconds === "number"
+              ? {
+                  timeoutSeconds: config.webSearch.timeoutSeconds,
+                }
+              : {}),
+          },
+        },
+      }
+    : undefined;
 
   return JSON.stringify(
     {
@@ -156,11 +210,12 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             },
           }
         : {}),
-      ...(pluginTools || mediaTools
+      ...(pluginTools || mediaTools || webTools
         ? {
             tools: {
               ...(pluginTools ?? {}),
               ...(mediaTools ?? {}),
+              ...(webTools ?? {}),
             },
           }
         : {}),
@@ -198,6 +253,7 @@ export function buildOpenClawTenantConfig(input: {
     Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(input.slackBotToken);
   const audio = parseAudioConfig(config.media);
   const slackPolicy = parseSlackPolicy(config.slack);
+  const webSearch = parseWebSearchConfig(config.webSearch);
 
   return {
     ...(audio ? { audio } : {}),
@@ -236,6 +292,11 @@ export function buildOpenClawTenantConfig(input: {
             mode: "socket" as const,
             requireMentionInChannels: slackPolicy.requireMentionInChannels,
           },
+        }
+      : {}),
+    ...(webSearch
+      ? {
+          webSearch,
         }
       : {}),
     tenantId: input.tenantId,
@@ -338,5 +399,97 @@ function parseAudioConfig(
         provider,
       },
     ],
+  };
+}
+
+function parseWebSearchConfig(
+  value: unknown,
+): OpenClawWebSearchConfig | undefined {
+  const parsed = parseWebSearchRuntimeConfig(value);
+
+  if (!parsed.provider) {
+    return undefined;
+  }
+
+  return {
+    ...(parsed.braveMode
+      ? {
+          brave: {
+            mode: parsed.braveMode,
+          },
+        }
+      : {}),
+    ...(typeof parsed.cacheTtlMinutes === "number"
+      ? {
+          cacheTtlMinutes: parsed.cacheTtlMinutes,
+        }
+      : {}),
+    enabled: true,
+    ...(parsed.geminiModel
+      ? {
+          gemini: {
+            model: parsed.geminiModel,
+          },
+        }
+      : {}),
+    ...(parsed.grokModel || parsed.grokInlineCitations !== undefined
+      ? {
+          grok: {
+            ...(parsed.grokInlineCitations !== undefined
+              ? {
+                  inlineCitations: parsed.grokInlineCitations,
+                }
+              : {}),
+            ...(parsed.grokModel
+              ? {
+                  model: parsed.grokModel,
+                }
+              : {}),
+          },
+        }
+      : {}),
+    ...(parsed.kimiBaseUrl || parsed.kimiModel
+      ? {
+          kimi: {
+            ...(parsed.kimiBaseUrl
+              ? {
+                  baseUrl: parsed.kimiBaseUrl,
+                }
+              : {}),
+            ...(parsed.kimiModel
+              ? {
+                  model: parsed.kimiModel,
+                }
+              : {}),
+          },
+        }
+      : {}),
+    ...(typeof parsed.maxResults === "number"
+      ? {
+          maxResults: parsed.maxResults,
+        }
+      : {}),
+    ...(parsed.perplexityBaseUrl || parsed.perplexityModel
+      ? {
+          perplexity: {
+            ...(parsed.perplexityBaseUrl
+              ? {
+                  baseUrl: parsed.perplexityBaseUrl,
+                }
+              : {}),
+            ...(parsed.perplexityModel
+              ? {
+                  model: parsed.perplexityModel,
+                }
+              : {}),
+          },
+        }
+      : {}),
+    provider: parsed.provider,
+    ...(typeof parsed.timeoutSeconds === "number"
+      ? {
+          timeoutSeconds: parsed.timeoutSeconds,
+        }
+      : {}),
   };
 }

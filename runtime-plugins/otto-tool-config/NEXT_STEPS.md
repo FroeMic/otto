@@ -68,6 +68,15 @@ Each tool should own:
 
 Most tools should keep using:
 
+- `list_configurable_surfaces`
+- `get_configurable_surface`
+- `validate_surface_change`
+- `apply_surface_change`
+- `set_surface_state`
+- `reapply_surface`
+
+Compatibility aliases remain available for now:
+
 - `list_configurable_tools`
 - `get_configurable_tool`
 - `validate_tool_change`

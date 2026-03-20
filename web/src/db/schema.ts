@@ -361,10 +361,9 @@ export const tenantRuntimeConfigMutations = pgTable(
     tenantId: uuid("tenant_id")
       .references(() => tenants.id, { onDelete: "cascade" })
       .notNull(),
-    tenantRuntimeConfigEntryId: uuid("tenant_runtime_config_entry_id").references(
-      () => tenantRuntimeConfigEntries.id,
-      { onDelete: "set null" },
-    ),
+    tenantRuntimeConfigEntryId: uuid(
+      "tenant_runtime_config_entry_id",
+    ).references(() => tenantRuntimeConfigEntries.id, { onDelete: "set null" }),
     actorType: varchar("actor_type", { length: 64 }).notNull(),
     actorExternalId: varchar("actor_external_id", { length: 255 }),
     mutationType: varchar("mutation_type", { length: 64 }).notNull(),
@@ -384,9 +383,9 @@ export const tenantRuntimeConfigMutations = pgTable(
     tenantIdx: index("tenant_runtime_config_mutations_tenant_id_idx").on(
       table.tenantId,
     ),
-    entryIdx: index(
-      "tenant_runtime_config_mutations_entry_id_idx",
-    ).on(table.tenantRuntimeConfigEntryId),
+    entryIdx: index("tenant_runtime_config_mutations_entry_id_idx").on(
+      table.tenantRuntimeConfigEntryId,
+    ),
   }),
 );
 

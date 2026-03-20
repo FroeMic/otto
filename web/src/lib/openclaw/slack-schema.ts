@@ -287,6 +287,8 @@ export const openClawSlackConfigSchema = slackAccountSchema
 
 export type OpenClawSlackConfig = z.infer<typeof openClawSlackConfigSchema>;
 
-export function validateOpenClawSlackConfig(value: unknown): OpenClawSlackConfig {
+export function validateOpenClawSlackConfig(
+  value: unknown,
+): OpenClawSlackConfig {
   return openClawSlackConfigSchema.parse(value);
 }

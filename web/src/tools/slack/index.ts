@@ -7,10 +7,10 @@ import {
   SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
   SLACK_RUNTIME_CONFIG_SURFACE_KEY,
   SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+  type SlackRuntimeConfig,
   slackRuntimeConfigJsonSchema,
   slackRuntimeConfigPatchSchema,
   slackRuntimeConfigUiHints,
-  type SlackRuntimeConfig,
 } from "@/lib/slack-config";
 import {
   getSlackDirectoryOptionsForTenant,
@@ -153,9 +153,12 @@ export const slackToolSurfaceDefinition: ToolSurfaceDefinition<
   schemaSource: SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
   schemaVersion: SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
   scope: "tenant",
+  surfaceType: "integration",
   supportsConfig: true,
   supportsEnable: true,
   supportsInstall: true,
+  supportsReapply: true,
+  uiGroup: "integrations",
   uiHints: slackRuntimeConfigUiHints,
   async validateSemantic(context) {
     await validateSlackRuntimeConfigSemanticsForTenant(

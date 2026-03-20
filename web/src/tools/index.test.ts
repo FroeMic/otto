@@ -18,6 +18,7 @@ describe("tool registry", () => {
     assert.equal(surfaceIds.size, definitions.length);
     assert.equal(ids.size, definitions.length);
     assert.ok(getToolDefinition("channel", "slack"));
+    assert.ok(getToolDefinition("web", "search"));
   });
 
   it("computes lifecycle actions from current state", () => {
@@ -44,6 +45,17 @@ describe("tool registry", () => {
         installState: "uninstalled",
       }),
       ["install"],
+    );
+
+    const webSearchDefinition = getToolDefinition("web", "search");
+
+    assert.ok(webSearchDefinition);
+    assert.deepEqual(
+      listAvailableToolActions(webSearchDefinition, {
+        enabled: true,
+        installState: "installed",
+      }),
+      [],
     );
   });
 });

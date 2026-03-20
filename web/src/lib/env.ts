@@ -22,8 +22,45 @@ const envSchema = z.object({
     .string()
     .default("ghcr.io/openclaw/openclaw:latest"),
   RUNTIME_OPENAI_API_KEY: z.string().optional(),
+  RUNTIME_BRAVE_API_KEY: z.string().optional(),
+  RUNTIME_GEMINI_API_KEY: z.string().optional(),
+  RUNTIME_KIMI_API_KEY: z.string().optional(),
   RUNTIME_MODEL_PRIMARY: z.string().default("openai/gpt-5.4"),
+  RUNTIME_MOONSHOT_API_KEY: z.string().optional(),
+  RUNTIME_OPENROUTER_API_KEY: z.string().optional(),
+  RUNTIME_PERPLEXITY_API_KEY: z.string().optional(),
   RUNTIME_SLACK_APP_TOKEN: z.string().optional(),
+  RUNTIME_WEB_SEARCH_BRAVE_MODE: z.enum(["web", "llm-context"]).optional(),
+  RUNTIME_WEB_SEARCH_CACHE_TTL_MINUTES: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .optional(),
+  RUNTIME_WEB_SEARCH_GEMINI_MODEL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_GROK_INLINE_CITATIONS: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  RUNTIME_WEB_SEARCH_GROK_MODEL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_KIMI_BASE_URL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_KIMI_MODEL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_MAX_RESULTS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(10)
+    .optional(),
+  RUNTIME_WEB_SEARCH_PERPLEXITY_BASE_URL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_PERPLEXITY_MODEL: z.string().optional(),
+  RUNTIME_WEB_SEARCH_PROVIDER: z
+    .enum(["brave", "gemini", "grok", "kimi", "perplexity"])
+    .optional(),
+  RUNTIME_WEB_SEARCH_TIMEOUT_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  RUNTIME_XAI_API_KEY: z.string().optional(),
   SLACK_BOT_SCOPES: z
     .string()
     .default(

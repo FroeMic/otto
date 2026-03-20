@@ -59,29 +59,89 @@ import {
   slackRuntimeConfigUiHints,
 } from "@/lib/slack-config";
 import {
+  resolveRuntimeWebSearchConfig,
+  WEB_SEARCH_TOOL_DESCRIPTION,
+  WEB_SEARCH_TOOL_LABEL,
+  WEB_SEARCH_TOOL_SCHEMA_VERSION,
+  WEB_SEARCH_TOOL_SURFACE_KEY,
+  WEB_SEARCH_TOOL_SURFACE_KIND,
+  webSearchRuntimeConfigJsonSchema,
+  webSearchRuntimeConfigUiHints,
+} from "@/lib/web-search-config";
+import { getWorkOS } from "@/lib/workos";
+import {
   getToolDefinition,
   getToolSurfaceId,
   listAvailableToolActions,
   listToolDefinitions,
   normalizeInstallState,
 } from "@/tools";
+import { evaluateSlackPolicyForTenant } from "@/tools/server";
 import {
   applySlackPolicyAction,
   isSlackPolicyDestructive,
   type SlackPolicyAction,
   type SlackPolicyDerivedEffects,
 } from "@/tools/slack/policy";
-import { evaluateSlackPolicyForTenant } from "@/tools/server";
 import type {
   ToolInstallState,
   ToolSurfaceAction,
   ToolSurfaceResponse,
 } from "@/tools/types";
-import { getWorkOS } from "@/lib/workos";
 
 const SLACK_PROVIDER_KEY = "slack";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
+
+function isSlackSurface(surfaceKind: string, surfaceKey: string) {
+  return (
+    surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
+    surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
+  );
+}
+
+function getSurfaceConfigMutationError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsConfig: boolean;
+}) {
+  if (definition.supportsConfig) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and cannot be edited from the UI or runtime.`
+    : `${definition.label} does not support direct config edits.`;
+}
+
+function getSurfaceLifecycleMutationError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsEnable: boolean;
+  supportsInstall: boolean;
+}) {
+  if (definition.supportsEnable || definition.supportsInstall) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and cannot be enabled, disabled, installed, or uninstalled from the UI or runtime.`
+    : `${definition.label} does not support install or enable lifecycle changes.`;
+}
+
+function getSurfaceReapplyError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsReapply: boolean;
+}) {
+  if (definition.supportsReapply) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and does not support manual reapply.`
+    : `${definition.label} does not support manual reapply.`;
+}
 
 type OnboardingSessionSummary = {
   createdAt: Date;
@@ -183,6 +243,10 @@ export type TenantSlackRuntimeConfigSurface = {
   }>;
   availableChannels: SlackRuntimeConfigDirectoryOption[];
   availableUsers: SlackRuntimeConfigDirectoryOption[];
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit?: boolean;
+  canUserEdit?: boolean;
   config: TenantSlackRuntimeConfig;
   description: string;
   derivedEffects?: SlackPolicyDerivedEffects;
@@ -202,6 +266,10 @@ export type TenantSlackRuntimeConfigSurface = {
   allowedActions: ToolSurfaceAction[];
   id: string;
   schema: typeof slackRuntimeConfigJsonSchema;
+  settingsUrl?: string | null;
+  setupUrl?: string | null;
+  surfaceType: "integration";
+  uiGroup: "integrations";
   uiHints: typeof slackRuntimeConfigUiHints;
 };
 
@@ -1691,6 +1759,15 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
     }) as Promise<TenantToolConfigSurface | null>;
   }
 
+  if (
+    input.surfaceKind === WEB_SEARCH_TOOL_SURFACE_KIND &&
+    input.surfaceKey === WEB_SEARCH_TOOL_SURFACE_KEY
+  ) {
+    return getTenantWebSearchToolSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+  }
+
   return null;
 }
 
@@ -1733,10 +1810,7 @@ export async function validateTenantToolConfigChangeForTenant(input: {
     throw new Error("Unsupported tool config surface");
   }
 
-  if (
-    input.surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
-    input.surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  ) {
+  if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     if (input.createdByType === "runtime") {
       throw new Error(
         "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
@@ -1748,6 +1822,12 @@ export async function validateTenantToolConfigChangeForTenant(input: {
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
       tenantId: input.tenantId,
     });
+  }
+
+  const mutationError = getSurfaceConfigMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
   }
 
   throw new Error("Unsupported tool config surface");
@@ -1815,10 +1895,7 @@ export async function applyTenantToolConfigChangeForTenant(input: {
     throw new Error("Unsupported tool config surface");
   }
 
-  if (
-    input.surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
-    input.surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  ) {
+  if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     if (input.createdByType === "runtime") {
       throw new Error(
         "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
@@ -1847,6 +1924,12 @@ export async function applyTenantToolConfigChangeForTenant(input: {
         ok: true,
       },
     };
+  }
+
+  const mutationError = getSurfaceConfigMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
   }
 
   throw new Error("Unsupported tool config surface");
@@ -1924,14 +2007,21 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
   );
 
   return db.transaction(async (tx) => {
-    const [slackConfig, directory] = await Promise.all([
-      getOrCreateTenantSlackRuntimeConfigEntry(tx, {
-        tenantId: input.tenantId,
-      }),
-      getSlackDirectoryOptions(tx, {
-        tenantId: input.tenantId,
-      }),
-    ]);
+    const [slackConfig, directory, slackIntegration, organizationSlug] =
+      await Promise.all([
+        getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+          tenantId: input.tenantId,
+        }),
+        getSlackDirectoryOptions(tx, {
+          tenantId: input.tenantId,
+        }),
+        getConnectedSlackIntegrationForTenant(tx, {
+          tenantId: input.tenantId,
+        }),
+        getOrganizationSlugForTenantTx(tx, {
+          tenantId: input.tenantId,
+        }),
+      ]);
 
     const allowedActions = definition
       ? listAvailableToolActions(definition, {
@@ -1950,6 +2040,12 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       availableUsers: directory.users,
       actionMeanings: definition?.actionMeanings ?? [],
       allowedActions,
+      availability: slackIntegration ? "available" : "blocked",
+      blockingReason: slackIntegration
+        ? null
+        : "Connect Slack before changing Slack runtime behavior.",
+      canAgentEdit: Boolean(slackIntegration),
+      canUserEdit: true,
       config: buildTenantSlackRuntimeConfig(slackConfig),
       description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
       derivedEffects: effects,
@@ -1962,9 +2058,81 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       kind: SLACK_RUNTIME_CONFIG_SURFACE_KIND,
       label: SLACK_RUNTIME_CONFIG_LABEL,
       schema: slackRuntimeConfigJsonSchema,
+      settingsUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/slack`
+        : null,
+      setupUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/slack`
+        : null,
+      surfaceType: "integration",
+      uiGroup: "integrations",
       uiHints: slackRuntimeConfigUiHints,
     };
   });
+}
+
+async function getTenantWebSearchToolSurfaceForTenant(input: {
+  tenantId: string;
+}): Promise<TenantToolConfigSurface | null> {
+  const definition = getToolDefinition(
+    WEB_SEARCH_TOOL_SURFACE_KIND,
+    WEB_SEARCH_TOOL_SURFACE_KEY,
+  );
+
+  if (!definition) {
+    return null;
+  }
+
+  const [options, organizationSlug] = await Promise.all([
+    definition.buildOptions({
+      tenantId: input.tenantId,
+      tx: getDb(),
+    }),
+    getOrganizationSlugForTenant(input.tenantId),
+  ]);
+  const resolved = resolveRuntimeWebSearchConfig();
+
+  return {
+    actionMeanings: definition.actionMeanings,
+    agentOperations: definition.agentOperations,
+    allowedActions: listAvailableToolActions(definition, {
+      enabled: resolved.enabled,
+      installState: "installed",
+    }),
+    availability: resolved.enabled ? "available" : "blocked",
+    blockingReason: resolved.reason,
+    canAgentEdit: false,
+    canUserEdit: false,
+    config: {
+      ...resolved.surfaceConfig,
+      enabled: resolved.enabled,
+      entryVersion: 1,
+      installState: "installed",
+      schemaVersion: WEB_SEARCH_TOOL_SCHEMA_VERSION,
+    },
+    description: WEB_SEARCH_TOOL_DESCRIPTION,
+    derivedEffects: {
+      managedBy: resolved.surfaceConfig.managedBy,
+      reason: resolved.reason,
+    },
+    fieldMeanings: definition.fieldMeanings,
+    id: getToolSurfaceId(
+      WEB_SEARCH_TOOL_SURFACE_KIND,
+      WEB_SEARCH_TOOL_SURFACE_KEY,
+    ),
+    key: WEB_SEARCH_TOOL_SURFACE_KEY,
+    kind: WEB_SEARCH_TOOL_SURFACE_KIND,
+    label: WEB_SEARCH_TOOL_LABEL,
+    options,
+    schema: webSearchRuntimeConfigJsonSchema,
+    settingsUrl: organizationSlug
+      ? `/${organizationSlug}/tools/web/search`
+      : null,
+    setupUrl: null,
+    surfaceType: definition.surfaceType,
+    uiGroup: definition.uiGroup,
+    uiHints: webSearchRuntimeConfigUiHints,
+  };
 }
 
 export async function updateTenantSlackChannelMembership(input: {
@@ -2125,7 +2293,9 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
     });
 
     if (currentConfig.installState !== "installed") {
-      throw new Error("Slack config must be installed before it can be updated");
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
     }
 
     const nextConfig = parseSlackRuntimeConfig({
@@ -2143,7 +2313,10 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+    if (
+      input.createdByType === "runtime" &&
+      isSlackPolicyDestructive(effects)
+    ) {
       throw new Error(
         "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
       );
@@ -2178,10 +2351,15 @@ export async function validateTenantSlackPolicyActionForTenant(input: {
     });
 
     if (currentConfig.installState !== "installed") {
-      throw new Error("Slack config must be installed before it can be updated");
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
     }
 
-    const nextConfig = applySlackPolicyAction(currentConfig.config, input.action);
+    const nextConfig = applySlackPolicyAction(
+      currentConfig.config,
+      input.action,
+    );
 
     await validateSlackRuntimeConfigSemantics(tx, {
       config: nextConfig,
@@ -2194,7 +2372,10 @@ export async function validateTenantSlackPolicyActionForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+    if (
+      input.createdByType === "runtime" &&
+      isSlackPolicyDestructive(effects)
+    ) {
       throw new Error(
         "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
       );
@@ -2424,7 +2605,9 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
     });
 
     if (currentConfig.installState !== "installed") {
-      throw new Error("Slack config must be installed before it can be updated");
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
     }
 
     if (
@@ -2452,7 +2635,10 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (input.createdByType === "runtime" && isSlackPolicyDestructive(effects)) {
+    if (
+      input.createdByType === "runtime" &&
+      isSlackPolicyDestructive(effects)
+    ) {
       throw new Error(
         "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
       );
@@ -2468,9 +2654,7 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       );
     }
 
-    if (
-      JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)
-    ) {
+    if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
       return {
         applyQueued: false,
         changed: false,
@@ -2548,10 +2732,19 @@ export async function setTenantToolInstallStateForTenant(input: {
   surfaceKind: string;
   tenantId: string;
 }) {
-  if (
-    input.surfaceKind !== SLACK_RUNTIME_CONFIG_SURFACE_KIND ||
-    input.surfaceKey !== SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  ) {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const mutationError = getSurfaceLifecycleMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     throw new Error("Unsupported tool config surface");
   }
 
@@ -2708,10 +2901,19 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
   surfaceKind: string;
   tenantId: string;
 }) {
-  if (
-    input.surfaceKind !== SLACK_RUNTIME_CONFIG_SURFACE_KIND ||
-    input.surfaceKey !== SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  ) {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const mutationError = getSurfaceReapplyError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     throw new Error("Unsupported tool config surface");
   }
 
@@ -2722,7 +2924,9 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
     });
 
     if (currentConfig.installState !== "installed") {
-      throw new Error("Tool surface must be installed before it can be reapplied");
+      throw new Error(
+        "Tool surface must be installed before it can be reapplied",
+      );
     }
 
     const desiredStateVersion = (
@@ -3180,6 +3384,11 @@ async function compileTenantDesiredStateConfig(
     media: {},
     prompts: {},
   };
+  const webSearch = resolveRuntimeWebSearchConfig();
+
+  if (webSearch.openClawConfig) {
+    config.webSearch = webSearch.surfaceConfig;
+  }
 
   if (
     slackIntegration?.connectedAt &&
@@ -3306,13 +3515,13 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
     });
 
   return {
-      config: parseSlackRuntimeConfig(createdEntry.configJson),
-      entryVersion: createdEntry.entryVersion,
-      enabled: createdEntry.enabled,
-      id: createdEntry.id,
-      installState: normalizeInstallState(createdEntry.installState),
-      schemaVersion: createdEntry.schemaVersion,
-    };
+    config: parseSlackRuntimeConfig(createdEntry.configJson),
+    entryVersion: createdEntry.entryVersion,
+    enabled: createdEntry.enabled,
+    id: createdEntry.id,
+    installState: normalizeInstallState(createdEntry.installState),
+    schemaVersion: createdEntry.schemaVersion,
+  };
 }
 
 async function getConnectedSlackIntegrationForTenant(
@@ -3341,6 +3550,39 @@ async function getConnectedSlackIntegrationForTenant(
   }
 
   return slackIntegration;
+}
+
+async function getOrganizationSlugForTenant(tenantId: string) {
+  const db = getDb();
+
+  const [organization] = await db
+    .select({
+      slug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  return organization?.slug ?? null;
+}
+
+async function getOrganizationSlugForTenantTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [organization] = await tx
+    .select({
+      slug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  return organization?.slug ?? null;
 }
 
 async function getConnectedSlackInstallationForTenant(

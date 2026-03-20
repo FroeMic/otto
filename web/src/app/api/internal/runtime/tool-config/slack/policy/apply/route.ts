@@ -23,7 +23,9 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    console.log(`[runtime-route] ${route} — authed tenant=${tenantId}, applying…`);
+    console.log(
+      `[runtime-route] ${route} — authed tenant=${tenantId}, applying…`,
+    );
 
     const body = requestSchema.parse(await request.json());
     const result = await applyTenantSlackPolicyActionForTenant({
@@ -38,7 +40,10 @@ export async function POST(request: Request) {
     console.log(`[runtime-route] ${route} — 200 OK (${Date.now() - start}ms)`);
     return json(result);
   } catch (error) {
-    console.error(`[runtime-route] ${route} — error after ${Date.now() - start}ms:`, error instanceof Error ? error.message : error);
+    console.error(
+      `[runtime-route] ${route} — error after ${Date.now() - start}ms:`,
+      error instanceof Error ? error.message : error,
+    );
 
     if (error instanceof z.ZodError) {
       return json(

@@ -4,16 +4,33 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 
 const plugin = {
   id: "otto-tool-config",
-  name: "Otto Tool Config",
+  name: "Otto Runtime Config",
   description:
-    "Tool configuration and lifecycle tools backed by the Otto control plane.",
+    "Runtime surface configuration and lifecycle tools backed by the Otto control plane.",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
     api.registerTool(
       {
         name: "list_configurable_tools",
         description:
-          "List the tool surfaces Otto exposes through the control plane, including current lifecycle state and allowed actions.",
+          "List the runtime surfaces Otto exposes through the control plane, including current lifecycle state and allowed actions.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        async execute() {
+          return buildToolResult(await listConfigurableTools(api));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "list_configurable_surfaces",
+        description:
+          "List the runtime surfaces Otto exposes through the control plane, including current lifecycle state and allowed actions.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -30,7 +47,34 @@ const plugin = {
       {
         name: "get_configurable_tool",
         description:
-          "Read one configurable tool surface, including its current config, field meanings, options, and allowed actions.",
+          "Read one configurable runtime surface, including its current config, field meanings, options, and allowed actions.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            surfaceKey: {
+              type: "string",
+              minLength: 1,
+            },
+            surfaceKind: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["surfaceKind", "surfaceKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await getConfigurableTool(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "get_configurable_surface",
+        description:
+          "Read one configurable runtime surface, including its current config, field meanings, options, and allowed actions.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -207,7 +251,38 @@ const plugin = {
       {
         name: "validate_tool_change",
         description:
-          "Dry-run validation for a tool config patch without persisting it.",
+          "Dry-run validation for a runtime surface config patch without persisting it.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            patch: {
+              type: "object",
+              additionalProperties: true,
+            },
+            surfaceKey: {
+              type: "string",
+              minLength: 1,
+            },
+            surfaceKind: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["patch", "surfaceKind", "surfaceKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await validateToolChange(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "validate_surface_change",
+        description:
+          "Dry-run validation for a runtime surface config patch without persisting it.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -238,7 +313,52 @@ const plugin = {
       {
         name: "apply_tool_change",
         description:
-          "Apply a validated config patch to a tool surface through the Otto control plane.",
+          "Apply a validated config patch to a runtime surface through the Otto control plane.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expectedEntryVersion: {
+              type: "integer",
+              minimum: 1,
+            },
+            patch: {
+              type: "object",
+              additionalProperties: true,
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+            surfaceKey: {
+              type: "string",
+              minLength: 1,
+            },
+            surfaceKind: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: [
+            "expectedEntryVersion",
+            "patch",
+            "surfaceKind",
+            "surfaceKey",
+          ],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await applyToolChange(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "apply_surface_change",
+        description:
+          "Apply a validated config patch to a runtime surface through the Otto control plane.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -283,7 +403,55 @@ const plugin = {
       {
         name: "set_tool_install_state",
         description:
-          "Install, uninstall, enable, or disable a configurable tool surface. To enable or disable, pass the current installState plus the desired enabled value.",
+          "Install, uninstall, enable, or disable a configurable runtime surface. To enable or disable, pass the current installState plus the desired enabled value.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            enabled: {
+              type: "boolean",
+            },
+            expectedEntryVersion: {
+              type: "integer",
+              minimum: 1,
+            },
+            installState: {
+              type: "string",
+              enum: ["installed", "uninstalled"],
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+            surfaceKey: {
+              type: "string",
+              minLength: 1,
+            },
+            surfaceKind: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: [
+            "expectedEntryVersion",
+            "installState",
+            "surfaceKind",
+            "surfaceKey",
+          ],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await setToolInstallState(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "set_surface_state",
+        description:
+          "Install, uninstall, enable, or disable a configurable runtime surface. To enable or disable, pass the current installState plus the desired enabled value.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -331,7 +499,39 @@ const plugin = {
       {
         name: "reapply_tool",
         description:
-          "Re-run desired-state compilation and queue a tenant apply for a tool surface without changing its saved config.",
+          "Re-run desired-state compilation and queue a tenant apply for a runtime surface without changing its saved config.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+            surfaceKey: {
+              type: "string",
+              minLength: 1,
+            },
+            surfaceKind: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["surfaceKind", "surfaceKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await reapplyTool(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "reapply_surface",
+        description:
+          "Re-run desired-state compilation and queue a tenant apply for a runtime surface without changing its saved config.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -484,7 +684,7 @@ async function applyToolChange(api, params) {
     return {
       ok: false,
       error:
-        "expectedEntryVersion is required and must come from a prior get_configurable_tool call.",
+        "expectedEntryVersion is required and must come from a prior get_configurable_surface or get_configurable_tool call.",
     };
   }
 
@@ -620,7 +820,7 @@ async function setToolInstallState(api, params) {
     return {
       ok: false,
       error:
-        "expectedEntryVersion is required and must come from a prior get_configurable_tool call.",
+        "expectedEntryVersion is required and must come from a prior get_configurable_surface or get_configurable_tool call.",
     };
   }
 

@@ -4,6 +4,8 @@ import type { z } from "zod";
 export type ToolSurfaceScope = "tenant";
 export type ToolInstallSource = "registry";
 export type ToolInstallState = "installed" | "uninstalled";
+export type ToolSurfaceType = "global" | "integration" | "tool";
+export type ToolSurfaceUiGroup = "integrations" | "tools";
 export type ToolSurfaceAction =
   | "install"
   | "uninstall"
@@ -42,6 +44,10 @@ export type ToolSurfaceResponse<
   actionMeanings: ToolActionMeaning[];
   agentOperations?: ToolAgentOperation[];
   allowedActions: ToolSurfaceAction[];
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit?: boolean;
+  canUserEdit?: boolean;
   config: Config & {
     enabled: boolean;
     entryVersion: number;
@@ -57,6 +63,10 @@ export type ToolSurfaceResponse<
   label: string;
   options: Options;
   schema: unknown;
+  settingsUrl?: string | null;
+  setupUrl?: string | null;
+  surfaceType: ToolSurfaceType;
+  uiGroup: ToolSurfaceUiGroup;
   uiHints: unknown;
 };
 
@@ -95,9 +105,12 @@ export type ToolSurfaceDefinition<
   schemaSource: string;
   schemaVersion: string;
   scope: ToolSurfaceScope;
+  surfaceType: ToolSurfaceType;
   supportsConfig: boolean;
   supportsEnable: boolean;
   supportsInstall: boolean;
+  supportsReapply: boolean;
+  uiGroup: ToolSurfaceUiGroup;
   uiHints: unknown;
   validateSemantic: (context: {
     config: Config;
@@ -106,12 +119,6 @@ export type ToolSurfaceDefinition<
     tx: unknown;
   }) => Promise<void>;
 };
-
-export type ToolSurfaceRegistryEntry = ToolSurfaceDefinition<
-  any,
-  any,
-  any
->;
 
 export type ToolSurfacePatchSchema<T extends Record<string, unknown>> =
   z.ZodType<T>;

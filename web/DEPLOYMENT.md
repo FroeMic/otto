@@ -51,6 +51,15 @@ Set at least:
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
+For Brave web search, also set:
+
+- `RUNTIME_BRAVE_API_KEY`
+- `RUNTIME_WEB_SEARCH_PROVIDER=brave`
+- optionally `RUNTIME_WEB_SEARCH_BRAVE_MODE`
+- optionally `RUNTIME_WEB_SEARCH_MAX_RESULTS`
+- optionally `RUNTIME_WEB_SEARCH_TIMEOUT_SECONDS`
+- optionally `RUNTIME_WEB_SEARCH_CACHE_TTL_MINUTES`
+
 Use the internal Postgres hostname in `DATABASE_URL`, for example:
 
 ```bash
@@ -95,6 +104,21 @@ Verify:
 - `WORKOS_BASE_URL` matches the public app origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS and Slack redirect URIs point at the public domain
+
+If Brave web search is enabled, also verify a real tenant projection:
+
+```bash
+npm run verify:runtime-surface -- <org-slug> web search
+```
+
+That script authenticates with the tenant gateway token and calls the same
+internal control-plane surface endpoints the `otto-tool-config` runtime plugin
+uses. On the tenant server itself, you can also verify file projection with:
+
+```bash
+grep -F '"search"' /opt/openclaw/home/openclaw.json
+grep '^BRAVE_API_KEY=' /opt/openclaw/home/.env
+```
 
 To connect from a laptop over Tailscale, forward that host-only Postgres port:
 

@@ -3,10 +3,14 @@ import type {
   ToolInstallState,
   ToolSurfaceAction,
   ToolSurfaceLifecycleState,
-  ToolSurfaceRegistryEntry,
 } from "@/tools/types";
+import { webSearchToolSurfaceDefinition } from "@/tools/web-search";
 
-const registry = [slackToolSurfaceDefinition] as ToolSurfaceRegistryEntry[];
+const registry = [
+  slackToolSurfaceDefinition,
+  webSearchToolSurfaceDefinition,
+] as const;
+type ToolSurfaceRegistryEntry = (typeof registry)[number];
 const registryIds = new Set<string>();
 const registrySurfaceKeys = new Set<string>();
 
@@ -68,7 +72,9 @@ export function listAvailableToolActions(
     actions.push("uninstall");
   }
 
-  actions.push("reapply");
+  if (definition.supportsReapply) {
+    actions.push("reapply");
+  }
 
   return actions;
 }

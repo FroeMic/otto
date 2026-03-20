@@ -673,7 +673,8 @@ export function SlackRuntimeConfigPanel(props: {
       }),
     [draft, surface.availableChannels, surface.config],
   );
-  const requiresDestructiveConfirmation = isSlackPolicyDestructive(draftEffects);
+  const requiresDestructiveConfirmation =
+    isSlackPolicyDestructive(draftEffects);
   const selectedUsers = useMemo(
     () =>
       getSelectedDirectoryEntries(surface.availableUsers, draft.allowedUserIds),

@@ -7,6 +7,7 @@ import {
 } from "@/lib/openclaw/config";
 import type { SshConnection } from "@/lib/ssh/client";
 import { SshClient } from "@/lib/ssh/client";
+import { resolveRuntimeWebSearchConfig } from "@/lib/web-search-config";
 
 export type RuntimeFile = {
   path: string;
@@ -212,6 +213,13 @@ export class RuntimeManager {
       }
     }
 
+    if (input.openClawConfig.webSearch?.enabled) {
+      commands.push(
+        "grep -F '\"search\"' /opt/openclaw/home/openclaw.json >/dev/null",
+        `grep -F ${shellQuoteForShell(input.openClawConfig.webSearch.provider)} /opt/openclaw/home/openclaw.json >/dev/null`,
+      );
+    }
+
     await this.execChecked(connection, buildShellCommand(commands));
   }
 
@@ -409,6 +417,7 @@ function buildRuntimeEnvFile(input: {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
+  const webSearch = resolveRuntimeWebSearchConfig();
 
   if (env.RUNTIME_OPENAI_API_KEY) {
     lines.push(`OPENAI_API_KEY=${env.RUNTIME_OPENAI_API_KEY}`);
@@ -425,6 +434,8 @@ function buildRuntimeEnvFile(input: {
   if (input.slackBotToken) {
     lines.push(`SLACK_BOT_TOKEN=${input.slackBotToken}`);
   }
+
+  lines.push(...webSearch.envLines);
 
   return `${lines.join("\n")}\n`;
 }

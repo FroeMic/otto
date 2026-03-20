@@ -20,7 +20,9 @@ export async function authenticateTenantRuntimeRequest(request: Request) {
   const elapsed = Date.now() - start;
 
   if (!tenant) {
-    console.log(`[runtime-auth] token lookup failed (no match) in ${elapsed}ms`);
+    console.log(
+      `[runtime-auth] token lookup failed (no match) in ${elapsed}ms`,
+    );
     throw new Error("Invalid runtime bearer token");
   }
 
