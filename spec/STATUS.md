@@ -3,9 +3,12 @@
 ## Terminology
 
 - `Otto` means the product/brand and the user-facing agent experience.
+- `workspace` means the user-facing web UI, org-scoped area, and link into the app.
 - `control plane` means the backend system: `web/`, API routes, worker, orchestration logic, and DB-backed management.
 - `tenant runtime` means the provisioned runtime running on a tenant server.
 - `tenant server` means the provisioned VPS/host.
+- `control plane` stays internal. Avoid `control plane`, `control-plane`, and `Otto link` in user-facing or agent-facing copy.
+- When text refers to both the web UI and the assistant, prefer wording like "manage this in your workspace" and "Otto will use it".
 
 ## Current state
 

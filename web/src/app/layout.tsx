@@ -22,8 +22,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Otto",
-  description:
-    "Otto is the invite-only control plane for your team's Slack-first agent.",
+  description: "Set up and manage your team's Otto from one workspace.",
 };
 
 export default function RootLayout({

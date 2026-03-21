@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { buildManagedBootstrapFileContent } from "@/lib/openclaw/managed-config";
 
 describe("buildManagedBootstrapFileContent", () => {
-  it("injects Otto UI context into TOOLS.md when runtime context is available", () => {
+  it("injects workspace app context into TOOLS.md when runtime context is available", () => {
     const rendered = buildManagedBootstrapFileContent({
       path: "TOOLS.md",
       runtimeContext: {
@@ -15,8 +15,12 @@ describe("buildManagedBootstrapFileContent", () => {
       systemContent: "TOOLS.md - Local Notes",
     });
 
-    assert.match(rendered, /Otto base URL: https:\/\/app\.getyourotto\.com/);
+    assert.match(
+      rendered,
+      /Workspace app base URL: https:\/\/app\.getyourotto\.com/,
+    );
     assert.match(rendered, /Current workspace slug: michael/);
+    assert.match(rendered, /## Workspace App Context/);
     assert.match(
       rendered,
       /Slack settings: https:\/\/app\.getyourotto\.com\/michael\/integrations\/slack/,
@@ -27,7 +31,7 @@ describe("buildManagedBootstrapFileContent", () => {
     );
   });
 
-  it("does not inject Otto UI context into non-tool managed files", () => {
+  it("does not inject workspace app context into non-tool managed files", () => {
     const rendered = buildManagedBootstrapFileContent({
       path: "AGENTS.md",
       runtimeContext: {
@@ -38,6 +42,7 @@ describe("buildManagedBootstrapFileContent", () => {
       systemContent: "AGENTS.md - Your Workspace",
     });
 
-    assert.doesNotMatch(rendered, /Otto Control Plane Context/);
+    assert.doesNotMatch(rendered, /Workspace App Context/);
+    assert.doesNotMatch(rendered, /control plane/i);
   });
 });

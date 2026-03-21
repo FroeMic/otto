@@ -82,7 +82,7 @@ const agentOperations: ToolAgentOperation[] = [
   },
   {
     description:
-      "Apply a semantic Slack policy action through the control plane without sending a raw config patch.",
+      "Apply a semantic Slack policy action through the workspace app without sending a raw config patch.",
     key: "apply_slack_policy_action",
     label: "Apply Slack policy action",
   },

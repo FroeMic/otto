@@ -1,7 +1,7 @@
 {
   "id": "otto-runtime-config",
   "name": "Otto Runtime Config",
-  "description": "Runtime surface configuration and lifecycle tools backed by the Otto control plane.",
+  "description": "Runtime surface configuration and lifecycle tools backed by the workspace app.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

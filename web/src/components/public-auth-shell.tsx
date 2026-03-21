@@ -70,7 +70,7 @@ function PublicAuthShell({
           <div className="absolute inset-x-10 bottom-10 flex justify-end">
             <div className="border border-border/60 bg-background/80 px-4 py-3 text-right backdrop-blur">
               <p className="text-[11px] font-medium tracking-[0.16em] uppercase text-muted-foreground">
-                Control plane
+                Workspace
               </p>
               <p className="mt-1 text-sm">
                 Slack setup, runtime state, team access.

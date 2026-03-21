@@ -28,8 +28,8 @@ export default async function WorkspaceSettingsPage({
         <p className="text-sm text-muted-foreground">Settings / Workspace</p>
         <h1 className="text-3xl font-semibold">Workspace settings</h1>
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Review the basics your team sees and jump into the parts of Otto that
-          need attention.
+          Review the basics your team sees and jump into the areas that need
+          attention.
         </p>
       </section>
 
@@ -43,7 +43,7 @@ export default async function WorkspaceSettingsPage({
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
             <p>Name: {organization.name}</p>
-            <p>Otto link: /{organization.slug}</p>
+            <p>Workspace URL: /{organization.slug}</p>
             <p>Your access: {organization.role}</p>
           </CardContent>
         </Card>
@@ -68,7 +68,7 @@ export default async function WorkspaceSettingsPage({
                 className={buttonVariants({ size: "sm", variant: "outline" })}
                 href={`/${organization.slug}/agent/prompts`}
               >
-                Open Otto configuration
+                Open Otto instructions
               </Link>
             </div>
           </CardContent>

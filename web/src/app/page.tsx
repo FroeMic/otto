@@ -19,8 +19,8 @@ export default async function Home() {
             Sign-in still needs to be set up.
           </h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Once sign-in is ready, this is where teams create Otto, connect
-            Slack, and manage their setup.
+            Once sign-in is ready, this is where teams set up their workspace,
+            connect Slack, and manage Otto.
           </p>
         </div>
       </div>

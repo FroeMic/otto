@@ -4,6 +4,18 @@
 
 Keep implementation aligned with the control-plane plan and preserve state across sessions.
 
+## Naming and audience
+
+- `Otto` means the product/brand and the team's assistant.
+- `workspace` means the user-facing web UI, org-scoped area, and link into the app.
+- `control plane` remains the internal technical term for `web/`, API routes, worker, orchestration logic, and DB-backed management.
+- `tenant runtime` and `tenant server` remain internal/operator-facing technical terms.
+- Do not use `control plane`, `control-plane`, or `Otto link` in user-facing or agent-facing copy.
+- Prefer `workspace`, `workspace URL`, `workspace settings`, and `workspace app` when referring to the web UI.
+- Prefer `Otto`, `Otto instructions`, and `Otto settings` when referring to the assistant itself.
+- If copy mentions both the web UI and the assistant, split the nouns explicitly, for example: "manage this in your workspace" and "Otto will use it".
+- Do not rename stable internal identifiers such as `db/control-plane.ts`, `CONTROL_PLANE_*`, or `OTTO_CONTROL_PLANE_BASE_URL` just to hide the technical term from users.
+
 ## Start here every session
 
 1. Read `spec/README.md`.
@@ -56,6 +68,7 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 
 - Update the relevant spec checklist as work progresses.
 - Update `spec/STATUS.md` if the next recommended step, architecture decision, or blockers change.
+- Audit new UI copy, prompt text, and tool descriptions for the terminology split above before finishing.
 - Prefer small, reviewable increments that satisfy one spec at a time.
 - Do not add env vars, config contracts, or service scaffolding until there is a code path in the current increment that uses them.
 - Prefer the smallest testable slice over speculative setup for later phases.

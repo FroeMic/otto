@@ -51,10 +51,10 @@ export default async function CreateOrganizationPage() {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <CardTitle>Name your team and your Otto</CardTitle>
+              <CardTitle>Set up your team workspace</CardTitle>
               <CardDescription>
-                Start with the basics. Give Otto a team to work for and choose
-                the short link you will use to come back here.
+                Start with the basics. Give your team a workspace and choose the
+                short link you will use to come back here.
               </CardDescription>
             </div>
             <a
@@ -92,7 +92,7 @@ export default async function CreateOrganizationPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                This becomes your Otto link: `app.../northstar-labs`
+                This becomes your workspace URL: `app.../northstar-labs`
               </p>
             </div>
             <Button type="submit" size="lg" className="mt-2">

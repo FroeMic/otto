@@ -7,14 +7,14 @@ const plugin = {
   id: "otto-managed-config",
   name: "Otto Managed Config",
   description:
-    "Managed bootstrap file tools backed by the Otto control plane.",
+    "Managed instruction file tools backed by the workspace app.",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
     api.registerTool(
       {
         name: "list_managed_files",
         description:
-          "List the managed bootstrap files Otto may inspect or update through the control plane.",
+          "List the managed instruction files Otto may inspect or update through the workspace app.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -31,7 +31,7 @@ const plugin = {
       {
         name: "read_managed_file",
         description:
-          "Read the current control-plane-managed version of AGENTS.md, IDENTITY.md, or TOOLS.md.",
+          "Read the current workspace-app-managed version of AGENTS.md, IDENTITY.md, or TOOLS.md.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -54,7 +54,7 @@ const plugin = {
       {
         name: "patch_managed_file",
         description:
-          "Update the shared editable block of a managed bootstrap file through the Otto control plane.",
+          "Update the shared editable block of a managed instruction file through the workspace app.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -368,12 +368,12 @@ function getControlPlaneErrorMessage(input) {
 
   return upstreamMessage
     ? `${input.input.method} ${input.input.path} failed with ${input.response.status}: ${upstreamMessage}`
-    : `${input.input.method} ${input.input.path} failed with ${input.response.status}. Check control-plane web logs for the corresponding request.`;
+    : `${input.input.method} ${input.input.path} failed with ${input.response.status}. Check workspace app logs for the corresponding request.`;
 }
 
 function getControlPlaneFetchErrorMessage(input) {
   if (input.error instanceof Error && input.error.name === "AbortError") {
-    return `${input.input.method} ${input.input.path} timed out after ${input.timeoutMs}ms while calling the Otto control plane. Check runtime reachability to ${input.baseUrl}, inspect control-plane web logs, or increase the plugin timeoutMs.`;
+    return `${input.input.method} ${input.input.path} timed out after ${input.timeoutMs}ms while calling the workspace app. Check runtime reachability to ${input.baseUrl}, inspect workspace app logs, or increase the plugin timeoutMs.`;
   }
 
   if (input.error instanceof Error) {

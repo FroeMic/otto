@@ -6,14 +6,14 @@ const plugin = {
   id: "otto-runtime-config",
   name: "Otto Runtime Config",
   description:
-    "Runtime surface configuration and lifecycle tools backed by the Otto control plane.",
+    "Runtime surface configuration and lifecycle tools backed by the workspace app.",
   configSchema: emptyPluginConfigSchema(),
   register(api) {
     api.registerTool(
       {
         name: "list_configurable_surfaces",
         description:
-          "List the runtime surfaces Otto exposes through the control plane, including current lifecycle state and allowed actions.",
+          "List the runtime surfaces Otto exposes through the workspace app, including current lifecycle state and allowed actions.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -136,7 +136,7 @@ const plugin = {
       {
         name: "apply_slack_policy_action",
         description:
-          "Apply a semantic Slack policy action through the Otto control plane. Use this instead of apply_surface_change for Slack.",
+          "Apply a semantic Slack policy action through the workspace app. Use this instead of apply_surface_change for Slack.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -238,7 +238,7 @@ const plugin = {
       {
         name: "apply_surface_change",
         description:
-          "Apply a validated config patch to a runtime surface through the Otto control plane.",
+          "Apply a validated config patch to a runtime surface through the workspace app.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -875,12 +875,12 @@ function getControlPlaneErrorMessage(input) {
 
   return upstreamMessage
     ? `${input.input.method} ${input.input.path} failed with ${input.response.status}: ${upstreamMessage}`
-    : `${input.input.method} ${input.input.path} failed with ${input.response.status}. Check control-plane web logs for the corresponding request.`;
+    : `${input.input.method} ${input.input.path} failed with ${input.response.status}. Check workspace app logs for the corresponding request.`;
 }
 
 function getControlPlaneFetchErrorMessage(input) {
   if (input.error instanceof Error && input.error.name === "AbortError") {
-    return `${input.input.method} ${input.input.path} timed out after ${input.timeoutMs}ms while calling the Otto control plane. Check runtime reachability to ${input.baseUrl}, inspect control-plane web logs, or increase the plugin timeoutMs.`;
+    return `${input.input.method} ${input.input.path} timed out after ${input.timeoutMs}ms while calling the workspace app. Check runtime reachability to ${input.baseUrl}, inspect workspace app logs, or increase the plugin timeoutMs.`;
   }
 
   if (input.error instanceof Error) {

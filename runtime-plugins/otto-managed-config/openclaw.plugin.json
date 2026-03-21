@@ -1,7 +1,7 @@
 {
   "id": "otto-managed-config",
   "name": "Otto Managed Config",
-  "description": "Managed bootstrap file tools backed by the Otto control plane.",
+  "description": "Managed instruction file tools backed by the workspace app.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

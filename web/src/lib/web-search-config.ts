@@ -8,7 +8,7 @@ export const WEB_SEARCH_TOOL_SCHEMA_SOURCE = "otto_builtin";
 export const WEB_SEARCH_TOOL_SCHEMA_VERSION = "1";
 export const WEB_SEARCH_TOOL_LABEL = "Web Search";
 export const WEB_SEARCH_TOOL_DESCRIPTION =
-  "Expose OpenClaw web_search through Otto with one control-plane-managed provider and shared runtime credentials.";
+  "Expose OpenClaw web_search through Otto with one workspace-app-managed provider and shared runtime credentials.";
 
 const webSearchProviderSchema = z.enum([
   "brave",
@@ -256,7 +256,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
       envLines: [],
       openClawConfig: null,
       reason:
-        "Web search is unavailable because RUNTIME_WEB_SEARCH_PROVIDER is not configured on the control plane.",
+        "Web search is unavailable because RUNTIME_WEB_SEARCH_PROVIDER is not configured in the workspace app.",
       surfaceConfig: parseWebSearchRuntimeConfig(baseSurfaceConfig),
     };
   }
@@ -483,7 +483,7 @@ function buildResolvedConfig(input: {
       enabled: false,
       envLines: [],
       openClawConfig: null,
-      reason: `Web search is unavailable because the control plane is missing the API key for provider "${input.provider}".`,
+      reason: `Web search is unavailable because the workspace app is missing the API key for provider "${input.provider}".`,
       surfaceConfig: parseWebSearchRuntimeConfig({
         ...input.baseSurfaceConfig,
         ...input.providerSurfaceConfig,

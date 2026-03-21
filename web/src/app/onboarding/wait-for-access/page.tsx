@@ -67,10 +67,10 @@ export default async function WaitForAccessPage({
           <p>
             You don&apos;t need to do anything else right now. Once{" "}
             {organization.name} is activated, Slack setup, provisioning, and the
-            full Otto workspace will unlock automatically.
+            full workspace will unlock automatically.
           </p>
           <p>
-            Otto link:{" "}
+            Workspace URL:{" "}
             <span className="font-medium text-foreground">
               /{organization.slug}
             </span>

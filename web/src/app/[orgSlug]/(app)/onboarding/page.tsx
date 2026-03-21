@@ -130,12 +130,12 @@ export default async function OrganizationOnboardingPage({
           <CardHeader>
             <CardTitle>1. Workspace details</CardTitle>
             <CardDescription>
-              Your workspace name and Otto link are already set up.
+              Your workspace name and workspace URL are already set up.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {organization.name} will use `/{organization.slug}` as its Otto
-            link.
+            {organization.name} will use `/{organization.slug}` as its workspace
+            URL.
           </CardContent>
         </Card>
         <Card>

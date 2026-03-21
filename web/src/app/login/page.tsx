@@ -16,7 +16,7 @@ export default async function LoginPage() {
 
   return (
     <PublicAuthShell
-      subtitle="Sign in to your Otto workspace, or create a new account and join the access queue for your team."
+      subtitle="Sign in to your workspace, or create a new account and join the access queue for your team."
       title="Your Team's Otto"
     >
       <div className="flex flex-col gap-3">

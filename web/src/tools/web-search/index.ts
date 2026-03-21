@@ -23,29 +23,30 @@ import { WebSearchToolPage } from "@/tools/web-search/page";
 const fieldMeanings: ToolFieldMeaning[] = [
   {
     description:
-      "The OpenClaw web_search provider Otto projects into the tenant runtime.",
+      "The OpenClaw web_search provider the workspace app projects into the tenant runtime.",
     key: "provider",
     label: "Provider",
   },
   {
     description:
-      "The runtime environment variable Otto populates with the provider API key. The secret value itself is never exposed through this surface.",
+      "The runtime environment variable the workspace app populates with the provider API key. The secret value itself is never exposed through this surface.",
     key: "credentialEnvVar",
     label: "Credential env var",
   },
   {
     description:
-      "Default result count Otto passes to OpenClaw when web_search is enabled.",
+      "Default result count the workspace app passes to OpenClaw when web_search is enabled.",
     key: "maxResults",
     label: "Default results",
   },
   {
-    description: "Request timeout Otto projects for web_search.",
+    description: "Request timeout the workspace app projects for web_search.",
     key: "timeoutSeconds",
     label: "Timeout",
   },
   {
-    description: "Cache lifetime Otto projects for web_search results.",
+    description:
+      "Cache lifetime the workspace app projects for web_search results.",
     key: "cacheTtlMinutes",
     label: "Cache TTL",
   },
@@ -54,7 +55,7 @@ const fieldMeanings: ToolFieldMeaning[] = [
 const agentOperations: ToolAgentOperation[] = [
   {
     description:
-      "Read the current global web search configuration Otto projects into the runtime. This surface is read-only.",
+      "Read the current global web search configuration the workspace app projects into the runtime. This surface is read-only.",
     key: "get_web_search_config",
     label: "Get web search config",
   },
