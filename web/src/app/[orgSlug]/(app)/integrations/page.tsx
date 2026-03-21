@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
@@ -10,7 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getSlackStatusLabel, isOrganizationUnlocked } from "@/lib/workspace";
+import {
+  getSlackStatusLabel,
+  getWhatsAppStatusLabel,
+  isOrganizationUnlocked,
+} from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +59,33 @@ export default async function IntegrationsPage({
             href={`/${organization.slug}/integrations/slack`}
           >
             Open Slack
+          </Link>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>WhatsApp</CardTitle>
+            {organization.whatsappIntegration?.selfE164 ? (
+              <Badge variant="outline">
+                {organization.whatsappIntegration.selfE164}
+              </Badge>
+            ) : null}
+          </div>
+          <CardDescription>
+            Current state: {getWhatsAppStatusLabel(organization)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Set up Otto with one dedicated WhatsApp Business number, generate a
+            QR code, and manage which numbers and groups can reach it.
+          </p>
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            href={`/${organization.slug}/integrations/whatsapp`}
+          >
+            Open WhatsApp
           </Link>
         </CardContent>
       </Card>

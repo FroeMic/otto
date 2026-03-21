@@ -15,6 +15,7 @@ import {
   tenantIntegrations,
   tenantServers,
   tenants,
+  whatsappInstallations,
 } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
@@ -31,6 +32,7 @@ import {
 
 const runtimeManager = new RuntimeManager();
 const SLACK_PROVIDER_KEY = "slack";
+const WHATSAPP_PROVIDER_KEY = "whatsapp";
 
 export async function processApplyTenantConfigJob(
   job: ClaimedJob,
@@ -47,12 +49,14 @@ export async function processApplyTenantConfigJob(
     "starting",
   );
 
+  let slackEnabledInDesiredState = false;
+  let whatsAppEnabledInDesiredState = false;
+
   try {
     await markApplyRun(job.id, {
       startedAt: new Date(),
       status: APPLY_STEPS.loadingDesiredState,
     });
-    await markSlackIntegrationStatus(payload.tenantId, "applying");
     await appendJobEvent(
       job.id,
       APPLY_STEPS.loadingDesiredState,
@@ -69,6 +73,26 @@ export async function processApplyTenantConfigJob(
       }),
       getTenantRuntimeConnection(payload.tenantId),
     ]);
+    slackEnabledInDesiredState = desiredStateUsesSlack(desiredState.configJson);
+    whatsAppEnabledInDesiredState = desiredStateUsesWhatsApp(
+      desiredState.configJson,
+    );
+
+    if (slackEnabledInDesiredState) {
+      await markIntegrationStatus(
+        payload.tenantId,
+        SLACK_PROVIDER_KEY,
+        "applying",
+      );
+    }
+
+    if (whatsAppEnabledInDesiredState) {
+      await markIntegrationStatus(
+        payload.tenantId,
+        WHATSAPP_PROVIDER_KEY,
+        "applying",
+      );
+    }
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.renderingFiles,
@@ -196,7 +220,18 @@ export async function processApplyTenantConfigJob(
       verifyStderr: verify.stderr,
       verifyStdout: verify.stdout,
     });
-    await markSlackIntegrationStatus(payload.tenantId, "connected");
+    if (slackEnabledInDesiredState) {
+      await markIntegrationStatus(
+        payload.tenantId,
+        SLACK_PROVIDER_KEY,
+        "connected",
+      );
+    }
+
+    if (whatsAppEnabledInDesiredState) {
+      await markWhatsAppApplySuccessStatus(payload.tenantId);
+    }
+
     await appendJobEvent(
       job.id,
       APPLY_STEPS.succeeded,
@@ -216,7 +251,24 @@ export async function processApplyTenantConfigJob(
       finishedAt: new Date(),
       status: APPLY_STEPS.failed,
     });
-    await markSlackIntegrationStatus(payload.tenantId, "apply_failed", message);
+    if (slackEnabledInDesiredState) {
+      await markIntegrationStatus(
+        payload.tenantId,
+        SLACK_PROVIDER_KEY,
+        "apply_failed",
+        message,
+      );
+    }
+
+    if (whatsAppEnabledInDesiredState) {
+      await markIntegrationStatus(
+        payload.tenantId,
+        WHATSAPP_PROVIDER_KEY,
+        "apply_failed",
+        message,
+      );
+    }
+
     await appendJobEvent(
       job.id,
       APPLY_STEPS.failed,
@@ -325,8 +377,9 @@ async function markApplyRun(
     .where(eq(tenantApplyRuns.jobRunId, jobRunId));
 }
 
-async function markSlackIntegrationStatus(
+async function markIntegrationStatus(
   tenantId: string,
+  providerKey: string,
   status: string,
   error?: string,
 ) {
@@ -344,7 +397,55 @@ async function markSlackIntegrationStatus(
     .where(
       and(
         eq(tenantIntegrations.tenantId, tenantId),
-        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(tenantIntegrations.providerKey, providerKey),
+      ),
+    );
+}
+
+async function markWhatsAppApplySuccessStatus(tenantId: string) {
+  const db = getDb();
+  const now = new Date();
+  const [integration] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+      whatsappSelfE164: whatsappInstallations.selfE164,
+      whatsappSelfJid: whatsappInstallations.selfJid,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      whatsappInstallations,
+      eq(whatsappInstallations.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  const nextStatus =
+    integration?.status === "disconnected"
+      ? "disconnected"
+      : integration?.whatsappSelfE164 || integration?.whatsappSelfJid
+        ? "connected"
+        : "ready_to_link";
+
+  await db
+    .update(tenantIntegrations)
+    .set({
+      lastError: null,
+      lastErrorAt: null,
+      status: nextStatus,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
     );
 }
@@ -361,6 +462,20 @@ function desiredStateUsesSlack(configJson: unknown) {
   const integrations = (configJson as Record<string, unknown>).integrations;
 
   return Array.isArray(integrations) && integrations.includes("slack");
+}
+
+function desiredStateUsesWhatsApp(configJson: unknown) {
+  if (
+    !configJson ||
+    typeof configJson !== "object" ||
+    Array.isArray(configJson)
+  ) {
+    return false;
+  }
+
+  const integrations = (configJson as Record<string, unknown>).integrations;
+
+  return Array.isArray(integrations) && integrations.includes("whatsapp");
 }
 
 function getErrorMessage(error: unknown) {

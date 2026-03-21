@@ -26,6 +26,8 @@ import {
   tenantServers,
   tenants,
   users,
+  whatsappInstallations,
+  whatsappLinkSessions,
 } from "@/db/schema";
 import {
   decryptControlPlaneSecret,
@@ -70,6 +72,19 @@ import {
   webSearchRuntimeConfigJsonSchema,
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
+import {
+  getDefaultWhatsAppRuntimeConfig,
+  parseWhatsAppRuntimeConfig,
+  WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+  WHATSAPP_RUNTIME_CONFIG_LABEL,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+  type WhatsAppRuntimeConfig,
+  whatsappRuntimeConfigJsonSchema,
+  whatsappRuntimeConfigUiHints,
+} from "@/lib/whatsapp-config";
 import { getWorkOS } from "@/lib/workos";
 import {
   getToolDefinition,
@@ -90,8 +105,13 @@ import type {
   ToolSurfaceAction,
   ToolSurfaceResponse,
 } from "@/tools/types";
+import {
+  deriveWhatsAppPolicyEffects,
+  type WhatsAppPolicyDerivedEffects,
+} from "@/tools/whatsapp/policy";
 
 const SLACK_PROVIDER_KEY = "slack";
+const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
 
@@ -99,6 +119,13 @@ function isSlackSurface(surfaceKind: string, surfaceKey: string) {
   return (
     surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
     surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
+  );
+}
+
+function isWhatsAppSurface(surfaceKind: string, surfaceKey: string) {
+  return (
+    surfaceKind === WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND &&
+    surfaceKey === WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY
   );
 }
 
@@ -164,6 +191,14 @@ type SlackIntegrationSummary = {
   teamName: string | null;
 };
 
+type WhatsAppIntegrationSummary = {
+  connectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  selfE164: string | null;
+  status: string;
+};
+
 type TenantApplyRunSummary = {
   desiredStateVersion: number;
   error: string | null;
@@ -226,6 +261,20 @@ export type TenantSlackRuntimeConfig = {
   schemaVersion: string;
 };
 
+export type TenantWhatsAppRuntimeConfig = {
+  ackReactionEnabled: boolean;
+  allowedGroupIds: string[];
+  allowedNumbers: string[];
+  dmPolicy: "pairing" | "allowlist" | "disabled";
+  enabled: boolean;
+  entryVersion: number;
+  groupAllowedNumbers: string[];
+  groupPolicy: "disabled" | "allowlist";
+  installState: ToolInstallState;
+  requireMentionInGroups: boolean;
+  schemaVersion: string;
+};
+
 export type SlackRuntimeConfigDirectoryOption = {
   memberCount?: number | null;
   description: string | null;
@@ -275,6 +324,54 @@ export type TenantSlackRuntimeConfigSurface = {
   uiHints: typeof slackRuntimeConfigUiHints;
 };
 
+export type TenantWhatsAppRuntimeConfigSurface = {
+  agentOperations?: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit?: boolean;
+  canUserEdit?: boolean;
+  config: TenantWhatsAppRuntimeConfig;
+  description: string;
+  derivedEffects?: WhatsAppPolicyDerivedEffects;
+  fieldMeanings: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  key: string;
+  kind: string;
+  label: string;
+  actionMeanings: Array<{
+    action: ToolSurfaceAction;
+    description: string;
+    label: string;
+  }>;
+  allowedActions: ToolSurfaceAction[];
+  id: string;
+  schema: typeof whatsappRuntimeConfigJsonSchema;
+  settingsUrl?: string | null;
+  setupUrl?: string | null;
+  surfaceType: "integration";
+  uiGroup: "integrations";
+  uiHints: typeof whatsappRuntimeConfigUiHints;
+};
+
+export type TenantWhatsAppLinkSession = {
+  completedAt: Date | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+  forceRelink: boolean;
+  id: string;
+  lastError: string | null;
+  qrDataUrl: string | null;
+  status: string;
+  updatedAt: Date;
+};
+
 export type TenantToolConfigSurface = ToolSurfaceResponse<
   Record<string, unknown>,
   Record<string, unknown>
@@ -315,6 +412,7 @@ export type DashboardOrganization = {
   name: string;
   role: string;
   slackIntegration: SlackIntegrationSummary | null;
+  whatsappIntegration: WhatsAppIntegrationSummary | null;
   slug: string;
   tenants: Array<{
     createdAt: Date;
@@ -484,10 +582,40 @@ export async function getDashboardOrganizations(
               eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
             ),
           );
+  const whatsappIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            selfE164: whatsappInstallations.selfE164,
+            status: tenantIntegrations.status,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            whatsappInstallations,
+            eq(
+              whatsappInstallations.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+            ),
+          );
 
   const slackIntegrationsByTenant = new Map<
     string,
     (typeof slackIntegrationRows)[number]
+  >();
+  const whatsappIntegrationsByTenant = new Map<
+    string,
+    (typeof whatsappIntegrationRows)[number]
   >();
 
   for (const integration of slackIntegrationRows) {
@@ -496,6 +624,14 @@ export async function getDashboardOrganizations(
     }
 
     slackIntegrationsByTenant.set(integration.tenantId, integration);
+  }
+
+  for (const integration of whatsappIntegrationRows) {
+    if (whatsappIntegrationsByTenant.has(integration.tenantId)) {
+      continue;
+    }
+
+    whatsappIntegrationsByTenant.set(integration.tenantId, integration);
   }
 
   const latestJobRows =
@@ -628,6 +764,11 @@ export async function getDashboardOrganizations(
       slackIntegration: buildSlackIntegrationSummary(
         primaryTenant
           ? (slackIntegrationsByTenant.get(primaryTenant.id) ?? null)
+          : null,
+      ),
+      whatsappIntegration: buildWhatsAppIntegrationSummary(
+        primaryTenant
+          ? (whatsappIntegrationsByTenant.get(primaryTenant.id) ?? null)
           : null,
       ),
       slug: organization.organizationSlug,
@@ -789,6 +930,22 @@ function buildSlackIntegrationSummary(
     lastErrorAt: integration.lastErrorAt,
     status: integration.status,
     teamName: integration.teamName,
+  };
+}
+
+function buildWhatsAppIntegrationSummary(
+  integration: WhatsAppIntegrationSummary | null,
+) {
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    connectedAt: integration.connectedAt,
+    lastError: integration.lastError,
+    lastErrorAt: integration.lastErrorAt,
+    selfE164: integration.selfE164,
+    status: integration.status,
   };
 }
 
@@ -1774,6 +1931,15 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
   }
 
   if (
+    input.surfaceKind === WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND &&
+    input.surfaceKey === WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY
+  ) {
+    return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    }) as Promise<TenantToolConfigSurface | null>;
+  }
+
+  if (
     input.surfaceKind === WEB_SEARCH_TOOL_SURFACE_KIND &&
     input.surfaceKey === WEB_SEARCH_TOOL_SURFACE_KEY
   ) {
@@ -1834,6 +2000,16 @@ export async function validateTenantToolConfigChangeForTenant(input: {
     return validateTenantSlackRuntimeConfigChangeForTenant({
       createdByType: input.createdByType ?? "user",
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
+      tenantId: input.tenantId,
+    });
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    return validateTenantWhatsAppRuntimeConfigChangeForTenant({
+      createdByType: input.createdByType ?? "user",
+      patch: definition.parsePatch(
+        input.patch,
+      ) as Partial<WhatsAppRuntimeConfig>,
       tenantId: input.tenantId,
     });
   }
@@ -1922,6 +2098,33 @@ export async function applyTenantToolConfigChangeForTenant(input: {
       createdByType: input.createdByType,
       expectedEntryVersion: input.expectedEntryVersion,
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+    const surface = await getTenantToolConfigSurfaceForTenant({
+      surfaceKey: input.surfaceKey,
+      surfaceKind: input.surfaceKind,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      ...result,
+      surface,
+      validation: {
+        ok: true,
+      },
+    };
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    const result = await updateTenantWhatsAppRuntimeConfigForTenant({
+      allowDestructiveChanges: input.allowDestructiveChanges,
+      createdByExternalId: input.createdByExternalId,
+      createdByType: input.createdByType,
+      expectedEntryVersion: input.expectedEntryVersion,
+      patch: definition.parsePatch(
+        input.patch,
+      ) as Partial<WhatsAppRuntimeConfig>,
       summary: input.summary,
       tenantId: input.tenantId,
     });
@@ -2083,6 +2286,356 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       uiHints: slackRuntimeConfigUiHints,
     };
   });
+}
+
+export async function getTenantWhatsAppRuntimeConfigSurface(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
+  tenantId: string;
+}): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
+  const db = getDb();
+  const definition = getToolDefinition(
+    WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+    WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  );
+
+  return db.transaction(async (tx) => {
+    const [whatsAppIntegration, organizationSlug] = await Promise.all([
+      getWhatsAppIntegrationForTenant(tx, {
+        tenantId: input.tenantId,
+      }),
+      getOrganizationSlugForTenantTx(tx, {
+        tenantId: input.tenantId,
+      }),
+    ]);
+
+    if (!whatsAppIntegration) {
+      return null;
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+    const allowedActions = definition
+      ? listAvailableToolActions(definition, {
+          enabled: currentConfig.enabled,
+          installState: currentConfig.installState,
+        })
+      : [];
+    const effects = deriveWhatsAppPolicyEffects({
+      config: currentConfig.config,
+    });
+    const isBlocked =
+      whatsAppIntegration.status === "pending_apply" ||
+      whatsAppIntegration.status === "applying";
+
+    return {
+      actionMeanings: definition?.actionMeanings ?? [],
+      agentOperations: definition?.agentOperations ?? [],
+      allowedActions,
+      availability: isBlocked ? "blocked" : "available",
+      blockingReason: isBlocked
+        ? "Otto is still preparing WhatsApp. Finish the latest apply before changing these settings."
+        : null,
+      canAgentEdit: true,
+      canUserEdit: true,
+      config: buildTenantWhatsAppRuntimeConfig(currentConfig),
+      description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+      derivedEffects: effects,
+      fieldMeanings: definition?.fieldMeanings ?? [],
+      id: getToolSurfaceId(
+        WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+        WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      ),
+      key: WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      kind: WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+      label: WHATSAPP_RUNTIME_CONFIG_LABEL,
+      schema: whatsappRuntimeConfigJsonSchema,
+      settingsUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/whatsapp`
+        : null,
+      setupUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/whatsapp`
+        : null,
+      surfaceType: "integration",
+      uiGroup: "integrations",
+      uiHints: whatsappRuntimeConfigUiHints,
+    };
+  });
+}
+
+export async function enableTenantWhatsAppIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const existingIntegration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (existingIntegration) {
+      return {
+        applyQueued: false,
+        changed: false,
+        desiredStateVersion: null as number | null,
+        tenantId: authorizedTenant.tenantId,
+      };
+    }
+
+    const now = new Date();
+    await upsertWhatsAppIntegrationForTenant(tx, {
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+    await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    await markWhatsAppIntegrationPendingApply(tx, {
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      desiredStateVersion,
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return {
+    ...result,
+    surface: await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: result.tenantId,
+    }),
+  };
+}
+
+export async function createTenantWhatsAppLinkSession(input: {
+  forceRelink?: boolean;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    if (!tenantRuntime.isRuntimeReady) {
+      throw new Error("WhatsApp linking requires a ready workspace runtime");
+    }
+
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("Enable WhatsApp before generating a QR code");
+    }
+
+    if (
+      integration.status === "pending_apply" ||
+      integration.status === "applying"
+    ) {
+      throw new Error(
+        "Otto is still applying WhatsApp. Wait for the latest update to finish before generating a QR code.",
+      );
+    }
+
+    if (integration.status === "apply_failed") {
+      throw new Error(
+        "WhatsApp setup is not applied on the tenant runtime yet. Reapply the WhatsApp settings before generating a QR code.",
+      );
+    }
+
+    const now = new Date();
+    const [linkSession] = await tx
+      .insert(whatsappLinkSessions)
+      .values({
+        expiresAt: new Date(now.getTime() + 3 * 60_000),
+        forceRelink: Boolean(input.forceRelink),
+        startedByExternalId: input.userExternalId,
+        status: "queued",
+        tenantIntegrationId: integration.id,
+      })
+      .returning({
+        completedAt: whatsappLinkSessions.completedAt,
+        createdAt: whatsappLinkSessions.createdAt,
+        expiresAt: whatsappLinkSessions.expiresAt,
+        forceRelink: whatsappLinkSessions.forceRelink,
+        id: whatsappLinkSessions.id,
+        lastError: whatsappLinkSessions.lastError,
+        qrDataUrl: whatsappLinkSessions.qrDataUrl,
+        status: whatsappLinkSessions.status,
+        updatedAt: whatsappLinkSessions.updatedAt,
+      });
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        lastError: null,
+        lastErrorAt: null,
+        status: "linking",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    return {
+      linkSession: buildTenantWhatsAppLinkSession(linkSession),
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.whatsappLinkSession,
+    payload: {
+      linkSessionId: result.linkSession?.id ?? "",
+      tenantId: result.tenantId,
+    },
+  });
+
+  return result;
+}
+
+export async function getCurrentTenantWhatsAppLinkSession(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      return null;
+    }
+
+    const [session] = await tx
+      .select({
+        completedAt: whatsappLinkSessions.completedAt,
+        createdAt: whatsappLinkSessions.createdAt,
+        expiresAt: whatsappLinkSessions.expiresAt,
+        forceRelink: whatsappLinkSessions.forceRelink,
+        id: whatsappLinkSessions.id,
+        lastError: whatsappLinkSessions.lastError,
+        qrDataUrl: whatsappLinkSessions.qrDataUrl,
+        status: whatsappLinkSessions.status,
+        updatedAt: whatsappLinkSessions.updatedAt,
+      })
+      .from(whatsappLinkSessions)
+      .where(eq(whatsappLinkSessions.tenantIntegrationId, integration.id))
+      .orderBy(desc(whatsappLinkSessions.createdAt))
+      .limit(1);
+
+    return buildTenantWhatsAppLinkSession(session ?? null);
+  });
+}
+
+export async function disconnectTenantWhatsApp(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const tenantId = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp is not enabled for this workspace");
+    }
+
+    return authorizedTenant.tenantId;
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.whatsappDisconnect,
+    payload: {
+      tenantId,
+    },
+  });
+
+  return {
+    disconnectQueued: true,
+    tenantId,
+  };
 }
 
 async function getTenantWebSearchToolSurfaceForTenant(input: {
@@ -2337,6 +2890,61 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
     }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+
+    return {
+      effects,
+      nextConfig,
+      surface,
+      validation: {
+        ok: true,
+        warnings: effects.warnings,
+      },
+    };
+  });
+}
+
+export async function validateTenantWhatsAppRuntimeConfigChangeForTenant(input: {
+  createdByType: "runtime" | "system" | "user";
+  patch: Partial<WhatsAppRuntimeConfig>;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error(
+        "WhatsApp must be enabled before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "WhatsApp config must be installed before it can be updated",
+      );
+    }
+
+    const nextConfig = parseWhatsAppRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+    const effects = deriveWhatsAppPolicyEffects({
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+    });
+    const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
     });
 
@@ -2735,6 +3343,136 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
   return result;
 }
 
+export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
+  allowDestructiveChanges?: boolean;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  patch: Partial<WhatsAppRuntimeConfig>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error(
+        "WhatsApp must be enabled before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "WhatsApp config must be installed before it can be updated",
+      );
+    }
+
+    if (
+      typeof input.expectedEntryVersion === "number" &&
+      currentConfig.entryVersion !== input.expectedEntryVersion
+    ) {
+      throw new TenantRuntimeConfigVersionConflictError(
+        input.expectedEntryVersion,
+        currentConfig.entryVersion,
+      );
+    }
+
+    const nextConfig = parseWhatsAppRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+    const effects = deriveWhatsAppPolicyEffects({
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+    });
+
+    if (
+      input.createdByType === "user" &&
+      effects.wouldFullyLockOutWhatsApp &&
+      !input.allowDestructiveChanges
+    ) {
+      throw new Error(
+        "This WhatsApp settings change would fully lock Otto out of WhatsApp. Confirm the destructive change in the workspace before saving it.",
+      );
+    }
+
+    if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentEntryVersion: currentConfig.entryVersion,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: input.summary ?? "Updated WhatsApp runtime config",
+        configJson: nextConfig,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      expectedEntryVersion: input.expectedEntryVersion ?? null,
+      mutationType: "update",
+      patchJson: input.patch,
+      resultJson: nextConfig,
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: nextEntryVersion,
+      desiredStateVersion,
+      effects,
+      installState: "installed" as const,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
 export async function setTenantToolInstallStateForTenant(input: {
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
@@ -2925,6 +3663,77 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
 
   if (mutationError) {
     throw new Error(mutationError);
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    const db = getDb();
+    const result = await db.transaction(async (tx) => {
+      const integration = await getWhatsAppIntegrationForTenant(tx, {
+        tenantId: input.tenantId,
+      });
+
+      if (!integration) {
+        throw new Error(
+          "WhatsApp must be enabled before its runtime surface can be reapplied",
+        );
+      }
+
+      const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+        tx,
+        {
+          tenantId: input.tenantId,
+        },
+      );
+
+      if (currentConfig.installState !== "installed") {
+        throw new Error(
+          "Tool surface must be installed before it can be reapplied",
+        );
+      }
+
+      const desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: input.tenantId,
+        })
+      ).version;
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+      await tx.insert(tenantRuntimeConfigMutations).values({
+        actorExternalId: input.createdByExternalId ?? null,
+        actorType: input.createdByType,
+        desiredStateVersion,
+        mutationType: "reapply",
+        resultJson: {
+          summary: input.summary ?? "Reapplied runtime surface",
+        },
+        resultingEntryVersion: currentConfig.entryVersion,
+        tenantId: input.tenantId,
+        tenantRuntimeConfigEntryId: currentConfig.id,
+      });
+
+      const surface = await getTenantToolConfigSurfaceForTenant({
+        surfaceKey: input.surfaceKey,
+        surfaceKind: input.surfaceKind,
+        tenantId: input.tenantId,
+      });
+
+      return {
+        applyQueued: tenantRuntime.isRuntimeReady,
+        changed: true,
+        currentEntryVersion: currentConfig.entryVersion,
+        desiredStateVersion,
+        surface,
+      };
+    });
+
+    if (result.applyQueued && result.desiredStateVersion) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion: result.desiredStateVersion,
+        tenantId: input.tenantId,
+      });
+    }
+
+    return result;
   }
 
   if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
@@ -3283,6 +4092,59 @@ async function upsertSlackIntegrationForTenant(
   return tenantIntegrationId;
 }
 
+async function upsertWhatsAppIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (existingIntegration) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status:
+          existingIntegration.status === "connected"
+            ? "connected"
+            : "pending_apply",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, existingIntegration.id));
+
+    return existingIntegration.id;
+  }
+
+  const [createdIntegration] = await tx
+    .insert(tenantIntegrations)
+    .values({
+      providerKey: WHATSAPP_PROVIDER_KEY,
+      status: "pending_apply",
+      tenantId: input.tenantId,
+    })
+    .returning({
+      id: tenantIntegrations.id,
+    });
+
+  return createdIntegration.id;
+}
+
 async function recordSlackIntegrationError(
   tx: DbTransaction,
   input: {
@@ -3370,27 +4232,33 @@ async function compileTenantDesiredStateConfig(
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
   });
-  const [slackIntegration] = await tx
-    .select({
-      connectedAt: tenantIntegrations.connectedAt,
-      disconnectedAt: tenantIntegrations.disconnectedAt,
-      installerUserId: slackInstallations.installerUserId,
-      slackBotUserId: slackInstallations.slackBotUserId,
-      slackTeamId: slackInstallations.slackTeamId,
-      slackTeamName: slackInstallations.slackTeamName,
-    })
-    .from(tenantIntegrations)
-    .leftJoin(
-      slackInstallations,
-      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
-    )
-    .where(
-      and(
-        eq(tenantIntegrations.tenantId, tenantId),
-        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
-      ),
-    )
-    .limit(1);
+  const [slackIntegration, whatsAppIntegration] = await Promise.all([
+    tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        installerUserId: slackInstallations.installerUserId,
+        slackBotUserId: slackInstallations.slackBotUserId,
+        slackTeamId: slackInstallations.slackTeamId,
+        slackTeamName: slackInstallations.slackTeamName,
+      })
+      .from(tenantIntegrations)
+      .leftJoin(
+        slackInstallations,
+        eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+      )
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, tenantId),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    getWhatsAppIntegrationForTenant(tx, {
+      tenantId,
+    }),
+  ]);
 
   const config: Record<string, unknown> = {
     integrations: [],
@@ -3453,6 +4321,41 @@ async function compileTenantDesiredStateConfig(
         provider: "openai",
       },
     };
+  }
+
+  if (whatsAppIntegration) {
+    const whatsAppRuntimeConfig =
+      await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
+        tenantId,
+      });
+
+    if (
+      whatsAppRuntimeConfig.installState === "installed" &&
+      whatsAppRuntimeConfig.enabled
+    ) {
+      const integrations = Array.isArray(config.integrations)
+        ? [...config.integrations]
+        : [];
+
+      if (!integrations.includes("whatsapp")) {
+        integrations.push("whatsapp");
+      }
+
+      config.integrations = integrations;
+      config.whatsapp = {
+        ackReactionEnabled: whatsAppRuntimeConfig.config.ackReactionEnabled,
+        allowedGroupIds: whatsAppRuntimeConfig.config.allowedGroupIds,
+        allowedNumbers: whatsAppRuntimeConfig.config.allowedNumbers,
+        dmPolicy: whatsAppRuntimeConfig.config.dmPolicy,
+        groupAllowedNumbers:
+          whatsAppRuntimeConfig.config.groupAllowedNumbers.length > 0
+            ? whatsAppRuntimeConfig.config.groupAllowedNumbers
+            : whatsAppRuntimeConfig.config.allowedNumbers,
+        groupPolicy: whatsAppRuntimeConfig.config.groupPolicy,
+        requireMentionInGroups:
+          whatsAppRuntimeConfig.config.requireMentionInGroups,
+      };
+    }
   }
 
   return config;
@@ -3538,6 +4441,86 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
   };
 }
 
+async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingEntry] = await tx
+    .select({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    })
+    .from(tenantRuntimeConfigEntries)
+    .where(
+      and(
+        eq(tenantRuntimeConfigEntries.tenantId, input.tenantId),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKind,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+        ),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKey,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+        ),
+      ),
+    )
+    .limit(1);
+
+  if (existingEntry) {
+    return {
+      config: parseWhatsAppRuntimeConfig(existingEntry.configJson),
+      entryVersion: existingEntry.entryVersion,
+      enabled: existingEntry.enabled,
+      id: existingEntry.id,
+      installState: normalizeInstallState(existingEntry.installState),
+      schemaVersion: existingEntry.schemaVersion,
+    };
+  }
+
+  const now = new Date();
+  const defaultConfig = getDefaultWhatsAppRuntimeConfig();
+  const [createdEntry] = await tx
+    .insert(tenantRuntimeConfigEntries)
+    .values({
+      changeSummary: "Seeded default WhatsApp runtime config",
+      configJson: defaultConfig,
+      createdByType: "system",
+      enabled: true,
+      installState: "installed",
+      lastValidatedAt: now,
+      schemaSource: WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
+      schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+      surfaceKey: WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      surfaceKind: WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+      tenantId: input.tenantId,
+      updatedAt: now,
+      updatedByType: "system",
+    })
+    .returning({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    });
+
+  return {
+    config: parseWhatsAppRuntimeConfig(createdEntry.configJson),
+    entryVersion: createdEntry.entryVersion,
+    enabled: createdEntry.enabled,
+    id: createdEntry.id,
+    installState: normalizeInstallState(createdEntry.installState),
+    schemaVersion: createdEntry.schemaVersion,
+  };
+}
+
 async function getConnectedSlackIntegrationForTenant(
   tx: DbTransaction,
   input: {
@@ -3564,6 +4547,39 @@ async function getConnectedSlackIntegrationForTenant(
   }
 
   return slackIntegration;
+}
+
+async function getWhatsAppIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [integration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      selfE164: whatsappInstallations.selfE164,
+      selfJid: whatsappInstallations.selfJid,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      whatsappInstallations,
+      eq(whatsappInstallations.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  return integration ?? null;
 }
 
 async function getOrganizationSlugForTenant(tenantId: string) {
@@ -3994,6 +5010,52 @@ function buildTenantSlackRuntimeConfig(input: {
   };
 }
 
+function buildTenantWhatsAppRuntimeConfig(input: {
+  config: WhatsAppRuntimeConfig;
+  enabled: boolean;
+  entryVersion: number;
+  installState: ToolInstallState;
+  schemaVersion: string;
+}): TenantWhatsAppRuntimeConfig {
+  return {
+    ...input.config,
+    enabled: input.enabled,
+    entryVersion: input.entryVersion,
+    installState: input.installState,
+    schemaVersion: input.schemaVersion,
+  };
+}
+
+function buildTenantWhatsAppLinkSession(
+  session: {
+    completedAt: Date | null;
+    createdAt: Date;
+    expiresAt: Date | null;
+    forceRelink: boolean;
+    id: string;
+    lastError: string | null;
+    qrDataUrl: string | null;
+    status: string;
+    updatedAt: Date;
+  } | null,
+): TenantWhatsAppLinkSession | null {
+  if (!session) {
+    return null;
+  }
+
+  return {
+    completedAt: session.completedAt,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+    forceRelink: session.forceRelink,
+    id: session.id,
+    lastError: session.lastError,
+    qrDataUrl: session.qrDataUrl,
+    status: session.status,
+    updatedAt: session.updatedAt,
+  };
+}
+
 async function ensureLatestTenantManagedConfigVersion(
   tx: DbTransaction,
   input: {
@@ -4106,6 +5168,30 @@ async function markSlackIntegrationPendingApply(
       and(
         eq(tenantIntegrations.tenantId, input.tenantId),
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    );
+}
+
+async function markWhatsAppIntegrationPendingApply(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      status: "pending_apply",
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
     );
 }

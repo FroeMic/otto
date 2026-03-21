@@ -37,6 +37,10 @@ export default async function ToolDetailPage({
     redirect(`/${organization.slug}/integrations/slack`);
   }
 
+  if (surfaceKind === "channel" && surfaceKey === "whatsapp") {
+    redirect(`/${organization.slug}/integrations/whatsapp`);
+  }
+
   const [surface, definition] = await Promise.all([
     getTenantToolConfigSurface({
       orgSlug,

@@ -5,9 +5,11 @@ import type {
   ToolSurfaceLifecycleState,
 } from "@/tools/types";
 import { webSearchToolSurfaceDefinition } from "@/tools/web-search";
+import { whatsappToolSurfaceDefinition } from "@/tools/whatsapp";
 
 const registry = [
   slackToolSurfaceDefinition,
+  whatsappToolSurfaceDefinition,
   webSearchToolSurfaceDefinition,
 ] as const;
 type ToolSurfaceRegistryEntry = (typeof registry)[number];

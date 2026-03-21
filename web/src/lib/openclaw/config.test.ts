@@ -111,6 +111,49 @@ describe("renderOpenClawConfig", () => {
       timeoutSeconds: 30,
     });
   });
+
+  it("renders WhatsApp config with the Otto-managed defaults", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: ["whatsapp"],
+      prompts: {},
+      tenantId: "tenant_123",
+      whatsapp: {
+        ackReactionEnabled: true,
+        allowedGroupIds: ["1234567890@g.us"],
+        allowedNumbers: ["+436641234567"],
+        dmPolicy: "allowlist",
+        enabled: true,
+        groupAllowedNumbers: [],
+        groupPolicy: "allowlist",
+        requireMentionInGroups: true,
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.channels.whatsapp, {
+      ackReaction: {
+        direct: true,
+        emoji: "👀",
+        group: "mentions",
+      },
+      allowFrom: ["+436641234567"],
+      configWrites: false,
+      dmPolicy: "allowlist",
+      enabled: true,
+      groupAllowFrom: ["+436641234567"],
+      groupPolicy: "allowlist",
+      groups: {
+        "1234567890@g.us": {
+          requireMention: true,
+        },
+      },
+    });
+    assert.deepEqual(renderedConfig.gateway.tools.allow, ["whatsapp_login"]);
+  });
 });
 
 describe("validateOpenClawSlackConfig", () => {

@@ -125,6 +125,30 @@ export function getSlackStatusLabel(organization: DashboardOrganization) {
   return "Not connected";
 }
 
+export function getWhatsAppStatusLabel(organization: DashboardOrganization) {
+  const status = organization.whatsappIntegration?.status;
+
+  switch (status) {
+    case "pending_apply":
+      return "Preparing";
+    case "applying":
+      return "Applying";
+    case "ready_to_link":
+      return "Ready to connect";
+    case "linking":
+      return "Waiting for scan";
+    case "connected":
+      return "Connected";
+    case "apply_failed":
+    case "link_failed":
+      return "Needs attention";
+    case "disconnected":
+      return "Disconnected";
+    default:
+      return organization.whatsappIntegration ? "Pending" : "Not connected";
+  }
+}
+
 export function getRuntimeStatusLabel(organization: DashboardOrganization) {
   const agent = getPrimaryAgent(organization);
 

@@ -1,6 +1,8 @@
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   applyTenantConfig: "apply_tenant_config",
+  whatsappLinkSession: "whatsapp_link_session",
+  whatsappDisconnect: "whatsapp_disconnect",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -55,6 +57,15 @@ export type ApplyTenantConfigPayload = {
   step?: ApplyStep;
 };
 
+export type WhatsAppLinkSessionPayload = {
+  linkSessionId: string;
+  tenantId: string;
+};
+
+export type WhatsAppDisconnectPayload = {
+  tenantId: string;
+};
+
 export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
@@ -63,6 +74,14 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.applyTenantConfig;
       payload: ApplyTenantConfigPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.whatsappLinkSession;
+      payload: WhatsAppLinkSessionPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.whatsappDisconnect;
+      payload: WhatsAppDisconnectPayload;
     };
 
 export type ClaimedJob = {

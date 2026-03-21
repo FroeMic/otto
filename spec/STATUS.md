@@ -141,6 +141,11 @@
   - `tenant_runtime_config_entries` now also stores `install_state`, and `tenant_runtime_config_mutations` now records user/agent/system lifecycle and config mutations
   - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
+- WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
+  - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
+  - `tenant_integrations` now has WhatsApp-backed install state plus `whatsapp_installations` and `whatsapp_link_sessions`
+  - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
+  - worker handlers now exist for WhatsApp QR linking and disconnect, and the workspace has initial WhatsApp integration routes plus a dedicated setup page
 - The first non-Slack runtime surface is now implemented for global web search:
   - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface
   - desired-state compilation now resolves Brave web search config from control-plane env and projects it into tenant runtime config
@@ -158,7 +163,12 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_06_integrations_and_oauth.md` by:
+- Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
+  - validating the new QR link and disconnect worker flows against a real provisioned tenant runtime
+  - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
+  - adding focused tests for WhatsApp schema normalization, destructive-policy detection, desired-state projection, and the new lifecycle routes
+  - running the new Drizzle migration in active environments once the implementation is verified locally
+- Then continue `TODO_06_integrations_and_oauth.md` by:
   - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place

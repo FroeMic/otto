@@ -188,6 +188,62 @@ export const slackInstallations = pgTable(
   }),
 );
 
+export const whatsappInstallations = pgTable(
+  "whatsapp_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    selfJid: varchar("self_jid", { length: 255 }),
+    selfE164: varchar("self_e164", { length: 32 }),
+    linkedAt: timestamp("linked_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "whatsapp_installations_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
+export const whatsappLinkSessions = pgTable(
+  "whatsapp_link_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    qrDataUrl: text("qr_data_url"),
+    startedByExternalId: varchar("started_by_external_id", { length: 255 }),
+    forceRelink: boolean("force_relink").default(false).notNull(),
+    lastError: text("last_error"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationIdx: index(
+      "whatsapp_link_sessions_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+    tenantIntegrationStatusIdx: index(
+      "whatsapp_link_sessions_tenant_integration_id_status_idx",
+    ).on(table.tenantIntegrationId, table.status),
+  }),
+);
+
 export const integrationSecrets = pgTable(
   "integration_secrets",
   {

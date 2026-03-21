@@ -346,6 +346,80 @@ export class RuntimeManager {
     }
   }
 
+  async invokeGatewayTool(
+    connection: SshConnection,
+    input: {
+      action?: string;
+      args?: Record<string, unknown>;
+      tool: string;
+    },
+  ): Promise<Record<string, unknown>> {
+    const body = JSON.stringify({
+      ...(input.action ? { action: input.action } : {}),
+      ...(input.args ? { args: input.args } : {}),
+      tool: input.tool,
+    });
+    const command = buildShellCommand([
+      "test -f /opt/openclaw/home/.env",
+      "source /opt/openclaw/home/.env >/dev/null 2>&1",
+      `curl -fsS http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}/tools/invoke -H "Authorization: Bearer $OPENCLAW_GATEWAY_TOKEN" -H "Content-Type: application/json" -d ${shellQuoteForShell(body)}`,
+    ]);
+    const result = await this.execChecked(connection, command, {
+      timeoutMs: 60_000,
+    });
+
+    return parseJsonObject(result.stdout);
+  }
+
+  async readGatewayStatusJson(connection: SshConnection) {
+    const result = await this.execChecked(
+      connection,
+      buildShellCommand([
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+        "docker exec openclaw-gateway node dist/index.js status --json",
+      ]),
+      { timeoutMs: 60_000 },
+    );
+
+    return parseJsonObject(result.stdout);
+  }
+
+  async readWhatsAppSelfId(connection: SshConnection) {
+    const script = [
+      "const { loadConfig } = require('./dist/config/config.js');",
+      "const { resolveWhatsAppAccount } = require('./dist/web/accounts.js');",
+      "const { readWebSelfId } = require('./dist/web/auth-store.js');",
+      "const cfg = loadConfig();",
+      "const account = resolveWhatsAppAccount({ cfg });",
+      "const self = readWebSelfId(account.authDir);",
+      "process.stdout.write(JSON.stringify(self));",
+    ].join(" ");
+    const result = await this.execChecked(
+      connection,
+      buildShellCommand([
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+        `docker exec openclaw-gateway node -e ${shellQuoteForShell(script)}`,
+      ]),
+      { timeoutMs: 60_000 },
+    );
+
+    return parseJsonObject(result.stdout) as {
+      e164?: string | null;
+      jid?: string | null;
+    };
+  }
+
+  async logoutWhatsApp(connection: SshConnection) {
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+        "docker exec openclaw-gateway node dist/index.js channels logout --channel whatsapp",
+      ]),
+      { timeoutMs: 60_000 },
+    );
+  }
+
   private async execChecked(
     connection: SshConnection,
     command: string,
@@ -487,4 +561,14 @@ function buildTenantRuntimeFiles(input: {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseJsonObject(value: string) {
+  const parsed = JSON.parse(value);
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Expected a JSON object from tenant runtime");
+  }
+
+  return parsed as Record<string, unknown>;
 }

@@ -324,6 +324,7 @@ The next layer on top of this substrate is now in place as well:
 - tenant desired-state compilation now projects Brave web search into `tools.web.search` plus runtime `.env`, so globally managed web search is visible in both the UI and runtime surface APIs without becoming tenant-editable
 - runtime surface payloads now carry explicit `surfaceType` and `uiGroup` metadata so the same registry can back both `Integrations` and `Tools`
 - the runtime plugin and route contract now use surface-oriented naming consistently
+- the next integration on top of this surface layer is now `channel/whatsapp`, with one dedicated-number install per tenant, QR-based linking through `whatsapp_login`, and control-plane-owned policy defaults
 
 ## Routing strategy plan
 
@@ -467,6 +468,9 @@ Deliverables:
 - [x] add explicit runtime-surface grouping metadata and rename the runtime plugin contract to surface-oriented naming
 - [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
 - [x] add Slack channel join/leave actions in the control plane for public-channel membership management
+- [ ] add the first post-Slack integration surface for `channel/whatsapp`
+- [ ] add WhatsApp enable, QR-link, and disconnect lifecycle jobs through the worker
+- [ ] project WhatsApp runtime policy into desired state and OpenClaw config
 - [ ] implement shared Slack ingress router
 - [x] render Slack policy from canonical runtime config into desired state
 - [x] trigger apply after connect or token change
