@@ -149,6 +149,7 @@
   - WhatsApp QR linking is being moved off OpenClaw's `web.login.start` / `web.login.wait` path and onto an Otto-owned helper shipped in the custom runtime image, because the upstream QR RPC flow does not recover reliably from the post-pairing `515 restart required` branch
   - the helper-based link flow now completes real pairing successfully and no longer requires WhatsApp to be pre-installed in `openclaw.json` before showing a QR code
   - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
+  - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
   - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
 - The first non-Slack runtime surface is now implemented for global web search:
   - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface

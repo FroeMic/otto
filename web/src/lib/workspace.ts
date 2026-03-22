@@ -1,5 +1,64 @@
 import type { DashboardOrganization } from "@/db/control-plane";
 
+export type WhatsAppUiPhase =
+  | "prepare"
+  | "pairing"
+  | "activating"
+  | "connected"
+  | "attention";
+
+export function getWhatsAppUiPhase(input: {
+  integrationStatus?: string | null;
+  linkSessionStatus?: string | null;
+}): WhatsAppUiPhase {
+  if (
+    input.linkSessionStatus === "queued" ||
+    input.linkSessionStatus === "starting" ||
+    input.linkSessionStatus === "qr_ready" ||
+    input.integrationStatus === "linking"
+  ) {
+    return "pairing";
+  }
+
+  if (input.integrationStatus === "connected") {
+    return "connected";
+  }
+
+  if (
+    input.integrationStatus === "activating" ||
+    input.integrationStatus === "pending_apply" ||
+    input.integrationStatus === "applying" ||
+    input.linkSessionStatus === "connected"
+  ) {
+    return "activating";
+  }
+
+  if (
+    input.integrationStatus === "apply_failed" ||
+    input.integrationStatus === "link_failed" ||
+    input.linkSessionStatus === "failed"
+  ) {
+    return "attention";
+  }
+
+  return "prepare";
+}
+
+export function getWhatsAppUiPhaseLabel(phase: WhatsAppUiPhase) {
+  switch (phase) {
+    case "prepare":
+      return "Ready to connect";
+    case "pairing":
+      return "Waiting for scan";
+    case "activating":
+      return "Activating";
+    case "connected":
+      return "Connected";
+    case "attention":
+      return "Needs attention";
+  }
+}
+
 export function getPendingAccessPath(orgSlug?: string) {
   if (!orgSlug) {
     return "/onboarding/wait-for-access";

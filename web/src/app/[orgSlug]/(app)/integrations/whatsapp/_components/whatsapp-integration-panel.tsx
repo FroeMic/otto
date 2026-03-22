@@ -26,6 +26,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { getWhatsAppUiPhase } from "@/lib/workspace";
 import { deriveWhatsAppPolicyEffects } from "@/tools/whatsapp/policy";
 
 type WhatsAppRuntimeConfig = {
@@ -315,6 +316,16 @@ export function WhatsAppIntegrationPanel(props: Props) {
     [currentTimestamp, linkSession?.expiresAt],
   );
   const isWhatsAppInstalled = surface?.config.installState === "installed";
+  const uiPhase = useMemo(
+    () =>
+      getWhatsAppUiPhase({
+        integrationStatus: integration?.status ?? null,
+        linkSessionStatus: linkSession?.status ?? null,
+      }),
+    [integration?.status, linkSession?.status],
+  );
+  const linkedNumber =
+    integration?.selfE164 ?? "your dedicated WhatsApp number";
 
   async function runAction<T>(operation: () => Promise<T>) {
     setErrorMessage(null);
@@ -366,18 +377,6 @@ export function WhatsAppIntegrationPanel(props: Props) {
     }
 
     return data;
-  }
-
-  function handleEnable() {
-    startTransition(() => {
-      void runAction(async () => {
-        await postJson(`/api/integrations/${orgSlug}/whatsapp/enable`, {});
-        setSuccessMessage(
-          "WhatsApp has been enabled. Otto is applying the runtime changes now.",
-        );
-        router.refresh();
-      });
-    });
   }
 
   function handleGenerateQr(forceRelink: boolean) {
@@ -539,174 +538,124 @@ export function WhatsAppIntegrationPanel(props: Props) {
         </Alert>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Prepare dedicated number</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
-          <Alert>
-            <AlertTitle>Use a new dedicated number</AlertTitle>
-            <AlertDescription>
-              Reusing a personal number is out of scope for this version and can
-              cause account or routing confusion.
-            </AlertDescription>
-          </Alert>
-          <ol className="flex list-decimal flex-col gap-3 pl-5 text-foreground">
-            <li>
-              Buy a new phone number. Use a dedicated number for Otto. A
-              separate eSIM on an iPhone is fine.
-            </li>
-            <li>
-              Activate the number on your phone and confirm it can receive SMS
-              or phone calls.
-            </li>
-            <li>
-              Install WhatsApp Business from the App Store. Use WhatsApp
-              Business, not the regular WhatsApp app, for Otto&apos;s dedicated
-              number.
-            </li>
-            <li>
-              Register the new number in WhatsApp Business and complete SMS or
-              call verification.
-            </li>
-            <li>
-              Finish basic app setup with a simple business name like Otto. You
-              do not need catalog or marketing setup.
-            </li>
-            <li>
-              Return here and generate a QR code. In WhatsApp Business on your
-              iPhone, open Settings &gt; Linked Devices &gt; Link a Device, then
-              scan the QR code from your workspace.
-            </li>
-          </ol>
-          <div className="flex items-start gap-3 rounded-none border p-3">
-            <Checkbox
-              checked={prepConfirmed}
-              id="whatsapp-prep-confirmed"
-              onCheckedChange={(checked) => setPrepConfirmed(Boolean(checked))}
-            />
-            <label
-              className="text-sm leading-6 text-foreground"
-              htmlFor="whatsapp-prep-confirmed"
-            >
-              I have activated a dedicated number in WhatsApp Business and
-              understand Otto v1 does not support personal-number mode.
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Connect WhatsApp</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {!integration || !isWhatsAppInstalled ? (
+      {uiPhase === "prepare" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Prepare dedicated number</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
             <Alert>
-              <AlertTitle>Pair first, then activate</AlertTitle>
+              <AlertTitle>Use a new dedicated number</AlertTitle>
               <AlertDescription>
-                You can generate a QR code now even while WhatsApp is disabled.
-                After pairing succeeds, Otto will install and activate WhatsApp
-                in the tenant runtime automatically.
+                Reusing a personal number is out of scope for this version and
+                can cause account or routing confusion.
               </AlertDescription>
             </Alert>
-          ) : null}
-
-          {linkSession?.status === "qr_ready" && linkSession.qrDataUrl ? (
-            <div className="flex flex-col gap-4 rounded-none border p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Scan this QR code in WhatsApp Business
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    On your iPhone, open WhatsApp Business &gt; Settings &gt;
-                    Linked Devices &gt; Link a Device, then scan this QR code.
-                  </p>
-                </div>
-                {qrExpiresIn ? (
-                  <Badge variant="outline">Expires in {qrExpiresIn}</Badge>
-                ) : null}
-              </div>
-              <Image
-                alt="WhatsApp QR code"
-                className="w-full max-w-sm border bg-white p-4"
-                src={linkSession.qrDataUrl}
-                unoptimized
-                height={320}
-                width={320}
+            <ol className="flex list-decimal flex-col gap-3 pl-5 text-foreground">
+              <li>
+                Buy a new phone number. Use a dedicated number for Otto. A
+                separate eSIM on an iPhone is fine.
+              </li>
+              <li>
+                Activate the number on your phone and confirm it can receive SMS
+                or phone calls.
+              </li>
+              <li>
+                Install WhatsApp Business from the App Store. Use WhatsApp
+                Business, not the regular WhatsApp app, for Otto&apos;s
+                dedicated number.
+              </li>
+              <li>
+                Register the new number in WhatsApp Business and complete SMS or
+                call verification.
+              </li>
+              <li>
+                Finish basic app setup with a simple business name like Otto.
+                You do not need catalog or marketing setup.
+              </li>
+              <li>
+                Return here and tap Pair now. In WhatsApp Business on your
+                iPhone, open Settings &gt; Linked Devices &gt; Link a Device,
+                then scan the QR code from your workspace.
+              </li>
+            </ol>
+            <div className="flex items-start gap-3 rounded-none border p-3">
+              <Checkbox
+                checked={prepConfirmed}
+                id="whatsapp-prep-confirmed"
+                onCheckedChange={(checked) =>
+                  setPrepConfirmed(Boolean(checked))
+                }
               />
-              <p className="text-sm text-muted-foreground">
-                Keep WhatsApp Business open on your phone until linking
-                finishes.
-              </p>
+              <label
+                className="text-sm leading-6 text-foreground"
+                htmlFor="whatsapp-prep-confirmed"
+              >
+                I have activated a dedicated number in WhatsApp Business and
+                understand Otto v1 does not support personal-number mode.
+              </label>
             </div>
-          ) : null}
-
-          {linkSession?.status === "connected" &&
-          integration?.status === "activating" ? (
-            <Alert>
-              <AlertTitle>Pairing complete</AlertTitle>
-              <AlertDescription>
-                Otto linked your WhatsApp number and is now activating it in the
-                tenant runtime.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {linkSession?.status === "connected" &&
-          integration?.status !== "activating" ? (
-            <Alert>
-              <AlertTitle>WhatsApp connected</AlertTitle>
-              <AlertDescription>
-                Otto is now linked to{" "}
-                {integration?.selfE164 ?? "your dedicated WhatsApp number"}.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {linkSession?.status === "failed" && linkSession.lastError ? (
-            <Alert variant="destructive">
-              <AlertTitle>Linking failed</AlertTitle>
-              <AlertDescription>{linkSession.lastError}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              disabled={
-                isPending ||
-                !prepConfirmed ||
-                props.runtimeApplyIsActive ||
-                integration?.status === "apply_failed"
-              }
-              onClick={() =>
-                handleGenerateQr(integration?.status === "connected")
-              }
-            >
-              {integration?.status === "connected"
-                ? "Reconnect"
-                : "Generate QR code"}
-            </Button>
-            {!isWhatsAppInstalled ? (
+            <div className="flex flex-wrap gap-3">
               <Button
-                disabled={isPending || props.runtimeApplyIsActive}
-                onClick={handleEnable}
-                variant="outline"
+                disabled={
+                  isPending ||
+                  !prepConfirmed ||
+                  props.runtimeApplyIsActive ||
+                  integration?.status === "apply_failed"
+                }
+                onClick={() => handleGenerateQr(false)}
               >
-                Install runtime now
+                Pair now
               </Button>
-            ) : null}
-            {integration?.status === "connected" ? (
-              <Button
-                disabled={isPending}
-                onClick={handleDisconnect}
-                variant="outline"
-              >
-                Disconnect
-              </Button>
-            ) : null}
-            {linkSession?.status === "qr_ready" ? (
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {uiPhase === "pairing" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Scan QR code</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {linkSession?.status === "qr_ready" && linkSession.qrDataUrl ? (
+              <div className="flex flex-col gap-4 rounded-none border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Scan this QR code in WhatsApp Business
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      On your iPhone, open WhatsApp Business &gt; Settings &gt;
+                      Linked Devices &gt; Link a Device, then scan this QR code.
+                    </p>
+                  </div>
+                  {qrExpiresIn ? (
+                    <Badge variant="outline">Expires in {qrExpiresIn}</Badge>
+                  ) : null}
+                </div>
+                <Image
+                  alt="WhatsApp QR code"
+                  className="w-full max-w-sm border bg-white p-4"
+                  src={linkSession.qrDataUrl}
+                  unoptimized
+                  height={320}
+                  width={320}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Keep WhatsApp Business open on your phone until linking
+                  finishes.
+                </p>
+              </div>
+            ) : (
+              <Alert>
+                <AlertTitle>Preparing QR code</AlertTitle>
+                <AlertDescription>
+                  Otto is starting a new WhatsApp pairing session.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex flex-wrap gap-3">
               <Button
                 disabled={isPending}
                 onClick={handleClearCurrentQr}
@@ -714,260 +663,328 @@ export function WhatsAppIntegrationPanel(props: Props) {
               >
                 Clear current QR
               </Button>
-            ) : null}
-            {integration && isWhatsAppInstalled ? (
-              <Button
-                disabled={isPending || props.runtimeApplyIsActive}
-                onClick={handleDisable}
-                variant="outline"
-              >
-                Disable WhatsApp
-              </Button>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Policy settings</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          {!surface || !draftConfig || !currentConfig ? (
-            <Alert>
-              <AlertTitle>WhatsApp settings will appear here</AlertTitle>
-              <AlertDescription>
-                Generate a QR code once to create the WhatsApp integration for
-                this workspace. Otto will keep your WhatsApp policy settings
-                here even when the runtime surface is disabled.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel>Direct messages</FieldLabel>
-                  <FieldContent>
-                    <Select
-                      onValueChange={(value) =>
-                        setDraftConfig({
-                          ...draftConfig,
-                          dmPolicy: value as WhatsAppRuntimeConfig["dmPolicy"],
-                        })
-                      }
-                      value={draftConfig.dmPolicy}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose DM access" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pairing">Pairing</SelectItem>
-                        <SelectItem value="allowlist">Allowlist</SelectItem>
-                        <SelectItem value="disabled">Disabled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FieldDescription>
-                      Pairing lets Otto learn new direct-message contacts.
-                      Allowlist only permits the numbers below.
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Allowed numbers</FieldLabel>
-                  <FieldContent>
-                    <Textarea
-                      onChange={(event) =>
-                        setAllowedNumbersInput(event.target.value)
-                      }
-                      placeholder="+43123456789"
-                      rows={4}
-                      value={allowedNumbersInput}
-                    />
-                    <FieldDescription>
-                      Enter one E.164 phone number per line.
-                    </FieldDescription>
-                    <CompactList
-                      emptyLabel="No direct-message allowlist saved."
-                      items={currentConfig.allowedNumbers}
-                    />
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Groups</FieldLabel>
-                  <FieldContent>
-                    <Select
-                      onValueChange={(value) =>
-                        setDraftConfig({
-                          ...draftConfig,
-                          groupPolicy:
-                            value as WhatsAppRuntimeConfig["groupPolicy"],
-                        })
-                      }
-                      value={draftConfig.groupPolicy}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose group access" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="disabled">Disabled</SelectItem>
-                        <SelectItem value="allowlist">Allowlist</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FieldDescription>
-                      Use WhatsApp group IDs ending in <code>@g.us</code>. Group
-                      selection is manual in v1.
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Allowed group IDs</FieldLabel>
-                  <FieldContent>
-                    <Textarea
-                      onChange={(event) =>
-                        setAllowedGroupIdsInput(event.target.value)
-                      }
-                      placeholder="1234567890@g.us"
-                      rows={4}
-                      value={allowedGroupIdsInput}
-                    />
-                    <CompactList
-                      emptyLabel="No group allowlist saved."
-                      items={currentConfig.allowedGroupIds}
-                    />
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Allowed group sender numbers</FieldLabel>
-                  <FieldContent>
-                    <Textarea
-                      onChange={(event) =>
-                        setGroupAllowedNumbersInput(event.target.value)
-                      }
-                      placeholder="+43123456789"
-                      rows={4}
-                      value={groupAllowedNumbersInput}
-                    />
-                    <FieldDescription>
-                      Leave this empty to fall back to the global allowed-number
-                      list.
-                    </FieldDescription>
-                    <CompactList
-                      emptyLabel="Falling back to the direct-message allowlist."
-                      items={currentConfig.groupAllowedNumbers}
-                    />
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Require mention in groups</FieldLabel>
-                  <FieldContent>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={draftConfig.requireMentionInGroups}
-                        onCheckedChange={(checked) =>
-                          setDraftConfig({
-                            ...draftConfig,
-                            requireMentionInGroups: checked,
-                          })
-                        }
-                      />
-                      <FieldDescription>
-                        When enabled, Otto only responds in allowlisted groups
-                        after it is explicitly mentioned.
-                      </FieldDescription>
-                    </div>
-                  </FieldContent>
-                </Field>
-
-                <Field>
-                  <FieldLabel>Ack reaction</FieldLabel>
-                  <FieldContent>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={draftConfig.ackReactionEnabled}
-                        onCheckedChange={(checked) =>
-                          setDraftConfig({
-                            ...draftConfig,
-                            ackReactionEnabled: checked,
-                          })
-                        }
-                      />
-                      <FieldDescription>
-                        Add Otto&apos;s fixed acknowledgement reaction when it
-                        sees an eligible WhatsApp message.
-                      </FieldDescription>
-                    </div>
-                  </FieldContent>
-                </Field>
-              </FieldGroup>
-
-              {derivedEffects?.warnings?.length ? (
-                <Alert
-                  variant={
-                    derivedEffects.wouldFullyLockOutWhatsApp
-                      ? "destructive"
-                      : "default"
-                  }
-                >
-                  <AlertTitle>Review these changes</AlertTitle>
-                  <AlertDescription>
-                    <div className="flex flex-col gap-2">
-                      {derivedEffects.warnings.map((warning) => (
-                        <p key={warning}>{warning}</p>
-                      ))}
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              <Separator />
-
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  disabled={isPending || !hasUnsavedChanges}
-                  onClick={handleSaveConfig}
-                >
-                  Save settings
-                </Button>
-                <Button
-                  disabled={isPending || !surface}
-                  onClick={handleReapply}
-                  variant="outline"
-                >
-                  Reapply settings
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {integration ? (
+      {uiPhase === "attention" ? (
         <Card>
           <CardHeader>
-            <CardTitle>Operational details</CardTitle>
+            <CardTitle>Pair WhatsApp</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>Current status:</span>
-              <Badge variant="outline">{integration.status}</Badge>
-              {integration.selfE164 ? (
-                <Badge variant="outline">{integration.selfE164}</Badge>
-              ) : null}
+          <CardContent className="flex flex-col gap-4">
+            <Alert variant="destructive">
+              <AlertTitle>Linking failed</AlertTitle>
+              <AlertDescription>
+                {linkSession?.lastError ??
+                  integration?.lastError ??
+                  "WhatsApp pairing did not complete."}
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={isPending || props.runtimeApplyIsActive}
+                onClick={() => handleGenerateQr(false)}
+              >
+                Pair now
+              </Button>
             </div>
-            {linkSession ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span>Latest link session:</span>
-                <Badge variant="outline">{linkSession.status}</Badge>
-                {linkSession.lastError ? (
-                  <span>{linkSession.lastError}</span>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {uiPhase === "activating" || uiPhase === "connected" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Linked account</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {uiPhase === "activating" ? (
+              <Alert>
+                <AlertTitle>Finishing setup</AlertTitle>
+                <AlertDescription>
+                  Otto linked {linkedNumber} and is now activating WhatsApp in
+                  the tenant runtime.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert>
+                <AlertTitle>WhatsApp connected</AlertTitle>
+                <AlertDescription>
+                  Otto is now linked to {linkedNumber}.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="rounded-none border p-4">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-muted-foreground">
+                  Dedicated number
+                </p>
+                <p className="text-base font-medium text-foreground">
+                  {linkedNumber}
+                </p>
+              </div>
+            </div>
+            {uiPhase === "connected" ? (
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  disabled={isPending || props.runtimeApplyIsActive}
+                  onClick={() => handleGenerateQr(true)}
+                >
+                  Reconnect
+                </Button>
+                <Button
+                  disabled={isPending}
+                  onClick={handleDisconnect}
+                  variant="outline"
+                >
+                  Disconnect
+                </Button>
+                {integration && isWhatsAppInstalled ? (
+                  <Button
+                    disabled={isPending || props.runtimeApplyIsActive}
+                    onClick={handleDisable}
+                    variant="outline"
+                  >
+                    Disable WhatsApp
+                  </Button>
                 ) : null}
               </div>
             ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {uiPhase === "activating" || uiPhase === "connected" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Policy settings</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            {!surface || !draftConfig || !currentConfig ? (
+              <Alert>
+                <AlertTitle>WhatsApp settings are not ready yet</AlertTitle>
+                <AlertDescription>
+                  Otto is still loading the saved WhatsApp policy for this
+                  workspace.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel>Direct messages</FieldLabel>
+                    <FieldContent>
+                      <Select
+                        disabled={props.runtimeApplyIsActive}
+                        onValueChange={(value) =>
+                          setDraftConfig({
+                            ...draftConfig,
+                            dmPolicy:
+                              value as WhatsAppRuntimeConfig["dmPolicy"],
+                          })
+                        }
+                        value={draftConfig.dmPolicy}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose DM access" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pairing">Pairing</SelectItem>
+                          <SelectItem value="allowlist">Allowlist</SelectItem>
+                          <SelectItem value="disabled">Disabled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FieldDescription>
+                        Pairing lets Otto learn new direct-message contacts.
+                        Allowlist only permits the numbers below.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Allowed numbers</FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        disabled={props.runtimeApplyIsActive}
+                        onChange={(event) =>
+                          setAllowedNumbersInput(event.target.value)
+                        }
+                        placeholder="+43123456789"
+                        rows={4}
+                        value={allowedNumbersInput}
+                      />
+                      <FieldDescription>
+                        Enter one E.164 phone number per line.
+                      </FieldDescription>
+                      <CompactList
+                        emptyLabel="No direct-message allowlist saved."
+                        items={currentConfig.allowedNumbers}
+                      />
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Groups</FieldLabel>
+                    <FieldContent>
+                      <Select
+                        disabled={props.runtimeApplyIsActive}
+                        onValueChange={(value) =>
+                          setDraftConfig({
+                            ...draftConfig,
+                            groupPolicy:
+                              value as WhatsAppRuntimeConfig["groupPolicy"],
+                          })
+                        }
+                        value={draftConfig.groupPolicy}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose group access" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="disabled">Disabled</SelectItem>
+                          <SelectItem value="allowlist">Allowlist</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FieldDescription>
+                        Use WhatsApp group IDs ending in <code>@g.us</code>.
+                        Group selection is manual in v1.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Allowed group IDs</FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        disabled={props.runtimeApplyIsActive}
+                        onChange={(event) =>
+                          setAllowedGroupIdsInput(event.target.value)
+                        }
+                        placeholder="1234567890@g.us"
+                        rows={4}
+                        value={allowedGroupIdsInput}
+                      />
+                      <CompactList
+                        emptyLabel="No group allowlist saved."
+                        items={currentConfig.allowedGroupIds}
+                      />
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Allowed group sender numbers</FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        disabled={props.runtimeApplyIsActive}
+                        onChange={(event) =>
+                          setGroupAllowedNumbersInput(event.target.value)
+                        }
+                        placeholder="+43123456789"
+                        rows={4}
+                        value={groupAllowedNumbersInput}
+                      />
+                      <FieldDescription>
+                        Leave this empty to fall back to the global
+                        allowed-number list.
+                      </FieldDescription>
+                      <CompactList
+                        emptyLabel="Falling back to the direct-message allowlist."
+                        items={currentConfig.groupAllowedNumbers}
+                      />
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Require mention in groups</FieldLabel>
+                    <FieldContent>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={draftConfig.requireMentionInGroups}
+                          disabled={props.runtimeApplyIsActive}
+                          onCheckedChange={(checked) =>
+                            setDraftConfig({
+                              ...draftConfig,
+                              requireMentionInGroups: checked,
+                            })
+                          }
+                        />
+                        <FieldDescription>
+                          When enabled, Otto only responds in allowlisted groups
+                          after it is explicitly mentioned.
+                        </FieldDescription>
+                      </div>
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>Ack reaction</FieldLabel>
+                    <FieldContent>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={draftConfig.ackReactionEnabled}
+                          disabled={props.runtimeApplyIsActive}
+                          onCheckedChange={(checked) =>
+                            setDraftConfig({
+                              ...draftConfig,
+                              ackReactionEnabled: checked,
+                            })
+                          }
+                        />
+                        <FieldDescription>
+                          Add Otto&apos;s fixed acknowledgement reaction when it
+                          sees an eligible WhatsApp message.
+                        </FieldDescription>
+                      </div>
+                    </FieldContent>
+                  </Field>
+                </FieldGroup>
+
+                {derivedEffects?.warnings?.length ? (
+                  <Alert
+                    variant={
+                      derivedEffects.wouldFullyLockOutWhatsApp
+                        ? "destructive"
+                        : "default"
+                    }
+                  >
+                    <AlertTitle>Review these changes</AlertTitle>
+                    <AlertDescription>
+                      <div className="flex flex-col gap-2">
+                        {derivedEffects.warnings.map((warning) => (
+                          <p key={warning}>{warning}</p>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <Separator />
+
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    disabled={
+                      isPending ||
+                      props.runtimeApplyIsActive ||
+                      !hasUnsavedChanges
+                    }
+                    onClick={handleSaveConfig}
+                  >
+                    Save settings
+                  </Button>
+                  <Button
+                    disabled={
+                      isPending || props.runtimeApplyIsActive || !surface
+                    }
+                    onClick={handleReapply}
+                    variant="outline"
+                  >
+                    Reapply settings
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : null}

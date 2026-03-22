@@ -14,7 +14,8 @@ import {
   getPrimaryAgentLatestApplyRun,
   getRuntimeApplyStatusLabel,
   getRuntimeStatusLabel,
-  getWhatsAppStatusLabel,
+  getWhatsAppUiPhase,
+  getWhatsAppUiPhaseLabel,
   isOrganizationUnlocked,
 } from "@/lib/workspace";
 
@@ -22,9 +23,9 @@ export const dynamic = "force-dynamic";
 
 function getStatusAlert(input: {
   integrationError: string | null;
+  phase: ReturnType<typeof getWhatsAppUiPhase>;
   runtimeApplyError: string | null;
   runtimeApplyIsActive: boolean;
-  whatsappStatus: string | null;
 }) {
   if (input.integrationError) {
     return {
@@ -45,18 +46,18 @@ function getStatusAlert(input: {
   if (input.runtimeApplyIsActive) {
     return {
       description:
-        input.whatsappStatus === "activating"
+        input.phase === "activating"
           ? "Pairing succeeded. Otto is now activating WhatsApp in the tenant runtime."
           : "Otto is still applying the latest WhatsApp configuration in the background.",
       title:
-        input.whatsappStatus === "activating"
+        input.phase === "activating"
           ? "Otto is activating WhatsApp"
           : "Otto is updating",
       variant: "default" as const,
     };
   }
 
-  if (!input.whatsappStatus) {
+  if (input.phase === "prepare") {
     return {
       description:
         "Generate a QR code to connect one dedicated WhatsApp Business number. Otto will activate WhatsApp in the tenant runtime after pairing succeeds.",
@@ -103,8 +104,26 @@ export default async function WhatsAppIntegrationPage({
   }
 
   const integration = organization.whatsappIntegration;
+  const [surface, currentLinkSession] = await Promise.all([
+    integration
+      ? getTenantWhatsAppRuntimeConfigSurface({
+          orgSlug,
+          userExternalId: user.id,
+        })
+      : Promise.resolve(null),
+    integration
+      ? getCurrentTenantWhatsAppLinkSession({
+          orgSlug,
+          userExternalId: user.id,
+        })
+      : Promise.resolve(null),
+  ]);
   const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
   const runtimeApplyStatusLabel = getRuntimeApplyStatusLabel(organization);
+  const whatsappPhase = getWhatsAppUiPhase({
+    integrationStatus: integration?.status ?? null,
+    linkSessionStatus: currentLinkSession?.status ?? null,
+  });
   const runtimeApplyIsActive =
     integration?.status === "pending_apply" ||
     integration?.status === "applying" ||
@@ -128,24 +147,10 @@ export default async function WhatsAppIntegrationPage({
       : null;
   const statusAlert = getStatusAlert({
     integrationError,
+    phase: whatsappPhase,
     runtimeApplyError,
     runtimeApplyIsActive,
-    whatsappStatus: integration?.status ?? null,
   });
-  const [surface, currentLinkSession] = await Promise.all([
-    integration
-      ? getTenantWhatsAppRuntimeConfigSurface({
-          orgSlug,
-          userExternalId: user.id,
-        })
-      : Promise.resolve(null),
-    integration
-      ? getCurrentTenantWhatsAppLinkSession({
-          orgSlug,
-          userExternalId: user.id,
-        })
-      : Promise.resolve(null),
-  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-12">
@@ -171,16 +176,19 @@ export default async function WhatsAppIntegrationPage({
                     integrationError,
                     runtimeApplyError,
                     runtimeApplyIsActive,
-                    whatsappStatus: integration?.status ?? null,
+                    whatsappStatus: whatsappPhase,
                   })}
                 >
-                  {getWhatsAppStatusLabel(organization)}
+                  {getWhatsAppUiPhaseLabel(whatsappPhase)}
                 </Badge>
-                {integration?.selfE164 ? (
+                {whatsappPhase !== "prepare" && integration?.selfE164 ? (
                   <span>Number: {integration.selfE164}</span>
                 ) : null}
                 <span>Otto: {getRuntimeStatusLabel(organization)}</span>
-                {runtimeApplyStatusLabel ? (
+                {runtimeApplyStatusLabel &&
+                (whatsappPhase === "activating" ||
+                  whatsappPhase === "connected" ||
+                  whatsappPhase === "attention") ? (
                   <span>Latest sync: {runtimeApplyStatusLabel}</span>
                 ) : null}
               </div>
@@ -200,7 +208,7 @@ export default async function WhatsAppIntegrationPage({
 
       <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
-          {integration?.connectedAt ? (
+          {whatsappPhase === "connected" && integration?.connectedAt ? (
             <span>Connected {integration.connectedAt.toLocaleString()}</span>
           ) : null}
         </div>
