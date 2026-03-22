@@ -11,7 +11,12 @@ import {
 import { getEnv } from "@/lib/env";
 import { RuntimeManager } from "@/lib/runtime/manager";
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import {
+  appendJobEvent,
+  enqueueJob,
+  markJobFailed,
+  markJobSucceeded,
+} from "./queue";
 import type {
   ClaimedJob,
   WhatsAppDisconnectPayload,
@@ -305,6 +310,25 @@ export async function processWhatsAppDisconnectJob(
     );
     await runtimeManager.logoutWhatsApp(runtimeConnection);
     await markWhatsAppDisconnected(payload.tenantId);
+
+    if (typeof payload.desiredStateVersion === "number") {
+      await enqueueJob({
+        jobType: JOB_TYPES.applyTenantConfig,
+        payload: {
+          desiredStateVersion: payload.desiredStateVersion,
+          tenantId: payload.tenantId,
+        },
+      });
+      await appendJobEvent(
+        job.id,
+        "whatsapp_disable_apply_enqueued",
+        "Queued runtime apply to remove WhatsApp from the tenant runtime",
+        {
+          desiredStateVersion: payload.desiredStateVersion,
+        },
+      );
+    }
+
     await appendJobEvent(
       job.id,
       "whatsapp_disconnected",
@@ -345,12 +369,25 @@ function parseDisconnectPayload(
   payload: Record<string, unknown>,
 ): WhatsAppDisconnectPayload {
   const tenantId = payload.tenantId;
+  const desiredStateVersion = payload.desiredStateVersion;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("WhatsApp disconnect job payload is missing tenantId");
   }
 
+  if (
+    desiredStateVersion !== undefined &&
+    (typeof desiredStateVersion !== "number" ||
+      !Number.isInteger(desiredStateVersion) ||
+      desiredStateVersion <= 0)
+  ) {
+    throw new Error(
+      "WhatsApp disconnect job payload has an invalid desiredStateVersion",
+    );
+  }
+
   return {
+    ...(typeof desiredStateVersion === "number" ? { desiredStateVersion } : {}),
     tenantId,
   };
 }

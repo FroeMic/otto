@@ -314,6 +314,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
     () => formatExpiresIn(linkSession?.expiresAt ?? null, currentTimestamp),
     [currentTimestamp, linkSession?.expiresAt],
   );
+  const isWhatsAppInstalled = surface?.config.installState === "installed";
 
   async function runAction<T>(operation: () => Promise<T>) {
     setErrorMessage(null);
@@ -488,6 +489,40 @@ export function WhatsAppIntegrationPanel(props: Props) {
     });
   }
 
+  function handleDisable() {
+    if (
+      !window.confirm(
+        "Disable WhatsApp for Otto? This removes the WhatsApp channel from the tenant runtime and clears saved WhatsApp auth on the tenant server.",
+      )
+    ) {
+      return;
+    }
+
+    startTransition(() => {
+      void runAction(async () => {
+        const data = await postJson(
+          `/api/integrations/${orgSlug}/whatsapp/disable`,
+          {},
+        );
+        setLinkSession(
+          (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null,
+        );
+        setSurface(
+          (data?.surface as WhatsAppRuntimeConfigSurface | null | undefined) ??
+            null,
+        );
+        setDraftConfig(
+          ((data?.surface as WhatsAppRuntimeConfigSurface | null | undefined)
+            ?.config as WhatsAppRuntimeConfig | undefined) ?? null,
+        );
+        setSuccessMessage(
+          "WhatsApp disable has been queued. Otto will remove the runtime config and clear the saved WhatsApp session.",
+        );
+        router.refresh();
+      });
+    });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {errorMessage ? (
@@ -566,7 +601,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
           <CardTitle>Connect WhatsApp</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {!integration ? (
+          {!integration || !isWhatsAppInstalled ? (
             <Alert>
               <AlertTitle>Enable WhatsApp first</AlertTitle>
               <AlertDescription>
@@ -625,7 +660,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
           ) : null}
 
           <div className="flex flex-wrap gap-3">
-            {!integration ? (
+            {!integration || !isWhatsAppInstalled ? (
               <Button disabled={isPending} onClick={handleEnable}>
                 Enable WhatsApp
               </Button>
@@ -664,6 +699,15 @@ export function WhatsAppIntegrationPanel(props: Props) {
                 Clear current QR
               </Button>
             ) : null}
+            {integration && isWhatsAppInstalled ? (
+              <Button
+                disabled={isPending || props.runtimeApplyIsActive}
+                onClick={handleDisable}
+                variant="outline"
+              >
+                Disable WhatsApp
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -673,7 +717,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
           <CardTitle>Policy settings</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {!surface || !draftConfig || !currentConfig ? (
+          {!surface || !draftConfig || !currentConfig || !isWhatsAppInstalled ? (
             <Alert>
               <AlertTitle>WhatsApp settings will appear here</AlertTitle>
               <AlertDescription>

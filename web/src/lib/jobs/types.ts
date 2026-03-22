@@ -63,6 +63,7 @@ export type WhatsAppLinkSessionPayload = {
 };
 
 export type WhatsAppDisconnectPayload = {
+  desiredStateVersion?: number;
   tenantId: string;
 };
 
