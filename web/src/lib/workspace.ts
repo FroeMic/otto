@@ -27,8 +27,7 @@ export function getWhatsAppUiPhase(input: {
   if (
     input.integrationStatus === "activating" ||
     input.integrationStatus === "pending_apply" ||
-    input.integrationStatus === "applying" ||
-    input.linkSessionStatus === "connected"
+    input.integrationStatus === "applying"
   ) {
     return "activating";
   }

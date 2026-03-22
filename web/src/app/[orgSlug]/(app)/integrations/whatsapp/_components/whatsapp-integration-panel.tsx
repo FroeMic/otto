@@ -196,6 +196,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
       }),
     [integration?.status, linkSession?.status],
   );
+  const integrationStatus = integration?.status ?? null;
 
   useEffect(() => {
     setIntegration(initialIntegration);
@@ -230,9 +231,9 @@ export function WhatsAppIntegrationPanel(props: Props) {
       linkSession.status !== "qr_ready" &&
       !(
         linkSession.status === "connected" &&
-        integration?.status !== "connected" &&
-        integration?.status !== "apply_failed" &&
-        integration?.status !== "link_failed"
+        integrationStatus !== "connected" &&
+        integrationStatus !== "apply_failed" &&
+        integrationStatus !== "link_failed"
       )
     ) {
       return;
@@ -256,6 +257,23 @@ export function WhatsAppIntegrationPanel(props: Props) {
         (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null;
       setLinkSession(nextLinkSession);
 
+      if (
+        nextLinkSession?.status === "connected" &&
+        integrationStatus !== null &&
+        integrationStatus !== "connected" &&
+        integrationStatus !== "apply_failed" &&
+        integrationStatus !== "link_failed"
+      ) {
+        setIntegration((currentIntegration) =>
+          currentIntegration
+            ? {
+                ...currentIntegration,
+                status: "activating",
+              }
+            : currentIntegration,
+        );
+      }
+
       if (nextLinkSession?.status === "failed") {
         router.refresh();
       }
@@ -264,7 +282,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [integration?.status, linkSession, orgSlug, router]);
+  }, [integrationStatus, linkSession, orgSlug, router]);
 
   useEffect(() => {
     if (uiPhase !== "activating") {
