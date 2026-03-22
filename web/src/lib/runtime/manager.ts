@@ -89,6 +89,15 @@ export class RuntimeManager {
     await this.restartGatewayWithResult(connection);
   }
 
+  async restartGatewayContainer(connection: SshConnection): Promise<void> {
+    await this.execChecked(
+      connection,
+      buildShellCommand(["docker restart openclaw-gateway >/dev/null"]),
+      { timeoutMs: 60_000 },
+    );
+    await this.checkGatewayHealth(connection);
+  }
+
   async applyTenantConfig(
     connection: SshConnection,
     input: {
@@ -419,6 +428,10 @@ export class RuntimeManager {
       connected: boolean;
       events?: Array<{ at?: string; message?: string }>;
       message: string;
+      self?: {
+        e164?: string | null;
+        jid?: string | null;
+      } | null;
     };
   }
 

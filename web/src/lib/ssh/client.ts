@@ -103,6 +103,7 @@ export class SshClient {
         settled = true;
         clearTimeout(timeout);
         client.removeAllListeners();
+        client.on("error", () => {});
         client.end();
       }
 

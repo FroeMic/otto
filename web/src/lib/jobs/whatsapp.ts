@@ -26,6 +26,11 @@ const LINK_WAIT_TIMEOUT_MS = 200_000;
 const LINK_STATUS_VERIFICATION_ATTEMPTS = 6;
 const LINK_STATUS_VERIFICATION_DELAY_MS = 5_000;
 
+type WhatsAppLinkedIdentity = {
+  selfE164: string | null;
+  selfJid: string | null;
+};
+
 export async function processWhatsAppLinkSessionJob(
   job: ClaimedJob,
 ): Promise<void> {
@@ -197,34 +202,11 @@ export async function processWhatsAppLinkSessionJob(
       return;
     }
 
-    const finalStatus = await ensureWhatsAppRuntimeConnected(runtimeConnection);
-    if (!finalStatus?.connected) {
-      const error = formatInactiveWhatsAppRuntimeMessage(
-        finalStatus ?? {
-          connected: false,
-          lastError: null,
-          linked: false,
-          running: false,
-        },
-        "WhatsApp linked in the helper session, but the tenant runtime did not come online.",
-      );
-      await failLinkSession({
-        error,
-        linkSessionId: payload.linkSessionId,
-        tenantId: payload.tenantId,
-      });
-      await appendJobEvent(job.id, "whatsapp_link_failed", error);
-      await markJobFailed(job.id, error);
-      return;
-    }
-
-    console.info(
-      `[worker][whatsapp] runtime connected linkSession=${payload.linkSessionId} self=${finalStatus.selfE164 ?? finalStatus.selfJid ?? "unknown"}`,
-    );
+    const helperIdentity = getWhatsAppLinkedIdentity(waitResult.self);
     await completeLinkSession({
       linkSessionId: payload.linkSessionId,
-      selfE164: finalStatus.selfE164 ?? null,
-      selfJid: finalStatus.selfJid ?? null,
+      selfE164: helperIdentity.selfE164,
+      selfJid: helperIdentity.selfJid,
       tenantId: payload.tenantId,
     });
     await appendJobEvent(
@@ -232,12 +214,61 @@ export async function processWhatsAppLinkSessionJob(
       "whatsapp_connected",
       "WhatsApp linked successfully",
       {
-        selfE164: finalStatus.selfE164 ?? null,
+        selfE164: helperIdentity.selfE164,
       },
     );
+
+    let runtimeActivationError: string | null = null;
+    let finalStatus: Awaited<
+      ReturnType<typeof runtimeManager.readWhatsAppLinkStatus>
+    > | null = null;
+
+    try {
+      finalStatus = await ensureWhatsAppRuntimeConnected(runtimeConnection);
+
+      if (finalStatus?.connected) {
+        console.info(
+          `[worker][whatsapp] runtime connected linkSession=${payload.linkSessionId} self=${finalStatus.selfE164 ?? finalStatus.selfJid ?? "unknown"}`,
+        );
+        await appendJobEvent(
+          job.id,
+          "whatsapp_runtime_connected",
+          "WhatsApp runtime is connected on the tenant server",
+          {
+            selfE164: finalStatus.selfE164 ?? helperIdentity.selfE164,
+          },
+        );
+      } else {
+        runtimeActivationError = formatInactiveWhatsAppRuntimeMessage(
+          finalStatus ?? {
+            connected: false,
+            lastError: null,
+            linked: false,
+            running: false,
+          },
+          "WhatsApp linked successfully, but the tenant runtime is still reconnecting.",
+        );
+      }
+    } catch (error) {
+      runtimeActivationError = getErrorMessage(error);
+    }
+
+    if (runtimeActivationError) {
+      console.warn(
+        `[worker][whatsapp] runtime activation warning linkSession=${payload.linkSessionId} warning=${runtimeActivationError}`,
+      );
+      await appendJobEvent(
+        job.id,
+        "whatsapp_runtime_activation_warning",
+        runtimeActivationError,
+      );
+    }
+
     await markJobSucceeded(job.id, {
       linkSessionId: payload.linkSessionId,
-      selfE164: finalStatus.selfE164 ?? null,
+      runtimeActivationError,
+      runtimeConnected: finalStatus?.connected === true,
+      selfE164: finalStatus?.selfE164 ?? helperIdentity.selfE164,
     });
   } catch (error) {
     const message = getErrorMessage(error);
@@ -345,11 +376,11 @@ async function ensureWhatsAppRuntimeConnected(
       }
 
       if (!restartedGateway && status.linked) {
-        restartedGateway = true;
         console.info(
           `[worker][whatsapp] restarting gateway after helper completion linked=${status.linked} running=${status.running} connected=${status.connected}`,
         );
-        await runtimeManager.restartGateway(runtimeConnection);
+        await runtimeManager.restartGatewayContainer(runtimeConnection);
+        restartedGateway = true;
       }
     } catch {
       // The gateway may still be settling after QR pairing; keep probing.
@@ -529,7 +560,9 @@ async function completeLinkSession(input: {
       .update(whatsappLinkSessions)
       .set({
         completedAt: now,
+        expiresAt: null,
         lastError: null,
+        qrDataUrl: null,
         status: "connected",
         updatedAt: now,
       })
@@ -675,4 +708,28 @@ function summarizeWhatsAppHelperEvents(
     .filter((value): value is string => Boolean(value))
     .slice(-5)
     .join(" | ");
+}
+
+function getWhatsAppLinkedIdentity(
+  value: unknown,
+): WhatsAppLinkedIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      selfE164: null,
+      selfJid: null,
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return {
+    selfE164:
+      typeof record.e164 === "string" && record.e164.trim().length > 0
+        ? record.e164.trim()
+        : null,
+    selfJid:
+      typeof record.jid === "string" && record.jid.trim().length > 0
+        ? record.jid.trim()
+        : null,
+  };
 }
