@@ -2346,7 +2346,8 @@ export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
     });
     const isBlocked =
       whatsAppIntegration.status === "pending_apply" ||
-      whatsAppIntegration.status === "applying";
+      whatsAppIntegration.status === "applying" ||
+      whatsAppIntegration.status === "activating";
 
     return {
       actionMeanings: definition?.actionMeanings ?? [],
@@ -2478,11 +2479,33 @@ export async function enableTenantWhatsAppIntegration(input: {
     const now = new Date();
     await upsertWhatsAppIntegrationForTenant(tx, {
       now,
+      statusWhenNotConnected: "pending_apply",
       tenantId: authorizedTenant.tenantId,
     });
-    await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
-      tenantId: authorizedTenant.tenantId,
-    });
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: authorizedTenant.tenantId,
+      },
+    );
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: "Installed WhatsApp runtime surface",
+        enabled: true,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.userExternalId,
+        updatedByType: "user",
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: authorizedTenant.tenantId,
@@ -2496,6 +2519,20 @@ export async function enableTenantWhatsAppIntegration(input: {
     await markWhatsAppIntegrationPendingApply(tx, {
       now,
       tenantId: authorizedTenant.tenantId,
+    });
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.userExternalId,
+      actorType: "user",
+      desiredStateVersion,
+      mutationType: "install",
+      resultJson: {
+        enabled: true,
+        installState: "installed",
+      },
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: authorizedTenant.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
     });
 
     return {
@@ -2651,7 +2688,7 @@ export async function disableTenantWhatsAppIntegration(input: {
               status: "dismissed",
               updatedAt: now,
             }
-          : session ?? null,
+          : (session ?? null),
       ),
       tenantId: authorizedTenant.tenantId,
     };
@@ -2673,6 +2710,110 @@ export async function disableTenantWhatsAppIntegration(input: {
       tenantId: result.tenantId,
     }),
   };
+}
+
+export async function activateTenantWhatsAppAfterPairing(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp integration not found");
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState === "installed" && currentConfig.enabled) {
+      return {
+        applyQueued: false,
+        changed: false,
+        desiredStateVersion: null as number | null,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: "Installed WhatsApp runtime surface after pairing",
+        enabled: true,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: null,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "activating",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, input.tenantId),
+          eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+        ),
+      );
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      mutationType: "install",
+      resultJson: {
+        enabled: true,
+        installState: "installed",
+      },
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      desiredStateVersion,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function createTenantWhatsAppLinkSession(input: {
@@ -2700,25 +2841,37 @@ export async function createTenantWhatsAppLinkSession(input: {
       throw new Error("WhatsApp linking requires a ready workspace runtime");
     }
 
-    const integration = await getWhatsAppIntegrationForTenant(tx, {
+    let integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
     });
 
     if (!integration) {
-      throw new Error("Enable WhatsApp before generating a QR code");
+      const now = new Date();
+      const integrationId = await upsertWhatsAppIntegrationForTenant(tx, {
+        now,
+        statusWhenNotConnected: "ready_to_link",
+        tenantId: authorizedTenant.tenantId,
+      });
+      integration = {
+        connectedAt: null,
+        disconnectedAt: null,
+        id: integrationId,
+        lastError: null,
+        lastErrorAt: null,
+        selfE164: null,
+        selfJid: null,
+        status: "ready_to_link",
+      };
     }
 
-    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
+    await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
       tenantId: authorizedTenant.tenantId,
     });
 
-    if (currentConfig.installState !== "installed" || !currentConfig.enabled) {
-      throw new Error("Enable WhatsApp before generating a QR code");
-    }
-
     if (
       integration.status === "pending_apply" ||
-      integration.status === "applying"
+      integration.status === "applying" ||
+      integration.status === "activating"
     ) {
       throw new Error(
         "Otto is still applying WhatsApp. Wait for the latest update to finish before generating a QR code.",
@@ -4412,6 +4565,7 @@ async function upsertWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
     now: Date;
+    statusWhenNotConnected?: string;
     tenantId: string;
   },
 ) {
@@ -4439,7 +4593,7 @@ async function upsertWhatsAppIntegrationForTenant(
         status:
           existingIntegration.status === "connected"
             ? "connected"
-            : "pending_apply",
+            : (input.statusWhenNotConnected ?? "pending_apply"),
         updatedAt: input.now,
       })
       .where(eq(tenantIntegrations.id, existingIntegration.id));
@@ -4451,7 +4605,7 @@ async function upsertWhatsAppIntegrationForTenant(
     .insert(tenantIntegrations)
     .values({
       providerKey: WHATSAPP_PROVIDER_KEY,
-      status: "pending_apply",
+      status: input.statusWhenNotConnected ?? "pending_apply",
       tenantId: input.tenantId,
     })
     .returning({
@@ -4807,8 +4961,8 @@ async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
       changeSummary: "Seeded default WhatsApp runtime config",
       configJson: defaultConfig,
       createdByType: "system",
-      enabled: true,
-      installState: "installed",
+      enabled: false,
+      installState: "uninstalled",
       lastValidatedAt: now,
       schemaSource: WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
       schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,

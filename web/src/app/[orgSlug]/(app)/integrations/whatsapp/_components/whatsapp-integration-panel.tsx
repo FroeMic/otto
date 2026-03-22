@@ -395,7 +395,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         setSuccessMessage(
           forceRelink
             ? "A new WhatsApp QR session has started."
-            : "WhatsApp QR generation started.",
+            : "WhatsApp QR generation started. Otto will activate WhatsApp in the tenant runtime after pairing succeeds.",
         );
         router.refresh();
       });
@@ -603,10 +603,11 @@ export function WhatsAppIntegrationPanel(props: Props) {
         <CardContent className="flex flex-col gap-4">
           {!integration || !isWhatsAppInstalled ? (
             <Alert>
-              <AlertTitle>Enable WhatsApp first</AlertTitle>
+              <AlertTitle>Pair first, then activate</AlertTitle>
               <AlertDescription>
-                Otto will add the WhatsApp channel to the tenant runtime before
-                you can generate a QR code.
+                You can generate a QR code now even while WhatsApp is disabled.
+                After pairing succeeds, Otto will install and activate WhatsApp
+                in the tenant runtime automatically.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -642,7 +643,19 @@ export function WhatsAppIntegrationPanel(props: Props) {
             </div>
           ) : null}
 
-          {linkSession?.status === "connected" ? (
+          {linkSession?.status === "connected" &&
+          integration?.status === "activating" ? (
+            <Alert>
+              <AlertTitle>Pairing complete</AlertTitle>
+              <AlertDescription>
+                Otto linked your WhatsApp number and is now activating it in the
+                tenant runtime.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {linkSession?.status === "connected" &&
+          integration?.status !== "activating" ? (
             <Alert>
               <AlertTitle>WhatsApp connected</AlertTitle>
               <AlertDescription>
@@ -660,27 +673,30 @@ export function WhatsAppIntegrationPanel(props: Props) {
           ) : null}
 
           <div className="flex flex-wrap gap-3">
-            {!integration || !isWhatsAppInstalled ? (
-              <Button disabled={isPending} onClick={handleEnable}>
-                Enable WhatsApp
-              </Button>
-            ) : (
+            <Button
+              disabled={
+                isPending ||
+                !prepConfirmed ||
+                props.runtimeApplyIsActive ||
+                integration?.status === "apply_failed"
+              }
+              onClick={() =>
+                handleGenerateQr(integration?.status === "connected")
+              }
+            >
+              {integration?.status === "connected"
+                ? "Reconnect"
+                : "Generate QR code"}
+            </Button>
+            {!isWhatsAppInstalled ? (
               <Button
-                disabled={
-                  isPending ||
-                  !prepConfirmed ||
-                  props.runtimeApplyIsActive ||
-                  integration.status === "apply_failed"
-                }
-                onClick={() =>
-                  handleGenerateQr(integration.status === "connected")
-                }
+                disabled={isPending || props.runtimeApplyIsActive}
+                onClick={handleEnable}
+                variant="outline"
               >
-                {integration.status === "connected"
-                  ? "Reconnect"
-                  : "Generate QR code"}
+                Install runtime now
               </Button>
-            )}
+            ) : null}
             {integration?.status === "connected" ? (
               <Button
                 disabled={isPending}
@@ -717,12 +733,13 @@ export function WhatsAppIntegrationPanel(props: Props) {
           <CardTitle>Policy settings</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {!surface || !draftConfig || !currentConfig || !isWhatsAppInstalled ? (
+          {!surface || !draftConfig || !currentConfig ? (
             <Alert>
               <AlertTitle>WhatsApp settings will appear here</AlertTitle>
               <AlertDescription>
-                Enable WhatsApp first. Otto will expose the settings form after
-                the runtime surface has been created.
+                Generate a QR code once to create the WhatsApp integration for
+                this workspace. Otto will keep your WhatsApp policy settings
+                here even when the runtime surface is disabled.
               </AlertDescription>
             </Alert>
           ) : (

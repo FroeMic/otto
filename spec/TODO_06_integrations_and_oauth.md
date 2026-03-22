@@ -468,9 +468,9 @@ Deliverables:
 - [x] add explicit runtime-surface grouping metadata and rename the runtime plugin contract to surface-oriented naming
 - [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
 - [x] add Slack channel join/leave actions in the control plane for public-channel membership management
-- [ ] add the first post-Slack integration surface for `channel/whatsapp`
-- [ ] add WhatsApp enable, QR-link, and disconnect lifecycle jobs through the worker
-- [ ] project WhatsApp runtime policy into desired state and OpenClaw config
+- [x] add the first post-Slack integration surface for `channel/whatsapp`
+- [x] add WhatsApp enable, QR-link, and disconnect lifecycle jobs through the worker
+- [x] project WhatsApp runtime policy into desired state and OpenClaw config
 - [ ] implement shared Slack ingress router
 - [x] render Slack policy from canonical runtime config into desired state
 - [x] trigger apply after connect or token change

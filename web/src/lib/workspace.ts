@@ -133,6 +133,8 @@ export function getWhatsAppStatusLabel(organization: DashboardOrganization) {
       return "Preparing";
     case "applying":
       return "Applying";
+    case "activating":
+      return "Activating";
     case "ready_to_link":
       return "Ready to connect";
     case "linking":

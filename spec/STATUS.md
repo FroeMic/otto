@@ -147,7 +147,9 @@
   - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
   - worker handlers now exist for WhatsApp QR linking and disconnect, and the workspace has initial WhatsApp integration routes plus a dedicated setup page
   - WhatsApp QR linking is being moved off OpenClaw's `web.login.start` / `web.login.wait` path and onto an Otto-owned helper shipped in the custom runtime image, because the upstream QR RPC flow does not recover reliably from the post-pairing `515 restart required` branch
-  - the helper-based link flow now completes real pairing successfully; the remaining control-plane hardening work is to finalize the QR session immediately after helper success and treat tenant runtime activation as a lighter best-effort follow-up instead of letting SSH restart failures strand the workspace UI
+  - the helper-based link flow now completes real pairing successfully and no longer requires WhatsApp to be pre-installed in `openclaw.json` before showing a QR code
+  - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
+  - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
 - The first non-Slack runtime surface is now implemented for global web search:
   - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface
   - desired-state compilation now resolves Brave web search config from control-plane env and projects it into tenant runtime config
@@ -166,7 +168,7 @@
 ## Next recommended implementation step
 
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
-  - validating the new QR link and disconnect worker flows against a real provisioned tenant runtime
+  - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
   - adding focused tests for WhatsApp schema normalization, destructive-policy detection, desired-state projection, and the new lifecycle routes
   - running the new Drizzle migration in active environments once the implementation is verified locally

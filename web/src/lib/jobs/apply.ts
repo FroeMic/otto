@@ -13,6 +13,7 @@ import {
 import {
   tenantApplyRuns,
   tenantIntegrations,
+  tenantRuntimeConfigEntries,
   tenantServers,
   tenants,
   whatsappInstallations,
@@ -20,6 +21,10 @@ import {
 import { getEnv } from "@/lib/env";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
 import { RuntimeManager } from "@/lib/runtime/manager";
+import {
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+} from "@/lib/whatsapp-config";
 
 import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
 import {
@@ -427,8 +432,34 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
     )
     .limit(1);
 
-  const nextStatus =
-    integration?.status === "disconnected"
+  const [runtimeConfigEntry] = await db
+    .select({
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+    })
+    .from(tenantRuntimeConfigEntries)
+    .where(
+      and(
+        eq(tenantRuntimeConfigEntries.tenantId, tenantId),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKind,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+        ),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKey,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+        ),
+      ),
+    )
+    .limit(1);
+
+  const isInstalled =
+    runtimeConfigEntry?.installState === "installed" &&
+    runtimeConfigEntry.enabled === true;
+
+  const nextStatus = !isInstalled
+    ? "ready_to_link"
+    : integration?.status === "disconnected"
       ? "disconnected"
       : integration?.whatsappSelfE164 || integration?.whatsappSelfJid
         ? "connected"

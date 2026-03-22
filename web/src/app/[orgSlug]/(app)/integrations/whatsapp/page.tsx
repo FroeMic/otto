@@ -45,8 +45,13 @@ function getStatusAlert(input: {
   if (input.runtimeApplyIsActive) {
     return {
       description:
-        "Otto is still applying the latest WhatsApp configuration in the background.",
-      title: "Otto is updating",
+        input.whatsappStatus === "activating"
+          ? "Pairing succeeded. Otto is now activating WhatsApp in the tenant runtime."
+          : "Otto is still applying the latest WhatsApp configuration in the background.",
+      title:
+        input.whatsappStatus === "activating"
+          ? "Otto is activating WhatsApp"
+          : "Otto is updating",
       variant: "default" as const,
     };
   }
@@ -54,8 +59,8 @@ function getStatusAlert(input: {
   if (!input.whatsappStatus) {
     return {
       description:
-        "Enable WhatsApp to connect one dedicated WhatsApp Business number to Otto.",
-      title: "WhatsApp is not enabled yet",
+        "Generate a QR code to connect one dedicated WhatsApp Business number. Otto will activate WhatsApp in the tenant runtime after pairing succeeds.",
+      title: "WhatsApp is ready to connect",
       variant: "default" as const,
     };
   }
@@ -103,6 +108,7 @@ export default async function WhatsAppIntegrationPage({
   const runtimeApplyIsActive =
     integration?.status === "pending_apply" ||
     integration?.status === "applying" ||
+    integration?.status === "activating" ||
     latestApplyRun?.status === "queued" ||
     latestApplyRun?.status === "loading_desired_state" ||
     latestApplyRun?.status === "rendering_files" ||

@@ -409,6 +409,10 @@ export class RuntimeManager {
       events?: Array<{ at?: string; message?: string }>;
       message: string;
       qrDataUrl?: string;
+      self?: {
+        e164?: string | null;
+        jid?: string | null;
+      } | null;
     };
   }
 
@@ -495,19 +499,22 @@ export class RuntimeManager {
           : null,
       connected: account?.connected === true,
       lastError:
-        typeof account?.lastError === "string" && account.lastError.trim().length > 0
+        typeof account?.lastError === "string" &&
+        account.lastError.trim().length > 0
           ? account.lastError.trim()
           : null,
       linked: account?.linked === true,
       running: account?.running === true,
       selfE164:
-        typeof channelSelf?.e164 === "string" && channelSelf.e164.trim().length > 0
+        typeof channelSelf?.e164 === "string" &&
+        channelSelf.e164.trim().length > 0
           ? channelSelf.e164.trim()
           : typeof self?.e164 === "string" && self.e164.trim().length > 0
             ? self.e164.trim()
-          : null,
+            : null,
       selfJid:
-        typeof channelSelf?.jid === "string" && channelSelf.jid.trim().length > 0
+        typeof channelSelf?.jid === "string" &&
+        channelSelf.jid.trim().length > 0
           ? channelSelf.jid.trim()
           : null,
     };
