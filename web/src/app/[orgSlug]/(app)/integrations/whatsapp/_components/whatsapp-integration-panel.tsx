@@ -401,6 +401,22 @@ export function WhatsAppIntegrationPanel(props: Props) {
     });
   }
 
+  function handleClearCurrentQr() {
+    startTransition(() => {
+      void runAction(async () => {
+        const data = await postJson(
+          `/api/integrations/${orgSlug}/whatsapp/link-sessions/clear`,
+          {},
+        );
+        setLinkSession(
+          (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null,
+        );
+        setSuccessMessage("The current WhatsApp QR session has been cleared.");
+        router.refresh();
+      });
+    });
+  }
+
   function handleSaveConfig() {
     if (!currentConfig || !surface) {
       return;
@@ -637,6 +653,15 @@ export function WhatsAppIntegrationPanel(props: Props) {
                 variant="outline"
               >
                 Disconnect
+              </Button>
+            ) : null}
+            {linkSession?.status === "qr_ready" ? (
+              <Button
+                disabled={isPending}
+                onClick={handleClearCurrentQr}
+                variant="outline"
+              >
+                Clear current QR
               </Button>
             ) : null}
           </div>

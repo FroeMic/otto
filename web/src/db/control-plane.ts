@@ -2638,6 +2638,96 @@ export async function disconnectTenantWhatsApp(input: {
   };
 }
 
+export async function clearCurrentTenantWhatsAppLinkSession(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp is not enabled for this workspace");
+    }
+
+    const [session] = await tx
+      .select({
+        id: whatsappLinkSessions.id,
+        status: whatsappLinkSessions.status,
+      })
+      .from(whatsappLinkSessions)
+      .where(eq(whatsappLinkSessions.tenantIntegrationId, integration.id))
+      .orderBy(desc(whatsappLinkSessions.createdAt))
+      .limit(1);
+
+    if (!session) {
+      return {
+        cleared: false,
+        linkSession: null,
+      };
+    }
+
+    const now = new Date();
+
+    await tx
+      .update(whatsappLinkSessions)
+      .set({
+        completedAt: now,
+        expiresAt: null,
+        lastError: null,
+        qrDataUrl: null,
+        status: "dismissed",
+        updatedAt: now,
+      })
+      .where(eq(whatsappLinkSessions.id, session.id));
+
+    if (integration.status === "linking") {
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: null,
+          lastErrorAt: null,
+          status: "ready_to_link",
+          updatedAt: now,
+        })
+        .where(eq(tenantIntegrations.id, integration.id));
+    }
+
+    const [updatedSession] = await tx
+      .select({
+        completedAt: whatsappLinkSessions.completedAt,
+        createdAt: whatsappLinkSessions.createdAt,
+        expiresAt: whatsappLinkSessions.expiresAt,
+        forceRelink: whatsappLinkSessions.forceRelink,
+        id: whatsappLinkSessions.id,
+        lastError: whatsappLinkSessions.lastError,
+        qrDataUrl: whatsappLinkSessions.qrDataUrl,
+        status: whatsappLinkSessions.status,
+        updatedAt: whatsappLinkSessions.updatedAt,
+      })
+      .from(whatsappLinkSessions)
+      .where(eq(whatsappLinkSessions.id, session.id))
+      .limit(1);
+
+    return {
+      cleared: true,
+      linkSession: buildTenantWhatsAppLinkSession(updatedSession ?? null),
+    };
+  });
+}
+
 async function getTenantWebSearchToolSurfaceForTenant(input: {
   tenantId: string;
 }): Promise<TenantToolConfigSurface | null> {
