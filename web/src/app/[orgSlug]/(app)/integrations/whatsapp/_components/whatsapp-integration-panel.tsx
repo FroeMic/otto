@@ -93,13 +93,16 @@ function parseListInput(value: string) {
     .filter(Boolean);
 }
 
-function formatExpiresIn(expiresAt: string | Date | null) {
+function formatExpiresIn(
+  expiresAt: string | Date | null,
+  currentTimestamp: number,
+) {
   if (!expiresAt) {
     return null;
   }
 
   const expiresAtDate = new Date(expiresAt);
-  const remainingMs = expiresAtDate.getTime() - Date.now();
+  const remainingMs = expiresAtDate.getTime() - currentTimestamp;
 
   if (Number.isNaN(expiresAtDate.getTime()) || remainingMs <= 0) {
     return "Expired";
@@ -170,6 +173,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
   const [draftConfig, setDraftConfig] = useState<WhatsAppRuntimeConfig | null>(
     initialSurface?.config ?? null,
   );
@@ -249,6 +253,23 @@ export function WhatsAppIntegrationPanel(props: Props) {
     };
   }, [linkSession, orgSlug, router]);
 
+  useEffect(() => {
+    if (linkSession?.status !== "qr_ready") {
+      setCurrentTimestamp(Date.now());
+      return;
+    }
+
+    setCurrentTimestamp(Date.now());
+
+    const intervalId = window.setInterval(() => {
+      setCurrentTimestamp(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [linkSession?.status]);
+
   const currentConfig = useMemo(() => {
     if (!draftConfig) {
       return null;
@@ -288,6 +309,11 @@ export function WhatsAppIntegrationPanel(props: Props) {
       JSON.stringify(requestBody(surface.config))
     );
   }, [currentConfig, surface]);
+
+  const qrExpiresIn = useMemo(
+    () => formatExpiresIn(linkSession?.expiresAt ?? null, currentTimestamp),
+    [currentTimestamp, linkSession?.expiresAt],
+  );
 
   async function runAction<T>(operation: () => Promise<T>) {
     setErrorMessage(null);
@@ -546,10 +572,8 @@ export function WhatsAppIntegrationPanel(props: Props) {
                     Linked Devices &gt; Link a Device, then scan this QR code.
                   </p>
                 </div>
-                {formatExpiresIn(linkSession.expiresAt) ? (
-                  <Badge variant="outline">
-                    Expires in {formatExpiresIn(linkSession.expiresAt)}
-                  </Badge>
+                {qrExpiresIn ? (
+                  <Badge variant="outline">Expires in {qrExpiresIn}</Badge>
                 ) : null}
               </div>
               <Image

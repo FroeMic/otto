@@ -371,6 +371,52 @@ export class RuntimeManager {
     return parseJsonObject(result.stdout);
   }
 
+  async startWhatsAppLoginWithQr(
+    connection: SshConnection,
+    input: {
+      force?: boolean;
+      timeoutMs?: number;
+    },
+  ) {
+    const result = await this.invokeGatewayMethod(connection, {
+      method: "web.login.start",
+      params: {
+        ...(typeof input.force === "boolean" ? { force: input.force } : {}),
+        ...(typeof input.timeoutMs === "number"
+          ? { timeoutMs: input.timeoutMs }
+          : {}),
+      },
+      timeoutMs: Math.max(input.timeoutMs ?? 0, 60_000),
+    });
+
+    return result as {
+      message: string;
+      qrDataUrl?: string;
+    };
+  }
+
+  async waitForWhatsAppLogin(
+    connection: SshConnection,
+    input: {
+      timeoutMs?: number;
+    },
+  ) {
+    const result = await this.invokeGatewayMethod(connection, {
+      method: "web.login.wait",
+      params: {
+        ...(typeof input.timeoutMs === "number"
+          ? { timeoutMs: input.timeoutMs }
+          : {}),
+      },
+      timeoutMs: Math.max((input.timeoutMs ?? 0) + 15_000, 60_000),
+    });
+
+    return result as {
+      connected: boolean;
+      message: string;
+    };
+  }
+
   async readGatewayStatusJson(connection: SshConnection) {
     const result = await this.execChecked(
       connection,
@@ -418,6 +464,37 @@ export class RuntimeManager {
       ]),
       { timeoutMs: 60_000 },
     );
+  }
+
+  private async invokeGatewayMethod(
+    connection: SshConnection,
+    input: {
+      method: string;
+      params?: Record<string, unknown>;
+      timeoutMs?: number;
+    },
+  ) {
+    const params = JSON.stringify(input.params ?? {});
+    const result = await this.execChecked(
+      connection,
+      buildShellCommand([
+        "test -f /opt/openclaw/home/.env",
+        "source /opt/openclaw/home/.env >/dev/null 2>&1",
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+        [
+          "docker exec openclaw-gateway",
+          "node dist/index.js gateway call",
+          shellQuoteForShell(input.method),
+          "--json",
+          `--url ${shellQuoteForShell(`ws://127.0.0.1:${OPENCLAW_GATEWAY_CONTAINER_PORT}`)}`,
+          '--token "$OPENCLAW_GATEWAY_TOKEN"',
+          `--params ${shellQuoteForShell(params)}`,
+        ].join(" "),
+      ]),
+      { timeoutMs: input.timeoutMs ?? 60_000 },
+    );
+
+    return parseJsonObject(result.stdout);
   }
 
   private async execChecked(

@@ -22,7 +22,7 @@ import { JOB_TYPES } from "./types";
 const runtimeManager = new RuntimeManager();
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const LINK_START_TIMEOUT_MS = 30_000;
-const LINK_WAIT_TIMEOUT_MS = 120_000;
+const LINK_WAIT_TIMEOUT_MS = 200_000;
 
 export async function processWhatsAppLinkSessionJob(
   job: ClaimedJob,
@@ -59,20 +59,15 @@ export async function processWhatsAppLinkSessionJob(
     });
     await markIntegrationStatus(payload.tenantId, "linking");
 
-    const startResponse = await runtimeManager.invokeGatewayTool(
+    const startResult = await runtimeManager.startWhatsAppLoginWithQr(
       runtimeConnection,
       {
-        action: "start",
-        args: {
-          force: linkSession.forceRelink,
-          timeoutMs: LINK_START_TIMEOUT_MS,
-        },
-        tool: "whatsapp_login",
+        force: linkSession.forceRelink,
+        timeoutMs: LINK_START_TIMEOUT_MS,
       },
     );
-    const startResult = parseGatewayToolResult(startResponse);
-    const startText = getGatewayToolText(startResult.result);
-    const qrDataUrl = extractQrDataUrl(startText);
+    const startText = startResult.message.trim();
+    const qrDataUrl = startResult.qrDataUrl?.trim();
 
     if (qrDataUrl) {
       await markLinkSessionStatus(payload.linkSessionId, {
@@ -107,19 +102,14 @@ export async function processWhatsAppLinkSessionJob(
       throw new Error(startText || "WhatsApp QR code was not returned");
     }
 
-    const waitResponse = await runtimeManager.invokeGatewayTool(
+    const waitResult = await runtimeManager.waitForWhatsAppLogin(
       runtimeConnection,
       {
-        action: "wait",
-        args: {
-          timeoutMs: LINK_WAIT_TIMEOUT_MS,
-        },
-        tool: "whatsapp_login",
+        timeoutMs: LINK_WAIT_TIMEOUT_MS,
       },
     );
-    const waitResult = parseGatewayToolResult(waitResponse);
-    const waitText = getGatewayToolText(waitResult.result);
-    const connected = getGatewayToolConnected(waitResult.result);
+    const waitText = waitResult.message.trim();
+    const connected = waitResult.connected;
 
     if (!connected) {
       await failLinkSession({
@@ -505,72 +495,6 @@ async function markWhatsAppDisconnected(tenantId: string) {
       })
       .where(eq(tenantIntegrations.id, integration.id));
   });
-}
-
-function parseGatewayToolResult(response: Record<string, unknown>) {
-  if (response.ok !== true) {
-    const error = response.error;
-
-    if (error && typeof error === "object" && !Array.isArray(error)) {
-      const message = (error as { message?: unknown }).message;
-
-      throw new Error(
-        typeof message === "string"
-          ? message
-          : "Tenant runtime rejected the WhatsApp tool request",
-      );
-    }
-
-    throw new Error("Tenant runtime rejected the WhatsApp tool request");
-  }
-
-  const result = response.result;
-
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Tenant runtime returned an invalid WhatsApp tool result");
-  }
-
-  return {
-    result: result as Record<string, unknown>,
-  };
-}
-
-function getGatewayToolText(result: Record<string, unknown>) {
-  const content = result.content;
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  return content
-    .map((entry) => {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        return "";
-      }
-
-      const maybeText = (entry as { text?: unknown }).text;
-      return typeof maybeText === "string" ? maybeText : "";
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
-function getGatewayToolConnected(result: Record<string, unknown>) {
-  const details = result.details;
-
-  if (!details || typeof details !== "object" || Array.isArray(details)) {
-    return false;
-  }
-
-  return Boolean((details as { connected?: unknown }).connected);
-}
-
-function extractQrDataUrl(text: string) {
-  const match = text.match(
-    /!\[whatsapp-qr\]\((data:image\/png;base64,[^)]+)\)/,
-  );
-
-  return match?.[1] ?? null;
 }
 
 function getErrorMessage(error: unknown) {
