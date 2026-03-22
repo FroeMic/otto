@@ -10,6 +10,7 @@ import QRCodeModule from "qrcode-terminal/vendor/QRCode/index.js";
 import QRErrorCorrectLevelModule from "qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel.js";
 
 import { loadConfig } from "../dist/index.js";
+import { resolveWhatsAppAccount } from "../dist/plugin-sdk/whatsapp.js";
 
 const ACTIVE_LOGIN_TTL_MS = 3 * 60_000;
 const DEFAULT_ACCOUNT_ID = "default";
@@ -428,13 +429,12 @@ function parseArgs(argv) {
 async function loadWebRuntimeModules() {
   if (!webRuntimeModulesPromise) {
     webRuntimeModulesPromise = Promise.all([
-      importDistModule("accounts-"),
       importDistModule("channel-web-"),
-    ]).then(([accountsModule, channelWebModule]) => ({
+    ]).then(([channelWebModule]) => ({
       createWaSocket: channelWebModule.createWaSocket,
       formatError: channelWebModule.formatError,
       logoutWeb: channelWebModule.logoutWeb,
-      resolveWhatsAppAccount: accountsModule.resolveWhatsAppAccount,
+      resolveWhatsAppAccount,
       waitForWaConnection: channelWebModule.waitForWaConnection,
       webAuthExists: channelWebModule.webAuthExists,
     }));
