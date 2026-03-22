@@ -187,6 +187,14 @@ export function WhatsAppIntegrationPanel(props: Props) {
   const [groupAllowedNumbersInput, setGroupAllowedNumbersInput] = useState(
     joinList(initialSurface?.config.groupAllowedNumbers ?? []),
   );
+  const uiPhase = useMemo(
+    () =>
+      getWhatsAppUiPhase({
+        integrationStatus: integration?.status ?? null,
+        linkSessionStatus: linkSession?.status ?? null,
+      }),
+    [integration?.status, linkSession?.status],
+  );
 
   useEffect(() => {
     setIntegration(initialIntegration);
@@ -218,7 +226,13 @@ export function WhatsAppIntegrationPanel(props: Props) {
     if (
       linkSession.status !== "queued" &&
       linkSession.status !== "starting" &&
-      linkSession.status !== "qr_ready"
+      linkSession.status !== "qr_ready" &&
+      !(
+        linkSession.status === "connected" &&
+        integration?.status !== "connected" &&
+        integration?.status !== "apply_failed" &&
+        integration?.status !== "link_failed"
+      )
     ) {
       return;
     }
@@ -241,10 +255,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null;
       setLinkSession(nextLinkSession);
 
-      if (
-        nextLinkSession?.status === "connected" ||
-        nextLinkSession?.status === "failed"
-      ) {
+      if (nextLinkSession?.status === "failed") {
         router.refresh();
       }
     }, 3000);
@@ -252,7 +263,21 @@ export function WhatsAppIntegrationPanel(props: Props) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [linkSession, orgSlug, router]);
+  }, [integration?.status, linkSession, orgSlug, router]);
+
+  useEffect(() => {
+    if (uiPhase !== "activating") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      router.refresh();
+    }, 4000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [router, uiPhase]);
 
   useEffect(() => {
     if (linkSession?.status !== "qr_ready") {
@@ -316,14 +341,6 @@ export function WhatsAppIntegrationPanel(props: Props) {
     [currentTimestamp, linkSession?.expiresAt],
   );
   const isWhatsAppInstalled = surface?.config.installState === "installed";
-  const uiPhase = useMemo(
-    () =>
-      getWhatsAppUiPhase({
-        integrationStatus: integration?.status ?? null,
-        linkSessionStatus: linkSession?.status ?? null,
-      }),
-    [integration?.status, linkSession?.status],
-  );
   const linkedNumber =
     integration?.selfE164 ?? "your dedicated WhatsApp number";
 
@@ -694,28 +711,78 @@ export function WhatsAppIntegrationPanel(props: Props) {
         </Card>
       ) : null}
 
-      {uiPhase === "activating" || uiPhase === "connected" ? (
+      {uiPhase === "activating" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Finishing setup</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Alert>
+              <AlertTitle>Pairing complete</AlertTitle>
+              <AlertDescription>
+                Otto linked {linkedNumber} and is now activating WhatsApp in the
+                tenant runtime.
+              </AlertDescription>
+            </Alert>
+            {linkSession?.qrDataUrl ? (
+              <div className="flex flex-col gap-4 rounded-none border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Finalizing WhatsApp in the tenant runtime
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Otto is finishing the runtime activation step. You do not
+                      need to scan again.
+                    </p>
+                  </div>
+                </div>
+                <div className="relative w-full max-w-sm">
+                  <Image
+                    alt="WhatsApp QR code"
+                    className="w-full border bg-white p-4 opacity-40"
+                    src={linkSession.qrDataUrl}
+                    unoptimized
+                    height={320}
+                    width={320}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+                    <div className="rounded-none border bg-background px-4 py-3 text-center shadow-sm">
+                      <p className="text-sm font-medium text-foreground">
+                        Finishing setup...
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Otto is applying the WhatsApp runtime configuration.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Alert>
+                <AlertTitle>Finishing setup</AlertTitle>
+                <AlertDescription>
+                  Otto is still activating WhatsApp in the tenant runtime. This
+                  page will refresh automatically when setup completes.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {uiPhase === "connected" ? (
         <Card>
           <CardHeader>
             <CardTitle>Linked account</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {uiPhase === "activating" ? (
-              <Alert>
-                <AlertTitle>Finishing setup</AlertTitle>
-                <AlertDescription>
-                  Otto linked {linkedNumber} and is now activating WhatsApp in
-                  the tenant runtime.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <Alert>
-                <AlertTitle>WhatsApp connected</AlertTitle>
-                <AlertDescription>
-                  Otto is now linked to {linkedNumber}.
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert>
+              <AlertTitle>WhatsApp connected</AlertTitle>
+              <AlertDescription>
+                Otto is now linked to {linkedNumber}.
+              </AlertDescription>
+            </Alert>
             <div className="rounded-none border p-4">
               <div className="flex flex-col gap-1">
                 <p className="text-sm text-muted-foreground">
@@ -726,37 +793,35 @@ export function WhatsAppIntegrationPanel(props: Props) {
                 </p>
               </div>
             </div>
-            {uiPhase === "connected" ? (
-              <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={isPending || props.runtimeApplyIsActive}
+                onClick={() => handleGenerateQr(true)}
+              >
+                Reconnect
+              </Button>
+              <Button
+                disabled={isPending}
+                onClick={handleDisconnect}
+                variant="outline"
+              >
+                Disconnect
+              </Button>
+              {integration && isWhatsAppInstalled ? (
                 <Button
                   disabled={isPending || props.runtimeApplyIsActive}
-                  onClick={() => handleGenerateQr(true)}
-                >
-                  Reconnect
-                </Button>
-                <Button
-                  disabled={isPending}
-                  onClick={handleDisconnect}
+                  onClick={handleDisable}
                   variant="outline"
                 >
-                  Disconnect
+                  Disable WhatsApp
                 </Button>
-                {integration && isWhatsAppInstalled ? (
-                  <Button
-                    disabled={isPending || props.runtimeApplyIsActive}
-                    onClick={handleDisable}
-                    variant="outline"
-                  >
-                    Disable WhatsApp
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       ) : null}
 
-      {uiPhase === "activating" || uiPhase === "connected" ? (
+      {uiPhase === "connected" ? (
         <Card>
           <CardHeader>
             <CardTitle>Policy settings</CardTitle>

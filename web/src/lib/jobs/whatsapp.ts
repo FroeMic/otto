@@ -750,7 +750,6 @@ async function completeLinkSession(input: {
         completedAt: now,
         expiresAt: null,
         lastError: null,
-        qrDataUrl: null,
         status: "connected",
         updatedAt: now,
       })
