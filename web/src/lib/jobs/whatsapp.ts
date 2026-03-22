@@ -23,6 +23,8 @@ const runtimeManager = new RuntimeManager();
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const LINK_START_TIMEOUT_MS = 30_000;
 const LINK_WAIT_TIMEOUT_MS = 200_000;
+const LINK_STATUS_VERIFICATION_ATTEMPTS = 3;
+const LINK_STATUS_VERIFICATION_DELAY_MS = 5_000;
 
 export async function processWhatsAppLinkSessionJob(
   job: ClaimedJob,
@@ -112,6 +114,36 @@ export async function processWhatsAppLinkSessionJob(
     const connected = waitResult.connected;
 
     if (!connected) {
+      const linkedState = await verifyLinkedStateAfterWaitFailure(
+        runtimeConnection,
+      );
+
+      if (linkedState?.linked) {
+        const selfId = await runtimeManager.readWhatsAppSelfId(runtimeConnection);
+        const selfE164 = selfId.e164 ?? linkedState.selfE164 ?? null;
+        await completeLinkSession({
+          linkSessionId: payload.linkSessionId,
+          selfE164,
+          selfJid: selfId.jid ?? null,
+          tenantId: payload.tenantId,
+        });
+        await appendJobEvent(
+          job.id,
+          "whatsapp_connected_after_verification",
+          "WhatsApp linked successfully after runtime verification",
+          {
+            selfE164,
+            waitMessage: waitText,
+          },
+        );
+        await markJobSucceeded(job.id, {
+          linkSessionId: payload.linkSessionId,
+          recoveredFromWaitFailure: true,
+          selfE164,
+        });
+        return;
+      }
+
       await failLinkSession({
         error: waitText || "WhatsApp QR scan timed out",
         linkSessionId: payload.linkSessionId,
@@ -234,6 +266,27 @@ function parseDisconnectPayload(
   return {
     tenantId,
   };
+}
+
+async function verifyLinkedStateAfterWaitFailure(
+  runtimeConnection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>,
+) {
+  for (let attempt = 0; attempt < LINK_STATUS_VERIFICATION_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(LINK_STATUS_VERIFICATION_DELAY_MS);
+    }
+
+    try {
+      const status = await runtimeManager.readWhatsAppLinkStatus(runtimeConnection);
+      if (status.linked) {
+        return status;
+      }
+    } catch {
+      // The gateway may still be settling after QR pairing; keep probing.
+    }
+  }
+
+  return null;
 }
 
 async function getTenantRuntimeConnection(tenantId: string) {
@@ -503,4 +556,8 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown WhatsApp job error";
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

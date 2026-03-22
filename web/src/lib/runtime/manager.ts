@@ -27,6 +27,12 @@ export type ApplyTenantConfigResult = {
   verifyStdout: string;
 };
 
+export type WhatsAppLinkStatus = {
+  linked: boolean;
+  authAgeMs: number | null;
+  selfE164: string | null;
+};
+
 const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
 const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
 
@@ -430,6 +436,45 @@ export class RuntimeManager {
     return parseJsonObject(result.stdout);
   }
 
+  async readWhatsAppLinkStatus(
+    connection: SshConnection,
+  ): Promise<WhatsAppLinkStatus> {
+    const result = await this.execChecked(
+      connection,
+      buildShellCommand([
+        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+        "docker exec openclaw-gateway node dist/index.js channels status --json",
+      ]),
+      { timeoutMs: 60_000 },
+    );
+
+    const payload = parseJsonObject(result.stdout);
+    const channelAccounts = asRecord(payload.channelAccounts);
+    const rawWhatsAppAccounts = channelAccounts?.whatsapp;
+    const whatsappAccounts = Array.isArray(rawWhatsAppAccounts)
+      ? rawWhatsAppAccounts
+      : [];
+    const rawAccount =
+      whatsappAccounts.find(
+        (account) => asRecord(account)?.accountId === "default",
+      ) ?? whatsappAccounts[0];
+    const account = asRecord(rawAccount);
+    const self = asRecord(account?.self);
+
+    return {
+      authAgeMs:
+        typeof account?.authAgeMs === "number" &&
+        Number.isFinite(account.authAgeMs)
+          ? account.authAgeMs
+          : null,
+      linked: account?.linked === true,
+      selfE164:
+        typeof self?.e164 === "string" && self.e164.trim().length > 0
+          ? self.e164.trim()
+          : null,
+    };
+  }
+
   async readWhatsAppSelfId(connection: SshConnection) {
     const script = [
       "const { loadConfig } = require('./dist/config/config.js');",
@@ -556,6 +601,14 @@ export class RuntimeManager {
 
 function buildShellCommand(commands: string[]) {
   return `bash -lc ${shellQuote(commands.join(" && "))}`;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
 }
 
 function shellQuote(value: string) {
