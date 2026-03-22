@@ -176,6 +176,9 @@ export function WhatsAppIntegrationPanel(props: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
+  const [pendingActivationSessionId, setPendingActivationSessionId] = useState<
+    string | null
+  >(null);
   const [draftConfig, setDraftConfig] = useState<WhatsAppRuntimeConfig | null>(
     initialSurface?.config ?? null,
   );
@@ -231,6 +234,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
       linkSession.status !== "qr_ready" &&
       !(
         linkSession.status === "connected" &&
+        pendingActivationSessionId === linkSession.id &&
         integrationStatus !== "connected" &&
         integrationStatus !== "apply_failed" &&
         integrationStatus !== "link_failed"
@@ -259,6 +263,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
 
       if (
         nextLinkSession?.status === "connected" &&
+        nextLinkSession.id === pendingActivationSessionId &&
         integrationStatus !== null &&
         integrationStatus !== "connected" &&
         integrationStatus !== "apply_failed" &&
@@ -275,6 +280,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
       }
 
       if (nextLinkSession?.status === "failed") {
+        setPendingActivationSessionId(null);
         router.refresh();
       }
     }, 3000);
@@ -282,7 +288,13 @@ export function WhatsAppIntegrationPanel(props: Props) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [integrationStatus, linkSession, orgSlug, router]);
+  }, [
+    integrationStatus,
+    linkSession,
+    orgSlug,
+    pendingActivationSessionId,
+    router,
+  ]);
 
   useEffect(() => {
     if (uiPhase !== "activating") {
@@ -424,9 +436,10 @@ export function WhatsAppIntegrationPanel(props: Props) {
             forceRelink,
           },
         );
-        setLinkSession(
-          (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null,
-        );
+        const nextLinkSession =
+          (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null;
+        setLinkSession(nextLinkSession);
+        setPendingActivationSessionId(nextLinkSession?.id ?? null);
         setSuccessMessage(
           forceRelink
             ? "A new WhatsApp QR session has started."
@@ -447,6 +460,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         setLinkSession(
           (data?.linkSession as WhatsAppLinkSession | null | undefined) ?? null,
         );
+        setPendingActivationSessionId(null);
         setSuccessMessage("The current WhatsApp QR session has been cleared.");
         router.refresh();
       });
@@ -550,6 +564,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
           ((data?.surface as WhatsAppRuntimeConfigSurface | null | undefined)
             ?.config as WhatsAppRuntimeConfig | undefined) ?? null,
         );
+        setPendingActivationSessionId(null);
         setSuccessMessage(
           "WhatsApp disable has been queued. Otto will remove the runtime config and clear the saved WhatsApp session.",
         );
