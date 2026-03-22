@@ -475,6 +475,10 @@ export class RuntimeManager {
     },
   ) {
     const params = JSON.stringify(input.params ?? {});
+    const gatewayCallTimeoutMs = Math.max(
+      Math.ceil((input.timeoutMs ?? 60_000) / 1000) * 1000,
+      10_000,
+    );
     const result = await this.execChecked(
       connection,
       buildShellCommand([
@@ -488,6 +492,7 @@ export class RuntimeManager {
           "--json",
           `--url ${shellQuoteForShell(`ws://127.0.0.1:${OPENCLAW_GATEWAY_CONTAINER_PORT}`)}`,
           '--token "$OPENCLAW_GATEWAY_TOKEN"',
+          `--timeout ${shellQuoteForShell(String(gatewayCallTimeoutMs))}`,
           `--params ${shellQuoteForShell(params)}`,
         ].join(" "),
       ]),
