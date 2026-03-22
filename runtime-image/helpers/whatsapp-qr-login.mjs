@@ -2,27 +2,24 @@
 
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 import { DisconnectReason } from "@whiskeysockets/baileys";
+import QRCodeModule from "qrcode-terminal/vendor/QRCode/index.js";
+import QRErrorCorrectLevelModule from "qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel.js";
 
-import { loadConfig } from "../dist/config/config.js";
-import { resolveWhatsAppAccount } from "../dist/web/accounts.js";
-import { renderQrPngBase64 } from "../dist/web/qr-image.js";
-import {
-  createWaSocket,
-  formatError,
-  logoutWeb,
-  readWebSelfId,
-  waitForWaConnection,
-  webAuthExists,
-} from "../dist/web/session.js";
+import { loadConfig } from "../dist/index.js";
 
 const ACTIVE_LOGIN_TTL_MS = 3 * 60_000;
 const DEFAULT_ACCOUNT_ID = "default";
 const DEFAULT_POLL_INTERVAL_MS = 500;
+const DIST_DIR = "/app/dist";
 const STATE_ROOT = "/home/node/.openclaw/otto/whatsapp-link";
+const QRCode = QRCodeModule;
+const QRErrorCorrectLevel = QRErrorCorrectLevelModule;
+
+let webRuntimeModulesPromise;
 
 const [, , command = "status", ...rawArgs] = process.argv;
 const args = parseArgs(rawArgs);
@@ -89,15 +86,15 @@ async function startCommand(args) {
   }
 
   if (args.force) {
-    await logoutWeb({
+    await ctx.webRuntime.logoutWeb({
       authDir: ctx.account.authDir,
       isLegacyAuthDir: ctx.account.isLegacyAuthDir,
     }).catch(() => false);
   }
 
-  const hasWeb = await webAuthExists(ctx.account.authDir);
+  const hasWeb = await ctx.webRuntime.webAuthExists(ctx.account.authDir);
   if (hasWeb && !args.force) {
-    const self = readWebSelfId(ctx.account.authDir);
+    const self = await readWebSelfId(ctx.account.authDir);
     writeJson({
       alreadyLinked: true,
       message: `WhatsApp is already linked (${self.e164 ?? self.jid ?? "unknown"}).`,
@@ -206,10 +203,10 @@ async function runCommand(args) {
 
   let sock = null;
   try {
-    sock = await createWaSocket(false, Boolean(args.verbose), {
+    sock = await ctx.webRuntime.createWaSocket(false, Boolean(args.verbose), {
       authDir: ctx.account.authDir,
       onQr: async (qrText) => {
-        const qrDataUrl = `data:image/png;base64,${await renderQrPngBase64(qrText)}`;
+        const qrDataUrl = renderQrSvgDataUrl(qrText);
         current = await writeStateWithEvent(
           ctx.statePath,
           current,
@@ -242,6 +239,7 @@ async function runCommand(args) {
 
     const restarted = await waitForConnectionWithRestart({
       authDir: ctx.account.authDir,
+      createWaSocket: ctx.webRuntime.createWaSocket,
       onRestart: async () => {
         current = await writeStateWithEvent(
           ctx.statePath,
@@ -259,9 +257,10 @@ async function runCommand(args) {
       },
       sock,
       verbose: Boolean(args.verbose),
+      waitForWaConnection: ctx.webRuntime.waitForWaConnection,
     });
 
-    const self = readWebSelfId(ctx.account.authDir);
+    const self = await readWebSelfId(ctx.account.authDir);
     const successMessage = restarted
       ? "WhatsApp linked successfully after restart."
       : "WhatsApp linked successfully.";
@@ -280,10 +279,10 @@ async function runCommand(args) {
     );
   } catch (error) {
     const code = getStatusCodeLikeCli(error);
-    const message = formatError(error);
+    const message = ctx.webRuntime.formatError(error);
 
     if (code === DisconnectReason.loggedOut) {
-      await logoutWeb({
+      await ctx.webRuntime.logoutWeb({
         authDir: ctx.account.authDir,
         isLegacyAuthDir: ctx.account.isLegacyAuthDir,
       }).catch(() => false);
@@ -313,7 +312,7 @@ async function waitForConnectionWithRestart(input) {
   let restarted = false;
 
   try {
-    await waitForWaConnection(sock);
+    await input.waitForWaConnection(sock);
     return restarted;
   } catch (error) {
     const code = getStatusCodeLikeCli(error);
@@ -324,11 +323,11 @@ async function waitForConnectionWithRestart(input) {
     restarted = true;
     await onRestart?.();
     closeSocket(sock);
-    const retry = await createWaSocket(false, verbose, {
+    const retry = await input.createWaSocket(false, verbose, {
       authDir,
     });
     sock = retry;
-    await waitForWaConnection(retry);
+    await input.waitForWaConnection(retry);
     return restarted;
   } finally {
     closeSocket(sock);
@@ -337,14 +336,15 @@ async function waitForConnectionWithRestart(input) {
 
 async function createContext(accountId) {
   const cfg = loadConfig();
-  const account = resolveWhatsAppAccount({
+  const webRuntime = await loadWebRuntimeModules();
+  const account = webRuntime.resolveWhatsAppAccount({
     cfg,
     accountId: accountId ?? DEFAULT_ACCOUNT_ID,
   });
   const stateDir = path.join(STATE_ROOT, account.accountId);
   const statePath = path.join(stateDir, "state.json");
   const scriptPath = fileURLToPath(import.meta.url);
-  return { account, scriptPath, stateDir, statePath };
+  return { account, scriptPath, stateDir, statePath, webRuntime };
 }
 
 function closeSocket(sock) {
@@ -423,6 +423,89 @@ function parseArgs(argv) {
   }
 
   return result;
+}
+
+async function loadWebRuntimeModules() {
+  if (!webRuntimeModulesPromise) {
+    webRuntimeModulesPromise = Promise.all([
+      importDistModule("accounts-"),
+      importDistModule("channel-web-"),
+    ]).then(([accountsModule, channelWebModule]) => ({
+      createWaSocket: channelWebModule.createWaSocket,
+      formatError: channelWebModule.formatError,
+      logoutWeb: channelWebModule.logoutWeb,
+      resolveWhatsAppAccount: accountsModule.resolveWhatsAppAccount,
+      waitForWaConnection: channelWebModule.waitForWaConnection,
+      webAuthExists: channelWebModule.webAuthExists,
+    }));
+  }
+
+  return webRuntimeModulesPromise;
+}
+
+async function importDistModule(prefix) {
+  const entries = await fs.readdir(DIST_DIR);
+  const match = entries
+    .filter((entry) => entry.startsWith(prefix) && entry.endsWith(".js"))
+    .sort()
+    .at(-1);
+
+  if (!match) {
+    throw new Error(`Could not find runtime module for prefix ${prefix}`);
+  }
+
+  return await import(pathToFileURL(path.join(DIST_DIR, match)).href);
+}
+
+async function readWebSelfId(authDir) {
+  try {
+    const raw = await fs.readFile(path.join(authDir, "creds.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    const jid = typeof parsed?.me?.id === "string" ? parsed.me.id : null;
+    const numberPart = jid?.split("@")[0]?.split(":")[0] ?? null;
+    const e164 =
+      numberPart && /^[0-9]+$/.test(numberPart) ? `+${numberPart}` : null;
+    return { e164, jid };
+  } catch {
+    return { e164: null, jid: null };
+  }
+}
+
+function createQrMatrix(input) {
+  const qr = new QRCode(-1, QRErrorCorrectLevel.L);
+  qr.addData(input);
+  qr.make();
+  return qr;
+}
+
+function renderQrSvgDataUrl(
+  input,
+  opts = { marginModules: 4, moduleSize: 6 },
+) {
+  const { marginModules = 4, moduleSize = 6 } = opts;
+  const qr = createQrMatrix(input);
+  const modules = qr.getModuleCount();
+  const size = (modules + marginModules * 2) * moduleSize;
+  const rects = [];
+
+  for (let row = 0; row < modules; row += 1) {
+    for (let col = 0; col < modules; col += 1) {
+      if (!qr.isDark(row, col)) {
+        continue;
+      }
+      rects.push(
+        `<rect x="${(col + marginModules) * moduleSize}" y="${(row + marginModules) * moduleSize}" width="${moduleSize}" height="${moduleSize}" />`,
+      );
+    }
+  }
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">` +
+    `<rect width="${size}" height="${size}" fill="#fff"/>` +
+    `<g fill="#000">${rects.join("")}</g>` +
+    `</svg>`;
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
 async function readState(statePath) {
