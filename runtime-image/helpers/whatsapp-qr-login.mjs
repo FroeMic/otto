@@ -2,10 +2,16 @@
 
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { DisconnectReason } from "@whiskeysockets/baileys";
+import {
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
+  makeWASocket,
+  useMultiFileAuthState,
+} from "@whiskeysockets/baileys";
 import QRCodeModule from "qrcode-terminal/vendor/QRCode/index.js";
 import QRErrorCorrectLevelModule from "qrcode-terminal/vendor/QRCode/QRErrorCorrectLevel.js";
 
@@ -15,12 +21,16 @@ import { resolveWhatsAppAccount } from "../dist/plugin-sdk/whatsapp.js";
 const ACTIVE_LOGIN_TTL_MS = 3 * 60_000;
 const DEFAULT_ACCOUNT_ID = "default";
 const DEFAULT_POLL_INTERVAL_MS = 500;
-const DIST_DIR = "/app/dist";
 const STATE_ROOT = "/home/node/.openclaw/otto/whatsapp-link";
 const QRCode = QRCodeModule;
 const QRErrorCorrectLevel = QRErrorCorrectLevelModule;
-
-let webRuntimeModulesPromise;
+const LEGACY_AUTH_JSON_PREFIXES = [
+  "app-state-sync-",
+  "pre-key-",
+  "sender-key-",
+  "session-",
+];
+const SILENT_LOGGER = createSilentLogger();
 
 const [, , command = "status", ...rawArgs] = process.argv;
 const args = parseArgs(rawArgs);
@@ -337,15 +347,14 @@ async function waitForConnectionWithRestart(input) {
 
 async function createContext(accountId) {
   const cfg = loadConfig();
-  const webRuntime = await loadWebRuntimeModules();
-  const account = webRuntime.resolveWhatsAppAccount({
+  const account = resolveWhatsAppAccount({
     cfg,
     accountId: accountId ?? DEFAULT_ACCOUNT_ID,
   });
   const stateDir = path.join(STATE_ROOT, account.accountId);
   const statePath = path.join(stateDir, "state.json");
   const scriptPath = fileURLToPath(import.meta.url);
-  return { account, scriptPath, stateDir, statePath, webRuntime };
+  return { account, scriptPath, stateDir, statePath, webRuntime: buildWebRuntime() };
 }
 
 function closeSocket(sock) {
@@ -426,37 +435,6 @@ function parseArgs(argv) {
   return result;
 }
 
-async function loadWebRuntimeModules() {
-  if (!webRuntimeModulesPromise) {
-    webRuntimeModulesPromise = Promise.all([
-      importDistModule("channel-web-"),
-    ]).then(([channelWebModule]) => ({
-      createWaSocket: channelWebModule.createWaSocket,
-      formatError: channelWebModule.formatError,
-      logoutWeb: channelWebModule.logoutWeb,
-      resolveWhatsAppAccount,
-      waitForWaConnection: channelWebModule.waitForWaConnection,
-      webAuthExists: channelWebModule.webAuthExists,
-    }));
-  }
-
-  return webRuntimeModulesPromise;
-}
-
-async function importDistModule(prefix) {
-  const entries = await fs.readdir(DIST_DIR);
-  const match = entries
-    .filter((entry) => entry.startsWith(prefix) && entry.endsWith(".js"))
-    .sort()
-    .at(-1);
-
-  if (!match) {
-    throw new Error(`Could not find runtime module for prefix ${prefix}`);
-  }
-
-  return await import(pathToFileURL(path.join(DIST_DIR, match)).href);
-}
-
 async function readWebSelfId(authDir) {
   try {
     const raw = await fs.readFile(path.join(authDir, "creds.json"), "utf8");
@@ -506,6 +484,191 @@ function renderQrSvgDataUrl(
     `</svg>`;
 
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+function buildWebRuntime() {
+  return {
+    createWaSocket,
+    formatError,
+    logoutWeb,
+    waitForWaConnection,
+    webAuthExists,
+  };
+}
+
+async function createWaSocket(printQr, verbose, opts = {}) {
+  const authDir = opts.authDir;
+  if (!authDir) {
+    throw new Error("WhatsApp authDir is required");
+  }
+
+  await fs.mkdir(authDir, { recursive: true });
+  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+  const { version } = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(state.keys, SILENT_LOGGER),
+    },
+    browser: ["otto", "whatsapp-helper", "1"],
+    logger: SILENT_LOGGER,
+    markOnlineOnConnect: false,
+    printQRInTerminal: false,
+    syncFullHistory: false,
+    version,
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("connection.update", (update) => {
+    if (typeof update?.qr === "string") {
+      opts.onQr?.(update.qr);
+      if (printQr) {
+        console.log("Scan this QR in WhatsApp (Linked Devices):");
+      }
+    }
+  });
+
+  if (sock.ws && typeof sock.ws.on === "function") {
+    sock.ws.on("error", () => {
+      // suppress websocket-level crashes; waitForWaConnection surfaces the result
+    });
+  }
+
+  return sock;
+}
+
+async function waitForWaConnection(sock) {
+  return await new Promise((resolve, reject) => {
+    const handler = (update = {}) => {
+      if (update.connection === "open") {
+        off("connection.update", handler);
+        resolve();
+        return;
+      }
+
+      if (update.connection === "close") {
+        off("connection.update", handler);
+        reject(update.lastDisconnect ?? new Error("Connection closed"));
+      }
+    };
+
+    const off = (event, listener) => {
+      if (typeof sock.ev?.off === "function") {
+        sock.ev.off(event, listener);
+      }
+    };
+
+    sock.ev.on("connection.update", handler);
+  });
+}
+
+async function webAuthExists(authDir) {
+  const credsPath = path.join(authDir, "creds.json");
+
+  try {
+    const stats = await fs.stat(credsPath);
+    if (!stats.isFile() || stats.size <= 1) {
+      return false;
+    }
+    JSON.parse(await fs.readFile(credsPath, "utf8"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function logoutWeb(params) {
+  const authDir = params?.authDir;
+  if (!authDir) {
+    return false;
+  }
+
+  const exists = await webAuthExists(authDir);
+  if (!exists) {
+    return false;
+  }
+
+  if (params?.isLegacyAuthDir) {
+    await clearLegacyBaileysAuthState(authDir);
+  } else {
+    await fs.rm(authDir, { recursive: true, force: true });
+  }
+
+  return true;
+}
+
+async function clearLegacyBaileysAuthState(authDir) {
+  const entries = await fs.readdir(authDir, { withFileTypes: true });
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile()) {
+        return;
+      }
+
+      if (entry.name === "oauth.json") {
+        return;
+      }
+
+      if (
+        entry.name === "creds.json" ||
+        entry.name === "creds.json.bak" ||
+        (entry.name.endsWith(".json") &&
+          LEGACY_AUTH_JSON_PREFIXES.some((prefix) =>
+            entry.name.startsWith(prefix),
+          ))
+      ) {
+        await fs.rm(path.join(authDir, entry.name), { force: true });
+      }
+    }),
+  );
+}
+
+function formatError(error) {
+  const statusCode =
+    error?.error?.output?.statusCode ??
+    error?.output?.statusCode ??
+    error?.error?.status ??
+    error?.status;
+  const payloadMessage =
+    error?.error?.output?.payload?.message ??
+    error?.output?.payload?.message ??
+    error?.error?.message ??
+    error?.message;
+  const dataReason =
+    error?.error?.data?.reason ?? error?.data?.reason ?? null;
+  const parts = [];
+
+  if (typeof statusCode === "number") {
+    parts.push(`status=${statusCode}`);
+  }
+  if (typeof payloadMessage === "string" && payloadMessage.trim().length > 0) {
+    parts.push(payloadMessage.trim());
+  } else if (typeof dataReason === "string" && dataReason.trim().length > 0) {
+    parts.push(dataReason.trim());
+  }
+
+  if (parts.length > 0) {
+    return parts.join(" ");
+  }
+
+  return getErrorMessage(error);
+}
+
+function createSilentLogger() {
+  const logger = {
+    child() {
+      return logger;
+    },
+    debug() {},
+    error() {},
+    fatal() {},
+    info() {},
+    trace() {},
+    warn() {},
+  };
+
+  return logger;
 }
 
 async function readState(statePath) {
