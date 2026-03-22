@@ -39,6 +39,7 @@ export type WhatsAppLinkStatus = {
 
 const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
 const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
+const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
 
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
@@ -388,18 +389,15 @@ export class RuntimeManager {
       timeoutMs?: number;
     },
   ) {
-    const result = await this.invokeGatewayMethod(connection, {
-      method: "web.login.start",
-      params: {
-        ...(typeof input.force === "boolean" ? { force: input.force } : {}),
-        ...(typeof input.timeoutMs === "number"
-          ? { timeoutMs: input.timeoutMs }
-          : {}),
-      },
-      timeoutMs: Math.max(input.timeoutMs ?? 0, 60_000),
+    const result = await this.invokeWhatsAppQrHelper(connection, {
+      command: "start",
+      helperTimeoutMs: Math.max(input.timeoutMs ?? 0, 60_000),
+      timeoutMs: Math.max((input.timeoutMs ?? 0) + 15_000, 60_000),
+      ...(typeof input.force === "boolean" ? { force: input.force } : {}),
     });
 
     return result as {
+      events?: Array<{ at?: string; message?: string }>;
       message: string;
       qrDataUrl?: string;
     };
@@ -411,19 +409,27 @@ export class RuntimeManager {
       timeoutMs?: number;
     },
   ) {
-    const result = await this.invokeGatewayMethod(connection, {
-      method: "web.login.wait",
-      params: {
-        ...(typeof input.timeoutMs === "number"
-          ? { timeoutMs: input.timeoutMs }
-          : {}),
-      },
+    const result = await this.invokeWhatsAppQrHelper(connection, {
+      command: "wait",
+      helperTimeoutMs: input.timeoutMs,
       timeoutMs: Math.max((input.timeoutMs ?? 0) + 15_000, 60_000),
     });
 
     return result as {
       connected: boolean;
+      events?: Array<{ at?: string; message?: string }>;
       message: string;
+    };
+  }
+
+  async readWhatsAppQrHelperStatus(connection: SshConnection) {
+    const result = await this.invokeWhatsAppQrHelper(connection, {
+      command: "status",
+      timeoutMs: 30_000,
+    });
+
+    return result as {
+      state?: Record<string, unknown> | null;
     };
   }
 
@@ -513,34 +519,41 @@ export class RuntimeManager {
     );
   }
 
-  private async invokeGatewayMethod(
+  private async invokeWhatsAppQrHelper(
     connection: SshConnection,
     input: {
-      method: string;
-      params?: Record<string, unknown>;
+      command: "start" | "status" | "wait";
+      force?: boolean;
+      helperTimeoutMs?: number;
       timeoutMs?: number;
     },
   ) {
-    const params = JSON.stringify(input.params ?? {});
-    const gatewayCallTimeoutMs = Math.max(
-      Math.ceil((input.timeoutMs ?? 60_000) / 1000) * 1000,
-      10_000,
-    );
+    const helperArgs = [
+      shellQuoteForShell(input.command),
+      "--account-id",
+      shellQuoteForShell("default"),
+    ];
+
+    if (input.force) {
+      helperArgs.push("--force");
+    }
+
+    if (typeof input.helperTimeoutMs === "number") {
+      helperArgs.push(
+        "--timeout-ms",
+        shellQuoteForShell(String(input.helperTimeoutMs)),
+      );
+    }
+
     const result = await this.execChecked(
       connection,
       buildShellCommand([
-        "test -f /opt/openclaw/home/.env",
-        "source /opt/openclaw/home/.env >/dev/null 2>&1",
         "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
         [
           "docker exec openclaw-gateway",
-          "node dist/index.js gateway call",
-          shellQuoteForShell(input.method),
-          "--json",
-          `--url ${shellQuoteForShell(`ws://127.0.0.1:${OPENCLAW_GATEWAY_CONTAINER_PORT}`)}`,
-          '--token "$OPENCLAW_GATEWAY_TOKEN"',
-          `--timeout ${shellQuoteForShell(String(gatewayCallTimeoutMs))}`,
-          `--params ${shellQuoteForShell(params)}`,
+          "node",
+          shellQuoteForShell(WHATSAPP_QR_HELPER_PATH),
+          ...helperArgs,
         ].join(" "),
       ]),
       { timeoutMs: input.timeoutMs ?? 60_000 },

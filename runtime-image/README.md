@@ -7,6 +7,7 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 
 - bundled `otto-managed-config` plugin under `/app/extensions/otto-managed-config`
 - bundled `otto-runtime-config` plugin under `/app/extensions/otto-runtime-config`
+- Otto-owned WhatsApp QR helper under `/app/otto-helpers/whatsapp-qr-login.mjs`
 
 ## Build
 

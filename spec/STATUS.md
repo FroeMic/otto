@@ -146,6 +146,7 @@
   - `tenant_integrations` now has WhatsApp-backed install state plus `whatsapp_installations` and `whatsapp_link_sessions`
   - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
   - worker handlers now exist for WhatsApp QR linking and disconnect, and the workspace has initial WhatsApp integration routes plus a dedicated setup page
+  - WhatsApp QR linking is being moved off OpenClaw's `web.login.start` / `web.login.wait` path and onto an Otto-owned helper shipped in the custom runtime image, because the upstream QR RPC flow does not recover reliably from the post-pairing `515 restart required` branch
 - The first non-Slack runtime surface is now implemented for global web search:
   - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface
   - desired-state compilation now resolves Brave web search config from control-plane env and projects it into tenant runtime config

@@ -23,7 +23,7 @@ const runtimeManager = new RuntimeManager();
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const LINK_START_TIMEOUT_MS = 30_000;
 const LINK_WAIT_TIMEOUT_MS = 200_000;
-const LINK_STATUS_VERIFICATION_ATTEMPTS = 3;
+const LINK_STATUS_VERIFICATION_ATTEMPTS = 6;
 const LINK_STATUS_VERIFICATION_DELAY_MS = 5_000;
 
 export async function processWhatsAppLinkSessionJob(
@@ -70,6 +70,10 @@ export async function processWhatsAppLinkSessionJob(
     );
     const startText = startResult.message.trim();
     const qrDataUrl = startResult.qrDataUrl?.trim();
+    const startEvents = summarizeWhatsAppHelperEvents(startResult.events);
+    console.info(
+      `[worker][whatsapp] helper start linkSession=${payload.linkSessionId} message=${startText}${startEvents ? ` events=${startEvents}` : ""}`,
+    );
 
     if (qrDataUrl) {
       await markLinkSessionStatus(payload.linkSessionId, {
@@ -83,11 +87,11 @@ export async function processWhatsAppLinkSessionJob(
         "WhatsApp QR code generated",
       );
     } else if (startText.toLowerCase().includes("already linked")) {
-      const linkedState = await runtimeManager.readWhatsAppLinkStatus(
+      const linkedState = await ensureWhatsAppRuntimeConnected(
         runtimeConnection,
       );
 
-      if (linkedState.connected) {
+      if (linkedState?.connected) {
         await completeLinkSession({
           linkSessionId: payload.linkSessionId,
           selfE164: linkedState.selfE164,
@@ -109,7 +113,12 @@ export async function processWhatsAppLinkSessionJob(
         });
       } else {
         const error = formatInactiveWhatsAppRuntimeMessage(
-          linkedState,
+          linkedState ?? {
+            connected: false,
+            lastError: null,
+            linked: false,
+            running: false,
+          },
           "WhatsApp credentials already exist, but the tenant runtime is not connected.",
         );
         await failLinkSession({
@@ -133,9 +142,13 @@ export async function processWhatsAppLinkSessionJob(
     );
     const waitText = waitResult.message.trim();
     const connected = waitResult.connected;
+    const waitEvents = summarizeWhatsAppHelperEvents(waitResult.events);
+    console.info(
+      `[worker][whatsapp] helper wait linkSession=${payload.linkSessionId} connected=${connected ? "true" : "false"} message=${waitText}${waitEvents ? ` events=${waitEvents}` : ""}`,
+    );
 
     if (!connected) {
-      const linkedState = await verifyLinkedStateAfterWaitFailure(
+      const linkedState = await ensureWhatsAppRuntimeConnected(
         runtimeConnection,
       );
 
@@ -184,11 +197,34 @@ export async function processWhatsAppLinkSessionJob(
       return;
     }
 
-    const selfId = await runtimeManager.readWhatsAppSelfId(runtimeConnection);
+    const finalStatus = await ensureWhatsAppRuntimeConnected(runtimeConnection);
+    if (!finalStatus?.connected) {
+      const error = formatInactiveWhatsAppRuntimeMessage(
+        finalStatus ?? {
+          connected: false,
+          lastError: null,
+          linked: false,
+          running: false,
+        },
+        "WhatsApp linked in the helper session, but the tenant runtime did not come online.",
+      );
+      await failLinkSession({
+        error,
+        linkSessionId: payload.linkSessionId,
+        tenantId: payload.tenantId,
+      });
+      await appendJobEvent(job.id, "whatsapp_link_failed", error);
+      await markJobFailed(job.id, error);
+      return;
+    }
+
+    console.info(
+      `[worker][whatsapp] runtime connected linkSession=${payload.linkSessionId} self=${finalStatus.selfE164 ?? finalStatus.selfJid ?? "unknown"}`,
+    );
     await completeLinkSession({
       linkSessionId: payload.linkSessionId,
-      selfE164: selfId.e164 ?? null,
-      selfJid: selfId.jid ?? null,
+      selfE164: finalStatus.selfE164 ?? null,
+      selfJid: finalStatus.selfJid ?? null,
       tenantId: payload.tenantId,
     });
     await appendJobEvent(
@@ -196,12 +232,12 @@ export async function processWhatsAppLinkSessionJob(
       "whatsapp_connected",
       "WhatsApp linked successfully",
       {
-        selfE164: selfId.e164 ?? null,
+        selfE164: finalStatus.selfE164 ?? null,
       },
     );
     await markJobSucceeded(job.id, {
       linkSessionId: payload.linkSessionId,
-      selfE164: selfId.e164 ?? null,
+      selfE164: finalStatus.selfE164 ?? null,
     });
   } catch (error) {
     const message = getErrorMessage(error);
@@ -288,9 +324,14 @@ function parseDisconnectPayload(
   };
 }
 
-async function verifyLinkedStateAfterWaitFailure(
+async function ensureWhatsAppRuntimeConnected(
   runtimeConnection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>,
 ) {
+  let lastStatus: Awaited<
+    ReturnType<typeof runtimeManager.readWhatsAppLinkStatus>
+  > | null = null;
+  let restartedGateway = false;
+
   for (let attempt = 0; attempt < LINK_STATUS_VERIFICATION_ATTEMPTS; attempt += 1) {
     if (attempt > 0) {
       await sleep(LINK_STATUS_VERIFICATION_DELAY_MS);
@@ -298,15 +339,24 @@ async function verifyLinkedStateAfterWaitFailure(
 
     try {
       const status = await runtimeManager.readWhatsAppLinkStatus(runtimeConnection);
+      lastStatus = status;
       if (status.connected) {
         return status;
+      }
+
+      if (!restartedGateway && status.linked) {
+        restartedGateway = true;
+        console.info(
+          `[worker][whatsapp] restarting gateway after helper completion linked=${status.linked} running=${status.running} connected=${status.connected}`,
+        );
+        await runtimeManager.restartGateway(runtimeConnection);
       }
     } catch {
       // The gateway may still be settling after QR pairing; keep probing.
     }
   }
 
-  return null;
+  return lastStatus;
 }
 
 async function getTenantRuntimeConnection(tenantId: string) {
@@ -602,4 +652,27 @@ function formatInactiveWhatsAppRuntimeMessage(
   }
 
   return `${baseMessage} Runtime status: ${detailParts.join(", ")}`;
+}
+
+function summarizeWhatsAppHelperEvents(
+  events: Array<{ at?: string; message?: string }> | undefined,
+) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return null;
+  }
+
+  return events
+    .map((event) => {
+      const message =
+        typeof event?.message === "string" ? event.message.trim() : "";
+      if (!message) {
+        return null;
+      }
+
+      const at = typeof event?.at === "string" ? event.at.trim() : "";
+      return at ? `${at} ${message}` : message;
+    })
+    .filter((value): value is string => Boolean(value))
+    .slice(-5)
+    .join(" | ");
 }
