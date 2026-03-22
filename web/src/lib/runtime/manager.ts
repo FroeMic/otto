@@ -29,8 +29,12 @@ export type ApplyTenantConfigResult = {
 
 export type WhatsAppLinkStatus = {
   linked: boolean;
+  running: boolean;
+  connected: boolean;
   authAgeMs: number | null;
   selfE164: string | null;
+  selfJid: string | null;
+  lastError: string | null;
 };
 
 const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
@@ -449,6 +453,9 @@ export class RuntimeManager {
     );
 
     const payload = parseJsonObject(result.stdout);
+    const channels = asRecord(payload.channels);
+    const whatsappChannel = asRecord(channels?.whatsapp);
+    const channelSelf = asRecord(whatsappChannel?.self);
     const channelAccounts = asRecord(payload.channelAccounts);
     const rawWhatsAppAccounts = channelAccounts?.whatsapp;
     const whatsappAccounts = Array.isArray(rawWhatsAppAccounts)
@@ -467,36 +474,31 @@ export class RuntimeManager {
         Number.isFinite(account.authAgeMs)
           ? account.authAgeMs
           : null,
+      connected: account?.connected === true,
+      lastError:
+        typeof account?.lastError === "string" && account.lastError.trim().length > 0
+          ? account.lastError.trim()
+          : null,
       linked: account?.linked === true,
+      running: account?.running === true,
       selfE164:
-        typeof self?.e164 === "string" && self.e164.trim().length > 0
-          ? self.e164.trim()
+        typeof channelSelf?.e164 === "string" && channelSelf.e164.trim().length > 0
+          ? channelSelf.e164.trim()
+          : typeof self?.e164 === "string" && self.e164.trim().length > 0
+            ? self.e164.trim()
+          : null,
+      selfJid:
+        typeof channelSelf?.jid === "string" && channelSelf.jid.trim().length > 0
+          ? channelSelf.jid.trim()
           : null,
     };
   }
 
   async readWhatsAppSelfId(connection: SshConnection) {
-    const script = [
-      "const { loadConfig } = require('./dist/config/config.js');",
-      "const { resolveWhatsAppAccount } = require('./dist/web/accounts.js');",
-      "const { readWebSelfId } = require('./dist/web/auth-store.js');",
-      "const cfg = loadConfig();",
-      "const account = resolveWhatsAppAccount({ cfg });",
-      "const self = readWebSelfId(account.authDir);",
-      "process.stdout.write(JSON.stringify(self));",
-    ].join(" ");
-    const result = await this.execChecked(
-      connection,
-      buildShellCommand([
-        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-        `docker exec openclaw-gateway node -e ${shellQuoteForShell(script)}`,
-      ]),
-      { timeoutMs: 60_000 },
-    );
-
-    return parseJsonObject(result.stdout) as {
-      e164?: string | null;
-      jid?: string | null;
+    const status = await this.readWhatsAppLinkStatus(connection);
+    return {
+      e164: status.selfE164,
+      jid: status.selfJid,
     };
   }
 

@@ -83,22 +83,43 @@ export async function processWhatsAppLinkSessionJob(
         "WhatsApp QR code generated",
       );
     } else if (startText.toLowerCase().includes("already linked")) {
-      const selfId = await runtimeManager.readWhatsAppSelfId(runtimeConnection);
-      await completeLinkSession({
-        linkSessionId: payload.linkSessionId,
-        selfE164: selfId.e164 ?? null,
-        selfJid: selfId.jid ?? null,
-        tenantId: payload.tenantId,
-      });
-      await appendJobEvent(
-        job.id,
-        "whatsapp_already_linked",
-        "WhatsApp was already linked",
+      const linkedState = await runtimeManager.readWhatsAppLinkStatus(
+        runtimeConnection,
       );
-      await markJobSucceeded(job.id, {
-        alreadyLinked: true,
-        linkSessionId: payload.linkSessionId,
-      });
+
+      if (linkedState.connected) {
+        await completeLinkSession({
+          linkSessionId: payload.linkSessionId,
+          selfE164: linkedState.selfE164,
+          selfJid: linkedState.selfJid,
+          tenantId: payload.tenantId,
+        });
+        await appendJobEvent(
+          job.id,
+          "whatsapp_already_linked",
+          "WhatsApp was already linked",
+          {
+            selfE164: linkedState.selfE164,
+          },
+        );
+        await markJobSucceeded(job.id, {
+          alreadyLinked: true,
+          linkSessionId: payload.linkSessionId,
+          selfE164: linkedState.selfE164,
+        });
+      } else {
+        const error = formatInactiveWhatsAppRuntimeMessage(
+          linkedState,
+          "WhatsApp credentials already exist, but the tenant runtime is not connected.",
+        );
+        await failLinkSession({
+          error,
+          linkSessionId: payload.linkSessionId,
+          tenantId: payload.tenantId,
+        });
+        await appendJobEvent(job.id, "whatsapp_link_failed", error);
+        await markJobFailed(job.id, error);
+      }
       return;
     } else {
       throw new Error(startText || "WhatsApp QR code was not returned");
@@ -118,13 +139,12 @@ export async function processWhatsAppLinkSessionJob(
         runtimeConnection,
       );
 
-      if (linkedState?.linked) {
-        const selfId = await runtimeManager.readWhatsAppSelfId(runtimeConnection);
-        const selfE164 = selfId.e164 ?? linkedState.selfE164 ?? null;
+      if (linkedState?.connected) {
+        const selfE164 = linkedState.selfE164 ?? null;
         await completeLinkSession({
           linkSessionId: payload.linkSessionId,
           selfE164,
-          selfJid: selfId.jid ?? null,
+          selfJid: linkedState.selfJid ?? null,
           tenantId: payload.tenantId,
         });
         await appendJobEvent(
@@ -144,8 +164,11 @@ export async function processWhatsAppLinkSessionJob(
         return;
       }
 
+      const error = linkedState
+        ? formatInactiveWhatsAppRuntimeMessage(linkedState, waitText)
+        : waitText || "WhatsApp QR scan timed out";
       await failLinkSession({
-        error: waitText || "WhatsApp QR scan timed out",
+        error,
         linkSessionId: payload.linkSessionId,
         tenantId: payload.tenantId,
       });
@@ -154,13 +177,10 @@ export async function processWhatsAppLinkSessionJob(
         "whatsapp_link_failed",
         "WhatsApp linking did not complete",
         {
-          error: waitText,
+          error,
         },
       );
-      await markJobFailed(
-        job.id,
-        waitText || "WhatsApp linking did not complete",
-      );
+      await markJobFailed(job.id, error);
       return;
     }
 
@@ -278,7 +298,7 @@ async function verifyLinkedStateAfterWaitFailure(
 
     try {
       const status = await runtimeManager.readWhatsAppLinkStatus(runtimeConnection);
-      if (status.linked) {
+      if (status.connected) {
         return status;
       }
     } catch {
@@ -560,4 +580,26 @@ function getErrorMessage(error: unknown) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatInactiveWhatsAppRuntimeMessage(
+  status: {
+    connected: boolean;
+    lastError: string | null;
+    linked: boolean;
+    running: boolean;
+  },
+  baseMessage: string,
+) {
+  const detailParts = [
+    `linked=${status.linked ? "true" : "false"}`,
+    `running=${status.running ? "true" : "false"}`,
+    `connected=${status.connected ? "true" : "false"}`,
+  ];
+
+  if (status.lastError) {
+    detailParts.push(`lastError=${status.lastError}`);
+  }
+
+  return `${baseMessage} Runtime status: ${detailParts.join(", ")}`;
 }
