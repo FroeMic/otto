@@ -8,6 +8,7 @@ import Link from "next/link";
 
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button-variants";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
 export type CapabilityRow = AgentCapability & {
@@ -30,20 +31,6 @@ const directionLabels: Record<AgentCapabilityDirection, string> = {
   tool: "Tool",
   read: "Read",
 };
-
-function SourceIcon({ icon }: { icon: string | null | undefined }) {
-  if (!icon) return null;
-
-  return (
-    <Image
-      alt=""
-      className="size-4 shrink-0"
-      height={16}
-      src={icon}
-      width={16}
-    />
-  );
-}
 
 const columns: ColumnDef<CapabilityRow>[] = [
   {
@@ -82,14 +69,20 @@ const columns: ColumnDef<CapabilityRow>[] = [
       if (sourceHref) {
         return (
           <Link
-            className="inline-flex items-center gap-1.5 text-sm text-foreground underline-offset-4 hover:underline"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
             href={sourceHref}
           >
             {sourceIcon ? (
-              <SourceIcon icon={sourceIcon} />
+              <Image
+                alt=""
+                className="size-4 shrink-0"
+                height={16}
+                src={sourceIcon}
+                width={16}
+              />
             ) : (
               <HugeiconsIcon
-                className="size-4 shrink-0 text-muted-foreground"
+                className="size-4 shrink-0"
                 icon={ConnectIcon}
               />
             )}
@@ -108,8 +101,10 @@ const columns: ColumnDef<CapabilityRow>[] = [
 export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-1 px-4 pt-2 md:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Capabilities</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Capabilities
+        </h1>
         <p className="text-sm text-muted-foreground">
           Runtime capabilities your agent can use.{" "}
           <span className="font-medium text-foreground">{rows.length}</span>{" "}
@@ -117,20 +112,20 @@ export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
         </p>
       </div>
       <DataTable
-        bodyClassName="align-top"
+        bodyClassName="align-middle"
         cellClassName="h-11 py-2"
         columns={columns}
         data={rows}
         emptyMessage="No capabilities available."
         fillAvailableSpace
         headClassName="h-11 px-4 text-sm font-medium text-foreground"
-        headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
-        rowClassName="hover:bg-transparent"
-        searchInputClassName="h-11 rounded-lg border bg-input/50 px-3 text-sm"
+        headerClassName="[&_tr]:border-0"
+        rowClassName="border-0 hover:bg-transparent"
+        searchInputClassName="max-w-md rounded-lg border bg-input/50 px-3 py-2 text-sm focus-visible:border-primary focus-visible:ring-primary/30"
         searchKeys={["label", "sourceLabel"]}
         searchPlaceholder="Search capabilities..."
         tableClassName="min-w-full table-fixed"
-        toolbarClassName="px-4 pb-4 md:px-6"
+        toolbarClassName="pb-4"
         viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
       />
     </div>
