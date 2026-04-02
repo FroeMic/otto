@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { desc, eq, or } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import {
   enqueueTenantConfigApply,
@@ -33,7 +33,7 @@ type TenantTarget = {
   tenantName: string;
   tenantStatus: string;
   targetRef: string;
-  targetMode: "org-slug" | "tenant";
+  targetMode: "org-slug" | "tenant-id" | "tenant-name";
 };
 
 type ApplyRunStatus = {
@@ -60,21 +60,16 @@ async function main() {
     process.exit(1);
   }
 
-  const targetRef = args[1];
-
-  if (!targetRef) {
-    printUsage();
-    process.exit(1);
-  }
-
-  const options = parseOptions(args.slice(2));
-  const tenant = await resolveTenantTarget(targetRef, options.targetMode);
+  const options = parseOptions(args.slice(1));
+  const tenant = await resolveTenantTarget(options.target);
 
   if (!tenant) {
     throw new Error(
-      options.targetMode === "org-slug"
-        ? `No tenant found for organization slug "${targetRef}".`
-        : `No tenant found for tenant ref "${targetRef}". Try the tenant name, tenant id, or pass --org-slug.`,
+      options.target.mode === "org-slug"
+        ? `No tenant found for organization slug "${options.target.value}".`
+        : options.target.mode === "tenant-id"
+          ? `No tenant found for tenant id "${options.target.value}".`
+          : `No tenant found for tenant name "${options.target.value}".`,
     );
   }
 
@@ -181,17 +176,23 @@ async function runRefreshImage(tenant: TenantTarget) {
 }
 
 async function resolveTenantTarget(
-  targetRef: string,
-  targetMode: "org-slug" | "tenant",
+  target: {
+    mode: "org-slug" | "tenant-id" | "tenant-name";
+    value: string;
+  },
 ): Promise<TenantTarget | null> {
-  if (targetMode === "org-slug") {
-    return await getLatestTenantForOrganizationSlug(targetRef);
+  if (target.mode === "org-slug") {
+    return await getLatestTenantForOrganizationSlug(target.value);
   }
 
-  return await getLatestTenantByRef(targetRef);
+  if (target.mode === "tenant-id") {
+    return await getLatestTenantById(target.value);
+  }
+
+  return await getLatestTenantByName(target.value);
 }
 
-async function getLatestTenantByRef(targetRef: string): Promise<TenantTarget | null> {
+async function getLatestTenantById(tenantId: string): Promise<TenantTarget | null> {
   const db = getDb();
   const [tenant] = await db
     .select({
@@ -203,7 +204,7 @@ async function getLatestTenantByRef(targetRef: string): Promise<TenantTarget | n
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
-    .where(or(eq(tenants.id, targetRef), eq(tenants.name, targetRef)))
+    .where(eq(tenants.id, tenantId))
     .orderBy(desc(tenants.createdAt))
     .limit(1);
 
@@ -214,8 +215,41 @@ async function getLatestTenantByRef(targetRef: string): Promise<TenantTarget | n
   return {
     ipv4: tenant.ipv4,
     serverStatus: tenant.serverStatus,
-    targetMode: "tenant",
-    targetRef,
+    targetMode: "tenant-id",
+    targetRef: tenantId,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+    tenantStatus: tenant.tenantStatus,
+  };
+}
+
+async function getLatestTenantByName(
+  tenantName: string,
+): Promise<TenantTarget | null> {
+  const db = getDb();
+  const [tenant] = await db
+    .select({
+      ipv4: tenantServers.ipv4,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(tenants.name, tenantName))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    ipv4: tenant.ipv4,
+    serverStatus: tenant.serverStatus,
+    targetMode: "tenant-name",
+    targetRef: tenantName,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
     tenantStatus: tenant.tenantStatus,
@@ -334,10 +368,12 @@ async function getJobEvents(jobRunId: string) {
 function parseOptions(args: string[]) {
   let wait = true;
   let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
-  let targetMode: "org-slug" | "tenant" = "tenant";
   let timeoutMs = DEFAULT_TIMEOUT_MS;
+  let orgSlug: string | null = null;
+  let tenantId: string | null = null;
+  let tenantName: string | null = null;
 
-  for (let index = 0; index < args.length; index += 1) {
+  for (let index = 1; index < args.length; index += 1) {
     const arg = args[index];
 
     if (arg === "--no-wait") {
@@ -351,7 +387,32 @@ function parseOptions(args: string[]) {
     }
 
     if (arg === "--org-slug") {
-      targetMode = "org-slug";
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("--org-slug requires a value.");
+      }
+      orgSlug = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--tenant-id") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("--tenant-id requires a value.");
+      }
+      tenantId = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--tenant-name") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("--tenant-name requires a value.");
+      }
+      tenantName = value;
+      index += 1;
       continue;
     }
 
@@ -378,9 +439,29 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
+  const positionalOrgSlug = args[1]?.startsWith("--") ? null : args[1] ?? null;
+  const activeTargets = [positionalOrgSlug, orgSlug, tenantId, tenantName].filter(
+    (value) => Boolean(value),
+  );
+
+  if (activeTargets.length !== 1) {
+    throw new Error(
+      "Pass exactly one target: <org-slug>, --org-slug <slug>, --tenant-id <id>, or --tenant-name <name>.",
+    );
+  }
+
+  const target = tenantId
+    ? { mode: "tenant-id" as const, value: tenantId }
+    : tenantName
+      ? { mode: "tenant-name" as const, value: tenantName }
+      : {
+          mode: "org-slug" as const,
+          value: orgSlug ?? positionalOrgSlug!,
+        };
+
   return {
     pollIntervalMs,
-    targetMode,
+    target,
     timeoutMs,
     wait,
   };
@@ -388,10 +469,14 @@ function parseOptions(args: string[]) {
 
 function printUsage() {
   console.error(`Usage:
-  bun src/scripts/tenant-runtime.ts apply <tenant-name-or-id> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
-  bun src/scripts/tenant-runtime.ts refresh-image <tenant-name-or-id>
-  bun src/scripts/tenant-runtime.ts apply <org-slug> --org-slug
-  bun src/scripts/tenant-runtime.ts refresh-image <org-slug> --org-slug
+  bun src/scripts/tenant-runtime.ts apply <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts refresh-image <org-slug>
+  bun src/scripts/tenant-runtime.ts apply --org-slug <org-slug>
+  bun src/scripts/tenant-runtime.ts refresh-image --org-slug <org-slug>
+  bun src/scripts/tenant-runtime.ts apply --tenant-id <tenant-id>
+  bun src/scripts/tenant-runtime.ts refresh-image --tenant-id <tenant-id>
+  bun src/scripts/tenant-runtime.ts apply --tenant-name <tenant-name>
+  bun src/scripts/tenant-runtime.ts refresh-image --tenant-name <tenant-name>
 `);
 }
 
