@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { getTenantRuntimeGatewayToken } from "@/db/control-plane";
 import { organizations, tenantServers, tenants } from "@/db/schema";
+import { logCliError } from "@/lib/cli-error";
 import { getControlPlaneBaseUrl } from "@/lib/env";
 
 type TenantRuntimeTarget = {
@@ -133,6 +134,6 @@ function tryParseJson(text: string) {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  logCliError(error);
   process.exit(1);
 });
