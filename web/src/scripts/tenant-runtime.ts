@@ -33,7 +33,7 @@ type TenantTarget = {
   tenantName: string;
   tenantStatus: string;
   targetRef: string;
-  targetMode: "org-slug" | "tenant-id" | "tenant-name";
+  targetMode: "org-slug";
 };
 
 type ApplyRunStatus = {
@@ -65,11 +65,7 @@ async function main() {
 
   if (!tenant) {
     throw new Error(
-      options.target.mode === "org-slug"
-        ? `No tenant found for organization slug "${options.target.value}".`
-        : options.target.mode === "tenant-id"
-          ? `No tenant found for tenant id "${options.target.value}".`
-          : `No tenant found for tenant name "${options.target.value}".`,
+      `No tenant found for organization slug "${options.target.value}".`,
     );
   }
 
@@ -177,83 +173,11 @@ async function runRefreshImage(tenant: TenantTarget) {
 
 async function resolveTenantTarget(
   target: {
-    mode: "org-slug" | "tenant-id" | "tenant-name";
+    mode: "org-slug";
     value: string;
   },
 ): Promise<TenantTarget | null> {
-  if (target.mode === "org-slug") {
-    return await getLatestTenantForOrganizationSlug(target.value);
-  }
-
-  if (target.mode === "tenant-id") {
-    return await getLatestTenantById(target.value);
-  }
-
-  return await getLatestTenantByName(target.value);
-}
-
-async function getLatestTenantById(tenantId: string): Promise<TenantTarget | null> {
-  const db = getDb();
-  const [tenant] = await db
-    .select({
-      ipv4: tenantServers.ipv4,
-      serverStatus: tenantServers.status,
-      tenantId: tenants.id,
-      tenantName: tenants.name,
-      tenantStatus: tenants.status,
-    })
-    .from(tenants)
-    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
-    .where(eq(tenants.id, tenantId))
-    .orderBy(desc(tenants.createdAt))
-    .limit(1);
-
-  if (!tenant) {
-    return null;
-  }
-
-  return {
-    ipv4: tenant.ipv4,
-    serverStatus: tenant.serverStatus,
-    targetMode: "tenant-id",
-    targetRef: tenantId,
-    tenantId: tenant.tenantId,
-    tenantName: tenant.tenantName,
-    tenantStatus: tenant.tenantStatus,
-  };
-}
-
-async function getLatestTenantByName(
-  tenantName: string,
-): Promise<TenantTarget | null> {
-  const db = getDb();
-  const [tenant] = await db
-    .select({
-      ipv4: tenantServers.ipv4,
-      serverStatus: tenantServers.status,
-      tenantId: tenants.id,
-      tenantName: tenants.name,
-      tenantStatus: tenants.status,
-    })
-    .from(tenants)
-    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
-    .where(eq(tenants.name, tenantName))
-    .orderBy(desc(tenants.createdAt))
-    .limit(1);
-
-  if (!tenant) {
-    return null;
-  }
-
-  return {
-    ipv4: tenant.ipv4,
-    serverStatus: tenant.serverStatus,
-    targetMode: "tenant-name",
-    targetRef: tenantName,
-    tenantId: tenant.tenantId,
-    tenantName: tenant.tenantName,
-    tenantStatus: tenant.tenantStatus,
-  };
+  return await getLatestTenantForOrganizationSlug(target.value);
 }
 
 async function getLatestTenantForOrganizationSlug(
@@ -370,8 +294,6 @@ function parseOptions(args: string[]) {
   let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   let orgSlug: string | null = null;
-  let tenantId: string | null = null;
-  let tenantName: string | null = null;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -386,32 +308,12 @@ function parseOptions(args: string[]) {
       continue;
     }
 
-    if (arg === "--org-slug") {
+    if (arg === "--orgslug" || arg === "--org-slug") {
       const value = args[index + 1];
       if (!value) {
-        throw new Error("--org-slug requires a value.");
+        throw new Error(`${arg} requires a value.`);
       }
       orgSlug = value;
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--tenant-id") {
-      const value = args[index + 1];
-      if (!value) {
-        throw new Error("--tenant-id requires a value.");
-      }
-      tenantId = value;
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--tenant-name") {
-      const value = args[index + 1];
-      if (!value) {
-        throw new Error("--tenant-name requires a value.");
-      }
-      tenantName = value;
       index += 1;
       continue;
     }
@@ -439,29 +341,18 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  const positionalOrgSlug = args[0]?.startsWith("--") ? null : args[0] ?? null;
-  const activeTargets = [positionalOrgSlug, orgSlug, tenantId, tenantName].filter(
-    (value) => Boolean(value),
-  );
-
-  if (activeTargets.length !== 1) {
+  if (orgSlug === null) {
     throw new Error(
-      "Pass exactly one target: <org-slug>, --org-slug <slug>, --tenant-id <id>, or --tenant-name <name>.",
+      "Pass --orgslug <slug>.",
     );
   }
 
-  const target = tenantId
-    ? { mode: "tenant-id" as const, value: tenantId }
-    : tenantName
-      ? { mode: "tenant-name" as const, value: tenantName }
-      : {
-          mode: "org-slug" as const,
-          value: orgSlug ?? positionalOrgSlug!,
-        };
-
   return {
     pollIntervalMs,
-    target,
+    target: {
+      mode: "org-slug" as const,
+      value: orgSlug,
+    },
     timeoutMs,
     wait,
   };
@@ -469,14 +360,13 @@ function parseOptions(args: string[]) {
 
 function printUsage() {
   console.error(`Usage:
-  bun src/scripts/tenant-runtime.ts apply <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
-  bun src/scripts/tenant-runtime.ts refresh-image <org-slug>
-  bun src/scripts/tenant-runtime.ts apply --org-slug <org-slug>
-  bun src/scripts/tenant-runtime.ts refresh-image --org-slug <org-slug>
-  bun src/scripts/tenant-runtime.ts apply --tenant-id <tenant-id>
-  bun src/scripts/tenant-runtime.ts refresh-image --tenant-id <tenant-id>
-  bun src/scripts/tenant-runtime.ts apply --tenant-name <tenant-name>
-  bun src/scripts/tenant-runtime.ts refresh-image --tenant-name <tenant-name>
+  bun src/scripts/tenant-runtime.ts apply --orgslug <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts refresh-image --orgslug <org-slug>
+
+Examples:
+  bun run tenant:runtime:apply -- --orgslug my-org
+  bun run tenant:runtime:refresh-image -- --orgslug my-org
+  bun run tenant:runtime:apply -- --orgslug my-org --no-wait
 `);
 }
 
