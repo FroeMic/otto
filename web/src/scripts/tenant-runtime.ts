@@ -373,7 +373,7 @@ function parseOptions(args: string[]) {
   let tenantId: string | null = null;
   let tenantName: string | null = null;
 
-  for (let index = 1; index < args.length; index += 1) {
+  for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
 
     if (arg === "--no-wait") {
@@ -439,7 +439,7 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  const positionalOrgSlug = args[1]?.startsWith("--") ? null : args[1] ?? null;
+  const positionalOrgSlug = args[0]?.startsWith("--") ? null : args[0] ?? null;
   const activeTargets = [positionalOrgSlug, orgSlug, tenantId, tenantName].filter(
     (value) => Boolean(value),
   );
