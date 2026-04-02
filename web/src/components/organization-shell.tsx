@@ -16,6 +16,7 @@ import { isOrganizationUnlocked } from "@/lib/workspace";
 
 const routeTitles: Record<string, string> = {
   agent: "Agent",
+  capabilities: "Capabilities",
   integrations: "Integrations",
   tools: "Tools",
   skills: "Skills",

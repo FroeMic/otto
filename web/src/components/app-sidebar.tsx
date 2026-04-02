@@ -2,6 +2,7 @@
 
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  AiBrain01Icon,
   ArrowReloadHorizontalIcon,
   Building03Icon,
   Calendar03Icon,
@@ -76,6 +77,11 @@ export function AppSidebar({
       href: `/${currentOrganization.slug}/tools`,
       icon: <HugeiconsIcon icon={Wrench01Icon} />,
       title: "Tools",
+    },
+    {
+      href: `/${currentOrganization.slug}/capabilities`,
+      icon: <HugeiconsIcon icon={AiBrain01Icon} />,
+      title: "Capabilities",
     },
     {
       href: `/${currentOrganization.slug}/skills`,
