@@ -68,6 +68,15 @@
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
   - the plugin packaging is now aligned with the released OpenClaw `2026.4.1` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
+- Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:
+  - replace `RUNTIME_OPENCLAW_IMAGE` with a DB-backed active runtime release
+  - add a migration-backed runtime release model plus tenant applied desired-state tracking
+  - use a manual operator rollout to force ready tenant VPSes to pull and restart on the active release
+  - place runtime release activation and rollout controls on the Agent status / deployment view, aligned with the new gateway-access surface
+- The runtime dashboard access slice is now implemented in `web/`:
+  - the Agent status page now reads the current tenant gateway token server-side from `tenant_runtime_secrets`
+  - the Agent status UI now shows the localhost dashboard URL, SSH tunnel command, and masked token reveal/copy controls
+  - missing runtime IP or token state now renders as unavailable instead of guessing fallback access details
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -81,7 +90,7 @@
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
-- Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_11_scheduled_tasks_visibility.md`.
+- Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
@@ -191,6 +200,13 @@
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
   - verifying end to end that `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface` appear in a tenant runtime and drive the shared runtime-surface mutation flow
   - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
+- After the managed plugin image is validated, implement `TODO_11_runtime_release_rollout.md` by:
+  - adding the runtime release schema migration and DB-backed active release record
+  - removing `RUNTIME_OPENCLAW_IMAGE` from runtime code paths
+  - wiring manual rollout so ready tenant VPSes re-pull and restart on the active release without advancing config unexpectedly
+- After the current runtime access fixes are stable, implement `TODO_12_runtime_dashboard_access.md` by:
+  - manually verifying the dashboard login flow end to end through a real SSH tunnel
+  - confirming the shown gateway token authenticates successfully in the OpenClaw dashboard
 - After the shared Slack ingress direction is locked, implement `TODO_10_voice_note_understanding.md` by:
   - extending desired state with OpenClaw audio transcription defaults
   - rendering `tools.media.audio` into tenant `openclaw.json`
@@ -201,7 +217,7 @@
   - implementing the prefixed ID strategy or explicitly deferring it
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
   - deciding how operators will flip `organizations.is_ready` without using direct SQL
-- When Scheduled Tasks becomes active work, implement `TODO_11_scheduled_tasks_visibility.md` by:
+- When Scheduled Tasks becomes active work, implement `TODO_13_scheduled_tasks_visibility.md` by:
   - adding control-plane tables and loaders for scheduled task definitions and scheduled task sessions
   - adding runtime-authenticated callbacks plus a worker reconciliation job so the control plane stays current without scraping runtime cron state
   - replacing the scheduled-tasks placeholder route with real Tasks and Sessions views
