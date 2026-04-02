@@ -1,13 +1,14 @@
 "use client";
 
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ConnectIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { ConnectIcon } from "@hugeicons/core-free-icons";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { DataTable } from "@/components/data-table";
+import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
@@ -101,7 +102,6 @@ const columns: ColumnDef<CapabilityRow>[] = [
 
 export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
   const [filter, setFilter] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return rows;
@@ -126,27 +126,12 @@ export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
             across native tools and integrations.
           </p>
         </div>
-        <div
-          className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 transition-shadow"
-          style={
-            searchFocused
-              ? { borderColor: "var(--primary)" }
-              : undefined
-          }
-        >
-          <HugeiconsIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            icon={Search01Icon}
-          />
-          <input
-            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            onBlur={() => setSearchFocused(false)}
-            onChange={(e) => setFilter(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search capabilities..."
-            value={filter}
-          />
-        </div>
+        <ToolbarSearchInput
+          aria-label="Search capabilities"
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search capabilities..."
+          value={filter}
+        />
       </div>
       <DataTable
         bodyClassName="align-middle"
