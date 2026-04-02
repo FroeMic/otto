@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, or } from "drizzle-orm";
 
 import {
   enqueueTenantConfigApply,
@@ -28,11 +28,12 @@ type Command = "apply" | "refresh-image";
 
 type TenantTarget = {
   ipv4: string | null;
-  orgSlug: string;
   serverStatus: string | null;
   tenantId: string;
   tenantName: string;
   tenantStatus: string;
+  targetRef: string;
+  targetMode: "org-slug" | "tenant";
 };
 
 type ApplyRunStatus = {
@@ -59,18 +60,22 @@ async function main() {
     process.exit(1);
   }
 
-  const orgSlug = args[1];
+  const targetRef = args[1];
 
-  if (!orgSlug) {
+  if (!targetRef) {
     printUsage();
     process.exit(1);
   }
 
   const options = parseOptions(args.slice(2));
-  const tenant = await getLatestTenantForOrganization(orgSlug);
+  const tenant = await resolveTenantTarget(targetRef, options.targetMode);
 
   if (!tenant) {
-    throw new Error(`No tenant found for organization slug "${orgSlug}".`);
+    throw new Error(
+      options.targetMode === "org-slug"
+        ? `No tenant found for organization slug "${targetRef}".`
+        : `No tenant found for tenant ref "${targetRef}". Try the tenant name, tenant id, or pass --org-slug.`,
+    );
   }
 
   if (command === "apply") {
@@ -107,7 +112,8 @@ async function runApply(
         image: getEnv().RUNTIME_OPENCLAW_IMAGE,
         jobId,
         note: "apply_tenant_config already pulls RUNTIME_OPENCLAW_IMAGE before recreating the runtime container",
-        orgSlug: tenant.orgSlug,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
         desiredStateVersion: desiredState.version,
@@ -159,7 +165,8 @@ async function runRefreshImage(tenant: TenantTarget) {
         host: runtimeConnection.host,
         image,
         note: "restartGatewayWithResult pulls the configured runtime image before recreating the container",
-        orgSlug: tenant.orgSlug,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
         restartStderr: restart.stderr,
         restartStdout: restart.stdout,
         tenantId: tenant.tenantId,
@@ -173,14 +180,55 @@ async function runRefreshImage(tenant: TenantTarget) {
   );
 }
 
-async function getLatestTenantForOrganization(
+async function resolveTenantTarget(
+  targetRef: string,
+  targetMode: "org-slug" | "tenant",
+): Promise<TenantTarget | null> {
+  if (targetMode === "org-slug") {
+    return await getLatestTenantForOrganizationSlug(targetRef);
+  }
+
+  return await getLatestTenantByRef(targetRef);
+}
+
+async function getLatestTenantByRef(targetRef: string): Promise<TenantTarget | null> {
+  const db = getDb();
+  const [tenant] = await db
+    .select({
+      ipv4: tenantServers.ipv4,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(or(eq(tenants.id, targetRef), eq(tenants.name, targetRef)))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    ipv4: tenant.ipv4,
+    serverStatus: tenant.serverStatus,
+    targetMode: "tenant",
+    targetRef,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+    tenantStatus: tenant.tenantStatus,
+  };
+}
+
+async function getLatestTenantForOrganizationSlug(
   orgSlug: string,
 ): Promise<TenantTarget | null> {
   const db = getDb();
   const [tenant] = await db
     .select({
       ipv4: tenantServers.ipv4,
-      orgSlug: organizations.slug,
       serverStatus: tenantServers.status,
       tenantId: tenants.id,
       tenantName: tenants.name,
@@ -193,7 +241,19 @@ async function getLatestTenantForOrganization(
     .orderBy(desc(tenants.createdAt))
     .limit(1);
 
-  return tenant ?? null;
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    ipv4: tenant.ipv4,
+    serverStatus: tenant.serverStatus,
+    targetMode: "org-slug",
+    targetRef: orgSlug,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+    tenantStatus: tenant.tenantStatus,
+  };
 }
 
 async function waitForApplyRun(
@@ -274,6 +334,7 @@ async function getJobEvents(jobRunId: string) {
 function parseOptions(args: string[]) {
   let wait = true;
   let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
+  let targetMode: "org-slug" | "tenant" = "tenant";
   let timeoutMs = DEFAULT_TIMEOUT_MS;
 
   for (let index = 0; index < args.length; index += 1) {
@@ -286,6 +347,11 @@ function parseOptions(args: string[]) {
 
     if (arg === "--wait") {
       wait = true;
+      continue;
+    }
+
+    if (arg === "--org-slug") {
+      targetMode = "org-slug";
       continue;
     }
 
@@ -314,6 +380,7 @@ function parseOptions(args: string[]) {
 
   return {
     pollIntervalMs,
+    targetMode,
     timeoutMs,
     wait,
   };
@@ -321,8 +388,10 @@ function parseOptions(args: string[]) {
 
 function printUsage() {
   console.error(`Usage:
-  tsx src/scripts/tenant-runtime.ts apply <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
-  tsx src/scripts/tenant-runtime.ts refresh-image <org-slug>
+  bun src/scripts/tenant-runtime.ts apply <tenant-name-or-id> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts refresh-image <tenant-name-or-id>
+  bun src/scripts/tenant-runtime.ts apply <org-slug> --org-slug
+  bun src/scripts/tenant-runtime.ts refresh-image <org-slug> --org-slug
 `);
 }
 
