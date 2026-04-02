@@ -159,6 +159,9 @@
   - runtime surfaces now carry explicit `surfaceType` and `uiGroup` metadata so UI and agent consumers can distinguish `Integrations` vs `Tools` without hardcoded Slack heuristics
   - the runtime plugin and route contract now use surface-oriented naming consistently for synchronized rollout
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
+- Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
+  - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
+  - `bun run tenant:runtime:refresh-image -- <org-slug>` forces a ready tenant runtime to pull `RUNTIME_OPENCLAW_IMAGE` and recreate `openclaw-gateway` without requiring UI-driven config changes
 
 ## Current product target
 

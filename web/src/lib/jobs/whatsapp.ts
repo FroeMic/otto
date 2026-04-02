@@ -5,12 +5,10 @@ import { activateTenantWhatsAppAfterPairing } from "@/db/control-plane";
 import {
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-  tenantServers,
-  tenants,
   whatsappInstallations,
   whatsappLinkSessions,
 } from "@/db/schema";
-import { getEnv } from "@/lib/env";
+import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
 import {
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
@@ -64,7 +62,7 @@ export async function processWhatsAppLinkSessionJob(
     );
 
     const [runtimeConnection, linkSession] = await Promise.all([
-      getTenantRuntimeConnection(payload.tenantId),
+      getTenantRuntimeConnection(payload.tenantId, "WhatsApp jobs"),
       getLinkSession(payload.linkSessionId),
     ]);
 
@@ -370,6 +368,7 @@ export async function processWhatsAppDisconnectJob(
     );
     const runtimeConnection = await getTenantRuntimeConnection(
       payload.tenantId,
+      "WhatsApp jobs",
     );
     await runtimeManager.logoutWhatsApp(runtimeConnection);
     await markWhatsAppDisconnected(payload.tenantId);
@@ -575,38 +574,6 @@ async function ensureWhatsAppRuntimeConnected(
   }
 
   return lastStatus;
-}
-
-async function getTenantRuntimeConnection(tenantId: string) {
-  const db = getDb();
-  const [tenantServer] = await db
-    .select({
-      ipv4: tenantServers.ipv4,
-      serverStatus: tenantServers.status,
-      sshUsername: tenantServers.sshUsername,
-      tenantStatus: tenants.status,
-    })
-    .from(tenantServers)
-    .innerJoin(tenants, eq(tenantServers.tenantId, tenants.id))
-    .where(eq(tenantServers.tenantId, tenantId))
-    .limit(1);
-
-  if (!tenantServer?.ipv4) {
-    throw new Error("Tenant server IP is missing for WhatsApp jobs");
-  }
-
-  if (
-    tenantServer.serverStatus !== "ready" ||
-    tenantServer.tenantStatus !== "ready"
-  ) {
-    throw new Error("WhatsApp jobs require a ready tenant runtime");
-  }
-
-  return {
-    host: tenantServer.ipv4,
-    port: getEnv().RUNTIME_SSH_PORT,
-    username: tenantServer.sshUsername ?? getEnv().RUNTIME_SSH_USERNAME,
-  };
 }
 
 async function getLinkSession(linkSessionId: string) {

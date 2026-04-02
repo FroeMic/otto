@@ -14,12 +14,10 @@ import {
   tenantApplyRuns,
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-  tenantServers,
-  tenants,
   whatsappInstallations,
 } from "@/db/schema";
-import { getEnv } from "@/lib/env";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
+import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
 import {
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
@@ -76,7 +74,7 @@ export async function processApplyTenantConfigJob(
         tenantId: payload.tenantId,
         version: payload.desiredStateVersion,
       }),
-      getTenantRuntimeConnection(payload.tenantId),
+      getTenantRuntimeConnection(payload.tenantId, "runtime apply"),
     ]);
     slackEnabledInDesiredState = desiredStateUsesSlack(desiredState.configJson);
     whatsAppEnabledInDesiredState = desiredStateUsesWhatsApp(
@@ -308,38 +306,6 @@ function parseApplyPayload(
   return {
     desiredStateVersion,
     tenantId,
-  };
-}
-
-async function getTenantRuntimeConnection(tenantId: string) {
-  const db = getDb();
-  const [tenantServer] = await db
-    .select({
-      ipv4: tenantServers.ipv4,
-      serverStatus: tenantServers.status,
-      sshUsername: tenantServers.sshUsername,
-      tenantStatus: tenants.status,
-    })
-    .from(tenantServers)
-    .innerJoin(tenants, eq(tenantServers.tenantId, tenants.id))
-    .where(eq(tenantServers.tenantId, tenantId))
-    .limit(1);
-
-  if (!tenantServer?.ipv4) {
-    throw new Error("Tenant server IP is missing for runtime apply");
-  }
-
-  if (
-    tenantServer.serverStatus !== "ready" ||
-    tenantServer.tenantStatus !== "ready"
-  ) {
-    throw new Error("Tenant runtime apply requires a ready tenant server");
-  }
-
-  return {
-    host: tenantServer.ipv4,
-    port: getEnv().RUNTIME_SSH_PORT,
-    username: tenantServer.sshUsername ?? getEnv().RUNTIME_SSH_USERNAME,
   };
 }
 
