@@ -88,6 +88,7 @@
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
+  - workspace settings now includes a WorkOS-backed members page with searchable member/invitation rows, CSV export, and admin invite actions
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
 - A platform-admin extension of the app shell is now implemented on `codex/platform-admin-main`:

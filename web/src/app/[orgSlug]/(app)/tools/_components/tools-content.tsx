@@ -1,12 +1,13 @@
 "use client";
 
+import { ConnectIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ConnectIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { SurfaceEntry } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
 const brandIconMap: Record<string, string> = {
   "web-search": "/integrations/web-search.svg",
@@ -86,7 +87,6 @@ type ToolsContentProps = {
 
 export function ToolsContent({ orgSlug, surfaces }: ToolsContentProps) {
   const [filter, setFilter] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return surfaces;
@@ -107,27 +107,12 @@ export function ToolsContent({ orgSlug, surfaces }: ToolsContentProps) {
             Runtime capabilities Otto can use.
           </p>
         </div>
-        <div
-          className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 transition-shadow"
-          style={
-            searchFocused
-              ? { borderColor: "var(--primary)" }
-              : undefined
-          }
-        >
-          <HugeiconsIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            icon={Search01Icon}
-          />
-          <input
-            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            onBlur={() => setSearchFocused(false)}
-            onChange={(e) => setFilter(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search tools..."
-            value={filter}
-          />
-        </div>
+        <ToolbarSearchInput
+          aria-label="Search tools"
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Search tools..."
+          value={filter}
+        />
       </div>
 
       {filtered.length === 0 ? (

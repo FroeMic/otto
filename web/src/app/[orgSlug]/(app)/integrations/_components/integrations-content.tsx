@@ -1,10 +1,12 @@
 "use client";
 
+import { ConnectIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ConnectIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
+import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
 export type SurfaceEntry = {
   availability?: "available" | "blocked";
@@ -133,7 +135,6 @@ export function IntegrationsContent({
   surfaces,
 }: IntegrationsContentProps) {
   const [filter, setFilter] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return surfaces;
@@ -158,27 +159,12 @@ export function IntegrationsContent({
             Connect the tools your team already uses to Otto.
           </p>
         </div>
-        <div
-          className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 transition-shadow"
-          style={
-            searchFocused
-              ? { borderColor: "var(--primary)" }
-              : undefined
-          }
-        >
-          <HugeiconsIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            icon={Search01Icon}
-          />
-          <input
-            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            onBlur={() => setSearchFocused(false)}
-            onChange={(e) => setFilter(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search integrations..."
-            value={filter}
-          />
-        </div>
+        <ToolbarSearchInput
+          aria-label="Search integrations"
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Search integrations..."
+          value={filter}
+        />
       </div>
 
       {sections.length === 0 ? (

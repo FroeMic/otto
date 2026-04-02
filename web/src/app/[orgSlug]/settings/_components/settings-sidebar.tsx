@@ -1,7 +1,11 @@
 "use client";
 
+import {
+  ArrowLeft01Icon,
+  Settings01Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon, Settings01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -35,6 +39,7 @@ const SETTINGS_NAV_ITEMS = {
     {
       href: (orgSlug: string) => `/${orgSlug}/settings/user`,
       icon: <HugeiconsIcon icon={UserIcon} />,
+      match: "section",
       title: "Account",
     },
   ],
@@ -42,7 +47,14 @@ const SETTINGS_NAV_ITEMS = {
     {
       href: (orgSlug: string) => `/${orgSlug}/settings/workspace`,
       icon: <HugeiconsIcon icon={Settings01Icon} />,
+      match: "exact",
       title: "General",
+    },
+    {
+      href: (orgSlug: string) => `/${orgSlug}/settings/workspace/members`,
+      icon: <HugeiconsIcon icon={UserIcon} />,
+      match: "section",
+      title: "Members",
     },
   ],
 } as const;
@@ -79,7 +91,9 @@ export function SettingsSidebar({
               {SETTINGS_NAV_ITEMS.user.map((item) => {
                 const href = item.href(currentOrganization.slug);
                 const isActive =
-                  pathname === href || pathname.startsWith(`${href}/`);
+                  item.match === "exact"
+                    ? pathname === href
+                    : pathname === href || pathname.startsWith(`${href}/`);
 
                 return (
                   <SidebarMenuItem key={href}>
@@ -104,7 +118,9 @@ export function SettingsSidebar({
               {SETTINGS_NAV_ITEMS.workspace.map((item) => {
                 const href = item.href(currentOrganization.slug);
                 const isActive =
-                  pathname === href || pathname.startsWith(`${href}/`);
+                  item.match === "exact"
+                    ? pathname === href
+                    : pathname === href || pathname.startsWith(`${href}/`);
 
                 return (
                   <SidebarMenuItem key={href}>

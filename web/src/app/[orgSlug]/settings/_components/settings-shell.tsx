@@ -37,10 +37,11 @@ export function SettingsShell({
             orientation="vertical"
             className="data-vertical:h-4 data-vertical:self-auto"
           />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Settings</span>
-            <span className="text-xs text-muted-foreground">
-              {currentOrganization.name}
+          <div className="min-w-0 text-sm">
+            <span className="font-medium">Settings</span>
+            <span className="mx-2 text-muted-foreground">/</span>
+            <span className="truncate text-muted-foreground">
+              {currentOrganization.slug}
             </span>
           </div>
         </header>
