@@ -1,10 +1,11 @@
 "use client";
 
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ConnectIcon } from "@hugeicons/core-free-icons";
+import { ConnectIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +22,9 @@ const directionBadgeVariant: Record<
   AgentCapabilityDirection,
   "default" | "secondary" | "outline"
 > = {
-  trigger: "outline",
+  trigger: "default",
   tool: "secondary",
-  read: "default",
+  read: "outline",
 };
 
 const directionLabels: Record<AgentCapabilityDirection, string> = {
@@ -99,33 +100,65 @@ const columns: ColumnDef<CapabilityRow>[] = [
 ];
 
 export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
+  const [filter, setFilter] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!filter.trim()) return rows;
+    const q = filter.toLowerCase();
+    return rows.filter(
+      (r) =>
+        r.label.toLowerCase().includes(q) ||
+        r.sourceLabel.toLowerCase().includes(q),
+    );
+  }, [rows, filter]);
+
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Capabilities
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Runtime capabilities your agent can use.{" "}
-          <span className="font-medium text-foreground">{rows.length}</span>{" "}
-          across native tools and integrations.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Capabilities
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Runtime capabilities your agent can use.{" "}
+            <span className="font-medium text-foreground">{rows.length}</span>{" "}
+            across native tools and integrations.
+          </p>
+        </div>
+        <div
+          className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 transition-shadow"
+          style={
+            searchFocused
+              ? { borderColor: "var(--primary)" }
+              : undefined
+          }
+        >
+          <HugeiconsIcon
+            className="size-4 shrink-0 text-muted-foreground"
+            icon={Search01Icon}
+          />
+          <input
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            onBlur={() => setSearchFocused(false)}
+            onChange={(e) => setFilter(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            placeholder="Search capabilities..."
+            value={filter}
+          />
+        </div>
       </div>
       <DataTable
         bodyClassName="align-middle"
-        cellClassName="h-11 py-2"
+        cellClassName="h-12 py-2.5"
         columns={columns}
-        data={rows}
+        data={filtered}
         emptyMessage="No capabilities available."
         fillAvailableSpace
         headClassName="h-11 px-4 text-sm font-medium text-foreground"
         headerClassName="[&_tr]:border-0"
         rowClassName="border-0 hover:bg-transparent"
-        searchInputClassName="max-w-md rounded-lg border bg-input/50 px-3 py-2 text-sm focus-visible:border-primary focus-visible:ring-primary/30"
-        searchKeys={["label", "sourceLabel"]}
-        searchPlaceholder="Search capabilities..."
         tableClassName="min-w-full table-fixed"
-        toolbarClassName="pb-4"
         viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
       />
     </div>
