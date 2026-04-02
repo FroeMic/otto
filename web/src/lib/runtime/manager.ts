@@ -250,7 +250,25 @@ export class RuntimeManager {
       connection,
       buildShellCommand([
         `docker pull ${shellQuoteForShell(image)}`,
-        "docker rm -f openclaw-gateway >/dev/null 2>&1 || true",
+        [
+          "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+          "docker rm -f openclaw-gateway >/dev/null;",
+          "fi",
+        ].join(" "),
+        [
+          "for attempt in $(seq 1 20); do",
+          "if ! docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+          "break;",
+          "fi;",
+          "sleep 1;",
+          "done",
+        ].join(" "),
+        [
+          "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+          "echo 'openclaw-gateway container still exists after removal attempt' >&2;",
+          "exit 1;",
+          "fi",
+        ].join(" "),
         [
           "docker run -d",
           "--name openclaw-gateway",
