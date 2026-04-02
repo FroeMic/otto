@@ -42,8 +42,11 @@ export function OrganizationShell({
     (pathname === onboardingPath ||
       pathname.startsWith(`${onboardingPath}/`) ||
       pathname === slackSetupPath);
+  const toolsPath = `/${currentOrganization.slug}/tools`;
   const showWorkspaceStatusRail =
-    pathname !== slackSetupPath && pathname !== integrationsPath;
+    pathname !== slackSetupPath &&
+    pathname !== integrationsPath &&
+    pathname !== toolsPath;
 
   if (isSetupFlow) {
     return (
