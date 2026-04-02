@@ -45,6 +45,14 @@ export default async function WorkspaceSettingsPage({
             <p>Name: {organization.name}</p>
             <p>Workspace URL: /{organization.slug}</p>
             <p>Your access: {organization.role}</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+                href={`/${organization.slug}/settings/workspace/members`}
+              >
+                Manage members
+              </Link>
+            </div>
           </CardContent>
         </Card>
         <Card>

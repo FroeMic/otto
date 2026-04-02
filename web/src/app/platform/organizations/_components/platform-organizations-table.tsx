@@ -320,7 +320,9 @@ const columns: ColumnDef<PlatformOrganization>[] = [
       const href = getRuntimeImageHref(row.original.runtimeImage);
 
       if (!href) {
-        return <span className="truncate text-sm text-foreground">{label}</span>;
+        return (
+          <span className="truncate text-sm text-foreground">{label}</span>
+        );
       }
 
       return (
@@ -336,7 +338,8 @@ const columns: ColumnDef<PlatformOrganization>[] = [
     },
   },
   {
-    accessorFn: (row) => formatIsoTimestamp(getLatestSyncSummary(row).timestamp),
+    accessorFn: (row) =>
+      formatIsoTimestamp(getLatestSyncSummary(row).timestamp),
     id: "latestSync",
     header: "Latest sync",
     cell: ({ row }) => {
@@ -372,7 +375,6 @@ export function PlatformOrganizationsTable({
       headClassName="h-11 px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="hover:bg-transparent"
-      searchInputClassName="h-11 rounded-lg border bg-input/50 px-3 text-sm"
       searchKeys={["name", "slug"]}
       searchPlaceholder="Search by workspace name or slug"
       tableClassName="min-w-full table-fixed"

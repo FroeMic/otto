@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-table";
 import * as React from "react";
 
-import { Input } from "@/components/ui/input";
+import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import {
   Table,
   TableBody,
@@ -110,22 +110,29 @@ export function DataTable<TData, TValue>({
       {showToolbar ? (
         <div
           className={cn(
-            "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+            "flex flex-col gap-3 sm:flex-row sm:items-center",
+            searchKeys.length > 0 ? "sm:justify-between" : "sm:justify-start",
             toolbarClassName,
           )}
         >
           {searchKeys.length > 0 ? (
-            <Input
-              className={cn("h-11 w-full max-w-md", searchInputClassName)}
+            <ToolbarSearchInput
+              aria-label={searchPlaceholder}
+              containerClassName={searchInputClassName}
               onChange={(event) => setGlobalFilter(event.target.value)}
               placeholder={searchPlaceholder}
               value={globalFilter}
             />
-          ) : (
-            <div />
-          )}
+          ) : null}
           {toolbar ? (
-            <div className="flex items-center gap-2">{toolbar}</div>
+            <div
+              className={cn(
+                "flex items-center gap-2",
+                searchKeys.length === 0 && "w-full",
+              )}
+            >
+              {toolbar}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -164,7 +171,10 @@ export function DataTable<TData, TValue>({
                 <TableRow className={rowClassName} key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell className={cellClassName} key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
