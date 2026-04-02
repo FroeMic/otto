@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import {
   type DashboardOrganization,
   getDashboardOrganizations,
+  hasPlatformAdminRole,
 } from "@/db/control-plane";
 import { getPendingAccessPath, isOrganizationReady } from "@/lib/workspace";
 
@@ -13,6 +14,7 @@ type OrganizationRouteContext = {
   user: {
     email: string;
     id: string;
+    isPlatformAdmin: boolean;
     name: string;
   };
 };
@@ -22,6 +24,7 @@ export async function loadOrganizationRouteContext(
 ): Promise<OrganizationRouteContext> {
   const { user } = await withAuth({ ensureSignedIn: true });
   const organizations = await getDashboardOrganizations(user.id);
+  const isPlatformAdmin = await hasPlatformAdminRole(user.id);
 
   if (organizations.length === 0) {
     redirect("/onboarding/create-organization");
@@ -45,6 +48,7 @@ export async function loadOrganizationRouteContext(
     user: {
       email: user.email,
       id: user.id,
+      isPlatformAdmin,
       name:
         [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
     },

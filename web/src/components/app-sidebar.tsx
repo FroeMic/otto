@@ -47,6 +47,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   }>;
   user: {
     email: string;
+    isPlatformAdmin: boolean;
     name: string;
   };
 };
@@ -199,6 +200,16 @@ export function AppSidebar({
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {user.isPlatformAdmin ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/platform/organizations" />}
+                  >
+                    <HugeiconsIcon icon={Building03Icon} />
+                    <span>Platform Administration</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

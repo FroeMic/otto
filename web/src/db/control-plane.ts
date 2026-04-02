@@ -1,7 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type { User } from "@workos-inc/node";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
@@ -25,6 +25,7 @@ import {
   tenantRuntimeSecrets,
   tenantServers,
   tenants,
+  userPlatformRoles,
   users,
   whatsappInstallations,
   whatsappLinkSessions,
@@ -33,7 +34,7 @@ import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
 } from "@/lib/crypto";
-import { getControlPlaneBaseUrl } from "@/lib/env";
+import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
 import {
@@ -114,6 +115,7 @@ const SLACK_PROVIDER_KEY = "slack";
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
+const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
 
 function isSlackSurface(surfaceKind: string, surfaceKey: string) {
   return (
@@ -445,6 +447,54 @@ export type DashboardOrganization = {
   }>;
 };
 
+export type PlatformOrganization = {
+  id: string;
+  isReady: boolean;
+  name: string;
+  runtimeImage: string;
+  runtimeImageVersion: string | null;
+  slackIntegration: SlackIntegrationSummary | null;
+  slug: string;
+  tenant: {
+    id: string;
+    ipv4: string | null;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
+    name: string;
+    serverStatus: string | null;
+    status: string;
+  } | null;
+};
+
+export type PlatformTenantTarget = {
+  ipv4: string | null;
+  organizationId: string;
+  orgSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantName: string;
+  tenantStatus: string;
+};
+
 export async function syncUserFromSession(user: User) {
   const syncedUser = await upsertLocalUser(user);
 
@@ -476,6 +526,33 @@ async function upsertLocalUser(user: Pick<User, "email" | "id">) {
     });
 
   return upsertedUser;
+}
+
+export async function hasPlatformAdminRole(userExternalId: string) {
+  const db = getDb();
+  const [role] = await db
+    .select({
+      role: userPlatformRoles.role,
+    })
+    .from(userPlatformRoles)
+    .innerJoin(users, eq(userPlatformRoles.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, userExternalId),
+        eq(userPlatformRoles.role, PLATFORM_ADMIN_ROLE),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(role);
+}
+
+async function requirePlatformAdmin(userExternalId: string) {
+  const isPlatformAdmin = await hasPlatformAdminRole(userExternalId);
+
+  if (!isPlatformAdmin) {
+    throw new Error("Platform admin access required");
+  }
 }
 
 export async function getDashboardOrganizations(
@@ -773,6 +850,221 @@ export async function getDashboardOrganizations(
       ),
       slug: organization.organizationSlug,
       tenants: organizationTenants,
+    };
+  });
+}
+
+export async function listPlatformOrganizations(input: {
+  userExternalId: string;
+}): Promise<PlatformOrganization[]> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  const organizationRows = await db
+    .select({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      name: organizations.name,
+      slug: organizations.slug,
+    })
+    .from(organizations)
+    .orderBy(asc(organizations.name), asc(organizations.slug));
+
+  if (organizationRows.length === 0) {
+    return [];
+  }
+
+  const runtimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const runtimeImageVersion = extractRuntimeImageVersion(runtimeImage);
+  const organizationIds = organizationRows.map((organization) => organization.id);
+
+  const tenantRows = await db
+    .select({
+      createdAt: tenants.createdAt,
+      id: tenants.id,
+      ipv4: tenantServers.ipv4,
+      organizationId: tenants.organizationId,
+      name: tenants.name,
+      serverStatus: tenantServers.status,
+      status: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(inArray(tenants.organizationId, organizationIds))
+    .orderBy(desc(tenants.createdAt));
+
+  const latestTenantsByOrganization = new Map<
+    string,
+    (typeof tenantRows)[number]
+  >();
+
+  for (const tenant of tenantRows) {
+    if (!latestTenantsByOrganization.has(tenant.organizationId)) {
+      latestTenantsByOrganization.set(tenant.organizationId, tenant);
+    }
+  }
+
+  const tenantIds = Array.from(latestTenantsByOrganization.values()).map(
+    (tenant) => tenant.id,
+  );
+
+  const slackIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            status: tenantIntegrations.status,
+            teamName: slackInstallations.slackTeamName,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            slackInstallations,
+            eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+            ),
+          );
+
+  const slackIntegrationsByTenant = new Map<
+    string,
+    (typeof slackIntegrationRows)[number]
+  >();
+
+  for (const integration of slackIntegrationRows) {
+    if (!slackIntegrationsByTenant.has(integration.tenantId)) {
+      slackIntegrationsByTenant.set(integration.tenantId, integration);
+    }
+  }
+
+  const latestApplyRunRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+            error: tenantApplyRuns.error,
+            finishedAt: tenantApplyRuns.finishedAt,
+            startedAt: tenantApplyRuns.startedAt,
+            status: tenantApplyRuns.status,
+            tenantId: tenantApplyRuns.tenantId,
+          })
+          .from(tenantApplyRuns)
+          .where(inArray(tenantApplyRuns.tenantId, tenantIds))
+          .orderBy(desc(tenantApplyRuns.createdAt));
+
+  const latestApplyRunsByTenant = new Map<
+    string,
+    (typeof latestApplyRunRows)[number]
+  >();
+
+  for (const applyRun of latestApplyRunRows) {
+    if (!latestApplyRunsByTenant.has(applyRun.tenantId)) {
+      latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+    }
+  }
+
+  const latestJobRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            attempt: jobRuns.attempt,
+            createdAt: jobRuns.createdAt,
+            error: jobRuns.error,
+            finishedAt: jobRuns.finishedAt,
+            id: jobRuns.id,
+            payloadJson: jobRuns.payloadJson,
+            startedAt: jobRuns.startedAt,
+            status: jobRuns.status,
+            tenantId: jobRuns.tenantId,
+          })
+          .from(jobRuns)
+          .where(inArray(jobRuns.tenantId, tenantIds))
+          .orderBy(desc(jobRuns.createdAt));
+
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+
+  for (const job of latestJobRows) {
+    if (job.tenantId && !latestJobsByTenant.has(job.tenantId)) {
+      latestJobsByTenant.set(job.tenantId, job);
+    }
+  }
+
+  const latestJobIds = Array.from(latestJobsByTenant.values()).map(
+    (job) => job.id,
+  );
+
+  const jobEventRows =
+    latestJobIds.length === 0
+      ? []
+      : await db
+          .select({
+            createdAt: jobEvents.createdAt,
+            eventType: jobEvents.eventType,
+            jobRunId: jobEvents.jobRunId,
+            message: jobEvents.message,
+          })
+          .from(jobEvents)
+          .where(inArray(jobEvents.jobRunId, latestJobIds))
+          .orderBy(desc(jobEvents.createdAt));
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
+
+  return organizationRows.map((organization) => {
+    const tenant = latestTenantsByOrganization.get(organization.id) ?? null;
+
+    return {
+      id: organization.id,
+      isReady: organization.isReady,
+      name: organization.name,
+      runtimeImage,
+      runtimeImageVersion,
+      slackIntegration: tenant
+        ? buildSlackIntegrationSummary(
+            slackIntegrationsByTenant.get(tenant.id) ?? null,
+          )
+        : null,
+      slug: organization.slug,
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            ipv4: tenant.ipv4,
+            latestApplyRun: buildTenantApplyRunSummary(
+              latestApplyRunsByTenant.get(tenant.id) ?? null,
+            ),
+            latestJob: buildLatestJobSummary(
+              latestJobsByTenant.get(tenant.id) ?? null,
+              jobEventsByJobRunId,
+            ),
+            name: tenant.name,
+            serverStatus: tenant.serverStatus,
+            status: tenant.status,
+          }
+        : null,
     };
   });
 }
@@ -1610,6 +1902,85 @@ export async function getLatestTenantDesiredState(tenantId: string) {
   }
 
   return desiredState;
+}
+
+function extractRuntimeImageVersion(image: string) {
+  const digestSeparatorIndex = image.indexOf("@");
+
+  if (digestSeparatorIndex >= 0) {
+    return image.slice(digestSeparatorIndex + 1);
+  }
+
+  const lastColonIndex = image.lastIndexOf(":");
+  const lastSlashIndex = image.lastIndexOf("/");
+
+  if (lastColonIndex > lastSlashIndex) {
+    return image.slice(lastColonIndex + 1);
+  }
+
+  return null;
+}
+
+async function getLatestTenantForOrganizationSlug(
+  orgSlug: string,
+): Promise<PlatformTenantTarget | null> {
+  const db = getDb();
+  const [tenant] = await db
+    .select({
+      ipv4: tenantServers.ipv4,
+      organizationId: organizations.id,
+      orgSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(organizations.slug, orgSlug))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return null;
+  }
+
+  return tenant;
+}
+
+export async function getPlatformTenantTarget(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<PlatformTenantTarget | null> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  return getLatestTenantForOrganizationSlug(input.orgSlug);
+}
+
+export async function triggerPlatformOrganizationApply(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
 }
 
 export async function getLatestTenantManagedConfig(

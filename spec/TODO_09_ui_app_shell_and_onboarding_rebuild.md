@@ -18,6 +18,10 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
     - Tools
     - Skills
     - Scheduled Tasks
+- add a platform-admin-only route tree under `/platform` with:
+  - a dedicated shell and sidebar separate from the workspace shell
+  - a global organizations operations page
+  - a reusable data table component that can be reused by future admin lists
 - gate users into onboarding when:
   - they have no organization yet
   - or their organization does not yet have both:
@@ -456,6 +460,7 @@ Likely additions during implementation:
 - [x] implement a dedicated settings shell with sectioned navigation
 - [x] implement route-backed Agent status and instruction views
 - [x] implement a `Tools` section in the authenticated app shell
+- [x] implement a platform-admin-only `/platform` shell and organizations table
 - [ ] implement prefixed database IDs such as `org_*` and `user_*`
 - [ ] replace the temporary generic WorkOS account link with a verified account-management handoff if WorkOS exposes one for this setup
 
@@ -476,6 +481,8 @@ Likely additions during implementation:
   - Tools
   - Skills
   - Scheduled Tasks
+- users flagged as platform admins can reach a dedicated `/platform/organizations` operations view from the workspace sidebar
+- `/platform/organizations` renders a reusable TanStack-based data table listing org slug, Slack state, tenant/server status, configured runtime image, latest sync state, and operator actions
 - settings uses its own sidebar with route-backed user and workspace sections
 - the Agent area exposes route-backed status and instruction views
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder

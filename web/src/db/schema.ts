@@ -37,6 +37,27 @@ export const users = pgTable("users", {
     .notNull(),
 });
 
+export const userPlatformRoles = pgTable(
+  "user_platform_roles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    role: varchar("role", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userIdx: index("user_platform_roles_user_id_idx").on(table.userId),
+    userRoleUniqueIdx: uniqueIndex("user_platform_roles_user_id_role_idx").on(
+      table.userId,
+      table.role,
+    ),
+  }),
+);
+
 export const memberships = pgTable(
   "memberships",
   {
