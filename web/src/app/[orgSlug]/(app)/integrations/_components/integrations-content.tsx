@@ -138,6 +138,7 @@ export function IntegrationsContent({
   surfaces,
 }: IntegrationsContentProps) {
   const [filter, setFilter] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return surfaces;
@@ -162,14 +163,23 @@ export function IntegrationsContent({
             Connect the tools your team already uses to Otto.
           </p>
         </div>
-        <div className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
+        <div
+          className="flex max-w-md items-center gap-2 rounded-lg border bg-input/50 px-3 py-2 transition-shadow"
+          style={
+            searchFocused
+              ? { borderColor: "var(--primary)" }
+              : undefined
+          }
+        >
           <HugeiconsIcon
             className="size-4 shrink-0 text-muted-foreground"
             icon={Search01Icon}
           />
           <input
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            onBlur={() => setSearchFocused(false)}
             onChange={(e) => setFilter(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
             placeholder="Search integrations..."
             value={filter}
           />
