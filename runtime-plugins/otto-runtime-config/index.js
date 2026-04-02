@@ -1,13 +1,23 @@
-import { emptyPluginConfigSchema } from "openclaw/plugin-sdk/core";
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+const PLUGIN_CONFIG_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    timeoutMs: {
+      type: "integer",
+      minimum: 1000,
+    },
+  },
+};
 
-const plugin = {
+export default definePluginEntry({
   id: "otto-runtime-config",
   name: "Otto Runtime Config",
   description:
     "Runtime surface configuration and lifecycle tools backed by the workspace app.",
-  configSchema: emptyPluginConfigSchema(),
+  configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
       {
@@ -359,9 +369,7 @@ const plugin = {
       { optional: true },
     );
   },
-};
-
-export default plugin;
+});
 
 async function listConfigurableTools(api) {
   const response = await requestControlPlane(api, {

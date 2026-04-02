@@ -2,6 +2,19 @@
   "id": "otto-runtime-config",
   "name": "Otto Runtime Config",
   "description": "Runtime surface configuration and lifecycle tools backed by the workspace app.",
+  "contracts": {
+    "tools": [
+      "list_configurable_surfaces",
+      "get_configurable_surface",
+      "get_slack_policy",
+      "preview_slack_policy_action",
+      "apply_slack_policy_action",
+      "validate_surface_change",
+      "apply_surface_change",
+      "set_surface_state",
+      "reapply_surface"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
