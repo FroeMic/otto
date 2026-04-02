@@ -90,7 +90,7 @@
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
-- Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_11_scheduled_tasks_visibility.md`.
+- Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
@@ -217,7 +217,7 @@
   - implementing the prefixed ID strategy or explicitly deferring it
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
   - deciding how operators will flip `organizations.is_ready` without using direct SQL
-- When Scheduled Tasks becomes active work, implement `TODO_11_scheduled_tasks_visibility.md` by:
+- When Scheduled Tasks becomes active work, implement `TODO_13_scheduled_tasks_visibility.md` by:
   - adding control-plane tables and loaders for scheduled task definitions and scheduled task sessions
   - adding runtime-authenticated callbacks plus a worker reconciliation job so the control plane stays current without scraping runtime cron state
   - replacing the scheduled-tasks placeholder route with real Tasks and Sessions views

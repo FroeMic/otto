@@ -38,6 +38,7 @@ This folder is the source of truth for implementation planning and session-to-se
 11. `TODO_10_voice_note_understanding.md`
 12. `TODO_11_runtime_release_rollout.md`
 13. `TODO_12_runtime_dashboard_access.md`
+14. `TODO_13_scheduled_tasks_visibility.md`
 
 ## Trigger.dev decision
 
