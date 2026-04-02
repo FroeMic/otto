@@ -63,8 +63,77 @@ export const OPENCLAW_GATEWAY_BIND = "lan";
 export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
+function buildWebSearchPluginEntries(
+  webSearch: OpenClawWebSearchConfig | undefined,
+): Record<string, { config: { webSearch: Record<string, unknown> } }> {
+  if (!webSearch) {
+    return {};
+  }
+
+  const entries: Record<string, { config: { webSearch: Record<string, unknown> } }> =
+    {};
+
+  if (webSearch.brave) {
+    entries.brave = {
+      config: {
+        webSearch: webSearch.brave,
+      },
+    };
+  }
+
+  if (webSearch.gemini) {
+    entries.google = {
+      config: {
+        webSearch: webSearch.gemini,
+      },
+    };
+  }
+
+  if (webSearch.grok) {
+    entries.xai = {
+      config: {
+        webSearch: webSearch.grok,
+      },
+    };
+  }
+
+  if (webSearch.kimi) {
+    entries.moonshot = {
+      config: {
+        webSearch: webSearch.kimi,
+      },
+    };
+  }
+
+  if (webSearch.perplexity) {
+    entries.perplexity = {
+      config: {
+        webSearch: webSearch.perplexity,
+      },
+    };
+  }
+
+  return entries;
+}
+
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const pluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const ottoPluginEntries = Object.fromEntries(
+    (config.ottoPlugins ?? []).map((plugin) => [
+      plugin.id,
+      {
+        config: {
+          timeoutMs: plugin.timeoutMs,
+        },
+        enabled: true,
+      },
+    ]),
+  );
+  const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
+  const pluginEntries = {
+    ...ottoPluginEntries,
+    ...webSearchPluginEntries,
+  };
   const pluginTools =
     pluginIds.length > 0
       ? {
@@ -194,40 +263,15 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ? {
         web: {
           search: {
-            ...(config.webSearch.brave
-              ? {
-                  brave: config.webSearch.brave,
-                }
-              : {}),
             ...(typeof config.webSearch.cacheTtlMinutes === "number"
               ? {
                   cacheTtlMinutes: config.webSearch.cacheTtlMinutes,
                 }
               : {}),
             enabled: config.webSearch.enabled,
-            ...(config.webSearch.gemini
-              ? {
-                  gemini: config.webSearch.gemini,
-                }
-              : {}),
-            ...(config.webSearch.grok
-              ? {
-                  grok: config.webSearch.grok,
-                }
-              : {}),
-            ...(config.webSearch.kimi
-              ? {
-                  kimi: config.webSearch.kimi,
-                }
-              : {}),
             ...(typeof config.webSearch.maxResults === "number"
               ? {
                   maxResults: config.webSearch.maxResults,
-                }
-              : {}),
-            ...(config.webSearch.perplexity
-              ? {
-                  perplexity: config.webSearch.perplexity,
                 }
               : {}),
             provider: config.webSearch.provider,
@@ -255,21 +299,15 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
-      ...(config.ottoPlugins && config.ottoPlugins.length > 0
+      ...(Object.keys(pluginEntries).length > 0 || pluginIds.length > 0
         ? {
             plugins: {
-              allow: pluginIds,
-              entries: Object.fromEntries(
-                config.ottoPlugins.map((plugin) => [
-                  plugin.id,
-                  {
-                    config: {
-                      timeoutMs: plugin.timeoutMs,
-                    },
-                    enabled: true,
-                  },
-                ]),
-              ),
+              ...(pluginIds.length > 0
+                ? {
+                    allow: pluginIds,
+                  }
+                : {}),
+              entries: pluginEntries,
             },
           }
         : {}),
