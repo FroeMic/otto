@@ -90,6 +90,12 @@
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
+- A platform-admin extension of the app shell is now implemented on `codex/platform-admin-main`:
+  - `user_platform_roles` introduces a global `PLATFORM_ADMIN` flag linked to local users
+  - workspace sidebars now expose `Platform Administration` below the Slack link for flagged users
+  - `/platform` now has its own protected shell and `/platform/organizations` page
+  - `/platform/organizations` uses a reusable TanStack-based data table component with search, sorting, and row actions
+  - platform admins can queue `apply_tenant_config` and trigger runtime image pull/restart directly from the organizations table
 - Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
@@ -213,6 +219,8 @@
   - adding `files:read` to Slack scope defaults for fresh installs
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
+  - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user
+  - manually verifying the `/platform/organizations` shell, sidebar entry visibility, and operator actions against a real ready tenant
   - replacing the temporary WorkOS account link with a verified account-management handoff if available
   - implementing the prefixed ID strategy or explicitly deferring it
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config

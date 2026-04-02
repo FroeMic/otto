@@ -70,14 +70,6 @@ export function SettingsSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="flex flex-col gap-1 px-2">
-          <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            Settings
-          </span>
-          <span className="text-sm font-medium">
-            {currentOrganization.name}
-          </span>
-        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

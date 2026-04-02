@@ -40,6 +40,7 @@ type OrganizationShellProps = {
   }>;
   user: {
     email: string;
+    isPlatformAdmin: boolean;
     name: string;
   };
 };
