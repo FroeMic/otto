@@ -1,16 +1,17 @@
 "use client";
 
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  ArrowsClockwiseIcon,
-  BuildingsIcon,
-  CalendarDotsIcon,
-  CaretUpDownIcon,
-  GearIcon,
-  LightningIcon,
-  PlugsConnectedIcon,
-  RobotIcon,
-  WrenchIcon,
-} from "@phosphor-icons/react";
+  ArrowReloadHorizontalIcon,
+  Building03Icon,
+  Calendar03Icon,
+  UnfoldMoreIcon,
+  Settings01Icon,
+  FlashIcon,
+  ConnectIcon,
+  AiChat02Icon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";
@@ -62,27 +63,27 @@ export function AppSidebar({
   const navItems = [
     {
       href: `/${currentOrganization.slug}/agent/status`,
-      icon: <RobotIcon />,
+      icon: <HugeiconsIcon icon={AiChat02Icon} />,
       title: "Agent",
     },
     {
       href: `/${currentOrganization.slug}/integrations`,
-      icon: <PlugsConnectedIcon />,
+      icon: <HugeiconsIcon icon={ConnectIcon} />,
       title: "Integrations",
     },
     {
       href: `/${currentOrganization.slug}/tools`,
-      icon: <WrenchIcon />,
+      icon: <HugeiconsIcon icon={Wrench01Icon} />,
       title: "Tools",
     },
     {
       href: `/${currentOrganization.slug}/skills`,
-      icon: <LightningIcon />,
+      icon: <HugeiconsIcon icon={FlashIcon} />,
       title: "Skills",
     },
     {
       href: `/${currentOrganization.slug}/scheduled-tasks`,
-      icon: <CalendarDotsIcon />,
+      icon: <HugeiconsIcon icon={Calendar03Icon} />,
       title: "Scheduled Tasks",
     },
   ];
@@ -102,7 +103,7 @@ export function AppSidebar({
                 }
               >
                 <div className="flex size-8 items-center justify-center border bg-background">
-                  <BuildingsIcon />
+                  <HugeiconsIcon icon={Building03Icon} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
@@ -112,7 +113,7 @@ export function AppSidebar({
                     {currentOrganization.slug}
                   </span>
                 </div>
-                <CaretUpDownIcon className="ml-auto" />
+                <HugeiconsIcon icon={UnfoldMoreIcon} className="ml-auto" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-64">
                 <DropdownMenuGroup>
@@ -122,7 +123,7 @@ export function AppSidebar({
                       key={organization.slug}
                       render={<Link href={`/${organization.slug}`} />}
                     >
-                      <BuildingsIcon />
+                      <HugeiconsIcon icon={Building03Icon} />
                       {organization.name}
                     </DropdownMenuItem>
                   ))}
@@ -135,7 +136,7 @@ export function AppSidebar({
                     />
                   }
                 >
-                  <GearIcon />
+                  <HugeiconsIcon icon={Settings01Icon} />
                   Workspace settings
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -183,7 +184,7 @@ export function AppSidebar({
                 >
                   {slackIsConnected ? (
                     <>
-                      <PlugsConnectedIcon />
+                      <HugeiconsIcon icon={ConnectIcon} />
                       <span>Slack</span>
                       <span
                         aria-hidden="true"
@@ -192,7 +193,7 @@ export function AppSidebar({
                     </>
                   ) : (
                     <>
-                      <ArrowsClockwiseIcon />
+                      <HugeiconsIcon icon={ArrowReloadHorizontalIcon} />
                       <span>Connect Slack</span>
                     </>
                   )}

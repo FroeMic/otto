@@ -630,7 +630,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
                 then scan the QR code from your workspace.
               </li>
             </ol>
-            <div className="flex items-start gap-3 rounded-none border p-3">
+            <div className="flex items-start gap-3 rounded-2xl border p-3">
               <Checkbox
                 checked={prepConfirmed}
                 id="whatsapp-prep-confirmed"
@@ -670,7 +670,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {linkSession?.status === "qr_ready" && linkSession.qrDataUrl ? (
-              <div className="flex flex-col gap-4 rounded-none border p-4">
+              <div className="flex flex-col gap-4 rounded-2xl border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">
@@ -759,7 +759,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
               </AlertDescription>
             </Alert>
             {linkSession?.qrDataUrl ? (
-              <div className="flex flex-col gap-4 rounded-none border p-4">
+              <div className="flex flex-col gap-4 rounded-2xl border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">
@@ -781,7 +781,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
                     width={320}
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                    <div className="rounded-none border bg-background px-4 py-3 text-center shadow-sm">
+                    <div className="rounded-2xl border bg-background px-4 py-3 text-center shadow-sm">
                       <p className="text-sm font-medium text-foreground">
                         Finishing setup...
                       </p>
@@ -824,7 +824,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
                     Otto is now linked to {linkedNumber}.
                   </AlertDescription>
                 </Alert>
-                <div className="rounded-none border p-4">
+                <div className="rounded-2xl border p-4">
                   <div className="flex flex-col gap-1">
                     <p className="text-sm text-muted-foreground">
                       Dedicated number
