@@ -11,6 +11,12 @@ import { baseAgentCapabilities } from "@/tools/base-capabilities";
 
 export const dynamic = "force-dynamic";
 
+const brandIconMap: Record<string, string> = {
+  slack: "/integrations/slack.svg",
+  whatsapp: "/integrations/whatsapp.png",
+  "web-search": "/integrations/web-search.svg",
+};
+
 export default async function CapabilitiesPage({
   params,
 }: {
@@ -39,8 +45,20 @@ export default async function CapabilitiesPage({
   // Capabilities from connected surfaces
   for (const surface of surfaces) {
     if (!surface.agentCapabilities) continue;
+
+    const href =
+      surface.settingsUrl ??
+      (surface.uiGroup === "integrations"
+        ? `/${organization.slug}/integrations/${surface.key}`
+        : `/${organization.slug}/tools/${surface.kind}/${surface.key}`);
+
     for (const cap of surface.agentCapabilities) {
-      rows.push({ ...cap, sourceLabel: surface.label });
+      rows.push({
+        ...cap,
+        sourceHref: href,
+        sourceIcon: brandIconMap[surface.key] ?? null,
+        sourceLabel: surface.label,
+      });
     }
   }
 
