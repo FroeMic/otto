@@ -15,6 +15,7 @@ import {
   tenants,
 } from "@/db/schema";
 import { getDb } from "@/db/client";
+import { logCliError } from "@/lib/cli-error";
 import { getEnv } from "@/lib/env";
 import { JOB_STATUSES } from "@/lib/jobs/types";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
@@ -375,6 +376,6 @@ function sleep(ms: number) {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  logCliError(error);
   process.exit(1);
 });
