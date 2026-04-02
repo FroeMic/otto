@@ -32,6 +32,19 @@ export type ToolAgentOperation = {
   label: string;
 };
 
+export type AgentCapabilityDirection = "trigger" | "tool" | "read";
+export type AgentCapabilitySource = "base" | "integration" | "conditional";
+
+export type AgentCapability = {
+  conditionNote?: string;
+  description: string;
+  direction: AgentCapabilityDirection;
+  key: string;
+  label: string;
+  openclawTool?: string;
+  source: AgentCapabilitySource;
+};
+
 export type ToolSurfaceLifecycleState = {
   enabled: boolean;
   installState: ToolInstallState;
@@ -42,6 +55,7 @@ export type ToolSurfaceResponse<
   Options extends Record<string, unknown> = Record<string, never>,
 > = {
   actionMeanings: ToolActionMeaning[];
+  agentCapabilities?: AgentCapability[];
   agentOperations?: ToolAgentOperation[];
   allowedActions: ToolSurfaceAction[];
   availability?: "available" | "blocked";
@@ -84,6 +98,7 @@ export type ToolSurfaceDefinition<
   Options extends Record<string, unknown> = Record<string, never>,
 > = {
   actionMeanings: ToolActionMeaning[];
+  agentCapabilities?: AgentCapability[];
   agentOperations?: ToolAgentOperation[];
   buildOptions: (context: {
     orgSlug?: string;

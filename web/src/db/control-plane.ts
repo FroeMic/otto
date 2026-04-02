@@ -2977,6 +2977,7 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
     });
 
     return {
+      agentCapabilities: definition?.agentCapabilities ?? [],
       agentOperations: definition?.agentOperations ?? [],
       availableChannels: directory.channels,
       availableUsers: directory.users,
@@ -3076,6 +3077,7 @@ export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
 
     return {
       actionMeanings: definition?.actionMeanings ?? [],
+      agentCapabilities: definition?.agentCapabilities ?? [],
       agentOperations: definition?.agentOperations ?? [],
       allowedActions,
       availability: isBlocked ? "blocked" : "available",
@@ -3855,6 +3857,7 @@ async function getTenantWebSearchToolSurfaceForTenant(input: {
 
   return {
     actionMeanings: definition.actionMeanings,
+    agentCapabilities: definition.agentCapabilities,
     agentOperations: definition.agentOperations,
     allowedActions: listAvailableToolActions(definition, {
       enabled: resolved.enabled,

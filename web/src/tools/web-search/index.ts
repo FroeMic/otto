@@ -13,6 +13,7 @@ import {
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
 import type {
+  AgentCapability,
   ToolActionMeaning,
   ToolAgentOperation,
   ToolFieldMeaning,
@@ -61,6 +62,18 @@ const agentOperations: ToolAgentOperation[] = [
   },
 ];
 
+const agentCapabilities: AgentCapability[] = [
+  {
+    conditionNote: "Requires a search provider API key.",
+    description: "Otto can search the web using the configured provider.",
+    direction: "tool",
+    key: "web-search:tool:search",
+    label: "Search the web",
+    openclawTool: "web_search",
+    source: "conditional",
+  },
+];
+
 const actionMeanings: ToolActionMeaning[] = [];
 
 export const webSearchToolSurfaceDefinition: ToolSurfaceDefinition<
@@ -68,6 +81,7 @@ export const webSearchToolSurfaceDefinition: ToolSurfaceDefinition<
   Record<string, never>
 > = {
   actionMeanings,
+  agentCapabilities,
   agentOperations,
   async buildOptions() {
     return {};
