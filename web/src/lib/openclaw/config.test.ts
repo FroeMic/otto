@@ -101,14 +101,14 @@ describe("renderOpenClawConfig", () => {
     const renderedConfig = JSON.parse(renderOpenClawConfig(config));
 
     assert.deepEqual(renderedConfig.tools.web.search, {
-      brave: {
-        mode: "web",
-      },
       cacheTtlMinutes: 15,
       enabled: true,
       maxResults: 5,
       provider: "brave",
       timeoutSeconds: 30,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.brave.config.webSearch, {
+      mode: "web",
     });
   });
 
