@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { WhatsAppIntegrationPanel } from "@/app/[orgSlug]/(app)/integrations/whatsapp/_components/whatsapp-integration-panel";
+import { AgentCapabilitiesCard } from "@/components/agent-capabilities-card";
+import { getToolDefinition } from "@/tools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -224,6 +226,13 @@ export default async function WhatsAppIntegrationPage({
         orgSlug={orgSlug}
         runtimeApplyIsActive={runtimeApplyIsActive}
       />
+
+      {(() => {
+        const def = getToolDefinition("channel", "whatsapp");
+        return def?.agentCapabilities ? (
+          <AgentCapabilitiesCard capabilities={def.agentCapabilities} />
+        ) : null;
+      })()}
     </div>
   );
 }

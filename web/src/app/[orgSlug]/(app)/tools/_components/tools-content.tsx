@@ -6,7 +6,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import type { SurfaceEntry } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import type {
+  CapabilitySummary,
+  SurfaceEntry,
+} from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
 const brandIconMap: Record<string, string> = {
@@ -45,6 +48,20 @@ function SurfaceIcon({ surface }: { surface: SurfaceEntry }) {
   );
 }
 
+function CapabilitySummaryRow({ summary }: { summary: CapabilitySummary }) {
+  const parts: string[] = [];
+  if (summary.triggers > 0) parts.push(`${summary.triggers} trigger${summary.triggers !== 1 ? "s" : ""}`);
+  if (summary.tools > 0) parts.push(`${summary.tools} tool${summary.tools !== 1 ? "s" : ""}`);
+  if (summary.reads > 0) parts.push(`${summary.reads} read${summary.reads !== 1 ? "s" : ""}`);
+  if (parts.length === 0) return null;
+
+  return (
+    <p className="mt-auto text-xs text-muted-foreground">
+      {parts.join(" · ")}
+    </p>
+  );
+}
+
 function ToolCard({
   orgSlug,
   surface,
@@ -73,9 +90,12 @@ function ToolCard({
           ) : null}
         </div>
       </div>
-      <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
         {surface.description}
       </p>
+      {surface.capabilitySummary ? (
+        <CapabilitySummaryRow summary={surface.capabilitySummary} />
+      ) : null}
     </Link>
   );
 }

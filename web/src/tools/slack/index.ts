@@ -18,6 +18,7 @@ import {
 } from "@/tools/server";
 import type { DbTransaction } from "@/tools/server-types";
 import type {
+  AgentCapability,
   ToolActionMeaning,
   ToolAgentOperation,
   ToolFieldMeaning,
@@ -88,6 +89,56 @@ const agentOperations: ToolAgentOperation[] = [
   },
 ];
 
+const agentCapabilities: AgentCapability[] = [
+  {
+    description: "A Slack DM to Otto starts or continues an agent session.",
+    direction: "trigger",
+    key: "slack:trigger:dm",
+    label: "Receive direct messages",
+    source: "integration",
+  },
+  {
+    description: "An @Otto mention in a Slack channel triggers a session.",
+    direction: "trigger",
+    key: "slack:trigger:channel-mention",
+    label: "Receive channel mentions",
+    source: "integration",
+  },
+  {
+    description:
+      "Otto can send messages, replies, and thread replies to Slack channels and DMs.",
+    direction: "tool",
+    key: "slack:tool:send",
+    label: "Send messages",
+    openclawTool: "message",
+    source: "integration",
+  },
+  {
+    description: "Otto can add emoji reactions to Slack messages.",
+    direction: "tool",
+    key: "slack:tool:react",
+    label: "React to messages",
+    openclawTool: "message",
+    source: "integration",
+  },
+  {
+    description: "Otto can pin, delete, and moderate Slack messages.",
+    direction: "tool",
+    key: "slack:tool:manage",
+    label: "Manage messages",
+    openclawTool: "message",
+    source: "integration",
+  },
+  {
+    description:
+      "Otto can read recent thread and channel history for context.",
+    direction: "read",
+    key: "slack:read:history",
+    label: "Read message history",
+    source: "integration",
+  },
+];
+
 const actionMeanings: ToolActionMeaning[] = [
   {
     action: "install",
@@ -133,6 +184,7 @@ export const slackToolSurfaceDefinition: ToolSurfaceDefinition<
   SlackToolOptions
 > = {
   actionMeanings,
+  agentCapabilities,
   agentOperations,
   async buildOptions(context) {
     return getSlackDirectoryOptionsForTenant(context.tx as DbTransaction, {

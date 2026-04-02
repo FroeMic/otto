@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AgentCapabilitiesCard } from "@/components/agent-capabilities-card";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Card,
@@ -114,6 +115,10 @@ export function WebSearchToolPage({
           ) : null}
         </CardContent>
       </Card>
+
+      {surface.agentCapabilities && surface.agentCapabilities.length > 0 ? (
+        <AgentCapabilitiesCard capabilities={surface.agentCapabilities} />
+      ) : null}
 
       <div className="flex justify-start">
         <Link

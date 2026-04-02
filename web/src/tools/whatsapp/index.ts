@@ -13,6 +13,7 @@ import {
   whatsappRuntimeConfigUiHints,
 } from "@/lib/whatsapp-config";
 import type {
+  AgentCapability,
   ToolActionMeaning,
   ToolAgentOperation,
   ToolFieldMeaning,
@@ -74,6 +75,41 @@ const agentOperations: ToolAgentOperation[] = [
   },
 ];
 
+const agentCapabilities: AgentCapability[] = [
+  {
+    description:
+      "A WhatsApp message to Otto's number starts or continues a session.",
+    direction: "trigger",
+    key: "whatsapp:trigger:dm",
+    label: "Receive direct messages",
+    source: "integration",
+  },
+  {
+    description:
+      "An @mention in an allowed WhatsApp group triggers a session.",
+    direction: "trigger",
+    key: "whatsapp:trigger:group-mention",
+    label: "Receive group mentions",
+    source: "integration",
+  },
+  {
+    description: "Otto can send and reply to WhatsApp messages.",
+    direction: "tool",
+    key: "whatsapp:tool:send",
+    label: "Send messages",
+    openclawTool: "message",
+    source: "integration",
+  },
+  {
+    description: "Otto can add emoji reactions to WhatsApp messages.",
+    direction: "tool",
+    key: "whatsapp:tool:react",
+    label: "React to messages",
+    openclawTool: "message",
+    source: "integration",
+  },
+];
+
 const actionMeanings: ToolActionMeaning[] = [
   {
     action: "update",
@@ -94,6 +130,7 @@ export const whatsappToolSurfaceDefinition: ToolSurfaceDefinition<
   Partial<WhatsAppRuntimeConfig>
 > = {
   actionMeanings,
+  agentCapabilities,
   agentOperations,
   async buildOptions() {
     return {};

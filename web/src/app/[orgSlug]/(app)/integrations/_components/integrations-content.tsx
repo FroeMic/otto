@@ -8,8 +8,15 @@ import { useMemo, useState } from "react";
 
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
+export type CapabilitySummary = {
+  reads: number;
+  tools: number;
+  triggers: number;
+};
+
 export type SurfaceEntry = {
   availability?: "available" | "blocked";
+  capabilitySummary?: CapabilitySummary;
   description: string;
   enabled: boolean;
   id: string;
@@ -95,6 +102,20 @@ function SurfaceIcon({ surface }: { surface: SurfaceEntry }) {
   );
 }
 
+function CapabilitySummaryRow({ summary }: { summary: CapabilitySummary }) {
+  const parts: string[] = [];
+  if (summary.triggers > 0) parts.push(`${summary.triggers} trigger${summary.triggers !== 1 ? "s" : ""}`);
+  if (summary.tools > 0) parts.push(`${summary.tools} tool${summary.tools !== 1 ? "s" : ""}`);
+  if (summary.reads > 0) parts.push(`${summary.reads} read${summary.reads !== 1 ? "s" : ""}`);
+  if (parts.length === 0) return null;
+
+  return (
+    <p className="mt-auto text-xs text-muted-foreground">
+      {parts.join(" · ")}
+    </p>
+  );
+}
+
 function IntegrationCard({
   orgSlug,
   surface,
@@ -123,9 +144,12 @@ function IntegrationCard({
           ) : null}
         </div>
       </div>
-      <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
         {surface.description}
       </p>
+      {surface.capabilitySummary ? (
+        <CapabilitySummaryRow summary={surface.capabilitySummary} />
+      ) : null}
     </Link>
   );
 }

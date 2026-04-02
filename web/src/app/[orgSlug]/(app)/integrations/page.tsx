@@ -2,11 +2,27 @@ import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import type {
+  CapabilitySummary,
+  SurfaceEntry,
+} from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
 import { SLACK_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/slack-config";
 import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
 import { isOrganizationUnlocked } from "@/lib/workspace";
-import type { SurfaceEntry } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import { getToolDefinition } from "@/tools";
+import type { AgentCapability } from "@/tools/types";
+
+function computeCapabilitySummary(
+  capabilities?: AgentCapability[],
+): CapabilitySummary | undefined {
+  if (!capabilities || capabilities.length === 0) return undefined;
+  return {
+    reads: capabilities.filter((c) => c.direction === "read").length,
+    tools: capabilities.filter((c) => c.direction === "tool").length,
+    triggers: capabilities.filter((c) => c.direction === "trigger").length,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +81,7 @@ export default async function IntegrationsPage({
     if (surface.uiGroup !== "integrations") continue;
     liveSurfacesByKey.set(surface.key, {
       availability: surface.availability,
+      capabilitySummary: computeCapabilitySummary(surface.agentCapabilities),
       description: surface.description,
       enabled: surface.config.enabled,
       id: surface.id,
@@ -82,8 +99,13 @@ export default async function IntegrationsPage({
   const entries = knownIntegrations.map((known) => {
     const live = liveSurfacesByKey.get(known.key);
     if (live) return live;
+    // Look up capabilities from the tool definition registry
+    const definition = getToolDefinition(known.kind, known.key);
     return {
       ...known,
+      capabilitySummary: computeCapabilitySummary(
+        definition?.agentCapabilities,
+      ),
       settingsUrl: `/${organization.slug}/integrations/${known.key}`,
     };
   });

@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { SlackRuntimeConfigPanel } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-runtime-config-panel";
+import { AgentCapabilitiesCard } from "@/components/agent-capabilities-card";
+import { getToolDefinition } from "@/tools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -269,6 +271,13 @@ export default async function SlackIntegrationPage({
           orgSlug={orgSlug}
         />
       ) : null}
+
+      {(() => {
+        const def = getToolDefinition("channel", "slack");
+        return def?.agentCapabilities ? (
+          <AgentCapabilitiesCard capabilities={def.agentCapabilities} />
+        ) : null;
+      })()}
     </div>
   );
 }
