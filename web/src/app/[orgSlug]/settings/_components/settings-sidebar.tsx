@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeftIcon, GearIcon, UserIcon } from "@phosphor-icons/react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft01Icon, Settings01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -33,14 +34,14 @@ const SETTINGS_NAV_ITEMS = {
   user: [
     {
       href: (orgSlug: string) => `/${orgSlug}/settings/user`,
-      icon: <UserIcon />,
+      icon: <HugeiconsIcon icon={UserIcon} />,
       title: "Account",
     },
   ],
   workspace: [
     {
       href: (orgSlug: string) => `/${orgSlug}/settings/workspace`,
-      icon: <GearIcon />,
+      icon: <HugeiconsIcon icon={Settings01Icon} />,
       title: "General",
     },
   ],
@@ -64,7 +65,7 @@ export function SettingsSidebar({
               }
               size="lg"
             >
-              <ArrowLeftIcon />
+              <HugeiconsIcon icon={ArrowLeft01Icon} />
               <span>Back to Otto</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
