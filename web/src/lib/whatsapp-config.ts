@@ -6,7 +6,7 @@ export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE = "otto_builtin";
 export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION = "1";
 export const WHATSAPP_RUNTIME_CONFIG_LABEL = "WhatsApp";
 export const WHATSAPP_RUNTIME_CONFIG_DESCRIPTION =
-  "Configure Otto's dedicated WhatsApp Business number, including DM access, allowlisted groups, sender gating, and reply behavior.";
+  "Connect a WhatsApp Business number and manage DM access, groups, and reply behavior.";
 
 const whatsappDmPolicySchema = z.enum(["pairing", "allowlist", "disabled"]);
 const whatsappGroupPolicySchema = z.enum(["disabled", "allowlist"]);

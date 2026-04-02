@@ -6,7 +6,7 @@ export const SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE = "otto_builtin";
 export const SLACK_RUNTIME_CONFIG_SCHEMA_VERSION = "3";
 export const SLACK_RUNTIME_CONFIG_LABEL = "Slack";
 export const SLACK_RUNTIME_CONFIG_DESCRIPTION =
-  "Configure Slack acknowledgements, reply behavior, user permissions, and channel access.";
+  "Manage reply behavior, permissions, and channel access for Slack.";
 
 const slackIdSchema = z.string().trim().min(1);
 const slackChannelAccessModeSchema = z.enum([

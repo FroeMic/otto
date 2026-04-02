@@ -97,7 +97,7 @@ bun run test:openai-token
 Queue a tenant runtime apply against the latest desired state for an org:
 
 ```bash
-bun run tenant:runtime:apply -- <org-slug>
+bun run tenant:runtime:apply -- --orgslug <org-slug>
 ```
 
 This uses the normal `apply_tenant_config` worker path, which already pulls the
@@ -107,7 +107,7 @@ Force a ready tenant to pull `RUNTIME_OPENCLAW_IMAGE` and recreate the runtime
 container without changing config:
 
 ```bash
-bun run tenant:runtime:refresh-image -- <org-slug>
+bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 ```
 
 ## Directory highlights

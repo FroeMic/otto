@@ -15,6 +15,7 @@ import {
   tenants,
 } from "@/db/schema";
 import { getDb } from "@/db/client";
+import { logCliError } from "@/lib/cli-error";
 import { getEnv } from "@/lib/env";
 import { JOB_STATUSES } from "@/lib/jobs/types";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
@@ -28,11 +29,12 @@ type Command = "apply" | "refresh-image";
 
 type TenantTarget = {
   ipv4: string | null;
-  orgSlug: string;
   serverStatus: string | null;
   tenantId: string;
   tenantName: string;
   tenantStatus: string;
+  targetRef: string;
+  targetMode: "org-slug";
 };
 
 type ApplyRunStatus = {
@@ -59,18 +61,13 @@ async function main() {
     process.exit(1);
   }
 
-  const orgSlug = args[1];
-
-  if (!orgSlug) {
-    printUsage();
-    process.exit(1);
-  }
-
-  const options = parseOptions(args.slice(2));
-  const tenant = await getLatestTenantForOrganization(orgSlug);
+  const options = parseOptions(args.slice(1));
+  const tenant = await resolveTenantTarget(options.target);
 
   if (!tenant) {
-    throw new Error(`No tenant found for organization slug "${orgSlug}".`);
+    throw new Error(
+      `No tenant found for organization slug "${options.target.value}".`,
+    );
   }
 
   if (command === "apply") {
@@ -107,7 +104,8 @@ async function runApply(
         image: getEnv().RUNTIME_OPENCLAW_IMAGE,
         jobId,
         note: "apply_tenant_config already pulls RUNTIME_OPENCLAW_IMAGE before recreating the runtime container",
-        orgSlug: tenant.orgSlug,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
         desiredStateVersion: desiredState.version,
@@ -159,7 +157,8 @@ async function runRefreshImage(tenant: TenantTarget) {
         host: runtimeConnection.host,
         image,
         note: "restartGatewayWithResult pulls the configured runtime image before recreating the container",
-        orgSlug: tenant.orgSlug,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
         restartStderr: restart.stderr,
         restartStdout: restart.stdout,
         tenantId: tenant.tenantId,
@@ -173,14 +172,22 @@ async function runRefreshImage(tenant: TenantTarget) {
   );
 }
 
-async function getLatestTenantForOrganization(
+async function resolveTenantTarget(
+  target: {
+    mode: "org-slug";
+    value: string;
+  },
+): Promise<TenantTarget | null> {
+  return await getLatestTenantForOrganizationSlug(target.value);
+}
+
+async function getLatestTenantForOrganizationSlug(
   orgSlug: string,
 ): Promise<TenantTarget | null> {
   const db = getDb();
   const [tenant] = await db
     .select({
       ipv4: tenantServers.ipv4,
-      orgSlug: organizations.slug,
       serverStatus: tenantServers.status,
       tenantId: tenants.id,
       tenantName: tenants.name,
@@ -193,7 +200,19 @@ async function getLatestTenantForOrganization(
     .orderBy(desc(tenants.createdAt))
     .limit(1);
 
-  return tenant ?? null;
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    ipv4: tenant.ipv4,
+    serverStatus: tenant.serverStatus,
+    targetMode: "org-slug",
+    targetRef: orgSlug,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+    tenantStatus: tenant.tenantStatus,
+  };
 }
 
 async function waitForApplyRun(
@@ -275,6 +294,7 @@ function parseOptions(args: string[]) {
   let wait = true;
   let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
+  let orgSlug: string | null = null;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -286,6 +306,16 @@ function parseOptions(args: string[]) {
 
     if (arg === "--wait") {
       wait = true;
+      continue;
+    }
+
+    if (arg === "--orgslug" || arg === "--org-slug") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error(`${arg} requires a value.`);
+      }
+      orgSlug = value;
+      index += 1;
       continue;
     }
 
@@ -312,8 +342,18 @@ function parseOptions(args: string[]) {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
+  if (orgSlug === null) {
+    throw new Error(
+      "Pass --orgslug <slug>.",
+    );
+  }
+
   return {
     pollIntervalMs,
+    target: {
+      mode: "org-slug" as const,
+      value: orgSlug,
+    },
     timeoutMs,
     wait,
   };
@@ -321,8 +361,13 @@ function parseOptions(args: string[]) {
 
 function printUsage() {
   console.error(`Usage:
-  tsx src/scripts/tenant-runtime.ts apply <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
-  tsx src/scripts/tenant-runtime.ts refresh-image <org-slug>
+  bun src/scripts/tenant-runtime.ts apply --orgslug <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts refresh-image --orgslug <org-slug>
+
+Examples:
+  bun run tenant:runtime:apply -- --orgslug my-org
+  bun run tenant:runtime:refresh-image -- --orgslug my-org
+  bun run tenant:runtime:apply -- --orgslug my-org --no-wait
 `);
 }
 
@@ -331,6 +376,6 @@ function sleep(ms: number) {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  logCliError(error);
   process.exit(1);
 });
