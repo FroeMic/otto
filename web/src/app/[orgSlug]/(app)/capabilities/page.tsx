@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { CapabilitiesContent } from "@/app/[orgSlug]/(app)/capabilities/_components/capabilities-content";
+import {
+  CapabilitiesTable,
+  type CapabilityRow,
+} from "@/app/[orgSlug]/(app)/capabilities/_components/capabilities-table";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 import { baseAgentCapabilities } from "@/tools/base-capabilities";
-import type { AgentCapability } from "@/tools/types";
 
 export const dynamic = "force-dynamic";
-
-type CapabilityGroup = {
-  capabilities: AgentCapability[];
-  key: string;
-  label: string;
-};
 
 export default async function CapabilitiesPage({
   params,
@@ -33,29 +29,20 @@ export default async function CapabilitiesPage({
     userExternalId: user.id,
   });
 
-  const groups: CapabilityGroup[] = [];
+  const rows: CapabilityRow[] = [];
 
-  // Base capabilities (always available)
-  groups.push({
-    capabilities: baseAgentCapabilities,
-    key: "base",
-    label: "Native",
-  });
-
-  // Capabilities from each installed surface
-  for (const surface of surfaces) {
-    if (
-      !surface.agentCapabilities ||
-      surface.agentCapabilities.length === 0
-    ) {
-      continue;
-    }
-    groups.push({
-      capabilities: surface.agentCapabilities,
-      key: surface.key,
-      label: surface.label,
-    });
+  // Base capabilities
+  for (const cap of baseAgentCapabilities) {
+    rows.push({ ...cap, sourceLabel: "Native" });
   }
 
-  return <CapabilitiesContent groups={groups} />;
+  // Capabilities from connected surfaces
+  for (const surface of surfaces) {
+    if (!surface.agentCapabilities) continue;
+    for (const cap of surface.agentCapabilities) {
+      rows.push({ ...cap, sourceLabel: surface.label });
+    }
+  }
+
+  return <CapabilitiesTable rows={rows} />;
 }
