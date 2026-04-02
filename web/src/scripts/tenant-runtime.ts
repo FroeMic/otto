@@ -1,0 +1,336 @@
+import "dotenv/config";
+
+import { desc, eq } from "drizzle-orm";
+
+import {
+  enqueueTenantConfigApply,
+  getLatestTenantDesiredState,
+} from "@/db/control-plane";
+import {
+  jobEvents,
+  jobRuns,
+  organizations,
+  tenantApplyRuns,
+  tenantServers,
+  tenants,
+} from "@/db/schema";
+import { getDb } from "@/db/client";
+import { getEnv } from "@/lib/env";
+import { JOB_STATUSES } from "@/lib/jobs/types";
+import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
+import { RuntimeManager } from "@/lib/runtime/manager";
+
+const DEFAULT_POLL_INTERVAL_MS = 5_000;
+const DEFAULT_TIMEOUT_MS = 15 * 60_000;
+const runtimeManager = new RuntimeManager();
+
+type Command = "apply" | "refresh-image";
+
+type TenantTarget = {
+  ipv4: string | null;
+  orgSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantName: string;
+  tenantStatus: string;
+};
+
+type ApplyRunStatus = {
+  desiredStateVersion: number;
+  error: string | null;
+  finishedAt: Date | null;
+  id: string;
+  jobRunId: string;
+  restartStderr: string | null;
+  restartStdout: string | null;
+  startedAt: Date | null;
+  status: string;
+  tenantId: string;
+  verifyStderr: string | null;
+  verifyStdout: string | null;
+};
+
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0] as Command | undefined;
+
+  if (!command || (command !== "apply" && command !== "refresh-image")) {
+    printUsage();
+    process.exit(1);
+  }
+
+  const orgSlug = args[1];
+
+  if (!orgSlug) {
+    printUsage();
+    process.exit(1);
+  }
+
+  const options = parseOptions(args.slice(2));
+  const tenant = await getLatestTenantForOrganization(orgSlug);
+
+  if (!tenant) {
+    throw new Error(`No tenant found for organization slug "${orgSlug}".`);
+  }
+
+  if (command === "apply") {
+    await runApply(tenant, options);
+    return;
+  }
+
+  await runRefreshImage(tenant);
+}
+
+async function runApply(
+  tenant: TenantTarget,
+  options: {
+    pollIntervalMs: number;
+    timeoutMs: number;
+    wait: boolean;
+  },
+) {
+  const runtimeConnection = await getTenantRuntimeConnection(
+    tenant.tenantId,
+    "tenant runtime apply script",
+  );
+  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    tenantId: tenant.tenantId,
+  });
+
+  console.info(
+    JSON.stringify(
+      {
+        action: "apply",
+        host: runtimeConnection.host,
+        image: getEnv().RUNTIME_OPENCLAW_IMAGE,
+        jobId,
+        note: "apply_tenant_config already pulls RUNTIME_OPENCLAW_IMAGE before recreating the runtime container",
+        orgSlug: tenant.orgSlug,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        desiredStateVersion: desiredState.version,
+      },
+      null,
+      2,
+    ),
+  );
+
+  if (!options.wait) {
+    return;
+  }
+
+  const result = await waitForApplyRun(jobId, options);
+  const events = await getJobEvents(jobId);
+
+  console.info(
+    JSON.stringify(
+      {
+        action: "apply",
+        events,
+        result,
+      },
+      null,
+      2,
+    ),
+  );
+
+  if (result.status !== "succeeded") {
+    process.exit(1);
+  }
+}
+
+async function runRefreshImage(tenant: TenantTarget) {
+  const runtimeConnection = await getTenantRuntimeConnection(
+    tenant.tenantId,
+    "tenant runtime image refresh",
+  );
+  const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const restart = await runtimeManager.restartGatewayWithResult(runtimeConnection);
+  const verify = await runtimeManager.checkGatewayHealthWithResult(
+    runtimeConnection,
+  );
+
+  console.info(
+    JSON.stringify(
+      {
+        action: "refresh-image",
+        host: runtimeConnection.host,
+        image,
+        note: "restartGatewayWithResult pulls the configured runtime image before recreating the container",
+        orgSlug: tenant.orgSlug,
+        restartStderr: restart.stderr,
+        restartStdout: restart.stdout,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        verifyStderr: verify.stderr,
+        verifyStdout: verify.stdout,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function getLatestTenantForOrganization(
+  orgSlug: string,
+): Promise<TenantTarget | null> {
+  const db = getDb();
+  const [tenant] = await db
+    .select({
+      ipv4: tenantServers.ipv4,
+      orgSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(organizations.slug, orgSlug))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  return tenant ?? null;
+}
+
+async function waitForApplyRun(
+  jobRunId: string,
+  options: {
+    pollIntervalMs: number;
+    timeoutMs: number;
+  },
+) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < options.timeoutMs) {
+    const applyRun = await getApplyRunByJobId(jobRunId);
+
+    if (!applyRun) {
+      throw new Error(`Apply run for job ${jobRunId} was not created.`);
+    }
+
+    if (
+      applyRun.status === JOB_STATUSES.queued ||
+      applyRun.status === JOB_STATUSES.running ||
+      applyRun.status === "loading_desired_state" ||
+      applyRun.status === "rendering_files" ||
+      applyRun.status === "writing_files" ||
+      applyRun.status === "restarting_runtime" ||
+      applyRun.status === "verifying_runtime"
+    ) {
+      await sleep(options.pollIntervalMs);
+      continue;
+    }
+
+    return applyRun;
+  }
+
+  throw new Error(
+    `Timed out waiting for apply job ${jobRunId} after ${options.timeoutMs}ms.`,
+  );
+}
+
+async function getApplyRunByJobId(jobRunId: string): Promise<ApplyRunStatus | null> {
+  const db = getDb();
+  const [applyRun] = await db
+    .select({
+      desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+      error: tenantApplyRuns.error,
+      finishedAt: tenantApplyRuns.finishedAt,
+      id: tenantApplyRuns.id,
+      jobRunId: tenantApplyRuns.jobRunId,
+      restartStderr: tenantApplyRuns.restartStderr,
+      restartStdout: tenantApplyRuns.restartStdout,
+      startedAt: tenantApplyRuns.startedAt,
+      status: tenantApplyRuns.status,
+      tenantId: tenantApplyRuns.tenantId,
+      verifyStderr: tenantApplyRuns.verifyStderr,
+      verifyStdout: tenantApplyRuns.verifyStdout,
+    })
+    .from(tenantApplyRuns)
+    .innerJoin(jobRuns, eq(tenantApplyRuns.jobRunId, jobRuns.id))
+    .where(eq(jobRuns.id, jobRunId))
+    .limit(1);
+
+  return applyRun ?? null;
+}
+
+async function getJobEvents(jobRunId: string) {
+  const db = getDb();
+  return await db
+    .select({
+      createdAt: jobEvents.createdAt,
+      eventType: jobEvents.eventType,
+      message: jobEvents.message,
+    })
+    .from(jobEvents)
+    .where(eq(jobEvents.jobRunId, jobRunId))
+    .orderBy(jobEvents.createdAt);
+}
+
+function parseOptions(args: string[]) {
+  let wait = true;
+  let pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
+  let timeoutMs = DEFAULT_TIMEOUT_MS;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--no-wait") {
+      wait = false;
+      continue;
+    }
+
+    if (arg === "--wait") {
+      wait = true;
+      continue;
+    }
+
+    if (arg === "--poll-ms") {
+      const value = Number(args[index + 1]);
+      if (!Number.isInteger(value) || value <= 0) {
+        throw new Error("--poll-ms must be a positive integer.");
+      }
+      pollIntervalMs = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--timeout-ms") {
+      const value = Number(args[index + 1]);
+      if (!Number.isInteger(value) || value <= 0) {
+        throw new Error("--timeout-ms must be a positive integer.");
+      }
+      timeoutMs = value;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  return {
+    pollIntervalMs,
+    timeoutMs,
+    wait,
+  };
+}
+
+function printUsage() {
+  console.error(`Usage:
+  tsx src/scripts/tenant-runtime.ts apply <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  tsx src/scripts/tenant-runtime.ts refresh-image <org-slug>
+`);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});
