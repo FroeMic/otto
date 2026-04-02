@@ -14,6 +14,23 @@ import { WorkspaceStatusRail } from "@/components/workspace-status-rail";
 import type { DashboardOrganization } from "@/db/control-plane";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
+const routeTitles: Record<string, string> = {
+  agent: "Agent",
+  integrations: "Integrations",
+  tools: "Tools",
+  skills: "Skills",
+  "scheduled-tasks": "Scheduled Tasks",
+  settings: "Settings",
+};
+
+function getPageTitle(pathname: string, orgSlug: string) {
+  const prefix = `/${orgSlug}/`;
+  if (!pathname.startsWith(prefix)) return null;
+  const rest = pathname.slice(prefix.length);
+  const segment = rest.split("/")[0];
+  return segment ? (routeTitles[segment] ?? null) : null;
+}
+
 type OrganizationShellProps = {
   children: React.ReactNode;
   currentOrganization: DashboardOrganization;
@@ -42,8 +59,14 @@ export function OrganizationShell({
     (pathname === onboardingPath ||
       pathname.startsWith(`${onboardingPath}/`) ||
       pathname === slackSetupPath);
+  const toolsPath = `/${currentOrganization.slug}/tools`;
+
+  const pageTitle = getPageTitle(pathname, currentOrganization.slug);
+
   const showWorkspaceStatusRail =
-    pathname !== slackSetupPath && pathname !== integrationsPath;
+    pathname !== slackSetupPath &&
+    pathname !== integrationsPath &&
+    pathname !== toolsPath;
 
   if (isSetupFlow) {
     return (
@@ -69,14 +92,9 @@ export function OrganizationShell({
             orientation="vertical"
             className="data-vertical:h-4 data-vertical:self-auto"
           />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">
-              {currentOrganization.name}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Workspace overview
-            </span>
-          </div>
+          <span className="text-sm font-medium">
+            {pageTitle ?? currentOrganization.name}
+          </span>
         </header>
         <div className="flex flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
         {showWorkspaceStatusRail ? (

@@ -1,23 +1,45 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button-variants";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  getSlackStatusLabel,
-  getWhatsAppStatusLabel,
-  isOrganizationUnlocked,
-} from "@/lib/workspace";
+import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import { listTenantToolConfigSurfaces } from "@/db/control-plane";
+import { SLACK_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/slack-config";
+import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
+import { isOrganizationUnlocked } from "@/lib/workspace";
+import type { SurfaceEntry } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Static registry of known integrations that should always appear,
+ * even when the tenant has not connected them yet.
+ */
+const knownIntegrations: SurfaceEntry[] = [
+  {
+    description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
+    enabled: false,
+    id: "known:channel:slack",
+    installState: "uninstalled",
+    key: "slack",
+    kind: "channel",
+    label: "Slack",
+    settingsUrl: null,
+    surfaceType: "integration",
+    uiGroup: "integrations",
+  },
+  {
+    description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+    enabled: false,
+    id: "known:channel:whatsapp",
+    installState: "uninstalled",
+    key: "whatsapp",
+    kind: "channel",
+    label: "WhatsApp",
+    settingsUrl: null,
+    surfaceType: "integration",
+    uiGroup: "integrations",
+  },
+];
 
 export default async function IntegrationsPage({
   params,
@@ -25,70 +47,48 @@ export default async function IntegrationsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const { currentOrganization: organization } =
+  const { currentOrganization: organization, user } =
     await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);
   }
 
+  const surfaces = await listTenantToolConfigSurfaces({
+    orgSlug,
+    userExternalId: user.id,
+  });
+
+  // Build entries from live surfaces (integrations only)
+  const liveSurfacesByKey = new Map<string, SurfaceEntry>();
+  for (const surface of surfaces) {
+    if (surface.uiGroup !== "integrations") continue;
+    liveSurfacesByKey.set(surface.key, {
+      availability: surface.availability,
+      description: surface.description,
+      enabled: surface.config.enabled,
+      id: surface.id,
+      installState: surface.config.installState,
+      key: surface.key,
+      kind: surface.kind,
+      label: surface.label,
+      settingsUrl: surface.settingsUrl,
+      surfaceType: surface.surfaceType,
+      uiGroup: surface.uiGroup,
+    });
+  }
+
+  // Merge: use live data when available, fall back to known static entry
+  const entries = knownIntegrations.map((known) => {
+    const live = liveSurfacesByKey.get(known.key);
+    if (live) return live;
+    return {
+      ...known,
+      settingsUrl: `/${organization.slug}/integrations/${known.key}`,
+    };
+  });
+
   return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">Integrations</p>
-        <h1 className="text-3xl font-semibold">Connected tools</h1>
-        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Start with Slack, then connect more of the tools your team already
-          uses.
-        </p>
-      </section>
-      <Card>
-        <CardHeader>
-          <CardTitle>Slack</CardTitle>
-          <CardDescription>
-            Current state: {getSlackStatusLabel(organization)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <p className="text-sm text-muted-foreground">
-            See whether Otto is connected to Slack and take care of any setup or
-            repair steps.
-          </p>
-          <Link
-            className={buttonVariants({ variant: "default" })}
-            href={`/${organization.slug}/integrations/slack`}
-          >
-            Open Slack
-          </Link>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>WhatsApp</CardTitle>
-            {organization.whatsappIntegration?.selfE164 ? (
-              <Badge variant="outline">
-                {organization.whatsappIntegration.selfE164}
-              </Badge>
-            ) : null}
-          </div>
-          <CardDescription>
-            Current state: {getWhatsAppStatusLabel(organization)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <p className="text-sm text-muted-foreground">
-            Set up Otto with one dedicated WhatsApp Business number, generate a
-            QR code, and manage which numbers and groups can reach it.
-          </p>
-          <Link
-            className={buttonVariants({ variant: "default" })}
-            href={`/${organization.slug}/integrations/whatsapp`}
-          >
-            Open WhatsApp
-          </Link>
-        </CardContent>
-      </Card>
-    </div>
+    <IntegrationsContent orgSlug={organization.slug} surfaces={entries} />
   );
 }

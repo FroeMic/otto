@@ -8,7 +8,7 @@ export const WEB_SEARCH_TOOL_SCHEMA_SOURCE = "otto_builtin";
 export const WEB_SEARCH_TOOL_SCHEMA_VERSION = "1";
 export const WEB_SEARCH_TOOL_LABEL = "Web Search";
 export const WEB_SEARCH_TOOL_DESCRIPTION =
-  "Expose OpenClaw web_search through Otto with one workspace-app-managed provider and shared runtime credentials.";
+  "Let Otto search the web using a managed provider.";
 
 const webSearchProviderSchema = z.enum([
   "brave",
