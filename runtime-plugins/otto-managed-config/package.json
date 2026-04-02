@@ -1,0 +1,12 @@
+{
+  "name": "@otto/openclaw-otto-managed-config",
+  "version": "2026.4.1.1",
+  "private": true,
+  "description": "Otto managed config runtime plugin",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

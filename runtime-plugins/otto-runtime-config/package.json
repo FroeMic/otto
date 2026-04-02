@@ -1,0 +1,12 @@
+{
+  "name": "@otto/openclaw-otto-runtime-config",
+  "version": "2026.4.1.1",
+  "private": true,
+  "description": "Otto runtime surface config plugin",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

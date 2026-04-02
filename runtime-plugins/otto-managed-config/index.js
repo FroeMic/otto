@@ -1,14 +1,24 @@
-import { emptyPluginConfigSchema } from "openclaw/plugin-sdk/core";
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const MANAGED_FILE_PATHS = ["AGENTS.md", "IDENTITY.md", "TOOLS.md"];
 const DEFAULT_TIMEOUT_MS = 15_000;
+const PLUGIN_CONFIG_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    timeoutMs: {
+      type: "integer",
+      minimum: 1000,
+    },
+  },
+};
 
-const plugin = {
+export default definePluginEntry({
   id: "otto-managed-config",
   name: "Otto Managed Config",
   description:
     "Managed instruction file tools backed by the workspace app.",
-  configSchema: emptyPluginConfigSchema(),
+  configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
       {
@@ -86,9 +96,7 @@ const plugin = {
       { optional: true },
     );
   },
-};
-
-export default plugin;
+});
 
 async function listManagedFiles(api) {
   const response = await requestControlPlane(api, {

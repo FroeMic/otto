@@ -2,6 +2,13 @@
   "id": "otto-managed-config",
   "name": "Otto Managed Config",
   "description": "Managed instruction file tools backed by the workspace app.",
+  "contracts": {
+    "tools": [
+      "list_managed_files",
+      "read_managed_file",
+      "patch_managed_file"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

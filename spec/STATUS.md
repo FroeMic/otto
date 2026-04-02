@@ -67,7 +67,7 @@
   - `runtime-image/Dockerfile` now layers both Otto plugins into `/app/extensions/`
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
-  - the plugin implementation is now aligned with the released OpenClaw `2026.3.13-1` native plugin shape (plain exported plugin object + `configSchema`) instead of the newer helper-based API
+  - the plugin packaging is now aligned with the released OpenClaw `2026.4.1` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
 - Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:
   - replace `RUNTIME_OPENCLAW_IMAGE` with a DB-backed active runtime release
   - add a migration-backed runtime release model plus tenant applied desired-state tracking
@@ -168,6 +168,9 @@
   - runtime surfaces now carry explicit `surfaceType` and `uiGroup` metadata so UI and agent consumers can distinguish `Integrations` vs `Tools` without hardcoded Slack heuristics
   - the runtime plugin and route contract now use surface-oriented naming consistently for synchronized rollout
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
+- Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
+  - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
+  - `bun run tenant:runtime:refresh-image -- <org-slug>` forces a ready tenant runtime to pull `RUNTIME_OPENCLAW_IMAGE` and recreate `openclaw-gateway` without requiring UI-driven config changes
 
 ## Current product target
 
