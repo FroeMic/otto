@@ -491,6 +491,83 @@ export type PlatformOrganization = {
   } | null;
 };
 
+export type PlatformOrganizationDetail = {
+  id: string;
+  isReady: boolean;
+  name: string;
+  runtimeImage: string;
+  runtimeImageVersion: string | null;
+  slackIntegration: SlackIntegrationSummary | null;
+  slug: string;
+  tenant: {
+    id: string;
+    ipv4: string | null;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
+    latestDesiredStateVersion: number | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
+    name: string;
+    recentApplyRuns: Array<{
+      createdAt: Date;
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      id: string;
+      restartStderr: string | null;
+      restartStdout: string | null;
+      startedAt: Date | null;
+      status: string;
+      verifyStderr: string | null;
+      verifyStdout: string | null;
+    }>;
+    recentJobs: Array<{
+      attempt: number;
+      createdAt: Date;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      jobType: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    }>;
+    recentEvents: Array<{
+      createdAt: Date;
+      eventType: string;
+      jobRunId: string;
+      jobStatus: string;
+      jobType: string;
+      message: string;
+      step: string | null;
+    }>;
+    serverStatus: string | null;
+    status: string;
+  } | null;
+};
+
 export type PlatformTenantTarget = {
   ipv4: string | null;
   organizationId: string;
@@ -1115,6 +1192,205 @@ export async function listPlatformOrganizations(input: {
         : null,
     };
   });
+}
+
+export async function getPlatformOrganizationDetail(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<PlatformOrganizationDetail | null> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  const [organization] = await db
+    .select({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      name: organizations.name,
+      slug: organizations.slug,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, input.orgSlug))
+    .limit(1);
+
+  if (!organization) {
+    return null;
+  }
+
+  const runtimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const runtimeImageVersion = extractRuntimeImageVersion(runtimeImage);
+
+  const [tenant] = await db
+    .select({
+      createdAt: tenants.createdAt,
+      id: tenants.id,
+      ipv4: tenantServers.ipv4,
+      name: tenants.name,
+      serverStatus: tenantServers.status,
+      status: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, organization.id))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return {
+      id: organization.id,
+      isReady: organization.isReady,
+      name: organization.name,
+      runtimeImage,
+      runtimeImageVersion,
+      slackIntegration: null,
+      slug: organization.slug,
+      tenant: null,
+    };
+  }
+
+  const [slackIntegration] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      status: tenantIntegrations.status,
+      teamName: slackInstallations.slackTeamName,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      slackInstallations,
+      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenant.id),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  const recentApplyRunRows = await db
+    .select({
+      createdAt: tenantApplyRuns.createdAt,
+      desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+      error: tenantApplyRuns.error,
+      finishedAt: tenantApplyRuns.finishedAt,
+      id: tenantApplyRuns.id,
+      restartStderr: tenantApplyRuns.restartStderr,
+      restartStdout: tenantApplyRuns.restartStdout,
+      startedAt: tenantApplyRuns.startedAt,
+      status: tenantApplyRuns.status,
+      verifyStderr: tenantApplyRuns.verifyStderr,
+      verifyStdout: tenantApplyRuns.verifyStdout,
+    })
+    .from(tenantApplyRuns)
+    .where(eq(tenantApplyRuns.tenantId, tenant.id))
+    .orderBy(desc(tenantApplyRuns.createdAt))
+    .limit(8);
+
+  const recentJobRows = await db
+    .select({
+      attempt: jobRuns.attempt,
+      createdAt: jobRuns.createdAt,
+      error: jobRuns.error,
+      finishedAt: jobRuns.finishedAt,
+      id: jobRuns.id,
+      jobType: jobRuns.jobType,
+      payloadJson: jobRuns.payloadJson,
+      startedAt: jobRuns.startedAt,
+      status: jobRuns.status,
+    })
+    .from(jobRuns)
+    .where(eq(jobRuns.tenantId, tenant.id))
+    .orderBy(desc(jobRuns.createdAt))
+    .limit(50);
+
+  const recentJobIds = recentJobRows.map((job) => job.id);
+  const jobEventRows =
+    recentJobIds.length === 0
+      ? []
+      : await db
+          .select({
+            createdAt: jobEvents.createdAt,
+            eventType: jobEvents.eventType,
+            jobRunId: jobEvents.jobRunId,
+            message: jobEvents.message,
+          })
+          .from(jobEvents)
+          .where(inArray(jobEvents.jobRunId, recentJobIds))
+          .orderBy(desc(jobEvents.createdAt));
+
+  const recentEventRows = await db
+    .select({
+      createdAt: jobEvents.createdAt,
+      eventType: jobEvents.eventType,
+      jobRunId: jobEvents.jobRunId,
+      jobStatus: jobRuns.status,
+      jobType: jobRuns.jobType,
+      message: jobEvents.message,
+      payloadJson: jobRuns.payloadJson,
+    })
+    .from(jobEvents)
+    .innerJoin(jobRuns, eq(jobRuns.id, jobEvents.jobRunId))
+    .where(eq(jobRuns.tenantId, tenant.id))
+    .orderBy(desc(jobEvents.createdAt))
+    .limit(200);
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
+
+  let latestDesiredStateVersion: number | null = null;
+  try {
+    latestDesiredStateVersion = (await getLatestTenantDesiredState(tenant.id))
+      .version;
+  } catch {
+    latestDesiredStateVersion = null;
+  }
+
+  return {
+    id: organization.id,
+    isReady: organization.isReady,
+    name: organization.name,
+    runtimeImage,
+    runtimeImageVersion,
+    slackIntegration: buildSlackIntegrationSummary(slackIntegration ?? null),
+    slug: organization.slug,
+    tenant: {
+      id: tenant.id,
+      ipv4: tenant.ipv4,
+      latestApplyRun: buildTenantApplyRunSummary(recentApplyRunRows[0] ?? null),
+      latestDesiredStateVersion,
+      latestJob: buildLatestJobSummary(
+        recentJobRows[0] ?? null,
+        jobEventsByJobRunId,
+      ),
+      name: tenant.name,
+      recentApplyRuns: recentApplyRunRows.map(buildTenantApplyRunDetail),
+      recentJobs: recentJobRows.map((job) =>
+        buildPlatformJobHistoryEntry(job, jobEventsByJobRunId),
+      ),
+      recentEvents: recentEventRows.map((event) =>
+        buildPlatformJobEventHistoryEntry(event),
+      ),
+      serverStatus: tenant.serverStatus,
+      status: tenant.status,
+    },
+  };
 }
 
 async function getDashboardOrganizationRows(userExternalId: string) {
@@ -1765,6 +2041,34 @@ function buildTenantApplyRunSummary(applyRun: TenantApplyRunSummary | null) {
   };
 }
 
+function buildTenantApplyRunDetail(applyRun: {
+  createdAt: Date;
+  desiredStateVersion: number;
+  error: string | null;
+  finishedAt: Date | null;
+  id: string;
+  restartStderr: string | null;
+  restartStdout: string | null;
+  startedAt: Date | null;
+  status: string;
+  verifyStderr: string | null;
+  verifyStdout: string | null;
+}) {
+  return {
+    createdAt: applyRun.createdAt,
+    desiredStateVersion: applyRun.desiredStateVersion,
+    error: applyRun.error,
+    finishedAt: applyRun.finishedAt,
+    id: applyRun.id,
+    restartStderr: applyRun.restartStderr,
+    restartStdout: applyRun.restartStdout,
+    startedAt: applyRun.startedAt,
+    status: applyRun.status,
+    verifyStderr: applyRun.verifyStderr,
+    verifyStdout: applyRun.verifyStdout,
+  };
+}
+
 function buildLatestJobSummary(
   job: {
     attempt: number;
@@ -1800,6 +2104,63 @@ function buildLatestJobSummary(
     id: job.id,
     startedAt: job.startedAt,
     status: job.status,
+    step,
+  };
+}
+
+function buildPlatformJobHistoryEntry(
+  job: {
+    attempt: number;
+    createdAt: Date;
+    error: string | null;
+    finishedAt: Date | null;
+    id: string;
+    jobType: string;
+    payloadJson: unknown;
+    startedAt: Date | null;
+    status: string;
+  },
+  jobEventsByJobRunId: Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >,
+) {
+  const summary = buildLatestJobSummary(job, jobEventsByJobRunId);
+
+  if (!summary) {
+    throw new Error("Expected job summary to exist");
+  }
+
+  return {
+    ...summary,
+    createdAt: job.createdAt,
+    jobType: job.jobType,
+  };
+}
+
+function buildPlatformJobEventHistoryEntry(event: {
+  createdAt: Date;
+  eventType: string;
+  jobRunId: string;
+  jobStatus: string;
+  jobType: string;
+  message: string;
+  payloadJson: unknown;
+}) {
+  const payload = parseRecord(event.payloadJson);
+  const step = typeof payload.step === "string" ? payload.step : null;
+
+  return {
+    createdAt: event.createdAt,
+    eventType: event.eventType,
+    jobRunId: event.jobRunId,
+    jobStatus: event.jobStatus,
+    jobType: event.jobType,
+    message: event.message,
     step,
   };
 }

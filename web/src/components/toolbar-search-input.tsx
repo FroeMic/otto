@@ -22,7 +22,7 @@ export function ToolbarSearchInput({
   return (
     <div
       className={cn(
-        "flex h-11 w-full max-w-md items-center gap-2 rounded-full border bg-input/50 px-4 py-2 transition-shadow",
+        "flex h-9 w-full max-w-md items-center gap-2 rounded-full border bg-input/50 px-4 py-1.5 transition-shadow",
         containerClassName,
       )}
       style={focused ? { borderColor: "var(--primary)" } : undefined}
