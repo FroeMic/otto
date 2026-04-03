@@ -39,6 +39,7 @@ type DataTableProps<TData, TValue> = {
   tableContainerClassName?: string;
   tableClassName?: string;
   toolbarClassName?: string;
+  toolbarContentClassName?: string;
   toolbar?: React.ReactNode;
   viewportClassName?: string;
 };
@@ -60,6 +61,7 @@ export function DataTable<TData, TValue>({
   tableContainerClassName,
   tableClassName,
   toolbarClassName,
+  toolbarContentClassName,
   toolbar,
   viewportClassName,
 }: DataTableProps<TData, TValue>) {
@@ -127,8 +129,9 @@ export function DataTable<TData, TValue>({
           {toolbar ? (
             <div
               className={cn(
-                "flex items-center gap-2",
+                "flex w-full flex-wrap items-center gap-2 sm:w-auto",
                 searchKeys.length === 0 && "w-full",
+                toolbarContentClassName,
               )}
             >
               {toolbar}

@@ -4,8 +4,6 @@ import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 
 import type {
   PlatformActivityEventRow,
@@ -204,19 +202,18 @@ const JOB_COLUMNS = ({
     ),
     size: 120,
     cell: ({ row }) => (
-      <div className="flex items-center gap-1">
-        <span>{row.original.eventsCount}</span>
-        <Link
-          className="inline-flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-          href={buildEventsHref({
-            jobId: row.original.id,
-            orgSlug,
-            type: jobFilter === "apply" ? "apply" : "all",
-          })}
-        >
-          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} />
-        </Link>
-      </div>
+      <Link
+        href={buildEventsHref({
+          jobId: row.original.id,
+          orgSlug,
+          type: jobFilter === "apply" ? "apply" : "all",
+        })}
+      >
+        <Badge variant="outline">
+          {row.original.eventsCount}{" "}
+          {row.original.eventsCount === 1 ? "Event" : "Events"}
+        </Badge>
+      </Link>
     ),
   },
   {
@@ -409,13 +406,13 @@ export function PlatformActivityContent({
   }
 
   const jobsToolbar = (
-    <>
+    <div className="flex w-full min-w-0 items-center gap-2">
       <NativeSelect
         className="sm:w-40 sm:min-w-40 sm:max-w-40 sm:flex-none"
         onChange={(event) =>
           updateQuery({ job: null, type: event.target.value as JobFilter })
         }
-        size="lg"
+        size="default"
         value={filter}
       >
         {JOB_FILTER_OPTIONS.map((option) => (
@@ -424,8 +421,8 @@ export function PlatformActivityContent({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <div className="hidden flex-1 sm:block" />
-      <div className="flex items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
+      <div className="min-w-0 flex-1" />
+      <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
         <span>Live updates</span>
         <Switch
           checked={autoRefreshEnabled}
@@ -433,28 +430,11 @@ export function PlatformActivityContent({
           size="sm"
         />
       </div>
-    </>
+    </div>
   );
 
   const eventsToolbar = (
-    <>
-      <div className="flex min-h-11 items-center sm:w-[15rem] sm:flex-none">
-        {eventJobFilter ? (
-          <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-sm">
-            <span className="text-muted-foreground">Job</span>
-            <code className="text-foreground">{formatFilterId(eventJobFilter)}</code>
-            <Button
-              className="h-auto px-1.5 py-0.5 text-xs"
-              onClick={() => updateQuery({ job: null, type: filter })}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              Clear
-            </Button>
-          </div>
-        ) : null}
-      </div>
+    <div className="flex w-full min-w-0 items-center gap-2">
       <NativeSelect
         className="sm:w-40 sm:min-w-40 sm:max-w-40 sm:flex-none"
         onChange={(event) =>
@@ -472,8 +452,26 @@ export function PlatformActivityContent({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <div className="hidden flex-1 sm:block" />
-      <div className="flex items-center gap-2 self-start text-sm text-muted-foreground sm:self-auto">
+      <div className="flex min-w-0 flex-1 items-center">
+        {eventJobFilter ? (
+          <div className="flex min-w-0 items-center gap-2 rounded-full bg-muted px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Job</span>
+            <code className="truncate text-foreground">
+              {formatFilterId(eventJobFilter)}
+            </code>
+            <Button
+              className="h-auto shrink-0 px-1.5 py-0.5 text-xs"
+              onClick={() => updateQuery({ job: null, type: filter })}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
         <span>Live updates</span>
         <Switch
           checked={autoRefreshEnabled}
@@ -481,7 +479,7 @@ export function PlatformActivityContent({
           size="sm"
         />
       </div>
-    </>
+    </div>
   );
 
   return mode === "jobs" ? (
@@ -502,12 +500,13 @@ export function PlatformActivityContent({
       headClassName="h-11 px-4 text-sm font-medium text-foreground md:px-6"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="border-b-0 hover:bg-transparent"
-      searchInputClassName="w-full sm:w-[26rem] sm:max-w-none sm:flex-none"
+      searchInputClassName="h-9 w-full sm:w-[26rem] sm:max-w-none sm:flex-none"
       searchKeys={["searchText"]}
       searchPlaceholder="Search jobs"
       tableClassName="min-w-full table-fixed"
       toolbar={jobsToolbar}
-      toolbarClassName="pb-4"
+      toolbarClassName="pb-4 sm:flex-col sm:items-stretch lg:flex-row lg:items-center lg:justify-between"
+      toolbarContentClassName="sm:w-full lg:w-auto"
       viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
     />
   ) : (
@@ -531,7 +530,8 @@ export function PlatformActivityContent({
       searchPlaceholder="Search events"
       tableClassName="min-w-full table-fixed"
       toolbar={eventsToolbar}
-      toolbarClassName="pb-4"
+      toolbarClassName="pb-4 sm:flex-col sm:items-stretch xl:flex-row xl:items-center xl:justify-between"
+      toolbarContentClassName="sm:w-full lg:w-auto"
       viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
     />
   );
