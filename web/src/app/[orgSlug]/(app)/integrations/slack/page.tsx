@@ -1,13 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { SlackRuntimeConfigPanel } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-runtime-config-panel";
-import { AgentCapabilitiesCard } from "@/components/agent-capabilities-card";
-import { getToolDefinition } from "@/tools";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { Separator } from "@/components/ui/separator";
 import {
   getTenantSlackRuntimeConfigSurface,
   refreshTenantSlackDirectory,
@@ -15,7 +11,6 @@ import {
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
-  getPrimaryAgent,
   getPrimaryAgentLatestApplyRun,
   getRuntimeApplyStatusLabel,
   getRuntimeStatusLabel,
@@ -23,6 +18,7 @@ import {
   isOrganizationUnlocked,
   isSlackConnected,
 } from "@/lib/workspace";
+import { getToolDefinition } from "@/tools";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +99,6 @@ export default async function SlackIntegrationPage({
     await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
-  const agent = getPrimaryAgent(organization);
   const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
   const sessionId = session?.id ?? null;
   const slackIsConnected = isSlackConnected(organization);
@@ -168,116 +163,75 @@ export default async function SlackIntegrationPage({
     runtimeApplyIsActive,
     slackIsConnected,
   });
+  const slackToolDefinition = getToolDefinition("channel", "slack");
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-12">
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">Integrations / Slack</p>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-semibold tracking-tight">Slack</h1>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Manage how Otto connects to Slack, who can reach it, and where
-                  it is allowed to respond.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <Badge
-                  variant={getStatusBadgeVariant({
-                    effectiveSlackError,
-                    runtimeApplyError,
-                    runtimeApplyIsActive,
-                    slackIsConnected,
-                  })}
-                >
-                  {getSlackStatusLabel(organization)}
-                </Badge>
-                {slackTeamName ? <span>Workspace: {slackTeamName}</span> : null}
-                <span>Otto: {getRuntimeStatusLabel(organization)}</span>
-                {runtimeApplyStatusLabel ? (
-                  <span>Latest sync: {runtimeApplyStatusLabel}</span>
-                ) : null}
-              </div>
+    <div className="flex w-full flex-col gap-6 pb-12">
+      <section className="flex max-w-2xl flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <Image
+                alt=""
+                className="size-8"
+                height={32}
+                src="/integrations/slack.svg"
+                width={32}
+              />
+              <h1 className="text-3xl font-semibold tracking-tight">Slack</h1>
             </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Choose who can use Otto in Slack and where Otto can reply.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              {canRetrySlackDuringSetup && sessionId ? (
-                <a
-                  className={buttonVariants({ variant: "default" })}
-                  href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
-                >
-                  {effectiveSlackError ? "Retry Slack" : "Add to Slack"}
-                </a>
-              ) : null}
-              {canReconnectSlack && sessionId && ottoIsReady ? (
-                <a
-                  className={buttonVariants({ variant: "default" })}
-                  href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
-                >
-                  Reconnect Slack
-                </a>
-              ) : null}
-              {slackIsConnected && !ottoIsReady ? (
-                <Link
-                  className={buttonVariants({ variant: "default" })}
-                  href={`/${organization.slug}/onboarding`}
-                >
-                  Continue setup
-                </Link>
-              ) : null}
-            </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {canRetrySlackDuringSetup && sessionId ? (
+              <a
+                className={buttonVariants({ variant: "default" })}
+                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
+              >
+                {effectiveSlackError ? "Retry Slack" : "Connect Slack"}
+              </a>
+            ) : null}
+            {canReconnectSlack && sessionId && ottoIsReady ? (
+              <a
+                className={buttonVariants({ variant: "default" })}
+                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
+              >
+                Reconnect Slack
+              </a>
+            ) : null}
+            {slackIsConnected && !ottoIsReady ? (
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                href={`/${organization.slug}/onboarding`}
+              >
+                Continue setup
+              </Link>
+            ) : null}
           </div>
         </div>
-
-        {statusAlert ? (
-          <Alert variant={statusAlert.variant}>
-            <AlertTitle>{statusAlert.title}</AlertTitle>
-            <AlertDescription>{statusAlert.description}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {slackDirectoryRefresh?.error ? (
-          <Alert>
-            <AlertTitle>Slack directory could not be refreshed</AlertTitle>
-            <AlertDescription>
-              Showing the last synced Slack users and channels instead.{" "}
-              {slackDirectoryRefresh.error}
-            </AlertDescription>
-          </Alert>
-        ) : null}
       </section>
 
-      <Separator />
-
-      <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-        <div className="flex flex-wrap items-center gap-2">
-          {connectedAt ? (
-            <span>Connected {connectedAt.toLocaleString()}</span>
-          ) : null}
-          {agent && !ottoIsReady ? (
-            <span>Otto is still finishing setup steps in the background.</span>
-          ) : null}
-        </div>
-        <Link href={`/${organization.slug}/integrations`}>
-          View all integrations
-        </Link>
-      </div>
-
-      {slackRuntimeConfigSurface ? (
-        <SlackRuntimeConfigPanel
-          initialSurface={slackRuntimeConfigSurface}
-          orgSlug={orgSlug}
-        />
-      ) : null}
-
-      {(() => {
-        const def = getToolDefinition("channel", "slack");
-        return def?.agentCapabilities ? (
-          <AgentCapabilitiesCard capabilities={def.agentCapabilities} />
-        ) : null;
-      })()}
+      <SlackRuntimeConfigPanel
+        agentCapabilities={slackToolDefinition?.agentCapabilities ?? []}
+        connectedAtLabel={connectedAt ? connectedAt.toISOString() : null}
+        directoryRefreshError={slackDirectoryRefresh?.error ?? null}
+        initialSurface={slackRuntimeConfigSurface}
+        orgSlug={orgSlug}
+        runtimeApplyStatusLabel={runtimeApplyStatusLabel}
+        runtimeStatusLabel={getRuntimeStatusLabel(organization)}
+        slackStatusLabel={getSlackStatusLabel(organization)}
+        slackStatusVariant={getStatusBadgeVariant({
+          effectiveSlackError,
+          runtimeApplyError,
+          runtimeApplyIsActive,
+          slackIsConnected,
+        })}
+        slackTeamName={slackTeamName ?? null}
+        statusAlert={statusAlert}
+      />
     </div>
   );
 }
