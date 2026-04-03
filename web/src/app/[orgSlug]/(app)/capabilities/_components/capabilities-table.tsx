@@ -38,8 +38,9 @@ const columns: ColumnDef<CapabilityRow>[] = [
   {
     accessorKey: "label",
     header: "Capability",
+    size: 180,
     cell: ({ row }) => (
-      <span className="text-sm font-medium text-foreground">
+      <span className="text-sm font-medium text-foreground whitespace-nowrap">
         {row.original.label}
       </span>
     ),
@@ -47,8 +48,9 @@ const columns: ColumnDef<CapabilityRow>[] = [
   {
     accessorKey: "description",
     header: "Description",
+    size: 320,
     cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
+      <span className="block max-w-[320px] truncate text-sm text-muted-foreground">
         {row.original.description}
       </span>
     ),
@@ -56,6 +58,7 @@ const columns: ColumnDef<CapabilityRow>[] = [
   {
     accessorKey: "direction",
     header: "Type",
+    size: 80,
     cell: ({ row }) => (
       <Badge variant={directionBadgeVariant[row.original.direction]}>
         {directionLabels[row.original.direction]}
@@ -65,6 +68,7 @@ const columns: ColumnDef<CapabilityRow>[] = [
   {
     accessorKey: "sourceLabel",
     header: "Source",
+    size: 120,
     cell: ({ row }) => {
       const { sourceHref, sourceIcon, sourceLabel } = row.original;
 
@@ -114,7 +118,7 @@ export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
   }, [rows, filter]);
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -141,9 +145,10 @@ export function CapabilitiesTable({ rows }: { rows: CapabilityRow[] }) {
         emptyMessage="No capabilities available."
         fillAvailableSpace
         headClassName="h-11 px-4 text-sm font-medium text-foreground"
-        headerClassName="[&_tr]:border-0"
+        headerClassName="[&_tr]:border-0 sticky top-0 z-10 bg-background"
         rowClassName="border-0 hover:bg-transparent"
         tableClassName="min-w-full table-fixed"
+        tableContainerClassName="!overflow-visible"
         viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
       />
     </div>
