@@ -1,7 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { getTenantSession, getUserExternalIds } from "@/db/control-plane";
+import {
+  getConversationNameMap,
+  getMemberNameMap,
+  getTenantSession,
+  getUserExternalIds,
+} from "@/db/control-plane";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import { canViewSessionDetail } from "../_lib/session-display";
@@ -28,22 +33,24 @@ export default async function SessionDetailPage({
   }
 
   const decodedKey = decodeURIComponent(sessionKey);
-  const [session, currentUserExternalIds] = await Promise.all([
-    getTenantSession({
-      tenantId: agent.id,
-      sessionKey: decodedKey,
-    }),
-    getUserExternalIds({
-      userExternalId: user.id,
-      organizationId: organization.id,
-    }),
-  ]);
+  const [session, currentUserExternalIds, memberNameMap, channelNameMap] =
+    await Promise.all([
+      getTenantSession({
+        tenantId: agent.id,
+        sessionKey: decodedKey,
+      }),
+      getUserExternalIds({
+        userExternalId: user.id,
+        organizationId: organization.id,
+      }),
+      getMemberNameMap({ organizationId: organization.id }),
+      getConversationNameMap({ organizationId: organization.id }),
+    ]);
 
   if (!session) {
     notFound();
   }
 
-  // Enforce DM access control: only session owner or platform admins
   const canView = canViewSessionDetail({
     sessionKey: decodedKey,
     currentUserExternalIds,
@@ -60,6 +67,8 @@ export default async function SessionDetailPage({
       orgSlug={organization.slug}
       session={session}
       currentUserExternalIds={currentUserExternalIds}
+      memberNames={Object.fromEntries(memberNameMap)}
+      channelNames={Object.fromEntries(channelNameMap)}
     />
   );
 }

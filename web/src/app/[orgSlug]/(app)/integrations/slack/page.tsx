@@ -195,14 +195,6 @@ export default async function SlackIntegrationPage({
                 {effectiveSlackError ? "Retry Slack" : "Connect Slack"}
               </a>
             ) : null}
-            {canReconnectSlack && sessionId && ottoIsReady ? (
-              <a
-                className={buttonVariants({ variant: "default" })}
-                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
-              >
-                Reconnect Slack
-              </a>
-            ) : null}
             {slackIsConnected && !ottoIsReady ? (
               <Link
                 className={buttonVariants({ variant: "default" })}
@@ -212,7 +204,15 @@ export default async function SlackIntegrationPage({
               </Link>
             ) : null}
             {slackIsConnected ? (
-              <SlackActionsMenu orgSlug={organization.slug} />
+              <SlackActionsMenu
+                orgSlug={organization.slug}
+                reconnectUrl={
+                  canReconnectSlack && sessionId && ottoIsReady
+                    ? `/oauth/start/slack?onboardingSessionId=${sessionId}`
+                    : null
+                }
+                canReconnect={canReconnectSlack && !!sessionId && ottoIsReady}
+              />
             ) : null}
           </div>
         </div>

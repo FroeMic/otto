@@ -3,7 +3,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 
 import {
   Message,
@@ -58,6 +58,49 @@ type Session = {
   transcriptJsonl: string | null;
   lastSyncedAt: Date;
 };
+
+// ---------------------------------------------------------------------------
+// Slack mention resolution context
+// ---------------------------------------------------------------------------
+
+type ResolveTextFn = (text: string) => string;
+
+const ResolveTextContext = createContext<ResolveTextFn>((t) => t);
+
+function useResolveText() {
+  return useContext(ResolveTextContext);
+}
+
+/**
+ * Resolve Slack-style mention tags in text:
+ *   <@U0AL9B039A7> → @displayName
+ *   <#C0AKY040D3M> → #channel-name
+ *   <#C0AKY040D3M|channel-name> → #channel-name
+ */
+function buildResolveText(
+  memberNames: Record<string, string>,
+  channelNames: Record<string, string>,
+): ResolveTextFn {
+  return (text: string) => {
+    return text
+      // User mentions: <@U0AL9B039A7> or <@U0AL9B039A7|display_name>
+      .replace(/<@([A-Z0-9]+)(?:\|([^>]*))?>/gi, (_match, id, fallback) => {
+        const name =
+          memberNames[id] ??
+          memberNames[id?.toUpperCase()] ??
+          fallback;
+        return name ? `@${name}` : `@${id}`;
+      })
+      // Channel mentions: <#C0AKY040D3M> or <#C0AKY040D3M|channel-name>
+      .replace(/<#([A-Z0-9]+)(?:\|([^>]*))?>/gi, (_match, id, fallback) => {
+        const name =
+          channelNames[id] ??
+          channelNames[id?.toUpperCase()] ??
+          fallback;
+        return name ? `#${name}` : `#${id}`;
+      });
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -119,6 +162,7 @@ function UserMessageBubble({
   msg: ParsedMessage;
   isCurrentUser: boolean;
 }) {
+  const resolveText = useResolveText();
   const textBlock = msg.blocks.find((b) => b.type === "text");
 
   return (
@@ -131,7 +175,7 @@ function UserMessageBubble({
       >
         {msg.senderName ? (
           <span className="text-xs font-medium text-foreground/70">
-            {msg.senderName}
+            {resolveText(msg.senderName)}
           </span>
         ) : null}
         {msg.timestamp ? (
@@ -142,7 +186,7 @@ function UserMessageBubble({
       </div>
       <MessageContent>
         {textBlock?.type === "text" ? (
-          <MessageResponse>{textBlock.text}</MessageResponse>
+          <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
         ) : null}
       </MessageContent>
     </Message>
@@ -150,6 +194,7 @@ function UserMessageBubble({
 }
 
 function AssistantMessageBubble({ msg }: { msg: ParsedMessage }) {
+  const resolveText = useResolveText();
   const thinkingBlocks = msg.blocks.filter(
     (b): b is ParsedContentBlock & { type: "thinking" } =>
       b.type === "thinking",
@@ -185,7 +230,9 @@ function AssistantMessageBubble({ msg }: { msg: ParsedMessage }) {
           </Reasoning>
         ))}
         {textBlocks.map((block, i) => (
-          <MessageResponse key={`text-${i}`}>{block.text}</MessageResponse>
+          <MessageResponse key={`text-${i}`}>
+            {resolveText(block.text)}
+          </MessageResponse>
         ))}
         {toolCallBlocks.map((block, i) => (
           <ToolCallBlock key={`tool-${i}`} block={block} />
@@ -223,6 +270,7 @@ function ToolCallBlock({
 }
 
 function ToolResultBubble({ msg }: { msg: ParsedMessage }) {
+  const resolveText = useResolveText();
   const resultBlock = msg.blocks.find((b) => b.type === "tool_result") as
     | (ParsedContentBlock & { type: "tool_result" })
     | undefined;
@@ -249,7 +297,7 @@ function ToolResultBubble({ msg }: { msg: ParsedMessage }) {
           </CollapsibleTrigger>
           <CollapsibleContent className="border-t px-3 py-2">
             <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
-              {resultBlock.content}
+              {resolveText(resultBlock.content)}
             </pre>
           </CollapsibleContent>
         </Collapsible>
@@ -278,10 +326,14 @@ export function TranscriptViewer({
   orgSlug,
   session,
   currentUserExternalIds = [],
+  memberNames = {},
+  channelNames = {},
 }: {
   orgSlug: string;
   session: Session;
   currentUserExternalIds?: string[];
+  memberNames?: Record<string, string>;
+  channelNames?: Record<string, string>;
 }) {
   const messages = useMemo(
     () => parseTranscript(session.transcriptJsonl),
@@ -293,6 +345,11 @@ export function TranscriptViewer({
     [currentUserExternalIds],
   );
 
+  const resolveText = useCallback(
+    buildResolveText(memberNames, channelNames),
+    [memberNames, channelNames],
+  );
+
   const title =
     session.displayName ||
     session.label ||
@@ -300,90 +357,94 @@ export function TranscriptViewer({
     session.sessionKey;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          className="flex size-8 items-center justify-center rounded-md border hover:bg-muted"
-          href={`/${orgSlug}/sessions`}
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
-        </Link>
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-xs text-muted-foreground font-mono">
-            {session.sessionKey}
-          </p>
-        </div>
-      </div>
-
-      {/* Metadata cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <MetadataCard label="Status">
-          <Badge variant={statusBadgeVariant[session.status] ?? "outline"}>
-            {session.status}
-          </Badge>
-        </MetadataCard>
-        <MetadataCard label="Channel">
-          {session.channel ?? "-"}
-        </MetadataCard>
-        <MetadataCard label="Model">
-          <span className="truncate">{session.model ?? "-"}</span>
-        </MetadataCard>
-        <MetadataCard label="Tokens">
-          {formatTokens(session.totalTokens)}
-        </MetadataCard>
-        <MetadataCard label="Cost">
-          {formatCost(session.estimatedCostUsd)}
-        </MetadataCard>
-        <MetadataCard label="Duration">
-          {formatDuration(session.runtimeMs)}
-        </MetadataCard>
-      </div>
-
-      {/* Transcript */}
-      <div className="rounded-lg border bg-card">
-        <div className="border-b px-5 py-4">
-          <h2 className="text-sm font-medium">Transcript</h2>
-          <p className="text-xs text-muted-foreground">
-            {session.messageCount ?? messages.length} messages
-          </p>
-        </div>
-        <div className="flex flex-col gap-6 p-5">
-          {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No transcript data available.
+    <ResolveTextContext.Provider value={resolveText}>
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link
+            className="flex size-8 items-center justify-center rounded-md border hover:bg-muted"
+            href={`/${orgSlug}/sessions`}
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+          </Link>
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {resolveText(title)}
+            </h1>
+            <p className="text-xs text-muted-foreground font-mono">
+              {session.sessionKey}
             </p>
-          ) : (
-            messages.map((msg) => {
-              switch (msg.kind) {
-                case "user": {
-                  const isCurrentUser =
-                    !!msg.senderId && currentUserIdSet.has(msg.senderId);
-                  return (
-                    <UserMessageBubble
-                      key={msg.id}
-                      msg={msg}
-                      isCurrentUser={isCurrentUser}
-                    />
-                  );
+          </div>
+        </div>
+
+        {/* Metadata cards */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          <MetadataCard label="Status">
+            <Badge variant={statusBadgeVariant[session.status] ?? "outline"}>
+              {session.status}
+            </Badge>
+          </MetadataCard>
+          <MetadataCard label="Channel">
+            {session.channel ?? "-"}
+          </MetadataCard>
+          <MetadataCard label="Model">
+            <span className="truncate">{session.model ?? "-"}</span>
+          </MetadataCard>
+          <MetadataCard label="Tokens">
+            {formatTokens(session.totalTokens)}
+          </MetadataCard>
+          <MetadataCard label="Cost">
+            {formatCost(session.estimatedCostUsd)}
+          </MetadataCard>
+          <MetadataCard label="Duration">
+            {formatDuration(session.runtimeMs)}
+          </MetadataCard>
+        </div>
+
+        {/* Transcript */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-5 py-4">
+            <h2 className="text-sm font-medium">Transcript</h2>
+            <p className="text-xs text-muted-foreground">
+              {session.messageCount ?? messages.length} messages
+            </p>
+          </div>
+          <div className="flex flex-col gap-6 p-5">
+            {messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No transcript data available.
+              </p>
+            ) : (
+              messages.map((msg) => {
+                switch (msg.kind) {
+                  case "user": {
+                    const isCurrentUser =
+                      !!msg.senderId && currentUserIdSet.has(msg.senderId);
+                    return (
+                      <UserMessageBubble
+                        key={msg.id}
+                        msg={msg}
+                        isCurrentUser={isCurrentUser}
+                      />
+                    );
+                  }
+                  case "assistant":
+                    return (
+                      <AssistantMessageBubble key={msg.id} msg={msg} />
+                    );
+                  case "tool_result":
+                    return <ToolResultBubble key={msg.id} msg={msg} />;
+                  case "compaction":
+                    return <CompactionDivider key={msg.id} msg={msg} />;
+                  default:
+                    return null;
                 }
-                case "assistant":
-                  return (
-                    <AssistantMessageBubble key={msg.id} msg={msg} />
-                  );
-                case "tool_result":
-                  return <ToolResultBubble key={msg.id} msg={msg} />;
-                case "compaction":
-                  return <CompactionDivider key={msg.id} msg={msg} />;
-                default:
-                  return null;
-              }
-            })
-          )}
+              })
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </ResolveTextContext.Provider>
   );
 }
 
