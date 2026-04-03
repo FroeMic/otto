@@ -1,10 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { WhatsAppIntegrationPanel } from "@/app/[orgSlug]/(app)/integrations/whatsapp/_components/whatsapp-integration-panel";
-import { buttonVariants } from "@/components/ui/button-variants";
 import {
   getCurrentTenantWhatsAppLinkSession,
   getTenantWhatsAppRuntimeConfigSurface,
@@ -174,15 +172,6 @@ export default async function WhatsAppIntegrationPage({
               reach it.
             </p>
           </div>
-
-          {whatsappPhase === "prepare" ? (
-            <Link
-              className={buttonVariants({ variant: "outline" })}
-              href={`/${organization.slug}/integrations`}
-            >
-              View all integrations
-            </Link>
-          ) : null}
         </div>
       </section>
 

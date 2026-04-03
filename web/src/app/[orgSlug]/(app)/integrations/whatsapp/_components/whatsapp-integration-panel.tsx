@@ -303,15 +303,6 @@ export function WhatsAppIntegrationPanel(props: Props) {
     joinList(initialSurface?.config.groupAllowedNumbers ?? []),
   );
 
-  const tabParam = searchParams.get("tab");
-  const currentTab: "capabilities" | "status" | "configuration" =
-    tabParam === "capabilities" ||
-    tabParam === "status" ||
-    tabParam === "configuration"
-      ? tabParam
-      : "capabilities";
-  const hasStatusIssue = Boolean(props.statusAlert);
-
   const uiPhase = useMemo(
     () =>
       getWhatsAppUiPhase({
@@ -321,6 +312,21 @@ export function WhatsAppIntegrationPanel(props: Props) {
     [integration?.status, linkSession?.status],
   );
   const integrationStatus = integration?.status ?? null;
+  const hasPairedNumber =
+    uiPhase === "activating" ||
+    Boolean(integration?.connectedAt) ||
+    Boolean(integration?.selfE164);
+  const canConfigure = hasPairedNumber;
+  const tabParam = searchParams.get("tab");
+  const currentTab: "capabilities" | "status" | "configuration" =
+    tabParam === "capabilities" || tabParam === "status"
+      ? tabParam
+      : tabParam === "configuration"
+        ? canConfigure
+          ? "configuration"
+          : "status"
+        : "capabilities";
+  const hasStatusIssue = Boolean(props.statusAlert);
 
   useEffect(() => {
     setIntegration(initialIntegration);
@@ -430,6 +436,19 @@ export function WhatsAppIntegrationPanel(props: Props) {
       window.clearInterval(intervalId);
     };
   }, [router, uiPhase]);
+
+  useEffect(() => {
+    if (tabParam !== "configuration" || canConfigure) {
+      return;
+    }
+
+    router.replace(
+      updateQueryString(pathname, searchParams, {
+        tab: "status",
+      }),
+      { scroll: false },
+    );
+  }, [canConfigure, pathname, router, searchParams, tabParam]);
 
   useEffect(() => {
     if (linkSession?.status !== "qr_ready") {
@@ -811,7 +830,9 @@ export function WhatsAppIntegrationPanel(props: Props) {
               <span className="size-2 rounded-full bg-destructive" />
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger disabled={!canConfigure} value="configuration">
+            Configuration
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="capabilities">
@@ -879,57 +900,59 @@ export function WhatsAppIntegrationPanel(props: Props) {
                 </Alert>
               ) : null}
 
-              <SettingsSection>
-                <SettingsSectionTitle>Status</SettingsSectionTitle>
-                <SettingsSectionDescription>
-                  Current WhatsApp connection details for this workspace.
-                </SettingsSectionDescription>
-                <SettingsCard>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Status</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        WhatsApp pairing and runtime activation state.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant={props.whatsappStatusVariant}>
-                      {props.whatsappPhaseLabel}
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Dedicated number</SettingsRowTitle>
-                    </SettingsRowLabel>
-                    <span className="text-sm text-muted-foreground">
-                      {linkedNumber}
-                    </span>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Connected on</SettingsRowTitle>
-                    </SettingsRowLabel>
-                    <span className="text-sm text-muted-foreground">
-                      {props.connectedAtLabel ?? "Not connected yet"}
-                    </span>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Otto status</SettingsRowTitle>
-                    </SettingsRowLabel>
-                    <span className="text-sm text-muted-foreground">
-                      {props.runtimeStatusLabel}
-                    </span>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Last update</SettingsRowTitle>
-                    </SettingsRowLabel>
-                    <span className="text-sm text-muted-foreground">
-                      {props.runtimeApplyStatusLabel ?? "No recent update"}
-                    </span>
-                  </SettingsRow>
-                </SettingsCard>
-              </SettingsSection>
+              {hasPairedNumber ? (
+                <SettingsSection>
+                  <SettingsSectionTitle>Status</SettingsSectionTitle>
+                  <SettingsSectionDescription>
+                    Current WhatsApp connection details for this workspace.
+                  </SettingsSectionDescription>
+                  <SettingsCard>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Status</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          WhatsApp pairing and runtime activation state.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <Badge variant={props.whatsappStatusVariant}>
+                        {props.whatsappPhaseLabel}
+                      </Badge>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Dedicated number</SettingsRowTitle>
+                      </SettingsRowLabel>
+                      <span className="text-sm text-muted-foreground">
+                        {linkedNumber}
+                      </span>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Connected on</SettingsRowTitle>
+                      </SettingsRowLabel>
+                      <span className="text-sm text-muted-foreground">
+                        {props.connectedAtLabel ?? "Not connected yet"}
+                      </span>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Otto status</SettingsRowTitle>
+                      </SettingsRowLabel>
+                      <span className="text-sm text-muted-foreground">
+                        {props.runtimeStatusLabel}
+                      </span>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Last update</SettingsRowTitle>
+                      </SettingsRowLabel>
+                      <span className="text-sm text-muted-foreground">
+                        {props.runtimeApplyStatusLabel ?? "No recent update"}
+                      </span>
+                    </SettingsRow>
+                  </SettingsCard>
+                </SettingsSection>
+              ) : null}
 
               {uiPhase === "prepare" ? (
                 <SettingsSection>
