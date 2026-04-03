@@ -2,11 +2,11 @@
 
 ## Goal
 
-Expose the OpenClaw dashboard access details in the authenticated Otto UI so an organization member can open the tenant runtime dashboard through an SSH tunnel and authenticate with the correct gateway token without manually inspecting the VPS.
+Expose the OpenClaw dashboard access details in the authenticated Otto UI so a platform operator can open the tenant runtime dashboard through an SSH tunnel and authenticate with the correct gateway token without manually inspecting the VPS.
 
 ## Scope
 
-- surface the tenant runtime dashboard URL and SSH tunnel instructions in the Agent status UI
+- surface the tenant runtime dashboard URL and SSH tunnel instructions in the platform organization access UI
 - surface the tenant runtime gateway token from control-plane encrypted storage
 - keep the token handling aligned with OpenClaw dashboard and gateway auth docs
 - avoid broadening runtime exposure beyond the existing host-loopback-only publish
@@ -23,7 +23,7 @@ Expose the OpenClaw dashboard access details in the authenticated Otto UI so an 
 
 - Keep the gateway token source of truth in `tenant_runtime_secrets`; do not duplicate it into tenant summary tables or desired-state JSON.
 - Keep `OPENCLAW_GATEWAY_TOKEN` projected into the tenant runtime `.env`, and keep `gateway.auth.token` in `openclaw.json` sourced from that env var.
-- The Otto UI should show the dashboard access details only on the authenticated Agent status / deployment view, not in the global app shell payload.
+- The Otto UI should show the dashboard access details only on the authenticated platform operator access view, not in the global app shell payload.
 - The dashboard URL shown in Otto should remain the localhost URL the user reaches through a tunnel:
   - `http://127.0.0.1:18791/`
 - The UI should also show the SSH tunnel command using the tenant IPv4:
@@ -40,7 +40,7 @@ Expose the OpenClaw dashboard access details in the authenticated Otto UI so an 
 
 ## Acceptance criteria
 
-- an authenticated organization member can open the Agent status page and see:
+- an authenticated platform admin can open the platform organization access page and see:
   - the dashboard localhost URL
   - the SSH tunnel command for the current tenant server when an IP exists
   - the current gateway token with reveal and copy controls
@@ -53,8 +53,8 @@ Expose the OpenClaw dashboard access details in the authenticated Otto UI so an 
 ## Status checklist
 
 - [x] add a focused spec for runtime dashboard access
-- [x] add a server-only control-plane read path for the current tenant gateway token in the Agent status page
-- [x] add a deployment access card that shows dashboard URL, SSH tunnel command, and masked token controls
+- [x] add a server-only control-plane read path for the current tenant gateway token in the platform organization access page
+- [x] add an operator access surface that shows dashboard URL, SSH tunnel command, and masked token controls
 - [x] keep the token out of the shared dashboard shell payload
 - [ ] verify the dashboard login flow manually through an SSH tunnel
 - [x] update `spec/STATUS.md` with the new follow-up slice

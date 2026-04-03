@@ -3,26 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { getAgentInstructionTabs } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
 import { cn } from "@/lib/utils";
-
-const AGENT_TABS = [
-  {
-    href: (orgSlug: string) => `/${orgSlug}/agent/prompts`,
-    label: "Configuration",
-  },
-  {
-    href: (orgSlug: string) => `/${orgSlug}/agent/status`,
-    label: "Status",
-  },
-] as const;
 
 export function AgentTabs({ orgSlug }: { orgSlug: string }) {
   const pathname = usePathname();
 
   return (
     <div className="inline-flex w-fit items-center rounded-full bg-muted p-[3px] text-xs text-muted-foreground">
-      {AGENT_TABS.map((tab) => {
-        const href = tab.href(orgSlug);
+      {getAgentInstructionTabs().map((tab) => {
+        const href = `/${orgSlug}/agent/${encodeURIComponent(tab.slug)}`;
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
         return (

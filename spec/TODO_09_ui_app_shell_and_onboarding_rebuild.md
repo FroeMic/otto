@@ -191,18 +191,16 @@ The user settings section is org-independent in data ownership, but it can still
 
 Purpose:
 
-- show overall health of the organization's Otto agent
-- show whether onboarding is complete
-- show runtime and Slack status clearly
-- provide a route-backed instructions view so users can review and edit Otto's shared guidance without leaving the Agent area
+- provide a focused instructions area so users can review and edit Otto's shared guidance without leaving the Agent area
+- keep a lightweight readiness signal visible without turning the main workspace Agent view into an operator dashboard
+- avoid exposing raw infrastructure access in the workspace-facing Agent area once the platform operator surface exists
 
 Initial content:
 
-- runtime health card
-- Slack connection card
-- onboarding checklist if incomplete
-- recent activity / latest job summary
-- a second top-level Agent tab for instructions, with separate system and shared sections for managed instruction files
+- a single instructions surface with route-backed file tabs for the managed instruction files
+- a small readiness badge near the page title that summarizes whether Otto is ready for the workspace
+- separate system and shared instruction sections for each file
+- plain-language supporting copy that explains what each file controls without exposing raw runtime details
 
 ### Integrations
 

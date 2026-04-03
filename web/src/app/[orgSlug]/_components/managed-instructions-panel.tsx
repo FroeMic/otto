@@ -1,22 +1,21 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { getAgentInstructionTabBySlug } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
+import { ManagedInstructionsEditor } from "@/app/[orgSlug]/_components/managed-instructions-editor";
+import {
+  SettingsPage,
+  SettingsSection,
+  SettingsSectionDescription,
+  SettingsSectionTitle,
+} from "@/app/[orgSlug]/settings/_components/settings-layout";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import {
   type DashboardOrganization,
   getLatestTenantManagedConfig,
@@ -32,6 +31,7 @@ async function updateManagedInstructionAction(formData: FormData) {
   const orgSlug = formData.get("orgSlug")?.toString();
   const filePath = formData.get("filePath")?.toString();
   const expectedVersionValue = formData.get("expectedVersion")?.toString();
+  const instructionTabSlug = formData.get("instructionTabSlug")?.toString();
   const sharedContent = formData.get("sharedContent")?.toString();
 
   if (!orgSlug || !filePath || !sharedContent) {
@@ -52,17 +52,27 @@ async function updateManagedInstructionAction(formData: FormData) {
     userExternalId: user.id,
   });
 
-  revalidatePath(`/${orgSlug}/agent/prompts`);
+  revalidatePath(`/${orgSlug}/agent`);
+
+  if (instructionTabSlug) {
+    revalidatePath(
+      `/${orgSlug}/agent/${encodeURIComponent(instructionTabSlug)}`,
+    );
+  }
 }
 
 type ManagedInstructionsPanelProps = {
+  instructionTabSlug: string;
   organization: DashboardOrganization;
   orgSlug: string;
+  selectedFilePath: string;
 };
 
 export async function ManagedInstructionsPanel({
+  instructionTabSlug,
   organization,
   orgSlug,
+  selectedFilePath,
 }: ManagedInstructionsPanelProps) {
   const primaryAgent = getPrimaryAgent(organization);
   const managedConfig = primaryAgent
@@ -83,93 +93,35 @@ export async function ManagedInstructionsPanel({
     );
   }
 
+  const selectedTab = getAgentInstructionTabBySlug(instructionTabSlug);
+  const selectedFile = managedConfig.files.find(
+    (file) => file.path === selectedFilePath,
+  );
+
+  if (!selectedTab || !selectedFile) {
+    notFound();
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 text-sm leading-6 text-muted-foreground">
-        <p>
-          These files shape how Otto works in this workspace: how it should
-          behave, how it should present itself, who it helps, and which local
-          details matter.
-        </p>
-        <p>
-          The protected section shows Otto&apos;s built-in starting point. The
-          editable section is where you make it fit your team.
-        </p>
+    <SettingsPage className="mx-0 max-w-2xl">
+      <div className="flex flex-col gap-8 pb-8">
+        <SettingsSection>
+          <SettingsSectionTitle>{selectedTab.label}</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            {selectedFile.description}
+          </SettingsSectionDescription>
+        </SettingsSection>
+
+        <ManagedInstructionsEditor
+          expectedVersion={managedConfig.version}
+          filePath={selectedFile.path}
+          instructionTabSlug={instructionTabSlug}
+          orgSlug={orgSlug}
+          sharedContent={selectedFile.sharedContent}
+          systemContent={selectedFile.systemContent}
+          updateAction={updateManagedInstructionAction}
+        />
       </div>
-
-      <Tabs
-        className="flex flex-col gap-4"
-        defaultValue={managedConfig.files[0]?.path}
-      >
-        <TabsList className="h-auto w-full justify-start overflow-x-auto p-1">
-          {managedConfig.files.map((file) => (
-            <TabsTrigger key={file.path} value={file.path}>
-              {file.path}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {managedConfig.files.map((file) => (
-          <TabsContent key={file.path} value={file.path}>
-            <Card>
-              <CardHeader>
-                <CardTitle>{file.path}</CardTitle>
-                <CardDescription>{file.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <Collapsible className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-medium">
-                        System instructions
-                      </h2>
-                      <Badge variant="outline">Protected</Badge>
-                    </div>
-                    <CollapsibleTrigger className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
-                      Show details
-                    </CollapsibleTrigger>
-                  </div>
-                  <CollapsibleContent className="border border-border bg-muted/30 p-3">
-                    <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-muted-foreground">
-                      {file.systemContent}
-                    </pre>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                <form
-                  action={updateManagedInstructionAction}
-                  className="flex flex-col gap-3"
-                >
-                  <input
-                    type="hidden"
-                    name="expectedVersion"
-                    value={managedConfig.version}
-                  />
-                  <input type="hidden" name="filePath" value={file.path} />
-                  <input type="hidden" name="orgSlug" value={orgSlug} />
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-medium">
-                        Shared instructions
-                      </h2>
-                      <Badge variant="secondary">Editable</Badge>
-                    </div>
-                    <Textarea
-                      className="min-h-40 font-mono text-xs leading-6"
-                      defaultValue={file.sharedContent}
-                      name="sharedContent"
-                      required
-                    />
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <Button type="submit">Save changes</Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+    </SettingsPage>
   );
 }

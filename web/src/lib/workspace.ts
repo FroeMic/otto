@@ -137,6 +137,84 @@ export function getRuntimeApplyStatusLabel(
   }
 }
 
+export function getAgentReadinessSummary(organization: DashboardOrganization) {
+  const agent = getPrimaryAgent(organization);
+  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
+  const slackStatus = getSlackStatusLabel(organization);
+  const runtimeStatus = getRuntimeStatusLabel(organization);
+  const applyStatus = getRuntimeApplyStatusLabel(organization);
+  const slackError = getSlackErrorMessage(organization);
+  const latestApplyFailed =
+    latestApplyRun?.status === "failed" || latestApplyRun?.status === "apply_failed";
+  const latestApplyUpdating =
+    latestApplyRun?.status === "queued" ||
+    latestApplyRun?.status === "pending_apply" ||
+    latestApplyRun?.status === "loading_desired_state" ||
+    latestApplyRun?.status === "rendering_files" ||
+    latestApplyRun?.status === "writing_files" ||
+    latestApplyRun?.status === "restarting_runtime" ||
+    latestApplyRun?.status === "verifying_runtime" ||
+    latestApplyRun?.status === "applying";
+
+  if (!agent) {
+    return {
+      applyStatus: applyStatus ?? "Not available",
+      detail: "Otto has not been provisioned for this workspace yet.",
+      label: "Unavailable",
+      slackStatus,
+      title: "Otto is not ready",
+      variant: "outline" as const,
+      runtimeStatus,
+    };
+  }
+
+  if (slackError || latestApplyFailed) {
+    return {
+      applyStatus: applyStatus ?? "Failed",
+      detail: latestApplyRun?.error ?? slackError ?? "The latest update needs attention.",
+      label: "Needs attention",
+      slackStatus,
+      title: "Otto needs attention",
+      variant: "destructive" as const,
+      runtimeStatus,
+    };
+  }
+
+  if (latestApplyUpdating) {
+    return {
+      applyStatus: applyStatus ?? "Applying",
+      detail: "Otto is applying a recent change for this workspace.",
+      label: "Updating",
+      slackStatus,
+      title: "Otto is updating",
+      variant: "outline" as const,
+      runtimeStatus,
+    };
+  }
+
+  if (!isOrganizationUnlocked(organization)) {
+    return {
+      applyStatus: applyStatus ?? "Not available",
+      detail: "Finish setup so Otto can start helping in this workspace.",
+      label: "Setup required",
+      slackStatus,
+      title: "Otto is still getting ready",
+      variant: "outline" as const,
+      runtimeStatus,
+    };
+  }
+
+  return {
+    applyStatus: applyStatus ?? "Applied",
+    detail: "Slack is connected and Otto is ready to help in this workspace.",
+    label: "Ready",
+    slackStatus,
+    title: "Otto is ready",
+    variant: "secondary" as const,
+    runtimeStatus,
+  };
+}
+
 export function isRuntimeReady(organization: DashboardOrganization) {
   const agent = getPrimaryAgent(organization);
 
