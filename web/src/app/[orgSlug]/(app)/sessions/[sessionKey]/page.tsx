@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { getTenantSession } from "@/db/control-plane";
+import { getTenantSession, getUserExternalIds } from "@/db/control-plane";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import { TranscriptViewer } from "./_components/transcript-viewer";
@@ -14,7 +14,7 @@ export default async function SessionDetailPage({
   params: Promise<{ orgSlug: string; sessionKey: string }>;
 }) {
   const { orgSlug, sessionKey } = await params;
-  const { currentOrganization: organization } =
+  const { currentOrganization: organization, user } =
     await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
@@ -27,10 +27,16 @@ export default async function SessionDetailPage({
   }
 
   const decodedKey = decodeURIComponent(sessionKey);
-  const session = await getTenantSession({
-    tenantId: agent.id,
-    sessionKey: decodedKey,
-  });
+  const [session, currentUserExternalIds] = await Promise.all([
+    getTenantSession({
+      tenantId: agent.id,
+      sessionKey: decodedKey,
+    }),
+    getUserExternalIds({
+      userExternalId: user.id,
+      organizationId: organization.id,
+    }),
+  ]);
 
   if (!session) {
     notFound();
@@ -40,6 +46,7 @@ export default async function SessionDetailPage({
     <TranscriptViewer
       orgSlug={organization.slug}
       session={session}
+      currentUserExternalIds={currentUserExternalIds}
     />
   );
 }
