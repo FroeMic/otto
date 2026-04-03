@@ -24,104 +24,88 @@ export default definePluginEntry({
 
     const pendingFlush = new Map();
 
-    api.registerHook(
-      "session_start",
-      async (event, ctx) => {
-        logPluginInfo("session_start hook fired", {
-          sessionId: event.sessionId,
-          sessionKey: ctx.sessionKey,
-          agentId: ctx.agentId,
+    api.on("session_start", async (event, ctx) => {
+      logPluginInfo("session_start hook fired", {
+        sessionId: event.sessionId,
+        sessionKey: ctx.sessionKey,
+        agentId: ctx.agentId,
+      });
+      try {
+        await syncSession(api, {
+          sessionKey: ctx.sessionKey ?? event.sessionId,
+          externalSessionId: event.sessionId,
+          status: "running",
+          sessionUpdatedAt: Date.now(),
         });
-        try {
-          await syncSession(api, {
-            sessionKey: ctx.sessionKey ?? event.sessionId,
-            externalSessionId: event.sessionId,
-            status: "running",
-            sessionUpdatedAt: Date.now(),
-          });
-        } catch (error) {
-          logPluginError("session_start handler threw", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      },
-      { name: "otto-session-reporter:session_start" },
-    );
+      } catch (error) {
+        logPluginError("session_start handler threw", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
 
-    api.registerHook(
-      "session_end",
-      async (event, ctx) => {
-        logPluginInfo("session_end hook fired", {
-          sessionId: event.sessionId,
-          sessionKey: ctx.sessionKey,
-          agentId: ctx.agentId,
+    api.on("session_end", async (event, ctx) => {
+      logPluginInfo("session_end hook fired", {
+        sessionId: event.sessionId,
+        sessionKey: ctx.sessionKey,
+        agentId: ctx.agentId,
+        messageCount: event.messageCount,
+        durationMs: event.durationMs,
+      });
+      try {
+        clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
+
+        const sessionKey = ctx.sessionKey ?? event.sessionId;
+        const transcript = await readTranscript(api, ctx.agentId, sessionKey);
+        logPluginInfo("session_end transcript read", {
+          sessionKey,
+          hasTranscript: !!transcript,
+          transcriptSize: transcript?.transcriptJsonl?.length ?? 0,
+        });
+
+        await syncSession(api, {
+          sessionKey,
+          externalSessionId: event.sessionId,
+          status: "done",
+          runtimeMs: event.durationMs ?? null,
           messageCount: event.messageCount,
-          durationMs: event.durationMs,
+          sessionUpdatedAt: Date.now(),
+          ...(transcript ?? {}),
         });
-        try {
-          clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
-
-          const sessionKey = ctx.sessionKey ?? event.sessionId;
-          const transcript = await readTranscript(api, ctx.agentId, sessionKey);
-          logPluginInfo("session_end transcript read", {
-            sessionKey,
-            hasTranscript: !!transcript,
-            transcriptSize: transcript?.transcriptJsonl?.length ?? 0,
-          });
-
-          await syncSession(api, {
-            sessionKey,
-            externalSessionId: event.sessionId,
-            status: "done",
-            runtimeMs: event.durationMs ?? null,
-            messageCount: event.messageCount,
-            sessionUpdatedAt: Date.now(),
-            ...(transcript ?? {}),
-          });
-        } catch (error) {
-          logPluginError("session_end handler threw", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      },
-      { name: "otto-session-reporter:session_end" },
-    );
-
-    api.registerHook(
-      "message_sent",
-      (_event, ctx) => {
-        logPluginInfo("message_sent hook fired", {
-          channelId: ctx.channelId,
-          accountId: ctx.accountId,
+      } catch (error) {
+        logPluginError("session_end handler threw", {
+          error: error instanceof Error ? error.message : String(error),
         });
-        const sessionKey = ctx.channelId;
-        if (!sessionKey) {
-          logPluginInfo("message_sent: no channelId, skipping");
-          return;
-        }
+      }
+    });
 
-        debouncedSync(api, pendingFlush, sessionKey);
-      },
-      { name: "otto-session-reporter:message_sent" },
-    );
+    api.on("message_sent", (_event, ctx) => {
+      logPluginInfo("message_sent hook fired", {
+        channelId: ctx.channelId,
+        accountId: ctx.accountId,
+      });
+      const sessionKey = ctx.channelId;
+      if (!sessionKey) {
+        logPluginInfo("message_sent: no channelId, skipping");
+        return;
+      }
 
-    api.registerHook(
-      "message_received",
-      (_event, ctx) => {
-        logPluginInfo("message_received hook fired", {
-          channelId: ctx.channelId,
-          accountId: ctx.accountId,
-        });
-        const sessionKey = ctx.channelId;
-        if (!sessionKey) {
-          logPluginInfo("message_received: no channelId, skipping");
-          return;
-        }
+      debouncedSync(api, pendingFlush, sessionKey);
+    });
 
-        debouncedSync(api, pendingFlush, sessionKey);
-      },
-      { name: "otto-session-reporter:message_received" },
-    );
+    api.on("message_received", (_event, ctx) => {
+      logPluginInfo("message_received hook fired", {
+        channelId: ctx.channelId,
+        accountId: ctx.accountId,
+      });
+      const sessionKey = ctx.channelId;
+      if (!sessionKey) {
+        logPluginInfo("message_received: no channelId, skipping");
+        return;
+      }
+
+      debouncedSync(api, pendingFlush, sessionKey);
+    });
 
     logPluginInfo("register() complete — all hooks registered");
   },
