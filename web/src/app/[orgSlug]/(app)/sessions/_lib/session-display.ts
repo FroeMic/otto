@@ -72,6 +72,27 @@ export function getProviderLabel(provider: string | null): string {
 }
 
 /**
+ * Resolve an ID from the session key to a human-readable name
+ * using lookup maps (channel names, member names).
+ */
+function resolveIdName(
+  id: string | null,
+  nameMaps?: { channels?: Map<string, string>; members?: Map<string, string> },
+): string | null {
+  if (!id || !nameMaps) return null;
+  // Try channels first (for channel/thread keys), then members (for DM keys)
+  return (
+    nameMaps.channels?.get(id) ??
+    nameMaps.channels?.get(id.toLowerCase()) ??
+    nameMaps.channels?.get(id.toUpperCase()) ??
+    nameMaps.members?.get(id) ??
+    nameMaps.members?.get(id.toLowerCase()) ??
+    nameMaps.members?.get(id.toUpperCase()) ??
+    null
+  );
+}
+
+/**
  * Build a human-readable session name from the session key and
  * optional metadata from the session entry.
  */
@@ -82,13 +103,13 @@ export function formatSessionName(input: {
   subject?: string | null;
   originFrom?: string | null;
   chatType?: string | null;
+  nameMaps?: { channels?: Map<string, string>; members?: Map<string, string> };
 }): string {
   const parsed = parseSessionKey(input.sessionKey);
+  const resolvedName = resolveIdName(parsed.id, input.nameMaps);
 
-  // If we have a displayName from the session metadata, use it for threads
-  // as it usually contains the thread topic (e.g., "Slack thread #new-channel: topic")
+  // For threads, try to use displayName which contains the thread topic
   if (parsed.kind === "thread" && input.displayName) {
-    // Clean up the display name — extract the meaningful part
     const threadMatch = input.displayName.match(
       /Slack thread (#\S+):\s*(.*)/,
     );
@@ -109,15 +130,15 @@ export function formatSessionName(input: {
       return "Shared DMs (legacy)";
 
     case "dm": {
-      // Try to use subject or label for a contact name
       if (input.subject) return `DM: ${input.subject}`;
       if (input.label) return `DM: ${input.label}`;
-      // Fall back to the raw ID
+      if (resolvedName) return `DM: ${resolvedName}`;
       const id = parsed.id ?? "unknown";
       return `DM: ${id}`;
     }
 
     case "channel": {
+      if (resolvedName) return `#${resolvedName}`;
       if (input.subject) return `#${input.subject}`;
       if (input.label) return `#${input.label}`;
       const channelId = parsed.id ?? "unknown";
@@ -125,6 +146,7 @@ export function formatSessionName(input: {
     }
 
     case "group": {
+      if (resolvedName) return resolvedName;
       if (input.subject) return input.subject;
       if (input.label) return input.label;
       const groupId = parsed.id ?? "unknown";
@@ -132,17 +154,14 @@ export function formatSessionName(input: {
     }
 
     case "thread": {
-      if (input.displayName) {
-        return input.displayName.length > 60
-          ? input.displayName.slice(0, 60) + "..."
-          : input.displayName;
-      }
-      const channelId = parsed.id ?? "unknown";
-      return `#${channelId} (thread)`;
+      // Resolve the channel ID in the thread key
+      const channelName = resolvedName
+        ? `#${resolvedName}`
+        : `#${parsed.id ?? "unknown"}`;
+      return `${channelName} (thread)`;
     }
 
     default: {
-      // Use whatever metadata we have
       return (
         input.displayName ??
         input.label ??
@@ -165,23 +184,18 @@ export function canViewSessionDetail(input: {
   isPlatformAdmin: boolean;
   sessionOriginFrom?: string | null;
 }): boolean {
-  // Platform admins always have access
   if (input.isPlatformAdmin) return true;
 
   const parsed = parseSessionKey(input.sessionKey);
 
-  // Non-DM sessions (channels, groups, threads) are visible to all org members
   if (parsed.kind !== "dm" && parsed.kind !== "main") return true;
 
-  // For DMs: check if the current user is the DM owner
   if (parsed.kind === "dm" && parsed.id) {
     return input.currentUserExternalIds.some(
       (id) => id.toLowerCase() === parsed.id!.toLowerCase(),
     );
   }
 
-  // Legacy shared DMs — platform admin only (already handled above)
-  // For non-admins viewing shared DM, deny
   if (parsed.kind === "main") return false;
 
   return true;

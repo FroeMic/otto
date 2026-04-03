@@ -8,7 +8,6 @@ import { useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 import {
   canViewSessionDetail,
@@ -54,14 +53,6 @@ const statusBadgeVariant: Record<
   timeout: "destructive",
 };
 
-const kindBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
-  dm: "default",
-  channel: "secondary",
-  group: "secondary",
-  thread: "outline",
-  main: "outline",
-};
-
 const kindLabels: Record<string, string> = {
   dm: "DM",
   channel: "Channel",
@@ -69,18 +60,6 @@ const kindLabels: Record<string, string> = {
   thread: "Thread",
   main: "Shared",
 };
-
-function formatDuration(ms: number | null): string {
-  if (ms === null || ms === undefined) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return remainingSeconds > 0
-    ? `${minutes}m ${remainingSeconds}s`
-    : `${minutes}m`;
-}
 
 function formatTokens(n: number | null): string {
   if (n === null || n === undefined) return "-";
@@ -106,12 +85,9 @@ function formatTime(date: Date | null): string {
   }).format(date);
 }
 
-function ChannelCell({ row }: { row: SessionRow }) {
-  const parsed = parseSessionKey(row.sessionKey);
-  const icon = getProviderIcon(parsed.provider);
-  const label = getProviderLabel(parsed.provider);
-  const kindLabel = kindLabels[parsed.kind] ?? parsed.kind;
-  const kindVariant = kindBadgeVariant[parsed.kind] ?? "outline";
+function ProviderCell({ provider }: { provider: string | null }) {
+  const icon = getProviderIcon(provider);
+  const label = getProviderLabel(provider);
 
   return (
     <div className="flex items-center gap-2">
@@ -124,9 +100,7 @@ function ChannelCell({ row }: { row: SessionRow }) {
           width={16}
         />
       ) : null}
-      <Badge variant={kindVariant} className="text-[10px] px-1.5 py-0">
-        {kindLabel}
-      </Badge>
+      <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   );
 }
@@ -135,6 +109,7 @@ function createColumns(input: {
   orgSlug: string;
   currentUserExternalIds: string[];
   isPlatformAdmin: boolean;
+  nameMaps: { channels: Map<string, string>; members: Map<string, string> };
 }): ColumnDef<SessionRow>[] {
   return [
     {
@@ -149,6 +124,7 @@ function createColumns(input: {
           subject: row.original.subject,
           originFrom: row.original.originFrom,
           chatType: row.original.chatType,
+          nameMaps: input.nameMaps,
         });
 
         const canView = canViewSessionDetail({
@@ -180,10 +156,27 @@ function createColumns(input: {
       },
     },
     {
-      accessorKey: "channel",
+      id: "provider",
       header: "Channel",
-      size: 110,
-      cell: ({ row }) => <ChannelCell row={row.original} />,
+      size: 100,
+      cell: ({ row }) => {
+        const parsed = parseSessionKey(row.original.sessionKey);
+        return <ProviderCell provider={parsed.provider} />;
+      },
+    },
+    {
+      id: "kind",
+      header: "Type",
+      size: 80,
+      cell: ({ row }) => {
+        const parsed = parseSessionKey(row.original.sessionKey);
+        const label = kindLabels[parsed.kind] ?? parsed.kind;
+        return (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {label}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
@@ -200,9 +193,9 @@ function createColumns(input: {
     {
       accessorKey: "model",
       header: "Model",
-      size: 140,
+      size: 120,
       cell: ({ row }) => (
-        <span className="block max-w-[140px] truncate text-sm text-muted-foreground">
+        <span className="block max-w-[120px] truncate text-sm text-muted-foreground">
           {row.original.model ?? "-"}
         </span>
       ),
@@ -210,7 +203,7 @@ function createColumns(input: {
     {
       accessorKey: "totalTokens",
       header: "Tokens",
-      size: 80,
+      size: 70,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums text-muted-foreground">
           {formatTokens(row.original.totalTokens)}
@@ -230,7 +223,7 @@ function createColumns(input: {
     {
       accessorKey: "messageCount",
       header: "Messages",
-      size: 80,
+      size: 70,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums text-muted-foreground">
           {row.original.messageCount ?? "-"}
@@ -255,21 +248,35 @@ export function SessionsContent({
   sessions,
   currentUserExternalIds = [],
   isPlatformAdmin = false,
+  channelNames = {},
+  memberNames = {},
 }: {
   orgSlug: string;
   sessions: SessionRow[];
   currentUserExternalIds?: string[];
   isPlatformAdmin?: boolean;
+  channelNames?: Record<string, string>;
+  memberNames?: Record<string, string>;
 }) {
   const [filter, setFilter] = useState("");
+
+  const nameMaps = useMemo(
+    () => ({
+      channels: new Map(Object.entries(channelNames)),
+      members: new Map(Object.entries(memberNames)),
+    }),
+    [channelNames, memberNames],
+  );
+
   const columns = useMemo(
     () =>
       createColumns({
         orgSlug,
         currentUserExternalIds,
         isPlatformAdmin,
+        nameMaps,
       }),
-    [orgSlug, currentUserExternalIds, isPlatformAdmin],
+    [orgSlug, currentUserExternalIds, isPlatformAdmin, nameMaps],
   );
 
   const filtered = useMemo(() => {
@@ -283,12 +290,13 @@ export function SessionsContent({
         subject: s.subject,
         originFrom: s.originFrom,
         chatType: s.chatType,
+        nameMaps,
       }).toLowerCase();
       const channel = (s.channel ?? "").toLowerCase();
       const status = s.status.toLowerCase();
       return name.includes(q) || channel.includes(q) || status.includes(q);
     });
-  }, [sessions, filter]);
+  }, [sessions, filter, nameMaps]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
