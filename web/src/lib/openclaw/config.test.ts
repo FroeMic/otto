@@ -28,6 +28,10 @@ describe("renderOpenClawConfig", () => {
           id: "otto-runtime-config",
           timeoutMs: 15_000,
         },
+        {
+          id: "otto-session-reporter",
+          timeoutMs: 15_000,
+        },
       ],
       prompts: {},
       tenantId: "tenant_123",
@@ -39,10 +43,12 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.tools.alsoAllow, [
       "otto-managed-config",
       "otto-runtime-config",
+      "otto-session-reporter",
     ]);
     assert.deepEqual(renderedConfig.plugins.allow, [
       "otto-managed-config",
       "otto-runtime-config",
+      "otto-session-reporter",
     ]);
     assert.deepEqual(renderedConfig.tools.media.audio, {
       enabled: true,
