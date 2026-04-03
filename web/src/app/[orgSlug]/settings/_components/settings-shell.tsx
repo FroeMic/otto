@@ -23,15 +23,16 @@ type SettingsShellProps = {
   };
 };
 
-function useSettingsPageLabel(orgSlug: string) {
+function useSettingsBreadcrumb(orgSlug: string, orgName: string) {
   const pathname = usePathname();
   const settingsPath = pathname.replace(`/${orgSlug}/settings`, "");
 
-  if (settingsPath.startsWith("/user")) return "Account";
-  if (settingsPath.startsWith("/workspace/members")) return "Members";
-  if (settingsPath.startsWith("/workspace")) return "General";
+  if (settingsPath.startsWith("/user")) return ["Account"];
+  if (settingsPath.startsWith("/workspace/members"))
+    return [orgName, "Members"];
+  if (settingsPath.startsWith("/workspace")) return [orgName, "General"];
 
-  return "Settings";
+  return ["Settings"];
 }
 
 export function SettingsShell({
@@ -39,7 +40,10 @@ export function SettingsShell({
   currentOrganization,
   user,
 }: SettingsShellProps) {
-  const pageLabel = useSettingsPageLabel(currentOrganization.slug);
+  const breadcrumb = useSettingsBreadcrumb(
+    currentOrganization.slug,
+    currentOrganization.name,
+  );
 
   return (
     <SidebarProvider>
@@ -53,13 +57,19 @@ export function SettingsShell({
           />
           <div className="min-w-0 text-sm">
             <span className="font-medium">Settings</span>
-            <span className="mx-2 text-muted-foreground">/</span>
-            <span className="truncate text-muted-foreground">
-              {pageLabel}
-            </span>
+            {breadcrumb.map((segment, i) => (
+              <span key={i}>
+                <span className="mx-2 text-muted-foreground">/</span>
+                <span className="truncate text-muted-foreground">
+                  {segment}
+                </span>
+              </span>
+            ))}
           </div>
         </header>
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
+        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
