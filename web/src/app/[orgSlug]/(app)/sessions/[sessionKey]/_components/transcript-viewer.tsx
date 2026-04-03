@@ -6,7 +6,6 @@ import Link from "next/link";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
 import {
-  Message,
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
@@ -15,6 +14,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -59,6 +59,18 @@ type Session = {
   lastSyncedAt: Date;
 };
 
+type TurnKind = "assistant" | "current_user" | "other_user";
+
+type MessageGroup = {
+  id: string;
+  kind: TurnKind;
+  senderName: string | null;
+  senderId: string | null;
+  firstTimestamp: number | null;
+  model: string | null;
+  messages: ParsedMessage[];
+};
+
 // ---------------------------------------------------------------------------
 // Slack mention resolution context
 // ---------------------------------------------------------------------------
@@ -71,35 +83,93 @@ function useResolveText() {
   return useContext(ResolveTextContext);
 }
 
-/**
- * Resolve Slack-style mention tags in text:
- *   <@U0AL9B039A7> → @displayName
- *   <#C0AKY040D3M> → #channel-name
- *   <#C0AKY040D3M|channel-name> → #channel-name
- */
 function buildResolveText(
   memberNames: Record<string, string>,
   channelNames: Record<string, string>,
 ): ResolveTextFn {
   return (text: string) => {
     return text
-      // User mentions: <@U0AL9B039A7> or <@U0AL9B039A7|display_name>
       .replace(/<@([A-Z0-9]+)(?:\|([^>]*))?>/gi, (_match, id, fallback) => {
         const name =
-          memberNames[id] ??
-          memberNames[id?.toUpperCase()] ??
-          fallback;
+          memberNames[id] ?? memberNames[id?.toUpperCase()] ?? fallback;
         return name ? `@${name}` : `@${id}`;
       })
-      // Channel mentions: <#C0AKY040D3M> or <#C0AKY040D3M|channel-name>
       .replace(/<#([A-Z0-9]+)(?:\|([^>]*))?>/gi, (_match, id, fallback) => {
         const name =
-          channelNames[id] ??
-          channelNames[id?.toUpperCase()] ??
-          fallback;
+          channelNames[id] ?? channelNames[id?.toUpperCase()] ?? fallback;
         return name ? `#${name}` : `#${id}`;
       });
   };
+}
+
+// ---------------------------------------------------------------------------
+// Grouping: merge consecutive messages from the same sender into turns
+// ---------------------------------------------------------------------------
+
+function groupMessagesIntoTurns(
+  messages: ParsedMessage[],
+  currentUserIdSet: Set<string>,
+): (MessageGroup | { kind: "compaction"; msg: ParsedMessage })[] {
+  const groups: (MessageGroup | { kind: "compaction"; msg: ParsedMessage })[] =
+    [];
+  let currentGroup: MessageGroup | null = null;
+
+  for (const msg of messages) {
+    if (msg.kind === "compaction") {
+      if (currentGroup) {
+        groups.push(currentGroup);
+        currentGroup = null;
+      }
+      groups.push({ kind: "compaction", msg });
+      continue;
+    }
+
+    const turnKind: TurnKind =
+      msg.kind === "assistant" || msg.kind === "tool_result"
+        ? "assistant"
+        : msg.senderId && currentUserIdSet.has(msg.senderId)
+          ? "current_user"
+          : "other_user";
+
+    const turnKey =
+      turnKind === "assistant"
+        ? "assistant"
+        : msg.senderId ?? msg.senderName ?? "unknown";
+
+    const matchesCurrent =
+      currentGroup &&
+      ((currentGroup.kind === "assistant" && turnKind === "assistant") ||
+        (currentGroup.kind !== "assistant" &&
+          turnKind !== "assistant" &&
+          currentGroup.senderId === msg.senderId &&
+          currentGroup.senderId !== null));
+
+    if (matchesCurrent && currentGroup) {
+      currentGroup.messages.push(msg);
+      if (!currentGroup.model && msg.model) {
+        currentGroup.model = msg.model;
+      }
+    } else {
+      if (currentGroup) {
+        groups.push(currentGroup);
+      }
+      currentGroup = {
+        id: `turn-${groups.length}-${turnKey}`,
+        kind: turnKind,
+        senderName: turnKind === "assistant" ? "Otto" : msg.senderName,
+        senderId: msg.senderId,
+        firstTimestamp: msg.timestamp,
+        model: msg.model,
+        messages: [msg],
+      };
+    }
+  }
+
+  if (currentGroup) {
+    groups.push(currentGroup);
+  }
+
+  return groups;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,93 +222,185 @@ function formatTimestamp(ts: number | null): string {
 }
 
 // ---------------------------------------------------------------------------
-// Message renderers
+// Avatar
 // ---------------------------------------------------------------------------
 
-function UserMessageBubble({
-  msg,
-  isCurrentUser,
+const AVATAR_COLORS = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-violet-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-cyan-500",
+  "bg-pink-500",
+  "bg-teal-500",
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function SenderAvatar({
+  name,
+  isOtto,
 }: {
-  msg: ParsedMessage;
-  isCurrentUser: boolean;
+  name: string | null;
+  isOtto?: boolean;
 }) {
-  const resolveText = useResolveText();
-  const textBlock = msg.blocks.find((b) => b.type === "text");
+  const initial = (name ?? "?").charAt(0).toUpperCase();
+  const color = isOtto ? "bg-primary" : getAvatarColor(name ?? "?");
 
   return (
-    <Message from={isCurrentUser ? "user" : "assistant"}>
-      <div
-        className={cn(
-          "flex items-center gap-2",
-          isCurrentUser ? "justify-end" : "justify-start",
-        )}
+    <Avatar className="size-7">
+      <AvatarFallback
+        className={cn("text-xs font-medium text-white", color)}
       >
-        {msg.senderName ? (
-          <span className="text-xs font-medium text-foreground/70">
-            {resolveText(msg.senderName)}
-          </span>
-        ) : null}
-        {msg.timestamp ? (
-          <span className="text-xs text-muted-foreground">
-            {formatTimestamp(msg.timestamp)}
-          </span>
-        ) : null}
-      </div>
-      <MessageContent>
-        {textBlock?.type === "text" ? (
-          <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
-        ) : null}
-      </MessageContent>
-    </Message>
+        {initial}
+      </AvatarFallback>
+    </Avatar>
   );
 }
 
-function AssistantMessageBubble({ msg }: { msg: ParsedMessage }) {
+// ---------------------------------------------------------------------------
+// Turn renderers
+// ---------------------------------------------------------------------------
+
+function TurnHeader({
+  group,
+}: {
+  group: MessageGroup;
+}) {
   const resolveText = useResolveText();
-  const thinkingBlocks = msg.blocks.filter(
-    (b): b is ParsedContentBlock & { type: "thinking" } =>
-      b.type === "thinking",
+  const name = group.senderName
+    ? resolveText(group.senderName)
+    : group.kind === "assistant"
+      ? "Otto"
+      : "User";
+  const ts = formatTimestamp(group.firstTimestamp);
+
+  if (group.kind === "current_user") {
+    // Right-aligned: Name timestamp (avatar)
+    return (
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-xs font-medium text-foreground/70">{name}</span>
+        {ts ? (
+          <span className="text-xs text-muted-foreground">{ts}</span>
+        ) : null}
+        <SenderAvatar name={name} />
+      </div>
+    );
+  }
+
+  // Left-aligned: (avatar) Name [model badge] timestamp
+  return (
+    <div className="flex items-center gap-2">
+      <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
+      <span className="text-xs font-medium text-foreground/70">{name}</span>
+      {group.kind === "assistant" && group.model ? (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+          {group.model}
+        </Badge>
+      ) : null}
+      {ts ? (
+        <span className="text-xs text-muted-foreground">{ts}</span>
+      ) : null}
+    </div>
   );
-  const textBlocks = msg.blocks.filter(
-    (b): b is ParsedContentBlock & { type: "text" } => b.type === "text",
-  );
-  const toolCallBlocks = msg.blocks.filter(
-    (b): b is ParsedContentBlock & { type: "tool_call" } =>
-      b.type === "tool_call",
-  );
+}
+
+function AssistantTurnMessages({
+  messages,
+}: {
+  messages: ParsedMessage[];
+}) {
+  const resolveText = useResolveText();
 
   return (
-    <Message from="assistant">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-foreground/70">Otto</span>
-        {msg.model ? (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            {msg.model}
-          </Badge>
-        ) : null}
-        {msg.timestamp ? (
-          <span className="text-xs text-muted-foreground">
-            {formatTimestamp(msg.timestamp)}
-          </span>
-        ) : null}
-      </div>
-      <MessageContent>
-        {thinkingBlocks.map((block, i) => (
-          <Reasoning key={`thinking-${i}`} defaultOpen={false}>
-            <ReasoningTrigger />
-            <ReasoningContent>{block.text}</ReasoningContent>
-          </Reasoning>
-        ))}
-        {textBlocks.map((block, i) => (
-          <MessageResponse key={`text-${i}`}>
-            {resolveText(block.text)}
-          </MessageResponse>
-        ))}
-        {toolCallBlocks.map((block, i) => (
-          <ToolCallBlock key={`tool-${i}`} block={block} />
-        ))}
-      </MessageContent>
-    </Message>
+    <div className="flex flex-col gap-3 pl-9">
+      {messages.map((msg) => {
+        if (msg.kind === "tool_result") {
+          return <ToolResultBlock key={msg.id} msg={msg} />;
+        }
+
+        const thinkingBlocks = msg.blocks.filter(
+          (b): b is ParsedContentBlock & { type: "thinking" } =>
+            b.type === "thinking",
+        );
+        const textBlocks = msg.blocks.filter(
+          (b): b is ParsedContentBlock & { type: "text" } =>
+            b.type === "text",
+        );
+        const toolCallBlocks = msg.blocks.filter(
+          (b): b is ParsedContentBlock & { type: "tool_call" } =>
+            b.type === "tool_call",
+        );
+
+        return (
+          <div key={msg.id} className="flex flex-col gap-2">
+            {thinkingBlocks.map((block, i) => (
+              <Reasoning key={`thinking-${i}`} defaultOpen={false}>
+                <ReasoningTrigger />
+                <ReasoningContent>{block.text}</ReasoningContent>
+              </Reasoning>
+            ))}
+            {textBlocks.map((block, i) => (
+              <div
+                key={`text-${i}`}
+                className="text-sm text-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              >
+                <MessageResponse>{resolveText(block.text)}</MessageResponse>
+              </div>
+            ))}
+            {toolCallBlocks.map((block, i) => (
+              <ToolCallBlock key={`tool-${i}`} block={block} />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function UserTurnMessages({
+  messages,
+  isCurrentUser,
+}: {
+  messages: ParsedMessage[];
+  isCurrentUser: boolean;
+}) {
+  const resolveText = useResolveText();
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1.5",
+        isCurrentUser ? "items-end pl-9" : "items-start pl-9",
+      )}
+    >
+      {messages.map((msg) => {
+        const textBlock = msg.blocks.find((b) => b.type === "text");
+        if (!textBlock || textBlock.type !== "text") return null;
+
+        return (
+          <div
+            key={msg.id}
+            className={cn(
+              "max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm",
+              isCurrentUser
+                ? "bg-secondary text-foreground"
+                : "bg-muted text-foreground",
+            )}
+          >
+            <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -269,7 +431,7 @@ function ToolCallBlock({
   );
 }
 
-function ToolResultBubble({ msg }: { msg: ParsedMessage }) {
+function ToolResultBlock({ msg }: { msg: ParsedMessage }) {
   const resolveText = useResolveText();
   const resultBlock = msg.blocks.find((b) => b.type === "tool_result") as
     | (ParsedContentBlock & { type: "tool_result" })
@@ -278,31 +440,30 @@ function ToolResultBubble({ msg }: { msg: ParsedMessage }) {
   if (!resultBlock) return null;
 
   return (
-    <Message from="assistant">
-      <MessageContent>
-        <Collapsible className="rounded-md border">
-          <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
-            <div className="flex items-center gap-2">
-              <WrenchIcon className="size-3.5 text-muted-foreground" />
-              <span className="font-mono text-xs font-medium">
-                {resultBlock.name ?? "Tool result"}
-              </span>
-              {resultBlock.isError ? (
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                  Error
-                </Badge>
-              ) : null}
-            </div>
-            <ChevronDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="border-t px-3 py-2">
-            <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
-              {resolveText(resultBlock.content)}
-            </pre>
-          </CollapsibleContent>
-        </Collapsible>
-      </MessageContent>
-    </Message>
+    <Collapsible className="rounded-md border">
+      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
+        <div className="flex items-center gap-2">
+          <WrenchIcon className="size-3.5 text-muted-foreground" />
+          <span className="font-mono text-xs font-medium">
+            {resultBlock.name ?? "Tool result"}
+          </span>
+          {resultBlock.isError ? (
+            <Badge
+              variant="destructive"
+              className="text-[10px] px-1.5 py-0"
+            >
+              Error
+            </Badge>
+          ) : null}
+        </div>
+        <ChevronDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t px-3 py-2">
+        <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
+          {resolveText(resultBlock.content)}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -343,6 +504,11 @@ export function TranscriptViewer({
   const currentUserIdSet = useMemo(
     () => new Set(currentUserExternalIds),
     [currentUserExternalIds],
+  );
+
+  const turns = useMemo(
+    () => groupMessagesIntoTurns(messages, currentUserIdSet),
+    [messages, currentUserIdSet],
   );
 
   const resolveText = useCallback(
@@ -409,36 +575,34 @@ export function TranscriptViewer({
               {session.messageCount ?? messages.length} messages
             </p>
           </div>
-          <div className="flex flex-col gap-6 p-5">
-            {messages.length === 0 ? (
+          <div className="flex flex-col gap-5 p-5">
+            {turns.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 No transcript data available.
               </p>
             ) : (
-              messages.map((msg) => {
-                switch (msg.kind) {
-                  case "user": {
-                    const isCurrentUser =
-                      !!msg.senderId && currentUserIdSet.has(msg.senderId);
-                    return (
-                      <UserMessageBubble
-                        key={msg.id}
-                        msg={msg}
-                        isCurrentUser={isCurrentUser}
-                      />
-                    );
-                  }
-                  case "assistant":
-                    return (
-                      <AssistantMessageBubble key={msg.id} msg={msg} />
-                    );
-                  case "tool_result":
-                    return <ToolResultBubble key={msg.id} msg={msg} />;
-                  case "compaction":
-                    return <CompactionDivider key={msg.id} msg={msg} />;
-                  default:
-                    return null;
+              turns.map((turn) => {
+                if (turn.kind === "compaction") {
+                  return (
+                    <CompactionDivider key={turn.msg.id} msg={turn.msg} />
+                  );
                 }
+
+                const group = turn as MessageGroup;
+
+                return (
+                  <div key={group.id} className="flex flex-col gap-2">
+                    <TurnHeader group={group} />
+                    {group.kind === "assistant" ? (
+                      <AssistantTurnMessages messages={group.messages} />
+                    ) : (
+                      <UserTurnMessages
+                        messages={group.messages}
+                        isCurrentUser={group.kind === "current_user"}
+                      />
+                    )}
+                  </div>
+                );
               })
             )}
           </div>
