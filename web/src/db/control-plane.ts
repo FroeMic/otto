@@ -8285,9 +8285,42 @@ export async function getConversationNameMap(input: {
   const map = new Map<string, string>();
   for (const row of rows) {
     if (row.name) {
-      // Store both original case and lowercase for flexible lookup
       map.set(row.externalId, row.name);
       map.set(row.externalId.toLowerCase(), row.name);
+    }
+  }
+  return map;
+}
+
+export async function getMemberNameMap(input: {
+  organizationId: string;
+}): Promise<Map<string, string>> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      externalId: messagingWorkspaceMembers.externalMemberId,
+      displayName: messagingWorkspaceMembers.displayName,
+      fullName: messagingWorkspaceMembers.fullName,
+    })
+    .from(messagingWorkspaceMembers)
+    .innerJoin(
+      messagingWorkspaces,
+      eq(messagingWorkspaceMembers.messagingWorkspaceId, messagingWorkspaces.id),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    const name = row.displayName ?? row.fullName;
+    if (name) {
+      map.set(row.externalId, name);
+      map.set(row.externalId.toLowerCase(), name);
     }
   }
   return map;
