@@ -3277,6 +3277,124 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
   }
 }
 
+export async function syncSlackUsersForTenantIntegration(input: {
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  members: MessagingDirectoryMemberInput[];
+}): Promise<{ synced: number }> {
+  const db = getDb();
+  const now = new Date();
+  let synced = 0;
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const member of input.members) {
+      if (!member.externalMemberId) continue;
+
+      await tx
+        .insert(messagingWorkspaceMembers)
+        .values({
+          avatarUrl: member.avatarUrl,
+          displayName: member.displayName,
+          email: member.email,
+          externalMemberId: member.externalMemberId,
+          fullName: member.fullName,
+          isDeleted: member.isDeleted,
+          lastSyncedAt: now,
+          memberType: member.memberType,
+          messagingWorkspaceId,
+          profileJson: normalizeJsonValue(member.profileJson),
+          username: member.username,
+        })
+        .onConflictDoUpdate({
+          target: [
+            messagingWorkspaceMembers.messagingWorkspaceId,
+            messagingWorkspaceMembers.externalMemberId,
+          ],
+          set: {
+            avatarUrl: member.avatarUrl,
+            displayName: member.displayName,
+            email: member.email,
+            fullName: member.fullName,
+            isDeleted: member.isDeleted,
+            lastSyncedAt: now,
+            memberType: member.memberType,
+            profileJson: normalizeJsonValue(member.profileJson),
+            updatedAt: now,
+            username: member.username,
+          },
+        });
+      synced++;
+    }
+  });
+
+  return { synced };
+}
+
+export async function syncSlackChannelsForTenantIntegration(input: {
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  conversations: MessagingConversationInput[];
+}): Promise<{ synced: number }> {
+  const db = getDb();
+  const now = new Date();
+  let synced = 0;
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const conversation of input.conversations) {
+      if (!conversation.externalConversationId) continue;
+
+      await tx
+        .insert(messagingConversations)
+        .values({
+          conversationType: conversation.conversationType,
+          externalConversationId: conversation.externalConversationId,
+          isArchived: conversation.isArchived,
+          lastSyncedAt: now,
+          messagingWorkspaceId,
+          metadataJson: normalizeJsonValue(conversation.metadataJson),
+          name: conversation.name,
+          purpose: conversation.purpose,
+          topic: conversation.topic,
+        })
+        .onConflictDoUpdate({
+          target: [
+            messagingConversations.messagingWorkspaceId,
+            messagingConversations.externalConversationId,
+          ],
+          set: {
+            conversationType: conversation.conversationType,
+            isArchived: conversation.isArchived,
+            lastSyncedAt: now,
+            metadataJson: normalizeJsonValue(conversation.metadataJson),
+            name: conversation.name,
+            purpose: conversation.purpose,
+            topic: conversation.topic,
+            updatedAt: now,
+          },
+        });
+      synced++;
+    }
+  });
+
+  return { synced };
+}
+
 export async function recordMessagingWorkspaceSyncFailure(input: {
   error: string;
   externalWorkspaceId: string;
@@ -6977,6 +7095,13 @@ async function getConnectedSlackInstallationForTenant(
   }
 
   return slackInstallation;
+}
+
+export async function getSlackInstallationForTenant(tenantId: string) {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTenant(tx, { tenantId });
+  });
 }
 
 async function refreshTenantSlackDirectoryForTenant(input: {
