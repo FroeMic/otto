@@ -77,6 +77,10 @@
   - the Agent status page now reads the current tenant gateway token server-side from `tenant_runtime_secrets`
   - the Agent status UI now shows the localhost dashboard URL, SSH tunnel command, and masked token reveal/copy controls
   - missing runtime IP or token state now renders as unavailable instead of guessing fallback access details
+- Session-history visibility planning now lives in `TODO_14_session_history_visibility.md`:
+  - Otto should store full session transcripts in the control plane, not just summaries
+  - an Otto-owned runtime plugin should be the primary sync path, using lifecycle hooks plus transcript-update events
+  - a narrow reconciliation job should repair missed updates and stale terminal state, not replace the primary callback model
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -248,6 +252,12 @@
   - adding control-plane tables and loaders for scheduled task definitions and scheduled task sessions
   - adding runtime-authenticated callbacks plus a worker reconciliation job so the control plane stays current without scraping runtime cron state
   - replacing the scheduled-tasks placeholder route with real Tasks and Sessions views
+- When Session History becomes active work, implement `TODO_14_session_history_visibility.md` by:
+  - adding the `tenant_sessions` schema and DB access layer
+  - adding a runtime-authenticated `/api/internal/runtime/sessions/batch` callback route
+  - shipping an `otto-session-reporter` runtime plugin that pushes lifecycle and transcript updates to the workspace app
+  - adding a reconciliation worker job that repairs missed transcript or terminal-state updates
+  - replacing the sessions placeholder route with real history and detail views
 
 ## Open questions
 

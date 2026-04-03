@@ -29,6 +29,7 @@ import {
   tenantRuntimeConfigMutations,
   tenantRuntimeSecrets,
   tenantServers,
+  tenantSessions,
   tenants,
   userPlatformRoles,
   users,
@@ -7667,4 +7668,200 @@ export async function createTenantForOrganization(input: {
       step: "create_server",
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Tenant sessions
+// ---------------------------------------------------------------------------
+
+export type TenantSessionUpsertInput = {
+  sessionKey: string;
+  externalSessionId?: string | null;
+  displayName?: string | null;
+  label?: string | null;
+  subject?: string | null;
+  channel?: string | null;
+  channelProvider?: string | null;
+  chatType?: string | null;
+  originFrom?: string | null;
+  originTo?: string | null;
+  originAccountId?: string | null;
+  originThreadId?: string | null;
+  status: string;
+  startedAt?: number | null;
+  endedAt?: number | null;
+  runtimeMs?: number | null;
+  model?: string | null;
+  modelProvider?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  cacheReadTokens?: number | null;
+  cacheWriteTokens?: number | null;
+  totalTokens?: number | null;
+  estimatedCostUsd?: string | null;
+  transcriptJsonl?: string | null;
+  transcriptHash?: string | null;
+  messageCount?: number | null;
+  parentSessionKey?: string | null;
+  spawnDepth?: number | null;
+  subagentRole?: string | null;
+  sessionUpdatedAt?: number | null;
+  syncSource: string;
+};
+
+export async function upsertTenantSessionBatch(
+  tenantId: string,
+  sessions: TenantSessionUpsertInput[],
+) {
+  if (sessions.length === 0) return;
+
+  const db = getDb();
+  const now = new Date();
+
+  for (const session of sessions) {
+    await db
+      .insert(tenantSessions)
+      .values({
+        tenantId,
+        sessionKey: session.sessionKey,
+        externalSessionId: session.externalSessionId ?? null,
+        displayName: session.displayName ?? null,
+        label: session.label ?? null,
+        subject: session.subject ?? null,
+        channel: session.channel ?? null,
+        channelProvider: session.channelProvider ?? null,
+        chatType: session.chatType ?? null,
+        originFrom: session.originFrom ?? null,
+        originTo: session.originTo ?? null,
+        originAccountId: session.originAccountId ?? null,
+        originThreadId: session.originThreadId ?? null,
+        status: session.status,
+        startedAt: session.startedAt ? new Date(session.startedAt) : null,
+        endedAt: session.endedAt ? new Date(session.endedAt) : null,
+        runtimeMs: session.runtimeMs ?? null,
+        model: session.model ?? null,
+        modelProvider: session.modelProvider ?? null,
+        inputTokens: session.inputTokens ?? null,
+        outputTokens: session.outputTokens ?? null,
+        cacheReadTokens: session.cacheReadTokens ?? null,
+        cacheWriteTokens: session.cacheWriteTokens ?? null,
+        totalTokens: session.totalTokens ?? null,
+        estimatedCostUsd: session.estimatedCostUsd ?? null,
+        transcriptJsonl: session.transcriptJsonl ?? null,
+        transcriptHash: session.transcriptHash ?? null,
+        messageCount: session.messageCount ?? null,
+        parentSessionKey: session.parentSessionKey ?? null,
+        spawnDepth: session.spawnDepth ?? 0,
+        subagentRole: session.subagentRole ?? null,
+        sessionUpdatedAt: session.sessionUpdatedAt ?? null,
+        lastSyncedAt: now,
+        lastSyncError: null,
+        syncSource: session.syncSource,
+      })
+      .onConflictDoUpdate({
+        target: [tenantSessions.tenantId, tenantSessions.sessionKey],
+        set: {
+          externalSessionId: session.externalSessionId ?? undefined,
+          displayName: session.displayName ?? undefined,
+          label: session.label ?? undefined,
+          subject: session.subject ?? undefined,
+          channel: session.channel ?? undefined,
+          channelProvider: session.channelProvider ?? undefined,
+          chatType: session.chatType ?? undefined,
+          originFrom: session.originFrom ?? undefined,
+          originTo: session.originTo ?? undefined,
+          originAccountId: session.originAccountId ?? undefined,
+          originThreadId: session.originThreadId ?? undefined,
+          status: session.status,
+          startedAt: session.startedAt ? new Date(session.startedAt) : undefined,
+          endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
+          runtimeMs: session.runtimeMs ?? undefined,
+          model: session.model ?? undefined,
+          modelProvider: session.modelProvider ?? undefined,
+          inputTokens: session.inputTokens ?? undefined,
+          outputTokens: session.outputTokens ?? undefined,
+          cacheReadTokens: session.cacheReadTokens ?? undefined,
+          cacheWriteTokens: session.cacheWriteTokens ?? undefined,
+          totalTokens: session.totalTokens ?? undefined,
+          estimatedCostUsd: session.estimatedCostUsd ?? undefined,
+          transcriptJsonl: session.transcriptJsonl ?? undefined,
+          transcriptHash: session.transcriptHash ?? undefined,
+          messageCount: session.messageCount ?? undefined,
+          parentSessionKey: session.parentSessionKey ?? undefined,
+          spawnDepth: session.spawnDepth ?? undefined,
+          subagentRole: session.subagentRole ?? undefined,
+          sessionUpdatedAt: session.sessionUpdatedAt ?? undefined,
+          lastSyncedAt: now,
+          lastSyncError: null,
+          syncSource: session.syncSource,
+          updatedAt: now,
+        },
+      });
+  }
+}
+
+export async function listTenantSessions(input: {
+  tenantId: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = getDb();
+  const limit = input.limit ?? 100;
+  const offset = input.offset ?? 0;
+
+  return db
+    .select({
+      id: tenantSessions.id,
+      sessionKey: tenantSessions.sessionKey,
+      externalSessionId: tenantSessions.externalSessionId,
+      displayName: tenantSessions.displayName,
+      label: tenantSessions.label,
+      subject: tenantSessions.subject,
+      channel: tenantSessions.channel,
+      channelProvider: tenantSessions.channelProvider,
+      chatType: tenantSessions.chatType,
+      originFrom: tenantSessions.originFrom,
+      status: tenantSessions.status,
+      startedAt: tenantSessions.startedAt,
+      endedAt: tenantSessions.endedAt,
+      runtimeMs: tenantSessions.runtimeMs,
+      model: tenantSessions.model,
+      modelProvider: tenantSessions.modelProvider,
+      inputTokens: tenantSessions.inputTokens,
+      outputTokens: tenantSessions.outputTokens,
+      totalTokens: tenantSessions.totalTokens,
+      estimatedCostUsd: tenantSessions.estimatedCostUsd,
+      messageCount: tenantSessions.messageCount,
+      parentSessionKey: tenantSessions.parentSessionKey,
+      spawnDepth: tenantSessions.spawnDepth,
+      subagentRole: tenantSessions.subagentRole,
+      sessionUpdatedAt: tenantSessions.sessionUpdatedAt,
+      lastSyncedAt: tenantSessions.lastSyncedAt,
+      createdAt: tenantSessions.createdAt,
+    })
+    .from(tenantSessions)
+    .where(eq(tenantSessions.tenantId, input.tenantId))
+    .orderBy(desc(tenantSessions.sessionUpdatedAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getTenantSession(input: {
+  tenantId: string;
+  sessionKey: string;
+}) {
+  const db = getDb();
+
+  const [session] = await db
+    .select()
+    .from(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, input.tenantId),
+        eq(tenantSessions.sessionKey, input.sessionKey),
+      ),
+    )
+    .limit(1);
+
+  return session ?? null;
 }

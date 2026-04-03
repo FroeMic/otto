@@ -1,8 +1,10 @@
 import {
+  bigint,
   boolean,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -662,6 +664,93 @@ export const tenantApplyRuns = pgTable(
       table.tenantId,
       table.status,
     ),
+  }),
+);
+
+export const tenantSessions = pgTable(
+  "tenant_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    sessionKey: text("session_key").notNull(),
+    externalSessionId: text("external_session_id"),
+
+    // display
+    displayName: text("display_name"),
+    label: text("label"),
+    subject: text("subject"),
+
+    // channel / origin
+    channel: varchar("channel", { length: 64 }),
+    channelProvider: varchar("channel_provider", { length: 64 }),
+    chatType: varchar("chat_type", { length: 64 }),
+    originFrom: text("origin_from"),
+    originTo: text("origin_to"),
+    originAccountId: text("origin_account_id"),
+    originThreadId: text("origin_thread_id"),
+
+    // lifecycle
+    status: varchar("status", { length: 64 }).default("active").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    runtimeMs: integer("runtime_ms"),
+
+    // usage
+    model: text("model"),
+    modelProvider: text("model_provider"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    cacheReadTokens: integer("cache_read_tokens"),
+    cacheWriteTokens: integer("cache_write_tokens"),
+    totalTokens: integer("total_tokens"),
+    estimatedCostUsd: numeric("estimated_cost_usd", {
+      precision: 10,
+      scale: 6,
+    }),
+
+    // transcript
+    transcriptJsonl: text("transcript_jsonl"),
+    transcriptHash: varchar("transcript_hash", { length: 64 }),
+    messageCount: integer("message_count"),
+
+    // subagent
+    parentSessionKey: text("parent_session_key"),
+    spawnDepth: integer("spawn_depth").default(0),
+    subagentRole: varchar("subagent_role", { length: 32 }),
+
+    // sync
+    sessionUpdatedAt: bigint("session_updated_at", { mode: "number" }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSyncError: text("last_sync_error"),
+    syncSource: varchar("sync_source", { length: 32 }).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_sessions_tenant_id_idx").on(table.tenantId),
+    tenantSessionKeyUniqueIdx: uniqueIndex(
+      "tenant_sessions_tenant_id_session_key_idx",
+    ).on(table.tenantId, table.sessionKey),
+    tenantStatusIdx: index("tenant_sessions_tenant_id_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
+    tenantChannelIdx: index("tenant_sessions_tenant_id_channel_idx").on(
+      table.tenantId,
+      table.channel,
+    ),
+    tenantSessionUpdatedAtIdx: index(
+      "tenant_sessions_tenant_id_session_updated_at_idx",
+    ).on(table.tenantId, table.sessionUpdatedAt),
   }),
 );
 

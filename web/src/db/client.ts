@@ -3,14 +3,19 @@ import postgres from "postgres";
 
 import { getEnv } from "@/lib/env";
 
-let client: postgres.Sql | null = null;
+const globalForDb = globalThis as unknown as {
+  __dbClient?: postgres.Sql;
+};
 
-export function getDb() {
-  if (!client) {
-    client = postgres(getEnv().DATABASE_URL, {
+function getClient() {
+  if (!globalForDb.__dbClient) {
+    globalForDb.__dbClient = postgres(getEnv().DATABASE_URL, {
       max: 10,
     });
   }
+  return globalForDb.__dbClient;
+}
 
-  return drizzle(client);
+export function getDb() {
+  return drizzle(getClient());
 }
