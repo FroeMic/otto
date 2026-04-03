@@ -145,6 +145,34 @@ export async function fetchSlackMessagingDirectory(botToken: string) {
   };
 }
 
+export async function fetchSlackUsers(botToken: string) {
+  const users = await fetchAllSlackUsers(botToken);
+  return users.map((user) => ({
+    avatarUrl: user.profile?.image_192 ?? null,
+    displayName: user.profile?.display_name || user.name || null,
+    email: user.profile?.email ?? null,
+    externalMemberId: user.id ?? "",
+    fullName: user.profile?.real_name || user.real_name || null,
+    isDeleted: Boolean(user.deleted),
+    memberType: user.is_bot ? ("bot" as const) : ("user" as const),
+    profileJson: user,
+    username: user.name ?? null,
+  }));
+}
+
+export async function fetchSlackConversations(botToken: string) {
+  const conversations = await fetchAllSlackConversations(botToken);
+  return conversations.map((conversation) => ({
+    conversationType: getSlackConversationType(conversation),
+    externalConversationId: conversation.id ?? "",
+    isArchived: Boolean(conversation.is_archived),
+    metadataJson: conversation,
+    name: conversation.name ?? null,
+    purpose: conversation.purpose?.value ?? null,
+    topic: conversation.topic?.value ?? null,
+  }));
+}
+
 export async function joinSlackChannel(input: {
   botToken: string;
   channelId: string;

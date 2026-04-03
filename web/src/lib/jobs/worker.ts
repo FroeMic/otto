@@ -7,6 +7,10 @@ import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import type { ClaimedJob } from "./types";
 import { JOB_TYPES } from "./types";
 import {
+  processResyncSlackChannelsJob,
+  processResyncSlackUsersJob,
+} from "./slack-sync";
+import {
   processWhatsAppDisconnectJob,
   processWhatsAppLinkSessionJob,
 } from "./whatsapp";
@@ -29,6 +33,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.whatsappDisconnect:
       await processWhatsAppDisconnectJob(job);
+      return;
+    case JOB_TYPES.resyncSlackUsers:
+      await processResyncSlackUsersJob(job);
+      return;
+    case JOB_TYPES.resyncSlackChannels:
+      await processResyncSlackChannelsJob(job);
       return;
     default:
       await markJobFailed(job.id, `Unsupported job type: ${job.jobType}`);

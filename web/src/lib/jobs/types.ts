@@ -4,6 +4,8 @@ export const JOB_TYPES = {
   refreshRuntimeImage: "refresh_runtime_image",
   whatsappLinkSession: "whatsapp_link_session",
   whatsappDisconnect: "whatsapp_disconnect",
+  resyncSlackUsers: "resync_slack_users",
+  resyncSlackChannels: "resync_slack_channels",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -72,6 +74,14 @@ export type WhatsAppDisconnectPayload = {
   tenantId: string;
 };
 
+export type ResyncSlackUsersPayload = {
+  tenantId: string;
+};
+
+export type ResyncSlackChannelsPayload = {
+  tenantId: string;
+};
+
 export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
@@ -92,6 +102,14 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.whatsappDisconnect;
       payload: WhatsAppDisconnectPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.resyncSlackUsers;
+      payload: ResyncSlackUsersPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.resyncSlackChannels;
+      payload: ResyncSlackChannelsPayload;
     };
 
 export type ClaimedJob = {
