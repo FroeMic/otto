@@ -20,17 +20,30 @@ export default definePluginEntry({
     },
   },
   register(api) {
+    logPluginInfo("register() called — setting up hooks");
+
     const pendingFlush = new Map();
 
     api.registerHook(
       "session_start",
       async (event, ctx) => {
-        await syncSession(api, {
-          sessionKey: ctx.sessionKey ?? event.sessionId,
-          externalSessionId: event.sessionId,
-          status: "running",
-          sessionUpdatedAt: Date.now(),
+        logPluginInfo("session_start hook fired", {
+          sessionId: event.sessionId,
+          sessionKey: ctx.sessionKey,
+          agentId: ctx.agentId,
         });
+        try {
+          await syncSession(api, {
+            sessionKey: ctx.sessionKey ?? event.sessionId,
+            externalSessionId: event.sessionId,
+            status: "running",
+            sessionUpdatedAt: Date.now(),
+          });
+        } catch (error) {
+          logPluginError("session_start handler threw", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       },
       { name: "otto-session-reporter:session_start" },
     );
@@ -38,20 +51,38 @@ export default definePluginEntry({
     api.registerHook(
       "session_end",
       async (event, ctx) => {
-        clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
-
-        const sessionKey = ctx.sessionKey ?? event.sessionId;
-        const transcript = await readTranscript(api, ctx.agentId, sessionKey);
-
-        await syncSession(api, {
-          sessionKey,
-          externalSessionId: event.sessionId,
-          status: "done",
-          runtimeMs: event.durationMs ?? null,
+        logPluginInfo("session_end hook fired", {
+          sessionId: event.sessionId,
+          sessionKey: ctx.sessionKey,
+          agentId: ctx.agentId,
           messageCount: event.messageCount,
-          sessionUpdatedAt: Date.now(),
-          ...(transcript ?? {}),
+          durationMs: event.durationMs,
         });
+        try {
+          clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
+
+          const sessionKey = ctx.sessionKey ?? event.sessionId;
+          const transcript = await readTranscript(api, ctx.agentId, sessionKey);
+          logPluginInfo("session_end transcript read", {
+            sessionKey,
+            hasTranscript: !!transcript,
+            transcriptSize: transcript?.transcriptJsonl?.length ?? 0,
+          });
+
+          await syncSession(api, {
+            sessionKey,
+            externalSessionId: event.sessionId,
+            status: "done",
+            runtimeMs: event.durationMs ?? null,
+            messageCount: event.messageCount,
+            sessionUpdatedAt: Date.now(),
+            ...(transcript ?? {}),
+          });
+        } catch (error) {
+          logPluginError("session_end handler threw", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       },
       { name: "otto-session-reporter:session_end" },
     );
@@ -59,8 +90,15 @@ export default definePluginEntry({
     api.registerHook(
       "message_sent",
       (_event, ctx) => {
+        logPluginInfo("message_sent hook fired", {
+          channelId: ctx.channelId,
+          accountId: ctx.accountId,
+        });
         const sessionKey = ctx.channelId;
-        if (!sessionKey) return;
+        if (!sessionKey) {
+          logPluginInfo("message_sent: no channelId, skipping");
+          return;
+        }
 
         debouncedSync(api, pendingFlush, sessionKey);
       },
@@ -70,13 +108,22 @@ export default definePluginEntry({
     api.registerHook(
       "message_received",
       (_event, ctx) => {
+        logPluginInfo("message_received hook fired", {
+          channelId: ctx.channelId,
+          accountId: ctx.accountId,
+        });
         const sessionKey = ctx.channelId;
-        if (!sessionKey) return;
+        if (!sessionKey) {
+          logPluginInfo("message_received: no channelId, skipping");
+          return;
+        }
 
         debouncedSync(api, pendingFlush, sessionKey);
       },
       { name: "otto-session-reporter:message_received" },
     );
+
+    logPluginInfo("register() complete — all hooks registered");
   },
 });
 
@@ -88,17 +135,26 @@ function debouncedSync(api, pendingFlush, sessionKey) {
   clearDebounce(pendingFlush, sessionKey);
 
   const debounceMs = resolveDebounceMs(api);
+  logPluginInfo("debouncedSync scheduled", { sessionKey, debounceMs });
   const timer = setTimeout(async () => {
     pendingFlush.delete(sessionKey);
+    logPluginInfo("debouncedSync executing", { sessionKey });
     try {
       const entry = await loadSessionEntry(api, sessionKey);
-      if (!entry) return;
+      if (!entry) {
+        logPluginInfo("debouncedSync: no session entry found", { sessionKey });
+        return;
+      }
 
       const transcript = await readTranscript(
         api,
         undefined,
         sessionKey,
       );
+      logPluginInfo("debouncedSync transcript read", {
+        sessionKey,
+        hasTranscript: !!transcript,
+      });
 
       await syncSession(api, {
         sessionKey,
@@ -139,7 +195,10 @@ function debouncedSync(api, pendingFlush, sessionKey) {
         ...(transcript ?? {}),
       });
     } catch (error) {
-      logPluginError("Debounced sync failed", { sessionKey, error });
+      logPluginError("Debounced sync failed", {
+        sessionKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }, debounceMs);
 
@@ -164,7 +223,11 @@ async function loadSessionEntry(api, sessionKey) {
     const store = await api.runtime.agent.session.loadSessionStore(storePath);
     const normalized = sessionKey.trim().toLowerCase();
     return store[normalized] ?? null;
-  } catch {
+  } catch (error) {
+    logPluginError("loadSessionEntry failed", {
+      sessionKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -175,6 +238,7 @@ async function readTranscript(api, agentId, sessionKey) {
       sessionKey,
       agentId,
     );
+    logPluginInfo("readTranscript resolvedPath", { sessionKey, agentId, filePath });
     if (!filePath) return null;
 
     const content = await readFile(filePath, "utf-8");
@@ -188,7 +252,12 @@ async function readTranscript(api, agentId, sessionKey) {
       transcriptHash: hash,
       messageCount,
     };
-  } catch {
+  } catch (error) {
+    logPluginError("readTranscript failed", {
+      sessionKey,
+      agentId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
 }
@@ -198,6 +267,12 @@ async function readTranscript(api, agentId, sessionKey) {
 // ---------------------------------------------------------------------------
 
 async function syncSession(api, sessionData) {
+  logPluginInfo("syncSession called", {
+    sessionKey: sessionData.sessionKey,
+    status: sessionData.status,
+    hasTranscript: !!sessionData.transcriptJsonl,
+  });
+
   const response = await requestControlPlane(api, {
     method: "POST",
     path: "/api/internal/runtime/sessions/sync",
@@ -210,7 +285,14 @@ async function syncSession(api, sessionData) {
     logPluginError("Session sync failed", {
       sessionKey: sessionData.sessionKey,
       error: response.error,
+      code: response.code,
       status: response.status,
+    });
+  } else {
+    logPluginInfo("Session synced OK", {
+      sessionKey: sessionData.sessionKey,
+      status: sessionData.status,
+      httpStatus: response.status,
     });
   }
 }
@@ -343,9 +425,17 @@ async function parseJsonResponse(response) {
   return await response.json();
 }
 
+function logPluginInfo(message, details) {
+  try {
+    console.log(`[otto-session-reporter] ${message}`, details ?? "");
+  } catch {
+    // Ignore logging failures inside the plugin runtime.
+  }
+}
+
 function logPluginError(message, details) {
   try {
-    console.error(`[otto-session-reporter] ${message}`, details);
+    console.error(`[otto-session-reporter] ${message}`, details ?? "");
   } catch {
     // Ignore logging failures inside the plugin runtime.
   }
