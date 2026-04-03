@@ -352,21 +352,9 @@ export function WebSearchToolPage({
                   <AlertTitle>Web search is unavailable</AlertTitle>
                   <AlertDescription>{surface.blockingReason}</AlertDescription>
                 </Alert>
-              ) : (
-                <Alert>
-                  <AlertTitle>Web search is available</AlertTitle>
-                  <AlertDescription>
-                    Otto can use the configured provider whenever current web
-                    information is needed.
-                  </AlertDescription>
-                </Alert>
-              )}
+              ) : null}
 
               <SettingsSection>
-                <SettingsSectionTitle>Status</SettingsSectionTitle>
-                <SettingsSectionDescription>
-                  Current web search readiness for this workspace.
-                </SettingsSectionDescription>
                 <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
