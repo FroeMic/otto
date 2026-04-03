@@ -8130,3 +8130,40 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
 
   return { resolved, skipped };
 }
+
+// ---------------------------------------------------------------------------
+// Messaging conversation name lookup
+// ---------------------------------------------------------------------------
+
+export async function getConversationNameMap(input: {
+  organizationId: string;
+}): Promise<Map<string, string>> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      externalId: messagingConversations.externalConversationId,
+      name: messagingConversations.name,
+    })
+    .from(messagingConversations)
+    .innerJoin(
+      messagingWorkspaces,
+      eq(messagingConversations.messagingWorkspaceId, messagingWorkspaces.id),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.name) {
+      // Store both original case and lowercase for flexible lookup
+      map.set(row.externalId, row.name);
+      map.set(row.externalId.toLowerCase(), row.name);
+    }
+  }
+  return map;
+}
