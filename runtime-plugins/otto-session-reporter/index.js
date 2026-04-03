@@ -22,45 +22,61 @@ export default definePluginEntry({
   register(api) {
     const pendingFlush = new Map();
 
-    api.registerHook("session_start", async (event, ctx) => {
-      await syncSession(api, {
-        sessionKey: ctx.sessionKey ?? event.sessionId,
-        externalSessionId: event.sessionId,
-        status: "running",
-        sessionUpdatedAt: Date.now(),
-      });
-    });
+    api.registerHook(
+      "session_start",
+      async (event, ctx) => {
+        await syncSession(api, {
+          sessionKey: ctx.sessionKey ?? event.sessionId,
+          externalSessionId: event.sessionId,
+          status: "running",
+          sessionUpdatedAt: Date.now(),
+        });
+      },
+      { name: "otto-session-reporter:session_start" },
+    );
 
-    api.registerHook("session_end", async (event, ctx) => {
-      clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
+    api.registerHook(
+      "session_end",
+      async (event, ctx) => {
+        clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
 
-      const sessionKey = ctx.sessionKey ?? event.sessionId;
-      const transcript = await readTranscript(api, ctx.agentId, sessionKey);
+        const sessionKey = ctx.sessionKey ?? event.sessionId;
+        const transcript = await readTranscript(api, ctx.agentId, sessionKey);
 
-      await syncSession(api, {
-        sessionKey,
-        externalSessionId: event.sessionId,
-        status: "done",
-        runtimeMs: event.durationMs ?? null,
-        messageCount: event.messageCount,
-        sessionUpdatedAt: Date.now(),
-        ...(transcript ?? {}),
-      });
-    });
+        await syncSession(api, {
+          sessionKey,
+          externalSessionId: event.sessionId,
+          status: "done",
+          runtimeMs: event.durationMs ?? null,
+          messageCount: event.messageCount,
+          sessionUpdatedAt: Date.now(),
+          ...(transcript ?? {}),
+        });
+      },
+      { name: "otto-session-reporter:session_end" },
+    );
 
-    api.registerHook("message_sent", (_event, ctx) => {
-      const sessionKey = ctx.channelId;
-      if (!sessionKey) return;
+    api.registerHook(
+      "message_sent",
+      (_event, ctx) => {
+        const sessionKey = ctx.channelId;
+        if (!sessionKey) return;
 
-      debouncedSync(api, pendingFlush, sessionKey);
-    });
+        debouncedSync(api, pendingFlush, sessionKey);
+      },
+      { name: "otto-session-reporter:message_sent" },
+    );
 
-    api.registerHook("message_received", (_event, ctx) => {
-      const sessionKey = ctx.channelId;
-      if (!sessionKey) return;
+    api.registerHook(
+      "message_received",
+      (_event, ctx) => {
+        const sessionKey = ctx.channelId;
+        if (!sessionKey) return;
 
-      debouncedSync(api, pendingFlush, sessionKey);
-    });
+        debouncedSync(api, pendingFlush, sessionKey);
+      },
+      { name: "otto-session-reporter:message_received" },
+    );
   },
 });
 
