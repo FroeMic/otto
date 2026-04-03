@@ -88,7 +88,7 @@
   - slug-scoped pages now exist for Agent, Integrations, Slack integration detail, Skills, Scheduled Tasks, Settings, and Onboarding
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
-  - workspace settings now includes a WorkOS-backed members page with searchable member/invitation rows, CSV export, and admin invite actions
+  - workspace settings now includes a WorkOS-backed members page with searchable member/invitation rows, dynamic WorkOS role management, and admin invite/lifecycle actions
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
 - A platform-admin extension of the app shell is now implemented on `codex/platform-admin-main`:
@@ -178,6 +178,10 @@
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:refresh-image -- <org-slug>` forces a ready tenant runtime to pull `RUNTIME_OPENCLAW_IMAGE` and recreate `openclaw-gateway` without requiring UI-driven config changes
+- The workspace members page now uses WorkOS organization roles dynamically instead of a fixed access display:
+  - invite dialogs accept multiple comma/newline-separated emails plus an explicit WorkOS role
+  - pending invites appear in the table immediately after send
+  - row actions now support role changes, suspend/reactivate, and invitation resend/revoke flows
 
 ## Current product target
 

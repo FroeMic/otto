@@ -3,6 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type {
   Invitation,
   OrganizationMembership,
+  Role,
   User,
 } from "@workos-inc/node";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
@@ -501,20 +502,37 @@ export type PlatformTenantTarget = {
 
 export type WorkspaceMemberDirectoryEntry = {
   avatarUrl: string | null;
+  canManageRole: boolean;
+  canReactivate: boolean;
+  canResendInvitation: boolean;
+  canRevokeInvitation: boolean;
+  canSuspend: boolean;
   email: string;
   id: string;
+  invitationId: string | null;
+  isCurrentUser: boolean;
   joinedAt: Date | null;
   lastSeenAt: Date | null;
+  membershipId: string | null;
   name: string;
   role: string | null;
+  roleName: string | null;
   rowType: "invitation" | "member";
   searchText: string;
   status: string;
   subtitle: string | null;
 };
 
+export type WorkspaceMemberRoleOption = {
+  description: string | null;
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type WorkspaceMemberDirectory = {
   activeMemberCount: number;
+  availableRoles: WorkspaceMemberRoleOption[];
   canManageMembers: boolean;
   entries: WorkspaceMemberDirectoryEntry[];
   invitationCount: number;
@@ -1117,7 +1135,8 @@ async function getDashboardOrganizationRows(userExternalId: string) {
 }
 
 type AuthorizedWorkspaceMembershipContext = {
-  localRole: string;
+  currentMembershipId: string;
+  currentRoleSlug: string;
   organizationExternalId: string;
   organizationId: string;
   organizationName: string;
@@ -1131,6 +1150,7 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
   const db = getDb();
   const [authorizedMembership] = await db
     .select({
+      localMembershipId: memberships.id,
       localRole: memberships.role,
       organizationExternalId: organizations.externalId,
       organizationId: organizations.id,
@@ -1167,6 +1187,15 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
     throw new Error("You do not have access to this organization");
   }
 
+  if (authorizedMembership.localRole !== activeMembership.role.slug) {
+    await db
+      .update(memberships)
+      .set({
+        role: activeMembership.role.slug,
+      })
+      .where(eq(memberships.id, authorizedMembership.localMembershipId));
+  }
+
   if (
     activeMembership.organizationName &&
     activeMembership.organizationName !== authorizedMembership.organizationName
@@ -1178,18 +1207,26 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
         updatedAt: new Date(),
       })
       .where(eq(organizations.id, authorizedMembership.organizationId));
-
-    return {
-      ...authorizedMembership,
-      organizationName: activeMembership.organizationName,
-    };
   }
 
-  return authorizedMembership;
+  return {
+    currentMembershipId: activeMembership.id,
+    currentRoleSlug: activeMembership.role.slug,
+    organizationExternalId: authorizedMembership.organizationExternalId,
+    organizationId: authorizedMembership.organizationId,
+    organizationName:
+      activeMembership.organizationName ??
+      authorizedMembership.organizationName,
+    organizationSlug: authorizedMembership.organizationSlug,
+  };
 }
 
 function canManageWorkspaceMembers(role: string) {
   return role === "admin" || role === "owner";
+}
+
+function isWorkspaceAdminRoleSlug(roleSlug: string | null | undefined) {
+  return roleSlug === "admin" || roleSlug === "owner";
 }
 
 function parseWorkOsTimestamp(value: string | null | undefined) {
@@ -1205,18 +1242,49 @@ function parseWorkOsTimestamp(value: string | null | undefined) {
 function buildWorkspaceMemberSearchText(input: {
   email: string;
   name: string;
+  roleName: string | null;
   role: string | null;
   status: string;
   subtitle: string | null;
 }) {
-  return [input.name, input.email, input.subtitle, input.role, input.status]
+  return [
+    input.name,
+    input.email,
+    input.subtitle,
+    input.role,
+    input.roleName,
+    input.status,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 }
 
+function buildWorkspaceRoleOption(role: Role): WorkspaceMemberRoleOption {
+  return {
+    description: role.description,
+    id: role.id,
+    name: role.name,
+    slug: role.slug,
+  };
+}
+
+function buildFallbackWorkspaceRoleOption(roleSlug: string) {
+  return {
+    description: null,
+    id: roleSlug,
+    name: roleSlug,
+    slug: roleSlug,
+  } satisfies WorkspaceMemberRoleOption;
+}
+
 function buildWorkspaceMemberEntry(input: {
+  canManageRole: boolean;
+  canReactivate: boolean;
+  canSuspend: boolean;
+  isCurrentUser: boolean;
   membership: OrganizationMembership;
+  roleName: string | null;
   user: User | null;
 }): WorkspaceMemberDirectoryEntry {
   const fullName = [input.user?.firstName, input.user?.lastName]
@@ -1236,16 +1304,26 @@ function buildWorkspaceMemberEntry(input: {
 
   return {
     avatarUrl: input.user?.profilePictureUrl ?? null,
+    canManageRole: input.canManageRole,
+    canReactivate: input.canReactivate,
+    canResendInvitation: false,
+    canRevokeInvitation: false,
+    canSuspend: input.canSuspend,
     email,
     id: input.membership.id,
+    invitationId: null,
+    isCurrentUser: input.isCurrentUser,
     joinedAt: parseWorkOsTimestamp(input.membership.createdAt),
     lastSeenAt: parseWorkOsTimestamp(input.user?.lastSignInAt),
+    membershipId: input.membership.id,
     name,
     role: input.membership.role.slug,
+    roleName: input.roleName,
     rowType: "member",
     searchText: buildWorkspaceMemberSearchText({
       email,
       name,
+      roleName: input.roleName,
       role: input.membership.role.slug,
       status: input.membership.status,
       subtitle,
@@ -1255,33 +1333,47 @@ function buildWorkspaceMemberEntry(input: {
   };
 }
 
-function buildWorkspaceInvitationEntry(
-  invitation: Invitation,
-): WorkspaceMemberDirectoryEntry {
+function buildWorkspaceInvitationEntry(input: {
+  canResendInvitation: boolean;
+  canRevokeInvitation: boolean;
+  invitation: Invitation;
+  membershipId?: string | null;
+  role: WorkspaceMemberRoleOption | null;
+}): WorkspaceMemberDirectoryEntry {
   const subtitle =
-    invitation.state === "pending"
+    input.invitation.state === "pending"
       ? "Invitation pending"
-      : invitation.state === "expired"
+      : input.invitation.state === "expired"
         ? "Invitation expired"
         : "Invitation revoked";
 
   return {
     avatarUrl: null,
-    email: invitation.email,
-    id: invitation.id,
-    joinedAt: parseWorkOsTimestamp(invitation.createdAt),
+    canManageRole: false,
+    canReactivate: false,
+    canResendInvitation: input.canResendInvitation,
+    canRevokeInvitation: input.canRevokeInvitation,
+    canSuspend: false,
+    email: input.invitation.email,
+    id: input.invitation.id,
+    invitationId: input.invitation.id,
+    isCurrentUser: false,
+    joinedAt: parseWorkOsTimestamp(input.invitation.createdAt),
     lastSeenAt: null,
-    name: invitation.email,
-    role: null,
+    membershipId: input.membershipId ?? null,
+    name: input.invitation.email,
+    role: input.role?.slug ?? null,
+    roleName: input.role?.name ?? null,
     rowType: "invitation",
     searchText: buildWorkspaceMemberSearchText({
-      email: invitation.email,
-      name: invitation.email,
-      role: null,
-      status: invitation.state,
+      email: input.invitation.email,
+      name: input.invitation.email,
+      role: input.role?.slug ?? null,
+      roleName: input.role?.name ?? null,
+      status: input.invitation.state,
       subtitle,
     }),
-    status: invitation.state,
+    status: input.invitation.state,
     subtitle,
   };
 }
@@ -1345,12 +1437,17 @@ async function backfillOrganizationsFromWorkOS(
   );
   const existingMembershipRows = await db
     .select({
+      id: memberships.id,
       organizationId: memberships.organizationId,
+      role: memberships.role,
     })
     .from(memberships)
     .where(eq(memberships.userId, localUser.id));
-  const existingMembershipOrgIds = new Set(
-    existingMembershipRows.map((membership) => membership.organizationId),
+  const existingMembershipsByOrgId = new Map(
+    existingMembershipRows.map((membership) => [
+      membership.organizationId,
+      membership,
+    ]),
   );
 
   for (const membership of activeMemberships) {
@@ -1392,7 +1489,20 @@ async function backfillOrganizationsFromWorkOS(
         .where(eq(organizations.id, localOrganization.id));
     }
 
-    if (existingMembershipOrgIds.has(localOrganization.id)) {
+    const existingMembership = existingMembershipsByOrgId.get(
+      localOrganization.id,
+    );
+
+    if (existingMembership) {
+      if (existingMembership.role !== membership.role.slug) {
+        await db
+          .update(memberships)
+          .set({
+            role: membership.role.slug,
+          })
+          .where(eq(memberships.id, existingMembership.id));
+      }
+
       continue;
     }
 
@@ -1401,8 +1511,192 @@ async function backfillOrganizationsFromWorkOS(
       role: membership.role.slug,
       userId: localUser.id,
     });
-    existingMembershipOrgIds.add(localOrganization.id);
+    existingMembershipsByOrgId.set(localOrganization.id, {
+      id: `pending-${localOrganization.id}`,
+      organizationId: localOrganization.id,
+      role: membership.role.slug,
+    });
   }
+}
+
+async function listWorkspaceRoleOptions(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const roleList = await workos.organizations.listOrganizationRoles({
+    organizationId: organizationExternalId,
+  });
+
+  return roleList.data.map(buildWorkspaceRoleOption);
+}
+
+function getWorkspaceRoleOptionBySlug(
+  availableRoles: WorkspaceMemberRoleOption[],
+  roleSlug: string,
+) {
+  return availableRoles.find((role) => role.slug === roleSlug) ?? null;
+}
+
+async function listWorkspaceUsersById(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const usersForOrganization = await (
+    await workos.userManagement.listUsers({
+      organizationId: organizationExternalId,
+    })
+  ).autoPagination();
+  const usersById = new Map(
+    usersForOrganization.map((user) => [user.id, user]),
+  );
+
+  return usersById;
+}
+
+async function hydrateWorkspaceUsersByMemberships(input: {
+  membershipsForOrganization: OrganizationMembership[];
+  organizationExternalId: string;
+}) {
+  const workos = getWorkOS();
+  const usersById = await listWorkspaceUsersById(input.organizationExternalId);
+  const missingUserIds = Array.from(
+    new Set(
+      input.membershipsForOrganization
+        .map((membership) => membership.userId)
+        .filter((userId) => !usersById.has(userId)),
+    ),
+  );
+
+  if (missingUserIds.length > 0) {
+    const missingUsers = await Promise.all(
+      missingUserIds.map((userId) => workos.userManagement.getUser(userId)),
+    );
+
+    for (const user of missingUsers) {
+      usersById.set(user.id, user);
+    }
+  }
+
+  return usersById;
+}
+
+function getPendingMembershipsByEmail(input: {
+  membershipsForOrganization: OrganizationMembership[];
+  usersById: Map<string, User>;
+}) {
+  const membershipsByEmail = new Map<string, OrganizationMembership[]>();
+
+  for (const membership of input.membershipsForOrganization) {
+    if (membership.status !== "pending") {
+      continue;
+    }
+
+    const email = input.usersById.get(membership.userId)?.email?.toLowerCase();
+
+    if (!email) {
+      continue;
+    }
+
+    const existingMemberships = membershipsByEmail.get(email) ?? [];
+    existingMemberships.push(membership);
+    membershipsByEmail.set(email, existingMemberships);
+  }
+
+  return membershipsByEmail;
+}
+
+function takePendingMembershipForEmail(
+  membershipsByEmail: Map<string, OrganizationMembership[]>,
+  email: string,
+) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const matchingMemberships = membershipsByEmail.get(normalizedEmail);
+
+  if (!matchingMemberships || matchingMemberships.length === 0) {
+    return null;
+  }
+
+  return matchingMemberships.shift() ?? null;
+}
+
+async function getWorkspaceMembershipForMutation(input: {
+  context: AuthorizedWorkspaceMembershipContext;
+  membershipId: string;
+}) {
+  const workos = getWorkOS();
+  const membership = await workos.userManagement.getOrganizationMembership(
+    input.membershipId,
+  );
+
+  if (membership.organizationId !== input.context.organizationExternalId) {
+    throw new Error("Workspace member not found");
+  }
+
+  return membership;
+}
+
+async function getWorkspaceInvitationForMutation(input: {
+  context: AuthorizedWorkspaceMembershipContext;
+  invitationId: string;
+}) {
+  const workos = getWorkOS();
+  const invitation = await workos.userManagement.getInvitation(
+    input.invitationId,
+  );
+
+  if (invitation.organizationId !== input.context.organizationExternalId) {
+    throw new Error("Workspace invitation not found");
+  }
+
+  return invitation;
+}
+
+async function getActiveWorkspaceAdminCount(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const membershipsForOrganization = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: organizationExternalId,
+      statuses: ["active"],
+    })
+  ).autoPagination();
+
+  return membershipsForOrganization.filter((membership) =>
+    isWorkspaceAdminRoleSlug(membership.role.slug),
+  ).length;
+}
+
+async function buildWorkspaceMemberEntryFromMembership(input: {
+  actingUserExternalId: string;
+  availableRoles: WorkspaceMemberRoleOption[];
+  canManageMembers: boolean;
+  currentMembershipId: string;
+  membership: OrganizationMembership;
+}) {
+  const workos = getWorkOS();
+  const user = await workos.userManagement
+    .getUser(input.membership.userId)
+    .catch(() => {
+      return null;
+    });
+  const isCurrentUser =
+    input.membership.id === input.currentMembershipId ||
+    input.membership.userId === input.actingUserExternalId;
+
+  return buildWorkspaceMemberEntry({
+    canManageRole: input.canManageMembers && !isCurrentUser,
+    canReactivate:
+      input.canManageMembers &&
+      !isCurrentUser &&
+      input.membership.status === "inactive",
+    canSuspend:
+      input.canManageMembers &&
+      !isCurrentUser &&
+      input.membership.status === "active",
+    isCurrentUser,
+    membership: input.membership,
+    roleName:
+      getWorkspaceRoleOptionBySlug(
+        input.availableRoles,
+        input.membership.role.slug,
+      )?.name ?? input.membership.role.slug,
+    user,
+  });
 }
 
 function buildOnboardingDraftSummary(
@@ -1675,15 +1969,11 @@ export async function listWorkspaceMembers(input: {
 }): Promise<WorkspaceMemberDirectory> {
   const context = await getAuthorizedWorkspaceMembershipContext(input);
   const workos = getWorkOS();
-  const [membershipsForOrganization, usersForOrganization, invitations] =
+  const [availableRoles, membershipsForOrganization, invitations] =
     await Promise.all([
+      listWorkspaceRoleOptions(context.organizationExternalId),
       (
         await workos.userManagement.listOrganizationMemberships({
-          organizationId: context.organizationExternalId,
-        })
-      ).autoPagination(),
-      (
-        await workos.userManagement.listUsers({
           organizationId: context.organizationExternalId,
         })
       ).autoPagination(),
@@ -1693,40 +1983,79 @@ export async function listWorkspaceMembers(input: {
         })
       ).autoPagination(),
     ]);
-
-  const usersById = new Map(
-    usersForOrganization.map((user) => [user.id, user]),
-  );
-  const missingUserIds = Array.from(
-    new Set(
-      membershipsForOrganization
-        .filter((membership) => membership.status !== "pending")
-        .map((membership) => membership.userId)
-        .filter((userId) => !usersById.has(userId)),
-    ),
-  );
-
-  if (missingUserIds.length > 0) {
-    const missingUsers = await Promise.all(
-      missingUserIds.map((userId) => workos.userManagement.getUser(userId)),
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization,
+    usersById,
+  });
+  const canManageMembers = canManageWorkspaceMembers(context.currentRoleSlug);
+  const activeAdminCount = membershipsForOrganization.filter((membership) => {
+    return (
+      membership.status === "active" &&
+      isWorkspaceAdminRoleSlug(membership.role.slug)
     );
-
-    for (const user of missingUsers) {
-      usersById.set(user.id, user);
-    }
-  }
+  }).length;
 
   const memberEntries = membershipsForOrganization
     .filter((membership) => membership.status !== "pending")
-    .map((membership) =>
-      buildWorkspaceMemberEntry({
+    .map((membership) => {
+      const isCurrentUser =
+        membership.id === context.currentMembershipId ||
+        membership.userId === input.userExternalId;
+      const isLastActiveAdmin =
+        membership.status === "active" &&
+        isWorkspaceAdminRoleSlug(membership.role.slug) &&
+        activeAdminCount <= 1;
+
+      return buildWorkspaceMemberEntry({
+        canManageRole: canManageMembers && !isCurrentUser && !isLastActiveAdmin,
+        canReactivate:
+          canManageMembers &&
+          !isCurrentUser &&
+          membership.status === "inactive",
+        canSuspend:
+          canManageMembers &&
+          !isCurrentUser &&
+          membership.status === "active" &&
+          !isLastActiveAdmin,
+        isCurrentUser,
         membership,
+        roleName:
+          getWorkspaceRoleOptionBySlug(availableRoles, membership.role.slug)
+            ?.name ?? membership.role.slug,
         user: usersById.get(membership.userId) ?? null,
-      }),
-    );
+      });
+    })
+    .filter(Boolean) as WorkspaceMemberDirectoryEntry[];
   const invitationEntries = invitations
     .filter((invitation) => invitation.state !== "accepted")
-    .map(buildWorkspaceInvitationEntry);
+    .map((invitation) => {
+      const pendingMembership = takePendingMembershipForEmail(
+        pendingMembershipsByEmail,
+        invitation.email,
+      );
+      const pendingRole = pendingMembership
+        ? (getWorkspaceRoleOptionBySlug(
+            availableRoles,
+            pendingMembership.role.slug,
+          ) ?? buildFallbackWorkspaceRoleOption(pendingMembership.role.slug))
+        : null;
+
+      return buildWorkspaceInvitationEntry({
+        canResendInvitation:
+          canManageMembers &&
+          (invitation.state === "pending" || invitation.state === "expired"),
+        canRevokeInvitation:
+          canManageMembers &&
+          (invitation.state === "pending" || invitation.state === "expired"),
+        invitation,
+        membershipId: pendingMembership?.id ?? null,
+        role: pendingRole,
+      });
+    });
   const entries = [...memberEntries, ...invitationEntries].sort(
     (left, right) => {
       const orderDifference =
@@ -1744,7 +2073,8 @@ export async function listWorkspaceMembers(input: {
     activeMemberCount: memberEntries.filter(
       (entry) => entry.status === "active",
     ).length,
-    canManageMembers: canManageWorkspaceMembers(context.localRole),
+    availableRoles,
+    canManageMembers,
     entries,
     invitationCount: invitationEntries.length,
     organizationName: context.organizationName,
@@ -1752,59 +2082,421 @@ export async function listWorkspaceMembers(input: {
   };
 }
 
-export async function inviteWorkspaceMember(input: {
-  email: string;
+export async function inviteWorkspaceMembers(input: {
+  emails: string[];
+  orgSlug: string;
+  roleSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const workos = getWorkOS();
+  const normalizedEmails = Array.from(
+    new Set(
+      input.emails.map((email) => email.trim().toLowerCase()).filter(Boolean),
+    ),
+  );
+
+  if (normalizedEmails.length === 0) {
+    throw new Error("At least one email is required");
+  }
+
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const selectedRole = getWorkspaceRoleOptionBySlug(
+    availableRoles,
+    input.roleSlug,
+  );
+
+  if (!selectedRole) {
+    throw new Error("Selected role is not available for this workspace");
+  }
+
+  const membershipsForOrganization = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization,
+    usersById,
+  });
+
+  const invitedEntries: WorkspaceMemberDirectoryEntry[] = [];
+  const results: Array<{
+    action: "resent" | "sent";
+    email: string;
+    invitationId: string;
+    state: string;
+  }> = [];
+  const skipped: Array<{
+    email: string;
+    message: string;
+  }> = [];
+
+  for (const email of normalizedEmails) {
+    const [existingUsers, existingInvitations] = await Promise.all([
+      (
+        await workos.userManagement.listUsers({
+          email,
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+      (
+        await workos.userManagement.listInvitations({
+          email,
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+    ]);
+
+    if (existingUsers.length > 0) {
+      skipped.push({
+        email,
+        message: "That email already has access to this workspace",
+      });
+      continue;
+    }
+
+    const pendingMembership = takePendingMembershipForEmail(
+      pendingMembershipsByEmail,
+      email,
+    );
+    const pendingInvitation = existingInvitations.find(
+      (invitation) => invitation.state === "pending",
+    );
+    const invitation = pendingInvitation
+      ? await (async () => {
+          if (
+            pendingMembership &&
+            pendingMembership.role.slug !== selectedRole.slug
+          ) {
+            await workos.userManagement.updateOrganizationMembership(
+              pendingMembership.id,
+              {
+                roleSlug: selectedRole.slug,
+              },
+            );
+          }
+
+          return workos.userManagement.resendInvitation(pendingInvitation.id);
+        })()
+      : await workos.userManagement.sendInvitation({
+          email,
+          inviterUserId: input.userExternalId,
+          organizationId: context.organizationExternalId,
+          roleSlug: selectedRole.slug,
+        });
+
+    invitedEntries.push(
+      buildWorkspaceInvitationEntry({
+        canResendInvitation: true,
+        canRevokeInvitation: true,
+        invitation,
+        membershipId: pendingMembership?.id ?? null,
+        role: selectedRole,
+      }),
+    );
+    results.push({
+      action: pendingInvitation ? "resent" : "sent",
+      email: invitation.email,
+      invitationId: invitation.id,
+      state: invitation.state,
+    });
+  }
+
+  if (results.length === 0) {
+    throw new Error(skipped[0]?.message ?? "Workspace invite failed");
+  }
+
+  return {
+    invited: invitedEntries,
+    results,
+    skipped,
+  };
+}
+
+export async function updateWorkspaceMemberRole(input: {
+  membershipId: string;
+  orgSlug: string;
+  roleSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+
+  if (!getWorkspaceRoleOptionBySlug(availableRoles, input.roleSlug)) {
+    throw new Error("Selected role is not available for this workspace");
+  }
+
+  const workos = getWorkOS();
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
+
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot change your own role from this page");
+  }
+
+  if (
+    membership.status === "active" &&
+    isWorkspaceAdminRoleSlug(membership.role.slug) &&
+    !isWorkspaceAdminRoleSlug(input.roleSlug)
+  ) {
+    const activeAdminCount = await getActiveWorkspaceAdminCount(
+      context.organizationExternalId,
+    );
+
+    if (activeAdminCount <= 1) {
+      throw new Error("This workspace must keep at least one active admin");
+    }
+  }
+
+  const updatedMembership =
+    await workos.userManagement.updateOrganizationMembership(membership.id, {
+      roleSlug: input.roleSlug,
+    });
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+    availableRoles,
+  });
+
+  return {
+    entry,
+  };
+}
+
+export async function suspendWorkspaceMember(input: {
+  membershipId: string;
   orgSlug: string;
   userExternalId: string;
 }) {
   const context = await getAuthorizedWorkspaceMembershipContext(input);
 
-  if (!canManageWorkspaceMembers(context.localRole)) {
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
     throw new Error("Workspace admin access required");
   }
 
-  const normalizedEmail = input.email.trim().toLowerCase();
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
 
-  if (!normalizedEmail) {
-    throw new Error("Email is required");
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot suspend your own access");
+  }
+
+  if (
+    membership.status === "active" &&
+    isWorkspaceAdminRoleSlug(membership.role.slug)
+  ) {
+    const activeAdminCount = await getActiveWorkspaceAdminCount(
+      context.organizationExternalId,
+    );
+
+    if (activeAdminCount <= 1) {
+      throw new Error("This workspace must keep at least one active admin");
+    }
   }
 
   const workos = getWorkOS();
-  const [existingUsers, existingInvitations] = await Promise.all([
-    (
-      await workos.userManagement.listUsers({
-        email: normalizedEmail,
-        organizationId: context.organizationExternalId,
-      })
-    ).autoPagination(),
-    (
-      await workos.userManagement.listInvitations({
-        email: normalizedEmail,
-        organizationId: context.organizationExternalId,
-      })
-    ).autoPagination(),
-  ]);
-
-  if (existingUsers.length > 0) {
-    throw new Error("That email already has access to this workspace");
-  }
-
-  const pendingInvitation = existingInvitations.find(
-    (invitation) => invitation.state === "pending",
-  );
-  const invitation = pendingInvitation
-    ? await workos.userManagement.resendInvitation(pendingInvitation.id)
-    : await workos.userManagement.sendInvitation({
-        email: normalizedEmail,
-        inviterUserId: input.userExternalId,
-        organizationId: context.organizationExternalId,
-      });
+  const updatedMembership =
+    await workos.userManagement.deactivateOrganizationMembership(membership.id);
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    availableRoles: await listWorkspaceRoleOptions(
+      context.organizationExternalId,
+    ),
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+  });
 
   return {
-    action: pendingInvitation ? "resent" : "sent",
-    email: invitation.email,
-    invitationId: invitation.id,
-    state: invitation.state,
+    entry,
+  };
+}
+
+export async function reactivateWorkspaceMember(input: {
+  membershipId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
+
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot reactivate your own access from this page");
+  }
+
+  const workos = getWorkOS();
+  const updatedMembership =
+    await workos.userManagement.reactivateOrganizationMembership(membership.id);
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    availableRoles: await listWorkspaceRoleOptions(
+      context.organizationExternalId,
+    ),
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+  });
+
+  return {
+    entry,
+  };
+}
+
+export async function resendWorkspaceInvitation(input: {
+  invitationId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const invitation = await getWorkspaceInvitationForMutation({
+    context,
+    invitationId: input.invitationId,
+  });
+  const workos = getWorkOS();
+  const pendingMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+      statuses: ["pending"],
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization: pendingMemberships,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization: pendingMemberships,
+    usersById,
+  });
+  const pendingMembership = takePendingMembershipForEmail(
+    pendingMembershipsByEmail,
+    invitation.email,
+  );
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const updatedInvitation = await workos.userManagement.resendInvitation(
+    invitation.id,
+  );
+
+  return {
+    entry: buildWorkspaceInvitationEntry({
+      canResendInvitation: true,
+      canRevokeInvitation: true,
+      invitation: updatedInvitation,
+      membershipId: pendingMembership?.id ?? null,
+      role:
+        pendingMembership &&
+        (getWorkspaceRoleOptionBySlug(
+          availableRoles,
+          pendingMembership.role.slug,
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+    }),
+  };
+}
+
+export async function revokeWorkspaceInvitation(input: {
+  invitationId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const invitation = await getWorkspaceInvitationForMutation({
+    context,
+    invitationId: input.invitationId,
+  });
+  const workos = getWorkOS();
+  const pendingMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+      statuses: ["pending"],
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization: pendingMemberships,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization: pendingMemberships,
+    usersById,
+  });
+  const pendingMembership = takePendingMembershipForEmail(
+    pendingMembershipsByEmail,
+    invitation.email,
+  );
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const updatedInvitation = await workos.userManagement.revokeInvitation(
+    invitation.id,
+  );
+
+  return {
+    entry: buildWorkspaceInvitationEntry({
+      canResendInvitation: false,
+      canRevokeInvitation: false,
+      invitation: updatedInvitation,
+      membershipId: pendingMembership?.id ?? null,
+      role:
+        pendingMembership &&
+        (getWorkspaceRoleOptionBySlug(
+          availableRoles,
+          pendingMembership.role.slug,
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+    }),
   };
 }
 

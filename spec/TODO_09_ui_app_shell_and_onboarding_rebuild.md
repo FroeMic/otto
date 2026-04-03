@@ -459,7 +459,7 @@ Likely additions during implementation:
 - [x] define a dedicated Slack integration state page
 - [ ] define and implement a dedicated WhatsApp integration state page
 - [x] implement a dedicated settings shell with sectioned navigation
-- [x] extend workspace settings with a WorkOS-backed members view and invite flow
+- [x] extend workspace settings with a WorkOS-backed members view and member-management flow
 - [x] implement route-backed Agent status and instruction views
 - [x] implement a `Tools` section in the authenticated app shell
 - [x] implement a platform-admin-only `/platform` shell and organizations table

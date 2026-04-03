@@ -1,37 +1,30 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import {
-  inviteWorkspaceMembers,
+  reactivateWorkspaceMember,
   syncUserFromSession,
 } from "@/db/control-plane";
 
 export const dynamic = "force-dynamic";
 
-const bodySchema = z.object({
-  emails: z.array(z.string().trim().email()).min(1),
-  roleSlug: z.string().trim().min(1),
-});
-
 export async function POST(
-  request: Request,
+  _request: Request,
   context: {
     params: Promise<{
+      membershipId: string;
       orgSlug: string;
     }>;
   },
 ) {
   try {
     const { user } = await withAuth({ ensureSignedIn: true });
-    const { orgSlug } = await context.params;
-    const body = bodySchema.parse(await request.json());
+    const { membershipId, orgSlug } = await context.params;
     await syncUserFromSession(user);
 
-    const result = await inviteWorkspaceMembers({
-      emails: body.emails,
+    const result = await reactivateWorkspaceMember({
+      membershipId,
       orgSlug,
-      roleSlug: body.roleSlug,
       userExternalId: user.id,
     });
 
@@ -41,33 +34,21 @@ export async function POST(
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          code: "schema_invalid",
-          fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid workspace member payload",
-        },
-        {
-          headers: {
-            "Cache-Control": "no-store",
-          },
-          status: 400,
-        },
-      );
-    }
-
     const message =
-      error instanceof Error ? error.message : "Workspace invite failed";
+      error instanceof Error
+        ? error.message
+        : "Workspace member reactivation failed";
     const status =
       message === "You do not have access to this organization" ||
       message === "Workspace admin access required"
         ? 403
-        : 400;
+        : message === "Workspace member not found"
+          ? 404
+          : 400;
 
     return NextResponse.json(
       {
-        code: "workspace_invite_failed",
+        code: "workspace_member_reactivate_failed",
         message,
       },
       {
