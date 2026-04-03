@@ -150,6 +150,19 @@
 
 ## Recent progress
 
+- The workspace Agent area is now instruction-first instead of split across a workspace-facing status tab plus a separate configuration tab:
+  - `/agent` now redirects to the first managed instruction file route instead of `/agent/prompts`
+  - the only remaining Agent tabs are the route-backed managed instruction files with user-facing labels like `Agent.md`
+  - the workspace Agent header now shows a small hoverable readiness badge instead of a dedicated status page
+  - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
+- The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
+- Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
+  - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
+  - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state
+- Runtime image refresh is now auditable and worker-backed instead of running inline in the request handler:
+  - `refresh_runtime_image` is now a first-class job type
+  - the platform refresh action queues the job through the existing job system
+  - the worker now records restart and health-check output in job results and events so operators can inspect image refresh runs in the platform logs view
 - Tenant desired state now projects OpenClaw audio transcription defaults for Slack-connected runtimes.
 - Tenant `openclaw.json` rendering now includes `tools.media.audio` with an OpenAI transcription model when desired state enables audio understanding.
 - Runtime config verification now checks for the projected audio config on the tenant host after bootstrap/apply writes.
@@ -210,9 +223,8 @@
 - Continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
   - adding the runtime release schema migration and DB-backed active release record
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
-  - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the new queued image-refresh diagnostics
+  - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
-- After the operator rollout surface is stable, clean up `/{orgSlug}/agent/status` so the main workspace health page stays non-technical
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
