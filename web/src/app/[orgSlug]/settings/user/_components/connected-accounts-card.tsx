@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import {
   SettingsCard,
   SettingsRow,
@@ -18,26 +20,15 @@ type ChannelIdentity = {
   avatarUrl: string | null;
 };
 
-const providerConfig: Record<
-  string,
-  { label: string; icon: string }
-> = {
-  slack: {
-    label: "Slack",
-    icon: "/integrations/slack.svg",
-  },
-  whatsapp: {
-    label: "WhatsApp",
-    icon: "/integrations/whatsapp.svg",
-  },
-  telegram: {
-    label: "Telegram",
-    icon: "/integrations/telegram.svg",
-  },
-  discord: {
-    label: "Discord",
-    icon: "/integrations/discord.svg",
-  },
+type ConnectedIntegration = {
+  provider: string;
+  label: string;
+  icon: string;
+};
+
+const providerMeta: Record<string, { label: string; icon: string }> = {
+  slack: { label: "Slack", icon: "/integrations/slack.svg" },
+  whatsapp: { label: "WhatsApp", icon: "/integrations/whatsapp.png" },
 };
 
 function formatIdentityDetail(identity: ChannelIdentity): string {
@@ -52,48 +43,55 @@ function formatIdentityDetail(identity: ChannelIdentity): string {
 
 export function ConnectedAccountsCard({
   identities,
+  connectedIntegrations,
 }: {
   identities: ChannelIdentity[];
+  connectedIntegrations: ConnectedIntegration[];
 }) {
-  // Group by provider
   const byProvider = new Map<string, ChannelIdentity>();
   for (const identity of identities) {
-    // Take the first identity per provider (most common case)
     if (!byProvider.has(identity.provider)) {
       byProvider.set(identity.provider, identity);
     }
   }
 
-  // Show connected providers + known unconnected ones
-  const providers = ["slack", "whatsapp", "telegram", "discord"];
+  if (connectedIntegrations.length === 0) {
+    return (
+      <SettingsCard>
+        <SettingsRow>
+          <SettingsRowLabel>
+            <SettingsRowDescription>
+              No messaging integrations connected to this workspace yet.
+            </SettingsRowDescription>
+          </SettingsRowLabel>
+        </SettingsRow>
+      </SettingsCard>
+    );
+  }
 
   return (
     <SettingsCard>
-      {providers.map((provider) => {
-        const identity = byProvider.get(provider);
-        const config = providerConfig[provider] ?? {
-          label: provider,
-          icon: "",
+      {connectedIntegrations.map((integration) => {
+        const identity = byProvider.get(integration.provider);
+        const meta = providerMeta[integration.provider] ?? {
+          label: integration.label,
+          icon: integration.icon,
         };
 
         return (
-          <SettingsRow key={provider}>
+          <SettingsRow key={integration.provider}>
             <div className="flex items-center gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-                {config.icon ? (
-                  <img
-                    alt={config.label}
-                    className="size-5"
-                    src={config.icon}
-                  />
-                ) : (
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {config.label.charAt(0)}
-                  </span>
-                )}
+                <Image
+                  alt={meta.label}
+                  className="size-5"
+                  height={20}
+                  src={meta.icon}
+                  width={20}
+                />
               </div>
               <SettingsRowLabel>
-                <SettingsRowTitle>{config.label}</SettingsRowTitle>
+                <SettingsRowTitle>{meta.label}</SettingsRowTitle>
                 {identity ? (
                   <>
                     <SettingsRowDescription>
@@ -105,13 +103,14 @@ export function ConnectedAccountsCard({
                   </>
                 ) : (
                   <SettingsRowDescription>
-                    Not connected
+                    Not linked — your email may not match your {meta.label}{" "}
+                    profile
                   </SettingsRowDescription>
                 )}
               </SettingsRowLabel>
             </div>
             {identity ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span
                   aria-hidden="true"
                   className="size-2 rounded-full bg-emerald-500"
@@ -121,7 +120,9 @@ export function ConnectedAccountsCard({
                 </span>
               </div>
             ) : (
-              <span className="text-sm text-muted-foreground">—</span>
+              <span className="text-sm text-muted-foreground shrink-0">
+                Not linked
+              </span>
             )}
           </SettingsRow>
         );

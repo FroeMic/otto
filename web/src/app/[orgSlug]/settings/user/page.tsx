@@ -14,6 +14,7 @@ import {
   ThemeSettingsCard,
 } from "@/app/[orgSlug]/settings/user/_components/user-settings-form";
 import { getUserChannelIdentities } from "@/db/control-plane";
+import { isSlackConnected } from "@/lib/workspace";
 import { getWorkOS } from "@/lib/workos";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,30 @@ export default async function UserSettingsPage({
     userExternalId: sessionUser.id,
     organizationId: currentOrganization.id,
   });
+
+  // Derive connected integrations from org state — only show providers
+  // that are actually connected to this workspace
+  const connectedIntegrations: Array<{
+    provider: string;
+    label: string;
+    icon: string;
+  }> = [];
+
+  if (isSlackConnected(currentOrganization)) {
+    connectedIntegrations.push({
+      provider: "slack",
+      label: "Slack",
+      icon: "/integrations/slack.svg",
+    });
+  }
+
+  if (currentOrganization.whatsappIntegration?.status === "connected") {
+    connectedIntegrations.push({
+      provider: "whatsapp",
+      label: "WhatsApp",
+      icon: "/integrations/whatsapp.png",
+    });
+  }
 
   return (
     <SettingsPage>
@@ -56,7 +81,10 @@ export default async function UserSettingsPage({
             Your linked messaging accounts in this workspace. Used to identify
             your messages in session transcripts.
           </SettingsSectionDescription>
-          <ConnectedAccountsCard identities={identities} />
+          <ConnectedAccountsCard
+            identities={identities}
+            connectedIntegrations={connectedIntegrations}
+          />
         </SettingsSection>
 
         <SettingsSection>
