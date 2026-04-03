@@ -1,0 +1,20 @@
+{
+  "id": "otto-session-reporter",
+  "name": "Otto Session Reporter",
+  "description": "Reports session lifecycle and transcript data to the Otto control plane.",
+  "contracts": {},
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000
+      },
+      "debounceMs": {
+        "type": "integer",
+        "minimum": 500
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ import {
   Building03Icon,
   Calendar03Icon,
   UnfoldMoreIcon,
+  MessageMultiple01Icon,
   Settings01Icon,
   FlashIcon,
   ConnectIcon,
@@ -87,6 +88,11 @@ export function AppSidebar({
       href: `/${currentOrganization.slug}/skills`,
       icon: <HugeiconsIcon icon={FlashIcon} />,
       title: "Skills",
+    },
+    {
+      href: `/${currentOrganization.slug}/sessions`,
+      icon: <HugeiconsIcon icon={MessageMultiple01Icon} />,
+      title: "Sessions",
     },
     {
       href: `/${currentOrganization.slug}/scheduled-tasks`,
