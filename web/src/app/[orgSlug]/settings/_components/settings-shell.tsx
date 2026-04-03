@@ -1,6 +1,7 @@
 "use client";
 
 import type * as React from "react";
+import { usePathname } from "next/navigation";
 
 import { SettingsSidebar } from "@/app/[orgSlug]/settings/_components/settings-sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -22,11 +23,24 @@ type SettingsShellProps = {
   };
 };
 
+function useSettingsPageLabel(orgSlug: string) {
+  const pathname = usePathname();
+  const settingsPath = pathname.replace(`/${orgSlug}/settings`, "");
+
+  if (settingsPath.startsWith("/user")) return "Account";
+  if (settingsPath.startsWith("/workspace/members")) return "Members";
+  if (settingsPath.startsWith("/workspace")) return "General";
+
+  return "Settings";
+}
+
 export function SettingsShell({
   children,
   currentOrganization,
   user,
 }: SettingsShellProps) {
+  const pageLabel = useSettingsPageLabel(currentOrganization.slug);
+
   return (
     <SidebarProvider>
       <SettingsSidebar currentOrganization={currentOrganization} user={user} />
@@ -41,7 +55,7 @@ export function SettingsShell({
             <span className="font-medium">Settings</span>
             <span className="mx-2 text-muted-foreground">/</span>
             <span className="truncate text-muted-foreground">
-              {currentOrganization.slug}
+              {pageLabel}
             </span>
           </div>
         </header>
