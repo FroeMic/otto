@@ -1,7 +1,12 @@
+FROM oven/bun:1 AS bun
+
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY package.json package-lock.json ./
 RUN npm install --no-package-lock
@@ -16,6 +21,9 @@ ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV PORT=3000
+
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
