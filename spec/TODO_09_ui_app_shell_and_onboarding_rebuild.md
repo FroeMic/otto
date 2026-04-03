@@ -250,14 +250,14 @@ Initial content:
 - primary action to connect or reconnect Slack
 - after connection, a policy editor for:
   - answering in threads
-  - one global Slack user allowlist
-  - a channel access mode for either a selected-channel allowlist or all channels Otto has been added to
-  - one selected-channel allowlist backed by synced Slack directory data when manual channel mode is active
+  - one global Slack people selection list
+  - a channel access mode for either selected channels or all channels Otto has been added to
+  - one selected-channel list backed by synced Slack directory data when manual channel mode is active
   - one global require-mention toggle across the selected channels
 - render the policy editor as a single-column settings document rather than a dashboard grid
-- show only the currently selected users and channels on the page
-- move add/remove flows for users and channels into searchable modal dialogs so the saved allowlists stay easy to audit
-- let the channel dialog add Otto to public channels, remove Otto from joined channels, and explain when private-channel invites still need to happen in Slack
+- keep the main configuration tab focused on summaries and settings rows
+- move Slack people and channel management into a dedicated searchable table tab
+- let the channel table add Otto to public channels, remove Otto from joined channels, and explain when private-channel invites still need to happen in Slack
 
 ### WhatsApp integration detail
 
@@ -488,7 +488,7 @@ Likely additions during implementation:
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder
 - `/{orgSlug}/tools` lists runtime capability surfaces that are not shown as integrations
 - a read-only Brave Web Search detail page is reachable from the Tools section
-- the Slack page can render real member and channel selectors from synced Slack directory tables when available
+- the Slack page can render real member and channel tables from synced Slack directory data when available
 - settings includes both user and organization sections
 - prototype UI uses shadcn building blocks without custom color work
 
