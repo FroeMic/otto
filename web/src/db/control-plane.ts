@@ -31,6 +31,7 @@ import {
   tenantServers,
   tenantSessions,
   tenants,
+  userChannelIdentities,
   userPlatformRoles,
   users,
   whatsappInstallations,
@@ -3222,6 +3223,24 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       })
       .where(eq(messagingWorkspaces.id, messagingWorkspaceId));
   });
+
+  // Resolve user channel identities from the freshly synced directory
+  try {
+    const [integration] = await db
+      .select({ organizationId: tenants.organizationId })
+      .from(tenantIntegrations)
+      .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
+      .limit(1);
+
+    if (integration) {
+      await resolveUserChannelIdentitiesFromDirectory({
+        organizationId: integration.organizationId,
+      });
+    }
+  } catch {
+    // Identity resolution is best-effort; don't fail the directory sync
+  }
 }
 
 export async function recordMessagingWorkspaceSyncFailure(input: {
@@ -7864,4 +7883,191 @@ export async function getTenantSession(input: {
     .limit(1);
 
   return session ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// User channel identities
+// ---------------------------------------------------------------------------
+
+export async function getUserChannelIdentities(input: {
+  userExternalId: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+
+  return db
+    .select({
+      id: userChannelIdentities.id,
+      provider: userChannelIdentities.provider,
+      externalId: userChannelIdentities.externalId,
+      displayName: userChannelIdentities.displayName,
+      fullName: userChannelIdentities.fullName,
+      username: userChannelIdentities.username,
+      avatarUrl: userChannelIdentities.avatarUrl,
+      resolvedAt: userChannelIdentities.resolvedAt,
+      resolutionSource: userChannelIdentities.resolutionSource,
+    })
+    .from(userChannelIdentities)
+    .innerJoin(users, eq(userChannelIdentities.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, input.userExternalId),
+        eq(userChannelIdentities.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(asc(userChannelIdentities.provider));
+}
+
+export async function getUserExternalIds(input: {
+  userExternalId: string;
+  organizationId: string;
+}): Promise<string[]> {
+  const db = getDb();
+
+  const rows = await db
+    .select({ externalId: userChannelIdentities.externalId })
+    .from(userChannelIdentities)
+    .innerJoin(users, eq(userChannelIdentities.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, input.userExternalId),
+        eq(userChannelIdentities.organizationId, input.organizationId),
+      ),
+    );
+
+  return rows.map((r) => r.externalId);
+}
+
+export async function upsertUserChannelIdentity(input: {
+  userId: string;
+  organizationId: string;
+  provider: string;
+  externalId: string;
+  displayName?: string | null;
+  fullName?: string | null;
+  username?: string | null;
+  avatarUrl?: string | null;
+  resolutionSource: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db
+    .insert(userChannelIdentities)
+    .values({
+      userId: input.userId,
+      organizationId: input.organizationId,
+      provider: input.provider,
+      externalId: input.externalId,
+      displayName: input.displayName ?? null,
+      fullName: input.fullName ?? null,
+      username: input.username ?? null,
+      avatarUrl: input.avatarUrl ?? null,
+      resolvedAt: now,
+      resolutionSource: input.resolutionSource,
+    })
+    .onConflictDoUpdate({
+      target: [
+        userChannelIdentities.organizationId,
+        userChannelIdentities.provider,
+        userChannelIdentities.externalId,
+      ],
+      set: {
+        userId: input.userId,
+        displayName: input.displayName ?? undefined,
+        fullName: input.fullName ?? undefined,
+        username: input.username ?? undefined,
+        avatarUrl: input.avatarUrl ?? undefined,
+        resolvedAt: now,
+        resolutionSource: input.resolutionSource,
+        updatedAt: now,
+      },
+    });
+}
+
+export async function resolveUserChannelIdentitiesFromDirectory(input: {
+  organizationId: string;
+}): Promise<{ resolved: number; skipped: number }> {
+  const db = getDb();
+
+  // Get all Otto users in this org
+  const orgMembers = await db
+    .select({
+      userId: users.id,
+      email: users.email,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(eq(memberships.organizationId, input.organizationId));
+
+  if (orgMembers.length === 0) {
+    return { resolved: 0, skipped: 0 };
+  }
+
+  // Get all messaging workspace members for this org's integrations
+  const workspaceMembers = await db
+    .select({
+      externalMemberId: messagingWorkspaceMembers.externalMemberId,
+      email: messagingWorkspaceMembers.email,
+      displayName: messagingWorkspaceMembers.displayName,
+      fullName: messagingWorkspaceMembers.fullName,
+      username: messagingWorkspaceMembers.username,
+      avatarUrl: messagingWorkspaceMembers.avatarUrl,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(messagingWorkspaceMembers)
+    .innerJoin(
+      messagingWorkspaces,
+      eq(
+        messagingWorkspaceMembers.messagingWorkspaceId,
+        messagingWorkspaces.id,
+      ),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  // Build email → workspace member lookup
+  const membersByEmail = new Map<
+    string,
+    (typeof workspaceMembers)[number][]
+  >();
+  for (const member of workspaceMembers) {
+    if (!member.email) continue;
+    const key = member.email.toLowerCase();
+    const existing = membersByEmail.get(key) ?? [];
+    existing.push(member);
+    membersByEmail.set(key, existing);
+  }
+
+  let resolved = 0;
+  let skipped = 0;
+
+  for (const orgMember of orgMembers) {
+    const matches = membersByEmail.get(orgMember.email.toLowerCase()) ?? [];
+    if (matches.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    for (const match of matches) {
+      await upsertUserChannelIdentity({
+        userId: orgMember.userId,
+        organizationId: input.organizationId,
+        provider: match.providerKey,
+        externalId: match.externalMemberId,
+        displayName: match.displayName,
+        fullName: match.fullName,
+        username: match.username,
+        avatarUrl: match.avatarUrl,
+        resolutionSource: "directory_sync",
+      });
+      resolved++;
+    }
+  }
+
+  return { resolved, skipped };
 }

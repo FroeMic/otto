@@ -1,23 +1,63 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 
+import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import {
   SettingsPage,
   SettingsPageTitle,
   SettingsSection,
+  SettingsSectionDescription,
   SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
+import { ConnectedAccountsCard } from "@/app/[orgSlug]/settings/user/_components/connected-accounts-card";
 import {
   AccountDetailsCard,
   ThemeSettingsCard,
 } from "@/app/[orgSlug]/settings/user/_components/user-settings-form";
+import { getUserChannelIdentities } from "@/db/control-plane";
+import { isSlackConnected } from "@/lib/workspace";
 import { getWorkOS } from "@/lib/workos";
 
 export const dynamic = "force-dynamic";
 
-export default async function UserSettingsPage() {
+export default async function UserSettingsPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
+  const { orgSlug } = await params;
   const { user: sessionUser } = await withAuth({ ensureSignedIn: true });
   const workos = getWorkOS();
   const user = await workos.userManagement.getUser(sessionUser.id);
+  const { currentOrganization } = await loadOrganizationRouteContext(orgSlug);
+
+  const identities = await getUserChannelIdentities({
+    userExternalId: sessionUser.id,
+    organizationId: currentOrganization.id,
+  });
+
+  // Derive connected integrations from org state — only show providers
+  // that are actually connected to this workspace
+  const connectedIntegrations: Array<{
+    provider: string;
+    label: string;
+    icon: string;
+  }> = [];
+
+  if (isSlackConnected(currentOrganization)) {
+    connectedIntegrations.push({
+      provider: "slack",
+      label: "Slack",
+      icon: "/integrations/slack.svg",
+    });
+  }
+
+  if (currentOrganization.whatsappIntegration?.status === "connected") {
+    connectedIntegrations.push({
+      provider: "whatsapp",
+      label: "WhatsApp",
+      icon: "/integrations/whatsapp.png",
+    });
+  }
 
   return (
     <SettingsPage>
@@ -32,6 +72,18 @@ export default async function UserSettingsPage() {
               firstName: user.firstName ?? "",
               lastName: user.lastName ?? "",
             }}
+          />
+        </SettingsSection>
+
+        <SettingsSection>
+          <SettingsSectionTitle>Connected accounts</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            Your linked messaging accounts in this workspace. Used to identify
+            your messages in session transcripts.
+          </SettingsSectionDescription>
+          <ConnectedAccountsCard
+            identities={identities}
+            connectedIntegrations={connectedIntegrations}
           />
         </SettingsSection>
 

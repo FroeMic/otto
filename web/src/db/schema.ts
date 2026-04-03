@@ -754,6 +754,44 @@ export const tenantSessions = pgTable(
   }),
 );
 
+export const userChannelIdentities = pgTable(
+  "user_channel_identities",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    externalId: varchar("external_id", { length: 255 }).notNull(),
+    displayName: text("display_name"),
+    fullName: text("full_name"),
+    username: text("username"),
+    avatarUrl: text("avatar_url"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    resolutionSource: varchar("resolution_source", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    userOrgIdx: index("user_channel_identities_user_id_organization_id_idx").on(
+      table.userId,
+      table.organizationId,
+    ),
+    orgProviderExternalUniqueIdx: uniqueIndex(
+      "user_channel_identities_organization_id_provider_external_id_idx",
+    ).on(table.organizationId, table.provider, table.externalId),
+  }),
+);
+
 export const jobEvents = pgTable(
   "job_events",
   {
