@@ -59,6 +59,16 @@ const SETTINGS_NAV_ITEMS = {
   ],
 } as const;
 
+function isSettingsItemActive(
+  href: string,
+  match: "exact" | "section",
+  pathname: string,
+) {
+  return match === "exact"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function SettingsSidebar({
   currentOrganization,
   user,
@@ -90,10 +100,11 @@ export function SettingsSidebar({
             <SidebarMenu>
               {SETTINGS_NAV_ITEMS.user.map((item) => {
                 const href = item.href(currentOrganization.slug);
-                const isActive =
-                  item.match === "exact"
-                    ? pathname === href
-                    : pathname === href || pathname.startsWith(`${href}/`);
+                const isActive = isSettingsItemActive(
+                  href,
+                  item.match,
+                  pathname,
+                );
 
                 return (
                   <SidebarMenuItem key={href}>
@@ -117,10 +128,11 @@ export function SettingsSidebar({
             <SidebarMenu>
               {SETTINGS_NAV_ITEMS.workspace.map((item) => {
                 const href = item.href(currentOrganization.slug);
-                const isActive =
-                  item.match === "exact"
-                    ? pathname === href
-                    : pathname === href || pathname.startsWith(`${href}/`);
+                const isActive = isSettingsItemActive(
+                  href,
+                  item.match,
+                  pathname,
+                );
 
                 return (
                   <SidebarMenuItem key={href}>

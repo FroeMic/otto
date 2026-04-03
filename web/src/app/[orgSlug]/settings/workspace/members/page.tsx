@@ -31,6 +31,7 @@ export default async function WorkspaceMembersSettingsPage({
       </section>
 
       <WorkspaceMembersTable
+        availableRoles={memberDirectory.availableRoles}
         canManageMembers={memberDirectory.canManageMembers}
         entries={memberDirectory.entries}
         orgSlug={memberDirectory.organizationSlug}

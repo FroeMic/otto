@@ -3,14 +3,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
-  inviteWorkspaceMembers,
   syncUserFromSession,
+  updateWorkspaceMemberRole,
 } from "@/db/control-plane";
 
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  emails: z.array(z.string().trim().email()).min(1),
   roleSlug: z.string().trim().min(1),
 });
 
@@ -18,18 +17,19 @@ export async function POST(
   request: Request,
   context: {
     params: Promise<{
+      membershipId: string;
       orgSlug: string;
     }>;
   },
 ) {
   try {
     const { user } = await withAuth({ ensureSignedIn: true });
-    const { orgSlug } = await context.params;
+    const { membershipId, orgSlug } = await context.params;
     const body = bodySchema.parse(await request.json());
     await syncUserFromSession(user);
 
-    const result = await inviteWorkspaceMembers({
-      emails: body.emails,
+    const result = await updateWorkspaceMemberRole({
+      membershipId,
       orgSlug,
       roleSlug: body.roleSlug,
       userExternalId: user.id,
@@ -46,7 +46,7 @@ export async function POST(
         {
           code: "schema_invalid",
           fieldErrors: z.flattenError(error).fieldErrors,
-          message: "Invalid workspace member payload",
+          message: "Invalid workspace member role payload",
         },
         {
           headers: {
@@ -58,16 +58,18 @@ export async function POST(
     }
 
     const message =
-      error instanceof Error ? error.message : "Workspace invite failed";
+      error instanceof Error ? error.message : "Workspace member update failed";
     const status =
       message === "You do not have access to this organization" ||
       message === "Workspace admin access required"
         ? 403
-        : 400;
+        : message === "Workspace member not found"
+          ? 404
+          : 400;
 
     return NextResponse.json(
       {
-        code: "workspace_invite_failed",
+        code: "workspace_member_role_update_failed",
         message,
       },
       {
