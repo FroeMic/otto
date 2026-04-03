@@ -56,7 +56,7 @@ export function PlatformOrganizationActions({
         toast.success(
           action === "apply"
             ? "Queued runtime apply."
-            : "Runtime image refresh started.",
+            : "Queued runtime image refresh.",
         );
         router.refresh();
       } catch (error) {

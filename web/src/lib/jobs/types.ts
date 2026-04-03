@@ -1,6 +1,7 @@
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   applyTenantConfig: "apply_tenant_config",
+  refreshRuntimeImage: "refresh_runtime_image",
   whatsappLinkSession: "whatsapp_link_session",
   whatsappDisconnect: "whatsapp_disconnect",
 } as const;
@@ -57,6 +58,10 @@ export type ApplyTenantConfigPayload = {
   step?: ApplyStep;
 };
 
+export type RefreshRuntimeImagePayload = {
+  tenantId: string;
+};
+
 export type WhatsAppLinkSessionPayload = {
   linkSessionId: string;
   tenantId: string;
@@ -75,6 +80,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.applyTenantConfig;
       payload: ApplyTenantConfigPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.refreshRuntimeImage;
+      payload: RefreshRuntimeImagePayload;
     }
   | {
       jobType: typeof JOB_TYPES.whatsappLinkSession;
