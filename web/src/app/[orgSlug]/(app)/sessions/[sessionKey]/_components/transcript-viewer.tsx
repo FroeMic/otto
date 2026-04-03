@@ -5,15 +5,34 @@ import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useMemo } from "react";
 
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { ChevronDownIcon, WrenchIcon } from "lucide-react";
+
+import {
+  parseTranscript,
+  type ParsedContentBlock,
+  type ParsedMessage,
+} from "./transcript-parser";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type Session = {
   sessionKey: string;
@@ -40,107 +59,9 @@ type Session = {
   lastSyncedAt: Date;
 };
 
-type TranscriptMessage = {
-  id?: string;
-  type?: string;
-  role?: string;
-  content?: string | Array<{ type: string; text?: string }>;
-  message?: {
-    role?: string;
-    content?: string | Array<{ type: string; text?: string }>;
-    model?: string;
-    provider?: string;
-    usage?: {
-      input?: number;
-      output?: number;
-      totalTokens?: number;
-      cost?: { total?: number };
-    };
-    stopReason?: string;
-    timestamp?: number;
-  };
-  timestamp?: string | number;
-};
-
-function parseTranscript(jsonl: string | null): TranscriptMessage[] {
-  if (!jsonl) return [];
-
-  return jsonl
-    .split("\n")
-    .filter((line) => line.trim())
-    .map((line) => {
-      try {
-        return JSON.parse(line) as TranscriptMessage;
-      } catch {
-        return null;
-      }
-    })
-    .filter((m): m is TranscriptMessage => m !== null);
-}
-
-function extractRole(msg: TranscriptMessage): string {
-  if (msg.message?.role) return msg.message.role;
-  if (msg.role) return msg.role;
-  if (msg.type === "session") return "system";
-  if (msg.type === "compaction") return "system";
-  return "unknown";
-}
-
-function extractTextContent(
-  content: string | Array<{ type: string; text?: string }> | undefined,
-): string {
-  if (!content) return "";
-  if (typeof content === "string") return content;
-  return content
-    .filter((block) => block.type === "text" && block.text)
-    .map((block) => block.text!)
-    .join("\n");
-}
-
-function extractText(msg: TranscriptMessage): string {
-  if (msg.type === "session") {
-    return `Session started (${msg.id ?? "unknown"})`;
-  }
-  if (msg.type === "compaction") {
-    return "Context compacted";
-  }
-
-  const inner = msg.message;
-  if (inner) {
-    return extractTextContent(inner.content);
-  }
-
-  return extractTextContent(msg.content);
-}
-
-function extractToolCalls(
-  msg: TranscriptMessage,
-): Array<{ name: string; id?: string }> {
-  const content = msg.message?.content ?? msg.content;
-  if (!Array.isArray(content)) return [];
-
-  return content
-    .filter(
-      (block: Record<string, unknown>) =>
-        block.type === "tool_call" ||
-        block.type === "tool_use" ||
-        block.type === "function_call",
-    )
-    .map((block: Record<string, unknown>) => ({
-      name: (block.name as string) ?? (block.function as string) ?? "tool",
-      id: block.id as string | undefined,
-    }));
-}
-
-function formatTimestamp(ts: number | string | undefined): string {
-  if (!ts) return "";
-  const d = new Date(typeof ts === "string" ? ts : ts);
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(d);
-}
+// ---------------------------------------------------------------------------
+// Formatting helpers
+// ---------------------------------------------------------------------------
 
 const statusBadgeVariant: Record<
   string,
@@ -178,37 +99,209 @@ function formatCost(v: string | null): string {
   return `$${n.toFixed(4)}`;
 }
 
-const roleColors: Record<string, string> = {
-  user: "border-blue-500/30 bg-blue-500/5",
-  assistant: "border-emerald-500/30 bg-emerald-500/5",
-  system: "border-amber-500/30 bg-amber-500/5",
-  tool: "border-purple-500/30 bg-purple-500/5",
-};
+function formatTimestamp(ts: number | null): string {
+  if (!ts) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(ts));
+}
 
-const roleLabels: Record<string, string> = {
-  user: "User",
-  assistant: "Assistant",
-  system: "System",
-  tool: "Tool",
-};
+// ---------------------------------------------------------------------------
+// Message renderers
+// ---------------------------------------------------------------------------
+
+function UserMessageBubble({
+  msg,
+  isCurrentUser,
+}: {
+  msg: ParsedMessage;
+  isCurrentUser: boolean;
+}) {
+  const textBlock = msg.blocks.find((b) => b.type === "text");
+
+  return (
+    <Message from={isCurrentUser ? "user" : "assistant"}>
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          isCurrentUser ? "justify-end" : "justify-start",
+        )}
+      >
+        {msg.senderName ? (
+          <span className="text-xs font-medium text-foreground/70">
+            {msg.senderName}
+          </span>
+        ) : null}
+        {msg.timestamp ? (
+          <span className="text-xs text-muted-foreground">
+            {formatTimestamp(msg.timestamp)}
+          </span>
+        ) : null}
+      </div>
+      <MessageContent>
+        {textBlock?.type === "text" ? (
+          <MessageResponse>{textBlock.text}</MessageResponse>
+        ) : null}
+      </MessageContent>
+    </Message>
+  );
+}
+
+function AssistantMessageBubble({ msg }: { msg: ParsedMessage }) {
+  const thinkingBlocks = msg.blocks.filter(
+    (b): b is ParsedContentBlock & { type: "thinking" } =>
+      b.type === "thinking",
+  );
+  const textBlocks = msg.blocks.filter(
+    (b): b is ParsedContentBlock & { type: "text" } => b.type === "text",
+  );
+  const toolCallBlocks = msg.blocks.filter(
+    (b): b is ParsedContentBlock & { type: "tool_call" } =>
+      b.type === "tool_call",
+  );
+
+  return (
+    <Message from="assistant">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-foreground/70">Otto</span>
+        {msg.model ? (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {msg.model}
+          </Badge>
+        ) : null}
+        {msg.timestamp ? (
+          <span className="text-xs text-muted-foreground">
+            {formatTimestamp(msg.timestamp)}
+          </span>
+        ) : null}
+      </div>
+      <MessageContent>
+        {thinkingBlocks.map((block, i) => (
+          <Reasoning key={`thinking-${i}`} defaultOpen={false}>
+            <ReasoningTrigger />
+            <ReasoningContent>{block.text}</ReasoningContent>
+          </Reasoning>
+        ))}
+        {textBlocks.map((block, i) => (
+          <MessageResponse key={`text-${i}`}>{block.text}</MessageResponse>
+        ))}
+        {toolCallBlocks.map((block, i) => (
+          <ToolCallBlock key={`tool-${i}`} block={block} />
+        ))}
+      </MessageContent>
+    </Message>
+  );
+}
+
+function ToolCallBlock({
+  block,
+}: {
+  block: ParsedContentBlock & { type: "tool_call" };
+}) {
+  return (
+    <Collapsible className="rounded-md border">
+      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
+        <div className="flex items-center gap-2">
+          <WrenchIcon className="size-3.5 text-muted-foreground" />
+          <span className="font-mono text-xs font-medium">{block.name}</span>
+        </div>
+        <ChevronDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+      </CollapsibleTrigger>
+      {block.args !== undefined ? (
+        <CollapsibleContent className="border-t px-3 py-2">
+          <pre className="overflow-x-auto text-xs text-muted-foreground">
+            {typeof block.args === "string"
+              ? block.args
+              : JSON.stringify(block.args, null, 2)}
+          </pre>
+        </CollapsibleContent>
+      ) : null}
+    </Collapsible>
+  );
+}
+
+function ToolResultBubble({ msg }: { msg: ParsedMessage }) {
+  const resultBlock = msg.blocks.find((b) => b.type === "tool_result") as
+    | (ParsedContentBlock & { type: "tool_result" })
+    | undefined;
+
+  if (!resultBlock) return null;
+
+  return (
+    <Message from="assistant">
+      <MessageContent>
+        <Collapsible className="rounded-md border">
+          <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
+            <div className="flex items-center gap-2">
+              <WrenchIcon className="size-3.5 text-muted-foreground" />
+              <span className="font-mono text-xs font-medium">
+                {resultBlock.name ?? "Tool result"}
+              </span>
+              {resultBlock.isError ? (
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  Error
+                </Badge>
+              ) : null}
+            </div>
+            <ChevronDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="border-t px-3 py-2">
+            <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
+              {resultBlock.content}
+            </pre>
+          </CollapsibleContent>
+        </Collapsible>
+      </MessageContent>
+    </Message>
+  );
+}
+
+function CompactionDivider({ msg }: { msg: ParsedMessage }) {
+  const text =
+    msg.blocks[0]?.type === "text" ? msg.blocks[0].text : "Context compacted";
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-xs text-muted-foreground">{text}</span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function TranscriptViewer({
   orgSlug,
   session,
+  currentUserExternalIds = [],
 }: {
   orgSlug: string;
   session: Session;
+  currentUserExternalIds?: string[];
 }) {
   const messages = useMemo(
     () => parseTranscript(session.transcriptJsonl),
     [session.transcriptJsonl],
   );
 
+  const currentUserIdSet = useMemo(
+    () => new Set(currentUserExternalIds),
+    [currentUserExternalIds],
+  );
+
   const title =
-    session.displayName || session.label || session.subject || session.sessionKey;
+    session.displayName ||
+    session.label ||
+    session.subject ||
+    session.sessionKey;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <Link
           className="flex size-8 items-center justify-center rounded-md border hover:bg-muted"
@@ -224,6 +317,7 @@ export function TranscriptViewer({
         </div>
       </div>
 
+      {/* Metadata cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <MetadataCard label="Status">
           <Badge variant={statusBadgeVariant[session.status] ?? "outline"}>
@@ -247,91 +341,55 @@ export function TranscriptViewer({
         </MetadataCard>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Transcript</CardTitle>
-          <CardDescription>
+      {/* Transcript */}
+      <div className="rounded-lg border bg-card">
+        <div className="border-b px-5 py-4">
+          <h2 className="text-sm font-medium">Transcript</h2>
+          <p className="text-xs text-muted-foreground">
             {session.messageCount ?? messages.length} messages
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="flex flex-col gap-6 p-5">
           {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-center py-8">
               No transcript data available.
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {messages.map((msg, i) => {
-                const role = extractRole(msg);
-                const text = extractText(msg);
-                const toolCalls = extractToolCalls(msg);
-                const ts =
-                  msg.message?.timestamp ?? msg.timestamp;
-
-                if (role === "system" && msg.type === "session") {
+            messages.map((msg) => {
+              switch (msg.kind) {
+                case "user": {
+                  const isCurrentUser =
+                    !!msg.senderId && currentUserIdSet.has(msg.senderId);
                   return (
-                    <div
-                      key={i}
-                      className="text-center text-xs text-muted-foreground py-2"
-                    >
-                      {text}
-                    </div>
+                    <UserMessageBubble
+                      key={msg.id}
+                      msg={msg}
+                      isCurrentUser={isCurrentUser}
+                    />
                   );
                 }
-
-                if (role === "system" && msg.type === "compaction") {
+                case "assistant":
                   return (
-                    <div
-                      key={i}
-                      className="text-center text-xs text-muted-foreground py-1 border-y border-dashed"
-                    >
-                      Context compacted
-                    </div>
+                    <AssistantMessageBubble key={msg.id} msg={msg} />
                   );
-                }
-
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "rounded-lg border-l-2 p-3",
-                      roleColors[role] ?? "border-gray-500/30 bg-gray-500/5",
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-                        {roleLabels[role] ?? role}
-                      </span>
-                      {ts ? (
-                        <span className="text-xs text-muted-foreground">
-                          {formatTimestamp(ts)}
-                        </span>
-                      ) : null}
-                    </div>
-                    {text ? (
-                      <pre className="whitespace-pre-wrap break-words text-sm font-sans leading-relaxed">
-                        {text}
-                      </pre>
-                    ) : null}
-                    {toolCalls.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {toolCalls.map((tc, j) => (
-                          <Badge key={j} variant="outline" className="font-mono text-xs">
-                            {tc.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+                case "tool_result":
+                  return <ToolResultBubble key={msg.id} msg={msg} />;
+                case "compaction":
+                  return <CompactionDivider key={msg.id} msg={msg} />;
+                default:
+                  return null;
+              }
+            })
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Metadata card
+// ---------------------------------------------------------------------------
 
 function MetadataCard({
   label,

@@ -1,12 +1,21 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
+
+import {
+  canViewSessionDetail,
+  formatSessionName,
+  getProviderIcon,
+  getProviderLabel,
+  parseSessionKey,
+} from "../_lib/session-display";
 
 export type SessionRow = {
   id: string;
@@ -44,15 +53,13 @@ const statusBadgeVariant: Record<
   timeout: "destructive",
 };
 
-function formatDuration(ms: number | null): string {
-  if (ms === null || ms === undefined) return "-";
-  if (ms < 1000) return `${ms}ms`;
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-}
+const kindLabels: Record<string, string> = {
+  dm: "DM",
+  channel: "Channel",
+  group: "Group",
+  thread: "Thread",
+  main: "Shared",
+};
 
 function formatTokens(n: number | null): string {
   if (n === null || n === undefined) return "-";
@@ -78,39 +85,98 @@ function formatTime(date: Date | null): string {
   }).format(date);
 }
 
-function sessionTitle(row: SessionRow): string {
+function ProviderCell({ provider }: { provider: string | null }) {
+  const icon = getProviderIcon(provider);
+  const label = getProviderLabel(provider);
+
   return (
-    row.displayName ||
-    row.label ||
-    row.subject ||
-    row.sessionKey
+    <div className="flex items-center gap-2">
+      {icon ? (
+        <Image
+          alt={label}
+          className="size-4 shrink-0"
+          height={16}
+          src={icon}
+          width={16}
+        />
+      ) : null}
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </div>
   );
 }
 
-function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
+function createColumns(input: {
+  orgSlug: string;
+  currentUserExternalIds: string[];
+  isPlatformAdmin: boolean;
+  nameMaps: { channels: Map<string, string>; members: Map<string, string> };
+}): ColumnDef<SessionRow>[] {
   return [
     {
       accessorKey: "displayName",
       header: "Session",
-      size: 240,
-      cell: ({ row }) => (
-        <Link
-          className="block max-w-[240px] truncate text-sm font-medium text-foreground hover:underline"
-          href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
-        >
-          {sessionTitle(row.original)}
-        </Link>
-      ),
+      size: 280,
+      cell: ({ row }) => {
+        const name = formatSessionName({
+          sessionKey: row.original.sessionKey,
+          displayName: row.original.displayName,
+          label: row.original.label,
+          subject: row.original.subject,
+          originFrom: row.original.originFrom,
+          chatType: row.original.chatType,
+          nameMaps: input.nameMaps,
+        });
+
+        const canView = canViewSessionDetail({
+          sessionKey: row.original.sessionKey,
+          currentUserExternalIds: input.currentUserExternalIds,
+          isPlatformAdmin: input.isPlatformAdmin,
+          sessionOriginFrom: row.original.originFrom,
+        });
+
+        if (canView) {
+          return (
+            <Link
+              className="block max-w-[280px] truncate text-sm font-medium text-foreground hover:underline"
+              href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
+            >
+              {name}
+            </Link>
+          );
+        }
+
+        return (
+          <span
+            className="block max-w-[280px] truncate text-sm text-muted-foreground"
+            title="DM — only the session owner or admins can view"
+          >
+            {name}
+          </span>
+        );
+      },
     },
     {
-      accessorKey: "channel",
+      id: "provider",
       header: "Channel",
-      size: 90,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.channel ?? "-"}
-        </span>
-      ),
+      size: 100,
+      cell: ({ row }) => {
+        const parsed = parseSessionKey(row.original.sessionKey);
+        return <ProviderCell provider={parsed.provider} />;
+      },
+    },
+    {
+      id: "kind",
+      header: "Type",
+      size: 80,
+      cell: ({ row }) => {
+        const parsed = parseSessionKey(row.original.sessionKey);
+        const label = kindLabels[parsed.kind] ?? parsed.kind;
+        return (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {label}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
@@ -127,9 +193,9 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
     {
       accessorKey: "model",
       header: "Model",
-      size: 140,
+      size: 120,
       cell: ({ row }) => (
-        <span className="block max-w-[140px] truncate text-sm text-muted-foreground">
+        <span className="block max-w-[120px] truncate text-sm text-muted-foreground">
           {row.original.model ?? "-"}
         </span>
       ),
@@ -137,7 +203,7 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
     {
       accessorKey: "totalTokens",
       header: "Tokens",
-      size: 80,
+      size: 70,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums text-muted-foreground">
           {formatTokens(row.original.totalTokens)}
@@ -157,20 +223,10 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
     {
       accessorKey: "messageCount",
       header: "Messages",
-      size: 80,
+      size: 70,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums text-muted-foreground">
           {row.original.messageCount ?? "-"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "runtimeMs",
-      header: "Duration",
-      size: 80,
-      cell: ({ row }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {formatDuration(row.original.runtimeMs)}
         </span>
       ),
     },
@@ -190,23 +246,57 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
 export function SessionsContent({
   orgSlug,
   sessions,
+  currentUserExternalIds = [],
+  isPlatformAdmin = false,
+  channelNames = {},
+  memberNames = {},
 }: {
   orgSlug: string;
   sessions: SessionRow[];
+  currentUserExternalIds?: string[];
+  isPlatformAdmin?: boolean;
+  channelNames?: Record<string, string>;
+  memberNames?: Record<string, string>;
 }) {
   const [filter, setFilter] = useState("");
-  const columns = useMemo(() => createColumns(orgSlug), [orgSlug]);
+
+  const nameMaps = useMemo(
+    () => ({
+      channels: new Map(Object.entries(channelNames)),
+      members: new Map(Object.entries(memberNames)),
+    }),
+    [channelNames, memberNames],
+  );
+
+  const columns = useMemo(
+    () =>
+      createColumns({
+        orgSlug,
+        currentUserExternalIds,
+        isPlatformAdmin,
+        nameMaps,
+      }),
+    [orgSlug, currentUserExternalIds, isPlatformAdmin, nameMaps],
+  );
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return sessions;
     const q = filter.toLowerCase();
     return sessions.filter((s) => {
-      const title = sessionTitle(s).toLowerCase();
+      const name = formatSessionName({
+        sessionKey: s.sessionKey,
+        displayName: s.displayName,
+        label: s.label,
+        subject: s.subject,
+        originFrom: s.originFrom,
+        chatType: s.chatType,
+        nameMaps,
+      }).toLowerCase();
       const channel = (s.channel ?? "").toLowerCase();
       const status = s.status.toLowerCase();
-      return title.includes(q) || channel.includes(q) || status.includes(q);
+      return name.includes(q) || channel.includes(q) || status.includes(q);
     });
-  }, [sessions, filter]);
+  }, [sessions, filter, nameMaps]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">

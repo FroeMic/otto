@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { listTenantSessions } from "@/db/control-plane";
+import {
+  getConversationNameMap,
+  getUserExternalIds,
+  listTenantSessions,
+} from "@/db/control-plane";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import { SessionsContent } from "./_components/sessions-content";
@@ -14,7 +18,7 @@ export default async function SessionsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const { currentOrganization: organization } =
+  const { currentOrganization: organization, user } =
     await loadOrganizationRouteContext(orgSlug);
 
   if (!isOrganizationUnlocked(organization)) {
@@ -22,14 +26,26 @@ export default async function SessionsPage({
   }
 
   const agent = getPrimaryAgent(organization);
-  const sessions = agent
-    ? await listTenantSessions({ tenantId: agent.id })
-    : [];
+  const [sessions, currentUserExternalIds, conversationNameMap] =
+    await Promise.all([
+      agent ? listTenantSessions({ tenantId: agent.id }) : [],
+      getUserExternalIds({
+        userExternalId: user.id,
+        organizationId: organization.id,
+      }),
+      getConversationNameMap({ organizationId: organization.id }),
+    ]);
+
+  // Convert Map to plain object for serialization to client
+  const channelNames = Object.fromEntries(conversationNameMap);
 
   return (
     <SessionsContent
       orgSlug={organization.slug}
       sessions={sessions}
+      currentUserExternalIds={currentUserExternalIds}
+      isPlatformAdmin={user.isPlatformAdmin}
+      channelNames={channelNames}
     />
   );
 }

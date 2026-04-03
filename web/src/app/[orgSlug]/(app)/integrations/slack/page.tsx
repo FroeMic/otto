@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { SlackActionsMenu } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-actions-menu";
 import { SlackRuntimeConfigPanel } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-runtime-config-panel";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
@@ -209,6 +210,9 @@ export default async function SlackIntegrationPage({
               >
                 Continue setup
               </Link>
+            ) : null}
+            {slackIsConnected ? (
+              <SlackActionsMenu orgSlug={organization.slug} />
             ) : null}
           </div>
         </div>
