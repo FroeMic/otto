@@ -4,6 +4,7 @@ import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-
 import { getTenantSession, getUserExternalIds } from "@/db/control-plane";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
+import { canViewSessionDetail } from "../_lib/session-display";
 import { TranscriptViewer } from "./_components/transcript-viewer";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,18 @@ export default async function SessionDetailPage({
   ]);
 
   if (!session) {
+    notFound();
+  }
+
+  // Enforce DM access control: only session owner or platform admins
+  const canView = canViewSessionDetail({
+    sessionKey: decodedKey,
+    currentUserExternalIds,
+    isPlatformAdmin: user.isPlatformAdmin,
+    sessionOriginFrom: session.originFrom,
+  });
+
+  if (!canView) {
     notFound();
   }
 

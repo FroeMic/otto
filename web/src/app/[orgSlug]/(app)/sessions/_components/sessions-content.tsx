@@ -1,12 +1,22 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+import {
+  canViewSessionDetail,
+  formatSessionName,
+  getProviderIcon,
+  getProviderLabel,
+  parseSessionKey,
+} from "../_lib/session-display";
 
 export type SessionRow = {
   id: string;
@@ -44,6 +54,22 @@ const statusBadgeVariant: Record<
   timeout: "destructive",
 };
 
+const kindBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
+  dm: "default",
+  channel: "secondary",
+  group: "secondary",
+  thread: "outline",
+  main: "outline",
+};
+
+const kindLabels: Record<string, string> = {
+  dm: "DM",
+  channel: "Channel",
+  group: "Group",
+  thread: "Thread",
+  main: "Shared",
+};
+
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return "-";
   if (ms < 1000) return `${ms}ms`;
@@ -51,7 +77,9 @@ function formatDuration(ms: number | null): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  return remainingSeconds > 0
+    ? `${minutes}m ${remainingSeconds}s`
+    : `${minutes}m`;
 }
 
 function formatTokens(n: number | null): string {
@@ -78,39 +106,84 @@ function formatTime(date: Date | null): string {
   }).format(date);
 }
 
-function sessionTitle(row: SessionRow): string {
+function ChannelCell({ row }: { row: SessionRow }) {
+  const parsed = parseSessionKey(row.sessionKey);
+  const icon = getProviderIcon(parsed.provider);
+  const label = getProviderLabel(parsed.provider);
+  const kindLabel = kindLabels[parsed.kind] ?? parsed.kind;
+  const kindVariant = kindBadgeVariant[parsed.kind] ?? "outline";
+
   return (
-    row.displayName ||
-    row.label ||
-    row.subject ||
-    row.sessionKey
+    <div className="flex items-center gap-2">
+      {icon ? (
+        <Image
+          alt={label}
+          className="size-4 shrink-0"
+          height={16}
+          src={icon}
+          width={16}
+        />
+      ) : null}
+      <Badge variant={kindVariant} className="text-[10px] px-1.5 py-0">
+        {kindLabel}
+      </Badge>
+    </div>
   );
 }
 
-function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
+function createColumns(input: {
+  orgSlug: string;
+  currentUserExternalIds: string[];
+  isPlatformAdmin: boolean;
+}): ColumnDef<SessionRow>[] {
   return [
     {
       accessorKey: "displayName",
       header: "Session",
-      size: 240,
-      cell: ({ row }) => (
-        <Link
-          className="block max-w-[240px] truncate text-sm font-medium text-foreground hover:underline"
-          href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
-        >
-          {sessionTitle(row.original)}
-        </Link>
-      ),
+      size: 280,
+      cell: ({ row }) => {
+        const name = formatSessionName({
+          sessionKey: row.original.sessionKey,
+          displayName: row.original.displayName,
+          label: row.original.label,
+          subject: row.original.subject,
+          originFrom: row.original.originFrom,
+          chatType: row.original.chatType,
+        });
+
+        const canView = canViewSessionDetail({
+          sessionKey: row.original.sessionKey,
+          currentUserExternalIds: input.currentUserExternalIds,
+          isPlatformAdmin: input.isPlatformAdmin,
+          sessionOriginFrom: row.original.originFrom,
+        });
+
+        if (canView) {
+          return (
+            <Link
+              className="block max-w-[280px] truncate text-sm font-medium text-foreground hover:underline"
+              href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
+            >
+              {name}
+            </Link>
+          );
+        }
+
+        return (
+          <span
+            className="block max-w-[280px] truncate text-sm text-muted-foreground"
+            title="DM — only the session owner or admins can view"
+          >
+            {name}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "channel",
       header: "Channel",
-      size: 90,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.channel ?? "-"}
-        </span>
-      ),
+      size: 110,
+      cell: ({ row }) => <ChannelCell row={row.original} />,
     },
     {
       accessorKey: "status",
@@ -165,16 +238,6 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
       ),
     },
     {
-      accessorKey: "runtimeMs",
-      header: "Duration",
-      size: 80,
-      cell: ({ row }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {formatDuration(row.original.runtimeMs)}
-        </span>
-      ),
-    },
-    {
       accessorKey: "startedAt",
       header: "Started",
       size: 130,
@@ -190,21 +253,40 @@ function createColumns(orgSlug: string): ColumnDef<SessionRow>[] {
 export function SessionsContent({
   orgSlug,
   sessions,
+  currentUserExternalIds = [],
+  isPlatformAdmin = false,
 }: {
   orgSlug: string;
   sessions: SessionRow[];
+  currentUserExternalIds?: string[];
+  isPlatformAdmin?: boolean;
 }) {
   const [filter, setFilter] = useState("");
-  const columns = useMemo(() => createColumns(orgSlug), [orgSlug]);
+  const columns = useMemo(
+    () =>
+      createColumns({
+        orgSlug,
+        currentUserExternalIds,
+        isPlatformAdmin,
+      }),
+    [orgSlug, currentUserExternalIds, isPlatformAdmin],
+  );
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return sessions;
     const q = filter.toLowerCase();
     return sessions.filter((s) => {
-      const title = sessionTitle(s).toLowerCase();
+      const name = formatSessionName({
+        sessionKey: s.sessionKey,
+        displayName: s.displayName,
+        label: s.label,
+        subject: s.subject,
+        originFrom: s.originFrom,
+        chatType: s.chatType,
+      }).toLowerCase();
       const channel = (s.channel ?? "").toLowerCase();
       const status = s.status.toLowerCase();
-      return title.includes(q) || channel.includes(q) || status.includes(q);
+      return name.includes(q) || channel.includes(q) || status.includes(q);
     });
   }, [sessions, filter]);
 
