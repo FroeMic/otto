@@ -1,10 +1,18 @@
 "use client";
 
 import * as React from "react";
+import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 
 type PlatformOrganizationActionsProps = {
@@ -60,23 +68,36 @@ export function PlatformOrganizationActions({
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        disabled={!hasTenant || !runtimeReady || pendingAction}
-        onClick={() => runAction("apply")}
-        variant="default"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Open organization actions"
+            size="icon-sm"
+            variant="ghost"
+          />
+        }
       >
-        {pendingAction ? <Spinner data-icon="inline-start" /> : null}
-        Apply tenant config
-      </Button>
-      <Button
-        disabled={!hasTenant || !runtimeReady || pendingAction}
-        onClick={() => runAction("refresh-image")}
-        variant="outline"
-      >
-        {pendingAction ? <Spinner data-icon="inline-start" /> : null}
-        Pull and restart image
-      </Button>
-    </div>
+        {pendingAction ? (
+          <Spinner />
+        ) : (
+          <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={!hasTenant || !runtimeReady || pendingAction}
+          onClick={() => runAction("apply")}
+        >
+          Apply tenant config
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!hasTenant || !runtimeReady || pendingAction}
+          onClick={() => runAction("refresh-image")}
+        >
+          Pull and restart image
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
