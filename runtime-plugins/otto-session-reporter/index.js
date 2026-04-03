@@ -24,6 +24,8 @@ export default definePluginEntry({
 
     const pendingFlush = new Map();
 
+    // -- Typed lifecycle hooks (api.on → registry.typedHooks) ----------------
+
     api.on("session_start", async (event, ctx) => {
       logPluginInfo("session_start hook fired", {
         sessionId: event.sessionId,
@@ -56,21 +58,20 @@ export default definePluginEntry({
         clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
 
         const sessionKey = ctx.sessionKey ?? event.sessionId;
-        const transcript = await readTranscript(api, ctx.agentId, sessionKey);
+        const entry = await loadSessionEntry(api, sessionKey);
+        const transcript = await readTranscript(api, ctx.agentId, sessionKey, entry);
         logPluginInfo("session_end transcript read", {
           sessionKey,
           hasTranscript: !!transcript,
           transcriptSize: transcript?.transcriptJsonl?.length ?? 0,
         });
 
-        await syncSession(api, {
-          sessionKey,
+        await syncSessionFull(api, sessionKey, entry, transcript, {
           externalSessionId: event.sessionId,
           status: "done",
           runtimeMs: event.durationMs ?? null,
           messageCount: event.messageCount,
           sessionUpdatedAt: Date.now(),
-          ...(transcript ?? {}),
         });
       } catch (error) {
         logPluginError("session_end handler threw", {
@@ -79,31 +80,18 @@ export default definePluginEntry({
       }
     });
 
-    api.on("message_sent", (_event, ctx) => {
-      logPluginInfo("message_sent hook fired", {
-        channelId: ctx.channelId,
-        accountId: ctx.accountId,
-      });
-      const sessionKey = ctx.channelId;
+    // -- Transcript update events (runtime.events → real session keys) -------
+
+    api.runtime.events.onSessionTranscriptUpdate((update) => {
+      const sessionKey = update.sessionKey;
       if (!sessionKey) {
-        logPluginInfo("message_sent: no channelId, skipping");
+        logPluginInfo("transcriptUpdate: no sessionKey, skipping", {
+          sessionFile: update.sessionFile,
+        });
         return;
       }
 
-      debouncedSync(api, pendingFlush, sessionKey);
-    });
-
-    api.on("message_received", (_event, ctx) => {
-      logPluginInfo("message_received hook fired", {
-        channelId: ctx.channelId,
-        accountId: ctx.accountId,
-      });
-      const sessionKey = ctx.channelId;
-      if (!sessionKey) {
-        logPluginInfo("message_received: no channelId, skipping");
-        return;
-      }
-
+      logPluginInfo("transcriptUpdate fired", { sessionKey });
       debouncedSync(api, pendingFlush, sessionKey);
     });
 
@@ -130,53 +118,14 @@ function debouncedSync(api, pendingFlush, sessionKey) {
         return;
       }
 
-      const transcript = await readTranscript(
-        api,
-        undefined,
-        sessionKey,
-      );
+      const transcript = await readTranscript(api, undefined, sessionKey, entry);
       logPluginInfo("debouncedSync transcript read", {
         sessionKey,
         hasTranscript: !!transcript,
       });
 
-      await syncSession(api, {
-        sessionKey,
-        externalSessionId: entry.sessionId,
-        displayName: entry.displayName ?? null,
-        label: entry.label ?? null,
-        subject: entry.subject ?? null,
-        channel: entry.channel ?? entry.lastChannel ?? null,
-        channelProvider: entry.origin?.provider ?? null,
-        chatType: entry.chatType ?? entry.origin?.chatType ?? null,
-        originFrom: entry.origin?.from ?? null,
-        originTo: entry.origin?.to ?? null,
-        originAccountId:
-          entry.lastAccountId ?? entry.origin?.accountId ?? null,
-        originThreadId: entry.lastThreadId
-          ? String(entry.lastThreadId)
-          : entry.origin?.threadId
-            ? String(entry.origin.threadId)
-            : null,
-        status: entry.status ?? "active",
-        startedAt: entry.startedAt ?? null,
-        endedAt: entry.endedAt ?? null,
-        runtimeMs: entry.runtimeMs ?? null,
-        model: entry.model ?? null,
-        modelProvider: entry.modelProvider ?? null,
-        inputTokens: entry.inputTokens ?? null,
-        outputTokens: entry.outputTokens ?? null,
-        cacheReadTokens: entry.cacheRead ?? null,
-        cacheWriteTokens: entry.cacheWrite ?? null,
-        totalTokens: entry.totalTokens ?? null,
-        estimatedCostUsd: entry.estimatedCostUsd
-          ? String(entry.estimatedCostUsd)
-          : null,
-        parentSessionKey: entry.parentSessionKey ?? null,
-        spawnDepth: entry.spawnDepth ?? 0,
-        subagentRole: entry.subagentRole ?? null,
+      await syncSessionFull(api, sessionKey, entry, transcript, {
         sessionUpdatedAt: entry.updatedAt ?? Date.now(),
-        ...(transcript ?? {}),
       });
     } catch (error) {
       logPluginError("Debounced sync failed", {
@@ -216,19 +165,29 @@ async function loadSessionEntry(api, sessionKey) {
   }
 }
 
-async function readTranscript(api, agentId, sessionKey) {
+async function readTranscript(api, agentId, sessionKey, entry) {
   try {
-    const filePath = api.runtime.agent.session.resolveSessionFilePath(
-      sessionKey,
-      agentId,
-    );
+    // Try resolveSessionFilePath first, fall back to the entry's sessionFile
+    let filePath = null;
+    try {
+      filePath = api.runtime.agent.session.resolveSessionFilePath(
+        sessionKey,
+        agentId,
+      );
+    } catch {
+      // resolveSessionFilePath may not support all key formats
+    }
+
+    if (!filePath && entry?.sessionFile) {
+      filePath = entry.sessionFile;
+    }
+
     logPluginInfo("readTranscript resolvedPath", { sessionKey, agentId, filePath });
     if (!filePath) return null;
 
     const content = await readFile(filePath, "utf-8");
     const hash = createHash("sha256").update(content).digest("hex");
     const lineCount = content.split("\n").filter((l) => l.trim()).length;
-    // Subtract 1 for the session header line
     const messageCount = Math.max(0, lineCount - 1);
 
     return {
@@ -244,6 +203,54 @@ async function readTranscript(api, agentId, sessionKey) {
     });
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Build full session payload from entry + overrides
+// ---------------------------------------------------------------------------
+
+async function syncSessionFull(api, sessionKey, entry, transcript, overrides) {
+  const data = {
+    sessionKey,
+    externalSessionId: entry?.sessionId ?? overrides.externalSessionId ?? null,
+    displayName: entry?.displayName ?? null,
+    label: entry?.label ?? null,
+    subject: entry?.subject ?? null,
+    channel: entry?.channel ?? entry?.lastChannel ?? null,
+    channelProvider: entry?.origin?.provider ?? null,
+    chatType: entry?.chatType ?? entry?.origin?.chatType ?? null,
+    originFrom: entry?.origin?.from ?? null,
+    originTo: entry?.origin?.to ?? null,
+    originAccountId:
+      entry?.lastAccountId ?? entry?.origin?.accountId ?? null,
+    originThreadId: entry?.lastThreadId
+      ? String(entry.lastThreadId)
+      : entry?.origin?.threadId
+        ? String(entry.origin.threadId)
+        : null,
+    status: entry?.status ?? overrides.status ?? "active",
+    startedAt: entry?.startedAt ?? null,
+    endedAt: entry?.endedAt ?? null,
+    runtimeMs: entry?.runtimeMs ?? null,
+    model: entry?.model ?? null,
+    modelProvider: entry?.modelProvider ?? null,
+    inputTokens: entry?.inputTokens ?? null,
+    outputTokens: entry?.outputTokens ?? null,
+    cacheReadTokens: entry?.cacheRead ?? null,
+    cacheWriteTokens: entry?.cacheWrite ?? null,
+    totalTokens: entry?.totalTokens ?? null,
+    estimatedCostUsd: entry?.estimatedCostUsd
+      ? String(entry.estimatedCostUsd)
+      : null,
+    parentSessionKey: entry?.parentSessionKey ?? null,
+    spawnDepth: entry?.spawnDepth ?? 0,
+    subagentRole: entry?.subagentRole ?? null,
+    sessionUpdatedAt: entry?.updatedAt ?? Date.now(),
+    ...overrides,
+    ...(transcript ?? {}),
+  };
+
+  await syncSession(api, data);
 }
 
 // ---------------------------------------------------------------------------
