@@ -551,6 +551,15 @@ export type PlatformOrganizationDetail = {
       finishedAt: Date | null;
       id: string;
       jobType: string;
+      result: {
+        host: string | null;
+        image: string | null;
+        note: string | null;
+        restartStderr: string | null;
+        restartStdout: string | null;
+        verifyStderr: string | null;
+        verifyStdout: string | null;
+      } | null;
       startedAt: Date | null;
       status: string;
       step: string | null;
@@ -1297,6 +1306,7 @@ export async function getPlatformOrganizationDetail(input: {
       id: jobRuns.id,
       jobType: jobRuns.jobType,
       payloadJson: jobRuns.payloadJson,
+      resultJson: jobRuns.resultJson,
       startedAt: jobRuns.startedAt,
       status: jobRuns.status,
     })
@@ -2118,6 +2128,7 @@ function buildPlatformJobHistoryEntry(
     id: string;
     jobType: string;
     payloadJson: unknown;
+    resultJson: unknown;
     startedAt: Date | null;
     status: string;
   },
@@ -2140,6 +2151,7 @@ function buildPlatformJobHistoryEntry(
     ...summary,
     createdAt: job.createdAt,
     jobType: job.jobType,
+    result: buildPlatformJobResult(job.resultJson),
   };
 }
 
@@ -2172,6 +2184,28 @@ function parseRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function buildPlatformJobResult(value: unknown) {
+  const result = parseRecord(value);
+
+  if (Object.keys(result).length === 0) {
+    return null;
+  }
+
+  return {
+    host: typeof result.host === "string" ? result.host : null,
+    image: typeof result.image === "string" ? result.image : null,
+    note: typeof result.note === "string" ? result.note : null,
+    restartStderr:
+      typeof result.restartStderr === "string" ? result.restartStderr : null,
+    restartStdout:
+      typeof result.restartStdout === "string" ? result.restartStdout : null,
+    verifyStderr:
+      typeof result.verifyStderr === "string" ? result.verifyStderr : null,
+    verifyStdout:
+      typeof result.verifyStdout === "string" ? result.verifyStdout : null,
+  };
 }
 
 export async function createWorkspaceOnboardingDraft(input: {
@@ -3403,6 +3437,31 @@ export async function triggerPlatformOrganizationApply(input: {
 
   return {
     desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationRefreshImage(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.refreshRuntimeImage,
+    payload: {
+      tenantId: tenant.tenantId,
+    },
+  });
+
+  return {
     jobId,
     queued: true,
     tenantId: tenant.tenantId,

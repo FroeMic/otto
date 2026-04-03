@@ -2,15 +2,11 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
 import {
-  getPlatformTenantTarget,
   syncUserFromSession,
+  triggerPlatformOrganizationRefreshImage,
 } from "@/db/control-plane";
-import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
-import { RuntimeManager } from "@/lib/runtime/manager";
 
 export const dynamic = "force-dynamic";
-
-const runtimeManager = new RuntimeManager();
 
 export async function POST(
   _request: Request,
@@ -25,32 +21,12 @@ export async function POST(
     const { orgSlug } = await context.params;
     await syncUserFromSession(user);
 
-    const tenant = await getPlatformTenantTarget({
+    const result = await triggerPlatformOrganizationRefreshImage({
       orgSlug,
       userExternalId: user.id,
     });
 
-    if (!tenant) {
-      throw new Error("Organization tenant not found");
-    }
-
-    const runtimeConnection = await getTenantRuntimeConnection(
-      tenant.tenantId,
-      "platform admin image refresh",
-    );
-    const restart =
-      await runtimeManager.restartGatewayWithResult(runtimeConnection);
-    const verify =
-      await runtimeManager.checkGatewayHealthWithResult(runtimeConnection);
-
-    return json({
-      restartStderr: restart.stderr,
-      restartStdout: restart.stdout,
-      tenantId: tenant.tenantId,
-      tenantName: tenant.tenantName,
-      verifyStderr: verify.stderr,
-      verifyStdout: verify.stdout,
-    });
+    return json(result);
   } catch (error) {
     return handlePlatformRouteError(error);
   }

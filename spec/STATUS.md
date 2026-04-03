@@ -110,7 +110,9 @@
     - `/platform/organizations/[orgSlug]/access`
     - `/platform/organizations/[orgSlug]/activity`
     - `/platform/organizations/[orgSlug]/logs`
-  - the new activity view now combines jobs and events into one filtered surface with polling, while the logs tab is reserved for the next runtime-log read path and currently shows the latest stored apply diagnostics
+  - the new activity view now combines jobs and events into one filtered surface with polling
+  - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
+  - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
 - Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
@@ -205,10 +207,12 @@
 
 ## Next recommended implementation step
 
-- User-directed priority is temporarily shifted to operator visibility on `codex/platform-organization-detail`:
-  - finish the new `/platform/organizations/[orgSlug]` detail surface by adding a real logs view and converting runtime image refresh into a queued, auditable job instead of an inline route-side restart
-  - then continue `TODO_11_runtime_release_rollout.md` on the same operator surface so release activation and rollout controls live next to gateway access and recent deployment activity
-  - after the platform/operator surface is stable, clean up `/{orgSlug}/agent/status` so the main workspace health page stays non-technical
+- Continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
+  - adding the runtime release schema migration and DB-backed active release record
+  - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
+  - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the new queued image-refresh diagnostics
+  - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
+- After the operator rollout surface is stable, clean up `/{orgSlug}/agent/status` so the main workspace health page stays non-technical
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification

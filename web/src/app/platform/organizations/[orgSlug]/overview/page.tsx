@@ -43,6 +43,50 @@ function OverviewRow({
   );
 }
 
+function isFailureStatus(status: string | null | undefined) {
+  return (
+    status === "failed" ||
+    status === "error" ||
+    status === "apply_failed" ||
+    status === "link_failed"
+  );
+}
+
+function isInProgressStatus(status: string | null | undefined) {
+  return (
+    status === "queued" ||
+    status === "running" ||
+    status === "pending_apply" ||
+    status === "loading_desired_state" ||
+    status === "rendering_files" ||
+    status === "writing_files" ||
+    status === "restarting_runtime" ||
+    status === "verifying_runtime" ||
+    status === "applying" ||
+    status === "provisioning"
+  );
+}
+
+function getLatestIssueTitle(input: {
+  latestApplyRunStatus?: string | null;
+  latestJobStatus?: string | null;
+  slackError?: string | null;
+}) {
+  if (input.latestApplyRunStatus && isFailureStatus(input.latestApplyRunStatus)) {
+    return "Latest apply needs attention";
+  }
+
+  if (input.latestJobStatus && isFailureStatus(input.latestJobStatus)) {
+    return "Latest job needs attention";
+  }
+
+  if (input.slackError) {
+    return "Slack integration needs attention";
+  }
+
+  return "Latest issue";
+}
+
 export default async function PlatformOrganizationOverviewPage({
   params,
 }: {
@@ -54,21 +98,44 @@ export default async function PlatformOrganizationOverviewPage({
   const tenant = organization.tenant;
   const latestApplyRun = tenant?.latestApplyRun ?? null;
   const latestJob = tenant?.recentJobs[0] ?? null;
-  const latestFailure =
+  const latestFailureMessage =
     latestApplyRun?.error ??
     latestJob?.error ??
     organization.slackIntegration?.lastError;
   const runtimeImageHref = getRuntimeImageHref(organization.runtimeImage);
-  const healthLabel = latestFailure
+  const hasFailure =
+    isFailureStatus(latestApplyRun?.status) ||
+    isFailureStatus(latestJob?.status) ||
+    Boolean(organization.slackIntegration?.lastError);
+  const isUpdating =
+    isInProgressStatus(latestApplyRun?.status) ||
+    isInProgressStatus(latestJob?.status);
+  const runtimeReady =
+    tenant?.status === "ready" && tenant?.serverStatus === "ready";
+  const healthLabel = hasFailure
     ? "Needs attention"
-    : tenant?.status === "ready" && tenant?.serverStatus === "ready"
-      ? "Healthy"
-      : "Provisioning";
-  const healthVariant = latestFailure
+    : isUpdating
+      ? "Updating"
+      : runtimeReady
+        ? "Healthy"
+        : "Provisioning";
+  const healthVariant = hasFailure
     ? "destructive"
-    : tenant?.status === "ready" && tenant?.serverStatus === "ready"
+    : runtimeReady
       ? "secondary"
       : "outline";
+  const latestFailure =
+    latestFailureMessage ??
+    (isFailureStatus(latestApplyRun?.status)
+      ? `Latest apply is ${formatStatus(latestApplyRun?.status ?? null)}.`
+      : isFailureStatus(latestJob?.status)
+        ? `Latest job is ${formatStatus(latestJob?.status ?? null)}.`
+        : null);
+  const latestIssueTitle = getLatestIssueTitle({
+    latestApplyRunStatus: latestApplyRun?.status,
+    latestJobStatus: latestJob?.status,
+    slackError: organization.slackIntegration?.lastError,
+  });
 
   if (!tenant) {
     return (
@@ -129,8 +196,8 @@ export default async function PlatformOrganizationOverviewPage({
               />
             </SettingsCard>
             {latestFailure ? (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
+              <Alert className="rounded-lg" variant="destructive">
+                <AlertTitle>{latestIssueTitle}</AlertTitle>
                 <AlertDescription>{latestFailure}</AlertDescription>
               </Alert>
             ) : null}

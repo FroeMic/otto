@@ -3,6 +3,7 @@ import { getEnv } from "@/lib/env";
 import { processApplyTenantConfigJob } from "./apply";
 import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
+import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import type { ClaimedJob } from "./types";
 import { JOB_TYPES } from "./types";
 import {
@@ -16,6 +17,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   switch (job.jobType) {
     case JOB_TYPES.applyTenantConfig:
       await processApplyTenantConfigJob(job);
+      return;
+    case JOB_TYPES.refreshRuntimeImage:
+      await processRefreshRuntimeImageJob(job);
       return;
     case JOB_TYPES.provisionTenantServer:
       await processProvisionTenantServerJob(job);
