@@ -275,12 +275,16 @@ Initial content:
 
 - enable / connected / disconnected / failed status
 - linked phone number if known
+- render the page as a settings-style detail view with a constrained header and a dedicated WhatsApp logo
+- use top-level tabs for Capabilities, Status, and Configuration
+- keep warnings inside the Status tab and show a status indicator on the tab when attention is required
 - a dedicated-number preparation checklist:
   - buy a new phone number
   - activate the SIM or eSIM on the phone
   - install WhatsApp Business
   - register and verify the number there before returning to the workspace
 - QR generation plus polling states for waiting, connected, or failed
+- move reconnect, disconnect, disable, and reapply actions into the Status tab
 - a policy editor for:
   - DM access mode
   - allowed-number allowlist
@@ -289,6 +293,7 @@ Initial content:
   - allowed group sender numbers
   - require-mention-in-groups
   - ack reaction toggle
+- render the policy editor as a single-column settings document with a viewport-fixed floating save/discard bar for unsaved changes
 
 ### Skills
 

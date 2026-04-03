@@ -1,13 +1,8 @@
-import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { WhatsAppIntegrationPanel } from "@/app/[orgSlug]/(app)/integrations/whatsapp/_components/whatsapp-integration-panel";
-import { AgentCapabilitiesCard } from "@/components/agent-capabilities-card";
-import { getToolDefinition } from "@/tools";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   getCurrentTenantWhatsAppLinkSession,
   getTenantWhatsAppRuntimeConfigSurface,
@@ -20,6 +15,7 @@ import {
   getWhatsAppUiPhaseLabel,
   isOrganizationUnlocked,
 } from "@/lib/workspace";
+import { getToolDefinition } from "@/tools";
 
 export const dynamic = "force-dynamic";
 
@@ -155,84 +151,55 @@ export default async function WhatsAppIntegrationPage({
   });
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 pb-12">
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">
-            Integrations / WhatsApp
-          </p>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  WhatsApp
-                </h1>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Connect one dedicated WhatsApp Business number to Otto, show a
-                  QR code in your workspace, and control who can reach it.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <Badge
-                  variant={getStatusBadgeVariant({
-                    integrationError,
-                    runtimeApplyError,
-                    runtimeApplyIsActive,
-                    whatsappStatus: whatsappPhase,
-                  })}
-                >
-                  {getWhatsAppUiPhaseLabel(whatsappPhase)}
-                </Badge>
-                {whatsappPhase !== "prepare" && integration?.selfE164 ? (
-                  <span>Number: {integration.selfE164}</span>
-                ) : null}
-                <span>Otto: {getRuntimeStatusLabel(organization)}</span>
-                {runtimeApplyStatusLabel &&
-                (whatsappPhase === "activating" ||
-                  whatsappPhase === "connected" ||
-                  whatsappPhase === "attention") ? (
-                  <span>Latest sync: {runtimeApplyStatusLabel}</span>
-                ) : null}
-              </div>
+    <div className="flex w-full flex-col gap-6 pb-12">
+      <section className="flex max-w-2xl flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <Image
+                alt=""
+                className="size-8"
+                height={32}
+                src="/integrations/whatsapp.png"
+                width={32}
+              />
+              <h1 className="text-3xl font-semibold tracking-tight">
+                WhatsApp
+              </h1>
             </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Connect one dedicated WhatsApp number to Otto and control who can
+              reach it.
+            </p>
           </div>
         </div>
-
-        {statusAlert ? (
-          <Alert variant={statusAlert.variant}>
-            <AlertTitle>{statusAlert.title}</AlertTitle>
-            <AlertDescription>{statusAlert.description}</AlertDescription>
-          </Alert>
-        ) : null}
       </section>
 
-      <Separator />
-
-      <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-        <div className="flex flex-wrap items-center gap-2">
-          {whatsappPhase === "connected" && integration?.connectedAt ? (
-            <span>Connected {integration.connectedAt.toLocaleString()}</span>
-          ) : null}
-        </div>
-        <Link href={`/${organization.slug}/integrations`}>
-          View all integrations
-        </Link>
-      </div>
-
       <WhatsAppIntegrationPanel
+        agentCapabilities={
+          getToolDefinition("channel", "whatsapp")?.agentCapabilities ?? []
+        }
+        connectedAtLabel={
+          integration?.connectedAt
+            ? new Date(integration.connectedAt).toISOString()
+            : null
+        }
         initialIntegration={integration}
         initialLinkSession={currentLinkSession}
         initialSurface={surface}
         orgSlug={orgSlug}
         runtimeApplyIsActive={runtimeApplyIsActive}
+        runtimeApplyStatusLabel={runtimeApplyStatusLabel}
+        runtimeStatusLabel={getRuntimeStatusLabel(organization)}
+        statusAlert={statusAlert}
+        whatsappPhaseLabel={getWhatsAppUiPhaseLabel(whatsappPhase)}
+        whatsappStatusVariant={getStatusBadgeVariant({
+          integrationError,
+          runtimeApplyError,
+          runtimeApplyIsActive,
+          whatsappStatus: whatsappPhase,
+        })}
       />
-
-      {(() => {
-        const def = getToolDefinition("channel", "whatsapp");
-        return def?.agentCapabilities ? (
-          <AgentCapabilitiesCard capabilities={def.agentCapabilities} />
-        ) : null;
-      })()}
     </div>
   );
 }
