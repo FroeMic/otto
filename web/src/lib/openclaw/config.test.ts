@@ -55,6 +55,9 @@ describe("renderOpenClawConfig", () => {
       maxBytes: 20 * 1024 * 1024,
       models: [{ model: "gpt-4o-mini-transcribe", provider: "openai" }],
     });
+    assert.deepEqual(renderedConfig.session, {
+      dmScope: "per-channel-peer",
+    });
   });
 
   it("renders a Slack projection that satisfies the pinned OpenClaw schema", () => {

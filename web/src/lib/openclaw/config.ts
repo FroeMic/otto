@@ -320,6 +320,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             },
           }
         : {}),
+      session: {
+        dmScope: "per-channel-peer",
+      },
       gateway: {
         auth: {
           mode: "token",
