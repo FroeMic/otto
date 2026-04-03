@@ -153,7 +153,15 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead className={headClassName} key={header.id}>
+                  <TableHead
+                    className={headClassName}
+                    key={header.id}
+                    style={
+                      header.column.columnDef.size
+                        ? { width: header.getSize() }
+                        : undefined
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(

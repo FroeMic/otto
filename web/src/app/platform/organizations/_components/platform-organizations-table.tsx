@@ -25,6 +25,11 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import type { PlatformOrganization } from "@/db/control-plane";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type PlatformOrganizationsTableProps = {
@@ -171,6 +176,48 @@ function InlineStatus({
   );
 }
 
+function CopyableValue({ value }: { value: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
+
+  const handleClick = React.useCallback(() => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      setHovered(false);
+    }, 1500);
+  }, [value]);
+
+  return (
+    <Tooltip open={hovered || copied}>
+      <TooltipTrigger
+        render={
+          <span
+            className="cursor-pointer select-text truncate text-sm text-foreground"
+            onClick={handleClick}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+          />
+        }
+      >
+        {value}
+      </TooltipTrigger>
+      <TooltipContent
+        className={cn(
+          "px-2 py-1 text-xs",
+          copied && " bg-green-100 text-green-700 ",
+        )}
+        classNameTooltipArrow={
+          copied ? " bg-green-100 text-green-700" : undefined
+        }
+      >
+        {copied ? "Copied" : "Copy"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function OrganizationActionsCell({
   organization,
 }: {
@@ -304,13 +351,44 @@ const columns: ColumnDef<PlatformOrganization>[] = [
     accessorFn: (row) => row.tenant?.ipv4 ?? "",
     id: "server",
     header: "Server",
-    cell: ({ row }) => (
-      <InlineStatus
-        detail={formatStatus(row.original.tenant?.serverStatus ?? null)}
-        status={row.original.tenant?.serverStatus ?? null}
-        value={row.original.tenant?.ipv4 ?? "Pending"}
-      />
-    ),
+    cell: ({ row }) => {
+      const ipv4 = row.original.tenant?.ipv4;
+      const serverStatus = row.original.tenant?.serverStatus ?? null;
+
+      if (!ipv4) {
+        return (
+          <InlineStatus
+            detail={formatStatus(serverStatus)}
+            status={serverStatus}
+            value="Pending"
+          />
+        );
+      }
+
+      const tone = getStatusTone(serverStatus);
+
+      return (
+        <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+          <HoverCard>
+            <HoverCardTrigger className="flex shrink-0 items-center">
+              <span
+                aria-hidden="true"
+                className={cn("size-2 rounded-full", tone.dotClassName)}
+              />
+            </HoverCardTrigger>
+            <HoverCardContent
+              align="start"
+              className="w-auto min-w-32 rounded-2xl px-3 py-2"
+            >
+              <div className="text-xs font-medium text-foreground">
+                {formatStatus(serverStatus)}
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+          <CopyableValue value={ipv4} />
+        </div>
+      );
+    },
   },
   {
     accessorKey: "runtimeImageVersion",
