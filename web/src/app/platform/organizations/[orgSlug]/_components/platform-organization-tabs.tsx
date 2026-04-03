@@ -15,8 +15,12 @@ const PLATFORM_ORGANIZATION_TABS = [
     label: "Access",
   },
   {
-    href: (orgSlug: string) => `/platform/organizations/${orgSlug}/activity`,
-    label: "Activity",
+    href: (orgSlug: string) => `/platform/organizations/${orgSlug}/jobs`,
+    label: "Jobs",
+  },
+  {
+    href: (orgSlug: string) => `/platform/organizations/${orgSlug}/events`,
+    label: "Events",
   },
   {
     href: (orgSlug: string) => `/platform/organizations/${orgSlug}/logs`,

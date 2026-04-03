@@ -22,19 +22,28 @@ export function DataTableColumnHeader<TData, TValue>({
 
   const sortDirection = column.getIsSorted();
   const sortIndicator =
-    sortDirection === "asc" ? "↑" : sortDirection === "desc" ? "↓" : null;
+    sortDirection === "asc" ? "↑" : sortDirection === "desc" ? "↓" : "\u00a0";
 
   return (
     <Button
-      className={cn("h-auto px-0 py-0 font-medium text-foreground", className)}
+      className={cn(
+        "h-auto rounded-md px-2 py-1 font-medium text-foreground",
+        sortDirection && "bg-muted text-foreground",
+        className,
+      )}
       onClick={() => column.toggleSorting(sortDirection === "asc")}
       size="sm"
       type="button"
       variant="ghost"
-    >
-      <span>{title}</span>
-      <span className="ml-1 text-xs text-muted-foreground">
-        {sortIndicator ?? ""}
+      >
+        <span>{title}</span>
+      <span
+        className={cn(
+          "inline-flex w-4 justify-center text-xs",
+          sortDirection ? "text-foreground" : "text-transparent",
+        )}
+      >
+        {sortIndicator}
       </span>
     </Button>
   );
