@@ -1,4 +1,5 @@
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { SettingsPageTitle } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { WorkspaceMembersTable } from "@/app/[orgSlug]/settings/workspace/members/_components/workspace-members-table";
 import { listWorkspaceMembers } from "@/db/control-plane";
 
@@ -18,17 +19,16 @@ export default async function WorkspaceMembersSettingsPage({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-      <section className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold">Members</h1>
+      <div className="flex flex-col gap-1">
+        <SettingsPageTitle>Members</SettingsPageTitle>
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-          Review who can access this workspace and keep WorkOS invitations in
-          one place. {memberDirectory.activeMemberCount} active member
+          {memberDirectory.activeMemberCount} active member
           {memberDirectory.activeMemberCount === 1 ? "" : "s"} and{" "}
           {memberDirectory.invitationCount} invitation
-          {memberDirectory.invitationCount === 1 ? "" : "s"} are currently
-          listed for {memberDirectory.organizationName}.
+          {memberDirectory.invitationCount === 1 ? "" : "s"} in{" "}
+          {memberDirectory.organizationName}.
         </p>
-      </section>
+      </div>
 
       <WorkspaceMembersTable
         availableRoles={memberDirectory.availableRoles}
