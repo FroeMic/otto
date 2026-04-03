@@ -310,11 +310,14 @@ const columns: ColumnDef<PlatformOrganization>[] = [
     accessorKey: "name",
     header: "Organization",
     cell: ({ row }) => (
-      <div className="min-w-0 truncate font-medium text-foreground">
+      <Link
+        className="block min-w-0 truncate font-medium text-foreground underline-offset-4 hover:underline"
+        href={`/platform/organizations/${row.original.slug}`}
+      >
         {row.original.name === row.original.slug
           ? row.original.name
           : `${row.original.name} · ${row.original.slug}`}
-      </div>
+      </Link>
     ),
   },
   {

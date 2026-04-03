@@ -97,6 +97,16 @@
   - `/platform` now has its own protected shell and `/platform/organizations` page
   - `/platform/organizations` uses a reusable TanStack-based data table component with search, sorting, and row actions
   - platform admins can queue `apply_tenant_config` and trigger runtime image pull/restart directly from the organizations table
+- The platform organizations area now also has a dedicated per-organization detail page on `codex/platform-organization-detail`:
+  - `/platform/organizations/[orgSlug]` shows workspace/runtime summary cards, operator actions, gateway access, recent apply history, latest apply diagnostics, recent jobs, and latest job events
+  - the platform organizations table now links directly into that detail route from the organization name cell
+  - this uses existing DB-backed job/apply/runtime-secret state rather than introducing new persistence
+  - the operator page is now reorganized into URL-backed tabs:
+    - `/platform/organizations/[orgSlug]/overview`
+    - `/platform/organizations/[orgSlug]/access`
+    - `/platform/organizations/[orgSlug]/activity`
+    - `/platform/organizations/[orgSlug]/logs`
+  - the new activity view now combines jobs and events into one filtered surface with polling, while the logs tab is reserved for the next runtime-log read path and currently shows the latest stored apply diagnostics
 - Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
@@ -191,6 +201,10 @@
 
 ## Next recommended implementation step
 
+- User-directed priority is temporarily shifted to operator visibility on `codex/platform-organization-detail`:
+  - finish the new `/platform/organizations/[orgSlug]` detail surface by adding a real logs view and converting runtime image refresh into a queued, auditable job instead of an inline route-side restart
+  - then continue `TODO_11_runtime_release_rollout.md` on the same operator surface so release activation and rollout controls live next to gateway access and recent deployment activity
+  - after the platform/operator surface is stable, clean up `/{orgSlug}/agent/status` so the main workspace health page stays non-technical
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification

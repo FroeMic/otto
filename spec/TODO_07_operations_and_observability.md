@@ -32,7 +32,7 @@ Add the minimum operational tooling needed to support pilot tenants safely.
 ## Status checklist
 
 - [x] add tenant status dashboard
-- [ ] add apply history view
+- [x] add apply history view
 - [ ] add retry controls
 - [ ] add basic alerting or error reporting
 
