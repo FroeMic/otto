@@ -20,7 +20,7 @@ import {
   getLatestTenantManagedConfig,
   updateTenantManagedFileSharedContent,
 } from "@/db/control-plane";
-import { isManagedBootstrapFilePath } from "@/lib/openclaw/managed-config";
+import { normalizeManagedBootstrapFilePath } from "@/lib/openclaw/managed-config";
 import { getPrimaryAgent } from "@/lib/workspace";
 
 async function updateManagedInstructionAction(formData: FormData) {
@@ -37,7 +37,9 @@ async function updateManagedInstructionAction(formData: FormData) {
     throw new Error("Managed instruction update is missing required fields");
   }
 
-  if (!isManagedBootstrapFilePath(filePath)) {
+  const normalizedFilePath = normalizeManagedBootstrapFilePath(filePath);
+
+  if (!normalizedFilePath) {
     throw new Error(`Unsupported managed instruction file: ${filePath}`);
   }
 
@@ -45,7 +47,7 @@ async function updateManagedInstructionAction(formData: FormData) {
     expectedVersion: expectedVersionValue
       ? Number.parseInt(expectedVersionValue, 10)
       : undefined,
-    filePath,
+    filePath: normalizedFilePath,
     orgSlug,
     sharedContent,
     userExternalId: user.id,

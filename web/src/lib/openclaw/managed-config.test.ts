@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildManagedBootstrapFileContent } from "@/lib/openclaw/managed-config";
+import {
+  buildManagedBootstrapFileContent,
+  normalizeManagedBootstrapFilePath,
+} from "@/lib/openclaw/managed-config";
 
 describe("buildManagedBootstrapFileContent", () => {
   it("injects workspace app context into TOOLS.md when runtime context is available", () => {
@@ -44,5 +47,11 @@ describe("buildManagedBootstrapFileContent", () => {
 
     assert.doesNotMatch(rendered, /Workspace App Context/);
     assert.doesNotMatch(rendered, /control plane/i);
+  });
+
+  it("normalizes the legacy USERS.md path to USER.md", () => {
+    assert.equal(normalizeManagedBootstrapFilePath("USERS.md"), "USER.md");
+    assert.equal(normalizeManagedBootstrapFilePath("USER.md"), "USER.md");
+    assert.equal(normalizeManagedBootstrapFilePath("not-a-managed-file"), null);
   });
 });

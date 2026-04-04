@@ -230,7 +230,7 @@ export class RuntimeManager {
       "test -s /opt/openclaw/home/workspace/AGENTS.md",
       "test -s /opt/openclaw/home/workspace/IDENTITY.md",
       "test -s /opt/openclaw/home/workspace/SOUL.md",
-      "test -s /opt/openclaw/home/workspace/USERS.md",
+      "test -s /opt/openclaw/home/workspace/USER.md",
       "test -s /opt/openclaw/home/workspace/TOOLS.md",
       `test -s ${shellQuoteForShell(input.metadataPath)}`,
     ];
@@ -349,6 +349,7 @@ export class RuntimeManager {
 
     const commands = [
       "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/workspace /opt/openclaw/runtime",
+      "rm -f /opt/openclaw/home/workspace/USERS.md",
       `chown openclaw:openclaw ${quotedOwnershipTargets}`,
       "chmod 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/workspace /opt/openclaw/runtime",
       "chmod 640 /opt/openclaw/home/openclaw.json",

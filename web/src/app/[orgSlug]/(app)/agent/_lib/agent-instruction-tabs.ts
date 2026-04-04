@@ -23,7 +23,7 @@ const AGENT_INSTRUCTION_TABS: AgentInstructionTab[] = [
     slug: "Soul.md",
   },
   {
-    actualPath: "USERS.md",
+    actualPath: "USER.md",
     label: "Users.md",
     slug: "Users.md",
   },

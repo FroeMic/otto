@@ -49,8 +49,8 @@ import {
   buildManagedBootstrapFileContent,
   buildManagedBootstrapSystemContent,
   getManagedBootstrapFileDefinitions,
-  isManagedBootstrapFilePath,
   type ManagedBootstrapFilePath,
+  normalizeManagedBootstrapFilePath,
 } from "@/lib/openclaw/managed-config";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
@@ -3902,13 +3902,15 @@ export async function getTenantManagedConfigByVersion(input: {
       ),
     );
 
+  const normalizedFileRows = normalizeManagedFileRows(fileRows);
+
   const runtimeContext = {
     ottoBaseUrl: getControlPlaneBaseUrl(),
     workspaceSlug: await organizationSlugPromise,
   };
 
   const files = getManagedBootstrapFileDefinitions().map((definition) => {
-    const fileRow = fileRows.find((row) => row.path === definition.path);
+    const fileRow = normalizedFileRows.get(definition.path);
     const sharedContent =
       fileRow?.sharedContent ?? definition.defaultSharedContent;
     const systemContent = definition.systemContent;
@@ -5806,11 +5808,11 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
         ),
       );
 
+    const normalizedLatestFiles = normalizeManagedFileRows(latestFiles);
+
     const completeLatestFiles = getManagedBootstrapFileDefinitions().map(
       (definition) => {
-        const existingFile = latestFiles.find(
-          (file) => file.path === definition.path,
-        );
+        const existingFile = normalizedLatestFiles.get(definition.path);
 
         return {
           path: definition.path,
@@ -8075,11 +8077,50 @@ function createManagedFileChecksum(input: {
 function assertManagedBootstrapFilePath(
   value: string,
 ): ManagedBootstrapFilePath {
-  if (!isManagedBootstrapFilePath(value)) {
+  const normalizedValue = normalizeManagedBootstrapFilePath(value);
+
+  if (!normalizedValue) {
     throw new Error(`Unsupported managed bootstrap file path: ${value}`);
   }
 
-  return value;
+  return normalizedValue;
+}
+
+function normalizeManagedFileRows<
+  T extends {
+    path: string;
+    sharedContent: string;
+    systemContent: string;
+  },
+>(rows: T[]) {
+  const normalizedRows = new Map<
+    ManagedBootstrapFilePath,
+    {
+      path: ManagedBootstrapFilePath;
+      sharedContent: string;
+      systemContent: string;
+    }
+  >();
+
+  for (const row of rows) {
+    const normalizedPath = normalizeManagedBootstrapFilePath(row.path);
+
+    if (!normalizedPath) {
+      continue;
+    }
+
+    const existingRow = normalizedRows.get(normalizedPath);
+
+    if (!existingRow || row.path === normalizedPath) {
+      normalizedRows.set(normalizedPath, {
+        path: normalizedPath,
+        sharedContent: row.sharedContent,
+        systemContent: row.systemContent,
+      });
+    }
+  }
+
+  return normalizedRows;
 }
 
 function tokensMatch(left: string, right: string) {

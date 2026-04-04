@@ -1,6 +1,12 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
-const MANAGED_FILE_PATHS = ["AGENTS.md", "IDENTITY.md", "TOOLS.md"];
+const MANAGED_FILE_PATHS = [
+  "AGENTS.md",
+  "IDENTITY.md",
+  "SOUL.md",
+  "USER.md",
+  "TOOLS.md",
+];
 const DEFAULT_TIMEOUT_MS = 15_000;
 const PLUGIN_CONFIG_SCHEMA = {
   type: "object",
@@ -41,7 +47,7 @@ export default definePluginEntry({
       {
         name: "read_managed_file",
         description:
-          "Read the current workspace-app-managed version of AGENTS.md, IDENTITY.md, or TOOLS.md.",
+          "Read the current workspace-app-managed version of Otto's managed instruction files.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -125,7 +131,8 @@ async function readManagedFile(api, params) {
   if (!filePath) {
     return {
       ok: false,
-      error: "filePath must be one of AGENTS.md, IDENTITY.md, or TOOLS.md.",
+      error:
+        "filePath must be one of AGENTS.md, IDENTITY.md, SOUL.md, USER.md, or TOOLS.md.",
     };
   }
 
@@ -157,7 +164,8 @@ async function patchManagedFile(api, params) {
   if (!filePath) {
     return {
       ok: false,
-      error: "filePath must be one of AGENTS.md, IDENTITY.md, or TOOLS.md.",
+      error:
+        "filePath must be one of AGENTS.md, IDENTITY.md, SOUL.md, USER.md, or TOOLS.md.",
     };
   }
 
