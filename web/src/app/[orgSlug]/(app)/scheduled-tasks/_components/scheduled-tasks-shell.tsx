@@ -1,5 +1,4 @@
-import { AlertCircleIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { WarningCircle } from "@phosphor-icons/react/ssr";
 import type { ReactNode } from "react";
 import { ScheduledTasksActionsMenu } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/refresh-scheduled-tasks-button";
 import { ScheduledTasksTabs } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-tasks-tabs";
@@ -61,7 +60,7 @@ export function ScheduledTasksShell({
 
           {syncState.variant === "destructive" && syncState.message ? (
             <Alert variant="destructive">
-              <HugeiconsIcon className="size-4" icon={AlertCircleIcon} />
+              <WarningCircle className="size-4" />
               <AlertTitle>{syncState.label}</AlertTitle>
               <AlertDescription>{syncState.message}</AlertDescription>
             </Alert>

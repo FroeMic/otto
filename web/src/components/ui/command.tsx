@@ -1,7 +1,6 @@
 "use client";
 
-import { SearchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Check, MagnifyingGlass } from "@phosphor-icons/react/ssr";
 import { Command as CommandPrimitive } from "cmdk";
 import type * as React from "react";
 import {
@@ -79,9 +78,8 @@ function CommandInput({
           {...props}
         />
         <InputGroupAddon>
-          <HugeiconsIcon
-            icon={SearchIcon}
-            strokeWidth={2}
+          <MagnifyingGlass
+            weight="bold"
             className="size-4 shrink-0 opacity-50"
           />
         </InputGroupAddon>
@@ -163,9 +161,8 @@ function CommandItem({
       {...props}
     >
       {children}
-      <HugeiconsIcon
-        icon={Tick02Icon}
-        strokeWidth={2}
+      <Check
+        weight="bold"
         className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100"
       />
     </CommandPrimitive.Item>

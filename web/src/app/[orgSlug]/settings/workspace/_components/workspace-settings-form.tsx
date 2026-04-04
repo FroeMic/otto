@@ -1,11 +1,9 @@
 "use client";
 
-import { PencilEdit01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { PencilSimple } from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-
 import {
   SettingsCard,
   SettingsRow,
@@ -405,11 +403,7 @@ function WorkspaceSlugRow({
           onClick={() => handleOpenChange(true)}
           className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <HugeiconsIcon
-            icon={PencilEdit01Icon}
-            className="size-4"
-            strokeWidth={1.5}
-          />
+          <PencilSimple className="size-4" strokeWidth={1.5} />
         </button>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogContent className="max-w-md">

@@ -1,13 +1,11 @@
 "use client";
 
 import {
-  Logout01Icon,
-  SquareArrowLeft01Icon,
-  UnfoldMoreIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+  ArrowSquareLeft,
+  CaretUpDown,
+  SignOut,
+} from "@phosphor-icons/react/ssr";
 import Link from "next/link";
-
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -66,7 +64,7 @@ export function PlatformUserMenu({
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs">{user.email}</span>
             </div>
-            <HugeiconsIcon icon={UnfoldMoreIcon} className="ml-auto size-4" />
+            <CaretUpDown className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
@@ -94,7 +92,7 @@ export function PlatformUserMenu({
                   <DropdownMenuItem
                     render={<Link href={`/${firstWorkspace.slug}`} />}
                   >
-                    <HugeiconsIcon icon={SquareArrowLeft01Icon} />
+                    <ArrowSquareLeft />
                     Open workspace
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
@@ -104,7 +102,7 @@ export function PlatformUserMenu({
             <DropdownMenuItem
               onClick={() => window.location.assign("/auth/sign-out")}
             >
-              <HugeiconsIcon icon={Logout01Icon} />
+              <SignOut />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

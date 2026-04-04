@@ -1,16 +1,15 @@
 "use client";
 
 import {
-  ArrowReloadHorizontalIcon,
-  MessageMultiple01Icon,
-  MoreHorizontalIcon,
-  UserMultiple02Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+  ArrowsClockwise,
+  ChatsTeardrop,
+  DotsThree,
+  UsersThree,
+} from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-
+import { SyncNotification } from "@/components/sync-notification";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SyncNotification } from "@/components/sync-notification";
 
 export function SlackActionsMenu({
   orgSlug,
@@ -88,16 +86,13 @@ export function SlackActionsMenu({
             />
           }
         >
-          <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+          <DotsThree className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {canReconnect && reconnectUrl ? (
             <>
               <DropdownMenuItem onClick={() => router.push(reconnectUrl)}>
-                <HugeiconsIcon
-                  icon={ArrowReloadHorizontalIcon}
-                  className="size-4"
-                />
+                <ArrowsClockwise className="size-4" />
                 Reconnect Slack
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -107,14 +102,14 @@ export function SlackActionsMenu({
             disabled={syncJobId !== null}
             onClick={() => handleResync("users")}
           >
-            <HugeiconsIcon icon={UserMultiple02Icon} className="size-4" />
+            <UsersThree className="size-4" />
             Sync Users
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={syncJobId !== null}
             onClick={() => handleResync("channels")}
           >
-            <HugeiconsIcon icon={MessageMultiple01Icon} className="size-4" />
+            <ChatsTeardrop className="size-4" />
             Sync Channels
           </DropdownMenuItem>
         </DropdownMenuContent>

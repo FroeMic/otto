@@ -1,12 +1,10 @@
 "use client";
 
-import { Calendar03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { CalendarBlank } from "@phosphor-icons/react/ssr";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +93,7 @@ function ProviderCell({
   const isCron = provider === "cron";
 
   const iconElement = isCron ? (
-    <HugeiconsIcon icon={Calendar03Icon} className="size-4 shrink-0" />
+    <CalendarBlank className="size-4 shrink-0" />
   ) : icon ? (
     <Image
       alt={label}

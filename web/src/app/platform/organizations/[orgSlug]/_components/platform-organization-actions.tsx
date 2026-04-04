@@ -1,11 +1,9 @@
 "use client";
 
-import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { DotsThree } from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -78,11 +76,7 @@ export function PlatformOrganizationActions({
           />
         }
       >
-        {pendingAction ? (
-          <Spinner />
-        ) : (
-          <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
-        )}
+        {pendingAction ? <Spinner /> : <DotsThree weight="bold" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem

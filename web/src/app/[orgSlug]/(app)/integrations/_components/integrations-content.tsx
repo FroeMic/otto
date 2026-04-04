@@ -1,11 +1,9 @@
 "use client";
 
-import { ConnectIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { PlugsConnected } from "@phosphor-icons/react/ssr";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
 export type CapabilitySummary = {
@@ -97,9 +95,7 @@ function SurfaceIcon({ surface }: { surface: SurfaceEntry }) {
     );
   }
 
-  return (
-    <HugeiconsIcon className="size-5 text-foreground" icon={ConnectIcon} />
-  );
+  return <PlugsConnected className="size-5 text-foreground" />;
 }
 
 function CapabilitySummaryRow({ summary }: { summary: CapabilitySummary }) {

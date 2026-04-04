@@ -1,19 +1,18 @@
 "use client";
 
 import {
-  AiBrain01Icon,
-  AiChat02Icon,
-  ArrowReloadHorizontalIcon,
-  Building03Icon,
-  Calendar03Icon,
-  ConnectIcon,
-  FlashIcon,
-  MessageMultiple01Icon,
-  Settings01Icon,
-  UnfoldMoreIcon,
-  Wrench01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+  ArrowsClockwise,
+  Brain,
+  BuildingOffice,
+  CalendarBlank,
+  CaretUpDown,
+  ChatCenteredDots,
+  ChatsTeardrop,
+  Gear,
+  Lightning,
+  PlugsConnected,
+  Wrench,
+} from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";
@@ -66,37 +65,37 @@ export function AppSidebar({
   const navItems = [
     {
       href: `/${currentOrganization.slug}/agent/status`,
-      icon: <HugeiconsIcon icon={AiChat02Icon} />,
+      icon: <ChatCenteredDots />,
       title: "Agent",
     },
     {
       href: `/${currentOrganization.slug}/integrations`,
-      icon: <HugeiconsIcon icon={ConnectIcon} />,
+      icon: <PlugsConnected />,
       title: "Integrations",
     },
     {
       href: `/${currentOrganization.slug}/tools`,
-      icon: <HugeiconsIcon icon={Wrench01Icon} />,
+      icon: <Wrench />,
       title: "Tools",
     },
     {
       href: `/${currentOrganization.slug}/capabilities`,
-      icon: <HugeiconsIcon icon={AiBrain01Icon} />,
+      icon: <Brain />,
       title: "Capabilities",
     },
     {
       href: `/${currentOrganization.slug}/skills`,
-      icon: <HugeiconsIcon icon={FlashIcon} />,
+      icon: <Lightning />,
       title: "Skills",
     },
     {
       href: `/${currentOrganization.slug}/sessions`,
-      icon: <HugeiconsIcon icon={MessageMultiple01Icon} />,
+      icon: <ChatsTeardrop />,
       title: "Sessions",
     },
     {
       href: `/${currentOrganization.slug}/scheduled-tasks`,
-      icon: <HugeiconsIcon icon={Calendar03Icon} />,
+      icon: <CalendarBlank />,
       title: "Scheduled Tasks",
     },
   ];
@@ -116,7 +115,7 @@ export function AppSidebar({
                 }
               >
                 <div className="flex size-8 items-center justify-center border bg-background">
-                  <HugeiconsIcon icon={Building03Icon} />
+                  <BuildingOffice />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
@@ -126,7 +125,7 @@ export function AppSidebar({
                     {currentOrganization.slug}
                   </span>
                 </div>
-                <HugeiconsIcon icon={UnfoldMoreIcon} className="ml-auto" />
+                <CaretUpDown className="ml-auto" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-64">
                 <DropdownMenuGroup>
@@ -136,7 +135,7 @@ export function AppSidebar({
                       key={organization.slug}
                       render={<Link href={`/${organization.slug}`} />}
                     >
-                      <HugeiconsIcon icon={Building03Icon} />
+                      <BuildingOffice />
                       {organization.name}
                     </DropdownMenuItem>
                   ))}
@@ -149,7 +148,7 @@ export function AppSidebar({
                     />
                   }
                 >
-                  <HugeiconsIcon icon={Settings01Icon} />
+                  <Gear />
                   Workspace settings
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -197,7 +196,7 @@ export function AppSidebar({
                 >
                   {slackIsConnected ? (
                     <>
-                      <HugeiconsIcon icon={ConnectIcon} />
+                      <PlugsConnected />
                       <span>Slack</span>
                       <span
                         aria-hidden="true"
@@ -206,7 +205,7 @@ export function AppSidebar({
                     </>
                   ) : (
                     <>
-                      <HugeiconsIcon icon={ArrowReloadHorizontalIcon} />
+                      <ArrowsClockwise />
                       <span>Connect Slack</span>
                     </>
                   )}
@@ -217,7 +216,7 @@ export function AppSidebar({
                   <SidebarMenuButton
                     render={<Link href="/platform/organizations" />}
                   >
-                    <HugeiconsIcon icon={Building03Icon} />
+                    <BuildingOffice />
                     <span>Platform Administration</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

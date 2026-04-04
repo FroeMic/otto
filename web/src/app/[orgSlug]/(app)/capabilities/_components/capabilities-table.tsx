@@ -1,12 +1,10 @@
 "use client";
 
-import { ConnectIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { PlugsConnected } from "@phosphor-icons/react/ssr";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +85,7 @@ const columns: ColumnDef<CapabilityRow>[] = [
                 width={16}
               />
             ) : (
-              <HugeiconsIcon className="size-4 shrink-0" icon={ConnectIcon} />
+              <PlugsConnected className="size-4 shrink-0" />
             )}
             {sourceLabel}
           </Link>
