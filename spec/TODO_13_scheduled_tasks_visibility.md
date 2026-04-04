@@ -321,11 +321,15 @@ Initial content:
 - [x] remodel the scheduled-tasks page to use sessions-style data tables instead of summary cards and stacked static tables
 - [x] add jobs-style `All / Active / Disabled` filtering for scheduled jobs
 - [x] add URL-backed `Scheduled Tasks / Task Runs` navigation aligned with existing page tabs
+- [x] keep scheduled-task and task-run tables to single-line rows with separate run-summary text
+- [x] add natural-language schedule descriptions for cron expressions without a third-party parser
+- [x] add per-task detail routes with `Setup` and `Task Runs` tabs
 
 Implementation note:
 
 - the first shipped sync path is an explicit runtime pull initiated from the workspace UI plus worker-driven reconciliation
 - the page now links synced cron runs to existing session detail pages when the runtime reports `sessionKey`
+- linked session rows are now only clickable when the session has actually been synced into Otto
 
 ## Open questions
 

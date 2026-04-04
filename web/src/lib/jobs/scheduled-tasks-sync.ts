@@ -15,14 +15,21 @@ import {
 } from "./types";
 
 type RuntimeCronJob = {
+  agentId?: string;
   description?: string;
+  deleteAfterRun?: boolean;
+  delivery?: Record<string, unknown>;
   enabled?: boolean;
+  failureAlert?: Record<string, unknown> | false;
   id?: string;
   name?: string;
+  payload?: Record<string, unknown>;
   schedule?: Record<string, unknown>;
+  sessionKey?: string;
   sessionTarget?: string;
   state?: Record<string, unknown>;
   updatedAtMs?: number;
+  wakeMode?: string;
 };
 
 type RuntimeCronRun = {
@@ -220,6 +227,7 @@ function normalizeRuntimeTask(
   const enabled = task.enabled !== false;
 
   return {
+    agentId: readOptionalString(task.agentId),
     taskKey: task.id,
     name: task.name,
     description: readOptionalString(task.description),
@@ -227,7 +235,14 @@ function normalizeRuntimeTask(
     enabled,
     scheduleKind: readScheduleKind(schedule),
     scheduleExpression: formatScheduleExpression(schedule),
+    scheduleJson: schedule,
     timezone: readOptionalString(schedule?.tz),
+    payloadJson: asRecord(task.payload),
+    deliveryJson: asRecord(task.delivery),
+    failureAlertJson: asRecord(task.failureAlert),
+    wakeMode: readOptionalString(task.wakeMode),
+    deleteAfterRun: task.deleteAfterRun === true,
+    sessionKey: readOptionalString(task.sessionKey),
     sessionTarget: readOptionalString(task.sessionTarget),
     nextRunAt: toDateFromMs(state?.nextRunAtMs),
     lastRunAt: toDateFromMs(state?.lastRunAtMs),

@@ -1,0 +1,56 @@
+import { notFound } from "next/navigation";
+
+import { ScheduledRunsContent } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-runs-content";
+import { ScheduledTaskDetailShell } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-task-detail-shell";
+import { ScheduledTasksEmptyState } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-tasks-empty-state";
+import { ScheduledTasksShell } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-tasks-shell";
+import { loadScheduledTaskDetail } from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/load-scheduled-task-detail";
+import {
+  getLatestScheduledTasksSyncTimestamp,
+  getScheduledTasksSyncState,
+} from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/scheduled-tasks-sync-state";
+import { listTenantScheduledTaskSessions } from "@/db/scheduled-tasks";
+
+export const dynamic = "force-dynamic";
+
+export default async function ScheduledTaskRunsDetailPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string; taskKey: string }>;
+}) {
+  const { orgSlug, taskKey } = await params;
+  const { agent, latestRefreshJob, organization, task } =
+    await loadScheduledTaskDetail({
+      orgSlug,
+      taskKey,
+    });
+
+  if (!agent) {
+    return <ScheduledTasksEmptyState />;
+  }
+
+  if (!task) {
+    notFound();
+  }
+
+  const runs = await listTenantScheduledTaskSessions({
+    limit: 100,
+    taskKey,
+    tenantId: agent.id,
+  });
+
+  return (
+    <ScheduledTasksShell
+      lastSyncedAt={getLatestScheduledTasksSyncTimestamp([task])}
+      orgSlug={organization.slug}
+      syncState={getScheduledTasksSyncState({
+        jobs: [task],
+        latestRefreshJob,
+      })}
+    >
+      <ScheduledTaskDetailShell orgSlug={organization.slug} task={task}>
+        <ScheduledRunsContent orgSlug={organization.slug} runs={runs} />
+      </ScheduledTaskDetailShell>
+    </ScheduledTasksShell>
+  );
+}
