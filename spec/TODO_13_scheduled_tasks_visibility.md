@@ -62,7 +62,7 @@ Add two control-plane tables for the org's primary tenant:
   - `task_key`
   - `name`
   - `description`
-  - `status` such as `active`, `paused`, `sync_failed`
+  - `status` such as `active`, `paused`, `deleted`, `sync_failed`
   - `schedule_kind` such as `cron`
   - `schedule_expression`
   - `timezone`
@@ -265,6 +265,19 @@ It can still miss updates if:
 
 So reconciliation stays mandatory. The push path improves freshness; the pull path preserves correctness.
 
+### Deleted task lifecycle
+
+Runtime tasks that disappear from `cron.list` should not be hard-deleted from Otto immediately.
+
+Instead:
+
+- tasks still present in runtime stay `active` or `paused`
+- tasks missing from runtime after a successful sync become `deleted`
+- deleted tasks remain visible in the workspace and keep their run history
+- `sync_failed` remains a sync-health concern, not the primary task lifecycle state
+
+This is especially important for one-shot jobs created with `delete-after-run`, because their run logs can still be read from `cron.runs(jobId)` even after the task definition disappears from `cron.list`.
+
 ### Implementation order
 
 1. add `/api/internal/runtime/scheduled-tasks/sync`
@@ -418,6 +431,8 @@ Implementation note:
 - the next shipped push slice uses a runtime-local watcher helper plus `/api/internal/runtime/scheduled-tasks/sync`
 - the runtime now starts through a small wrapper helper so the gateway and cron watcher run in the same container
 - the DB layer now separates full task snapshot replacement from incremental run upserts so push sync cannot delete tasks accidentally
+- missing runtime tasks are now retained as `deleted` rows instead of being hard-deleted from Postgres
+- the watcher now reads changed run logs even if the related task has already been removed from `cron.list`
 - linked session rows are now only clickable when the session has actually been synced into Otto
 - task detail routes now use `Overview`, `Configuration`, and `Task Runs` tabs and hide the parent scheduled-tasks tab strip to avoid duplicate navigation
 

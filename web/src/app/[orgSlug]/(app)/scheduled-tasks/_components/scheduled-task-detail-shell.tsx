@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 
 import { ScheduledTaskDetailTabs } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-task-detail-tabs";
 import { useSetBreadcrumbs } from "@/components/breadcrumb-context";
@@ -12,6 +12,7 @@ const statusBadgeVariant: Record<
   "default" | "secondary" | "outline" | "destructive"
 > = {
   active: "default",
+  deleted: "outline",
   paused: "secondary",
   sync_failed: "destructive",
 };
@@ -44,9 +45,7 @@ export function ScheduledTaskDetailShell({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-semibold tracking-tight">
-            {task.name}
-          </h2>
+          <h2 className="text-xl font-semibold tracking-tight">{task.name}</h2>
           <Badge variant={statusBadgeVariant[task.status] ?? "outline"}>
             {formatStatusLabel(task.status)}
           </Badge>
@@ -54,6 +53,12 @@ export function ScheduledTaskDetailShell({
         {task.description ? (
           <p className="max-w-3xl text-sm text-muted-foreground">
             {task.description}
+          </p>
+        ) : null}
+        {task.status === "deleted" ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            This task was deleted from the runtime and is kept here for
+            historical visibility.
           </p>
         ) : null}
       </div>

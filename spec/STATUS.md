@@ -130,6 +130,10 @@
   - the custom runtime image now includes a cron watcher helper plus a wrapper helper that starts both the gateway and watcher in the same container
   - runtime startup now launches that wrapper, the watcher performs a startup sync, watches `~/.openclaw/cron/jobs.json` and `~/.openclaw/cron/runs/*.jsonl`, and posts updates back to Otto
   - the existing worker pull job remains the correctness and repair path
+- A follow-up fix is now in progress on `codex/scheduled-tasks-deleted-status`:
+  - runtime tasks missing from `cron.list` are being retained as `deleted` instead of being hard-deleted from Otto
+  - the watcher now fetches `cron.runs(jobId)` for changed run logs even after the task definition has been removed from runtime
+  - the scheduled-tasks jobs view is adding a first-class `Deleted` filter and deleted-state badge/detail copy
 - Otto runtime config now explicitly requests no exec approvals by default in rendered OpenClaw config:
   - `tools.exec.host = "gateway"`
   - `tools.exec.security = "full"`
