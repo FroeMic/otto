@@ -180,6 +180,7 @@ export function ScheduledJobsContent({
     () =>
       jobs.map((job) => {
         const scheduleDescription = describeScheduledTaskSchedule({
+          dateTimePreferences,
           scheduleExpression: job.scheduleExpression,
           scheduleJson: job.scheduleJson,
           timezone: job.timezone,

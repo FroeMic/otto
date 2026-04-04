@@ -1,4 +1,11 @@
+import {
+  formatShortDateTime,
+  type WorkspaceDateTimePreferences,
+  DEFAULT_WORKSPACE_TIME_ZONE,
+} from "@/lib/date-time";
+
 type ScheduleInput = {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   scheduleExpression: string;
   scheduleJson: Record<string, unknown> | null;
   timezone: string | null;
@@ -33,27 +40,29 @@ export function describeScheduledTaskSchedule(input: ScheduleInput) {
   if (kind === "every") {
     const everyMs =
       typeof schedule?.everyMs === "number" ? schedule.everyMs : null;
-    return withTimezone(
-      everyMs ? `Every ${formatDurationMs(everyMs)}` : "Recurring",
-      input.timezone,
-    );
+    return everyMs ? `Every ${formatDurationMs(everyMs)}` : "Recurring";
   }
 
   if (kind === "at") {
     const at = typeof schedule?.at === "string" ? schedule.at : null;
-    return withTimezone(formatAtSchedule(at), input.timezone);
+    return formatAtSchedule(at, input.dateTimePreferences);
   }
 
-  return describeCronExpression(input.scheduleExpression, input.timezone);
+  return describeCronExpression(
+    input.scheduleExpression,
+    input.timezone,
+    input.dateTimePreferences,
+  );
 }
 
 export function describeCronExpression(
   expression: string,
   timezone?: string | null,
+  dateTimePreferences?: WorkspaceDateTimePreferences,
 ) {
   const parts = expression.trim().split(/\s+/);
   if (parts.length !== 5) {
-    return withTimezone(expression, timezone);
+    return expression;
   }
 
   const [minuteExpr, hourExpr, dayOfMonthExpr, monthExpr, dayOfWeekExpr] =
@@ -78,16 +87,21 @@ export function describeCronExpression(
   });
 
   if (!minute || !hour || !dayOfMonth || !month || !dayOfWeek) {
-    return withTimezone(expression, timezone);
+    return expression;
   }
+
+  const taskTz = timezone ?? DEFAULT_WORKSPACE_TIME_ZONE;
+  const wsTz = dateTimePreferences?.timeZone ?? DEFAULT_WORKSPACE_TIME_ZONE;
+  const fmtTime = (h: number, m: number) =>
+    formatCronTime(h, m, taskTz, dateTimePreferences);
 
   const dailyPattern =
     isAny(dayOfMonth) && isAny(month) && isAny(dayOfWeek)
-      ? describeDailyPattern(minute, hour)
+      ? describeDailyPattern(minute, hour, fmtTime, taskTz, wsTz)
       : null;
 
   if (dailyPattern) {
-    return withTimezone(dailyPattern, timezone);
+    return dailyPattern;
   }
 
   if (
@@ -97,10 +111,7 @@ export function describeCronExpression(
     isAny(month) &&
     isNamedOrNumericList(dayOfWeek)
   ) {
-    return withTimezone(
-      `Every ${formatWeekdays(dayOfWeek)} at ${formatTime(hour.value, minute.value)}`,
-      timezone,
-    );
+    return `Every ${formatWeekdays(dayOfWeek)} at ${fmtTime(hour.value, minute.value)}`;
   }
 
   if (
@@ -110,10 +121,7 @@ export function describeCronExpression(
     isAny(month) &&
     isAny(dayOfWeek)
   ) {
-    return withTimezone(
-      `Every month on ${formatMonthDays(dayOfMonth)} at ${formatTime(hour.value, minute.value)}`,
-      timezone,
-    );
+    return `Every month on ${formatMonthDays(dayOfMonth)} at ${fmtTime(hour.value, minute.value)}`;
   }
 
   if (
@@ -123,16 +131,19 @@ export function describeCronExpression(
     isNamedOrNumericList(month) &&
     isAny(dayOfWeek)
   ) {
-    return withTimezone(
-      `Every ${formatMonths(month)} ${formatMonthDays(dayOfMonth)} at ${formatTime(hour.value, minute.value)}`,
-      timezone,
-    );
+    return `Every ${formatMonths(month)} ${formatMonthDays(dayOfMonth)} at ${fmtTime(hour.value, minute.value)}`;
   }
 
-  return withTimezone(expression, timezone);
+  return expression;
 }
 
-function describeDailyPattern(minute: ParsedField, hour: ParsedField) {
+function describeDailyPattern(
+  minute: ParsedField,
+  hour: ParsedField,
+  fmtTime: (h: number, m: number) => string,
+  taskTz: string,
+  wsTz: string,
+) {
   if (isEvery(minute) && minute.step === 1 && isAny(hour)) {
     return "Every minute";
   }
@@ -142,7 +153,10 @@ function describeDailyPattern(minute: ParsedField, hour: ParsedField) {
   }
 
   if (isExact(minute) && isAny(hour)) {
-    return `Every hour at :${pad2(minute.value)}`;
+    // Minutes are timezone-invariant — only convert if there's
+    // a sub-hour offset (e.g. India UTC+5:30)
+    const converted = convertCronTime(0, minute.value, taskTz, wsTz);
+    return `Every hour at :${pad2(converted.minute)}`;
   }
 
   if (isExact(minute) && isEvery(hour)) {
@@ -150,10 +164,113 @@ function describeDailyPattern(minute: ParsedField, hour: ParsedField) {
   }
 
   if (isExact(minute) && isExact(hour)) {
-    return `Every day at ${formatTime(hour.value, minute.value)}`;
+    return `Every day at ${fmtTime(hour.value, minute.value)}`;
   }
 
   return null;
+}
+
+/**
+ * Convert hour:minute from the task's cron timezone to the workspace timezone.
+ * Uses the current date as reference (DST-aware for today).
+ */
+function convertCronTime(
+  hour: number,
+  minute: number,
+  taskTimezone: string,
+  workspaceTimezone: string,
+): { hour: number; minute: number } {
+  if (taskTimezone === workspaceTimezone) {
+    return { hour, minute };
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const day = now.getUTCDate();
+
+  // First guess: create a UTC date at hour:minute
+  const guess = new Date(Date.UTC(year, month, day, hour, minute, 0, 0));
+
+  // Check what hour:minute this shows in the task timezone
+  const taskParts = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hour12: false,
+    minute: "numeric",
+    timeZone: taskTimezone,
+  }).formatToParts(guess);
+
+  const taskHour = Number.parseInt(
+    taskParts.find((p) => p.type === "hour")?.value ?? "0",
+    10,
+  );
+  const taskMinute = Number.parseInt(
+    taskParts.find((p) => p.type === "minute")?.value ?? "0",
+    10,
+  );
+
+  // Adjust to find the UTC instant where taskTimezone shows the desired hour:minute
+  const adjustMs =
+    ((hour - (taskHour === 24 ? 0 : taskHour)) * 60 +
+      (minute - taskMinute)) *
+    60_000;
+  const corrected = new Date(guess.getTime() + adjustMs);
+
+  // Read the workspace-timezone time at that instant
+  const wsParts = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hour12: false,
+    minute: "numeric",
+    timeZone: workspaceTimezone,
+  }).formatToParts(corrected);
+
+  const wsHour = Number.parseInt(
+    wsParts.find((p) => p.type === "hour")?.value ?? "0",
+    10,
+  );
+  const wsMinute = Number.parseInt(
+    wsParts.find((p) => p.type === "minute")?.value ?? "0",
+    10,
+  );
+
+  return { hour: wsHour === 24 ? 0 : wsHour, minute: wsMinute };
+}
+
+/**
+ * Format hour:minute from a cron field, converting from task timezone
+ * to workspace timezone and respecting 12h/24h preference.
+ */
+function formatCronTime(
+  hour: number,
+  minute: number,
+  taskTimezone: string,
+  preferences?: WorkspaceDateTimePreferences,
+) {
+  const wsTz = preferences?.timeZone ?? DEFAULT_WORKSPACE_TIME_ZONE;
+  const converted = convertCronTime(hour, minute, taskTimezone, wsTz);
+
+  if (!preferences || preferences.timeFormatPreference === "24") {
+    return `${pad2(converted.hour)}:${pad2(converted.minute)}`;
+  }
+
+  if (preferences.timeFormatPreference === "12") {
+    return format12h(converted.hour, converted.minute);
+  }
+
+  // "auto" — check if locale typically uses 12h
+  const test = new Intl.DateTimeFormat(preferences.locale, {
+    hour: "numeric",
+  }).resolvedOptions();
+
+  return test.hour12
+    ? format12h(converted.hour, converted.minute)
+    : `${pad2(converted.hour)}:${pad2(converted.minute)}`;
+}
+
+function format12h(hour: number, minute: number) {
+  const period = hour >= 12 ? "PM" : "AM";
+  const h = hour % 12 || 12;
+  return `${h}:${pad2(minute)} ${period}`;
 }
 
 function parseField(
@@ -265,11 +382,10 @@ function formatMonths(field: Extract<ParsedField, { kind: "exact" | "list" }>) {
     .join(", ");
 }
 
-function formatTime(hour: number, minute: number) {
-  return `${pad2(hour)}:${pad2(minute)}`;
-}
-
-function formatAtSchedule(at: string | null) {
+function formatAtSchedule(
+  at: string | null,
+  preferences: WorkspaceDateTimePreferences,
+) {
   if (!at) {
     return "One-time";
   }
@@ -279,7 +395,7 @@ function formatAtSchedule(at: string | null) {
     return at;
   }
 
-  return `Once at ${date.toISOString().replace("T", " ").slice(0, 16)} UTC`;
+  return `Once at ${formatShortDateTime(date, preferences)}`;
 }
 
 function formatDurationMs(ms: number) {
@@ -300,14 +416,6 @@ function formatDurationMs(ms: number) {
   }
 
   return parts.join(" ");
-}
-
-function withTimezone(description: string, timezone?: string | null) {
-  if (!timezone || timezone === "UTC") {
-    return description;
-  }
-
-  return `${description} (${timezone})`;
 }
 
 function isAny(field: ParsedField) {
