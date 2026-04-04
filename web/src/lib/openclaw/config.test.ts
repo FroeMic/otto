@@ -124,6 +124,8 @@ describe("renderOpenClawConfig", () => {
       provider: "brave",
       timeoutSeconds: 30,
     });
+    assert.deepEqual(renderedConfig.plugins.allow, ["brave"]);
+    assert.equal(renderedConfig.plugins.entries.brave.enabled, true);
     assert.deepEqual(renderedConfig.plugins.entries.brave.config.webSearch, {
       mode: "web",
     });
