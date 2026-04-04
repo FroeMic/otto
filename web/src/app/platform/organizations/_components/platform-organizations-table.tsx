@@ -394,11 +394,16 @@ const columns: ColumnDef<PlatformOrganization>[] = [
     },
   },
   {
-    accessorKey: "runtimeImageVersion",
+    accessorKey: "observedRuntimeImageVersion",
     header: "Image",
     cell: ({ row }) => {
-      const label = row.original.runtimeImageVersion ?? "latest";
-      const href = getRuntimeImageHref(row.original.runtimeImage);
+      const label =
+        row.original.observedRuntimeImageVersion ??
+        row.original.observedRuntimeImage ??
+        "Not available";
+      const href = row.original.observedRuntimeImage
+        ? getRuntimeImageHref(row.original.observedRuntimeImage)
+        : null;
 
       if (!href) {
         return (
