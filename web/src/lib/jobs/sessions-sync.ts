@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  deleteStaleTenantSessions,
   upsertTenantSessionBatch,
   type TenantSessionUpsertInput,
 } from "@/db/control-plane";
@@ -206,15 +207,23 @@ export async function processSyncTenantSessionsJob(
 
     await upsertTenantSessionBatch(payload.tenantId, sessions);
 
+    // Clean up rows for sessions no longer in the runtime session store
+    const activeKeys = sessions.map((s) => s.sessionKey);
+    const deletedCount = await deleteStaleTenantSessions(
+      payload.tenantId,
+      activeKeys,
+    );
+
     const withTranscript = sessions.filter((s) => s.transcriptJsonl).length;
     await appendJobEvent(
       job.id,
       "succeeded",
-      `Synced ${sessions.length} sessions (${withTranscript} with transcripts)`,
+      `Synced ${sessions.length} sessions (${withTranscript} with transcripts), cleaned up ${deletedCount} stale rows`,
     );
     await markJobSucceeded(job.id, {
       syncedSessions: sessions.length,
       syncedTranscripts: withTranscript,
+      deletedStale: deletedCount,
     });
   } catch (error) {
     const message = getErrorMessage(error);
