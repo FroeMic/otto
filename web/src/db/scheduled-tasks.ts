@@ -110,18 +110,16 @@ async function replaceTenantScheduledTasksSnapshotTx(
   const currentTaskKeys = input.tasks.map((task) => task.taskKey);
 
   if (currentTaskKeys.length === 0) {
-    await tx
-      .delete(tenantScheduledTasks)
-      .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
+    await markMissingTenantScheduledTasksDeletedTx(tx, {
+      now,
+      tenantId: input.tenantId,
+    });
   } else {
-    await tx
-      .delete(tenantScheduledTasks)
-      .where(
-        and(
-          eq(tenantScheduledTasks.tenantId, input.tenantId),
-          not(inArray(tenantScheduledTasks.taskKey, currentTaskKeys)),
-        ),
-      );
+    await markMissingTenantScheduledTasksDeletedTx(tx, {
+      excludeTaskKeys: currentTaskKeys,
+      now,
+      tenantId: input.tenantId,
+    });
   }
 
   for (const task of input.tasks) {
@@ -199,6 +197,44 @@ async function upsertTenantScheduledTaskRunsTx(
   }
 
   const now = new Date();
+  const placeholderTaskRows = buildDeletedPlaceholderTasks(input.runs);
+
+  for (const task of placeholderTaskRows) {
+    await tx
+      .insert(tenantScheduledTasks)
+      .values({
+        agentId: null,
+        tenantId: input.tenantId,
+        taskKey: task.taskKey,
+        name: task.name,
+        description: task.description,
+        status: task.status,
+        enabled: task.enabled,
+        scheduleKind: task.scheduleKind,
+        scheduleExpression: task.scheduleExpression,
+        scheduleJson: task.scheduleJson,
+        timezone: task.timezone,
+        payloadJson: task.payloadJson,
+        deliveryJson: task.deliveryJson,
+        failureAlertJson: task.failureAlertJson,
+        wakeMode: task.wakeMode,
+        deleteAfterRun: task.deleteAfterRun,
+        sessionKey: task.sessionKey,
+        sessionTarget: task.sessionTarget,
+        nextRunAt: task.nextRunAt,
+        lastRunAt: task.lastRunAt,
+        lastRunStatus: task.lastRunStatus,
+        lastError: task.lastError,
+        runtimeUpdatedAt: task.runtimeUpdatedAt,
+        lastSyncedAt: now,
+        lastSyncError: null,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [tenantScheduledTasks.tenantId, tenantScheduledTasks.taskKey],
+      });
+  }
+
   const taskRows = await tx
     .select({
       id: tenantScheduledTasks.id,
@@ -295,7 +331,6 @@ export async function markTenantScheduledTasksSyncFailed(input: {
   await db
     .update(tenantScheduledTasks)
     .set({
-      status: "sync_failed",
       lastSyncError: input.error,
       updatedAt: now,
     })
@@ -483,6 +518,72 @@ function getTaskRunSortMs(run: ScheduledTaskSessionSnapshotRow) {
     run.scheduledFor?.getTime() ??
     0
   );
+}
+
+async function markMissingTenantScheduledTasksDeletedTx(
+  tx: DbClient | DbTransaction,
+  input: {
+    excludeTaskKeys?: string[];
+    now: Date;
+    tenantId: string;
+  },
+) {
+  await tx
+    .update(tenantScheduledTasks)
+    .set({
+      enabled: false,
+      lastSyncError: null,
+      lastSyncedAt: input.now,
+      nextRunAt: null,
+      status: "deleted",
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(tenantScheduledTasks.tenantId, input.tenantId),
+        input.excludeTaskKeys && input.excludeTaskKeys.length > 0
+          ? not(inArray(tenantScheduledTasks.taskKey, input.excludeTaskKeys))
+          : undefined,
+      ),
+    );
+}
+
+function buildDeletedPlaceholderTasks(runs: ScheduledTaskSessionSnapshotRow[]) {
+  const placeholderTasks = new Map<string, ScheduledTaskSnapshotRow>();
+
+  for (const run of runs) {
+    if (placeholderTasks.has(run.taskKey)) {
+      continue;
+    }
+
+    placeholderTasks.set(run.taskKey, {
+      agentId: null,
+      description:
+        "Runtime task definition was deleted before Otto synced its full configuration.",
+      deleteAfterRun: true,
+      deliveryJson: null,
+      enabled: false,
+      failureAlertJson: null,
+      lastError: run.error,
+      lastRunAt: run.finishedAt ?? run.startedAt ?? run.scheduledFor,
+      lastRunStatus: run.status,
+      name: run.taskName,
+      nextRunAt: null,
+      payloadJson: null,
+      runtimeUpdatedAt: null,
+      scheduleExpression: "Deleted before sync",
+      scheduleKind: "unknown",
+      scheduleJson: null,
+      sessionKey: null,
+      sessionTarget: null,
+      status: "deleted",
+      taskKey: run.taskKey,
+      timezone: null,
+      wakeMode: null,
+    });
+  }
+
+  return [...placeholderTasks.values()];
 }
 
 function normalizeScheduledTaskRow<

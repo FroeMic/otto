@@ -285,18 +285,9 @@ async function flushPendingChanges() {
 
   try {
     const tasks = await listCronTasks();
-    const activeTaskIds = new Set(
-      tasks
-        .map((task) => (typeof task.id === "string" ? task.id : null))
-        .filter(Boolean),
-    );
     const runs = [];
 
     for (const jobId of runJobIds) {
-      if (!activeTaskIds.has(jobId)) {
-        continue;
-      }
-
       const taskRuns = await listCronRuns(jobId);
       runs.push(...taskRuns);
     }
