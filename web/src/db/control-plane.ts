@@ -200,6 +200,7 @@ type SlackIntegrationSummary = {
   lastError: string | null;
   lastErrorAt: Date | null;
   status: string;
+  teamId: string | null;
   teamName: string | null;
 };
 
@@ -794,6 +795,7 @@ export async function getDashboardOrganizations(
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
             status: tenantIntegrations.status,
+            teamId: slackInstallations.slackTeamId,
             teamName: slackInstallations.slackTeamName,
             tenantId: tenantIntegrations.tenantId,
           })
@@ -1079,6 +1081,7 @@ export async function listPlatformOrganizations(input: {
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
             status: tenantIntegrations.status,
+            teamId: slackInstallations.slackTeamId,
             teamName: slackInstallations.slackTeamName,
             tenantId: tenantIntegrations.tenantId,
           })
@@ -1311,6 +1314,7 @@ export async function getPlatformOrganizationDetail(input: {
       lastError: tenantIntegrations.lastError,
       lastErrorAt: tenantIntegrations.lastErrorAt,
       status: tenantIntegrations.status,
+      teamId: slackInstallations.slackTeamId,
       teamName: slackInstallations.slackTeamName,
     })
     .from(tenantIntegrations)
@@ -2087,6 +2091,7 @@ function buildSlackIntegrationSummary(
     lastError: integration.lastError,
     lastErrorAt: integration.lastErrorAt,
     status: integration.status,
+    teamId: integration.teamId,
     teamName: integration.teamName,
   };
 }

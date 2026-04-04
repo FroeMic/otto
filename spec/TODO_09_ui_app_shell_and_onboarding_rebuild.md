@@ -180,9 +180,9 @@ The user settings section is org-independent in data ownership, but it can still
 - keep a persistent bottom rail in the authenticated shell
 - use it for lightweight workspace context and system status, not for decorative chrome
 - likely contents:
-  - one workspace readiness summary
-  - one short connection or setup sentence
-  - one quick action when relevant
+  - one compact readiness badge
+  - at most one short status sentence on the left
+  - connected messaging surfaces as compact badges on the right
 
 ## Information architecture
 

@@ -101,6 +101,44 @@ export function getSlackErrorMessage(organization: DashboardOrganization) {
   );
 }
 
+export type ConnectedMessagingSurface = {
+  external?: boolean;
+  href: string;
+  iconSrc: string;
+  key: "slack" | "whatsapp";
+  label: string;
+};
+
+export function getConnectedMessagingSurfaces(
+  organization: DashboardOrganization,
+): ConnectedMessagingSurface[] {
+  const surfaces: ConnectedMessagingSurface[] = [];
+  const slackTeamId = organization.slackIntegration?.teamId;
+
+  if (organization.slackIntegration?.connectedAt) {
+    surfaces.push({
+      external: Boolean(slackTeamId),
+      href: slackTeamId
+        ? `https://app.slack.com/client/${slackTeamId}`
+        : `/${organization.slug}/integrations/slack`,
+      iconSrc: "/integrations/slack.svg",
+      key: "slack",
+      label: "Slack",
+    });
+  }
+
+  if (organization.whatsappIntegration?.status === "connected") {
+    surfaces.push({
+      href: `/${organization.slug}/integrations/whatsapp`,
+      iconSrc: "/integrations/whatsapp.png",
+      key: "whatsapp",
+      label: "WhatsApp",
+    });
+  }
+
+  return surfaces;
+}
+
 export function getPrimaryAgentLatestApplyRun(
   organization: DashboardOrganization,
 ) {
