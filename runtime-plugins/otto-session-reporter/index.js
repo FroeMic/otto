@@ -20,18 +20,11 @@ export default definePluginEntry({
     },
   },
   register(api) {
-    logPluginInfo("register() called — setting up hooks");
-
     const pendingFlush = new Map();
 
     // -- Typed lifecycle hooks (api.on → registry.typedHooks) ----------------
 
     api.on("session_start", async (event, ctx) => {
-      logPluginInfo("session_start hook fired", {
-        sessionId: event.sessionId,
-        sessionKey: ctx.sessionKey,
-        agentId: ctx.agentId,
-      });
       try {
         await syncSession(api, {
           sessionKey: ctx.sessionKey ?? event.sessionId,
@@ -40,31 +33,17 @@ export default definePluginEntry({
           sessionUpdatedAt: Date.now(),
         });
       } catch (error) {
-        logPluginError("session_start handler threw", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logError("session_start threw", error);
       }
     });
 
     api.on("session_end", async (event, ctx) => {
-      logPluginInfo("session_end hook fired", {
-        sessionId: event.sessionId,
-        sessionKey: ctx.sessionKey,
-        agentId: ctx.agentId,
-        messageCount: event.messageCount,
-        durationMs: event.durationMs,
-      });
       try {
         clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
 
         const sessionKey = ctx.sessionKey ?? event.sessionId;
         const entry = await loadSessionEntry(api, sessionKey);
-        const transcript = await readTranscript(api, ctx.agentId, sessionKey, entry);
-        logPluginInfo("session_end transcript read", {
-          sessionKey,
-          hasTranscript: !!transcript,
-          transcriptSize: transcript?.transcriptJsonl?.length ?? 0,
-        });
+        const transcript = await readTranscript(api, sessionKey, entry);
 
         await syncSessionFull(api, sessionKey, entry, transcript, {
           externalSessionId: event.sessionId,
@@ -74,9 +53,7 @@ export default definePluginEntry({
           sessionUpdatedAt: Date.now(),
         });
       } catch (error) {
-        logPluginError("session_end handler threw", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logError("session_end threw", error);
       }
     });
 
@@ -84,18 +61,10 @@ export default definePluginEntry({
 
     api.runtime.events.onSessionTranscriptUpdate((update) => {
       const sessionKey = update.sessionKey;
-      if (!sessionKey) {
-        logPluginInfo("transcriptUpdate: no sessionKey, skipping", {
-          sessionFile: update.sessionFile,
-        });
-        return;
-      }
+      if (!sessionKey) return;
 
-      logPluginInfo("transcriptUpdate fired", { sessionKey });
       debouncedSync(api, pendingFlush, sessionKey);
     });
-
-    logPluginInfo("register() complete — all hooks registered");
   },
 });
 
@@ -107,31 +76,19 @@ function debouncedSync(api, pendingFlush, sessionKey) {
   clearDebounce(pendingFlush, sessionKey);
 
   const debounceMs = resolveDebounceMs(api);
-  logPluginInfo("debouncedSync scheduled", { sessionKey, debounceMs });
   const timer = setTimeout(async () => {
     pendingFlush.delete(sessionKey);
-    logPluginInfo("debouncedSync executing", { sessionKey });
     try {
       const entry = await loadSessionEntry(api, sessionKey);
-      if (!entry) {
-        logPluginInfo("debouncedSync: no session entry found", { sessionKey });
-        return;
-      }
+      if (!entry) return;
 
-      const transcript = await readTranscript(api, undefined, sessionKey, entry);
-      logPluginInfo("debouncedSync transcript read", {
-        sessionKey,
-        hasTranscript: !!transcript,
-      });
+      const transcript = await readTranscript(api, sessionKey, entry);
 
       await syncSessionFull(api, sessionKey, entry, transcript, {
         sessionUpdatedAt: entry.updatedAt ?? Date.now(),
       });
     } catch (error) {
-      logPluginError("Debounced sync failed", {
-        sessionKey,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logError("debouncedSync failed", error);
     }
   }, debounceMs);
 
@@ -157,32 +114,29 @@ async function loadSessionEntry(api, sessionKey) {
     const normalized = sessionKey.trim().toLowerCase();
     return store[normalized] ?? null;
   } catch (error) {
-    logPluginError("loadSessionEntry failed", {
-      sessionKey,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logError("loadSessionEntry failed", error);
     return null;
   }
 }
 
-async function readTranscript(api, agentId, sessionKey, entry) {
+async function readTranscript(api, sessionKey, entry) {
   try {
-    // Try resolveSessionFilePath first, fall back to the entry's sessionFile
-    let filePath = null;
-    try {
-      filePath = api.runtime.agent.session.resolveSessionFilePath(
-        sessionKey,
-        agentId,
-      );
-    } catch {
-      // resolveSessionFilePath may not support all key formats
+    // 1. Prefer entry.sessionFile — always correct when present (handles
+    //    both topic-suffixed Slack files and plain UUID cron files).
+    // 2. Fall back to resolveSessionFilePath with the entry's sessionId UUID
+    //    (works for cron sessions where sessionFile may be absent).
+    let filePath = entry?.sessionFile ?? null;
+
+    if (!filePath && entry?.sessionId) {
+      try {
+        filePath = api.runtime.agent.session.resolveSessionFilePath(
+          entry.sessionId,
+        );
+      } catch {
+        // resolveSessionFilePath may not support all formats
+      }
     }
 
-    if (!filePath && entry?.sessionFile) {
-      filePath = entry.sessionFile;
-    }
-
-    logPluginInfo("readTranscript resolvedPath", { sessionKey, agentId, filePath });
     if (!filePath) return null;
 
     const content = await readFile(filePath, "utf-8");
@@ -196,11 +150,7 @@ async function readTranscript(api, agentId, sessionKey, entry) {
       messageCount,
     };
   } catch (error) {
-    logPluginError("readTranscript failed", {
-      sessionKey,
-      agentId,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logError(`readTranscript failed for ${sessionKey}`, error);
     return null;
   }
 }
@@ -258,12 +208,6 @@ async function syncSessionFull(api, sessionKey, entry, transcript, overrides) {
 // ---------------------------------------------------------------------------
 
 async function syncSession(api, sessionData) {
-  logPluginInfo("syncSession called", {
-    sessionKey: sessionData.sessionKey,
-    status: sessionData.status,
-    hasTranscript: !!sessionData.transcriptJsonl,
-  });
-
   const response = await requestControlPlane(api, {
     method: "POST",
     path: "/api/internal/runtime/sessions/sync",
@@ -273,17 +217,11 @@ async function syncSession(api, sessionData) {
   });
 
   if (!response.ok) {
-    logPluginError("Session sync failed", {
+    logError("Sync failed", {
       sessionKey: sessionData.sessionKey,
       error: response.error,
       code: response.code,
       status: response.status,
-    });
-  } else {
-    logPluginInfo("Session synced OK", {
-      sessionKey: sessionData.sessionKey,
-      status: sessionData.status,
-      httpStatus: response.status,
     });
   }
 }
@@ -416,17 +354,13 @@ async function parseJsonResponse(response) {
   return await response.json();
 }
 
-function logPluginInfo(message, details) {
+function logError(message, errorOrDetails) {
   try {
-    console.log(`[otto-session-reporter] ${message}`, details ?? "");
-  } catch {
-    // Ignore logging failures inside the plugin runtime.
-  }
-}
-
-function logPluginError(message, details) {
-  try {
-    console.error(`[otto-session-reporter] ${message}`, details ?? "");
+    const detail =
+      errorOrDetails instanceof Error
+        ? errorOrDetails.message
+        : errorOrDetails;
+    console.error(`[otto-session-reporter] ${message}`, detail ?? "");
   } catch {
     // Ignore logging failures inside the plugin runtime.
   }
