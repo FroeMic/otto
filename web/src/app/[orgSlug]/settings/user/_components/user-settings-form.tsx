@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
+import { useEffect, useState, useTransition } from "react";
 
 import {
   SettingsCard,
@@ -119,7 +119,10 @@ export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
         const res = await fetch("/api/user/profile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
+          body: JSON.stringify({
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+          }),
         });
 
         if (!res.ok) {
@@ -145,9 +148,7 @@ export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{displayName}</span>
           <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger
-              render={<Button variant="outline" size="sm" />}
-            >
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
               Edit
             </DialogTrigger>
             <DialogContent className="max-w-md">
@@ -159,10 +160,7 @@ export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
               </DialogHeader>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="firstName"
-                    className="text-sm font-medium"
-                  >
+                  <label htmlFor="firstName" className="text-sm font-medium">
                     First name
                   </label>
                   <Input
@@ -173,10 +171,7 @@ export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="lastName"
-                    className="text-sm font-medium"
-                  >
+                  <label htmlFor="lastName" className="text-sm font-medium">
                     Last name
                   </label>
                   <Input
@@ -185,9 +180,7 @@ export function AccountDetailsCard({ user }: AccountDetailsCardProps) {
                     onChange={(e) => setLastName(e.target.value)}
                   />
                 </div>
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
+                {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
               <DialogFooter>
                 <Button

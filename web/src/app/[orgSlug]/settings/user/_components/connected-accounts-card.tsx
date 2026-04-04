@@ -5,9 +5,9 @@ import Image from "next/image";
 import {
   SettingsCard,
   SettingsRow,
+  SettingsRowDescription,
   SettingsRowLabel,
   SettingsRowTitle,
-  SettingsRowDescription,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 
 type ChannelIdentity = {
@@ -115,9 +115,7 @@ export function ConnectedAccountsCard({
                   aria-hidden="true"
                   className="size-2 rounded-full bg-emerald-500"
                 />
-                <span className="text-sm text-muted-foreground">
-                  Connected
-                </span>
+                <span className="text-sm text-muted-foreground">Connected</span>
               </div>
             ) : (
               <span className="text-sm text-muted-foreground shrink-0">

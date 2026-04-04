@@ -1,19 +1,16 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Calendar03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
-
-import { SessionsActionsMenu } from "./sessions-actions-menu";
-
 import {
   canViewSessionDetail,
   formatSessionName,
@@ -22,6 +19,7 @@ import {
   getScheduledTaskHref,
   parseSessionKey,
 } from "../_lib/session-display";
+import { SessionsActionsMenu } from "./sessions-actions-menu";
 
 export type SessionRow = {
   id: string;
@@ -103,10 +101,7 @@ function ProviderCell({
   const isCron = provider === "cron";
 
   const iconElement = isCron ? (
-    <HugeiconsIcon
-      icon={Calendar03Icon}
-      className="size-4 shrink-0"
-    />
+    <HugeiconsIcon icon={Calendar03Icon} className="size-4 shrink-0" />
   ) : icon ? (
     <Image
       alt={label}
@@ -200,9 +195,7 @@ function createColumns(input: {
           input.orgSlug,
           input.cronTaskKeys,
         );
-        return (
-          <ProviderCell provider={parsed.provider} taskHref={taskHref} />
-        );
+        return <ProviderCell provider={parsed.provider} taskHref={taskHref} />;
       },
     },
     {
@@ -227,9 +220,7 @@ function createColumns(input: {
       header: "Status",
       size: 80,
       cell: ({ row }) => (
-        <Badge
-          variant={statusBadgeVariant[row.original.status] ?? "outline"}
-        >
+        <Badge variant={statusBadgeVariant[row.original.status] ?? "outline"}>
           {row.original.status}
         </Badge>
       ),

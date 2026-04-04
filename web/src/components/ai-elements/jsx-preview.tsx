@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import {
@@ -15,6 +14,7 @@ import {
 } from "react";
 import type { TProps as JsxParserProps } from "react-jsx-parser";
 import JsxParser from "react-jsx-parser";
+import { cn } from "@/lib/utils";
 
 interface JSXPreviewContextValue {
   jsx: string;
@@ -154,7 +154,7 @@ export const JSXPreview = memo(
 
     const processedJsx = useMemo(
       () => (isStreaming ? completeJsxTag(jsx) : jsx),
-      [jsx, isStreaming]
+      [jsx, isStreaming],
     );
 
     const contextValue = useMemo(
@@ -169,16 +169,7 @@ export const JSXPreview = memo(
         setError,
         setLastGoodJsx,
       }),
-      [
-        bindings,
-        components,
-        error,
-        isStreaming,
-        jsx,
-        onError,
-        processedJsx,
-        setError,
-      ]
+      [bindings, components, error, isStreaming, jsx, onError, processedJsx],
     );
 
     return (
@@ -188,7 +179,7 @@ export const JSXPreview = memo(
         </div>
       </JSXPreviewContext.Provider>
     );
-  }
+  },
 );
 
 JSXPreview.displayName = "JSXPreview";
@@ -198,6 +189,7 @@ export type JSXPreviewContentProps = Omit<ComponentProps<"div">, "children">;
 export const JSXPreviewContent = memo(
   ({ className, ...props }: JSXPreviewContentProps) => {
     const {
+      jsx,
       processedJsx,
       isStreaming,
       components,
@@ -212,9 +204,10 @@ export const JSXPreviewContent = memo(
 
     // Reset error tracking when jsx changes
     useEffect(() => {
+      void jsx;
       errorReportedRef.current = null;
       setHadError(false);
-    }, [processedJsx]);
+    }, [jsx]);
 
     const handleError = useCallback(
       (err: Error) => {
@@ -233,7 +226,7 @@ export const JSXPreviewContent = memo(
         setError(err);
         onErrorProp?.(err);
       },
-      [processedJsx, isStreaming, onErrorProp, setError]
+      [processedJsx, isStreaming, onErrorProp, setError],
     );
 
     // Track the last JSX that rendered without error
@@ -259,7 +252,7 @@ export const JSXPreviewContent = memo(
         />
       </div>
     );
-  }
+  },
 );
 
 JSXPreviewContent.displayName = "JSXPreviewContent";
@@ -270,7 +263,7 @@ export type JSXPreviewErrorProps = ComponentProps<"div"> & {
 
 const renderChildren = (
   children: ReactNode | ((error: Error) => ReactNode),
-  error: Error
+  error: Error,
 ): ReactNode => {
   if (typeof children === "function") {
     return children(error);
@@ -290,7 +283,7 @@ export const JSXPreviewError = memo(
       <div
         className={cn(
           "flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm",
-          className
+          className,
         )}
         {...props}
       >
@@ -304,7 +297,7 @@ export const JSXPreviewError = memo(
         )}
       </div>
     );
-  }
+  },
 );
 
 JSXPreviewError.displayName = "JSXPreviewError";

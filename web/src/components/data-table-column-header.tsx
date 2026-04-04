@@ -35,8 +35,8 @@ export function DataTableColumnHeader<TData, TValue>({
       size="sm"
       type="button"
       variant="ghost"
-      >
-        <span>{title}</span>
+    >
+      <span>{title}</span>
       <span
         className={cn(
           "inline-flex w-4 justify-center text-xs",

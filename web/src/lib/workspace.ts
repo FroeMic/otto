@@ -145,7 +145,8 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
   const applyStatus = getRuntimeApplyStatusLabel(organization);
   const slackError = getSlackErrorMessage(organization);
   const latestApplyFailed =
-    latestApplyRun?.status === "failed" || latestApplyRun?.status === "apply_failed";
+    latestApplyRun?.status === "failed" ||
+    latestApplyRun?.status === "apply_failed";
   const latestApplyUpdating =
     latestApplyRun?.status === "queued" ||
     latestApplyRun?.status === "pending_apply" ||
@@ -171,7 +172,10 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
   if (slackError || latestApplyFailed) {
     return {
       applyStatus: applyStatus ?? "Failed",
-      detail: latestApplyRun?.error ?? slackError ?? "The latest update needs attention.",
+      detail:
+        latestApplyRun?.error ??
+        slackError ??
+        "The latest update needs attention.",
       label: "Needs attention",
       slackStatus,
       title: "Otto needs attention",

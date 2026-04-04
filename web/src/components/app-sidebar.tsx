@@ -1,19 +1,19 @@
 "use client";
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiBrain01Icon,
+  AiChat02Icon,
   ArrowReloadHorizontalIcon,
   Building03Icon,
   Calendar03Icon,
-  UnfoldMoreIcon,
+  ConnectIcon,
+  FlashIcon,
   MessageMultiple01Icon,
   Settings01Icon,
-  FlashIcon,
-  ConnectIcon,
-  AiChat02Icon,
+  UnfoldMoreIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";

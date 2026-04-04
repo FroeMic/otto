@@ -1,12 +1,12 @@
 "use client";
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  UnfoldMoreIcon,
-  Settings01Icon,
   Logout01Icon,
+  Settings01Icon,
+  UnfoldMoreIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {

@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  ArrowReloadHorizontalIcon,
+  MessageMultiple01Icon,
+  MoreHorizontalIcon,
+  UserMultiple02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,13 +19,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  MoreHorizontalIcon,
-  ArrowReloadHorizontalIcon,
-  UserMultiple02Icon,
-  MessageMultiple01Icon,
-} from "@hugeicons/core-free-icons";
 
 export function SlackActionsMenu({
   orgSlug,
@@ -34,7 +34,8 @@ export function SlackActionsMenu({
   const [isSyncingChannels, setIsSyncingChannels] = useState(false);
 
   async function handleResync(action: "users" | "channels") {
-    const setter = action === "users" ? setIsSyncingUsers : setIsSyncingChannels;
+    const setter =
+      action === "users" ? setIsSyncingUsers : setIsSyncingChannels;
     setter(true);
     try {
       const response = await fetch(
@@ -71,7 +72,12 @@ export function SlackActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="icon" disabled={isSyncing} />
+          <Button
+            aria-label="Slack actions"
+            variant="outline"
+            size="icon"
+            disabled={isSyncing}
+          />
         }
       >
         <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
@@ -79,9 +85,7 @@ export function SlackActionsMenu({
       <DropdownMenuContent align="end">
         {canReconnect && reconnectUrl ? (
           <>
-            <DropdownMenuItem
-              render={<a href={reconnectUrl} />}
-            >
+            <DropdownMenuItem onClick={() => router.push(reconnectUrl)}>
               <HugeiconsIcon
                 icon={ArrowReloadHorizontalIcon}
                 className="size-4"

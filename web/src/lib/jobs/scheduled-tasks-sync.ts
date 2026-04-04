@@ -20,6 +20,8 @@ import {
   type ReconcileTenantScheduledTasksPayload,
 } from "./types";
 
+export { readCronListEntries, readCronRunEntries };
+
 const runtimeManager = new RuntimeManager();
 
 export async function processReconcileTenantScheduledTasksJob(

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  ArrowLeft01Icon,
-  Building03Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, Building03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

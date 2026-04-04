@@ -51,6 +51,8 @@ import {
   isManagedBootstrapFilePath,
   type ManagedBootstrapFilePath,
 } from "@/lib/openclaw/managed-config";
+import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
+import { RuntimeManager } from "@/lib/runtime/manager";
 import {
   fetchSlackMessagingDirectory,
   joinSlackChannel,
@@ -80,8 +82,6 @@ import {
   webSearchRuntimeConfigJsonSchema,
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
-import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
-import { RuntimeManager } from "@/lib/runtime/manager";
 import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
@@ -1406,9 +1406,8 @@ export async function getPlatformOrganizationDetail(input: {
     isReady: organization.isReady,
     name: organization.name,
     observedRuntimeImage,
-    observedRuntimeImageVersion: extractRuntimeImageVersionOrNull(
-      observedRuntimeImage,
-    ),
+    observedRuntimeImageVersion:
+      extractRuntimeImageVersionOrNull(observedRuntimeImage),
     slackIntegration: buildSlackIntegrationSummary(slackIntegration ?? null),
     slug: organization.slug,
     tenant: {
@@ -8013,9 +8012,7 @@ function extractStartedAtFromTranscript(
         const ts = parsed.message.timestamp;
         if (typeof ts === "number" && Number.isFinite(ts)) return ts;
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return null;
 }
@@ -8075,7 +8072,11 @@ export async function upsertTenantSessionBatch(
         syncSource: session.syncSource,
       })
       .onConflictDoUpdate({
-        target: [tenantSessions.tenantId, tenantSessions.sessionKey, tenantSessions.externalSessionId],
+        target: [
+          tenantSessions.tenantId,
+          tenantSessions.sessionKey,
+          tenantSessions.externalSessionId,
+        ],
         set: {
           displayName: session.displayName ?? undefined,
           label: session.label ?? undefined,
@@ -8088,7 +8089,9 @@ export async function upsertTenantSessionBatch(
           originAccountId: session.originAccountId ?? undefined,
           originThreadId: session.originThreadId ?? undefined,
           status: session.status,
-          startedAt: effectiveStartedAt ? new Date(effectiveStartedAt) : undefined,
+          startedAt: effectiveStartedAt
+            ? new Date(effectiveStartedAt)
+            : undefined,
           endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
           runtimeMs: session.runtimeMs ?? undefined,
           model: session.model ?? undefined,
@@ -8347,10 +8350,7 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
     .where(eq(tenants.organizationId, input.organizationId));
 
   // Build email → workspace member lookup
-  const membersByEmail = new Map<
-    string,
-    (typeof workspaceMembers)[number][]
-  >();
+  const membersByEmail = new Map<string, (typeof workspaceMembers)[number][]>();
   for (const member of workspaceMembers) {
     if (!member.email) continue;
     const key = member.email.toLowerCase();
@@ -8438,7 +8438,10 @@ export async function getMemberNameMap(input: {
     .from(messagingWorkspaceMembers)
     .innerJoin(
       messagingWorkspaces,
-      eq(messagingWorkspaceMembers.messagingWorkspaceId, messagingWorkspaces.id),
+      eq(
+        messagingWorkspaceMembers.messagingWorkspaceId,
+        messagingWorkspaces.id,
+      ),
     )
     .innerJoin(
       tenantIntegrations,

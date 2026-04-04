@@ -33,11 +33,14 @@ export function parseSessionKey(sessionKey: string): ParsedSessionKey {
   // agent:main:<provider>:<kind>:<id>[:thread:<threadId>]
   const provider = parts[2] ?? null;
   const kindRaw = parts[3] ?? "unknown";
-  const kind = (["dm", "channel", "group"].includes(kindRaw) ? kindRaw : "unknown") as ParsedSessionKey["kind"];
+  const kind = (
+    ["dm", "channel", "group"].includes(kindRaw) ? kindRaw : "unknown"
+  ) as ParsedSessionKey["kind"];
 
   // Find thread part
   const threadIdx = parts.indexOf("thread");
-  const threadId = threadIdx !== -1 ? parts.slice(threadIdx + 1).join(":") : null;
+  const threadId =
+    threadIdx !== -1 ? parts.slice(threadIdx + 1).join(":") : null;
 
   // ID is everything between kind and thread (or end)
   const idEnd = threadIdx !== -1 ? threadIdx : parts.length;
@@ -113,7 +116,7 @@ export function formatSessionName(input: {
   if (parsed.provider === "cron") {
     if (input.displayName) {
       return input.displayName.length > 60
-        ? input.displayName.slice(0, 60) + "..."
+        ? `${input.displayName.slice(0, 60)}...`
         : input.displayName;
     }
     if (input.label) return input.label;
@@ -122,18 +125,17 @@ export function formatSessionName(input: {
 
   // For threads, try to use displayName which contains the thread topic
   if (parsed.kind === "thread" && input.displayName) {
-    const threadMatch = input.displayName.match(
-      /Slack thread (#\S+):\s*(.*)/,
-    );
+    const threadMatch = input.displayName.match(/Slack thread (#\S+):\s*(.*)/);
     if (threadMatch) {
       const channel = threadMatch[1];
-      const topic = threadMatch[2].length > 50
-        ? threadMatch[2].slice(0, 50) + "..."
-        : threadMatch[2];
+      const topic =
+        threadMatch[2].length > 50
+          ? `${threadMatch[2].slice(0, 50)}...`
+          : threadMatch[2];
       return `${channel} thread: ${topic}`;
     }
     return input.displayName.length > 60
-      ? input.displayName.slice(0, 60) + "..."
+      ? `${input.displayName.slice(0, 60)}...`
       : input.displayName;
   }
 
@@ -175,10 +177,7 @@ export function formatSessionName(input: {
 
     default: {
       return (
-        input.displayName ??
-        input.label ??
-        input.subject ??
-        input.sessionKey
+        input.displayName ?? input.label ?? input.subject ?? input.sessionKey
       );
     }
   }
@@ -224,8 +223,9 @@ export function canViewSessionDetail(input: {
   if (parsed.kind !== "dm" && parsed.kind !== "main") return true;
 
   if (parsed.kind === "dm" && parsed.id) {
+    const parsedId = parsed.id.toLowerCase();
     return input.currentUserExternalIds.some(
-      (id) => id.toLowerCase() === parsed.id!.toLowerCase(),
+      (id) => id.toLowerCase() === parsedId,
     );
   }
 

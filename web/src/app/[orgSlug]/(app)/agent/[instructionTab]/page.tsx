@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-
-import { getAgentInstructionTabBySlug } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
 import { ManagedInstructionsPanel } from "@/app/[orgSlug]/_components/managed-instructions-panel";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { getAgentInstructionTabBySlug } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";

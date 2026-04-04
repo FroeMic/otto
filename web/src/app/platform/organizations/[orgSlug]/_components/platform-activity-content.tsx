@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
 
 import type {
   PlatformActivityEventRow,
@@ -12,6 +12,7 @@ import type {
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -22,7 +23,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 
 type PlatformActivityContentProps = {
   events: PlatformActivityEventRow[];
@@ -42,18 +42,6 @@ const EVENT_FILTER_OPTIONS = [
   { label: "All events", value: "all" },
   { label: "Apply only", value: "apply" },
 ] as const satisfies Array<{ label: string; value: JobFilter }>;
-
-function buildJobsHref(input: { orgSlug: string; type: JobFilter }) {
-  const searchParams = new URLSearchParams();
-
-  if (input.type !== "all") {
-    searchParams.set("type", input.type);
-  }
-
-  const query = searchParams.toString();
-
-  return `/platform/organizations/${input.orgSlug}/jobs${query ? `?${query}` : ""}`;
-}
 
 function buildEventsHref(input: {
   jobId?: string | null;
@@ -106,20 +94,30 @@ function IdCell({
     <Tooltip open={hovered || copied}>
       <TooltipTrigger
         render={
-          <code
+          <button
+            aria-label={`Copy ${id}`}
             data-copy-field={fieldKey}
-            className="cursor-pointer select-text text-xs text-foreground"
+            type="button"
+            className="cursor-pointer select-text text-left text-xs text-foreground"
             onClick={onCopy}
+            onFocus={() => onHoverChange(true)}
+            onBlur={() => onHoverChange(false)}
             onMouseEnter={() => onHoverChange(true)}
             onMouseLeave={() => onHoverChange(false)}
           />
         }
       >
-        {truncateId(id)}
+        <code>{truncateId(id)}</code>
       </TooltipTrigger>
       <TooltipContent
-        className={copied ? "bg-green-100 px-2 py-1 text-xs text-green-700" : "px-2 py-1 text-xs"}
-        classNameTooltipArrow={copied ? "bg-green-100 text-green-700" : undefined}
+        className={
+          copied
+            ? "bg-green-100 px-2 py-1 text-xs text-green-700"
+            : "px-2 py-1 text-xs"
+        }
+        classNameTooltipArrow={
+          copied ? "bg-green-100 text-green-700" : undefined
+        }
       >
         {copied ? "Copied" : "Copy"}
       </TooltipContent>
@@ -144,7 +142,9 @@ const JOB_COLUMNS = ({
 }): Array<ColumnDef<PlatformActivityJobRow>> => [
   {
     accessorKey: "id",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="ID" />
+    ),
     size: 170,
     cell: ({ row }) => (
       <IdCell
@@ -218,8 +218,7 @@ const JOB_COLUMNS = ({
   },
   {
     id: "startedAt",
-    accessorFn: (row) =>
-      row.startedAt?.getTime() ?? row.createdAt.getTime(),
+    accessorFn: (row) => row.startedAt?.getTime() ?? row.createdAt.getTime(),
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Started" />
     ),
@@ -251,7 +250,9 @@ const EVENT_COLUMNS = ({
 }): Array<ColumnDef<PlatformActivityEventRow>> => [
   {
     accessorKey: "id",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="ID" />
+    ),
     size: 170,
     cell: ({ row }) => (
       <IdCell
@@ -277,22 +278,22 @@ const EVENT_COLUMNS = ({
   },
   {
     accessorKey: "jobRunId",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Job" />,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Job" />
+    ),
     size: 170,
     cell: ({ row }) => {
       const cellKey = `event-job-id:${row.original.id}`;
 
       return (
-      <IdCell
-        copied={copiedField === cellKey}
-        fieldKey={cellKey}
-        hovered={hoveredField === cellKey}
-        id={row.original.jobRunId}
-        onCopy={() => onCopy(row.original.jobRunId, cellKey)}
-        onHoverChange={(hovered) =>
-          onHoverChange(hovered ? cellKey : null)
-        }
-      />
+        <IdCell
+          copied={copiedField === cellKey}
+          fieldKey={cellKey}
+          hovered={hoveredField === cellKey}
+          id={row.original.jobRunId}
+          onCopy={() => onCopy(row.original.jobRunId, cellKey)}
+          onHoverChange={(hovered) => onHoverChange(hovered ? cellKey : null)}
+        />
       );
     },
   },
@@ -372,7 +373,9 @@ export function PlatformActivityContent({
     }
 
     if (eventJobFilter) {
-      nextEvents = nextEvents.filter((event) => event.jobRunId === eventJobFilter);
+      nextEvents = nextEvents.filter(
+        (event) => event.jobRunId === eventJobFilter,
+      );
     }
 
     return nextEvents;

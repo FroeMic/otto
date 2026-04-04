@@ -48,7 +48,10 @@ function getPageHeader(pathname: string, orgSlug: string): PageHeader | null {
   if (!title) return null;
 
   // Sub-page breadcrumbs for sessions and scheduled tasks
-  if (segments.length > 1 && (firstSegment === "sessions" || firstSegment === "scheduled-tasks")) {
+  if (
+    segments.length > 1 &&
+    (firstSegment === "sessions" || firstSegment === "scheduled-tasks")
+  ) {
     return {
       title,
       parentTitle: title,
@@ -92,7 +95,13 @@ function ShellHeader({
       {breadcrumbSegments.length > 0 ? (
         <div className="flex items-center gap-1.5 text-sm min-w-0">
           {breadcrumbSegments.map((segment, i) => (
-            <span key={i} className="flex items-center gap-1.5 min-w-0">
+            <span
+              key={breadcrumbSegments
+                .slice(0, i + 1)
+                .map(({ href, label }) => `${href ?? "current"}:${label}`)
+                .join("/")}
+              className="flex items-center gap-1.5 min-w-0"
+            >
               {i > 0 && (
                 <span className="text-muted-foreground shrink-0">/</span>
               )}
@@ -168,8 +177,13 @@ export function OrganizationShell({
           user={user}
         />
         <SidebarInset>
-          <ShellHeader pageHeader={pageHeader} fallbackTitle={currentOrganization.name} />
-          <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
+          <ShellHeader
+            pageHeader={pageHeader}
+            fallbackTitle={currentOrganization.name}
+          />
+          <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">
+            {children}
+          </div>
           {showWorkspaceStatusRail ? (
             <WorkspaceStatusRail organization={currentOrganization} />
           ) : null}

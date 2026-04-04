@@ -1,3 +1,5 @@
+import Image from "next/image";
+import type { ComponentProps, ReactNode } from "react";
 import {
   Command,
   CommandDialog,
@@ -16,7 +18,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { ComponentProps, ReactNode } from "react";
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;
 
@@ -44,7 +45,7 @@ export const ModelSelectorContent = ({
     aria-describedby={undefined}
     className={cn(
       "outline! border-none! p-0 outline-border! outline-solid!",
-      className
+      className,
     )}
     {...props}
   >
@@ -109,8 +110,8 @@ export const ModelSelectorSeparator = (props: ModelSelectorSeparatorProps) => (
 );
 
 export type ModelSelectorLogoProps = Omit<
-  ComponentProps<"img">,
-  "src" | "alt"
+  ComponentProps<typeof Image>,
+  "src" | "alt" | "height" | "width"
 > & {
   provider:
     | "moonshotai-cn"
@@ -178,7 +179,7 @@ export const ModelSelectorLogo = ({
   className,
   ...props
 }: ModelSelectorLogoProps) => (
-  <img
+  <Image
     {...props}
     alt={`${provider} logo`}
     className={cn("size-3 dark:invert", className)}
@@ -196,8 +197,8 @@ export const ModelSelectorLogoGroup = ({
 }: ModelSelectorLogoGroupProps) => (
   <div
     className={cn(
-      "flex shrink-0 items-center -space-x-1 [&>img]:rounded-full [&>img]:bg-background [&>img]:p-px [&>img]:ring-1 dark:[&>img]:bg-foreground",
-      className
+      "flex shrink-0 items-center -space-x-1 [&_img]:rounded-full [&_img]:bg-background [&_img]:p-px [&_img]:ring-1 dark:[&_img]:bg-foreground",
+      className,
     )}
     {...props}
   />
