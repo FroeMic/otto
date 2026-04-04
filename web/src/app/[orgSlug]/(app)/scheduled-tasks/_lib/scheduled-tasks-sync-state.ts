@@ -81,7 +81,7 @@ export function getScheduledTasksSyncState(input: {
     return {
       label: "Stale",
       message:
-        "This view is showing older runtime data. Refresh from runtime to pull the latest jobs and runs.",
+        "This view is showing older runtime data. Refresh from runtime to pull the latest scheduled tasks and task runs.",
       variant: "outline",
     };
   }

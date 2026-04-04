@@ -15,9 +15,9 @@ import {
 type ScheduledJobFilter = "active" | "all" | "disabled";
 
 const JOB_FILTER_OPTIONS = [
-  { label: "All jobs", value: "all" },
-  { label: "Active jobs", value: "active" },
-  { label: "Disabled jobs", value: "disabled" },
+  { label: "All tasks", value: "all" },
+  { label: "Active tasks", value: "active" },
+  { label: "Disabled tasks", value: "disabled" },
 ] as const satisfies Array<{ label: string; value: ScheduledJobFilter }>;
 
 type ScheduledJobRow = {
@@ -50,7 +50,7 @@ function createColumns(): Array<ColumnDef<ScheduledJobRow>> {
     {
       accessorKey: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Job" />
+        <DataTableColumnHeader column={column} title="Scheduled task" />
       ),
       size: 300,
       cell: ({ row }) => (
@@ -230,14 +230,14 @@ export function ScheduledJobsContent({
       cellClassName="h-16 px-4 py-3"
       columns={columns}
       data={filteredRows}
-      emptyMessage="No scheduled jobs synced yet."
+      emptyMessage="No scheduled tasks synced yet."
       fillAvailableSpace
       headClassName="h-11 px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="border-b-0 hover:bg-muted/30"
       searchInputClassName="h-9 w-full sm:w-[26rem] sm:max-w-none sm:flex-none"
       searchKeys={["searchText"]}
-      searchPlaceholder="Search jobs"
+      searchPlaceholder="Search scheduled tasks"
       tableClassName="min-w-full table-fixed"
       toolbar={
         <NativeSelect

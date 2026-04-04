@@ -37,7 +37,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
     {
       accessorKey: "taskName",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Job" />
+        <DataTableColumnHeader column={column} title="Scheduled task" />
       ),
       size: 300,
       cell: ({ row }) => (
@@ -185,15 +185,16 @@ export function ScheduledRunsContent({
       cellClassName="h-16 px-4 py-3"
       columns={columns}
       data={rows}
-      emptyMessage="No scheduled job runs synced yet."
+      emptyMessage="No task runs synced yet."
       fillAvailableSpace
       headClassName="h-11 px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="border-b-0 hover:bg-muted/30"
       searchInputClassName="h-9 w-full sm:w-[26rem] sm:max-w-none sm:flex-none"
       searchKeys={["searchText"]}
-      searchPlaceholder="Search runs"
+      searchPlaceholder="Search task runs"
       tableClassName="min-w-full table-fixed"
+      toolbarClassName="pb-4 sm:flex-col sm:items-stretch lg:flex-row lg:items-center lg:justify-between"
       viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
     />
   );

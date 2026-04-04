@@ -7,5 +7,5 @@ export default async function ScheduledTasksIndexPage({
 }) {
   const { orgSlug } = await params;
 
-  redirect(`/${orgSlug}/scheduled-tasks/jobs`);
+  redirect(`/${orgSlug}/scheduled-tasks/tasks`);
 }
