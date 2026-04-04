@@ -54,6 +54,7 @@ const providerLabels: Record<string, string> = {
   whatsapp: "WhatsApp",
   telegram: "Telegram",
   discord: "Discord",
+  cron: "Scheduled Task",
 };
 
 const providerIcons: Record<string, string> = {
@@ -107,6 +108,17 @@ export function formatSessionName(input: {
 }): string {
   const parsed = parseSessionKey(input.sessionKey);
   const resolvedName = resolveIdName(parsed.id, input.nameMaps);
+
+  // Cron / scheduled task sessions
+  if (parsed.provider === "cron") {
+    if (input.displayName) {
+      return input.displayName.length > 60
+        ? input.displayName.slice(0, 60) + "..."
+        : input.displayName;
+    }
+    if (input.label) return input.label;
+    return `Scheduled Task Run`;
+  }
 
   // For threads, try to use displayName which contains the thread topic
   if (parsed.kind === "thread" && input.displayName) {
@@ -170,6 +182,18 @@ export function formatSessionName(input: {
       );
     }
   }
+}
+
+/**
+ * Get the scheduled task link for a cron session, if applicable.
+ */
+export function getScheduledTaskHref(
+  sessionKey: string,
+  orgSlug: string,
+): string | null {
+  const parsed = parseSessionKey(sessionKey);
+  if (parsed.provider !== "cron" || !parsed.id) return null;
+  return `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(parsed.id)}`;
 }
 
 /**
