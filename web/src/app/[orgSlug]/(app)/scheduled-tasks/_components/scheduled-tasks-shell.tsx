@@ -1,10 +1,7 @@
-import {
-  AlertCircleIcon,
-  ArrowReloadHorizontalIcon,
-} from "@hugeicons/core-free-icons";
+import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ReactNode } from "react";
-import { RefreshScheduledTasksButton } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/refresh-scheduled-tasks-button";
+import { ScheduledTasksActionsMenu } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/refresh-scheduled-tasks-button";
 import { ScheduledTasksTabs } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-tasks-tabs";
 import type { ScheduledTasksSyncState } from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/scheduled-tasks-sync-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -48,25 +45,14 @@ export function ScheduledTasksShell({
                     : "No runtime data imported yet."}
                 </p>
               </div>
-              <RefreshScheduledTasksButton orgSlug={orgSlug} />
+              <ScheduledTasksActionsMenu orgSlug={orgSlug} />
             </div>
             {showTabs ? <ScheduledTasksTabs orgSlug={orgSlug} /> : null}
           </div>
 
-          {syncState.message ? (
-            <Alert
-              variant={
-                syncState.variant === "destructive" ? "destructive" : "default"
-              }
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={
-                  syncState.variant === "destructive"
-                    ? AlertCircleIcon
-                    : ArrowReloadHorizontalIcon
-                }
-              />
+          {syncState.variant === "destructive" && syncState.message ? (
+            <Alert variant="destructive">
+              <HugeiconsIcon className="size-4" icon={AlertCircleIcon} />
               <AlertTitle>{syncState.label}</AlertTitle>
               <AlertDescription>{syncState.message}</AlertDescription>
             </Alert>
