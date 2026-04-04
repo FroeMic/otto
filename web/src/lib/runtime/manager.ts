@@ -39,6 +39,8 @@ export type WhatsAppLinkStatus = {
 
 const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
 const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
+const RUNTIME_START_HELPER_PATH =
+  "/app/otto-helpers/start-runtime-with-watchers.mjs";
 const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
 
 export class RuntimeManager {
@@ -278,7 +280,12 @@ export class RuntimeManager {
           "--env-file /opt/openclaw/home/.env",
           "-v /opt/openclaw/home:/home/node/.openclaw",
           shellQuoteForShell(image),
-          `node dist/index.js gateway --port ${OPENCLAW_GATEWAY_CONTAINER_PORT}`,
+          [
+            "node",
+            shellQuoteForShell(RUNTIME_START_HELPER_PATH),
+            "--port",
+            shellQuoteForShell(String(OPENCLAW_GATEWAY_CONTAINER_PORT)),
+          ].join(" "),
         ].join(" "),
       ]),
       { timeoutMs: 300_000 },

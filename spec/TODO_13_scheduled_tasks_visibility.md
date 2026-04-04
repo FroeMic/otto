@@ -193,6 +193,91 @@ Resulting Otto design implication:
 - rely on reconciliation to capture runtime-local cron edits until Otto owns cron writes end to end
 - when Otto later creates or edits scheduled tasks itself, apply those changes to the runtime through typed `cron.*` Gateway calls rather than raw file projection
 
+## Push sync plan
+
+The current pull path is now working and should remain the repair path. The next slice should add a faster push path for runtime-originated cron changes and run freshness.
+
+### Recommended primary seam
+
+Use an Otto-owned runtime-local watcher process inside the custom runtime image.
+
+Why this is now the right default:
+
+- it catches runtime UI, CLI, and direct Gateway RPC cron edits instead of only agent-originated tool calls
+- it uses cron storage files only as change triggers, while still reading typed runtime data through `cron.list` and `cron.runs`
+- Otto already owns the custom runtime image and can safely start a small helper beside the gateway process
+
+### What the watcher should push
+
+Add a runtime helper under `runtime-image/helpers/` that:
+
+1. watches cron storage changes
+   - `~/.openclaw/cron/jobs.json`
+   - `~/.openclaw/cron/runs/*.jsonl`
+2. debounces file events and then re-reads typed runtime state
+   - `cron.list` for the full task snapshot
+   - `cron.runs` for the changed job or jobs
+3. posts those updates to Otto through one runtime-authenticated callback route
+
+The first implemented watcher slice should:
+
+- perform one startup sync after the local gateway is healthy
+- always send the full task list when any cron file change is observed
+- send changed-job run history in bounded batches
+- keep the existing pull/reconciliation worker as the repair path
+
+### Control-plane callback API shape
+
+Add one runtime-authenticated endpoint, ideally:
+
+- `POST /api/internal/runtime/scheduled-tasks/sync`
+
+Payload shape should support both full task snapshots and incremental run upserts:
+
+- `tasks`: array of scheduled task definitions
+- `runs`: array of scheduled task run rows
+- `source`: `watcher`
+- optional `reason`: `startup`, `jobs_file_change`, `run_log_change`, or retry variants
+
+The route should:
+
+- authenticate with the tenant gateway token via the existing runtime-auth path
+- validate bounded batch sizes
+- replace tasks and upsert runs using separate scheduled-task DB helpers
+- set `lastSyncedAt` and clear `lastSyncError` on successful task updates
+
+### Important limitation
+
+This watcher-based push path depends on the runtime container and helper process staying healthy.
+
+It should catch:
+
+- runtime UI cron edits
+- direct Gateway RPC cron edits
+- CLI cron edits
+- cron run-log appends as tasks execute
+
+It can still miss updates if:
+
+- the helper process is down
+- filesystem watch events are dropped
+- the helper starts after a runtime-local change and before the next repair cycle
+
+So reconciliation stays mandatory. The push path improves freshness; the pull path preserves correctness.
+
+### Implementation order
+
+1. add `/api/internal/runtime/scheduled-tasks/sync`
+2. split scheduled-task writes into full task snapshot replacement plus run upserts
+3. add a watcher helper under `runtime-image/helpers/`
+4. add a small runtime wrapper helper that starts both the gateway and watcher inside the same container
+5. update tenant runtime startup to use that wrapper
+6. keep the existing worker pull/reconciliation job on a slower repair cadence
+
+### Follow-up if watcher coverage is not enough
+
+If the watcher proves too coarse or too delayed in practice, the next follow-up should be a small plugin signal layer for agent-originated cron changes. That plugin should still call the same callback route, and it should complement the watcher rather than replace it.
+
 ## UI shape
 
 Keep one primary nav item: `Scheduled Tasks`.
@@ -315,8 +400,9 @@ Initial content:
 - [x] define the runtime push/callback/reconciliation sync model
 - [x] define the org-scoped tasks and sessions UI shape
 - [x] add the schema and DB access layer
-- [ ] add runtime-authenticated session callback endpoints
+- [x] add runtime-authenticated session callback endpoints
 - [x] add the sync/reconciliation worker jobs
+- [x] add the watcher-based scheduled-task push sync path in the custom runtime image
 - [x] replace the scheduled-tasks placeholder page with real tasks and sessions views
 - [x] remodel the scheduled-tasks page to use sessions-style data tables instead of summary cards and stacked static tables
 - [x] add jobs-style `All / Active / Disabled` filtering for scheduled jobs
@@ -329,13 +415,16 @@ Implementation note:
 
 - the first shipped sync path is an explicit runtime pull initiated from the workspace UI plus worker-driven reconciliation
 - the page now links synced cron runs to existing session detail pages when the runtime reports `sessionKey`
+- the next shipped push slice uses a runtime-local watcher helper plus `/api/internal/runtime/scheduled-tasks/sync`
+- the runtime now starts through a small wrapper helper so the gateway and cron watcher run in the same container
+- the DB layer now separates full task snapshot replacement from incremental run upserts so push sync cannot delete tasks accidentally
 - linked session rows are now only clickable when the session has actually been synced into Otto
 - task detail routes now use `Overview`, `Configuration`, and `Task Runs` tabs and hide the parent scheduled-tasks tab strip to avoid duplicate navigation
 
 ## Open questions
 
-- OpenClaw already exposes stable typed Gateway read/write APIs for cron definitions and run history, but it does not expose a universal mutation event stream for every cron write surface. The remaining decision is whether Otto should:
-  - reconcile runtime state by calling those `cron.*` Gateway methods from a worker
-  - or add an Otto-owned runtime sync helper that mirrors those calls and batches state back to the control plane
+- OpenClaw already exposes stable typed Gateway read/write APIs for cron definitions and run history. The remaining decision is whether Otto should:
+  - stop at the watcher-based push plus reconciliation design
+  - or add plugin hints later for lower-latency agent-originated updates on top of the watcher
 - Should `next_run_at` be computed and persisted by the control plane, by the runtime, or by both with one side marked authoritative?
 - When create/edit flows arrive, should runtime-side task creation be forbidden entirely, or should runtime edits be allowed only if they write back through the control plane API immediately?

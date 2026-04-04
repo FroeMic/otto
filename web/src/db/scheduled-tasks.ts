@@ -51,38 +51,114 @@ export type ScheduledTaskSessionSnapshotRow = {
   triggerType: string;
 };
 
+type DbClient = ReturnType<typeof getDb>;
+type DbTransaction = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+
+export async function replaceTenantScheduledTasksSnapshot(input: {
+  tasks: ScheduledTaskSnapshotRow[];
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  await db.transaction(async (tx) => {
+    await replaceTenantScheduledTasksSnapshotTx(tx, input);
+  });
+}
+
+export async function upsertTenantScheduledTaskRuns(input: {
+  runs: ScheduledTaskSessionSnapshotRow[];
+  tenantId: string;
+}) {
+  if (input.runs.length === 0) {
+    return;
+  }
+
+  const db = getDb();
+
+  await db.transaction(async (tx) => {
+    await upsertTenantScheduledTaskRunsTx(tx, input);
+  });
+}
+
 export async function upsertTenantScheduledTasksSnapshot(input: {
   runs: ScheduledTaskSessionSnapshotRow[];
   tasks: ScheduledTaskSnapshotRow[];
   tenantId: string;
 }) {
   const db = getDb();
+
+  await db.transaction(async (tx) => {
+    await replaceTenantScheduledTasksSnapshotTx(tx, {
+      tasks: input.tasks,
+      tenantId: input.tenantId,
+    });
+    await upsertTenantScheduledTaskRunsTx(tx, {
+      runs: input.runs,
+      tenantId: input.tenantId,
+    });
+  });
+}
+
+async function replaceTenantScheduledTasksSnapshotTx(
+  tx: DbClient | DbTransaction,
+  input: {
+    tasks: ScheduledTaskSnapshotRow[];
+    tenantId: string;
+  },
+) {
   const now = new Date();
   const currentTaskKeys = input.tasks.map((task) => task.taskKey);
 
-  await db.transaction(async (tx) => {
-    if (currentTaskKeys.length === 0) {
-      await tx
-        .delete(tenantScheduledTasks)
-        .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
-    } else {
-      await tx
-        .delete(tenantScheduledTasks)
-        .where(
-          and(
-            eq(tenantScheduledTasks.tenantId, input.tenantId),
-            not(inArray(tenantScheduledTasks.taskKey, currentTaskKeys)),
-          ),
-        );
-    }
+  if (currentTaskKeys.length === 0) {
+    await tx
+      .delete(tenantScheduledTasks)
+      .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
+  } else {
+    await tx
+      .delete(tenantScheduledTasks)
+      .where(
+        and(
+          eq(tenantScheduledTasks.tenantId, input.tenantId),
+          not(inArray(tenantScheduledTasks.taskKey, currentTaskKeys)),
+        ),
+      );
+  }
 
-    for (const task of input.tasks) {
-      await tx
-        .insert(tenantScheduledTasks)
-        .values({
+  for (const task of input.tasks) {
+    await tx
+      .insert(tenantScheduledTasks)
+      .values({
+        agentId: task.agentId,
+        tenantId: input.tenantId,
+        taskKey: task.taskKey,
+        name: task.name,
+        description: task.description,
+        status: task.status,
+        enabled: task.enabled,
+        scheduleKind: task.scheduleKind,
+        scheduleExpression: task.scheduleExpression,
+        scheduleJson: task.scheduleJson,
+        timezone: task.timezone,
+        payloadJson: task.payloadJson,
+        deliveryJson: task.deliveryJson,
+        failureAlertJson: task.failureAlertJson,
+        wakeMode: task.wakeMode,
+        deleteAfterRun: task.deleteAfterRun,
+        sessionKey: task.sessionKey,
+        sessionTarget: task.sessionTarget,
+        nextRunAt: task.nextRunAt,
+        lastRunAt: task.lastRunAt,
+        lastRunStatus: task.lastRunStatus,
+        lastError: task.lastError,
+        runtimeUpdatedAt: task.runtimeUpdatedAt,
+        lastSyncedAt: now,
+        lastSyncError: null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [tenantScheduledTasks.tenantId, tenantScheduledTasks.taskKey],
+        set: {
           agentId: task.agentId,
-          tenantId: input.tenantId,
-          taskKey: task.taskKey,
           name: task.name,
           description: task.description,
           status: task.status,
@@ -106,59 +182,64 @@ export async function upsertTenantScheduledTasksSnapshot(input: {
           lastSyncedAt: now,
           lastSyncError: null,
           updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [tenantScheduledTasks.tenantId, tenantScheduledTasks.taskKey],
-          set: {
-            agentId: task.agentId,
-            name: task.name,
-            description: task.description,
-            status: task.status,
-            enabled: task.enabled,
-            scheduleKind: task.scheduleKind,
-            scheduleExpression: task.scheduleExpression,
-            scheduleJson: task.scheduleJson,
-            timezone: task.timezone,
-            payloadJson: task.payloadJson,
-            deliveryJson: task.deliveryJson,
-            failureAlertJson: task.failureAlertJson,
-            wakeMode: task.wakeMode,
-            deleteAfterRun: task.deleteAfterRun,
-            sessionKey: task.sessionKey,
-            sessionTarget: task.sessionTarget,
-            nextRunAt: task.nextRunAt,
-            lastRunAt: task.lastRunAt,
-            lastRunStatus: task.lastRunStatus,
-            lastError: task.lastError,
-            runtimeUpdatedAt: task.runtimeUpdatedAt,
-            lastSyncedAt: now,
-            lastSyncError: null,
-            updatedAt: now,
-          },
-        });
-    }
+        },
+      });
+  }
+}
 
-    const taskRows = await tx
-      .select({
-        id: tenantScheduledTasks.id,
-        taskKey: tenantScheduledTasks.taskKey,
+async function upsertTenantScheduledTaskRunsTx(
+  tx: DbClient | DbTransaction,
+  input: {
+    runs: ScheduledTaskSessionSnapshotRow[];
+    tenantId: string;
+  },
+) {
+  if (input.runs.length === 0) {
+    return;
+  }
+
+  const now = new Date();
+  const taskRows = await tx
+    .select({
+      id: tenantScheduledTasks.id,
+      taskKey: tenantScheduledTasks.taskKey,
+    })
+    .from(tenantScheduledTasks)
+    .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
+
+  const taskIdByKey = new Map(
+    taskRows.map((row) => [row.taskKey, row.id] as const),
+  );
+
+  for (const run of input.runs) {
+    await tx
+      .insert(tenantScheduledTaskSessions)
+      .values({
+        tenantId: input.tenantId,
+        tenantScheduledTaskId: taskIdByKey.get(run.taskKey) ?? null,
+        taskKey: run.taskKey,
+        taskName: run.taskName,
+        externalRunKey: run.externalRunKey,
+        externalSessionId: run.externalSessionId,
+        runtimeSessionKey: run.runtimeSessionKey,
+        triggerType: run.triggerType,
+        scheduledFor: run.scheduledFor,
+        startedAt: run.startedAt,
+        finishedAt: run.finishedAt,
+        status: run.status,
+        summary: run.summary,
+        error: run.error,
+        updatedAt: now,
       })
-      .from(tenantScheduledTasks)
-      .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
-
-    const taskIdByKey = new Map(
-      taskRows.map((row) => [row.taskKey, row.id] as const),
-    );
-
-    for (const run of input.runs) {
-      await tx
-        .insert(tenantScheduledTaskSessions)
-        .values({
-          tenantId: input.tenantId,
+      .onConflictDoUpdate({
+        target: [
+          tenantScheduledTaskSessions.tenantId,
+          tenantScheduledTaskSessions.externalRunKey,
+        ],
+        set: {
           tenantScheduledTaskId: taskIdByKey.get(run.taskKey) ?? null,
           taskKey: run.taskKey,
           taskName: run.taskName,
-          externalRunKey: run.externalRunKey,
           externalSessionId: run.externalSessionId,
           runtimeSessionKey: run.runtimeSessionKey,
           triggerType: run.triggerType,
@@ -169,30 +250,39 @@ export async function upsertTenantScheduledTasksSnapshot(input: {
           summary: run.summary,
           error: run.error,
           updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [
-            tenantScheduledTaskSessions.tenantId,
-            tenantScheduledTaskSessions.externalRunKey,
-          ],
-          set: {
-            tenantScheduledTaskId: taskIdByKey.get(run.taskKey) ?? null,
-            taskKey: run.taskKey,
-            taskName: run.taskName,
-            externalSessionId: run.externalSessionId,
-            runtimeSessionKey: run.runtimeSessionKey,
-            triggerType: run.triggerType,
-            scheduledFor: run.scheduledFor,
-            startedAt: run.startedAt,
-            finishedAt: run.finishedAt,
-            status: run.status,
-            summary: run.summary,
-            error: run.error,
-            updatedAt: now,
-          },
-        });
+        },
+      });
+  }
+
+  const latestRunByTaskKey = new Map<string, ScheduledTaskSessionSnapshotRow>();
+  for (const run of input.runs) {
+    const nextSortMs = getTaskRunSortMs(run);
+    const current = latestRunByTaskKey.get(run.taskKey);
+    const currentSortMs = current ? getTaskRunSortMs(current) : null;
+
+    if (currentSortMs === null || nextSortMs > currentSortMs) {
+      latestRunByTaskKey.set(run.taskKey, run);
     }
-  });
+  }
+
+  for (const [taskKey, run] of latestRunByTaskKey) {
+    await tx
+      .update(tenantScheduledTasks)
+      .set({
+        lastRunAt: run.finishedAt ?? run.startedAt ?? run.scheduledFor,
+        lastRunStatus: run.status,
+        lastError: run.error,
+        lastSyncedAt: now,
+        lastSyncError: null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(tenantScheduledTasks.tenantId, input.tenantId),
+          eq(tenantScheduledTasks.taskKey, taskKey),
+        ),
+      );
+  }
 }
 
 export async function markTenantScheduledTasksSyncFailed(input: {
@@ -384,6 +474,15 @@ export function isScheduledTaskStale(lastSyncedAt: Date | null) {
   }
 
   return Date.now() - lastSyncedAt.getTime() > SCHEDULED_TASKS_STALE_AFTER_MS;
+}
+
+function getTaskRunSortMs(run: ScheduledTaskSessionSnapshotRow) {
+  return (
+    run.finishedAt?.getTime() ??
+    run.startedAt?.getTime() ??
+    run.scheduledFor?.getTime() ??
+    0
+  );
 }
 
 function normalizeScheduledTaskRow<
