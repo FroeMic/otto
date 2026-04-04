@@ -260,31 +260,17 @@ function ChannelIcon({ channel }: { channel: string | null }) {
   );
 }
 
-const CRON_KEY_RE = /^agent:[^:]+:cron:([^:]+)(?::run:.+)?$/;
-
-function extractCronJobId(sessionKey: string): string | null {
-  const match = CRON_KEY_RE.exec(sessionKey);
-  return match?.[1] ?? null;
-}
-
 function CronJobTitle({
   title,
-  sessionKey,
-  orgSlug,
+  cronJobHref,
 }: {
   title: string;
-  sessionKey: string;
-  orgSlug: string;
+  cronJobHref?: string | null;
 }) {
-  const cronJobId = extractCronJobId(sessionKey);
-
-  if (cronJobId) {
+  if (cronJobHref) {
     return (
       <h1 className="text-xl font-semibold tracking-tight">
-        <Link
-          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(cronJobId)}/overview`}
-          className="inline-flex items-center gap-1.5 hover:underline"
-        >
+        <Link href={cronJobHref} className="inline-flex items-center gap-1.5">
           {title}
           <ArrowUpRightIcon className="size-4 text-muted-foreground" />
         </Link>
@@ -634,6 +620,7 @@ export function TranscriptViewer({
   orgSlug,
   session,
   sessionName,
+  cronJobHref,
   currentUserExternalIds = [],
   memberNames = {},
   channelNames = {},
@@ -641,6 +628,7 @@ export function TranscriptViewer({
   orgSlug: string;
   session: Session;
   sessionName: string;
+  cronJobHref?: string | null;
   currentUserExternalIds?: string[];
   memberNames?: Record<string, string>;
   channelNames?: Record<string, string>;
@@ -691,8 +679,7 @@ export function TranscriptViewer({
             <div className="flex flex-col gap-0.5">
               <CronJobTitle
                 title={resolveText(title)}
-                sessionKey={session.sessionKey}
-                orgSlug={orgSlug}
+                cronJobHref={cronJobHref}
               />
               <p className="text-xs text-muted-foreground font-mono">
                 {session.sessionKey}

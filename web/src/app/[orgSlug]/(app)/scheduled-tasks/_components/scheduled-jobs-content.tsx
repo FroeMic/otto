@@ -14,12 +14,13 @@ import {
 } from "@/components/ui/native-select";
 import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
-type ScheduledJobFilter = "active" | "all" | "disabled";
+type ScheduledJobFilter = "active" | "all" | "deleted" | "disabled";
 
 const JOB_FILTER_OPTIONS = [
   { label: "All tasks", value: "all" },
   { label: "Active tasks", value: "active" },
   { label: "Disabled tasks", value: "disabled" },
+  { label: "Deleted tasks", value: "deleted" },
 ] as const satisfies Array<{ label: string; value: ScheduledJobFilter }>;
 
 type ScheduledJobRow = {
@@ -43,6 +44,7 @@ const statusBadgeVariant: Record<
   "default" | "secondary" | "outline" | "destructive"
 > = {
   active: "default",
+  deleted: "outline",
   paused: "secondary",
   sync_failed: "destructive",
 };
@@ -57,7 +59,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
       size: 300,
       cell: ({ row }) => (
         <Link
-          className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          className="block truncate text-sm font-medium text-foreground"
           href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/overview`}
         >
           {row.original.name}
@@ -208,7 +210,11 @@ export function ScheduledJobsContent({
     }
 
     if (filter === "disabled") {
-      return rows.filter((job) => !job.enabled);
+      return rows.filter((job) => job.status === "paused");
+    }
+
+    if (filter === "deleted") {
+      return rows.filter((job) => job.status === "deleted");
     }
 
     return rows;
@@ -272,7 +278,7 @@ export function ScheduledJobsContent({
 }
 
 function parseFilter(value: string | null): ScheduledJobFilter {
-  if (value === "active" || value === "disabled") {
+  if (value === "active" || value === "deleted" || value === "disabled") {
     return value;
   }
 

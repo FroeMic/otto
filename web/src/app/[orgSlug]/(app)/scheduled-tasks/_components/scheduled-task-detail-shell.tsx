@@ -12,6 +12,7 @@ const statusBadgeVariant: Record<
   "default" | "secondary" | "outline" | "destructive"
 > = {
   active: "default",
+  deleted: "outline",
   paused: "secondary",
   sync_failed: "destructive",
 };
@@ -52,6 +53,12 @@ export function ScheduledTaskDetailShell({
         {task.description ? (
           <p className="max-w-3xl text-sm text-muted-foreground">
             {task.description}
+          </p>
+        ) : null}
+        {task.status === "deleted" ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            This task was deleted from the runtime and is kept here for
+            historical visibility.
           </p>
         ) : null}
       </div>

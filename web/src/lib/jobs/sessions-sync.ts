@@ -6,7 +6,7 @@ import {
   upsertTenantSessionBatch,
 } from "@/db/control-plane";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
-import { SshClient } from "@/lib/ssh/client";
+import { SshClient, type SshConnection } from "@/lib/ssh/client";
 
 import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
 import {
@@ -140,30 +140,11 @@ export async function processSyncTenantSessionsJob(
       } | null = null;
 
       if (filePath) {
-        try {
-          const result = await sshClient.exec(
-            connection,
-            buildShellCmd(
-              `docker exec openclaw-gateway cat ${shellQuote(filePath)}`,
-            ),
-            { timeoutMs: 30_000 },
-          );
-
-          if (result.exitCode === 0 && result.stdout) {
-            const content = result.stdout;
-            const hash = createHash("sha256").update(content).digest("hex");
-            const lineCount = content
-              .split("\n")
-              .filter((l: string) => l.trim()).length;
-            transcript = {
-              transcriptJsonl: content,
-              transcriptHash: hash,
-              messageCount: Math.max(0, lineCount - 1),
-            };
-          }
-        } catch {
-          // Transcript file may not exist or be unreadable — skip it
-        }
+        transcript = await readTranscriptOverSsh(
+          sshClient,
+          connection,
+          filePath,
+        );
       }
 
       sessions.push({
@@ -236,6 +217,70 @@ export async function processSyncTenantSessionsJob(
     await markJobFailed(job.id, message);
     throw error;
   }
+}
+
+type TranscriptResult = {
+  transcriptJsonl: string;
+  transcriptHash: string;
+  messageCount: number;
+};
+
+async function readTranscriptOverSsh(
+  ssh: SshClient,
+  connection: SshConnection,
+  filePath: string,
+): Promise<TranscriptResult | null> {
+  // Try the primary path first
+  const content = await tryReadFileOverSsh(ssh, connection, filePath);
+  if (content) return buildTranscriptResult(content);
+
+  // Fall back to .deleted.* or .reset.* variants (one-shot crons, pruned sessions)
+  const lsResult = await ssh.exec(
+    connection,
+    buildShellCmd(
+      `docker exec openclaw-gateway sh -c 'ls ${shellQuote(filePath)}.deleted.* ${shellQuote(filePath)}.reset.* 2>/dev/null | head -1'`,
+    ),
+    { timeoutMs: 10_000 },
+  );
+
+  const archivedPath = lsResult.exitCode === 0 ? lsResult.stdout.trim() : "";
+  if (!archivedPath) return null;
+
+  const archivedContent = await tryReadFileOverSsh(
+    ssh,
+    connection,
+    archivedPath,
+  );
+  if (archivedContent) return buildTranscriptResult(archivedContent);
+
+  return null;
+}
+
+async function tryReadFileOverSsh(
+  ssh: SshClient,
+  connection: SshConnection,
+  filePath: string,
+): Promise<string | null> {
+  try {
+    const result = await ssh.exec(
+      connection,
+      buildShellCmd(`docker exec openclaw-gateway cat ${shellQuote(filePath)}`),
+      { timeoutMs: 30_000 },
+    );
+    return result.exitCode === 0 && result.stdout ? result.stdout : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildTranscriptResult(content: string): TranscriptResult {
+  const hash = createHash("sha256").update(content).digest("hex");
+  const lineCount = content.split("\n").filter((l: string) => l.trim()).length;
+  return {
+    transcriptJsonl: content,
+    transcriptHash: hash,
+    messageCount: Math.max(0, lineCount - 1),
+  };
 }
 
 function resolveTranscriptPath(entry: RuntimeSessionEntry): string | null {
