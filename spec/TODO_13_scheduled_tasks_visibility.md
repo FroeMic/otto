@@ -199,10 +199,51 @@ Keep one primary nav item: `Scheduled Tasks`.
 
 Within that area, add route-backed tabs or subroutes for:
 
-- `Tasks`
-- `Sessions`
+- `Jobs`
+- `Recent Runs`
 
-### Tasks view
+### UI remodel plan
+
+The first shipped scheduled-tasks page proved the data flow, but the UI should now be remodeled to match the stronger workspace and operator patterns already in the repo.
+
+Use these existing references as the visual and interaction baseline:
+
+- workspace sessions table on `/[orgSlug]/sessions`
+- platform jobs table and URL-backed tab strip on `/platform/organizations/[orgSlug]/jobs`
+
+Remodel decisions:
+
+- remove the summary statistic cards entirely
+- move from two stacked card sections to one page-level tabbed navigation model
+- keep the page header compact and match the sessions page rhythm:
+  - title
+  - short muted description
+  - right-aligned `Refresh from runtime` action
+  - sync-state badge or inline warning only when needed
+- use a `DataTable`-based list for both tabs instead of hand-built `Table` sections so spacing, sticky headers, sorting, empty states, and search behave like the existing pages
+- make the top-level entity naming `Jobs` and `Recent Runs`, not `Tasks` and `Sessions`, to align with how users already understand scheduled work and operator job surfaces
+- make filters URL-driven where possible so state is shareable and navigation feels like the platform jobs page
+
+Implementation sequence:
+
+1. Replace the current inline tables on `/[orgSlug]/scheduled-tasks` with a client content component modeled after `sessions/_components/sessions-content.tsx`.
+2. Add a compact URL-backed tab strip near the page header for:
+   - `Jobs`
+   - `Recent Runs`
+3. Make the default `/[orgSlug]/scheduled-tasks` route resolve to the jobs view, with subroutes or query-backed state that preserves direct linking.
+4. Add a jobs filter control matching the platform jobs pattern:
+   - `All`
+   - `Active`
+   - `Disabled`
+   - optional later: `Needs attention`
+5. Keep the runs view as a dedicated table that mirrors the sessions table more closely than the current static table:
+   - search input in the toolbar
+   - sortable columns
+   - status badges
+   - linked session column when `runtimeSessionKey` exists
+6. Move sync-failure and stale-state messaging into the page header / toolbar area so it reads like page state, not a separate dashboard card stack.
+
+### Jobs view
 
 Purpose:
 
@@ -212,8 +253,11 @@ Purpose:
 
 Initial content:
 
-- summary badges for `Active`, `Paused`, `Sync failed`, and `Stale`
-- a table with:
+- toolbar controls:
+  - search
+  - status filter for `All`, `Active`, and `Disabled`
+  - refresh action
+- a sessions-style data table with:
   - task name
   - schedule
   - status
@@ -223,7 +267,7 @@ Initial content:
 - empty state when no tasks exist yet
 - inline warning when data is stale or last sync failed
 
-### Sessions view
+### Recent Runs view
 
 Purpose:
 
@@ -232,14 +276,17 @@ Purpose:
 
 Initial content:
 
-- a reverse-chronological table with:
+- a sessions-style reverse-chronological data table with:
   - task
   - trigger type
   - scheduled for
   - status
   - started
   - finished
+  - session link
   - error summary when present
+- toolbar controls:
+  - search
 - filters can wait until after the first slice unless volume forces them earlier
 
 ## Loading strategy
@@ -269,6 +316,9 @@ Initial content:
 - [ ] add runtime-authenticated session callback endpoints
 - [x] add the sync/reconciliation worker jobs
 - [x] replace the scheduled-tasks placeholder page with real tasks and sessions views
+- [x] remodel the scheduled-tasks page to use sessions-style data tables instead of summary cards and stacked static tables
+- [x] add jobs-style `All / Active / Disabled` filtering for scheduled jobs
+- [x] add URL-backed `Jobs / Recent Runs` navigation aligned with existing page tabs
 
 Implementation note:
 
