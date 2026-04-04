@@ -8,6 +8,6 @@ export default async function ScheduledTaskPage({
   const { orgSlug, taskKey } = await params;
 
   redirect(
-    `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}/setup`,
+    `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}/overview`,
   );
 }

@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 
 import { ScheduledTaskDetailTabs } from "@/app/[orgSlug]/(app)/scheduled-tasks/_components/scheduled-task-detail-tabs";
 import { Badge } from "@/components/ui/badge";
-import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
 const statusBadgeVariant: Record<
   string,
@@ -23,23 +22,11 @@ export function ScheduledTaskDetailShell({
   orgSlug: string;
   task: {
     description: string | null;
-    enabled: boolean;
-    lastRunAt: Date | null;
     name: string;
-    nextRunAt: Date | null;
-    scheduleExpression: string;
-    scheduleJson: Record<string, unknown> | null;
     status: string;
     taskKey: string;
-    timezone: string | null;
   };
 }) {
-  const scheduleDescription = describeScheduledTaskSchedule({
-    scheduleExpression: task.scheduleExpression,
-    scheduleJson: task.scheduleJson,
-    timezone: task.timezone,
-  });
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
@@ -59,14 +46,8 @@ export function ScheduledTaskDetailShell({
             </Badge>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            {task.description ?? scheduleDescription}
+            {task.description ?? "No description captured for this task."}
           </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            <span>Schedule: {scheduleDescription}</span>
-            <span>Next run: {formatDateTime(task.nextRunAt)}</span>
-            <span>Last run: {formatDateTime(task.lastRunAt)}</span>
-            <span>{task.enabled ? "Enabled" : "Disabled"}</span>
-          </div>
         </div>
       </div>
 
@@ -75,19 +56,6 @@ export function ScheduledTaskDetailShell({
       {children}
     </div>
   );
-}
-
-function formatDateTime(value: Date | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
 }
 
 function formatStatusLabel(status: string) {

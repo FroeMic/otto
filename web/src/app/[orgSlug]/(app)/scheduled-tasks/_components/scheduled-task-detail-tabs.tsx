@@ -8,8 +8,13 @@ import { cn } from "@/lib/utils";
 const DETAIL_TABS = [
   {
     href: (orgSlug: string, taskKey: string) =>
-      `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}/setup`,
-    label: "Setup",
+      `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}/overview`,
+    label: "Overview",
+  },
+  {
+    href: (orgSlug: string, taskKey: string) =>
+      `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}/configuration`,
+    label: "Configuration",
   },
   {
     href: (orgSlug: string, taskKey: string) =>

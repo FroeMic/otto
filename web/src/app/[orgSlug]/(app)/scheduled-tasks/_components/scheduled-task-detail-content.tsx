@@ -12,44 +12,84 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
-const readOnlyTextareaClassName =
-  "min-h-40 rounded-xl border-border bg-muted/40 font-mono text-xs leading-5";
+type ScheduledTaskDetailTask = {
+  agentId: string | null;
+  deleteAfterRun: boolean;
+  deliveryJson: Record<string, unknown> | null;
+  failureAlertJson: Record<string, unknown> | null;
+  payloadJson: Record<string, unknown> | null;
+  scheduleExpression: string;
+  scheduleJson: Record<string, unknown> | null;
+  sessionKey: string | null;
+  sessionTarget: string | null;
+  timezone: string | null;
+  wakeMode: string | null;
+};
 
-export function ScheduledTaskSetupContent({
+const lockedTextareaClassName = [
+  "min-h-56 rounded-xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs",
+  "disabled:cursor-default disabled:opacity-100 disabled:border-border disabled:bg-muted/20 disabled:text-foreground",
+].join(" ");
+
+export function ScheduledTaskOverviewContent({
   task,
 }: {
-  task: {
-    agentId: string | null;
-    deleteAfterRun: boolean;
-    deliveryJson: Record<string, unknown> | null;
-    failureAlertJson: Record<string, unknown> | null;
-    payloadJson: Record<string, unknown> | null;
-    scheduleExpression: string;
-    scheduleJson: Record<string, unknown> | null;
-    sessionKey: string | null;
-    sessionTarget: string | null;
-    timezone: string | null;
-    wakeMode: string | null;
-  };
+  task: ScheduledTaskDetailTask;
+}) {
+  const prompt = readTaskPrompt(task.payloadJson);
+  const scheduleDescription = describeScheduledTaskSchedule({
+    scheduleExpression: task.scheduleExpression,
+    scheduleJson: task.scheduleJson,
+    timezone: task.timezone,
+  });
+
+  return (
+    <SettingsPage className="mx-0 max-w-2xl">
+      <div className="flex flex-col gap-8 pb-8">
+        <SettingsSection>
+          <SettingsSectionTitle>Prompt</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            This is the instruction or system-event text sent when the task
+            runs.
+          </SettingsSectionDescription>
+          <LockedTextarea
+            value={prompt ?? "No prompt text was captured for this task."}
+          />
+        </SettingsSection>
+
+        <SettingsSection>
+          <SettingsSectionTitle>Schedule</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            Natural-language summary plus the raw schedule expression.
+          </SettingsSectionDescription>
+          <LockedTextarea
+            value={`${scheduleDescription}\n${task.scheduleExpression}`}
+          />
+        </SettingsSection>
+      </div>
+    </SettingsPage>
+  );
+}
+
+export function ScheduledTaskConfigurationContent({
+  task,
+}: {
+  task: ScheduledTaskDetailTask;
 }) {
   const scheduleDescription = describeScheduledTaskSchedule({
     scheduleExpression: task.scheduleExpression,
     scheduleJson: task.scheduleJson,
     timezone: task.timezone,
   });
-  const prompt = readTaskPrompt(task.payloadJson);
   const payloadConfig = buildPayloadConfig(task.payloadJson);
   const deliveryConfig = stringifyConfig(task.deliveryJson);
   const failureAlertConfig = stringifyConfig(task.failureAlertJson);
 
   return (
-    <SettingsPage className="mx-0 max-w-none">
-      <div className="flex flex-col gap-8">
+    <SettingsPage className="mx-0 max-w-2xl">
+      <div className="flex flex-col gap-8 pb-8">
         <SettingsSection>
-          <SettingsSectionTitle>Overview</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            This is the runtime setup Otto has synced for this scheduled task.
-          </SettingsSectionDescription>
+          <SettingsSectionTitle>Configuration</SettingsSectionTitle>
           <SettingsCard>
             <SettingsRow>
               <SettingsRowLabel>
@@ -101,45 +141,21 @@ export function ScheduledTaskSetupContent({
           </SettingsCard>
         </SettingsSection>
 
-        <SettingsSection>
-          <SettingsSectionTitle>Prompt</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            This is the instruction or system-event text sent when the task
-            runs.
-          </SettingsSectionDescription>
-          <Textarea
-            className={readOnlyTextareaClassName}
-            defaultValue={
-              prompt ?? "No prompt text was captured for this task."
-            }
-            readOnly
-          />
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionTitle>Setup</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            Additional execution, delivery, and failure-alert configuration
-            synced from the runtime.
-          </SettingsSectionDescription>
-          <div className="flex flex-col gap-6">
-            <ReadOnlyConfigBlock
-              description="Structured execution config for the task payload."
-              title="Payload Config"
-              value={payloadConfig ?? "No additional payload config."}
-            />
-            <ReadOnlyConfigBlock
-              description="How task output is delivered after the run completes."
-              title="Delivery Config"
-              value={deliveryConfig ?? "No delivery config."}
-            />
-            <ReadOnlyConfigBlock
-              description="Alerting configuration used when repeated failures happen."
-              title="Failure Alerts"
-              value={failureAlertConfig ?? "No failure alert config."}
-            />
-          </div>
-        </SettingsSection>
+        <ReadOnlyConfigBlock
+          description="Structured execution config for the task payload."
+          title="Payload Config"
+          value={payloadConfig ?? "No additional payload config."}
+        />
+        <ReadOnlyConfigBlock
+          description="How task output is delivered after the run completes."
+          title="Delivery Config"
+          value={deliveryConfig ?? "No delivery config."}
+        />
+        <ReadOnlyConfigBlock
+          description="Alerting configuration used when repeated failures happen."
+          title="Failure Alerts"
+          value={failureAlertConfig ?? "No failure alert config."}
+        />
       </div>
     </SettingsPage>
   );
@@ -155,17 +171,22 @@ function ReadOnlyConfigBlock({
   value: string;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <Textarea
-        className={readOnlyTextareaClassName}
-        defaultValue={value}
-        readOnly
-      />
-    </div>
+    <SettingsSection>
+      <SettingsSectionTitle>{title}</SettingsSectionTitle>
+      <SettingsSectionDescription>{description}</SettingsSectionDescription>
+      <LockedTextarea value={value} />
+    </SettingsSection>
+  );
+}
+
+function LockedTextarea({ value }: { value: string }) {
+  return (
+    <Textarea
+      className={lockedTextareaClassName}
+      defaultValue={value}
+      disabled
+      readOnly
+    />
   );
 }
 
