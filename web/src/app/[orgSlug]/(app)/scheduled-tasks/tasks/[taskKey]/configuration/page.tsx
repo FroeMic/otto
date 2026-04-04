@@ -9,6 +9,7 @@ import {
   getLatestScheduledTasksSyncTimestamp,
   getScheduledTasksSyncState,
 } from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/scheduled-tasks-sync-state";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,15 @@ export default async function ScheduledTaskConfigurationPage({
     notFound();
   }
 
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
+
   return (
     <ScheduledTasksShell
+      dateTimePreferences={dateTimePreferences}
       hideHeader
       lastSyncedAt={getLatestScheduledTasksSyncTimestamp([task])}
       orgSlug={organization.slug}

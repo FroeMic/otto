@@ -20,6 +20,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  formatTimeOfDay,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 import { cn } from "@/lib/utils";
 
 import {
@@ -220,13 +224,16 @@ function formatCost(v: string | null): string {
   return `$${n.toFixed(2)}`;
 }
 
-function formatTimestamp(ts: number | null): string {
+function formatTimestamp(
+  ts: number | null,
+  dateTimePreferences: WorkspaceDateTimePreferences,
+): string {
   if (!ts) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(ts));
+
+  return formatTimeOfDay(new Date(ts), {
+    includeSeconds: true,
+    ...dateTimePreferences,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -328,7 +335,13 @@ function SenderAvatar({
 // Turn renderers
 // ---------------------------------------------------------------------------
 
-function TurnHeader({ group }: { group: MessageGroup }) {
+function TurnHeader({
+  dateTimePreferences,
+  group,
+}: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
+  group: MessageGroup;
+}) {
   const resolveText = useResolveText();
   const name = group.senderName
     ? resolveText(group.senderName)
@@ -337,7 +350,7 @@ function TurnHeader({ group }: { group: MessageGroup }) {
       : group.kind === "system_prompt"
         ? "Scheduled Task"
         : "User";
-  const ts = formatTimestamp(group.firstTimestamp);
+  const ts = formatTimestamp(group.firstTimestamp, dateTimePreferences);
 
   if (group.kind === "system_prompt") {
     return (
@@ -617,6 +630,7 @@ function StatsLine({ session }: { session: Session }) {
 // ---------------------------------------------------------------------------
 
 export function TranscriptViewer({
+  dateTimePreferences,
   orgSlug,
   session,
   sessionName,
@@ -625,6 +639,7 @@ export function TranscriptViewer({
   memberNames = {},
   channelNames = {},
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   orgSlug: string;
   session: Session;
   sessionName: string;
@@ -704,7 +719,10 @@ export function TranscriptViewer({
 
                 return (
                   <div key={group.id} className="flex flex-col gap-2">
-                    <TurnHeader group={group} />
+                    <TurnHeader
+                      dateTimePreferences={dateTimePreferences}
+                      group={group}
+                    />
                     {group.kind === "assistant" ? (
                       <AssistantTurnMessages messages={group.messages} />
                     ) : group.kind === "system_prompt" ? (

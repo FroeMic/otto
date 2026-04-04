@@ -3,7 +3,6 @@ import "dotenv/config";
 import crypto from "node:crypto";
 import fs from "node:fs";
 
-import { utils as ssh2Utils } from "ssh2";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -241,24 +240,13 @@ function validateRuntimeSshEnv(env: AppEnv) {
 }
 
 function assertPrivateKeyIsValid(key: string, source: string) {
-  const parsedKey = ssh2Utils.parseKey(key);
+  try {
+    crypto.createPrivateKey(key);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown private key error";
 
-  if (Array.isArray(parsedKey)) {
-    const invalidKey = parsedKey.find((entry) => entry instanceof Error);
-
-    if (!invalidKey) {
-      return;
-    }
-
-    throw new Error(
-      `${source} is not a valid private key: ${invalidKey.message}`,
-    );
-  }
-
-  if (parsedKey instanceof Error) {
-    throw new Error(
-      `${source} is not a valid private key: ${parsedKey.message}`,
-    );
+    throw new Error(`${source} is not a valid private key: ${message}`);
   }
 }
 

@@ -23,8 +23,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  formatPreciseDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 
 type PlatformActivityContentProps = {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   events: PlatformActivityEventRow[];
   jobs: PlatformActivityJobRow[];
   mode: "events" | "jobs";
@@ -132,8 +137,10 @@ const JOB_COLUMNS = ({
   onCopy,
   onHoverChange,
   orgSlug,
+  dateTimePreferences,
 }: {
   copiedField: string | null;
+  dateTimePreferences: WorkspaceDateTimePreferences;
   hoveredField: string | null;
   jobFilter: JobFilter;
   onCopy: (value: string, field: string) => void;
@@ -224,7 +231,10 @@ const JOB_COLUMNS = ({
     ),
     size: 180,
     cell: ({ row }) =>
-      formatTimestamp(row.original.startedAt ?? row.original.createdAt),
+      formatPreciseDateTime(
+        row.original.startedAt ?? row.original.createdAt,
+        dateTimePreferences,
+      ),
   },
   {
     id: "finishedAt",
@@ -233,17 +243,20 @@ const JOB_COLUMNS = ({
       <DataTableColumnHeader column={column} title="Finished" />
     ),
     size: 180,
-    cell: ({ row }) => formatTimestamp(row.original.finishedAt),
+    cell: ({ row }) =>
+      formatPreciseDateTime(row.original.finishedAt, dateTimePreferences),
   },
 ];
 
 const EVENT_COLUMNS = ({
   copiedField,
+  dateTimePreferences,
   hoveredField,
   onCopy,
   onHoverChange,
 }: {
   copiedField: string | null;
+  dateTimePreferences: WorkspaceDateTimePreferences;
   hoveredField: string | null;
   onCopy: (value: string, field: string) => void;
   onHoverChange: (field: string | null) => void;
@@ -274,7 +287,8 @@ const EVENT_COLUMNS = ({
       <DataTableColumnHeader column={column} title="Time" />
     ),
     size: 180,
-    cell: ({ row }) => formatTimestamp(row.original.createdAt),
+    cell: ({ row }) =>
+      formatPreciseDateTime(row.original.createdAt, dateTimePreferences),
   },
   {
     accessorKey: "jobRunId",
@@ -328,6 +342,7 @@ const EVENT_COLUMNS = ({
 ];
 
 export function PlatformActivityContent({
+  dateTimePreferences,
   events,
   jobs,
   mode,
@@ -491,6 +506,7 @@ export function PlatformActivityContent({
       cellClassName="h-16 px-4 py-3 md:px-6"
       columns={JOB_COLUMNS({
         copiedField,
+        dateTimePreferences,
         hoveredField,
         jobFilter: filter,
         onCopy: copyToClipboard,
@@ -518,6 +534,7 @@ export function PlatformActivityContent({
       cellClassName="h-16 px-4 py-3 md:px-6"
       columns={EVENT_COLUMNS({
         copiedField,
+        dateTimePreferences,
         hoveredField,
         onCopy: copyToClipboard,
         onHoverChange: setHoveredField,
@@ -538,14 +555,6 @@ export function PlatformActivityContent({
       viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
     />
   );
-}
-
-function formatTimestamp(value: Date | null) {
-  if (!value) {
-    return "Not available";
-  }
-
-  return value.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
 function formatStatus(status: string | null) {

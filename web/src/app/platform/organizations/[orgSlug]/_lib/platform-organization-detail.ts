@@ -6,6 +6,11 @@ import {
   getPlatformOrganizationDetail,
   getTenantRuntimeGatewayToken,
 } from "@/db/control-plane";
+import {
+  formatPreciseDateTime,
+  resolveDateTimePreferences,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 
 export const loadPlatformOrganizationDetailRouteContext = cache(
   async (orgSlug: string) => {
@@ -46,15 +51,23 @@ export const loadPlatformOrganizationAccessRouteContext = cache(
   },
 );
 
-export function formatTimestamp(value: Date | null) {
-  if (!value) {
-    return "Not available";
-  }
+export function getPlatformOrganizationDateTimePreferences(input: {
+  locale: string;
+  timeFormatPreference: string;
+  timezone: string;
+}): WorkspaceDateTimePreferences {
+  return resolveDateTimePreferences({
+    locale: input.locale,
+    timeFormatPreference: input.timeFormatPreference,
+    timeZone: input.timezone,
+  });
+}
 
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(value);
+export function formatTimestamp(
+  value: Date | null,
+  dateTimePreferences: WorkspaceDateTimePreferences,
+) {
+  return formatPreciseDateTime(value, dateTimePreferences);
 }
 
 export function formatStatus(status: string | null) {

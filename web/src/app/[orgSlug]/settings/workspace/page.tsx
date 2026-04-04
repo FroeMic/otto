@@ -5,7 +5,11 @@ import {
   SettingsSection,
   SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
-import { WorkspaceDetailsCard } from "@/app/[orgSlug]/settings/workspace/_components/workspace-settings-form";
+import {
+  WorkspaceDetailsCard,
+  WorkspaceTimeAndRegionCard,
+} from "@/app/[orgSlug]/settings/workspace/_components/workspace-settings-form";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +21,11 @@ export default async function WorkspaceSettingsPage({
   const { orgSlug } = await params;
   const { currentOrganization: organization } =
     await loadOrganizationRouteContext(orgSlug);
+  const initialPreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
 
   return (
     <SettingsPage>
@@ -31,6 +40,14 @@ export default async function WorkspaceSettingsPage({
               name: organization.name,
               slug: organization.slug,
             }}
+          />
+        </SettingsSection>
+
+        <SettingsSection>
+          <SettingsSectionTitle>Time and Region</SettingsSectionTitle>
+          <WorkspaceTimeAndRegionCard
+            initialPreferences={initialPreferences}
+            orgSlug={orgSlug}
           />
         </SettingsSection>
       </div>

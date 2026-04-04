@@ -6,6 +6,10 @@ import { ScheduledTasksTabs } from "@/app/[orgSlug]/(app)/scheduled-tasks/_compo
 import type { ScheduledTasksSyncState } from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/scheduled-tasks-sync-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatShortDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 
 export function ScheduledTasksShell({
   children,
@@ -14,8 +18,10 @@ export function ScheduledTasksShell({
   orgSlug,
   showTabs = true,
   syncState,
+  dateTimePreferences,
 }: {
   children: ReactNode;
+  dateTimePreferences: WorkspaceDateTimePreferences;
   hideHeader?: boolean;
   lastSyncedAt: Date | null;
   orgSlug: string;
@@ -41,7 +47,10 @@ export function ScheduledTasksShell({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {lastSyncedAt
-                    ? `Last synced ${formatDateTime(lastSyncedAt)}`
+                    ? `Last synced ${formatShortDateTime(
+                        lastSyncedAt,
+                        dateTimePreferences,
+                      )}`
                     : "No runtime data imported yet."}
                 </p>
               </div>
@@ -63,13 +72,4 @@ export function ScheduledTasksShell({
       {children}
     </div>
   );
-}
-
-function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
 }

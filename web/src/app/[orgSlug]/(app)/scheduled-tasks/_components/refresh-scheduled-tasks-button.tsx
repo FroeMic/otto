@@ -1,8 +1,13 @@
 "use client";
 
+import {
+  ArrowReloadHorizontalIcon,
+  MoreHorizontalIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-
+import { SyncNotification } from "@/components/sync-notification";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,18 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SyncNotification } from "@/components/sync-notification";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  MoreHorizontalIcon,
-  ArrowReloadHorizontalIcon,
-} from "@hugeicons/core-free-icons";
 
-export function ScheduledTasksActionsMenu({
-  orgSlug,
-}: {
-  orgSlug: string;
-}) {
+export function ScheduledTasksActionsMenu({ orgSlug }: { orgSlug: string }) {
   const [syncJobId, setSyncJobId] = useState<string | null>(null);
 
   async function handleSync() {
@@ -42,7 +37,11 @@ export function ScheduledTasksActionsMenu({
         );
       }
 
-      setSyncJobId(body.jobId!);
+      if (!body.jobId) {
+        throw new Error("Sync job did not return a job ID.");
+      }
+
+      setSyncJobId(body.jobId);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -79,10 +78,7 @@ export function ScheduledTasksActionsMenu({
           <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuItem
-            disabled={syncJobId !== null}
-            onClick={handleSync}
-          >
+          <DropdownMenuItem disabled={syncJobId !== null} onClick={handleSync}>
             <HugeiconsIcon
               icon={ArrowReloadHorizontalIcon}
               className="size-4"

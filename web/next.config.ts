@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
   reactCompiler: true,
+  serverExternalPackages: ["ssh2", "ssh2-sftp-client"],
 };
 
 export default nextConfig;

@@ -12,6 +12,10 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import {
+  formatShortDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
 type ScheduledJobFilter = "active" | "all" | "deleted" | "disabled";
@@ -49,7 +53,10 @@ const statusBadgeVariant: Record<
   sync_failed: "destructive",
 };
 
-function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
+function createColumns(
+  dateTimePreferences: WorkspaceDateTimePreferences,
+  orgSlug: string,
+): Array<ColumnDef<ScheduledJobRow>> {
   return [
     {
       accessorKey: "name",
@@ -102,7 +109,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
       size: 150,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatDateTime(row.original.lastRunAt)}
+          {formatShortDateTime(row.original.lastRunAt, dateTimePreferences)}
         </span>
       ),
     },
@@ -115,7 +122,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
       size: 150,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatDateTime(row.original.nextRunAt)}
+          {formatShortDateTime(row.original.nextRunAt, dateTimePreferences)}
         </span>
       ),
     },
@@ -131,7 +138,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
           className="block truncate text-sm text-muted-foreground"
           title={row.original.lastSyncError ?? undefined}
         >
-          {formatDateTime(row.original.lastSyncedAt)}
+          {formatShortDateTime(row.original.lastSyncedAt, dateTimePreferences)}
         </span>
       ),
     },
@@ -139,9 +146,11 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
 }
 
 export function ScheduledJobsContent({
+  dateTimePreferences,
   jobs,
   orgSlug,
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   jobs: Array<{
     description: string | null;
     enabled: boolean;
@@ -220,7 +229,10 @@ export function ScheduledJobsContent({
     return rows;
   }, [filter, rows]);
 
-  const columns = React.useMemo(() => createColumns(orgSlug), [orgSlug]);
+  const columns = React.useMemo(
+    () => createColumns(dateTimePreferences, orgSlug),
+    [dateTimePreferences, orgSlug],
+  );
 
   function updateFilter(nextFilter: ScheduledJobFilter) {
     const params = new URLSearchParams(searchParams.toString());
@@ -283,19 +295,6 @@ function parseFilter(value: string | null): ScheduledJobFilter {
   }
 
   return "all";
-}
-
-function formatDateTime(value: Date | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
 }
 
 function formatStatusLabel(status: string) {

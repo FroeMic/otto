@@ -1,6 +1,9 @@
 import { PlatformActivityContent } from "@/app/platform/organizations/[orgSlug]/_components/platform-activity-content";
 import { buildPlatformActivityData } from "@/app/platform/organizations/[orgSlug]/_lib/platform-activity-data";
-import { loadPlatformOrganizationDetailRouteContext } from "@/app/platform/organizations/[orgSlug]/_lib/platform-organization-detail";
+import {
+  getPlatformOrganizationDateTimePreferences,
+  loadPlatformOrganizationDetailRouteContext,
+} from "@/app/platform/organizations/[orgSlug]/_lib/platform-organization-detail";
 import {
   Empty,
   EmptyDescription,
@@ -17,6 +20,8 @@ export default async function PlatformOrganizationEventsPage({
   const { organization } =
     await loadPlatformOrganizationDetailRouteContext(orgSlug);
   const tenant = organization.tenant;
+  const dateTimePreferences =
+    getPlatformOrganizationDateTimePreferences(organization);
 
   if (!tenant) {
     return (
@@ -34,11 +39,15 @@ export default async function PlatformOrganizationEventsPage({
     );
   }
 
-  const { events, jobs } = buildPlatformActivityData(tenant);
+  const { events, jobs } = buildPlatformActivityData(
+    tenant,
+    dateTimePreferences,
+  );
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-6 md:px-6">
       <PlatformActivityContent
+        dateTimePreferences={dateTimePreferences}
         events={events}
         jobs={jobs}
         mode="events"

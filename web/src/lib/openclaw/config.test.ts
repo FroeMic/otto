@@ -134,10 +134,13 @@ describe("renderOpenClawConfig", () => {
   it("renders WhatsApp config with the Otto-managed defaults", () => {
     const config: OpenClawTenantConfig = {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      envelopeTimezone: "user",
       gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
       integrations: ["whatsapp"],
       prompts: {},
       tenantId: "tenant_123",
+      timeFormat: "auto",
+      userTimezone: "Europe/Berlin",
       whatsapp: {
         ackReactionEnabled: true,
         allowedGroupIds: ["1234567890@g.us"],
@@ -175,6 +178,32 @@ describe("renderOpenClawConfig", () => {
       "cron",
       "whatsapp_login",
     ]);
+    assert.equal(renderedConfig.agents.defaults.envelopeTimezone, "user");
+    assert.equal(renderedConfig.agents.defaults.timeFormat, "auto");
+    assert.equal(renderedConfig.agents.defaults.userTimezone, "Europe/Berlin");
+  });
+
+  it("renders custom workspace time settings into agent defaults", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      envelopeTimezone: "user",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      timeFormat: "24",
+      userTimezone: "America/New_York",
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.equal(renderedConfig.agents.defaults.envelopeTimezone, "user");
+    assert.equal(renderedConfig.agents.defaults.timeFormat, "24");
+    assert.equal(
+      renderedConfig.agents.defaults.userTimezone,
+      "America/New_York",
+    );
   });
 });
 

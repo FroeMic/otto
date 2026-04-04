@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   SettingsCard,
   SettingsRow,
+  SettingsRowDescription,
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
@@ -22,6 +23,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getLocaleOptions,
+  getTimeFormatPreferenceOptions,
+  getTimeZoneOptions,
+  normalizeLocale,
+  normalizeTimeFormatPreference,
+  normalizeTimeZone,
+  type WorkspaceDateTimePreferences,
+  type WorkspaceTimeFormatPreference,
+} from "@/lib/date-time";
+
+const LOCALE_OPTIONS = getLocaleOptions();
+const TIME_ZONE_OPTIONS = getTimeZoneOptions();
+const TIME_FORMAT_OPTIONS = getTimeFormatPreferenceOptions();
 
 type WorkspaceDetailsCardProps = {
   orgSlug: string;
@@ -39,6 +62,210 @@ export function WorkspaceDetailsCard({
     <SettingsCard>
       <WorkspaceNameRow orgSlug={orgSlug} initialName={organization.name} />
       <WorkspaceSlugRow orgSlug={orgSlug} initialSlug={organization.slug} />
+    </SettingsCard>
+  );
+}
+
+export function WorkspaceTimeAndRegionCard({
+  orgSlug,
+  initialPreferences,
+}: {
+  orgSlug: string;
+  initialPreferences: WorkspaceDateTimePreferences;
+}) {
+  const router = useRouter();
+  const [preferences, setPreferences] = useState<WorkspaceDateTimePreferences>({
+    locale: normalizeLocale(initialPreferences.locale),
+    timeFormatPreference: normalizeTimeFormatPreference(
+      initialPreferences.timeFormatPreference,
+    ),
+    timeZone: normalizeTimeZone(initialPreferences.timeZone),
+  });
+  const [savedPreferences, setSavedPreferences] =
+    useState<WorkspaceDateTimePreferences>({
+      locale: normalizeLocale(initialPreferences.locale),
+      timeFormatPreference: normalizeTimeFormatPreference(
+        initialPreferences.timeFormatPreference,
+      ),
+      timeZone: normalizeTimeZone(initialPreferences.timeZone),
+    });
+  const [isPending, startTransition] = useTransition();
+
+  function updatePreference<Key extends keyof WorkspaceDateTimePreferences>(
+    key: Key,
+    value: WorkspaceDateTimePreferences[Key],
+    action: "update-locale" | "update-time-format" | "update-timezone",
+  ) {
+    const previousPreferences = savedPreferences;
+    const nextPreferences = {
+      ...preferences,
+      [key]: value,
+    };
+
+    if (nextPreferences[key] === savedPreferences[key]) {
+      return;
+    }
+
+    setPreferences(nextPreferences);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/workspace/${orgSlug}/settings`, {
+          body: JSON.stringify(
+            action === "update-locale"
+              ? {
+                  action,
+                  locale: value,
+                }
+              : action === "update-time-format"
+                ? {
+                    action,
+                    timeFormatPreference: value,
+                  }
+                : {
+                    action,
+                    timezone: value,
+                  },
+          ),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message ?? "Something went wrong");
+        }
+
+        const nextSavedPreferences = {
+          locale: normalizeLocale(data.locale),
+          timeFormatPreference: normalizeTimeFormatPreference(
+            data.timeFormatPreference,
+          ),
+          timeZone: normalizeTimeZone(data.timezone),
+        } satisfies WorkspaceDateTimePreferences;
+
+        setSavedPreferences(nextSavedPreferences);
+        setPreferences(nextSavedPreferences);
+        router.refresh();
+        toast.success(
+          data.applyQueued
+            ? "Workspace time settings updated. Otto is applying the change."
+            : "Workspace time settings updated",
+        );
+      } catch (error) {
+        setPreferences(previousPreferences);
+        toast.error(
+          error instanceof Error ? error.message : "Something went wrong",
+        );
+      }
+    });
+  }
+
+  return (
+    <SettingsCard>
+      <SettingsRow>
+        <SettingsRowLabel>
+          <SettingsRowTitle>Timezone</SettingsRowTitle>
+          <SettingsRowDescription>
+            Used for the tenant runtime, scheduled task interpretation, and
+            workspace dates.
+          </SettingsRowDescription>
+        </SettingsRowLabel>
+        <Select
+          disabled={isPending}
+          value={preferences.timeZone}
+          onValueChange={(nextTimeZone) => {
+            if (!nextTimeZone) {
+              return;
+            }
+
+            updatePreference("timeZone", nextTimeZone, "update-timezone");
+          }}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end" className="max-h-96">
+            <SelectGroup>
+              {TIME_ZONE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow>
+        <SettingsRowLabel>
+          <SettingsRowTitle>Language and region</SettingsRowTitle>
+          <SettingsRowDescription>
+            Controls locale-aware date labels across the workspace.
+          </SettingsRowDescription>
+        </SettingsRowLabel>
+        <Select
+          disabled={isPending}
+          value={preferences.locale}
+          onValueChange={(nextLocale) => {
+            if (!nextLocale) {
+              return;
+            }
+
+            updatePreference("locale", nextLocale, "update-locale");
+          }}
+        >
+          <SelectTrigger className="w-56">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectGroup>
+              {LOCALE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow>
+        <SettingsRowLabel>
+          <SettingsRowTitle>Time format</SettingsRowTitle>
+          <SettingsRowDescription>
+            Controls whether times render automatically, in 12-hour, or in
+            24-hour format.
+          </SettingsRowDescription>
+        </SettingsRowLabel>
+        <Select
+          disabled={isPending}
+          value={preferences.timeFormatPreference}
+          onValueChange={(nextTimeFormatPreference) => {
+            if (!nextTimeFormatPreference) {
+              return;
+            }
+
+            updatePreference(
+              "timeFormatPreference",
+              nextTimeFormatPreference as WorkspaceTimeFormatPreference,
+              "update-time-format",
+            );
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectGroup>
+              {TIME_FORMAT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </SettingsRow>
     </SettingsCard>
   );
 }

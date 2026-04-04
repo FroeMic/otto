@@ -7,6 +7,7 @@ import {
   listTenantSessions,
 } from "@/db/control-plane";
 import { getCronSessionTaskKeyMap } from "@/db/scheduled-tasks";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import { SessionsContent } from "./_components/sessions-content";
@@ -44,9 +45,15 @@ export default async function SessionsPage({
 
   const channelNames = Object.fromEntries(conversationNameMap);
   const cronTaskKeys = Object.fromEntries(cronTaskKeyMap);
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
 
   return (
     <SessionsContent
+      dateTimePreferences={dateTimePreferences}
       orgSlug={organization.slug}
       sessions={sessions}
       currentUserExternalIds={currentUserExternalIds}

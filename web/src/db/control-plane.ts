@@ -420,10 +420,13 @@ export type DashboardOrganization = {
   externalId: string;
   isReady: boolean;
   latestOnboardingSession: OnboardingSessionSummary | null;
+  locale: string;
   onboardingDraft: OnboardingSessionSummary | null;
   name: string;
   role: string;
   slackIntegration: SlackIntegrationSummary | null;
+  timeFormatPreference: string;
+  timezone: string;
   whatsappIntegration: WhatsAppIntegrationSummary | null;
   slug: string;
   tenants: Array<{
@@ -462,11 +465,14 @@ export type PlatformOrganization = {
   configuredRuntimeImageVersion: string | null;
   id: string;
   isReady: boolean;
+  locale: string;
   name: string;
   observedRuntimeImage: string | null;
   observedRuntimeImageVersion: string | null;
   slackIntegration: SlackIntegrationSummary | null;
   slug: string;
+  timeFormatPreference: string;
+  timezone: string;
   tenant: {
     id: string;
     ipv4: string | null;
@@ -502,11 +508,14 @@ export type PlatformOrganizationDetail = {
   configuredRuntimeImageVersion: string | null;
   id: string;
   isReady: boolean;
+  locale: string;
   name: string;
   observedRuntimeImage: string | null;
   observedRuntimeImageVersion: string | null;
   slackIntegration: SlackIntegrationSummary | null;
   slug: string;
+  timeFormatPreference: string;
+  timezone: string;
   tenant: {
     id: string;
     ipv4: string | null;
@@ -973,6 +982,7 @@ export async function getDashboardOrganizations(
       latestOnboardingSession: buildOnboardingDraftSummary(
         latestOnboardingByOrganization.get(organization.organizationId) ?? null,
       ),
+      locale: organization.organizationLocale,
       onboardingDraft: buildOnboardingDraftSummary(
         onboardingByOrganization.get(organization.organizationId) ?? null,
       ),
@@ -983,6 +993,8 @@ export async function getDashboardOrganizations(
           ? (slackIntegrationsByTenant.get(primaryTenant.id) ?? null)
           : null,
       ),
+      timeFormatPreference: organization.organizationTimeFormatPreference,
+      timezone: organization.organizationTimezone,
       whatsappIntegration: buildWhatsAppIntegrationSummary(
         primaryTenant
           ? (whatsappIntegrationsByTenant.get(primaryTenant.id) ?? null)
@@ -1004,8 +1016,11 @@ export async function listPlatformOrganizations(input: {
     .select({
       id: organizations.id,
       isReady: organizations.isReady,
+      locale: organizations.locale,
       name: organizations.name,
       slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
     })
     .from(organizations)
     .orderBy(asc(organizations.name), asc(organizations.slug));
@@ -1189,6 +1204,7 @@ export async function listPlatformOrganizations(input: {
       configuredRuntimeImageVersion,
       id: organization.id,
       isReady: organization.isReady,
+      locale: organization.locale,
       name: organization.name,
       observedRuntimeImage: tenant
         ? (observedRuntimeImagesByTenant.get(tenant.id) ?? null)
@@ -1204,6 +1220,8 @@ export async function listPlatformOrganizations(input: {
           )
         : null,
       slug: organization.slug,
+      timeFormatPreference: organization.timeFormatPreference,
+      timezone: organization.timezone,
       tenant: tenant
         ? {
             id: tenant.id,
@@ -1235,8 +1253,11 @@ export async function getPlatformOrganizationDetail(input: {
     .select({
       id: organizations.id,
       isReady: organizations.isReady,
+      locale: organizations.locale,
       name: organizations.name,
       slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
     })
     .from(organizations)
     .where(eq(organizations.slug, input.orgSlug))
@@ -1272,11 +1293,14 @@ export async function getPlatformOrganizationDetail(input: {
       configuredRuntimeImageVersion,
       id: organization.id,
       isReady: organization.isReady,
+      locale: organization.locale,
       name: organization.name,
       observedRuntimeImage: null,
       observedRuntimeImageVersion: null,
       slackIntegration: null,
       slug: organization.slug,
+      timeFormatPreference: organization.timeFormatPreference,
+      timezone: organization.timezone,
       tenant: null,
     };
   }
@@ -1404,12 +1428,15 @@ export async function getPlatformOrganizationDetail(input: {
     configuredRuntimeImageVersion,
     id: organization.id,
     isReady: organization.isReady,
+    locale: organization.locale,
     name: organization.name,
     observedRuntimeImage,
     observedRuntimeImageVersion:
       extractRuntimeImageVersionOrNull(observedRuntimeImage),
     slackIntegration: buildSlackIntegrationSummary(slackIntegration ?? null),
     slug: organization.slug,
+    timeFormatPreference: organization.timeFormatPreference,
+    timezone: organization.timezone,
     tenant: {
       id: tenant.id,
       ipv4: tenant.ipv4,
@@ -1441,8 +1468,11 @@ async function getDashboardOrganizationRows(userExternalId: string) {
       organizationId: organizations.id,
       organizationExternalId: organizations.externalId,
       organizationIsReady: organizations.isReady,
+      organizationLocale: organizations.locale,
       organizationName: organizations.name,
       organizationSlug: organizations.slug,
+      organizationTimeFormatPreference: organizations.timeFormatPreference,
+      organizationTimezone: organizations.timezone,
       role: memberships.role,
     })
     .from(memberships)
@@ -1456,8 +1486,11 @@ type AuthorizedWorkspaceMembershipContext = {
   currentRoleSlug: string;
   organizationExternalId: string;
   organizationId: string;
+  organizationLocale: string;
   organizationName: string;
   organizationSlug: string;
+  organizationTimeFormatPreference: string;
+  organizationTimezone: string;
 };
 
 async function getAuthorizedWorkspaceMembershipContext(input: {
@@ -1471,8 +1504,11 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
       localRole: memberships.role,
       organizationExternalId: organizations.externalId,
       organizationId: organizations.id,
+      organizationLocale: organizations.locale,
       organizationName: organizations.name,
       organizationSlug: organizations.slug,
+      organizationTimeFormatPreference: organizations.timeFormatPreference,
+      organizationTimezone: organizations.timezone,
     })
     .from(memberships)
     .innerJoin(users, eq(memberships.userId, users.id))
@@ -1531,10 +1567,14 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
     currentRoleSlug: activeMembership.role.slug,
     organizationExternalId: authorizedMembership.organizationExternalId,
     organizationId: authorizedMembership.organizationId,
+    organizationLocale: authorizedMembership.organizationLocale,
     organizationName:
       activeMembership.organizationName ??
       authorizedMembership.organizationName,
     organizationSlug: authorizedMembership.organizationSlug,
+    organizationTimeFormatPreference:
+      authorizedMembership.organizationTimeFormatPreference,
+    organizationTimezone: authorizedMembership.organizationTimezone,
   };
 }
 
@@ -2387,6 +2427,110 @@ export async function getOrganizationWorkspaceBySlug(input: {
   }
 
   return organization;
+}
+
+export async function updateWorkspaceDateTimePreferences(input: {
+  organizationId: string;
+  locale?: string;
+  timeFormatPreference?: string;
+  timezone?: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    const [currentOrganization] = await tx
+      .select({
+        locale: organizations.locale,
+        timeFormatPreference: organizations.timeFormatPreference,
+        timezone: organizations.timezone,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, input.organizationId))
+      .limit(1);
+
+    if (!currentOrganization) {
+      throw new Error("Organization not found");
+    }
+
+    const nextLocale = input.locale ?? currentOrganization.locale;
+    const nextTimeFormatPreference =
+      input.timeFormatPreference ?? currentOrganization.timeFormatPreference;
+    const nextTimezone = input.timezone ?? currentOrganization.timezone;
+    const runtimeSettingsChanged =
+      nextTimeFormatPreference !== currentOrganization.timeFormatPreference ||
+      nextTimezone !== currentOrganization.timezone;
+
+    await tx
+      .update(organizations)
+      .set({
+        locale: nextLocale,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+        updatedAt: now,
+      })
+      .where(eq(organizations.id, input.organizationId));
+
+    if (!runtimeSettingsChanged) {
+      return {
+        applyQueued: false,
+        desiredStateVersion: null as number | null,
+        locale: nextLocale,
+        tenantId: null as string | null,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+      };
+    }
+
+    const [tenant] = await tx
+      .select({
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(tenants)
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(tenants.organizationId, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!tenant) {
+      return {
+        applyQueued: false,
+        desiredStateVersion: null as number | null,
+        locale: nextLocale,
+        tenantId: null as string | null,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: tenant.tenantId,
+      })
+    ).version;
+    const applyQueued =
+      tenant.tenantStatus === "ready" && tenant.serverStatus === "ready";
+
+    return {
+      applyQueued,
+      desiredStateVersion,
+      locale: nextLocale,
+      tenantId: tenant.tenantId,
+      timeFormatPreference: nextTimeFormatPreference,
+      timezone: nextTimezone,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion && result.tenantId) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function listWorkspaceMembers(input: {
@@ -6756,7 +6900,18 @@ async function compileTenantDesiredStateConfig(
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
   });
-  const [slackIntegration, whatsAppIntegration] = await Promise.all([
+  const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
+    tx
+      .select({
+        locale: organizations.locale,
+        timeFormatPreference: organizations.timeFormatPreference,
+        timezone: organizations.timezone,
+      })
+      .from(tenants)
+      .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+      .where(eq(tenants.id, tenantId))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
     tx
       .select({
         connectedAt: tenantIntegrations.connectedAt,
@@ -6786,9 +6941,12 @@ async function compileTenantDesiredStateConfig(
 
   const config: Record<string, unknown> = {
     integrations: [],
+    locale: workspace?.locale ?? "en-US",
     managedConfigVersion: managedConfig.version,
     media: {},
     prompts: {},
+    timeFormat: workspace?.timeFormatPreference ?? "auto",
+    timezone: workspace?.timezone ?? "UTC",
   };
   const webSearch = resolveRuntimeWebSearchConfig();
 

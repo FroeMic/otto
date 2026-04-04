@@ -141,6 +141,20 @@
       "when": 1775302280005,
       "tag": "0019_elite_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775325600000,
+      "tag": "0020_solid_watcher",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775329200000,
+      "tag": "0021_windy_preferences",
+      "breakpoints": true
     }
   ]
 }

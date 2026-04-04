@@ -46,12 +46,7 @@ export async function GET(
         finishedAt: jobRuns.finishedAt,
       })
       .from(jobRuns)
-      .where(
-        and(
-          eq(jobRuns.id, jobId),
-          eq(jobRuns.tenantId, agent.id),
-        ),
-      )
+      .where(and(eq(jobRuns.id, jobId), eq(jobRuns.tenantId, agent.id)))
       .limit(1);
 
     if (!job) {
