@@ -245,7 +245,8 @@ export async function listTenantScheduledTasks(input: { tenantId: string }) {
     })
     .from(tenantScheduledTasks)
     .where(eq(tenantScheduledTasks.tenantId, input.tenantId))
-    .orderBy(tenantScheduledTasks.name);
+    .orderBy(tenantScheduledTasks.name)
+    .then((rows) => rows.map(normalizeScheduledTaskRow));
 }
 
 export async function getTenantScheduledTask(input: {
@@ -291,7 +292,7 @@ export async function getTenantScheduledTask(input: {
     )
     .limit(1);
 
-  return task ?? null;
+  return task ? normalizeScheduledTaskRow(task) : null;
 }
 
 export async function listTenantScheduledTaskSessions(input: {
@@ -383,4 +384,29 @@ export function isScheduledTaskStale(lastSyncedAt: Date | null) {
   }
 
   return Date.now() - lastSyncedAt.getTime() > SCHEDULED_TASKS_STALE_AFTER_MS;
+}
+
+function normalizeScheduledTaskRow<
+  TRow extends {
+    deliveryJson: unknown;
+    failureAlertJson: unknown;
+    payloadJson: unknown;
+    scheduleJson: unknown;
+  },
+>(row: TRow) {
+  return {
+    ...row,
+    deliveryJson: asRecord(row.deliveryJson),
+    failureAlertJson: asRecord(row.failureAlertJson),
+    payloadJson: asRecord(row.payloadJson),
+    scheduleJson: asRecord(row.scheduleJson),
+  };
+}
+
+function asRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
 }
