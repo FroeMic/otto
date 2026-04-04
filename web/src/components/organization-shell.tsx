@@ -143,20 +143,13 @@ export function OrganizationShell({
   const pathname = usePathname();
   const onboardingPath = `/${currentOrganization.slug}/onboarding`;
   const slackSetupPath = `/${currentOrganization.slug}/integrations/slack`;
-  const integrationsPath = `/${currentOrganization.slug}/integrations`;
   const isSetupFlow =
     !isOrganizationUnlocked(currentOrganization) &&
     (pathname === onboardingPath ||
       pathname.startsWith(`${onboardingPath}/`) ||
       pathname === slackSetupPath);
-  const toolsPath = `/${currentOrganization.slug}/tools`;
 
   const pageHeader = getPageHeader(pathname, currentOrganization.slug);
-
-  const showWorkspaceStatusRail =
-    pathname !== slackSetupPath &&
-    pathname !== integrationsPath &&
-    pathname !== toolsPath;
 
   if (isSetupFlow) {
     return (
@@ -184,9 +177,7 @@ export function OrganizationShell({
           <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">
             {children}
           </div>
-          {showWorkspaceStatusRail ? (
-            <WorkspaceStatusRail organization={currentOrganization} />
-          ) : null}
+          <WorkspaceStatusRail organization={currentOrganization} />
         </SidebarInset>
       </SidebarProvider>
     </BreadcrumbProvider>
