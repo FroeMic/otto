@@ -306,11 +306,12 @@ function TurnHeader({ group }: { group: MessageGroup }) {
     return (
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <SenderAvatar name={name} />
+          <Avatar className="size-7">
+            <AvatarFallback className="text-xs font-medium bg-muted text-muted-foreground">
+              S
+            </AvatarFallback>
+          </Avatar>
           <span className="text-xs font-medium text-foreground/70">{name}</span>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            System
-          </Badge>
         </div>
         {ts ? (
           <span className="text-xs text-muted-foreground pl-9">{ts}</span>
@@ -448,15 +449,12 @@ function SystemPromptMessages({ messages }: { messages: ParsedMessage[] }) {
         if (!textBlock || textBlock.type !== "text") return null;
 
         return (
-          <Collapsible key={msg.id} className="w-full max-w-[85%]">
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg bg-amber-500/5 border border-amber-500/20 px-3.5 py-2.5 text-sm text-muted-foreground hover:bg-amber-500/10">
-              <span className="truncate">Task prompt</span>
-              <ChevronDownIcon className="size-3.5 shrink-0 transition-transform [[data-state=open]>&]:rotate-180" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="rounded-b-lg border border-t-0 border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-sm text-muted-foreground [&_ul]:pl-5 [&_ol]:pl-5">
-              <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
-            </CollapsibleContent>
-          </Collapsible>
+          <div
+            key={msg.id}
+            className="max-w-[85%] rounded-lg bg-muted px-3.5 py-2.5 text-sm text-foreground [&_ul]:pl-5 [&_ol]:pl-5"
+          >
+            <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
+          </div>
         );
       })}
     </div>
