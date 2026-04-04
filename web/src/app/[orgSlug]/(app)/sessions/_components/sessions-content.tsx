@@ -171,7 +171,7 @@ function createColumns(input: {
         if (canView) {
           return (
             <Link
-              className="block max-w-[280px] truncate text-sm font-medium text-foreground hover:underline"
+              className="block max-w-[280px] truncate text-sm font-medium text-foreground"
               href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
             >
               {name}

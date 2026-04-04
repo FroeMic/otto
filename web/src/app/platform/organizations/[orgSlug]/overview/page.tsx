@@ -225,7 +225,7 @@ export default async function PlatformOrganizationOverviewPage({
                 value={
                   observedRuntimeImageHref ? (
                     <a
-                      className="underline-offset-4 hover:underline"
+                      className="text-foreground"
                       href={observedRuntimeImageHref}
                       rel="noreferrer"
                       target="_blank"
@@ -245,7 +245,7 @@ export default async function PlatformOrganizationOverviewPage({
                 value={
                   configuredRuntimeImageHref ? (
                     <a
-                      className="underline-offset-4 hover:underline"
+                      className="text-foreground"
                       href={configuredRuntimeImageHref}
                       rel="noreferrer"
                       target="_blank"
