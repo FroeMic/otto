@@ -70,8 +70,10 @@ function buildWebSearchPluginEntries(
     return {};
   }
 
-  const entries: Record<string, { config: { webSearch: Record<string, unknown> } }> =
-    {};
+  const entries: Record<
+    string,
+    { config: { webSearch: Record<string, unknown> } }
+  > = {};
 
   if (webSearch.brave) {
     entries.brave = {
@@ -284,6 +286,10 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         },
       }
     : undefined;
+  const gatewayToolsAllow = [
+    "cron",
+    ...(whatsappChannelConfig ? ["whatsapp_login"] : []),
+  ];
 
   return JSON.stringify(
     {
@@ -331,13 +337,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         bind: OPENCLAW_GATEWAY_BIND,
         mode: "local",
         port: config.gatewayPort,
-        ...(whatsappChannelConfig
-          ? {
-              tools: {
-                allow: ["whatsapp_login"],
-              },
-            }
-          : {}),
+        tools: {
+          allow: gatewayToolsAllow,
+        },
       },
       ...(slackChannelConfig || whatsappChannelConfig
         ? {

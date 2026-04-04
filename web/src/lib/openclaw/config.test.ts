@@ -161,7 +161,10 @@ describe("renderOpenClawConfig", () => {
         },
       },
     });
-    assert.deepEqual(renderedConfig.gateway.tools.allow, ["whatsapp_login"]);
+    assert.deepEqual(renderedConfig.gateway.tools.allow, [
+      "cron",
+      "whatsapp_login",
+    ]);
   });
 });
 

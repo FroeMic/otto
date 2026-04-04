@@ -113,7 +113,14 @@
   - the new activity view now combines jobs and events into one filtered surface with polling
   - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
   - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
-- Scheduled Tasks is still a placeholder page in the app shell; the first real source-of-truth and sync plan for scheduled task definitions plus session history now lives in `TODO_13_scheduled_tasks_visibility.md`.
+- OpenClaw cron integration findings are now captured in `TODO_13_scheduled_tasks_visibility.md`:
+  - OpenClaw already exposes stable typed `cron.list`, `cron.runs`, and related `cron.*` Gateway methods we can use for runtime read/reconcile flows
+  - cron run history already carries `sessionKey`, so task-run rows can deep-link to synced session detail views
+  - OpenClaw does not expose one universal plugin hook for all runtime UI / CLI / RPC cron mutations, so Otto needs reconciliation in addition to callback-style sync
+- The first scheduled-tasks visibility slice is now implemented:
+  - scheduled task definitions and run history are persisted in dedicated Postgres tables
+  - the worker can pull runtime cron definitions and recent runs into the workspace database
+  - the workspace scheduled-tasks page now shows synced tasks, recent runs, sync health, and a manual `Refresh from runtime` action
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions
@@ -264,10 +271,11 @@
   - implementing the prefixed ID strategy or explicitly deferring it
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
   - deciding how operators will flip `organizations.is_ready` without using direct SQL
-- When Scheduled Tasks becomes active work, implement `TODO_13_scheduled_tasks_visibility.md` by:
-  - adding control-plane tables and loaders for scheduled task definitions and scheduled task sessions
-  - adding runtime-authenticated callbacks plus a worker reconciliation job so the control plane stays current without scraping runtime cron state
-  - replacing the scheduled-tasks placeholder route with real Tasks and Sessions views
+- Continue `TODO_13_scheduled_tasks_visibility.md` by:
+  - adding a faster runtime push path so cron mutations do not rely only on pull/reconciliation
+  - adding runtime-authenticated callback endpoints if we choose plugin/helper push
+  - deciding whether the faster path should be an Otto runtime plugin, a runtime-local helper, or both
+  - adding task detail routes and eventual create/edit flows once the sync model is settled
 - When Session History becomes active work, implement `TODO_14_session_history_visibility.md` by:
   - adding the `tenant_sessions` schema and DB access layer
   - adding a runtime-authenticated `/api/internal/runtime/sessions/batch` callback route
