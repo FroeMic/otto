@@ -48,6 +48,9 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - For UI work in `web/`, use official shadcn components by default unless the user explicitly asks for a custom component.
 - If a needed shadcn component is not installed, install it via the shadcn CLI instead of hand-rolling a replacement.
 - If you cannot install the required shadcn component cleanly, stop and ask the user to install or approve installing it before continuing.
+- For GitHub PR creation and merge in this repo, do not rely on the GitHub connector as the first-class path. The connector may not have the `FroeMic/otto` installation even when local git push works, which shows up as connector `404`/repo-not-found failures.
+- If branch push to `origin` succeeds, treat `gh pr create` / `gh pr merge` as the correct fallback path for this repo before concluding GitHub is blocked.
+- Do not stop only because `gh auth status` looks stale or the connector cannot see the repo; try the direct `gh pr ...` command against the already-pushed branch and only escalate if that also fails.
 
 ## Available skills
 
