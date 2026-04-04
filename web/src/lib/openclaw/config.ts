@@ -153,7 +153,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   );
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
-  const pluginIds = [...new Set([...ottoPluginIds, ...Object.keys(webSearchPluginEntries)])];
+  const pluginIds = [
+    ...new Set([...ottoPluginIds, ...Object.keys(webSearchPluginEntries)]),
+  ];
   const pluginEntries = {
     ...ottoPluginEntries,
     ...webSearchPluginEntries,

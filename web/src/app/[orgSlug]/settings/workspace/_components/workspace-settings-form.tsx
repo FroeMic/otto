@@ -1,8 +1,16 @@
 "use client";
 
 import { PencilSimple } from "@phosphor-icons/react/ssr";
+import { GlobeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 import {
   SettingsCard,
@@ -13,6 +21,17 @@ import {
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Button } from "@/components/ui/button";
 import {
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+} from "@/components/ui/combobox";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputGroupAddon } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -30,18 +50,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  getLocaleOptions,
+  getGroupedTimeZoneOptions,
   getTimeFormatPreferenceOptions,
-  getTimeZoneOptions,
   normalizeLocale,
   normalizeTimeFormatPreference,
   normalizeTimeZone,
+  type TimeZoneOption,
+  type TimeZoneOptionGroup,
   type WorkspaceDateTimePreferences,
   type WorkspaceTimeFormatPreference,
 } from "@/lib/date-time";
 
-const LOCALE_OPTIONS = getLocaleOptions();
-const TIME_ZONE_OPTIONS = getTimeZoneOptions();
 const TIME_FORMAT_OPTIONS = getTimeFormatPreferenceOptions();
 
 type WorkspaceDetailsCardProps = {
@@ -88,6 +107,19 @@ export function WorkspaceTimeAndRegionCard({
       timeZone: normalizeTimeZone(initialPreferences.timeZone),
     });
   const [isPending, startTransition] = useTransition();
+  const timeZoneGroups = useMemo(
+    () => getGroupedTimeZoneOptions(preferences.timeZone),
+    [preferences.timeZone],
+  );
+  const timeZoneOptionLabels = useMemo(
+    () =>
+      new Map(
+        timeZoneGroups.flatMap((group) =>
+          group.items.map((item) => [item.value, item.label] as const),
+        ),
+      ),
+    [timeZoneGroups],
+  );
 
   function updatePreference<Key extends keyof WorkspaceDateTimePreferences>(
     key: Key,
@@ -170,62 +202,53 @@ export function WorkspaceTimeAndRegionCard({
             workspace dates.
           </SettingsRowDescription>
         </SettingsRowLabel>
-        <Select
+        <Combobox
           disabled={isPending}
+          items={timeZoneGroups}
+          itemToStringLabel={(timeZone) =>
+            `${timeZoneOptionLabels.get(timeZone) ?? timeZone} ${timeZone}`
+          }
           value={preferences.timeZone}
           onValueChange={(nextTimeZone) => {
-            if (!nextTimeZone) {
+            if (!nextTimeZone || typeof nextTimeZone !== "string") {
               return;
             }
 
             updatePreference("timeZone", nextTimeZone, "update-timezone");
           }}
         >
-          <SelectTrigger className="w-64">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end" className="max-h-96">
-            <SelectGroup>
-              {TIME_ZONE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </SettingsRow>
-      <SettingsRow>
-        <SettingsRowLabel>
-          <SettingsRowTitle>Language and region</SettingsRowTitle>
-          <SettingsRowDescription>
-            Controls locale-aware date labels across the workspace.
-          </SettingsRowDescription>
-        </SettingsRowLabel>
-        <Select
-          disabled={isPending}
-          value={preferences.locale}
-          onValueChange={(nextLocale) => {
-            if (!nextLocale) {
-              return;
-            }
-
-            updatePreference("locale", nextLocale, "update-locale");
-          }}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            <SelectGroup>
-              {LOCALE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+          <ComboboxInput
+            className="w-72"
+            placeholder="Select a timezone"
+            showClear={false}
+          >
+            <InputGroupAddon>
+              <GlobeIcon />
+            </InputGroupAddon>
+          </ComboboxInput>
+          <ComboboxContent align="end" alignOffset={-28} className="w-80">
+            <ComboboxEmpty>No timezones found.</ComboboxEmpty>
+            <ComboboxList>
+              {(group: TimeZoneOptionGroup) => (
+                <ComboboxGroup key={group.value} items={group.items}>
+                  <ComboboxLabel>{group.value}</ComboboxLabel>
+                  <ComboboxCollection>
+                    {(item: TimeZoneOption) => (
+                      <ComboboxItem key={item.value} value={item.value}>
+                        <div className="flex min-w-0 flex-col">
+                          <span>{item.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {item.value}
+                          </span>
+                        </div>
+                      </ComboboxItem>
+                    )}
+                  </ComboboxCollection>
+                </ComboboxGroup>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
       </SettingsRow>
       <SettingsRow>
         <SettingsRowLabel>

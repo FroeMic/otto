@@ -10,6 +10,16 @@ export type WorkspaceDateTimePreferences = {
   timeZone: string;
 };
 
+export type TimeZoneOption = {
+  label: string;
+  value: string;
+};
+
+export type TimeZoneOptionGroup = {
+  items: TimeZoneOption[];
+  value: string;
+};
+
 type DateFormatterInput = {
   locale?: string;
   options: Intl.DateTimeFormatOptions;
@@ -335,4 +345,82 @@ export function getTimeZoneOptions() {
     label: `${timeZone} (${getTimeZoneOffsetLabel(timeZone)})`,
     value: timeZone,
   }));
+}
+
+const CURATED_TIME_ZONE_GROUPS = [
+  {
+    items: [
+      { city: "New York", value: "America/New_York" },
+      { city: "Los Angeles", value: "America/Los_Angeles" },
+      { city: "Chicago", value: "America/Chicago" },
+      { city: "Toronto", value: "America/Toronto" },
+      { city: "Vancouver", value: "America/Vancouver" },
+      { city: "Sao Paulo", value: "America/Sao_Paulo" },
+    ],
+    value: "Americas",
+  },
+  {
+    items: [
+      { city: "London", value: "Europe/London" },
+      { city: "Paris", value: "Europe/Paris" },
+      { city: "Berlin", value: "Europe/Berlin" },
+      { city: "Rome", value: "Europe/Rome" },
+      { city: "Madrid", value: "Europe/Madrid" },
+      { city: "Amsterdam", value: "Europe/Amsterdam" },
+    ],
+    value: "Europe",
+  },
+  {
+    items: [
+      { city: "Tokyo", value: "Asia/Tokyo" },
+      { city: "Shanghai", value: "Asia/Shanghai" },
+      { city: "Singapore", value: "Asia/Singapore" },
+      { city: "Dubai", value: "Asia/Dubai" },
+      { city: "Sydney", value: "Australia/Sydney" },
+      { city: "Seoul", value: "Asia/Seoul" },
+    ],
+    value: "Asia / Pacific",
+  },
+] satisfies Array<{
+  items: Array<{
+    city: string;
+    value: string;
+  }>;
+  value: string;
+}>;
+
+function createTimeZoneOption(input: { city: string; value: string }) {
+  return {
+    label: `(${getTimeZoneOffsetLabel(input.value)}) ${input.city}`,
+    value: input.value,
+  } satisfies TimeZoneOption;
+}
+
+export function getGroupedTimeZoneOptions(currentTimeZone?: string | null) {
+  const groups = CURATED_TIME_ZONE_GROUPS.map((group) => ({
+    items: group.items.map(createTimeZoneOption),
+    value: group.value,
+  })) satisfies TimeZoneOptionGroup[];
+
+  const normalizedCurrentTimeZone = normalizeTimeZone(currentTimeZone);
+  const isCurrentIncluded = groups.some((group) =>
+    group.items.some((item) => item.value === normalizedCurrentTimeZone),
+  );
+
+  if (
+    normalizedCurrentTimeZone !== DEFAULT_WORKSPACE_TIME_ZONE &&
+    !isCurrentIncluded
+  ) {
+    groups.unshift({
+      items: [
+        {
+          label: `(${getTimeZoneOffsetLabel(normalizedCurrentTimeZone)}) ${normalizedCurrentTimeZone}`,
+          value: normalizedCurrentTimeZone,
+        },
+      ],
+      value: "Current",
+    });
+  }
+
+  return groups;
 }
