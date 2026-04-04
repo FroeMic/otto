@@ -47,8 +47,8 @@ function getPageHeader(pathname: string, orgSlug: string): PageHeader | null {
   const title = routeTitles[firstSegment] ?? null;
   if (!title) return null;
 
-  // Sub-page: e.g., /sessions/<sessionKey> — show "Sessions / ..."
-  if (segments.length > 1 && firstSegment === "sessions") {
+  // Sub-page breadcrumbs for sessions and scheduled tasks
+  if (segments.length > 1 && (firstSegment === "sessions" || firstSegment === "scheduled-tasks")) {
     return {
       title,
       parentTitle: title,

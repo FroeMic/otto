@@ -41,6 +41,7 @@ export default async function ScheduledTaskRunsDetailPage({
 
   return (
     <ScheduledTasksShell
+      hideHeader
       lastSyncedAt={getLatestScheduledTasksSyncTimestamp([task])}
       orgSlug={organization.slug}
       showTabs={false}
@@ -50,7 +51,7 @@ export default async function ScheduledTaskRunsDetailPage({
       })}
     >
       <ScheduledTaskDetailShell orgSlug={organization.slug} task={task}>
-        <ScheduledRunsContent orgSlug={organization.slug} runs={runs} />
+        <ScheduledRunsContent hideTaskColumn orgSlug={organization.slug} runs={runs} />
       </ScheduledTaskDetailShell>
     </ScheduledTasksShell>
   );

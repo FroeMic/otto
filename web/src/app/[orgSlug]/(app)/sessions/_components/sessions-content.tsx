@@ -131,10 +131,10 @@ function ProviderCell({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <span className={buttonVariants({ variant: "outline", size: "sm" })}>
       {iconElement}
-      <span className="text-sm text-muted-foreground">{label}</span>
-    </div>
+      {label}
+    </span>
   );
 }
 
@@ -280,7 +280,7 @@ function createColumns(input: {
       size: 130,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatTime(row.original.startedAt)}
+          {formatTime(row.original.startedAt ?? row.original.lastSyncedAt)}
         </span>
       ),
     },
