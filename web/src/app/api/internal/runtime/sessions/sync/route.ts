@@ -96,6 +96,7 @@ function validatePayload(body: unknown): TenantSessionUpsertInput[] {
       transcriptJsonl: optString(session.transcriptJsonl),
       transcriptHash: optString(session.transcriptHash),
       messageCount: optNumber(session.messageCount),
+      lastMessageAt: optNumber(session.lastMessageAt),
       parentSessionKey: optString(session.parentSessionKey),
       spawnDepth: optNumber(session.spawnDepth),
       subagentRole: optString(session.subagentRole),

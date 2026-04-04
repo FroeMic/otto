@@ -8260,6 +8260,7 @@ export type TenantSessionUpsertInput = {
   transcriptJsonl?: string | null;
   transcriptHash?: string | null;
   messageCount?: number | null;
+  lastMessageAt?: number | null;
   parentSessionKey?: string | null;
   spawnDepth?: number | null;
   subagentRole?: string | null;
@@ -8342,6 +8343,7 @@ export async function upsertTenantSessionBatch(
         transcriptJsonl: session.transcriptJsonl ?? null,
         transcriptHash: session.transcriptHash ?? null,
         messageCount: session.messageCount ?? null,
+        lastMessageAt: session.lastMessageAt ?? null,
         parentSessionKey: session.parentSessionKey ?? null,
         spawnDepth: session.spawnDepth ?? 0,
         subagentRole: session.subagentRole ?? null,
@@ -8384,6 +8386,7 @@ export async function upsertTenantSessionBatch(
           transcriptJsonl: session.transcriptJsonl ?? undefined,
           transcriptHash: session.transcriptHash ?? undefined,
           messageCount: session.messageCount ?? undefined,
+          lastMessageAt: session.lastMessageAt ?? undefined,
           parentSessionKey: session.parentSessionKey ?? undefined,
           spawnDepth: session.spawnDepth ?? undefined,
           subagentRole: session.subagentRole ?? undefined,
@@ -8429,6 +8432,7 @@ export async function listTenantSessions(input: {
       totalTokens: tenantSessions.totalTokens,
       estimatedCostUsd: tenantSessions.estimatedCostUsd,
       messageCount: tenantSessions.messageCount,
+      lastMessageAt: tenantSessions.lastMessageAt,
       parentSessionKey: tenantSessions.parentSessionKey,
       spawnDepth: tenantSessions.spawnDepth,
       subagentRole: tenantSessions.subagentRole,
@@ -8438,7 +8442,7 @@ export async function listTenantSessions(input: {
     })
     .from(tenantSessions)
     .where(eq(tenantSessions.tenantId, input.tenantId))
-    .orderBy(desc(tenantSessions.sessionUpdatedAt))
+    .orderBy(desc(tenantSessions.lastMessageAt))
     .limit(limit)
     .offset(offset);
 }

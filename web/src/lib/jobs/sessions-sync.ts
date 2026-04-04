@@ -223,6 +223,7 @@ type TranscriptResult = {
   transcriptJsonl: string;
   transcriptHash: string;
   messageCount: number;
+  lastMessageAt: number | null;
 };
 
 async function readTranscriptOverSsh(
@@ -275,11 +276,22 @@ async function tryReadFileOverSsh(
 
 function buildTranscriptResult(content: string): TranscriptResult {
   const hash = createHash("sha256").update(content).digest("hex");
-  const lineCount = content.split("\n").filter((l: string) => l.trim()).length;
+  const lines = content.split("\n").filter((l: string) => l.trim());
+  let lastMessageAt: number | null = null;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const entry = JSON.parse(lines[i]);
+      if (entry.type === "message" && typeof entry.message?.timestamp === "number") {
+        lastMessageAt = entry.message.timestamp;
+        break;
+      }
+    } catch { /* skip malformed lines */ }
+  }
   return {
     transcriptJsonl: content,
     transcriptHash: hash,
-    messageCount: Math.max(0, lineCount - 1),
+    messageCount: Math.max(0, lines.length - 1),
+    lastMessageAt,
   };
 }
 
