@@ -768,7 +768,7 @@ export const tenantSessions = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" })
       .notNull(),
     sessionKey: text("session_key").notNull(),
-    externalSessionId: text("external_session_id"),
+    externalSessionId: text("external_session_id").notNull(),
 
     // display
     displayName: text("display_name"),
@@ -831,8 +831,8 @@ export const tenantSessions = pgTable(
   (table) => ({
     tenantIdx: index("tenant_sessions_tenant_id_idx").on(table.tenantId),
     tenantSessionKeyUniqueIdx: uniqueIndex(
-      "tenant_sessions_tenant_id_session_key_idx",
-    ).on(table.tenantId, table.sessionKey),
+      "tenant_sessions_tenant_id_session_key_external_session_id_idx",
+    ).on(table.tenantId, table.sessionKey, table.externalSessionId),
     tenantStatusIdx: index("tenant_sessions_tenant_id_status_idx").on(
       table.tenantId,
       table.status,
