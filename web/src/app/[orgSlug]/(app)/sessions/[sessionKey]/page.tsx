@@ -9,7 +9,10 @@ import {
 } from "@/db/control-plane";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
-import { canViewSessionDetail } from "../_lib/session-display";
+import {
+  canViewSessionDetail,
+  formatSessionName,
+} from "../_lib/session-display";
 import { TranscriptViewer } from "./_components/transcript-viewer";
 
 export const dynamic = "force-dynamic";
@@ -62,13 +65,30 @@ export default async function SessionDetailPage({
     notFound();
   }
 
+  const channelNames = Object.fromEntries(channelNameMap);
+  const memberNames = Object.fromEntries(memberNameMap);
+
+  const sessionName = formatSessionName({
+    sessionKey: decodedKey,
+    displayName: session.displayName,
+    label: session.label,
+    subject: session.subject,
+    originFrom: session.originFrom,
+    chatType: session.chatType,
+    nameMaps: {
+      channels: channelNameMap,
+      members: memberNameMap,
+    },
+  });
+
   return (
     <TranscriptViewer
       orgSlug={organization.slug}
       session={session}
+      sessionName={sessionName}
       currentUserExternalIds={currentUserExternalIds}
-      memberNames={Object.fromEntries(memberNameMap)}
-      channelNames={Object.fromEntries(channelNameMap)}
+      memberNames={memberNames}
+      channelNames={channelNames}
     />
   );
 }

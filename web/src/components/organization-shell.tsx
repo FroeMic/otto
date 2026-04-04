@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import type * as React from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import {
+  BreadcrumbProvider,
+  useBreadcrumbSegments,
+} from "@/components/breadcrumb-context";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -69,6 +73,58 @@ type OrganizationShellProps = {
   };
 };
 
+function ShellHeader({
+  pageHeader,
+  fallbackTitle,
+}: {
+  pageHeader: PageHeader | null;
+  fallbackTitle: string;
+}) {
+  const breadcrumbSegments = useBreadcrumbSegments();
+
+  return (
+    <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
+      <SidebarTrigger />
+      <Separator
+        orientation="vertical"
+        className="data-vertical:h-4 data-vertical:self-auto"
+      />
+      {breadcrumbSegments.length > 0 ? (
+        <div className="flex items-center gap-1.5 text-sm min-w-0">
+          {breadcrumbSegments.map((segment, i) => (
+            <span key={i} className="flex items-center gap-1.5 min-w-0">
+              {i > 0 && (
+                <span className="text-muted-foreground shrink-0">/</span>
+              )}
+              {segment.href ? (
+                <Link
+                  href={segment.href}
+                  className="font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                >
+                  {segment.label}
+                </Link>
+              ) : (
+                <span className="font-medium truncate">{segment.label}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : pageHeader?.parentHref ? (
+        <Link
+          href={pageHeader.parentHref}
+          className="text-sm font-medium hover:text-foreground/80 transition-colors"
+        >
+          {pageHeader.parentTitle}
+        </Link>
+      ) : (
+        <span className="text-sm font-medium">
+          {pageHeader?.title ?? fallbackTitle}
+        </span>
+      )}
+    </header>
+  );
+}
+
 export function OrganizationShell({
   children,
   currentOrganization,
@@ -104,37 +160,21 @@ export function OrganizationShell({
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        currentOrganization={currentOrganization}
-        organizations={organizations}
-        user={user}
-      />
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
-          <SidebarTrigger />
-          <Separator
-            orientation="vertical"
-            className="data-vertical:h-4 data-vertical:self-auto"
-          />
-          {pageHeader?.parentHref ? (
-            <Link
-              href={pageHeader.parentHref}
-              className="text-sm font-medium hover:text-foreground/80 transition-colors"
-            >
-              {pageHeader.parentTitle}
-            </Link>
-          ) : (
-            <span className="text-sm font-medium">
-              {pageHeader?.title ?? currentOrganization.name}
-            </span>
-          )}
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
-        {showWorkspaceStatusRail ? (
-          <WorkspaceStatusRail organization={currentOrganization} />
-        ) : null}
-      </SidebarInset>
-    </SidebarProvider>
+    <BreadcrumbProvider>
+      <SidebarProvider>
+        <AppSidebar
+          currentOrganization={currentOrganization}
+          organizations={organizations}
+          user={user}
+        />
+        <SidebarInset>
+          <ShellHeader pageHeader={pageHeader} fallbackTitle={currentOrganization.name} />
+          <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
+          {showWorkspaceStatusRail ? (
+            <WorkspaceStatusRail organization={currentOrganization} />
+          ) : null}
+        </SidebarInset>
+      </SidebarProvider>
+    </BreadcrumbProvider>
   );
 }

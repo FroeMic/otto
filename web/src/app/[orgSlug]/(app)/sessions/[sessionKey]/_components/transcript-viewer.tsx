@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
 import {
   MessageResponse,
@@ -11,6 +11,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import { useSetBreadcrumbs } from "@/components/breadcrumb-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -515,16 +516,28 @@ function StatsLine({ session }: { session: Session }) {
 export function TranscriptViewer({
   orgSlug,
   session,
+  sessionName,
   currentUserExternalIds = [],
   memberNames = {},
   channelNames = {},
 }: {
   orgSlug: string;
   session: Session;
+  sessionName: string;
   currentUserExternalIds?: string[];
   memberNames?: Record<string, string>;
   channelNames?: Record<string, string>;
 }) {
+  const setBreadcrumbs = useSetBreadcrumbs();
+
+  useEffect(() => {
+    setBreadcrumbs([
+      { label: "Sessions", href: `/${orgSlug}/sessions` },
+      { label: sessionName },
+    ]);
+    return () => setBreadcrumbs([]);
+  }, [orgSlug, sessionName, setBreadcrumbs]);
+
   const messages = useMemo(
     () => parseTranscript(session.transcriptJsonl),
     [session.transcriptJsonl],
