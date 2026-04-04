@@ -35,10 +35,28 @@ export async function POST(request: Request) {
       taskSnapshots.map((task) => [task.taskKey, task.name] as const),
     );
 
-    if (payload.runs && taskNameByKey.size === 0) {
-      const existingTasks = await listTenantScheduledTasks({ tenantId });
-      for (const task of existingTasks) {
-        taskNameByKey.set(task.taskKey, task.name);
+    if (payload.runs) {
+      // Backfill task names from DB for any runs whose job isn't in the
+      // current task snapshot (e.g. delete-after-run jobs already removed
+      // from cron.list by the time the run syncs).
+      const runJobIds = new Set(
+        (payload.runs as RuntimeCronRun[])
+          .map((r) => r.jobId)
+          .filter(
+            (id): id is string =>
+              typeof id === "string" &&
+              id.trim().length > 0 &&
+              !taskNameByKey.has(id),
+          ),
+      );
+
+      if (runJobIds.size > 0) {
+        const existingTasks = await listTenantScheduledTasks({ tenantId });
+        for (const task of existingTasks) {
+          if (runJobIds.has(task.taskKey)) {
+            taskNameByKey.set(task.taskKey, task.name);
+          }
+        }
       }
     }
 
