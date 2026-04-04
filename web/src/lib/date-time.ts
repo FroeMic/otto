@@ -349,6 +349,10 @@ export function getTimeZoneOptions() {
 
 const CURATED_TIME_ZONE_GROUPS = [
   {
+    items: [{ city: "UTC", value: "UTC" }],
+    value: "Universal",
+  },
+  {
     items: [
       { city: "New York", value: "America/New_York" },
       { city: "Los Angeles", value: "America/Los_Angeles" },
@@ -411,7 +415,7 @@ export function getGroupedTimeZoneOptions(currentTimeZone?: string | null) {
     normalizedCurrentTimeZone !== DEFAULT_WORKSPACE_TIME_ZONE &&
     !isCurrentIncluded
   ) {
-    groups.unshift({
+    groups.splice(1, 0, {
       items: [
         {
           label: `(${getTimeZoneOffsetLabel(normalizedCurrentTimeZone)}) ${normalizedCurrentTimeZone}`,

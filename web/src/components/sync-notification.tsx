@@ -33,8 +33,7 @@ export function SyncNotification({
     const interval = setInterval(async () => {
       try {
         const url =
-          statusUrl ??
-          `/api/workspace/${orgSlug}/jobs/${jobId}/status`;
+          statusUrl ?? `/api/workspace/${orgSlug}/jobs/${jobId}/status`;
         const res = await fetch(url);
         if (!res.ok) return;
 
@@ -73,7 +72,7 @@ export function SyncNotification({
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [jobId, orgSlug, onDone, router]);
+  }, [jobId, orgSlug, onDone, router, statusUrl]);
 
   if (!visible) return null;
 

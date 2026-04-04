@@ -4,7 +4,7 @@ import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-
+import { SyncNotification } from "@/components/sync-notification";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SyncNotification } from "@/components/sync-notification";
 
 type PlatformOrganizationActionsProps = {
   hasTenant: boolean;
