@@ -180,9 +180,8 @@ The user settings section is org-independent in data ownership, but it can still
 - keep a persistent bottom rail in the authenticated shell
 - use it for lightweight workspace context and system status, not for decorative chrome
 - likely contents:
-  - current organization
-  - Slack connection state
-  - runtime state
+  - one workspace readiness summary
+  - one short connection or setup sentence
   - one quick action when relevant
 
 ## Information architecture
