@@ -165,22 +165,41 @@ function parsePayload(
   return { tenantId };
 }
 
-function readCronListEntries(
+export function readCronListEntries(
   payload: Record<string, unknown>,
 ): RuntimeCronJob[] {
-  return readEntries(payload) as RuntimeCronJob[];
+  const jobs = readEntriesField(payload, "jobs");
+  if (jobs) {
+    return jobs as RuntimeCronJob[];
+  }
+
+  const entries = readEntriesField(payload, "entries");
+  if (entries) {
+    return entries as RuntimeCronJob[];
+  }
+
+  throw new Error(
+    "Tenant runtime cron.list response did not include a jobs array",
+  );
 }
 
-function readCronRunEntries(
+export function readCronRunEntries(
   payload: Record<string, unknown>,
 ): RuntimeCronRun[] {
-  return readEntries(payload) as RuntimeCronRun[];
+  const entries = readEntriesField(payload, "entries");
+  if (entries) {
+    return entries as RuntimeCronRun[];
+  }
+
+  throw new Error(
+    "Tenant runtime cron.runs response did not include an entries array",
+  );
 }
 
-function readEntries(payload: Record<string, unknown>) {
-  const entries = payload.entries;
+function readEntriesField(payload: Record<string, unknown>, field: string) {
+  const entries = payload[field];
   if (!Array.isArray(entries)) {
-    return [];
+    return null;
   }
 
   return entries.filter(
