@@ -7,6 +7,7 @@ export const JOB_TYPES = {
   whatsappDisconnect: "whatsapp_disconnect",
   resyncSlackUsers: "resync_slack_users",
   resyncSlackChannels: "resync_slack_channels",
+  syncTenantSessions: "sync_tenant_sessions",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -87,6 +88,10 @@ export type ResyncSlackChannelsPayload = {
   tenantId: string;
 };
 
+export type SyncTenantSessionsPayload = {
+  tenantId: string;
+};
+
 export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
@@ -119,6 +124,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.resyncSlackChannels;
       payload: ResyncSlackChannelsPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.syncTenantSessions;
+      payload: SyncTenantSessionsPayload;
     };
 
 export type ClaimedJob = {
