@@ -1,5 +1,7 @@
 "use client";
 
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
@@ -219,6 +221,14 @@ const providerIcons: Record<string, string> = {
 };
 
 function ChannelIcon({ channel }: { channel: string | null }) {
+  if (channel === "cron") {
+    return (
+      <HugeiconsIcon
+        icon={Calendar03Icon}
+        className="size-5 shrink-0 text-muted-foreground"
+      />
+    );
+  }
   const icon = channel ? providerIcons[channel] : null;
   if (!icon) return null;
   return (

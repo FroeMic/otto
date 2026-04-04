@@ -1,6 +1,8 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useMemo } from "react";
@@ -16,6 +18,7 @@ import {
   formatSessionName,
   getProviderIcon,
   getProviderLabel,
+  getScheduledTaskHref,
   parseSessionKey,
 } from "../_lib/session-display";
 
@@ -90,10 +93,16 @@ function formatTime(date: Date | null): string {
 function ProviderCell({ provider }: { provider: string | null }) {
   const icon = getProviderIcon(provider);
   const label = getProviderLabel(provider);
+  const isCron = provider === "cron";
 
   return (
     <div className="flex items-center gap-2">
-      {icon ? (
+      {isCron ? (
+        <HugeiconsIcon
+          icon={Calendar03Icon}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      ) : icon ? (
         <Image
           alt={label}
           className="size-4 shrink-0"
@@ -136,14 +145,33 @@ function createColumns(input: {
           sessionOriginFrom: row.original.originFrom,
         });
 
+        const taskHref = getScheduledTaskHref(
+          row.original.sessionKey,
+          input.orgSlug,
+        );
+
         if (canView) {
           return (
-            <Link
-              className="block max-w-[280px] truncate text-sm font-medium text-foreground hover:underline"
-              href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
-            >
-              {name}
-            </Link>
+            <div className="flex items-center gap-1.5 max-w-[280px]">
+              <Link
+                className="truncate text-sm font-medium text-foreground hover:underline"
+                href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
+              >
+                {name}
+              </Link>
+              {taskHref ? (
+                <Link
+                  href={taskHref}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  title="View scheduled task"
+                >
+                  <HugeiconsIcon
+                    icon={Calendar03Icon}
+                    className="size-3.5"
+                  />
+                </Link>
+              ) : null}
+            </div>
           );
         }
 
@@ -172,7 +200,10 @@ function createColumns(input: {
       size: 80,
       cell: ({ row }) => {
         const parsed = parseSessionKey(row.original.sessionKey);
-        const label = kindLabels[parsed.kind] ?? parsed.kind;
+        const label =
+          parsed.provider === "cron"
+            ? "Task Run"
+            : (kindLabels[parsed.kind] ?? parsed.kind);
         return (
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
             {label}
