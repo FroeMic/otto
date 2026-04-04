@@ -289,27 +289,31 @@ function TurnHeader({ group }: { group: MessageGroup }) {
 
   if (group.kind === "current_user") {
     return (
-      <div className="flex items-center justify-end gap-2">
-        <span className="text-xs font-medium text-foreground/70">{name}</span>
+      <div className="flex flex-col items-end gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground/70">{name}</span>
+          <SenderAvatar name={name} />
+        </div>
         {ts ? (
-          <span className="text-xs text-muted-foreground">{ts}</span>
+          <span className="text-xs text-muted-foreground pr-9">{ts}</span>
         ) : null}
-        <SenderAvatar name={name} />
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
-      <span className="text-xs font-medium text-foreground/70">{name}</span>
-      {group.kind === "assistant" && group.model ? (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-          {group.model}
-        </Badge>
-      ) : null}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
+        <span className="text-xs font-medium text-foreground/70">{name}</span>
+        {group.kind === "assistant" && group.model ? (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {group.model}
+          </Badge>
+        ) : null}
+      </div>
       {ts ? (
-        <span className="text-xs text-muted-foreground">{ts}</span>
+        <span className="text-xs text-muted-foreground pl-9">{ts}</span>
       ) : null}
     </div>
   );
