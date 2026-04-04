@@ -406,7 +406,7 @@ export class RuntimeManager {
       timeoutMs: 60_000,
     });
 
-    return parseJsonObject(result.stdout);
+    return parseToolInvokePayload(result.stdout);
   }
 
   async startWhatsAppLoginWithQr(
@@ -759,4 +759,38 @@ function parseJsonObject(value: string) {
   }
 
   return parsed as Record<string, unknown>;
+}
+
+function parseToolInvokePayload(value: string) {
+  const envelope = parseJsonObject(value);
+
+  if (envelope.ok !== true) {
+    const error =
+      envelope.error &&
+      typeof envelope.error === "object" &&
+      !Array.isArray(envelope.error)
+        ? (envelope.error as Record<string, unknown>)
+        : {};
+    const message =
+      typeof error.message === "string"
+        ? error.message
+        : "Tenant runtime tool invocation failed";
+    throw new Error(message);
+  }
+
+  const result =
+    envelope.result &&
+    typeof envelope.result === "object" &&
+    !Array.isArray(envelope.result)
+      ? (envelope.result as Record<string, unknown>)
+      : null;
+  const details = result?.details;
+
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    return details as Record<string, unknown>;
+  }
+
+  throw new Error(
+    "Tenant runtime tool response did not include a JSON payload",
+  );
 }

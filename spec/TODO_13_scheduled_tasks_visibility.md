@@ -148,6 +148,51 @@ Callbacks alone are not enough. Add a periodic reconciliation job that:
 
 This should be a narrow reconciliation job, not a broad SSH scrape of cron state.
 
+## OpenClaw integration findings
+
+Reviewing the current OpenClaw runtime and UI code clarified which seams already exist and which do not.
+
+What OpenClaw already gives us:
+
+- typed Gateway methods for cron definitions and run history:
+  - `cron.status`
+  - `cron.list`
+  - `cron.add`
+  - `cron.update`
+  - `cron.remove`
+  - `cron.run`
+  - `cron.runs`
+- persisted runtime-side storage behind those methods:
+  - cron definitions in `~/.openclaw/cron/jobs.json`
+  - run history in `~/.openclaw/cron/runs/<jobId>.jsonl`
+- per-run history entries that already include:
+  - `jobId`
+  - `jobName`
+  - `status`
+  - `summary`
+  - `deliveryStatus`
+  - `sessionId`
+  - `sessionKey`
+- UI precedent in OpenClaw itself for linking a cron run back to the run session via `sessionKey`
+
+Important limitation:
+
+- OpenClaw does not currently expose one general plugin hook or runtime event that fires for every cron mutation performed through all surfaces such as the runtime UI, CLI, and direct Gateway RPC calls.
+- Plugins can observe:
+  - agent/tool lifecycle such as `after_tool_call`
+  - agent event streams
+  - session lifecycle hooks
+  - transcript update events
+- that is enough to react quickly to some agent-originated cron changes and run sessions, but not enough to guarantee that every runtime-local `cron.add`, `cron.update`, or `cron.remove` reaches Otto immediately
+
+Resulting Otto design implication:
+
+- use OpenClaw `cron.list` and `cron.runs` as the typed runtime read and reconciliation surface
+- do not scrape raw cron files or treat the runtime dashboard HTML as an API
+- keep the Otto workspace backed by Postgres rows in the control plane
+- rely on reconciliation to capture runtime-local cron edits until Otto owns cron writes end to end
+- when Otto later creates or edits scheduled tasks itself, apply those changes to the runtime through typed `cron.*` Gateway calls rather than raw file projection
+
 ## UI shape
 
 Keep one primary nav item: `Scheduled Tasks`.
@@ -220,13 +265,20 @@ Initial content:
 - [x] define the control-plane tables for task definitions and sessions
 - [x] define the runtime push/callback/reconciliation sync model
 - [x] define the org-scoped tasks and sessions UI shape
-- [ ] add the schema and DB access layer
+- [x] add the schema and DB access layer
 - [ ] add runtime-authenticated session callback endpoints
-- [ ] add the sync/reconciliation worker jobs
-- [ ] replace the scheduled-tasks placeholder page with real tasks and sessions views
+- [x] add the sync/reconciliation worker jobs
+- [x] replace the scheduled-tasks placeholder page with real tasks and sessions views
+
+Implementation note:
+
+- the first shipped sync path is an explicit runtime pull initiated from the workspace UI plus worker-driven reconciliation
+- the page now links synced cron runs to existing session detail pages when the runtime reports `sessionKey`
 
 ## Open questions
 
-- Does the upstream OpenClaw runtime already expose a stable automation API we can target directly, or do we need Otto-owned plugin endpoints for scheduled tasks just as we did for managed config and runtime config surfaces?
+- OpenClaw already exposes stable typed Gateway read/write APIs for cron definitions and run history, but it does not expose a universal mutation event stream for every cron write surface. The remaining decision is whether Otto should:
+  - reconcile runtime state by calling those `cron.*` Gateway methods from a worker
+  - or add an Otto-owned runtime sync helper that mirrors those calls and batches state back to the control plane
 - Should `next_run_at` be computed and persisted by the control plane, by the runtime, or by both with one side marked authoritative?
 - When create/edit flows arrive, should runtime-side task creation be forbidden entirely, or should runtime edits be allowed only if they write back through the control plane API immediately?

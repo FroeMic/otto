@@ -572,6 +572,99 @@ export const tenantManagedFileVersions = pgTable(
   }),
 );
 
+export const tenantScheduledTasks = pgTable(
+  "tenant_scheduled_tasks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    taskKey: text("task_key").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    status: varchar("status", { length: 64 }).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    scheduleKind: varchar("schedule_kind", { length: 32 }).notNull(),
+    scheduleExpression: text("schedule_expression").notNull(),
+    timezone: varchar("timezone", { length: 128 }),
+    sessionTarget: varchar("session_target", { length: 64 }),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    lastRunStatus: varchar("last_run_status", { length: 32 }),
+    lastError: text("last_error"),
+    runtimeUpdatedAt: bigint("runtime_updated_at", { mode: "number" }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSyncError: text("last_sync_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_scheduled_tasks_tenant_id_idx").on(table.tenantId),
+    tenantStatusIdx: index("tenant_scheduled_tasks_tenant_id_status_idx").on(
+      table.tenantId,
+      table.status,
+    ),
+    tenantNextRunIdx: index(
+      "tenant_scheduled_tasks_tenant_id_next_run_at_idx",
+    ).on(table.tenantId, table.nextRunAt),
+    tenantTaskKeyUniqueIdx: uniqueIndex(
+      "tenant_scheduled_tasks_tenant_id_task_key_idx",
+    ).on(table.tenantId, table.taskKey),
+  }),
+);
+
+export const tenantScheduledTaskSessions = pgTable(
+  "tenant_scheduled_task_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantScheduledTaskId: uuid("tenant_scheduled_task_id").references(
+      () => tenantScheduledTasks.id,
+      { onDelete: "set null" },
+    ),
+    taskKey: text("task_key").notNull(),
+    taskName: text("task_name").notNull(),
+    externalRunKey: text("external_run_key").notNull(),
+    externalSessionId: text("external_session_id"),
+    runtimeSessionKey: text("runtime_session_key"),
+    triggerType: varchar("trigger_type", { length: 64 }).notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    status: varchar("status", { length: 64 }).notNull(),
+    summary: text("summary"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_scheduled_task_sessions_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    tenantTaskIdx: index(
+      "tenant_scheduled_task_sessions_tenant_scheduled_task_id_idx",
+    ).on(table.tenantScheduledTaskId),
+    tenantStartedIdx: index(
+      "tenant_scheduled_task_sessions_tenant_id_started_at_idx",
+    ).on(table.tenantId, table.startedAt),
+    tenantRunKeyUniqueIdx: uniqueIndex(
+      "tenant_scheduled_task_sessions_tenant_id_external_run_key_idx",
+    ).on(table.tenantId, table.externalRunKey),
+  }),
+);
+
 export const jobRuns = pgTable(
   "job_runs",
   {

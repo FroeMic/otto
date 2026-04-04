@@ -2,6 +2,7 @@ export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
+  reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
   whatsappLinkSession: "whatsapp_link_session",
   whatsappDisconnect: "whatsapp_disconnect",
   resyncSlackUsers: "resync_slack_users",
@@ -64,6 +65,10 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type ReconcileTenantScheduledTasksPayload = {
+  tenantId: string;
+};
+
 export type WhatsAppLinkSessionPayload = {
   linkSessionId: string;
   tenantId: string;
@@ -94,6 +99,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;
       payload: RefreshRuntimeImagePayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.reconcileTenantScheduledTasks;
+      payload: ReconcileTenantScheduledTasksPayload;
     }
   | {
       jobType: typeof JOB_TYPES.whatsappLinkSession;

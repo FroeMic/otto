@@ -4,12 +4,13 @@ import { processApplyTenantConfigJob } from "./apply";
 import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
-import type { ClaimedJob } from "./types";
-import { JOB_TYPES } from "./types";
+import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
 import {
   processResyncSlackChannelsJob,
   processResyncSlackUsersJob,
 } from "./slack-sync";
+import type { ClaimedJob } from "./types";
+import { JOB_TYPES } from "./types";
 import {
   processWhatsAppDisconnectJob,
   processWhatsAppLinkSessionJob,
@@ -24,6 +25,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
+      return;
+    case JOB_TYPES.reconcileTenantScheduledTasks:
+      await processReconcileTenantScheduledTasksJob(job);
       return;
     case JOB_TYPES.provisionTenantServer:
       await processProvisionTenantServerJob(job);
