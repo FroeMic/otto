@@ -7927,7 +7927,7 @@ export async function upsertTenantSessionBatch(
       .values({
         tenantId,
         sessionKey: session.sessionKey,
-        externalSessionId: session.externalSessionId ?? null,
+        externalSessionId: session.externalSessionId ?? "unknown",
         displayName: session.displayName ?? null,
         label: session.label ?? null,
         subject: session.subject ?? null,
@@ -7962,9 +7962,8 @@ export async function upsertTenantSessionBatch(
         syncSource: session.syncSource,
       })
       .onConflictDoUpdate({
-        target: [tenantSessions.tenantId, tenantSessions.sessionKey],
+        target: [tenantSessions.tenantId, tenantSessions.sessionKey, tenantSessions.externalSessionId],
         set: {
-          externalSessionId: session.externalSessionId ?? undefined,
           displayName: session.displayName ?? undefined,
           label: session.label ?? undefined,
           subject: session.subject ?? undefined,

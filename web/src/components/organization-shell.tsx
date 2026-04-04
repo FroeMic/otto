@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type * as React from "react";
 
@@ -20,16 +21,38 @@ const routeTitles: Record<string, string> = {
   integrations: "Integrations",
   tools: "Tools",
   skills: "Skills",
+  sessions: "Sessions",
   "scheduled-tasks": "Scheduled Tasks",
   settings: "Settings",
 };
 
-function getPageTitle(pathname: string, orgSlug: string) {
+type PageHeader = {
+  title: string;
+  parentTitle?: string;
+  parentHref?: string;
+};
+
+function getPageHeader(pathname: string, orgSlug: string): PageHeader | null {
   const prefix = `/${orgSlug}/`;
   if (!pathname.startsWith(prefix)) return null;
   const rest = pathname.slice(prefix.length);
-  const segment = rest.split("/")[0];
-  return segment ? (routeTitles[segment] ?? null) : null;
+  const segments = rest.split("/").filter(Boolean);
+  const firstSegment = segments[0];
+  if (!firstSegment) return null;
+
+  const title = routeTitles[firstSegment] ?? null;
+  if (!title) return null;
+
+  // Sub-page: e.g., /sessions/<sessionKey> — show "Sessions / ..."
+  if (segments.length > 1 && firstSegment === "sessions") {
+    return {
+      title,
+      parentTitle: title,
+      parentHref: `/${orgSlug}/${firstSegment}`,
+    };
+  }
+
+  return { title };
 }
 
 type OrganizationShellProps = {
@@ -63,7 +86,7 @@ export function OrganizationShell({
       pathname === slackSetupPath);
   const toolsPath = `/${currentOrganization.slug}/tools`;
 
-  const pageTitle = getPageTitle(pathname, currentOrganization.slug);
+  const pageHeader = getPageHeader(pathname, currentOrganization.slug);
 
   const showWorkspaceStatusRail =
     pathname !== slackSetupPath &&
@@ -94,9 +117,18 @@ export function OrganizationShell({
             orientation="vertical"
             className="data-vertical:h-4 data-vertical:self-auto"
           />
-          <span className="text-sm font-medium">
-            {pageTitle ?? currentOrganization.name}
-          </span>
+          {pageHeader?.parentHref ? (
+            <Link
+              href={pageHeader.parentHref}
+              className="text-sm font-medium hover:text-foreground/80 transition-colors"
+            >
+              {pageHeader.parentTitle}
+            </Link>
+          ) : (
+            <span className="text-sm font-medium">
+              {pageHeader?.title ?? currentOrganization.name}
+            </span>
+          )}
         </header>
         <div className="flex min-h-0 flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
         {showWorkspaceStatusRail ? (

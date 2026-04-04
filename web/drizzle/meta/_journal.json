@@ -127,6 +127,13 @@
       "when": 1775256386883,
       "tag": "0017_parallel_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775298212903,
+      "tag": "0018_quiet_thaddeus_ross",
+      "breakpoints": true
     }
   ]
 }

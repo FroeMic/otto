@@ -257,7 +257,7 @@ export function WebSearchToolPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-12">
+    <div className="flex w-full max-w-3xl flex-col gap-6 pb-12">
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Image
@@ -293,7 +293,7 @@ export function WebSearchToolPage({
         </TabsList>
 
         <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {capabilityGroups.length > 0 ? (
                 capabilityGroups.map(([direction, capabilities]) => (
@@ -345,7 +345,7 @@ export function WebSearchToolPage({
         </TabsContent>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {surface.blockingReason ? (
                 <Alert variant="destructive">
@@ -415,7 +415,7 @@ export function WebSearchToolPage({
         </TabsContent>
 
         <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               <SettingsSection>
                 <SettingsSectionTitle>Search defaults</SettingsSectionTitle>
