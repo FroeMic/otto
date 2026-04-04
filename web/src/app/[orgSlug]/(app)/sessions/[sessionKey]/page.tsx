@@ -7,6 +7,7 @@ import {
   getTenantSession,
   getUserExternalIds,
 } from "@/db/control-plane";
+import { getTenantScheduledTask } from "@/db/scheduled-tasks";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import {
@@ -65,6 +66,19 @@ export default async function SessionDetailPage({
     notFound();
   }
 
+  // Check if this is a cron session and the scheduled task still exists
+  const cronJobIdMatch = /^agent:[^:]+:cron:([^:]+)/.exec(decodedKey);
+  let cronJobHref: string | null = null;
+  if (cronJobIdMatch) {
+    const task = await getTenantScheduledTask({
+      tenantId: agent.id,
+      taskKey: cronJobIdMatch[1],
+    });
+    if (task) {
+      cronJobHref = `/${organization.slug}/scheduled-tasks/tasks/${encodeURIComponent(cronJobIdMatch[1])}/overview`;
+    }
+  }
+
   const channelNames = Object.fromEntries(channelNameMap);
   const memberNames = Object.fromEntries(memberNameMap);
 
@@ -86,6 +100,7 @@ export default async function SessionDetailPage({
       orgSlug={organization.slug}
       session={session}
       sessionName={sessionName}
+      cronJobHref={cronJobHref}
       currentUserExternalIds={currentUserExternalIds}
       memberNames={memberNames}
       channelNames={channelNames}
