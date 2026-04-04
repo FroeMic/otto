@@ -14,11 +14,13 @@ export function SyncNotification({
   message,
   onDone,
   orgSlug,
+  statusUrl,
 }: {
   jobId: string;
   message: string;
   onDone: () => void;
   orgSlug: string;
+  statusUrl?: string;
 }) {
   const router = useRouter();
   const [visible, setVisible] = useState(true);
@@ -30,9 +32,10 @@ export function SyncNotification({
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(
-          `/api/workspace/${orgSlug}/jobs/${jobId}/status`,
-        );
+        const url =
+          statusUrl ??
+          `/api/workspace/${orgSlug}/jobs/${jobId}/status`;
+        const res = await fetch(url);
         if (!res.ok) return;
 
         const data = (await res.json()) as {
