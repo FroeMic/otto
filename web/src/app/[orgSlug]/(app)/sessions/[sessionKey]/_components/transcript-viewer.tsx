@@ -1,12 +1,9 @@
 "use client";
 
-import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import Link from "next/link";
+import Image from "next/image";
 import { createContext, useCallback, useContext, useMemo } from "react";
 
 import {
-  MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
@@ -103,7 +100,7 @@ function buildResolveText(
 }
 
 // ---------------------------------------------------------------------------
-// Grouping: merge consecutive messages from the same sender into turns
+// Grouping
 // ---------------------------------------------------------------------------
 
 function groupMessagesIntoTurns(
@@ -176,18 +173,6 @@ function groupMessagesIntoTurns(
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-const statusBadgeVariant: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  active: "default",
-  running: "default",
-  done: "secondary",
-  failed: "destructive",
-  killed: "destructive",
-  timeout: "destructive",
-};
-
 function formatDuration(ms: number | null): string {
   if (ms === null) return "-";
   if (ms < 1000) return `${ms}ms`;
@@ -209,7 +194,7 @@ function formatCost(v: string | null): string {
   if (!v) return "-";
   const n = parseFloat(v);
   if (Number.isNaN(n) || n === 0) return "-";
-  return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
 }
 
 function formatTimestamp(ts: number | null): string {
@@ -219,6 +204,29 @@ function formatTimestamp(ts: number | null): string {
     minute: "2-digit",
     second: "2-digit",
   }).format(new Date(ts));
+}
+
+// ---------------------------------------------------------------------------
+// Channel icon
+// ---------------------------------------------------------------------------
+
+const providerIcons: Record<string, string> = {
+  slack: "/integrations/slack.svg",
+  whatsapp: "/integrations/whatsapp.png",
+};
+
+function ChannelIcon({ channel }: { channel: string | null }) {
+  const icon = channel ? providerIcons[channel] : null;
+  if (!icon) return null;
+  return (
+    <Image
+      alt={channel ?? ""}
+      className="size-5 shrink-0"
+      height={20}
+      src={icon}
+      width={20}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -270,11 +278,7 @@ function SenderAvatar({
 // Turn renderers
 // ---------------------------------------------------------------------------
 
-function TurnHeader({
-  group,
-}: {
-  group: MessageGroup;
-}) {
+function TurnHeader({ group }: { group: MessageGroup }) {
   const resolveText = useResolveText();
   const name = group.senderName
     ? resolveText(group.senderName)
@@ -284,7 +288,6 @@ function TurnHeader({
   const ts = formatTimestamp(group.firstTimestamp);
 
   if (group.kind === "current_user") {
-    // Right-aligned: Name timestamp (avatar)
     return (
       <div className="flex items-center justify-end gap-2">
         <span className="text-xs font-medium text-foreground/70">{name}</span>
@@ -296,7 +299,6 @@ function TurnHeader({
     );
   }
 
-  // Left-aligned: (avatar) Name [model badge] timestamp
   return (
     <div className="flex items-center gap-2">
       <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
@@ -313,11 +315,7 @@ function TurnHeader({
   );
 }
 
-function AssistantTurnMessages({
-  messages,
-}: {
-  messages: ParsedMessage[];
-}) {
+function AssistantTurnMessages({ messages }: { messages: ParsedMessage[] }) {
   const resolveText = useResolveText();
 
   return (
@@ -480,6 +478,33 @@ function CompactionDivider({ msg }: { msg: ParsedMessage }) {
 }
 
 // ---------------------------------------------------------------------------
+// Stats line
+// ---------------------------------------------------------------------------
+
+function StatsLine({ session }: { session: Session }) {
+  const parts: string[] = [];
+  if (session.model) parts.push(session.model);
+  if (session.totalTokens !== null)
+    parts.push(`${formatTokens(session.totalTokens)} Tokens`);
+  if (session.estimatedCostUsd) {
+    const cost = formatCost(session.estimatedCostUsd);
+    if (cost !== "-") parts.push(cost);
+  }
+  if (session.messageCount !== null)
+    parts.push(`${session.messageCount} messages`);
+  if (session.runtimeMs !== null) {
+    const dur = formatDuration(session.runtimeMs);
+    if (dur !== "-") parts.push(dur);
+  }
+  if (parts.length === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {parts.join(" · ")}
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -525,14 +550,9 @@ export function TranscriptViewer({
   return (
     <ResolveTextContext.Provider value={resolveText}>
       <div className="flex min-h-0 flex-1 flex-col gap-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Link
-            className="flex size-8 items-center justify-center rounded-md border hover:bg-muted"
-            href={`/${orgSlug}/sessions`}
-          >
-            <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
-          </Link>
+        {/* Header with channel icon */}
+        <div className="flex items-start gap-3">
+          <ChannelIcon channel={session.channel} />
           <div className="flex flex-col gap-0.5">
             <h1 className="text-xl font-semibold tracking-tight">
               {resolveText(title)}
@@ -540,42 +560,13 @@ export function TranscriptViewer({
             <p className="text-xs text-muted-foreground font-mono">
               {session.sessionKey}
             </p>
+            <StatsLine session={session} />
           </div>
         </div>
 
-        {/* Metadata cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          <MetadataCard label="Status">
-            <Badge variant={statusBadgeVariant[session.status] ?? "outline"}>
-              {session.status}
-            </Badge>
-          </MetadataCard>
-          <MetadataCard label="Channel">
-            {session.channel ?? "-"}
-          </MetadataCard>
-          <MetadataCard label="Model">
-            <span className="truncate">{session.model ?? "-"}</span>
-          </MetadataCard>
-          <MetadataCard label="Tokens">
-            {formatTokens(session.totalTokens)}
-          </MetadataCard>
-          <MetadataCard label="Cost">
-            {formatCost(session.estimatedCostUsd)}
-          </MetadataCard>
-          <MetadataCard label="Duration">
-            {formatDuration(session.runtimeMs)}
-          </MetadataCard>
-        </div>
-
-        {/* Transcript */}
-        <div className="rounded-lg border bg-card">
-          <div className="border-b px-5 py-4">
-            <h2 className="text-sm font-medium">Transcript</h2>
-            <p className="text-xs text-muted-foreground">
-              {session.messageCount ?? messages.length} messages
-            </p>
-          </div>
-          <div className="flex flex-col gap-5 p-5">
+        {/* Transcript — centered with max-width, no card wrapper */}
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="flex flex-col gap-5 py-4">
             {turns.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 No transcript data available.
@@ -609,24 +600,5 @@ export function TranscriptViewer({
         </div>
       </div>
     </ResolveTextContext.Provider>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Metadata card
-// ---------------------------------------------------------------------------
-
-function MetadataCard({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border p-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{children}</span>
-    </div>
   );
 }
