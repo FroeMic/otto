@@ -136,18 +136,22 @@ async function resolveSessionKeyFromFile(api, sessionFile) {
     const store = await api.runtime.agent.session.loadSessionStore(storePath);
     const normalizedFile = sessionFile.trim();
 
+    // Collect all matching keys — multiple session keys can share the same
+    // transcript file (e.g. base cron key + run-specific key).
+    const matches = [];
     for (const [key, entry] of Object.entries(store)) {
-      if (entry?.sessionFile === normalizedFile) {
-        return key;
-      }
-
-      // Also match by sessionId extracted from the file name
-      if (entry?.sessionId && normalizedFile.includes(entry.sessionId)) {
-        return key;
+      if (
+        entry?.sessionFile === normalizedFile ||
+        (entry?.sessionId && normalizedFile.includes(entry.sessionId))
+      ) {
+        matches.push(key);
       }
     }
 
-    return null;
+    if (matches.length === 0) return null;
+
+    // Prefer run-specific keys (contain ":run:") over base cron keys
+    return matches.find((k) => k.includes(":run:")) ?? matches[0];
   } catch (error) {
     logError("resolveSessionKeyFromFile failed", error);
     return null;
