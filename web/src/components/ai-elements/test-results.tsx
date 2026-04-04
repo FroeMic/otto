@@ -1,12 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
 import {
   CheckCircle2Icon,
   ChevronRightIcon,
@@ -16,6 +9,13 @@ import {
 } from "lucide-react";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { createContext, useContext, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 type TestStatus = "passed" | "failed" | "skipped" | "running";
 
@@ -50,7 +50,7 @@ export const TestResultsHeader = ({
   <div
     className={cn(
       "flex items-center justify-between border-b px-4 py-3",
-      className
+      className,
     )}
     {...props}
   >
@@ -276,7 +276,7 @@ export const TestSuiteName = ({
     <CollapsibleTrigger
       className={cn(
         "group flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/50",
-        className
+        className,
       )}
       {...props}
     >
@@ -420,7 +420,7 @@ export const Test = ({
 }: TestProps) => {
   const contextValue = useMemo(
     () => ({ duration, name, status }),
-    [duration, name, status]
+    [duration, name, status],
   );
 
   return (
@@ -451,7 +451,7 @@ export const TestError = ({
   <div
     className={cn(
       "mt-2 rounded-md bg-red-50 p-3 dark:bg-red-900/20",
-      className
+      className,
     )}
     {...props}
   >
@@ -469,7 +469,7 @@ export const TestErrorMessage = ({
   <p
     className={cn(
       "font-medium text-red-700 text-sm dark:text-red-400",
-      className
+      className,
     )}
     {...props}
   >
@@ -487,7 +487,7 @@ export const TestErrorStack = ({
   <pre
     className={cn(
       "mt-2 overflow-auto font-mono text-red-600 text-xs dark:text-red-400",
-      className
+      className,
     )}
     {...props}
   >

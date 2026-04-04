@@ -104,15 +104,18 @@ function SurfaceIcon({ surface }: { surface: SurfaceEntry }) {
 
 function CapabilitySummaryRow({ summary }: { summary: CapabilitySummary }) {
   const parts: string[] = [];
-  if (summary.triggers > 0) parts.push(`${summary.triggers} trigger${summary.triggers !== 1 ? "s" : ""}`);
-  if (summary.tools > 0) parts.push(`${summary.tools} tool${summary.tools !== 1 ? "s" : ""}`);
-  if (summary.reads > 0) parts.push(`${summary.reads} read${summary.reads !== 1 ? "s" : ""}`);
+  if (summary.triggers > 0)
+    parts.push(
+      `${summary.triggers} trigger${summary.triggers !== 1 ? "s" : ""}`,
+    );
+  if (summary.tools > 0)
+    parts.push(`${summary.tools} tool${summary.tools !== 1 ? "s" : ""}`);
+  if (summary.reads > 0)
+    parts.push(`${summary.reads} read${summary.reads !== 1 ? "s" : ""}`);
   if (parts.length === 0) return null;
 
   return (
-    <p className="mt-auto text-xs text-muted-foreground">
-      {parts.join(" · ")}
-    </p>
+    <p className="mt-auto text-xs text-muted-foreground">{parts.join(" · ")}</p>
   );
 }
 

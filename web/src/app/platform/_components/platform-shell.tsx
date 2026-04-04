@@ -1,7 +1,7 @@
 "use client";
 
-import type * as React from "react";
 import { usePathname } from "next/navigation";
+import type * as React from "react";
 
 import { PlatformSidebar } from "@/app/platform/_components/platform-sidebar";
 import { Separator } from "@/components/ui/separator";

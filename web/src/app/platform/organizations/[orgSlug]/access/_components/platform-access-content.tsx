@@ -5,10 +5,10 @@ import { useState } from "react";
 import {
   SettingsCard,
   SettingsPage,
+  SettingsRow,
   SettingsSection,
   SettingsSectionDescription,
   SettingsSectionTitle,
-  SettingsRow,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -146,7 +146,9 @@ export function PlatformAccessContent({
                   action={
                     <FixedCopyButton
                       copied={copiedField === "host-ssh"}
-                      onClick={() => copyToClipboard(hostSshCommand, "host-ssh")}
+                      onClick={() =>
+                        copyToClipboard(hostSshCommand, "host-ssh")
+                      }
                     />
                   }
                   label="SSH"
@@ -159,7 +161,10 @@ export function PlatformAccessContent({
                     <FixedCopyButton
                       copied={copiedField === "host-ssh-custom"}
                       onClick={() =>
-                        copyToClipboard(hostSshCustomKeyCommand, "host-ssh-custom")
+                        copyToClipboard(
+                          hostSshCustomKeyCommand,
+                          "host-ssh-custom",
+                        )
                       }
                     />
                   }
@@ -188,7 +193,9 @@ export function PlatformAccessContent({
                 action={
                   <FixedCopyButton
                     copied={copiedField === "open-shell"}
-                    onClick={() => copyToClipboard(openShellCommand, "open-shell")}
+                    onClick={() =>
+                      copyToClipboard(openShellCommand, "open-shell")
+                    }
                   />
                 }
                 label="Shell into container"
@@ -210,12 +217,12 @@ export function PlatformAccessContent({
                 action={
                   <FixedCopyButton
                     copied={copiedField === "ssh-tunnel"}
-                    onClick={() => copyToClipboard(sshTunnelCommand, "ssh-tunnel")}
+                    onClick={() =>
+                      copyToClipboard(sshTunnelCommand, "ssh-tunnel")
+                    }
                   />
                 }
-              label={
-                  <span>Start SSH tunnel</span>
-                }
+                label={<span>Start SSH tunnel</span>}
                 value={sshTunnelCommand}
               />
             ) : (
@@ -233,9 +240,7 @@ export function PlatformAccessContent({
                   onClick={() => copyToClipboard(dashboardUrl, "dashboard-url")}
                 />
               }
-              label={
-                <span>Open dashboard URL</span>
-              }
+              label={<span>Open dashboard URL</span>}
               value={dashboardUrl}
             />
             {gatewayToken ? (
@@ -252,13 +257,13 @@ export function PlatformAccessContent({
                     </Button>
                     <FixedCopyButton
                       copied={copiedField === "gateway-token"}
-                      onClick={() => copyToClipboard(gatewayToken, "gateway-token")}
+                      onClick={() =>
+                        copyToClipboard(gatewayToken, "gateway-token")
+                      }
                     />
                   </>
                 }
-                label={
-                  <span>Use gateway token</span>
-                }
+                label={<span>Use gateway token</span>}
                 value={visibleGatewayToken ?? ""}
               />
             ) : (

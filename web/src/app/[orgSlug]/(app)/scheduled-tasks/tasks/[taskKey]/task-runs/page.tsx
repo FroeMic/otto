@@ -51,7 +51,11 @@ export default async function ScheduledTaskRunsDetailPage({
       })}
     >
       <ScheduledTaskDetailShell orgSlug={organization.slug} task={task}>
-        <ScheduledRunsContent hideTaskColumn orgSlug={organization.slug} runs={runs} />
+        <ScheduledRunsContent
+          hideTaskColumn
+          orgSlug={organization.slug}
+          runs={runs}
+        />
       </ScheduledTaskDetailShell>
     </ScheduledTasksShell>
   );

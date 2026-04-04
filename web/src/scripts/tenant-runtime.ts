@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { desc, eq } from "drizzle-orm";
-
+import { getDb } from "@/db/client";
 import {
   enqueueTenantConfigApply,
   getLatestTenantDesiredState,
@@ -14,7 +14,6 @@ import {
   tenantServers,
   tenants,
 } from "@/db/schema";
-import { getDb } from "@/db/client";
 import { logCliError } from "@/lib/cli-error";
 import { getEnv } from "@/lib/env";
 import { JOB_STATUSES } from "@/lib/jobs/types";
@@ -145,10 +144,10 @@ async function runRefreshImage(tenant: TenantTarget) {
     "tenant runtime image refresh",
   );
   const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
-  const restart = await runtimeManager.restartGatewayWithResult(runtimeConnection);
-  const verify = await runtimeManager.checkGatewayHealthWithResult(
-    runtimeConnection,
-  );
+  const restart =
+    await runtimeManager.restartGatewayWithResult(runtimeConnection);
+  const verify =
+    await runtimeManager.checkGatewayHealthWithResult(runtimeConnection);
 
   console.info(
     JSON.stringify(
@@ -172,12 +171,10 @@ async function runRefreshImage(tenant: TenantTarget) {
   );
 }
 
-async function resolveTenantTarget(
-  target: {
-    mode: "org-slug";
-    value: string;
-  },
-): Promise<TenantTarget | null> {
+async function resolveTenantTarget(target: {
+  mode: "org-slug";
+  value: string;
+}): Promise<TenantTarget | null> {
   return await getLatestTenantForOrganizationSlug(target.value);
 }
 
@@ -252,7 +249,9 @@ async function waitForApplyRun(
   );
 }
 
-async function getApplyRunByJobId(jobRunId: string): Promise<ApplyRunStatus | null> {
+async function getApplyRunByJobId(
+  jobRunId: string,
+): Promise<ApplyRunStatus | null> {
   const db = getDb();
   const [applyRun] = await db
     .select({
@@ -343,9 +342,7 @@ function parseOptions(args: string[]) {
   }
 
   if (orgSlug === null) {
-    throw new Error(
-      "Pass --orgslug <slug>.",
-    );
+    throw new Error("Pass --orgslug <slug>.");
   }
 
   return {

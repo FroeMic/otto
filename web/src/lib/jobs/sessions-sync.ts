@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 
 import {
   deleteStaleTenantSessions,
-  upsertTenantSessionBatch,
   type TenantSessionUpsertInput,
+  upsertTenantSessionBatch,
 } from "@/db/control-plane";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { SshClient } from "@/lib/ssh/client";
@@ -143,7 +143,9 @@ export async function processSyncTenantSessionsJob(
         try {
           const result = await sshClient.exec(
             connection,
-            buildShellCmd(`docker exec openclaw-gateway cat ${shellQuote(filePath)}`),
+            buildShellCmd(
+              `docker exec openclaw-gateway cat ${shellQuote(filePath)}`,
+            ),
             { timeoutMs: 30_000 },
           );
 
@@ -175,8 +177,7 @@ export async function processSyncTenantSessionsJob(
         chatType: entry.chatType ?? entry.origin?.chatType ?? null,
         originFrom: entry.origin?.from ?? null,
         originTo: entry.origin?.to ?? null,
-        originAccountId:
-          entry.lastAccountId ?? entry.origin?.accountId ?? null,
+        originAccountId: entry.lastAccountId ?? entry.origin?.accountId ?? null,
         originThreadId: entry.lastThreadId
           ? String(entry.lastThreadId)
           : entry.origin?.threadId

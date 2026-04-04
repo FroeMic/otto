@@ -1,10 +1,10 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { ArrowRightIcon, MinusIcon, PackageIcon, PlusIcon } from "lucide-react";
 import type { HTMLAttributes } from "react";
 import { createContext, useContext, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type ChangeType = "major" | "minor" | "patch" | "added" | "removed";
 
@@ -86,7 +86,7 @@ export const PackageInfoChangeType = ({
       className={cn(
         "gap-1 text-xs capitalize",
         changeTypeStyles[changeType],
-        className
+        className,
       )}
       variant="secondary"
       {...props}
@@ -114,7 +114,7 @@ export const PackageInfoVersion = ({
     <div
       className={cn(
         "mt-2 flex items-center gap-2 font-mono text-muted-foreground text-sm",
-        className
+        className,
       )}
       {...props}
     >
@@ -151,7 +151,7 @@ export const PackageInfo = ({
 }: PackageInfoProps) => {
   const contextValue = useMemo(
     () => ({ changeType, currentVersion, name, newVersion }),
-    [changeType, currentVersion, name, newVersion]
+    [changeType, currentVersion, name, newVersion],
   );
 
   return (

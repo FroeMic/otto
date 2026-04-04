@@ -85,8 +85,7 @@ const agentCapabilities: AgentCapability[] = [
     source: "integration",
   },
   {
-    description:
-      "An @mention in an allowed WhatsApp group triggers a session.",
+    description: "An @mention in an allowed WhatsApp group triggers a session.",
     direction: "trigger",
     key: "whatsapp:trigger:group-mention",
     label: "Receive group mentions",

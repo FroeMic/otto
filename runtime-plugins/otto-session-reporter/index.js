@@ -10,7 +10,7 @@ export default definePluginEntry({
   id: "otto-session-reporter",
   name: "Otto Session Reporter",
   description:
-    "Reports session lifecycle and transcript data to the Otto control plane.",
+    "Reports session lifecycle and transcript data to the Otto workspace app.",
   configSchema: {
     type: "object",
     additionalProperties: false,
@@ -177,8 +177,7 @@ async function syncSessionFull(api, sessionKey, entry, transcript, overrides) {
     chatType: entry?.chatType ?? entry?.origin?.chatType ?? null,
     originFrom: entry?.origin?.from ?? null,
     originTo: entry?.origin?.to ?? null,
-    originAccountId:
-      entry?.lastAccountId ?? entry?.origin?.accountId ?? null,
+    originAccountId: entry?.lastAccountId ?? entry?.origin?.accountId ?? null,
     originThreadId: entry?.lastThreadId
       ? String(entry.lastThreadId)
       : entry?.origin?.threadId
@@ -210,7 +209,7 @@ async function syncSessionFull(api, sessionKey, entry, transcript, overrides) {
 }
 
 // ---------------------------------------------------------------------------
-// Control plane communication
+// Workspace app communication
 // ---------------------------------------------------------------------------
 
 async function syncSession(api, sessionData) {
@@ -330,8 +329,7 @@ async function requestControlPlane(api, input) {
       status: response.status,
     };
   } catch (error) {
-    const isTimeout =
-      error instanceof Error && error.name === "AbortError";
+    const isTimeout = error instanceof Error && error.name === "AbortError";
 
     return {
       ok: false,
@@ -373,9 +371,7 @@ function isBaseCronKey(sessionKey) {
 function logError(message, errorOrDetails) {
   try {
     const detail =
-      errorOrDetails instanceof Error
-        ? errorOrDetails.message
-        : errorOrDetails;
+      errorOrDetails instanceof Error ? errorOrDetails.message : errorOrDetails;
     console.error(`[otto-session-reporter] ${message}`, detail ?? "");
   } catch {
     // Ignore logging failures inside the plugin runtime.

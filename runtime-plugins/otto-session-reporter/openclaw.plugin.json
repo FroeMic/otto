@@ -1,7 +1,7 @@
 {
   "id": "otto-session-reporter",
   "name": "Otto Session Reporter",
-  "description": "Reports session lifecycle and transcript data to the Otto control plane.",
+  "description": "Reports session lifecycle and transcript data to the Otto workspace app.",
   "contracts": {},
   "configSchema": {
     "type": "object",

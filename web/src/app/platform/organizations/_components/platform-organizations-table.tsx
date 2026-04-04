@@ -24,12 +24,12 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import type { PlatformOrganization } from "@/db/control-plane";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { PlatformOrganization } from "@/db/control-plane";
 import { cn } from "@/lib/utils";
 
 type PlatformOrganizationsTableProps = {
@@ -193,9 +193,13 @@ function CopyableValue({ value }: { value: string }) {
     <Tooltip open={hovered || copied}>
       <TooltipTrigger
         render={
-          <span
-            className="cursor-pointer select-text truncate text-sm text-foreground"
+          <button
+            aria-label={`Copy ${value}`}
+            type="button"
+            className="cursor-pointer select-text truncate text-left text-sm text-foreground"
             onClick={handleClick}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           />

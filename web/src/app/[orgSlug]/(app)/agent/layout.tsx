@@ -1,5 +1,5 @@
-import { AgentTabs } from "@/app/[orgSlug]/(app)/agent/_components/agent-tabs";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { AgentTabs } from "@/app/[orgSlug]/(app)/agent/_components/agent-tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   HoverCard,

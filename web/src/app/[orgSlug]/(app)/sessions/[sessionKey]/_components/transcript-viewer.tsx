@@ -1,14 +1,12 @@
 "use client";
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Calendar03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowUpRightIcon, ChevronDownIcon, WrenchIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
-
-import {
-  MessageResponse,
-} from "@/components/ai-elements/message";
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { MessageResponse } from "@/components/ai-elements/message";
 import {
   Reasoning,
   ReasoningContent,
@@ -23,12 +21,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { ArrowUpRightIcon, ChevronDownIcon, WrenchIcon } from "lucide-react";
 
 import {
-  parseTranscript,
   type ParsedContentBlock,
   type ParsedMessage,
+  parseTranscript,
 } from "./transcript-parser";
 
 // ---------------------------------------------------------------------------
@@ -103,6 +100,26 @@ function buildResolveText(
   };
 }
 
+function buildBlockEntries<T extends ParsedContentBlock>(
+  messageId: string,
+  kind: string,
+  blocks: T[],
+  getBaseKey: (block: T) => string,
+): Array<{ block: T; key: string }> {
+  const seenKeys = new Map<string, number>();
+
+  return blocks.map((block) => {
+    const baseKey = getBaseKey(block).trim().slice(0, 120) || "empty";
+    const occurrence = seenKeys.get(baseKey) ?? 0;
+    seenKeys.set(baseKey, occurrence + 1);
+
+    return {
+      block,
+      key: `${messageId}:${kind}:${baseKey}:${occurrence}`,
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Grouping
 // ---------------------------------------------------------------------------
@@ -137,7 +154,7 @@ function groupMessagesIntoTurns(
     const turnKey =
       turnKind === "assistant"
         ? "assistant"
-        : msg.senderId ?? msg.senderName ?? "unknown";
+        : (msg.senderId ?? msg.senderName ?? "unknown");
 
     const matchesCurrent =
       currentGroup &&
@@ -275,11 +292,7 @@ function CronJobTitle({
     );
   }
 
-  return (
-    <h1 className="text-xl font-semibold tracking-tight">
-      {title}
-    </h1>
-  );
+  return <h1 className="text-xl font-semibold tracking-tight">{title}</h1>;
 }
 
 // ---------------------------------------------------------------------------
@@ -318,9 +331,7 @@ function SenderAvatar({
 
   return (
     <Avatar className="size-7">
-      <AvatarFallback
-        className={cn("text-xs font-medium text-white", color)}
-      >
+      <AvatarFallback className={cn("text-xs font-medium text-white", color)}>
         {initial}
       </AvatarFallback>
     </Avatar>
@@ -407,32 +418,51 @@ function AssistantTurnMessages({ messages }: { messages: ParsedMessage[] }) {
             b.type === "thinking",
         );
         const textBlocks = msg.blocks.filter(
-          (b): b is ParsedContentBlock & { type: "text" } =>
-            b.type === "text",
+          (b): b is ParsedContentBlock & { type: "text" } => b.type === "text",
         );
         const toolCallBlocks = msg.blocks.filter(
           (b): b is ParsedContentBlock & { type: "tool_call" } =>
             b.type === "tool_call",
         );
+        const thinkingEntries = buildBlockEntries(
+          msg.id,
+          "thinking",
+          thinkingBlocks,
+          (block) => block.text,
+        );
+        const textEntries = buildBlockEntries(
+          msg.id,
+          "text",
+          textBlocks,
+          (block) => block.text,
+        );
+        const toolEntries = buildBlockEntries(
+          msg.id,
+          "tool",
+          toolCallBlocks,
+          (block) =>
+            block.id ??
+            `${block.name}:${typeof block.args === "string" ? block.args : JSON.stringify(block.args ?? null)}`,
+        );
 
         return (
           <div key={msg.id} className="flex flex-col gap-2">
-            {thinkingBlocks.map((block, i) => (
-              <Reasoning key={`thinking-${i}`} defaultOpen={false}>
+            {thinkingEntries.map(({ block, key }) => (
+              <Reasoning key={key} defaultOpen={false}>
                 <ReasoningTrigger />
                 <ReasoningContent>{block.text}</ReasoningContent>
               </Reasoning>
             ))}
-            {textBlocks.map((block, i) => (
+            {textEntries.map(({ block, key }) => (
               <div
-                key={`text-${i}`}
+                key={key}
                 className="text-sm text-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
               >
                 <MessageResponse>{resolveText(block.text)}</MessageResponse>
               </div>
             ))}
-            {toolCallBlocks.map((block, i) => (
-              <ToolCallBlock key={`tool-${i}`} block={block} />
+            {toolEntries.map(({ block, key }) => (
+              <ToolCallBlock key={key} block={block} />
             ))}
           </div>
         );
@@ -545,10 +575,7 @@ function ToolResultBlock({ msg }: { msg: ParsedMessage }) {
             {resultBlock.name ?? "Tool result"}
           </span>
           {resultBlock.isError ? (
-            <Badge
-              variant="destructive"
-              className="text-[10px] px-1.5 py-0"
-            >
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
               Error
             </Badge>
           ) : null}
@@ -596,11 +623,7 @@ function StatsLine({ session }: { session: Session }) {
     if (dur !== "-") parts.push(dur);
   }
   if (parts.length === 0) return null;
-  return (
-    <p className="text-xs text-muted-foreground">
-      {parts.join(" · ")}
-    </p>
-  );
+  return <p className="text-xs text-muted-foreground">{parts.join(" · ")}</p>;
 }
 
 // ---------------------------------------------------------------------------
@@ -647,8 +670,8 @@ export function TranscriptViewer({
     [messages, currentUserIdSet],
   );
 
-  const resolveText = useCallback(
-    buildResolveText(memberNames, channelNames),
+  const resolveText = useMemo(
+    () => buildResolveText(memberNames, channelNames),
     [memberNames, channelNames],
   );
 
@@ -687,9 +710,7 @@ export function TranscriptViewer({
             ) : (
               turns.map((turn) => {
                 if (turn.kind === "compaction") {
-                  return (
-                    <CompactionDivider key={turn.msg.id} msg={turn.msg} />
-                  );
+                  return <CompactionDivider key={turn.msg.id} msg={turn.msg} />;
                 }
 
                 const group = turn as MessageGroup;

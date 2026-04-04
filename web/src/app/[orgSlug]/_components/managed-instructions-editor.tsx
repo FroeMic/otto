@@ -71,7 +71,7 @@ export function ManagedInstructionsEditor({
     setIsWorkspaceOpen(true);
     setIsLeaveDialogOpen(false);
     setPendingHref(null);
-  }, [filePath, sharedContent]);
+  }, [sharedContent]);
 
   useEffect(() => {
     if (!isDirty) {

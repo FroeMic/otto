@@ -1,9 +1,13 @@
 "use client";
 
+import {
+  ArrowReloadHorizontalIcon,
+  MoreHorizontalIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  MoreHorizontalIcon,
-  ArrowReloadHorizontalIcon,
-} from "@hugeicons/core-free-icons";
 
 export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
   const router = useRouter();
@@ -58,14 +57,8 @@ export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
         <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
-        <DropdownMenuItem
-          disabled={isRefreshing}
-          onClick={handleRefresh}
-        >
-          <HugeiconsIcon
-            icon={ArrowReloadHorizontalIcon}
-            className="size-4"
-          />
+        <DropdownMenuItem disabled={isRefreshing} onClick={handleRefresh}>
+          <HugeiconsIcon icon={ArrowReloadHorizontalIcon} className="size-4" />
           {isRefreshing ? "Refreshing..." : "Refresh from runtime"}
         </DropdownMenuItem>
       </DropdownMenuContent>

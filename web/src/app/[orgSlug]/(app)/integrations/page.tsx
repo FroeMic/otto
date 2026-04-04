@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import type {
   CapabilitySummary,
   SurfaceEntry,
 } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
+import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
 import { SLACK_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/slack-config";
 import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
@@ -110,7 +110,5 @@ export default async function IntegrationsPage({
     };
   });
 
-  return (
-    <IntegrationsContent orgSlug={organization.slug} surfaces={entries} />
-  );
+  return <IntegrationsContent orgSlug={organization.slug} surfaces={entries} />;
 }

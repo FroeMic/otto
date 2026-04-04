@@ -1,12 +1,12 @@
 import {
   SettingsCard,
   SettingsPage,
-  SettingsSection,
-  SettingsSectionDescription,
-  SettingsSectionTitle,
   SettingsRow,
   SettingsRowLabel,
   SettingsRowTitle,
+  SettingsSection,
+  SettingsSectionDescription,
+  SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import {
   formatStatus,
@@ -28,13 +28,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-function MetadataRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function MetadataRow({ label, value }: { label: string; value: string }) {
   return (
     <SettingsRow>
       <SettingsRowLabel>
@@ -45,13 +39,7 @@ function MetadataRow({
   );
 }
 
-function DiagnosticsBlock({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function DiagnosticsBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="text-sm font-medium text-foreground">{label}</div>
@@ -164,7 +152,9 @@ export default async function PlatformOrganizationLogsPage({
                           <MetadataRow label="Job ID" value={job.id} />
                           <MetadataRow
                             label="Started"
-                            value={formatTimestamp(job.startedAt ?? job.createdAt)}
+                            value={formatTimestamp(
+                              job.startedAt ?? job.createdAt,
+                            )}
                           />
                           <MetadataRow
                             label="Finished"
@@ -174,7 +164,10 @@ export default async function PlatformOrganizationLogsPage({
                             <MetadataRow label="Host" value={job.result.host} />
                           ) : null}
                           {job.result?.image ? (
-                            <MetadataRow label="Image" value={job.result.image} />
+                            <MetadataRow
+                              label="Image"
+                              value={job.result.image}
+                            />
                           ) : null}
                           {job.error ? (
                             <MetadataRow label="Error" value={job.error} />
@@ -216,7 +209,9 @@ export default async function PlatformOrganizationLogsPage({
           </SettingsSection>
 
           <SettingsSection>
-            <SettingsSectionTitle>Config apply diagnostics</SettingsSectionTitle>
+            <SettingsSectionTitle>
+              Config apply diagnostics
+            </SettingsSectionTitle>
             <SettingsSectionDescription>
               Review the most recent file-write, restart, and runtime
               verification output from tenant config apply runs.
@@ -252,7 +247,10 @@ export default async function PlatformOrganizationLogsPage({
                     <AccordionContent>
                       <div className="flex flex-col gap-4">
                         <SettingsCard>
-                          <MetadataRow label="Apply run ID" value={applyRun.id} />
+                          <MetadataRow
+                            label="Apply run ID"
+                            value={applyRun.id}
+                          />
                           <MetadataRow
                             label="Started"
                             value={formatTimestamp(applyRun.startedAt)}

@@ -1,7 +1,7 @@
 "use client";
 
-import type * as React from "react";
 import { usePathname } from "next/navigation";
+import type * as React from "react";
 
 import { SettingsSidebar } from "@/app/[orgSlug]/settings/_components/settings-sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -58,7 +58,7 @@ export function SettingsShell({
           <div className="min-w-0 text-sm">
             <span className="font-medium">Settings</span>
             {breadcrumb.map((segment, i) => (
-              <span key={i}>
+              <span key={breadcrumb.slice(0, i + 1).join("/")}>
                 <span className="mx-2 text-muted-foreground">/</span>
                 <span className="truncate text-muted-foreground">
                   {segment}
@@ -67,9 +67,7 @@ export function SettingsShell({
             ))}
           </div>
         </header>
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
-          {children}
-        </div>
+        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

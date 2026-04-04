@@ -130,8 +130,7 @@ const agentCapabilities: AgentCapability[] = [
     source: "integration",
   },
   {
-    description:
-      "Otto can read recent thread and channel history for context.",
+    description: "Otto can read recent thread and channel history for context.",
     direction: "read",
     key: "slack:read:history",
     label: "Read message history",
