@@ -9,6 +9,8 @@ import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
 
+import { SessionsActionsMenu } from "./sessions-actions-menu";
+
 import {
   canViewSessionDetail,
   formatSessionName,
@@ -301,15 +303,18 @@ export function SessionsContent({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
-          <p className="text-sm text-muted-foreground">
-            Agent conversation sessions synced from the runtime.{" "}
-            <span className="font-medium text-foreground">
-              {sessions.length}
-            </span>{" "}
-            sessions.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
+            <p className="text-sm text-muted-foreground">
+              Agent conversation sessions synced from the runtime.{" "}
+              <span className="font-medium text-foreground">
+                {sessions.length}
+              </span>{" "}
+              sessions.
+            </p>
+          </div>
+          <SessionsActionsMenu orgSlug={orgSlug} />
         </div>
         <ToolbarSearchInput
           aria-label="Search sessions"
