@@ -6,7 +6,7 @@ import {
   ManagedConfigVersionConflictError,
   updateTenantManagedFileSharedContentForTenant,
 } from "@/db/control-plane";
-import { isManagedBootstrapFilePath } from "@/lib/openclaw/managed-config";
+import { normalizeManagedBootstrapFilePath } from "@/lib/openclaw/managed-config";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,9 @@ export async function GET(request: Request) {
     const filePath = url.searchParams.get("filePath");
 
     if (filePath) {
-      if (!isManagedBootstrapFilePath(filePath)) {
+      const normalizedFilePath = normalizeManagedBootstrapFilePath(filePath);
+
+      if (!normalizedFilePath) {
         return json(
           {
             error: `Unsupported managed config file: ${filePath}`,
@@ -35,7 +37,9 @@ export async function GET(request: Request) {
         );
       }
 
-      const file = managedConfig.files.find((entry) => entry.path === filePath);
+      const file = managedConfig.files.find(
+        (entry) => entry.path === normalizedFilePath,
+      );
 
       if (!file) {
         return json(
@@ -66,7 +70,9 @@ export async function PATCH(request: Request) {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
     const body = patchSchema.parse(await request.json());
 
-    if (!isManagedBootstrapFilePath(body.filePath)) {
+    const normalizedFilePath = normalizeManagedBootstrapFilePath(body.filePath);
+
+    if (!normalizedFilePath) {
       return json(
         {
           error: `Unsupported managed config file: ${body.filePath}`,
@@ -79,7 +85,7 @@ export async function PATCH(request: Request) {
       createdByExternalId: null,
       createdByType: "runtime",
       expectedVersion: body.expectedVersion,
-      filePath: body.filePath,
+      filePath: normalizedFilePath,
       sharedContent: body.sharedContent,
       summary:
         body.summary ??

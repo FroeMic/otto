@@ -2,9 +2,13 @@ export const MANAGED_BOOTSTRAP_FILE_PATHS = [
   "AGENTS.md",
   "IDENTITY.md",
   "SOUL.md",
-  "USERS.md",
+  "USER.md",
   "TOOLS.md",
 ] as const;
+
+const LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES = {
+  "USERS.md": "USER.md",
+} as const;
 
 export type ManagedBootstrapFilePath =
   (typeof MANAGED_BOOTSTRAP_FILE_PATHS)[number];
@@ -48,7 +52,7 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "Before doing anything else:",
       "",
       "1. Read `SOUL.md` - this is who you are",
-      "2. Read `USERS.md` - this is who you're helping in this workspace",
+      "2. Read `USER.md` - this is who you're helping in this workspace",
       "3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context",
       "4. In direct conversations, also read `MEMORY.md` when it exists",
       "",
@@ -169,13 +173,13 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "- What should feel out of character",
     ].join("\n"),
   },
-  "USERS.md": {
-    path: "USERS.md",
+  "USER.md": {
+    path: "USER.md",
     label: "People",
     description:
       "About the people Otto is helping. Update this over time as it learns how to support them well.",
     systemContent: [
-      "USERS.md - About Your People",
+      "USER.md - About Your People",
       "",
       "Learn about the people you're helping. Update this as you go.",
       "",
@@ -226,7 +230,7 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "",
       "## Managed Instruction Files",
       "",
-      "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md`.",
+      "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md`.",
       "- Use normal file and exec tools for everything else in the local workspace.",
       "- Do not use managed-file tools for secrets, gateway auth, sandbox settings, or operator-only policy.",
     ].join("\n"),
@@ -269,6 +273,22 @@ export function isManagedBootstrapFilePath(
   return MANAGED_BOOTSTRAP_FILE_PATHS.includes(
     value as ManagedBootstrapFilePath,
   );
+}
+
+export function normalizeManagedBootstrapFilePath(
+  value: string,
+): ManagedBootstrapFilePath | null {
+  if (isManagedBootstrapFilePath(value)) {
+    return value;
+  }
+
+  return LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES[
+    value as keyof typeof LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES
+  ]
+    ? LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES[
+        value as keyof typeof LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES
+      ]
+    : null;
 }
 
 export function buildManagedBootstrapFileContent(

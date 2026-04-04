@@ -96,7 +96,7 @@
   - workspace settings now also includes a `Time and Region` section with workspace-level timezone, locale, and time-format preferences stored on the organization and projected into tenant/runtime config where applicable
   - workspace-facing session, scheduled-task, member, and platform operator date displays now use a shared explicit timezone/locale formatter instead of route-local `Intl.DateTimeFormat` copies
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
-  - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
+  - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md` with separate protected and shared sections
 - A platform-admin extension of the app shell is now implemented on `codex/platform-admin-main`:
   - `user_platform_roles` introduces a global `PLATFORM_ADMIN` flag linked to local users
   - workspace sidebars now expose `Platform Administration` below the Slack link for flagged users
@@ -273,7 +273,7 @@
   - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` and `otto-runtime-config` plugins instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
   - verifying end to end that `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface` appear in a tenant runtime and drive the shared runtime-surface mutation flow
-  - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
+  - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
 - After the managed plugin image is validated, implement `TODO_11_runtime_release_rollout.md` by:
   - adding the runtime release schema migration and DB-backed active release record
   - removing `RUNTIME_OPENCLAW_IMAGE` from runtime code paths
