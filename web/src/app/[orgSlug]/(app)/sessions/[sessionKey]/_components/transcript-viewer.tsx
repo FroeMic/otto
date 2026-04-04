@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
 import {
   MessageResponse,
@@ -11,6 +11,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
+import { useSetBreadcrumbs } from "@/components/breadcrumb-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -289,27 +290,31 @@ function TurnHeader({ group }: { group: MessageGroup }) {
 
   if (group.kind === "current_user") {
     return (
-      <div className="flex items-center justify-end gap-2">
-        <span className="text-xs font-medium text-foreground/70">{name}</span>
+      <div className="flex flex-col items-end gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-foreground/70">{name}</span>
+          <SenderAvatar name={name} />
+        </div>
         {ts ? (
-          <span className="text-xs text-muted-foreground">{ts}</span>
+          <span className="text-xs text-muted-foreground pr-9">{ts}</span>
         ) : null}
-        <SenderAvatar name={name} />
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
-      <span className="text-xs font-medium text-foreground/70">{name}</span>
-      {group.kind === "assistant" && group.model ? (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-          {group.model}
-        </Badge>
-      ) : null}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <SenderAvatar name={name} isOtto={group.kind === "assistant"} />
+        <span className="text-xs font-medium text-foreground/70">{name}</span>
+        {group.kind === "assistant" && group.model ? (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            {group.model}
+          </Badge>
+        ) : null}
+      </div>
       {ts ? (
-        <span className="text-xs text-muted-foreground">{ts}</span>
+        <span className="text-xs text-muted-foreground pl-9">{ts}</span>
       ) : null}
     </div>
   );
@@ -511,16 +516,28 @@ function StatsLine({ session }: { session: Session }) {
 export function TranscriptViewer({
   orgSlug,
   session,
+  sessionName,
   currentUserExternalIds = [],
   memberNames = {},
   channelNames = {},
 }: {
   orgSlug: string;
   session: Session;
+  sessionName: string;
   currentUserExternalIds?: string[];
   memberNames?: Record<string, string>;
   channelNames?: Record<string, string>;
 }) {
+  const setBreadcrumbs = useSetBreadcrumbs();
+
+  useEffect(() => {
+    setBreadcrumbs([
+      { label: "Sessions", href: `/${orgSlug}/sessions` },
+      { label: sessionName },
+    ]);
+    return () => setBreadcrumbs([]);
+  }, [orgSlug, sessionName, setBreadcrumbs]);
+
   const messages = useMemo(
     () => parseTranscript(session.transcriptJsonl),
     [session.transcriptJsonl],
@@ -549,23 +566,23 @@ export function TranscriptViewer({
 
   return (
     <ResolveTextContext.Provider value={resolveText}>
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
-        {/* Header with channel icon */}
-        <div className="flex items-start gap-3">
-          <ChannelIcon channel={session.channel} />
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {resolveText(title)}
-            </h1>
-            <p className="text-xs text-muted-foreground font-mono">
-              {session.sessionKey}
-            </p>
-            <StatsLine session={session} />
-          </div>
-        </div>
-
-        {/* Transcript — centered with max-width, no card wrapper */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="mx-auto w-full max-w-3xl">
+          {/* Header with channel icon */}
+          <div className="flex items-start gap-3 pb-6">
+            <ChannelIcon channel={session.channel} />
+            <div className="flex flex-col gap-0.5">
+              <h1 className="text-xl font-semibold tracking-tight">
+                {resolveText(title)}
+              </h1>
+              <p className="text-xs text-muted-foreground font-mono">
+                {session.sessionKey}
+              </p>
+              <StatsLine session={session} />
+            </div>
+          </div>
+
+          {/* Transcript */}
           <div className="flex flex-col gap-5 py-4">
             {turns.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">

@@ -5,6 +5,7 @@ import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
+import { processSyncTenantSessionsJob } from "./sessions-sync";
 import {
   processResyncSlackChannelsJob,
   processResyncSlackUsersJob,
@@ -43,6 +44,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.resyncSlackChannels:
       await processResyncSlackChannelsJob(job);
+      return;
+    case JOB_TYPES.syncTenantSessions:
+      await processSyncTenantSessionsJob(job);
       return;
     default:
       await markJobFailed(job.id, `Unsupported job type: ${job.jobType}`);
