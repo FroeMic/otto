@@ -57,7 +57,7 @@ type Session = {
   lastSyncedAt: Date;
 };
 
-type TurnKind = "assistant" | "current_user" | "other_user";
+type TurnKind = "assistant" | "current_user" | "other_user" | "system_prompt";
 
 type MessageGroup = {
   id: string;
@@ -125,9 +125,11 @@ function groupMessagesIntoTurns(
     const turnKind: TurnKind =
       msg.kind === "assistant" || msg.kind === "tool_result"
         ? "assistant"
-        : msg.senderId && currentUserIdSet.has(msg.senderId)
-          ? "current_user"
-          : "other_user";
+        : msg.kind === "system_prompt"
+          ? "system_prompt"
+          : msg.senderId && currentUserIdSet.has(msg.senderId)
+            ? "current_user"
+            : "other_user";
 
     const turnKey =
       turnKind === "assistant"
@@ -285,8 +287,27 @@ function TurnHeader({ group }: { group: MessageGroup }) {
     ? resolveText(group.senderName)
     : group.kind === "assistant"
       ? "Otto"
-      : "User";
+      : group.kind === "system_prompt"
+        ? "Scheduled Task"
+        : "User";
   const ts = formatTimestamp(group.firstTimestamp);
+
+  if (group.kind === "system_prompt") {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <SenderAvatar name={name} />
+          <span className="text-xs font-medium text-foreground/70">{name}</span>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+            System
+          </Badge>
+        </div>
+        {ts ? (
+          <span className="text-xs text-muted-foreground pl-9">{ts}</span>
+        ) : null}
+      </div>
+    );
+  }
 
   if (group.kind === "current_user") {
     return (
@@ -393,7 +414,7 @@ function UserTurnMessages({
           <div
             key={msg.id}
             className={cn(
-              "max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm",
+              "max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm [&_ul]:pl-5 [&_ol]:pl-5",
               isCurrentUser
                 ? "bg-secondary text-foreground"
                 : "bg-muted text-foreground",
@@ -401,6 +422,31 @@ function UserTurnMessages({
           >
             <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SystemPromptMessages({ messages }: { messages: ParsedMessage[] }) {
+  const resolveText = useResolveText();
+
+  return (
+    <div className="flex flex-col gap-1.5 items-start pl-9">
+      {messages.map((msg) => {
+        const textBlock = msg.blocks.find((b) => b.type === "text");
+        if (!textBlock || textBlock.type !== "text") return null;
+
+        return (
+          <Collapsible key={msg.id} className="w-full max-w-[85%]">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg bg-amber-500/5 border border-amber-500/20 px-3.5 py-2.5 text-sm text-muted-foreground hover:bg-amber-500/10">
+              <span className="truncate">Task prompt</span>
+              <ChevronDownIcon className="size-3.5 shrink-0 transition-transform [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="rounded-b-lg border border-t-0 border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-sm text-muted-foreground [&_ul]:pl-5 [&_ol]:pl-5">
+              <MessageResponse>{resolveText(textBlock.text)}</MessageResponse>
+            </CollapsibleContent>
+          </Collapsible>
         );
       })}
     </div>
@@ -603,6 +649,8 @@ export function TranscriptViewer({
                     <TurnHeader group={group} />
                     {group.kind === "assistant" ? (
                       <AssistantTurnMessages messages={group.messages} />
+                    ) : group.kind === "system_prompt" ? (
+                      <SystemPromptMessages messages={group.messages} />
                     ) : (
                       <UserTurnMessages
                         messages={group.messages}

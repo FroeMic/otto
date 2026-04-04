@@ -34,7 +34,7 @@ export type ParsedContentBlock =
 
 export type ParsedMessage = {
   id: string;
-  kind: "user" | "assistant" | "tool_result" | "compaction";
+  kind: "user" | "assistant" | "tool_result" | "compaction" | "system_prompt";
   timestamp: number | null;
   // User message fields
   senderName: string | null;
@@ -248,20 +248,37 @@ export function parseTranscript(jsonl: string | null): ParsedMessage[] {
 
       if (role === "user") {
         const rawText = extractTextContent(msg.content);
-        const parsed = parseUserMessageText(rawText);
+        const isCronPrompt = /^\[cron:[^\]]+\]/.test(rawText.trim());
 
-        messages.push({
-          id: line.id ?? `msg-${messages.length}`,
-          kind: "user",
-          timestamp: ts,
-          senderName: parsed.senderName,
-          senderId: parsed.senderId,
-          blocks: parsed.text
-            ? [{ type: "text", text: parsed.text }]
-            : [],
-          model: null,
-          usage: null,
-        });
+        if (isCronPrompt) {
+          messages.push({
+            id: line.id ?? `msg-${messages.length}`,
+            kind: "system_prompt",
+            timestamp: ts,
+            senderName: "Scheduled Task",
+            senderId: null,
+            blocks: rawText
+              ? [{ type: "text", text: rawText }]
+              : [],
+            model: null,
+            usage: null,
+          });
+        } else {
+          const parsed = parseUserMessageText(rawText);
+
+          messages.push({
+            id: line.id ?? `msg-${messages.length}`,
+            kind: "user",
+            timestamp: ts,
+            senderName: parsed.senderName,
+            senderId: parsed.senderId,
+            blocks: parsed.text
+              ? [{ type: "text", text: parsed.text }]
+              : [],
+            model: null,
+            usage: null,
+          });
+        }
       } else if (role === "assistant") {
         const blocks = parseContentBlocks(msg.content, "assistant");
         const usage = msg.usage
