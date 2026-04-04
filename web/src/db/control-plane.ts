@@ -8462,6 +8462,7 @@ export async function getTenantSession(input: {
         eq(tenantSessions.sessionKey, input.sessionKey),
       ),
     )
+    .orderBy(desc(tenantSessions.createdAt))
     .limit(1);
 
   return session ?? null;
