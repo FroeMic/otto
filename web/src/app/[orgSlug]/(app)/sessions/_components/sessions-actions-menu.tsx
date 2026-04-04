@@ -57,7 +57,7 @@ export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
       >
         <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="min-w-52">
         <DropdownMenuItem
           disabled={isRefreshing}
           onClick={handleRefresh}
