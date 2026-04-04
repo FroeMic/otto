@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  ArrowReloadHorizontalIcon,
-  MoreHorizontalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowsClockwise, DotsThree } from "@phosphor-icons/react/ssr";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { SyncNotification } from "@/components/sync-notification";
@@ -64,14 +60,11 @@ export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
             />
           }
         >
-          <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+          <DotsThree className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
           <DropdownMenuItem disabled={syncJobId !== null} onClick={handleSync}>
-            <HugeiconsIcon
-              icon={ArrowReloadHorizontalIcon}
-              className="size-4"
-            />
+            <ArrowsClockwise className="size-4" />
             {syncJobId ? "Syncing..." : "Sync Session Transcripts"}
           </DropdownMenuItem>
         </DropdownMenuContent>

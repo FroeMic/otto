@@ -5,6 +5,19 @@ import {
   describeCronExpression,
   describeScheduledTaskSchedule,
 } from "@/lib/scheduled-tasks/cron-description";
+import { resolveDateTimePreferences } from "@/lib/date-time";
+
+const UTC_PREFS = resolveDateTimePreferences({
+  locale: "en-US",
+  timeFormatPreference: "24",
+  timeZone: "UTC",
+});
+
+const BERLIN_PREFS = resolveDateTimePreferences({
+  locale: "en-US",
+  timeFormatPreference: "24",
+  timeZone: "Europe/Berlin",
+});
 
 test("describes common cron expressions in brief natural language", () => {
   assert.equal(describeCronExpression("0 * * * *"), "Every hour at :00");
@@ -28,18 +41,35 @@ test("falls back to the raw cron expression when the pattern is unsupported", ()
 test("formats non-cron schedules using the synced schedule payload", () => {
   assert.equal(
     describeScheduledTaskSchedule({
+      dateTimePreferences: UTC_PREFS,
       scheduleExpression: "Recurring",
       scheduleJson: { everyMs: 30 * 60 * 1000, kind: "every" },
       timezone: null,
     }),
     "Every 30 minutes",
   );
+});
+
+test("converts cron times from task timezone to workspace timezone", () => {
+  // Task runs at 09:00 in Europe/Berlin, workspace also Berlin → stays 09:00
   assert.equal(
     describeScheduledTaskSchedule({
+      dateTimePreferences: BERLIN_PREFS,
       scheduleExpression: "0 9 * * *",
       scheduleJson: { expr: "0 9 * * *", kind: "cron", tz: "Europe/Berlin" },
       timezone: "Europe/Berlin",
     }),
-    "Every day at 09:00 (Europe/Berlin)",
+    "Every day at 09:00",
+  );
+
+  // Task runs at 09:00 UTC, workspace is UTC → stays 09:00
+  assert.equal(
+    describeScheduledTaskSchedule({
+      dateTimePreferences: UTC_PREFS,
+      scheduleExpression: "0 9 * * *",
+      scheduleJson: { expr: "0 9 * * *", kind: "cron", tz: "UTC" },
+      timezone: "UTC",
+    }),
+    "Every day at 09:00",
   );
 });
