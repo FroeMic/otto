@@ -63,8 +63,15 @@ export default definePluginEntry({
 
     // -- Transcript update events (runtime.events → real session keys) -------
 
-    api.runtime.events.onSessionTranscriptUpdate((update) => {
-      const sessionKey = update.sessionKey;
+    api.runtime.events.onSessionTranscriptUpdate(async (update) => {
+      let sessionKey = update.sessionKey;
+
+      // Many code paths emit transcript updates with only sessionFile
+      // (no sessionKey). Reverse-lookup the key from sessions.json.
+      if (!sessionKey && update.sessionFile) {
+        sessionKey = await resolveSessionKeyFromFile(api, update.sessionFile);
+      }
+
       if (!sessionKey) return;
 
       debouncedSync(api, pendingFlush, sessionKey);
@@ -119,6 +126,30 @@ async function loadSessionEntry(api, sessionKey) {
     return store[normalized] ?? null;
   } catch (error) {
     logError("loadSessionEntry failed", error);
+    return null;
+  }
+}
+
+async function resolveSessionKeyFromFile(api, sessionFile) {
+  try {
+    const storePath = api.runtime.agent.session.resolveStorePath();
+    const store = await api.runtime.agent.session.loadSessionStore(storePath);
+    const normalizedFile = sessionFile.trim();
+
+    for (const [key, entry] of Object.entries(store)) {
+      if (entry?.sessionFile === normalizedFile) {
+        return key;
+      }
+
+      // Also match by sessionId extracted from the file name
+      if (entry?.sessionId && normalizedFile.includes(entry.sessionId)) {
+        return key;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    logError("resolveSessionKeyFromFile failed", error);
     return null;
   }
 }
