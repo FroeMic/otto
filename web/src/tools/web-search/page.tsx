@@ -257,7 +257,7 @@ export function WebSearchToolPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-12">
+    <div className="flex w-full max-w-3xl flex-col gap-6 pb-12">
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Image
