@@ -121,7 +121,7 @@
   - scheduled task definitions and run history are persisted in dedicated Postgres tables
   - the worker can pull runtime cron definitions and recent runs into the workspace database
   - the workspace scheduled-tasks page now shows synced tasks, recent runs, sync health, and a manual `Refresh from runtime` action
-  - the workspace scheduled-tasks area now redirects to route-backed `Jobs` and `Recent Runs` views
+  - the workspace scheduled-tasks area now redirects to route-backed `Scheduled Tasks` and `Task Runs` views
   - both scheduled-tasks views now use sessions-style `DataTable` layouts instead of summary cards and stacked static tables
   - the jobs view now exposes a URL-backed `All / Active / Disabled` filter aligned with the platform jobs page
 - Otto runtime config now explicitly requests no exec approvals by default in rendered OpenClaw config:
@@ -280,9 +280,8 @@
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
   - deciding how operators will flip `organizations.is_ready` without using direct SQL
 - Continue `TODO_13_scheduled_tasks_visibility.md` by:
-  - remodeling the workspace scheduled-tasks UI to match the existing sessions and platform jobs patterns
-  - replacing the current summary-card layout with data-table-first `Jobs` and `Recent Runs` views
-  - adding URL-backed navigation plus `All / Active / Disabled` filtering for scheduled jobs
+  - continuing the scheduled-tasks follow-up after the UI remodel shipped
+  - keeping the workspace scheduled-tasks area on the route-backed `Scheduled Tasks` and `Task Runs` views
   - adding a faster runtime push path so cron mutations do not rely only on pull/reconciliation
   - adding runtime-authenticated callback endpoints if we choose plugin/helper push
   - deciding whether the faster path should be an Otto runtime plugin, a runtime-local helper, or both

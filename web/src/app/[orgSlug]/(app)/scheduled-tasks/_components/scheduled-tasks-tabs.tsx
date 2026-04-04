@@ -7,12 +7,12 @@ import { cn } from "@/lib/utils";
 
 const SCHEDULED_TASK_TABS = [
   {
-    href: (orgSlug: string) => `/${orgSlug}/scheduled-tasks/jobs`,
-    label: "Jobs",
+    href: (orgSlug: string) => `/${orgSlug}/scheduled-tasks/tasks`,
+    label: "Scheduled Tasks",
   },
   {
-    href: (orgSlug: string) => `/${orgSlug}/scheduled-tasks/runs`,
-    label: "Recent Runs",
+    href: (orgSlug: string) => `/${orgSlug}/scheduled-tasks/task-runs`,
+    label: "Task Runs",
   },
 ] as const;
 

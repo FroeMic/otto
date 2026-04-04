@@ -199,8 +199,8 @@ Keep one primary nav item: `Scheduled Tasks`.
 
 Within that area, add route-backed tabs or subroutes for:
 
-- `Jobs`
-- `Recent Runs`
+- `Scheduled Tasks`
+- `Task Runs`
 
 ### UI remodel plan
 
@@ -221,16 +221,18 @@ Remodel decisions:
   - right-aligned `Refresh from runtime` action
   - sync-state badge or inline warning only when needed
 - use a `DataTable`-based list for both tabs instead of hand-built `Table` sections so spacing, sticky headers, sorting, empty states, and search behave like the existing pages
-- make the top-level entity naming `Jobs` and `Recent Runs`, not `Tasks` and `Sessions`, to align with how users already understand scheduled work and operator job surfaces
+- keep the top-level naming consistent across tabs, URLs, and tables:
+  - `Scheduled Tasks`
+  - `Task Runs`
 - make filters URL-driven where possible so state is shareable and navigation feels like the platform jobs page
 
 Implementation sequence:
 
 1. Replace the current inline tables on `/[orgSlug]/scheduled-tasks` with a client content component modeled after `sessions/_components/sessions-content.tsx`.
 2. Add a compact URL-backed tab strip near the page header for:
-   - `Jobs`
-   - `Recent Runs`
-3. Make the default `/[orgSlug]/scheduled-tasks` route resolve to the jobs view, with subroutes or query-backed state that preserves direct linking.
+   - `Scheduled Tasks`
+   - `Task Runs`
+3. Make the default `/[orgSlug]/scheduled-tasks` route resolve to the scheduled-tasks view, with subroutes or query-backed state that preserves direct linking.
 4. Add a jobs filter control matching the platform jobs pattern:
    - `All`
    - `Active`
@@ -267,7 +269,7 @@ Initial content:
 - empty state when no tasks exist yet
 - inline warning when data is stale or last sync failed
 
-### Recent Runs view
+### Task Runs view
 
 Purpose:
 
@@ -318,7 +320,7 @@ Initial content:
 - [x] replace the scheduled-tasks placeholder page with real tasks and sessions views
 - [x] remodel the scheduled-tasks page to use sessions-style data tables instead of summary cards and stacked static tables
 - [x] add jobs-style `All / Active / Disabled` filtering for scheduled jobs
-- [x] add URL-backed `Jobs / Recent Runs` navigation aligned with existing page tabs
+- [x] add URL-backed `Scheduled Tasks / Task Runs` navigation aligned with existing page tabs
 
 Implementation note:
 
