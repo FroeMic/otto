@@ -124,6 +124,12 @@
   - the workspace scheduled-tasks area now redirects to route-backed `Scheduled Tasks` and `Task Runs` views
   - both scheduled-tasks views now use sessions-style `DataTable` layouts instead of summary cards and stacked static tables
   - the jobs view now exposes a URL-backed `All / Active / Disabled` filter aligned with the platform jobs page
+- The watcher-based scheduled-tasks push path is now implemented on `codex/scheduled-tasks-push-sync-plan`:
+  - `/api/internal/runtime/scheduled-tasks/sync` now accepts runtime-authenticated task snapshots and incremental run upserts
+  - the scheduled-task DB layer now separates full task replacement from run-only upserts so push sync cannot delete tasks accidentally
+  - the custom runtime image now includes a cron watcher helper plus a wrapper helper that starts both the gateway and watcher in the same container
+  - runtime startup now launches that wrapper, the watcher performs a startup sync, watches `~/.openclaw/cron/jobs.json` and `~/.openclaw/cron/runs/*.jsonl`, and posts updates back to Otto
+  - the existing worker pull job remains the correctness and repair path
 - Otto runtime config now explicitly requests no exec approvals by default in rendered OpenClaw config:
   - `tools.exec.host = "gateway"`
   - `tools.exec.security = "full"`
@@ -282,9 +288,9 @@
 - Continue `TODO_13_scheduled_tasks_visibility.md` by:
   - continuing the scheduled-tasks follow-up after the table cleanup and task-detail pages shipped
   - keeping the workspace scheduled-tasks area on the route-backed `Scheduled Tasks`, `Task Runs`, and per-task detail views
-  - adding a faster runtime push path so cron mutations do not rely only on pull/reconciliation
-  - adding runtime-authenticated callback endpoints if we choose plugin/helper push
-  - deciding whether the faster path should be an Otto runtime plugin, a runtime-local helper, or both
+  - manually validating the new watcher-based push sync against a real tenant runtime after publishing the updated custom runtime image
+  - deciding whether to add plugin hints later for lower-latency agent-originated cron updates on top of the watcher
+  - keeping the existing worker pull job on a slower repair cadence for runtime-local mutations the watcher might miss
   - adding eventual create/edit flows once the sync model is settled
 - When Session History becomes active work, implement `TODO_14_session_history_visibility.md` by:
   - adding the `tenant_sessions` schema and DB access layer
