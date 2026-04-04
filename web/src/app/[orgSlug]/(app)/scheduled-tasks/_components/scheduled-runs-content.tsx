@@ -34,9 +34,14 @@ const statusBadgeVariant: Record<
   unknown: "outline",
 };
 
-function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
-  return [
-    {
+function createColumns(
+  orgSlug: string,
+  hideTaskColumn: boolean,
+): Array<ColumnDef<ScheduledRunRow>> {
+  const columns: Array<ColumnDef<ScheduledRunRow>> = [];
+
+  if (!hideTaskColumn) {
+    columns.push({
       accessorKey: "taskName",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Task" />
@@ -44,14 +49,16 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
       size: 300,
       cell: ({ row }) => (
         <Link
-          className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          className="block truncate text-sm font-medium text-foreground hover:text-foreground/80 transition-colors"
           href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/overview`}
         >
           {row.original.taskName}
         </Link>
       ),
-    },
-    {
+    });
+  }
+
+  columns.push({
       id: "summary",
       accessorFn: (row) => row.summary ?? row.error ?? "",
       header: ({ column }) => (
@@ -67,7 +74,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
         if (row.original.runtimeSessionKey && row.original.hasSyncedSession) {
           return (
             <Link
-              className={`${className} underline underline-offset-4 hover:text-foreground`}
+              className={`${className} hover:text-foreground transition-colors`}
               href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.runtimeSessionKey)}`}
               title={text}
             >
@@ -145,14 +152,17 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
           {formatDateTime(row.original.finishedAt)}
         </span>
       ),
-    },
-  ];
+    });
+
+  return columns;
 }
 
 export function ScheduledRunsContent({
+  hideTaskColumn = false,
   orgSlug,
   runs,
 }: {
+  hideTaskColumn?: boolean;
   orgSlug: string;
   runs: Array<{
     error: string | null;
@@ -187,7 +197,10 @@ export function ScheduledRunsContent({
     [runs],
   );
 
-  const columns = React.useMemo(() => createColumns(orgSlug), [orgSlug]);
+  const columns = React.useMemo(
+    () => createColumns(orgSlug, hideTaskColumn),
+    [orgSlug, hideTaskColumn],
+  );
 
   return (
     <DataTable

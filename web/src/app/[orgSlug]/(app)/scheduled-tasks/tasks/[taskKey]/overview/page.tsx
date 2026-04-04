@@ -34,6 +34,7 @@ export default async function ScheduledTaskOverviewPage({
 
   return (
     <ScheduledTasksShell
+      hideHeader
       lastSyncedAt={getLatestScheduledTasksSyncTimestamp([task])}
       orgSlug={organization.slug}
       showTabs={false}

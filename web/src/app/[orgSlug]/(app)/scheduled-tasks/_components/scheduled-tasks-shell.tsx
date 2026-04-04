@@ -12,12 +12,14 @@ import { Badge } from "@/components/ui/badge";
 
 export function ScheduledTasksShell({
   children,
+  hideHeader = false,
   lastSyncedAt,
   orgSlug,
   showTabs = true,
   syncState,
 }: {
   children: ReactNode;
+  hideHeader?: boolean;
   lastSyncedAt: Date | null;
   orgSlug: string;
   showTabs?: boolean;
@@ -25,47 +27,51 @@ export function ScheduledTasksShell({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Scheduled Tasks
-              </h1>
-              <Badge variant={syncState.variant}>{syncState.label}</Badge>
+      {!hideHeader ? (
+        <>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Scheduled Tasks
+                  </h1>
+                  <Badge variant={syncState.variant}>{syncState.label}</Badge>
+                </div>
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  View the current scheduled work in this workspace and pull the
+                  latest runtime state on demand.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {lastSyncedAt
+                    ? `Last synced ${formatDateTime(lastSyncedAt)}`
+                    : "No runtime data imported yet."}
+                </p>
+              </div>
+              <RefreshScheduledTasksButton orgSlug={orgSlug} />
             </div>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              View the current scheduled work in this workspace and pull the
-              latest runtime state on demand.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {lastSyncedAt
-                ? `Last synced ${formatDateTime(lastSyncedAt)}`
-                : "No runtime data imported yet."}
-            </p>
+            {showTabs ? <ScheduledTasksTabs orgSlug={orgSlug} /> : null}
           </div>
-          <RefreshScheduledTasksButton orgSlug={orgSlug} />
-        </div>
-        {showTabs ? <ScheduledTasksTabs orgSlug={orgSlug} /> : null}
-      </div>
 
-      {syncState.message ? (
-        <Alert
-          variant={
-            syncState.variant === "destructive" ? "destructive" : "default"
-          }
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={
-              syncState.variant === "destructive"
-                ? AlertCircleIcon
-                : ArrowReloadHorizontalIcon
-            }
-          />
-          <AlertTitle>{syncState.label}</AlertTitle>
-          <AlertDescription>{syncState.message}</AlertDescription>
-        </Alert>
+          {syncState.message ? (
+            <Alert
+              variant={
+                syncState.variant === "destructive" ? "destructive" : "default"
+              }
+            >
+              <HugeiconsIcon
+                className="size-4"
+                icon={
+                  syncState.variant === "destructive"
+                    ? AlertCircleIcon
+                    : ArrowReloadHorizontalIcon
+                }
+              />
+              <AlertTitle>{syncState.label}</AlertTitle>
+              <AlertDescription>{syncState.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </>
       ) : null}
 
       {children}

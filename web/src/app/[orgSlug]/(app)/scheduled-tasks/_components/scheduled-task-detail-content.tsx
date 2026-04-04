@@ -44,26 +44,29 @@ export function ScheduledTaskOverviewContent({
   });
 
   return (
-    <SettingsPage className="mx-0 max-w-2xl">
+    <SettingsPage className="mx-0 max-w-none">
       <div className="flex flex-col gap-8 pb-8">
         <SettingsSection>
-          <SettingsSectionTitle>Prompt</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            This is the instruction or system-event text sent when the task
-            runs.
-          </SettingsSectionDescription>
-          <LockedTextarea
-            value={prompt ?? "No prompt text was captured for this task."}
-          />
+          <SettingsSectionTitle>Schedule</SettingsSectionTitle>
+          <SettingsCard>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>{scheduleDescription}</SettingsRowTitle>
+                <SettingsRowDescription className="font-mono">
+                  {task.scheduleExpression}
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+            </SettingsRow>
+          </SettingsCard>
         </SettingsSection>
 
         <SettingsSection>
-          <SettingsSectionTitle>Schedule</SettingsSectionTitle>
+          <SettingsSectionTitle>Prompt</SettingsSectionTitle>
           <SettingsSectionDescription>
-            Natural-language summary plus the raw schedule expression.
+            The instruction or system-event text sent when the task runs.
           </SettingsSectionDescription>
           <LockedTextarea
-            value={`${scheduleDescription}\n${task.scheduleExpression}`}
+            value={prompt ?? "No prompt text was captured for this task."}
           />
         </SettingsSection>
       </div>
@@ -86,7 +89,7 @@ export function ScheduledTaskConfigurationContent({
   const failureAlertConfig = stringifyConfig(task.failureAlertJson);
 
   return (
-    <SettingsPage className="mx-0 max-w-2xl">
+    <SettingsPage className="mx-0 max-w-none">
       <div className="flex flex-col gap-8 pb-8">
         <SettingsSection>
           <SettingsSectionTitle>Configuration</SettingsSectionTitle>
@@ -94,9 +97,6 @@ export function ScheduledTaskConfigurationContent({
             <SettingsRow>
               <SettingsRowLabel>
                 <SettingsRowTitle>Schedule</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Natural-language summary plus the raw schedule expression.
-                </SettingsRowDescription>
               </SettingsRowLabel>
               <div className="max-w-xl text-right text-sm text-muted-foreground">
                 <div>{scheduleDescription}</div>
