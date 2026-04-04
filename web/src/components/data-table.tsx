@@ -9,6 +9,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
@@ -30,6 +31,8 @@ type DataTableProps<TData, TValue> = {
   data: TData[];
   emptyMessage?: string;
   fillAvailableSpace?: boolean;
+  getRowAriaLabel?: (row: TData) => string;
+  getRowHref?: (row: TData) => string | null;
   headClassName?: string;
   headerClassName?: string;
   rowClassName?: string;
@@ -52,6 +55,8 @@ export function DataTable<TData, TValue>({
   data,
   emptyMessage = "No results found.",
   fillAvailableSpace = false,
+  getRowAriaLabel,
+  getRowHref,
   headClassName,
   headerClassName,
   rowClassName,
@@ -65,6 +70,7 @@ export function DataTable<TData, TValue>({
   toolbar,
   viewportClassName,
 }: DataTableProps<TData, TValue>) {
+  const router = useRouter();
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -100,6 +106,22 @@ export function DataTable<TData, TValue>({
   });
 
   const showToolbar = searchKeys.length > 0 || toolbar;
+
+  function shouldIgnoreRowNavigation(target: EventTarget | null) {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    return Boolean(
+      target.closest(
+        "a, button, input, textarea, select, summary, [role='button'], [role='link']",
+      ),
+    );
+  }
+
+  function navigateToRow(href: string) {
+    router.push(href);
+  }
 
   return (
     <div
@@ -179,7 +201,42 @@ export function DataTable<TData, TValue>({
           <TableBody className={bodyClassName}>
             {table.getRowModel().rows.length > 0 ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow className={rowClassName} key={row.id}>
+                <TableRow
+                  aria-label={
+                    getRowHref?.(row.original)
+                      ? getRowAriaLabel?.(row.original)
+                      : undefined
+                  }
+                  className={cn(
+                    rowClassName,
+                    getRowHref?.(row.original) &&
+                      "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  )}
+                  key={row.id}
+                  onClick={(event) => {
+                    const href = getRowHref?.(row.original);
+                    if (!href || shouldIgnoreRowNavigation(event.target)) {
+                      return;
+                    }
+
+                    navigateToRow(href);
+                  }}
+                  onKeyDown={(event) => {
+                    const href = getRowHref?.(row.original);
+                    if (
+                      !href ||
+                      shouldIgnoreRowNavigation(event.target) ||
+                      (event.key !== "Enter" && event.key !== " ")
+                    ) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    navigateToRow(href);
+                  }}
+                  role={getRowHref?.(row.original) ? "link" : undefined}
+                  tabIndex={getRowHref?.(row.original) ? 0 : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell className={cellClassName} key={cell.id}>
                       {flexRender(

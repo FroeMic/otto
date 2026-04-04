@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -11,6 +12,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
 type ScheduledJobFilter = "active" | "all" | "disabled";
 
@@ -21,19 +23,19 @@ const JOB_FILTER_OPTIONS = [
 ] as const satisfies Array<{ label: string; value: ScheduledJobFilter }>;
 
 type ScheduledJobRow = {
-  description: string | null;
   enabled: boolean;
   id: string;
   lastError: string | null;
   lastRunAt: Date | null;
-  lastRunStatus: string | null;
   lastSyncError: string | null;
   lastSyncedAt: Date;
   name: string;
   nextRunAt: Date | null;
+  scheduleDescription: string;
   scheduleExpression: string;
   searchText: string;
   status: string;
+  taskKey: string;
 };
 
 const statusBadgeVariant: Record<
@@ -45,45 +47,37 @@ const statusBadgeVariant: Record<
   sync_failed: "destructive",
 };
 
-function createColumns(): Array<ColumnDef<ScheduledJobRow>> {
+function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
   return [
     {
       accessorKey: "name",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Scheduled task" />
+        <DataTableColumnHeader column={column} title="Task" />
       ),
       size: 300,
       cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          <span className="truncate text-sm font-medium text-foreground">
-            {row.original.name}
-          </span>
-          {row.original.description ? (
-            <span className="line-clamp-2 text-sm text-muted-foreground">
-              {row.original.description}
-            </span>
-          ) : null}
-        </div>
+        <Link
+          className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/setup`}
+        >
+          {row.original.name}
+        </Link>
       ),
     },
     {
-      accessorKey: "scheduleExpression",
+      accessorKey: "scheduleDescription",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Schedule" />
       ),
-      size: 220,
-      cell: ({ row }) => {
-        const schedule =
-          row.original.scheduleExpression.trim().length > 0
-            ? row.original.scheduleExpression
-            : "No schedule";
-
-        return (
-          <span className="block truncate text-sm text-muted-foreground">
-            {schedule}
-          </span>
-        );
-      },
+      size: 240,
+      cell: ({ row }) => (
+        <span
+          className="block truncate text-sm text-muted-foreground"
+          title={row.original.scheduleExpression}
+        >
+          {row.original.scheduleDescription}
+        </span>
+      ),
     },
     {
       accessorKey: "status",
@@ -105,20 +99,9 @@ function createColumns(): Array<ColumnDef<ScheduledJobRow>> {
       ),
       size: 150,
       cell: ({ row }) => (
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground whitespace-nowrap">
-            {formatDateTime(row.original.lastRunAt)}
-          </span>
-          {row.original.lastRunStatus ? (
-            <span className="text-xs text-muted-foreground">
-              {formatStatusLabel(row.original.lastRunStatus)}
-            </span>
-          ) : row.original.lastError ? (
-            <span className="line-clamp-1 text-xs text-destructive">
-              {row.original.lastError}
-            </span>
-          ) : null}
-        </div>
+        <span className="text-sm text-muted-foreground whitespace-nowrap">
+          {formatDateTime(row.original.lastRunAt)}
+        </span>
       ),
     },
     {
@@ -142,16 +125,12 @@ function createColumns(): Array<ColumnDef<ScheduledJobRow>> {
       ),
       size: 220,
       cell: ({ row }) => (
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground whitespace-nowrap">
-            {formatDateTime(row.original.lastSyncedAt)}
-          </span>
-          {row.original.lastSyncError ? (
-            <span className="line-clamp-2 text-destructive">
-              {row.original.lastSyncError}
-            </span>
-          ) : null}
-        </div>
+        <span
+          className="block truncate text-sm text-muted-foreground"
+          title={row.original.lastSyncError ?? undefined}
+        >
+          {formatDateTime(row.original.lastSyncedAt)}
+        </span>
       ),
     },
   ];
@@ -159,6 +138,7 @@ function createColumns(): Array<ColumnDef<ScheduledJobRow>> {
 
 export function ScheduledJobsContent({
   jobs,
+  orgSlug,
 }: {
   jobs: Array<{
     description: string | null;
@@ -172,8 +152,12 @@ export function ScheduledJobsContent({
     name: string;
     nextRunAt: Date | null;
     scheduleExpression: string;
+    scheduleJson: Record<string, unknown> | null;
     status: string;
+    taskKey: string;
+    timezone: string | null;
   }>;
+  orgSlug: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -183,17 +167,38 @@ export function ScheduledJobsContent({
 
   const rows = React.useMemo<Array<ScheduledJobRow>>(
     () =>
-      jobs.map((job) => ({
-        ...job,
-        searchText: [
-          job.name,
-          job.description ?? "",
-          job.scheduleExpression,
-          job.status,
-        ]
-          .join(" ")
-          .toLowerCase(),
-      })),
+      jobs.map((job) => {
+        const scheduleDescription = describeScheduledTaskSchedule({
+          scheduleExpression: job.scheduleExpression,
+          scheduleJson: job.scheduleJson,
+          timezone: job.timezone,
+        });
+
+        return {
+          enabled: job.enabled,
+          id: job.id,
+          lastError: job.lastError,
+          lastRunAt: job.lastRunAt,
+          lastSyncError: job.lastSyncError,
+          lastSyncedAt: job.lastSyncedAt,
+          name: job.name,
+          nextRunAt: job.nextRunAt,
+          scheduleDescription,
+          scheduleExpression: job.scheduleExpression,
+          searchText: [
+            job.name,
+            job.description ?? "",
+            job.scheduleExpression,
+            scheduleDescription,
+            job.status,
+            job.lastError ?? "",
+          ]
+            .join(" ")
+            .toLowerCase(),
+          status: job.status,
+          taskKey: job.taskKey,
+        };
+      }),
     [jobs],
   );
 
@@ -209,7 +214,7 @@ export function ScheduledJobsContent({
     return rows;
   }, [filter, rows]);
 
-  const columns = React.useMemo(() => createColumns(), []);
+  const columns = React.useMemo(() => createColumns(orgSlug), [orgSlug]);
 
   function updateFilter(nextFilter: ScheduledJobFilter) {
     const params = new URLSearchParams(searchParams.toString());
@@ -226,12 +231,16 @@ export function ScheduledJobsContent({
 
   return (
     <DataTable
-      bodyClassName="align-top"
-      cellClassName="h-16 px-4 py-3"
+      bodyClassName="align-middle"
+      cellClassName="h-12 px-4 py-2"
       columns={columns}
       data={filteredRows}
       emptyMessage="No scheduled tasks synced yet."
       fillAvailableSpace
+      getRowAriaLabel={(row) => `Open scheduled task ${row.name}`}
+      getRowHref={(row) =>
+        `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.taskKey)}/setup`
+      }
       headClassName="h-11 px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="border-b-0 hover:bg-muted/30"

@@ -5,26 +5,35 @@ import {
   jobRuns,
   tenantScheduledTaskSessions,
   tenantScheduledTasks,
+  tenantSessions,
 } from "@/db/schema";
 import { JOB_TYPES } from "@/lib/jobs/types";
 
 export const SCHEDULED_TASKS_STALE_AFTER_MS = 15 * 60 * 1000;
 
 export type ScheduledTaskSnapshotRow = {
+  agentId: string | null;
   description: string | null;
+  deleteAfterRun: boolean;
+  deliveryJson: Record<string, unknown> | null;
   enabled: boolean;
+  failureAlertJson: Record<string, unknown> | null;
   lastError: string | null;
   lastRunAt: Date | null;
   lastRunStatus: string | null;
   name: string;
   nextRunAt: Date | null;
+  payloadJson: Record<string, unknown> | null;
   runtimeUpdatedAt: number | null;
   scheduleExpression: string;
   scheduleKind: string;
+  scheduleJson: Record<string, unknown> | null;
+  sessionKey: string | null;
   sessionTarget: string | null;
   status: string;
   taskKey: string;
   timezone: string | null;
+  wakeMode: string | null;
 };
 
 export type ScheduledTaskSessionSnapshotRow = {
@@ -71,6 +80,7 @@ export async function upsertTenantScheduledTasksSnapshot(input: {
       await tx
         .insert(tenantScheduledTasks)
         .values({
+          agentId: task.agentId,
           tenantId: input.tenantId,
           taskKey: task.taskKey,
           name: task.name,
@@ -79,7 +89,14 @@ export async function upsertTenantScheduledTasksSnapshot(input: {
           enabled: task.enabled,
           scheduleKind: task.scheduleKind,
           scheduleExpression: task.scheduleExpression,
+          scheduleJson: task.scheduleJson,
           timezone: task.timezone,
+          payloadJson: task.payloadJson,
+          deliveryJson: task.deliveryJson,
+          failureAlertJson: task.failureAlertJson,
+          wakeMode: task.wakeMode,
+          deleteAfterRun: task.deleteAfterRun,
+          sessionKey: task.sessionKey,
           sessionTarget: task.sessionTarget,
           nextRunAt: task.nextRunAt,
           lastRunAt: task.lastRunAt,
@@ -93,13 +110,21 @@ export async function upsertTenantScheduledTasksSnapshot(input: {
         .onConflictDoUpdate({
           target: [tenantScheduledTasks.tenantId, tenantScheduledTasks.taskKey],
           set: {
+            agentId: task.agentId,
             name: task.name,
             description: task.description,
             status: task.status,
             enabled: task.enabled,
             scheduleKind: task.scheduleKind,
             scheduleExpression: task.scheduleExpression,
+            scheduleJson: task.scheduleJson,
             timezone: task.timezone,
+            payloadJson: task.payloadJson,
+            deliveryJson: task.deliveryJson,
+            failureAlertJson: task.failureAlertJson,
+            wakeMode: task.wakeMode,
+            deleteAfterRun: task.deleteAfterRun,
+            sessionKey: task.sessionKey,
             sessionTarget: task.sessionTarget,
             nextRunAt: task.nextRunAt,
             lastRunAt: task.lastRunAt,
@@ -200,7 +225,15 @@ export async function listTenantScheduledTasks(input: { tenantId: string }) {
       enabled: tenantScheduledTasks.enabled,
       scheduleKind: tenantScheduledTasks.scheduleKind,
       scheduleExpression: tenantScheduledTasks.scheduleExpression,
+      scheduleJson: tenantScheduledTasks.scheduleJson,
       timezone: tenantScheduledTasks.timezone,
+      payloadJson: tenantScheduledTasks.payloadJson,
+      deliveryJson: tenantScheduledTasks.deliveryJson,
+      failureAlertJson: tenantScheduledTasks.failureAlertJson,
+      wakeMode: tenantScheduledTasks.wakeMode,
+      deleteAfterRun: tenantScheduledTasks.deleteAfterRun,
+      agentId: tenantScheduledTasks.agentId,
+      sessionKey: tenantScheduledTasks.sessionKey,
       sessionTarget: tenantScheduledTasks.sessionTarget,
       nextRunAt: tenantScheduledTasks.nextRunAt,
       lastRunAt: tenantScheduledTasks.lastRunAt,
@@ -215,8 +248,55 @@ export async function listTenantScheduledTasks(input: { tenantId: string }) {
     .orderBy(tenantScheduledTasks.name);
 }
 
+export async function getTenantScheduledTask(input: {
+  taskKey: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  const [task] = await db
+    .select({
+      id: tenantScheduledTasks.id,
+      taskKey: tenantScheduledTasks.taskKey,
+      name: tenantScheduledTasks.name,
+      description: tenantScheduledTasks.description,
+      status: tenantScheduledTasks.status,
+      enabled: tenantScheduledTasks.enabled,
+      scheduleKind: tenantScheduledTasks.scheduleKind,
+      scheduleExpression: tenantScheduledTasks.scheduleExpression,
+      scheduleJson: tenantScheduledTasks.scheduleJson,
+      timezone: tenantScheduledTasks.timezone,
+      payloadJson: tenantScheduledTasks.payloadJson,
+      deliveryJson: tenantScheduledTasks.deliveryJson,
+      failureAlertJson: tenantScheduledTasks.failureAlertJson,
+      wakeMode: tenantScheduledTasks.wakeMode,
+      deleteAfterRun: tenantScheduledTasks.deleteAfterRun,
+      agentId: tenantScheduledTasks.agentId,
+      sessionKey: tenantScheduledTasks.sessionKey,
+      sessionTarget: tenantScheduledTasks.sessionTarget,
+      nextRunAt: tenantScheduledTasks.nextRunAt,
+      lastRunAt: tenantScheduledTasks.lastRunAt,
+      lastRunStatus: tenantScheduledTasks.lastRunStatus,
+      lastError: tenantScheduledTasks.lastError,
+      lastSyncedAt: tenantScheduledTasks.lastSyncedAt,
+      lastSyncError: tenantScheduledTasks.lastSyncError,
+      updatedAt: tenantScheduledTasks.updatedAt,
+    })
+    .from(tenantScheduledTasks)
+    .where(
+      and(
+        eq(tenantScheduledTasks.tenantId, input.tenantId),
+        eq(tenantScheduledTasks.taskKey, input.taskKey),
+      ),
+    )
+    .limit(1);
+
+  return task ?? null;
+}
+
 export async function listTenantScheduledTaskSessions(input: {
   limit?: number;
+  taskKey?: string;
   tenantId: string;
 }) {
   const db = getDb();
@@ -236,14 +316,38 @@ export async function listTenantScheduledTaskSessions(input: {
       status: tenantScheduledTaskSessions.status,
       summary: tenantScheduledTaskSessions.summary,
       error: tenantScheduledTaskSessions.error,
+      hasSyncedSession: tenantSessions.id,
     })
     .from(tenantScheduledTaskSessions)
-    .where(eq(tenantScheduledTaskSessions.tenantId, input.tenantId))
+    .leftJoin(
+      tenantSessions,
+      and(
+        eq(tenantSessions.tenantId, tenantScheduledTaskSessions.tenantId),
+        eq(
+          tenantSessions.sessionKey,
+          tenantScheduledTaskSessions.runtimeSessionKey,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(tenantScheduledTaskSessions.tenantId, input.tenantId),
+        input.taskKey
+          ? eq(tenantScheduledTaskSessions.taskKey, input.taskKey)
+          : undefined,
+      ),
+    )
     .orderBy(
       desc(tenantScheduledTaskSessions.startedAt),
       desc(tenantScheduledTaskSessions.createdAt),
     )
-    .limit(limit);
+    .limit(limit)
+    .then((rows) =>
+      rows.map((row) => ({
+        ...row,
+        hasSyncedSession: Boolean(row.hasSyncedSession),
+      })),
+    );
 }
 
 export async function getLatestTenantScheduledTasksRefreshJob(input: {

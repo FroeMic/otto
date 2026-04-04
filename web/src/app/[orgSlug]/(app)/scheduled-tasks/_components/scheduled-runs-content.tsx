@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 type ScheduledRunRow = {
   error: string | null;
   finishedAt: Date | null;
+  hasSyncedSession: boolean;
   id: string;
   runtimeSessionKey: string | null;
   scheduledFor: Date | null;
@@ -18,6 +19,7 @@ type ScheduledRunRow = {
   startedAt: Date | null;
   status: string;
   summary: string | null;
+  taskKey: string;
   taskName: string;
   triggerType: string;
 };
@@ -37,24 +39,36 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
     {
       accessorKey: "taskName",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Scheduled task" />
+        <DataTableColumnHeader column={column} title="Task" />
       ),
       size: 300,
       cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          <span className="truncate text-sm font-medium text-foreground">
-            {row.original.taskName}
-          </span>
-          {row.original.summary ? (
-            <span className="line-clamp-2 text-sm text-muted-foreground">
-              {row.original.summary}
-            </span>
-          ) : row.original.error ? (
-            <span className="line-clamp-2 text-sm text-destructive">
-              {row.original.error}
-            </span>
-          ) : null}
-        </div>
+        <Link
+          className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/setup`}
+        >
+          {row.original.taskName}
+        </Link>
+      ),
+    },
+    {
+      id: "summary",
+      accessorFn: (row) => row.summary ?? row.error ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Session" />
+      ),
+      size: 360,
+      cell: ({ row }) => (
+        <span
+          className={
+            row.original.error
+              ? "block truncate text-sm text-destructive"
+              : "block truncate text-sm text-muted-foreground"
+          }
+          title={row.original.summary ?? row.original.error ?? undefined}
+        >
+          {row.original.summary ?? row.original.error ?? "-"}
+        </span>
       ),
     },
     {
@@ -122,10 +136,10 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
     },
     {
       accessorKey: "runtimeSessionKey",
-      header: "Session",
+      header: "Linked session",
       size: 140,
       cell: ({ row }) =>
-        row.original.runtimeSessionKey ? (
+        row.original.runtimeSessionKey && row.original.hasSyncedSession ? (
           <Link
             className="text-sm font-medium text-foreground underline underline-offset-4"
             href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.runtimeSessionKey)}`}
@@ -149,12 +163,14 @@ export function ScheduledRunsContent({
   runs: Array<{
     error: string | null;
     finishedAt: Date | null;
+    hasSyncedSession: boolean;
     id: string;
     runtimeSessionKey: string | null;
     scheduledFor: Date | null;
     startedAt: Date | null;
     status: string;
     summary: string | null;
+    taskKey: string;
     taskName: string;
     triggerType: string;
   }>;
@@ -181,8 +197,8 @@ export function ScheduledRunsContent({
 
   return (
     <DataTable
-      bodyClassName="align-top"
-      cellClassName="h-16 px-4 py-3"
+      bodyClassName="align-middle"
+      cellClassName="h-12 px-4 py-2"
       columns={columns}
       data={rows}
       emptyMessage="No task runs synced yet."

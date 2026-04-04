@@ -280,12 +280,12 @@
   - consuming the synced `messaging_*` directory tables in the UI so Slack channel selection uses real workspace data instead of freeform config
   - deciding how operators will flip `organizations.is_ready` without using direct SQL
 - Continue `TODO_13_scheduled_tasks_visibility.md` by:
-  - continuing the scheduled-tasks follow-up after the UI remodel shipped
-  - keeping the workspace scheduled-tasks area on the route-backed `Scheduled Tasks` and `Task Runs` views
+  - continuing the scheduled-tasks follow-up after the table cleanup and task-detail pages shipped
+  - keeping the workspace scheduled-tasks area on the route-backed `Scheduled Tasks`, `Task Runs`, and per-task detail views
   - adding a faster runtime push path so cron mutations do not rely only on pull/reconciliation
   - adding runtime-authenticated callback endpoints if we choose plugin/helper push
   - deciding whether the faster path should be an Otto runtime plugin, a runtime-local helper, or both
-  - adding task detail routes and eventual create/edit flows once the sync model is settled
+  - adding eventual create/edit flows once the sync model is settled
 - When Session History becomes active work, implement `TODO_14_session_history_visibility.md` by:
   - adding the `tenant_sessions` schema and DB access layer
   - adding a runtime-authenticated `/api/internal/runtime/sessions/batch` callback route

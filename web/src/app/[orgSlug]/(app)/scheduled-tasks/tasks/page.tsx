@@ -49,7 +49,7 @@ export default async function ScheduledTasksPage({
         latestRefreshJob,
       })}
     >
-      <ScheduledJobsContent jobs={jobs} />
+      <ScheduledJobsContent jobs={jobs} orgSlug={organization.slug} />
     </ScheduledTasksShell>
   );
 }
