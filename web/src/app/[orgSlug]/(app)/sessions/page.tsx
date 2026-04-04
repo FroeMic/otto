@@ -6,6 +6,7 @@ import {
   getUserExternalIds,
   listTenantSessions,
 } from "@/db/control-plane";
+import { getCronSessionTaskKeyMap } from "@/db/scheduled-tasks";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import { SessionsContent } from "./_components/sessions-content";
@@ -26,7 +27,7 @@ export default async function SessionsPage({
   }
 
   const agent = getPrimaryAgent(organization);
-  const [sessions, currentUserExternalIds, conversationNameMap] =
+  const [sessions, currentUserExternalIds, conversationNameMap, cronTaskKeyMap] =
     await Promise.all([
       agent ? listTenantSessions({ tenantId: agent.id }) : [],
       getUserExternalIds({
@@ -34,10 +35,11 @@ export default async function SessionsPage({
         organizationId: organization.id,
       }),
       getConversationNameMap({ organizationId: organization.id }),
+      agent ? getCronSessionTaskKeyMap({ tenantId: agent.id }) : new Map(),
     ]);
 
-  // Convert Map to plain object for serialization to client
   const channelNames = Object.fromEntries(conversationNameMap);
+  const cronTaskKeys = Object.fromEntries(cronTaskKeyMap);
 
   return (
     <SessionsContent
@@ -46,6 +48,7 @@ export default async function SessionsPage({
       currentUserExternalIds={currentUserExternalIds}
       isPlatformAdmin={user.isPlatformAdmin}
       channelNames={channelNames}
+      cronTaskKeys={cronTaskKeys}
     />
   );
 }

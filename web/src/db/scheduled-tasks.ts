@@ -403,6 +403,38 @@ function normalizeScheduledTaskRow<
   };
 }
 
+/**
+ * Build a map from runtime session key → task key for cron sessions.
+ * Used to link cron session rows in the sessions list to the correct
+ * scheduled task detail page.
+ */
+export async function getCronSessionTaskKeyMap(input: {
+  tenantId: string;
+}): Promise<Map<string, string>> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      runtimeSessionKey: tenantScheduledTaskSessions.runtimeSessionKey,
+      taskKey: tenantScheduledTaskSessions.taskKey,
+    })
+    .from(tenantScheduledTaskSessions)
+    .where(
+      and(
+        eq(tenantScheduledTaskSessions.tenantId, input.tenantId),
+        not(eq(tenantScheduledTaskSessions.runtimeSessionKey, "")),
+      ),
+    );
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.runtimeSessionKey) {
+      map.set(row.runtimeSessionKey, row.taskKey);
+    }
+  }
+  return map;
+}
+
 function asRecord(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
