@@ -347,72 +347,80 @@ export function getTimeZoneOptions() {
   }));
 }
 
-function getTimeZoneGroupLabel(timeZone: string) {
-  if (timeZone === "UTC") {
-    return "Universal";
-  }
+const CURATED_TIME_ZONE_GROUPS = [
+  {
+    items: [
+      { city: "New York", value: "America/New_York" },
+      { city: "Los Angeles", value: "America/Los_Angeles" },
+      { city: "Chicago", value: "America/Chicago" },
+      { city: "Toronto", value: "America/Toronto" },
+      { city: "Vancouver", value: "America/Vancouver" },
+      { city: "Sao Paulo", value: "America/Sao_Paulo" },
+    ],
+    value: "Americas",
+  },
+  {
+    items: [
+      { city: "London", value: "Europe/London" },
+      { city: "Paris", value: "Europe/Paris" },
+      { city: "Berlin", value: "Europe/Berlin" },
+      { city: "Rome", value: "Europe/Rome" },
+      { city: "Madrid", value: "Europe/Madrid" },
+      { city: "Amsterdam", value: "Europe/Amsterdam" },
+    ],
+    value: "Europe",
+  },
+  {
+    items: [
+      { city: "Tokyo", value: "Asia/Tokyo" },
+      { city: "Shanghai", value: "Asia/Shanghai" },
+      { city: "Singapore", value: "Asia/Singapore" },
+      { city: "Dubai", value: "Asia/Dubai" },
+      { city: "Sydney", value: "Australia/Sydney" },
+      { city: "Seoul", value: "Asia/Seoul" },
+    ],
+    value: "Asia / Pacific",
+  },
+] satisfies Array<{
+  items: Array<{
+    city: string;
+    value: string;
+  }>;
+  value: string;
+}>;
 
-  if (timeZone.startsWith("America/")) {
-    return "Americas";
-  }
+function createTimeZoneOption(input: { city: string; value: string }) {
+  return {
+    label: `(${getTimeZoneOffsetLabel(input.value)}) ${input.city}`,
+    value: input.value,
+  } satisfies TimeZoneOption;
+}
 
-  if (timeZone.startsWith("Europe/") || timeZone.startsWith("Africa/")) {
-    return "Europe / Africa";
-  }
+export function getGroupedTimeZoneOptions(currentTimeZone?: string | null) {
+  const groups = CURATED_TIME_ZONE_GROUPS.map((group) => ({
+    items: group.items.map(createTimeZoneOption),
+    value: group.value,
+  })) satisfies TimeZoneOptionGroup[];
+
+  const normalizedCurrentTimeZone = normalizeTimeZone(currentTimeZone);
+  const isCurrentIncluded = groups.some((group) =>
+    group.items.some((item) => item.value === normalizedCurrentTimeZone),
+  );
 
   if (
-    timeZone.startsWith("Asia/") ||
-    timeZone.startsWith("Indian/") ||
-    timeZone.startsWith("Pacific/") ||
-    timeZone.startsWith("Australia/")
+    normalizedCurrentTimeZone !== DEFAULT_WORKSPACE_TIME_ZONE &&
+    !isCurrentIncluded
   ) {
-    return "Asia / Pacific";
+    groups.unshift({
+      items: [
+        {
+          label: `(${getTimeZoneOffsetLabel(normalizedCurrentTimeZone)}) ${normalizedCurrentTimeZone}`,
+          value: normalizedCurrentTimeZone,
+        },
+      ],
+      value: "Current",
+    });
   }
 
-  return "Other";
-}
-
-function getTimeZoneLocationLabel(timeZone: string) {
-  if (timeZone === "UTC") {
-    return "UTC";
-  }
-
-  const path = timeZone.split("/").slice(1).join(" / ");
-
-  return path.replaceAll("_", " ");
-}
-
-export function getGroupedTimeZoneOptions() {
-  const groups = new Map<string, TimeZoneOption[]>();
-
-  for (const timeZone of getSupportedTimeZones()) {
-    const groupLabel = getTimeZoneGroupLabel(timeZone);
-    const option = {
-      label: `(${getTimeZoneOffsetLabel(timeZone)}) ${getTimeZoneLocationLabel(timeZone)}`,
-      value: timeZone,
-    } satisfies TimeZoneOption;
-
-    const existing = groups.get(groupLabel) ?? [];
-    existing.push(option);
-    groups.set(groupLabel, existing);
-  }
-
-  return Array.from(groups.entries())
-    .map(([value, items]) => ({
-      items: items.toSorted((left, right) =>
-        left.label.localeCompare(right.label),
-      ),
-      value,
-    }))
-    .toSorted((left, right) => {
-      if (left.value === "Universal") {
-        return -1;
-      }
-
-      if (right.value === "Universal") {
-        return 1;
-      }
-
-      return left.value.localeCompare(right.value);
-    }) satisfies TimeZoneOptionGroup[];
+  return groups;
 }

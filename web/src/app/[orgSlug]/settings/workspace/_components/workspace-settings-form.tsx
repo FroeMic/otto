@@ -4,7 +4,14 @@ import { PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GlobeIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 
 import {
@@ -56,12 +63,6 @@ import {
   type WorkspaceTimeFormatPreference,
 } from "@/lib/date-time";
 
-const TIME_ZONE_GROUPS = getGroupedTimeZoneOptions();
-const TIME_ZONE_OPTION_LABELS = new Map(
-  TIME_ZONE_GROUPS.flatMap((group) =>
-    group.items.map((item) => [item.value, item.label] as const),
-  ),
-);
 const TIME_FORMAT_OPTIONS = getTimeFormatPreferenceOptions();
 
 type WorkspaceDetailsCardProps = {
@@ -108,6 +109,19 @@ export function WorkspaceTimeAndRegionCard({
       timeZone: normalizeTimeZone(initialPreferences.timeZone),
     });
   const [isPending, startTransition] = useTransition();
+  const timeZoneGroups = useMemo(
+    () => getGroupedTimeZoneOptions(preferences.timeZone),
+    [preferences.timeZone],
+  );
+  const timeZoneOptionLabels = useMemo(
+    () =>
+      new Map(
+        timeZoneGroups.flatMap((group) =>
+          group.items.map((item) => [item.value, item.label] as const),
+        ),
+      ),
+    [timeZoneGroups],
+  );
 
   function updatePreference<Key extends keyof WorkspaceDateTimePreferences>(
     key: Key,
@@ -192,9 +206,9 @@ export function WorkspaceTimeAndRegionCard({
         </SettingsRowLabel>
         <Combobox
           disabled={isPending}
-          items={TIME_ZONE_GROUPS}
+          items={timeZoneGroups}
           itemToStringLabel={(timeZone) =>
-            `${TIME_ZONE_OPTION_LABELS.get(timeZone) ?? timeZone} ${timeZone}`
+            `${timeZoneOptionLabels.get(timeZone) ?? timeZone} ${timeZone}`
           }
           value={preferences.timeZone}
           onValueChange={(nextTimeZone) => {
