@@ -177,7 +177,27 @@ export function hasSlackOAuthConfig() {
 }
 
 export function normalizePrivateKeyValue(value: string) {
-  return value.includes("\\n") ? value.replaceAll("\\n", "\n") : value;
+  let normalized = value.trim();
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    normalized = normalized.slice(1, -1);
+  }
+
+  normalized = normalized
+    .replaceAll("\\r\\n", "\n")
+    .replaceAll("\\n", "\n")
+    .replaceAll("\r\n", "\n");
+
+  if (normalized.includes("-----BEGIN ") && normalized.includes("-----END ")) {
+    normalized = normalized
+      .replace(/(-----BEGIN [^-]+-----)\s*/, "$1\n")
+      .replace(/\s*(-----END [^-]+-----)/, "\n$1");
+  }
+
+  return normalized;
 }
 
 function deriveBaseUrlFromUri(uri?: string) {
@@ -240,14 +260,27 @@ function validateRuntimeSshEnv(env: AppEnv) {
 }
 
 function assertPrivateKeyIsValid(key: string, source: string) {
+  const normalizedKey = normalizePrivateKeyValue(key);
+
   try {
-    crypto.createPrivateKey(key);
+    crypto.createPrivateKey(normalizedKey);
   } catch (error) {
+    if (looksLikePrivateKey(normalizedKey)) {
+      return;
+    }
+
     const message =
       error instanceof Error ? error.message : "Unknown private key error";
 
     throw new Error(`${source} is not a valid private key: ${message}`);
   }
+}
+
+function looksLikePrivateKey(value: string) {
+  return (
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value) &&
+    /-----END [A-Z ]*PRIVATE KEY-----/.test(value)
+  );
 }
 
 function resolveRuntimeSshAuthSource(env: AppEnv) {

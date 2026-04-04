@@ -10,6 +10,16 @@ export type WorkspaceDateTimePreferences = {
   timeZone: string;
 };
 
+export type TimeZoneOption = {
+  label: string;
+  value: string;
+};
+
+export type TimeZoneOptionGroup = {
+  items: TimeZoneOption[];
+  value: string;
+};
+
 type DateFormatterInput = {
   locale?: string;
   options: Intl.DateTimeFormatOptions;
@@ -335,4 +345,74 @@ export function getTimeZoneOptions() {
     label: `${timeZone} (${getTimeZoneOffsetLabel(timeZone)})`,
     value: timeZone,
   }));
+}
+
+function getTimeZoneGroupLabel(timeZone: string) {
+  if (timeZone === "UTC") {
+    return "Universal";
+  }
+
+  if (timeZone.startsWith("America/")) {
+    return "Americas";
+  }
+
+  if (timeZone.startsWith("Europe/") || timeZone.startsWith("Africa/")) {
+    return "Europe / Africa";
+  }
+
+  if (
+    timeZone.startsWith("Asia/") ||
+    timeZone.startsWith("Indian/") ||
+    timeZone.startsWith("Pacific/") ||
+    timeZone.startsWith("Australia/")
+  ) {
+    return "Asia / Pacific";
+  }
+
+  return "Other";
+}
+
+function getTimeZoneLocationLabel(timeZone: string) {
+  if (timeZone === "UTC") {
+    return "UTC";
+  }
+
+  const path = timeZone.split("/").slice(1).join(" / ");
+
+  return path.replaceAll("_", " ");
+}
+
+export function getGroupedTimeZoneOptions() {
+  const groups = new Map<string, TimeZoneOption[]>();
+
+  for (const timeZone of getSupportedTimeZones()) {
+    const groupLabel = getTimeZoneGroupLabel(timeZone);
+    const option = {
+      label: `(${getTimeZoneOffsetLabel(timeZone)}) ${getTimeZoneLocationLabel(timeZone)}`,
+      value: timeZone,
+    } satisfies TimeZoneOption;
+
+    const existing = groups.get(groupLabel) ?? [];
+    existing.push(option);
+    groups.set(groupLabel, existing);
+  }
+
+  return Array.from(groups.entries())
+    .map(([value, items]) => ({
+      items: items.toSorted((left, right) =>
+        left.label.localeCompare(right.label),
+      ),
+      value,
+    }))
+    .toSorted((left, right) => {
+      if (left.value === "Universal") {
+        return -1;
+      }
+
+      if (right.value === "Universal") {
+        return 1;
+      }
+
+      return left.value.localeCompare(right.value);
+    }) satisfies TimeZoneOptionGroup[];
 }
