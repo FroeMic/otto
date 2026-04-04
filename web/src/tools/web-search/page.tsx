@@ -293,7 +293,7 @@ export function WebSearchToolPage({
         </TabsList>
 
         <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {capabilityGroups.length > 0 ? (
                 capabilityGroups.map(([direction, capabilities]) => (
@@ -345,7 +345,7 @@ export function WebSearchToolPage({
         </TabsContent>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {surface.blockingReason ? (
                 <Alert variant="destructive">
@@ -415,7 +415,7 @@ export function WebSearchToolPage({
         </TabsContent>
 
         <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               <SettingsSection>
                 <SettingsSectionTitle>Search defaults</SettingsSectionTitle>
