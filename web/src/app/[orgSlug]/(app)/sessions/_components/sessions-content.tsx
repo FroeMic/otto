@@ -280,7 +280,7 @@ function createColumns(input: {
       size: 130,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatTime(row.original.startedAt ?? row.original.lastSyncedAt)}
+          {formatTime(row.original.startedAt)}
         </span>
       ),
     },
