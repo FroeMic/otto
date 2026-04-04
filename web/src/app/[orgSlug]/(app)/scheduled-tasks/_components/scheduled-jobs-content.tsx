@@ -58,7 +58,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
       cell: ({ row }) => (
         <Link
           className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/setup`}
+          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/overview`}
         >
           {row.original.name}
         </Link>
@@ -239,7 +239,7 @@ export function ScheduledJobsContent({
       fillAvailableSpace
       getRowAriaLabel={(row) => `Open scheduled task ${row.name}`}
       getRowHref={(row) =>
-        `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.taskKey)}/setup`
+        `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.taskKey)}/overview`
       }
       headClassName="h-11 px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"

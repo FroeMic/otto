@@ -14,11 +14,13 @@ export function ScheduledTasksShell({
   children,
   lastSyncedAt,
   orgSlug,
+  showTabs = true,
   syncState,
 }: {
   children: ReactNode;
   lastSyncedAt: Date | null;
   orgSlug: string;
+  showTabs?: boolean;
   syncState: ScheduledTasksSyncState;
 }) {
   return (
@@ -44,7 +46,7 @@ export function ScheduledTasksShell({
           </div>
           <RefreshScheduledTasksButton orgSlug={orgSlug} />
         </div>
-        <ScheduledTasksTabs orgSlug={orgSlug} />
+        {showTabs ? <ScheduledTasksTabs orgSlug={orgSlug} /> : null}
       </div>
 
       {syncState.message ? (

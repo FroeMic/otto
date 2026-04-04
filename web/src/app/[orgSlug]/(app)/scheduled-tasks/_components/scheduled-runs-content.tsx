@@ -45,7 +45,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
       cell: ({ row }) => (
         <Link
           className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/setup`}
+          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/overview`}
         >
           {row.original.taskName}
         </Link>
@@ -58,18 +58,30 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
         <DataTableColumnHeader column={column} title="Session" />
       ),
       size: 360,
-      cell: ({ row }) => (
-        <span
-          className={
-            row.original.error
-              ? "block truncate text-sm text-destructive"
-              : "block truncate text-sm text-muted-foreground"
-          }
-          title={row.original.summary ?? row.original.error ?? undefined}
-        >
-          {row.original.summary ?? row.original.error ?? "-"}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const text = row.original.summary ?? row.original.error ?? "-";
+        const className = row.original.error
+          ? "block truncate text-sm text-destructive"
+          : "block truncate text-sm text-muted-foreground";
+
+        if (row.original.runtimeSessionKey && row.original.hasSyncedSession) {
+          return (
+            <Link
+              className={`${className} underline underline-offset-4 hover:text-foreground`}
+              href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.runtimeSessionKey)}`}
+              title={text}
+            >
+              {text}
+            </Link>
+          );
+        }
+
+        return (
+          <span className={className} title={text}>
+            {text}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "triggerType",
@@ -133,24 +145,6 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledRunRow>> {
           {formatDateTime(row.original.finishedAt)}
         </span>
       ),
-    },
-    {
-      accessorKey: "runtimeSessionKey",
-      header: "Linked session",
-      size: 140,
-      cell: ({ row }) =>
-        row.original.runtimeSessionKey && row.original.hasSyncedSession ? (
-          <Link
-            className="text-sm font-medium text-foreground underline underline-offset-4"
-            href={`/${orgSlug}/sessions/${encodeURIComponent(row.original.runtimeSessionKey)}`}
-          >
-            View session
-          </Link>
-        ) : (
-          <span className="text-sm text-muted-foreground">
-            No linked session
-          </span>
-        ),
     },
   ];
 }

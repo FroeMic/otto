@@ -330,6 +330,7 @@ Implementation note:
 - the first shipped sync path is an explicit runtime pull initiated from the workspace UI plus worker-driven reconciliation
 - the page now links synced cron runs to existing session detail pages when the runtime reports `sessionKey`
 - linked session rows are now only clickable when the session has actually been synced into Otto
+- task detail routes now use `Overview`, `Configuration`, and `Task Runs` tabs and hide the parent scheduled-tasks tab strip to avoid duplicate navigation
 
 ## Open questions
 
