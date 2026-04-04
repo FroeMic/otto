@@ -61,7 +61,7 @@ export function ScheduledTasksActionsMenu({
       {syncJobId ? (
         <SyncNotification
           jobId={syncJobId}
-          message="Syncing Scheduled Tasks and Task Runs"
+          message="Syncing Tasks"
           onDone={handleDone}
           orgSlug={orgSlug}
         />
