@@ -1040,7 +1040,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
 
   if (!surface || !draft) {
     return (
-      <SettingsPage className="mx-0 max-w-2xl">
+      <SettingsPage className="mx-0 max-w-none">
         <div className="flex flex-col gap-8 pb-24">
           <SettingsSection>
             <SettingsSectionTitle>Connection</SettingsSectionTitle>
@@ -1162,7 +1162,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         </TabsList>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {props.statusAlert ? (
                 <Alert variant={props.statusAlert.variant}>
@@ -1230,7 +1230,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         </TabsContent>
 
         <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               <SettingsSection>
                 <SettingsSectionTitle>Replies</SettingsSectionTitle>
@@ -1502,7 +1502,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         </TabsContent>
 
         <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {props.agentCapabilities.length > 0 ? (
                 groupCapabilities(props.agentCapabilities).map(
@@ -1556,7 +1556,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
       </Tabs>
 
       {hasChanges ? (
-        <SettingsPage className="mx-0 max-w-2xl">
+        <SettingsPage className="mx-0 max-w-none">
           <SaveBar
             hasChanges={hasChanges}
             isPending={isPending}

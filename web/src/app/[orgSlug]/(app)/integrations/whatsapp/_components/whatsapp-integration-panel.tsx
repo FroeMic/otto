@@ -836,7 +836,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         </TabsList>
 
         <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {props.agentCapabilities.length > 0 ? (
                 groupCapabilities(props.agentCapabilities).map(
@@ -889,7 +889,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         </TabsContent>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
               {props.statusAlert ? (
                 <Alert variant={props.statusAlert.variant}>
@@ -1198,7 +1198,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
         </TabsContent>
 
         <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-2xl">
+          <SettingsPage className="mx-0 max-w-none">
             {!surface || !draftConfig || !currentConfig ? (
               <Alert>
                 <AlertTitle>WhatsApp settings are not ready yet</AlertTitle>
@@ -1429,7 +1429,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
       </Tabs>
 
       {hasUnsavedChanges ? (
-        <SettingsPage className="mx-0 max-w-2xl">
+        <SettingsPage className="mx-0 max-w-none">
           <SaveBar
             hasChanges={hasUnsavedChanges}
             isPending={isPending}
