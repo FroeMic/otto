@@ -7912,6 +7912,37 @@ export type TenantSessionUpsertInput = {
   syncSource: string;
 };
 
+/**
+ * Extract the session start timestamp from the transcript JSONL.
+ * Checks the session header line timestamp, then the first message timestamp.
+ */
+function extractStartedAtFromTranscript(
+  transcriptJsonl: string | null | undefined,
+): number | null {
+  if (!transcriptJsonl) return null;
+
+  const lines = transcriptJsonl.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const parsed = JSON.parse(line);
+      // Session header has ISO timestamp
+      if (parsed.type === "session" && parsed.timestamp) {
+        const ts = new Date(parsed.timestamp).getTime();
+        if (Number.isFinite(ts)) return ts;
+      }
+      // Message lines have epoch ms timestamp
+      if (parsed.type === "message" && parsed.message?.timestamp) {
+        const ts = parsed.message.timestamp;
+        if (typeof ts === "number" && Number.isFinite(ts)) return ts;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function upsertTenantSessionBatch(
   tenantId: string,
   sessions: TenantSessionUpsertInput[],
@@ -7922,6 +7953,11 @@ export async function upsertTenantSessionBatch(
   const now = new Date();
 
   for (const session of sessions) {
+    // When startedAt is missing, derive it from the transcript
+    const effectiveStartedAt =
+      session.startedAt ??
+      extractStartedAtFromTranscript(session.transcriptJsonl);
+
     await db
       .insert(tenantSessions)
       .values({
@@ -7939,7 +7975,7 @@ export async function upsertTenantSessionBatch(
         originAccountId: session.originAccountId ?? null,
         originThreadId: session.originThreadId ?? null,
         status: session.status,
-        startedAt: session.startedAt ? new Date(session.startedAt) : null,
+        startedAt: effectiveStartedAt ? new Date(effectiveStartedAt) : null,
         endedAt: session.endedAt ? new Date(session.endedAt) : null,
         runtimeMs: session.runtimeMs ?? null,
         model: session.model ?? null,
@@ -7975,7 +8011,7 @@ export async function upsertTenantSessionBatch(
           originAccountId: session.originAccountId ?? undefined,
           originThreadId: session.originThreadId ?? undefined,
           status: session.status,
-          startedAt: session.startedAt ? new Date(session.startedAt) : undefined,
+          startedAt: effectiveStartedAt ? new Date(effectiveStartedAt) : undefined,
           endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
           runtimeMs: session.runtimeMs ?? undefined,
           model: session.model ?? undefined,
