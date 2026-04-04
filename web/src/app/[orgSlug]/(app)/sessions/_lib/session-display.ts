@@ -6,6 +6,7 @@
  *   agent:main:main                                           → shared DM (legacy)
  *   agent:main:slack:channel:c0aky040d3m:thread:1775227708    → Slack channel thread
  *   agent:main:slack:dm:u0alyk6qz8q                           → Slack DM
+ *   agent:main:slack:direct:u0alyk6qz8q                       → Slack DM (per-channel-peer scope)
  *   agent:main:slack:group:g123                                → Slack group
  *   agent:main:whatsapp:group:123456@g.us                     → WhatsApp group
  *   agent:main:whatsapp:dm:+4917656843172                     → WhatsApp DM
@@ -34,7 +35,11 @@ export function parseSessionKey(sessionKey: string): ParsedSessionKey {
   const provider = parts[2] ?? null;
   const kindRaw = parts[3] ?? "unknown";
   const kind = (
-    ["dm", "channel", "group"].includes(kindRaw) ? kindRaw : "unknown"
+    kindRaw === "direct"
+      ? "dm"
+      : ["dm", "channel", "group"].includes(kindRaw)
+        ? kindRaw
+        : "unknown"
   ) as ParsedSessionKey["kind"];
 
   // Find thread part
