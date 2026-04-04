@@ -1,7 +1,7 @@
 "use client";
 
-import { HugeiconsIcon } from "@hugeicons/react";
 import { ConnectIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
@@ -87,10 +87,7 @@ const columns: ColumnDef<CapabilityRow>[] = [
                 width={16}
               />
             ) : (
-              <HugeiconsIcon
-                className="size-4 shrink-0"
-                icon={ConnectIcon}
-              />
+              <HugeiconsIcon className="size-4 shrink-0" icon={ConnectIcon} />
             )}
             {sourceLabel}
           </Link>

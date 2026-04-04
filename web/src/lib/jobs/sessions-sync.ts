@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 
 import {
   deleteStaleTenantSessions,
-  upsertTenantSessionBatch,
   type TenantSessionUpsertInput,
+  upsertTenantSessionBatch,
 } from "@/db/control-plane";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { SshClient, type SshConnection } from "@/lib/ssh/client";
@@ -158,8 +158,7 @@ export async function processSyncTenantSessionsJob(
         chatType: entry.chatType ?? entry.origin?.chatType ?? null,
         originFrom: entry.origin?.from ?? null,
         originTo: entry.origin?.to ?? null,
-        originAccountId:
-          entry.lastAccountId ?? entry.origin?.accountId ?? null,
+        originAccountId: entry.lastAccountId ?? entry.origin?.accountId ?? null,
         originThreadId: entry.lastThreadId
           ? String(entry.lastThreadId)
           : entry.origin?.threadId
@@ -247,7 +246,11 @@ async function readTranscriptOverSsh(
   const archivedPath = lsResult.exitCode === 0 ? lsResult.stdout.trim() : "";
   if (!archivedPath) return null;
 
-  const archivedContent = await tryReadFileOverSsh(ssh, connection, archivedPath);
+  const archivedContent = await tryReadFileOverSsh(
+    ssh,
+    connection,
+    archivedPath,
+  );
   if (archivedContent) return buildTranscriptResult(archivedContent);
 
   return null;

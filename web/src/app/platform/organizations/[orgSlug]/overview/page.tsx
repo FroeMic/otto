@@ -1,11 +1,11 @@
 import {
   SettingsCard,
   SettingsPage,
-  SettingsSection,
-  SettingsSectionTitle,
   SettingsRow,
   SettingsRowLabel,
   SettingsRowTitle,
+  SettingsSection,
+  SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import {
   formatStatus,
@@ -72,7 +72,10 @@ function getLatestIssueTitle(input: {
   latestJobStatus?: string | null;
   slackError?: string | null;
 }) {
-  if (input.latestApplyRunStatus && isFailureStatus(input.latestApplyRunStatus)) {
+  if (
+    input.latestApplyRunStatus &&
+    isFailureStatus(input.latestApplyRunStatus)
+  ) {
     return "Latest apply needs attention";
   }
 
@@ -235,8 +238,8 @@ export default async function PlatformOrganizationOverviewPage({
                     </a>
                   ) : (
                     (organization.observedRuntimeImageVersion ??
-                      organization.observedRuntimeImage ??
-                      "Not available")
+                    organization.observedRuntimeImage ??
+                    "Not available")
                   )
                 }
               />
@@ -255,7 +258,7 @@ export default async function PlatformOrganizationOverviewPage({
                     </a>
                   ) : (
                     (organization.configuredRuntimeImageVersion ??
-                      organization.configuredRuntimeImage)
+                    organization.configuredRuntimeImage)
                   )
                 }
               />

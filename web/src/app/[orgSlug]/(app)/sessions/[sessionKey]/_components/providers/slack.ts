@@ -38,10 +38,8 @@ export const tryParseOpenClawEnvelope: ProviderParser = (
   const text = extractCleanText(rawText);
 
   return {
-    senderName:
-      sender?.name ?? conversationInfo?.sender ?? null,
-    senderId:
-      sender?.id ?? conversationInfo?.sender_id ?? null,
+    senderName: sender?.name ?? conversationInfo?.sender ?? null,
+    senderId: sender?.id ?? conversationInfo?.sender_id ?? null,
     text,
     channel: conversationInfo?.conversation_label ?? null,
     threadLabel: conversationInfo?.thread_label ?? null,

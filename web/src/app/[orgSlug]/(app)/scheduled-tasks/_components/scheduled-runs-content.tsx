@@ -58,7 +58,8 @@ function createColumns(
     });
   }
 
-  columns.push({
+  columns.push(
+    {
       id: "summary",
       accessorFn: (row) => row.summary ?? row.error ?? "",
       header: ({ column }) => (
@@ -152,7 +153,8 @@ function createColumns(
           {formatDateTime(row.original.finishedAt)}
         </span>
       ),
-    });
+    },
+  );
 
   return columns;
 }

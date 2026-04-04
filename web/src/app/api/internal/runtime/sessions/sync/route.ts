@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import {
-  upsertTenantSessionBatch,
   type TenantSessionUpsertInput,
+  upsertTenantSessionBatch,
 } from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
@@ -135,10 +135,7 @@ function handleError(error: unknown) {
 
   if (error instanceof Error) {
     console.error("[sessions/sync] Unexpected error:", error.message);
-    return json(
-      { code: "session_sync_failed", message: error.message },
-      500,
-    );
+    return json({ code: "session_sync_failed", message: error.message }, 500);
   }
 
   return json(

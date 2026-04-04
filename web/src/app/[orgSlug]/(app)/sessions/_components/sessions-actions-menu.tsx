@@ -1,8 +1,12 @@
 "use client";
 
+import {
+  ArrowReloadHorizontalIcon,
+  MoreHorizontalIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SyncNotification } from "@/components/sync-notification";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  MoreHorizontalIcon,
-  ArrowReloadHorizontalIcon,
-} from "@hugeicons/core-free-icons";
 
 export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
   const [syncJobId, setSyncJobId] = useState<string | null>(null);

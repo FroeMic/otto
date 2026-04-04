@@ -1,9 +1,8 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
-
-import { getAgentInstructionTabBySlug } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
 import { ManagedInstructionsEditor } from "@/app/[orgSlug]/_components/managed-instructions-editor";
+import { getAgentInstructionTabBySlug } from "@/app/[orgSlug]/(app)/agent/_lib/agent-instruction-tabs";
 import {
   SettingsPage,
   SettingsSection,

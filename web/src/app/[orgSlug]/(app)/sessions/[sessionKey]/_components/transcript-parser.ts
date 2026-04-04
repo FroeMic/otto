@@ -1,5 +1,5 @@
-import { tryParseOpenClawEnvelope } from "./providers/slack";
 import { tryParseFallback } from "./providers/fallback";
+import { tryParseOpenClawEnvelope } from "./providers/slack";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,7 +69,13 @@ function parseUserMessageText(rawText: string): ParsedUserMessage {
     if (result) return result;
   }
   // Should never reach here because fallback always returns
-  return { senderName: null, senderId: null, text: rawText, channel: null, threadLabel: null };
+  return {
+    senderName: null,
+    senderId: null,
+    text: rawText,
+    channel: null,
+    threadLabel: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -96,9 +102,7 @@ function extractTextContent(
   if (!content) return "";
   if (typeof content === "string") return content;
   return content
-    .filter(
-      (block) => block.type === "text" && typeof block.text === "string",
-    )
+    .filter((block) => block.type === "text" && typeof block.text === "string")
     .map((block) => block.text as string)
     .join("\n");
 }
@@ -139,10 +143,7 @@ function parseContentBlocks(
       case "toolUse": {
         blocks.push({
           type: "tool_call",
-          name:
-            (block.name as string) ??
-            (block.function as string) ??
-            "tool",
+          name: (block.name as string) ?? (block.function as string) ?? "tool",
           id: (block.id ?? block.tool_use_id ?? block.toolUseId) as
             | string
             | undefined,
@@ -257,9 +258,7 @@ export function parseTranscript(jsonl: string | null): ParsedMessage[] {
             timestamp: ts,
             senderName: "Scheduled Task",
             senderId: null,
-            blocks: rawText
-              ? [{ type: "text", text: rawText }]
-              : [],
+            blocks: rawText ? [{ type: "text", text: rawText }] : [],
             model: null,
             usage: null,
           });
@@ -272,9 +271,7 @@ export function parseTranscript(jsonl: string | null): ParsedMessage[] {
             timestamp: ts,
             senderName: parsed.senderName,
             senderId: parsed.senderId,
-            blocks: parsed.text
-              ? [{ type: "text", text: parsed.text }]
-              : [],
+            blocks: parsed.text ? [{ type: "text", text: parsed.text }] : [],
             model: null,
             usage: null,
           });

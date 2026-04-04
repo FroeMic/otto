@@ -75,7 +75,7 @@ export async function processResyncSlackUsersJob(
     );
 
     // Look up the organization ID from the tenant
-    const { and, eq } = await import("drizzle-orm");
+    const { eq } = await import("drizzle-orm");
     const { getDb } = await import("@/db/client");
     const { tenants } = await import("@/db/schema");
     const db = getDb();
@@ -104,7 +104,11 @@ export async function processResyncSlackUsersJob(
     });
   } catch (error) {
     const message = getErrorMessage(error);
-    await appendJobEvent(job.id, "failed", `Slack user sync failed: ${message}`);
+    await appendJobEvent(
+      job.id,
+      "failed",
+      `Slack user sync failed: ${message}`,
+    );
     await markJobFailed(job.id, message);
     throw error;
   }
@@ -173,7 +177,11 @@ export async function processResyncSlackChannelsJob(
     });
   } catch (error) {
     const message = getErrorMessage(error);
-    await appendJobEvent(job.id, "failed", `Slack channel sync failed: ${message}`);
+    await appendJobEvent(
+      job.id,
+      "failed",
+      `Slack channel sync failed: ${message}`,
+    );
     await markJobFailed(job.id, message);
     throw error;
   }

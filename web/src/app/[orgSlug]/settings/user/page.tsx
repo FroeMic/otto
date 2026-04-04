@@ -14,8 +14,8 @@ import {
   ThemeSettingsCard,
 } from "@/app/[orgSlug]/settings/user/_components/user-settings-form";
 import { getUserChannelIdentities } from "@/db/control-plane";
-import { isSlackConnected } from "@/lib/workspace";
 import { getWorkOS } from "@/lib/workos";
+import { isSlackConnected } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 

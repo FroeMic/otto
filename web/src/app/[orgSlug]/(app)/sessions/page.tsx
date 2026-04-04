@@ -27,16 +27,20 @@ export default async function SessionsPage({
   }
 
   const agent = getPrimaryAgent(organization);
-  const [sessions, currentUserExternalIds, conversationNameMap, cronTaskKeyMap] =
-    await Promise.all([
-      agent ? listTenantSessions({ tenantId: agent.id }) : [],
-      getUserExternalIds({
-        userExternalId: user.id,
-        organizationId: organization.id,
-      }),
-      getConversationNameMap({ organizationId: organization.id }),
-      agent ? getCronSessionTaskKeyMap({ tenantId: agent.id }) : new Map(),
-    ]);
+  const [
+    sessions,
+    currentUserExternalIds,
+    conversationNameMap,
+    cronTaskKeyMap,
+  ] = await Promise.all([
+    agent ? listTenantSessions({ tenantId: agent.id }) : [],
+    getUserExternalIds({
+      userExternalId: user.id,
+      organizationId: organization.id,
+    }),
+    getConversationNameMap({ organizationId: organization.id }),
+    agent ? getCronSessionTaskKeyMap({ tenantId: agent.id }) : new Map(),
+  ]);
 
   const channelNames = Object.fromEntries(conversationNameMap);
   const cronTaskKeys = Object.fromEntries(cronTaskKeyMap);

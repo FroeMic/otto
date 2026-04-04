@@ -114,8 +114,7 @@ export async function POST(
       );
     }
 
-    const message =
-      error instanceof Error ? error.message : "Update failed";
+    const message = error instanceof Error ? error.message : "Update failed";
 
     return NextResponse.json(
       { code: "update_failed", message },
