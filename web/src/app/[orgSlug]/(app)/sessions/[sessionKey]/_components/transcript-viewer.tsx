@@ -549,23 +549,23 @@ export function TranscriptViewer({
 
   return (
     <ResolveTextContext.Provider value={resolveText}>
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
-        {/* Header with channel icon */}
-        <div className="flex items-start gap-3">
-          <ChannelIcon channel={session.channel} />
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {resolveText(title)}
-            </h1>
-            <p className="text-xs text-muted-foreground font-mono">
-              {session.sessionKey}
-            </p>
-            <StatsLine session={session} />
-          </div>
-        </div>
-
-        {/* Transcript — centered with max-width, no card wrapper */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="mx-auto w-full max-w-3xl">
+          {/* Header with channel icon */}
+          <div className="flex items-start gap-3 pb-6">
+            <ChannelIcon channel={session.channel} />
+            <div className="flex flex-col gap-0.5">
+              <h1 className="text-xl font-semibold tracking-tight">
+                {resolveText(title)}
+              </h1>
+              <p className="text-xs text-muted-foreground font-mono">
+                {session.sessionKey}
+              </p>
+              <StatsLine session={session} />
+            </div>
+          </div>
+
+          {/* Transcript */}
           <div className="flex flex-col gap-5 py-4">
             {turns.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
