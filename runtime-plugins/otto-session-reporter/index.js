@@ -26,8 +26,11 @@ export default definePluginEntry({
 
     api.on("session_start", async (event, ctx) => {
       try {
+        const sessionKey = ctx.sessionKey ?? event.sessionId;
+        if (isBaseCronKey(sessionKey)) return;
+
         await syncSession(api, {
-          sessionKey: ctx.sessionKey ?? event.sessionId,
+          sessionKey,
           externalSessionId: event.sessionId,
           status: "running",
           sessionUpdatedAt: Date.now(),
@@ -39,9 +42,11 @@ export default definePluginEntry({
 
     api.on("session_end", async (event, ctx) => {
       try {
-        clearDebounce(pendingFlush, ctx.sessionKey ?? event.sessionId);
-
         const sessionKey = ctx.sessionKey ?? event.sessionId;
+        if (isBaseCronKey(sessionKey)) return;
+
+        clearDebounce(pendingFlush, sessionKey);
+
         const entry = await loadSessionEntry(api, sessionKey);
         const transcript = await readTranscript(api, sessionKey, entry);
 
@@ -62,6 +67,7 @@ export default definePluginEntry({
     api.runtime.events.onSessionTranscriptUpdate((update) => {
       const sessionKey = update.sessionKey;
       if (!sessionKey) return;
+      if (isBaseCronKey(sessionKey)) return;
 
       debouncedSync(api, pendingFlush, sessionKey);
     });
@@ -352,6 +358,16 @@ async function parseJsonResponse(response) {
   }
 
   return await response.json();
+}
+
+// Matches base cron keys like "agent:main:cron:<jobId>" but NOT
+// run-specific keys like "agent:main:cron:<jobId>:run:<sessionId>".
+// Base keys are rotating pointers to the latest run — the :run: key
+// is the canonical per-run record we want to ingest.
+const BASE_CRON_KEY_RE = /^agent:[^:]+:cron:[^:]+$/;
+
+function isBaseCronKey(sessionKey) {
+  return BASE_CRON_KEY_RE.test(sessionKey);
 }
 
 function logError(message, errorOrDetails) {

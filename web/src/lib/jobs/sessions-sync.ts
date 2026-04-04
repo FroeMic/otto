@@ -102,6 +102,16 @@ export async function processSyncTenantSessionsJob(
       string,
       RuntimeSessionEntry
     >;
+
+    // Build set of sessionIds that have a :run: key so we can skip
+    // base cron keys that point to the same session.
+    const runSessionIds = new Set<string>();
+    for (const [key, entry] of Object.entries(store)) {
+      if (key.includes(":run:") && entry?.sessionId) {
+        runSessionIds.add(entry.sessionId);
+      }
+    }
+
     const sessionKeys = Object.keys(store);
 
     await appendJobEvent(
@@ -115,6 +125,11 @@ export async function processSyncTenantSessionsJob(
     for (const sessionKey of sessionKeys) {
       const entry = store[sessionKey];
       if (!entry?.sessionId) continue;
+
+      // Skip base cron keys when a run-specific key exists for the same sessionId
+      if (!sessionKey.includes(":run:") && runSessionIds.has(entry.sessionId)) {
+        continue;
+      }
 
       const filePath = resolveTranscriptPath(entry);
       let transcript: {
