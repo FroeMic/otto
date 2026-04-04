@@ -44,6 +44,7 @@ import {
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
+import { getStaleDirectoryIds } from "@/lib/messaging-directory";
 import {
   buildManagedBootstrapFileContent,
   buildManagedBootstrapSystemContent,
@@ -3383,6 +3384,13 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         });
     }
 
+    await removeStaleMessagingWorkspaceMembers(tx, {
+      messagingWorkspaceId,
+      syncedExternalMemberIds: input.members.map(
+        (member) => member.externalMemberId,
+      ),
+    });
+
     for (const conversation of input.conversations) {
       if (!conversation.externalConversationId) {
         continue;
@@ -3418,6 +3426,13 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
           },
         });
     }
+
+    await removeStaleMessagingConversations(tx, {
+      messagingWorkspaceId,
+      syncedExternalConversationIds: input.conversations.map(
+        (conversation) => conversation.externalConversationId,
+      ),
+    });
 
     await tx
       .update(messagingWorkspaces)
@@ -3506,6 +3521,13 @@ export async function syncSlackUsersForTenantIntegration(input: {
         });
       synced++;
     }
+
+    await removeStaleMessagingWorkspaceMembers(tx, {
+      messagingWorkspaceId,
+      syncedExternalMemberIds: input.members.map(
+        (member) => member.externalMemberId,
+      ),
+    });
   });
 
   return { synced };
@@ -3563,6 +3585,13 @@ export async function syncSlackChannelsForTenantIntegration(input: {
         });
       synced++;
     }
+
+    await removeStaleMessagingConversations(tx, {
+      messagingWorkspaceId,
+      syncedExternalConversationIds: input.conversations.map(
+        (conversation) => conversation.externalConversationId,
+      ),
+    });
   });
 
   return { synced };
@@ -6635,6 +6664,93 @@ async function upsertMessagingWorkspace(
     });
 
   return workspace.id;
+}
+
+async function removeStaleMessagingWorkspaceMembers(
+  tx: DbTransaction,
+  input: {
+    messagingWorkspaceId: string;
+    syncedExternalMemberIds: string[];
+  },
+) {
+  const existingMembers = await tx
+    .select({
+      externalMemberId: messagingWorkspaceMembers.externalMemberId,
+    })
+    .from(messagingWorkspaceMembers)
+    .where(
+      eq(
+        messagingWorkspaceMembers.messagingWorkspaceId,
+        input.messagingWorkspaceId,
+      ),
+    );
+
+  const staleMemberIds = getStaleDirectoryIds({
+    currentIds: existingMembers.map((member) => member.externalMemberId),
+    syncedIds: input.syncedExternalMemberIds,
+  });
+
+  if (staleMemberIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .delete(messagingWorkspaceMembers)
+    .where(
+      and(
+        eq(
+          messagingWorkspaceMembers.messagingWorkspaceId,
+          input.messagingWorkspaceId,
+        ),
+        inArray(messagingWorkspaceMembers.externalMemberId, staleMemberIds),
+      ),
+    );
+}
+
+async function removeStaleMessagingConversations(
+  tx: DbTransaction,
+  input: {
+    messagingWorkspaceId: string;
+    syncedExternalConversationIds: string[];
+  },
+) {
+  const existingConversations = await tx
+    .select({
+      externalConversationId: messagingConversations.externalConversationId,
+    })
+    .from(messagingConversations)
+    .where(
+      eq(
+        messagingConversations.messagingWorkspaceId,
+        input.messagingWorkspaceId,
+      ),
+    );
+
+  const staleConversationIds = getStaleDirectoryIds({
+    currentIds: existingConversations.map(
+      (conversation) => conversation.externalConversationId,
+    ),
+    syncedIds: input.syncedExternalConversationIds,
+  });
+
+  if (staleConversationIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .delete(messagingConversations)
+    .where(
+      and(
+        eq(
+          messagingConversations.messagingWorkspaceId,
+          input.messagingWorkspaceId,
+        ),
+        inArray(
+          messagingConversations.externalConversationId,
+          staleConversationIds,
+        ),
+      ),
+    );
 }
 
 async function upsertSlackIntegrationForTenant(

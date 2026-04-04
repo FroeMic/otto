@@ -207,6 +207,7 @@
   - Slack channel policy now supports `Only pre-configured channels` vs `All channels Otto is added to`
   - the channel-management dialog can now add Otto to public Slack channels, remove Otto from joined channels, and show private-channel invite guidance
   - Slack settings page loads now refresh the synced Slack directory before rendering and fall back to cached data with an inline warning if the live refresh fails
+  - successful Slack directory syncs now prune users and channels missing from the latest Slack snapshot so reconnects do not leave stale directory entries behind
   - `All channels Otto is added to` now renders to OpenClaw as `groupPolicy: "open"` with a wildcard channel mention policy instead of incorrectly behaving like a manual allowlist
   - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`
 - The generic runtime-surface registry and mutation flow is now implemented:
