@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { dirname, basename } from "node:path";
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
@@ -126,39 +127,69 @@ async function loadSessionEntry(api, sessionKey) {
 }
 
 async function readTranscript(api, sessionKey, entry) {
-  try {
-    // 1. Prefer entry.sessionFile — always correct when present (handles
-    //    both topic-suffixed Slack files and plain UUID cron files).
-    // 2. Fall back to resolveSessionFilePath with the entry's sessionId UUID
-    //    (works for cron sessions where sessionFile may be absent).
-    let filePath = entry?.sessionFile ?? null;
+  // 1. Prefer entry.sessionFile — always correct when present (handles
+  //    both topic-suffixed Slack files and plain UUID cron files).
+  // 2. Fall back to resolveSessionFilePath with the entry's sessionId UUID
+  //    (works for cron sessions where sessionFile may be absent).
+  let filePath = entry?.sessionFile ?? null;
 
-    if (!filePath && entry?.sessionId) {
-      try {
-        filePath = api.runtime.agent.session.resolveSessionFilePath(
-          entry.sessionId,
-        );
-      } catch {
-        // resolveSessionFilePath may not support all formats
-      }
+  if (!filePath && entry?.sessionId) {
+    try {
+      filePath = api.runtime.agent.session.resolveSessionFilePath(
+        entry.sessionId,
+      );
+    } catch {
+      // resolveSessionFilePath may not support all formats
     }
+  }
 
-    if (!filePath) return null;
+  if (!filePath) return null;
 
-    const content = await readFile(filePath, "utf-8");
-    const hash = createHash("sha256").update(content).digest("hex");
-    const lineCount = content.split("\n").filter((l) => l.trim()).length;
-    const messageCount = Math.max(0, lineCount - 1);
+  // Try primary path first
+  const content = await tryReadFile(filePath);
+  if (content) return buildResult(content);
 
-    return {
-      transcriptJsonl: content,
-      transcriptHash: hash,
-      messageCount,
-    };
-  } catch (error) {
-    logError(`readTranscript failed for ${sessionKey}`, error);
+  // Fall back to .deleted.* or .reset.* variants (one-shot crons, pruned sessions)
+  const archivedPath = await findArchivedVariant(filePath);
+  if (archivedPath) {
+    const archivedContent = await tryReadFile(archivedPath);
+    if (archivedContent) return buildResult(archivedContent);
+  }
+
+  return null;
+}
+
+async function tryReadFile(filePath) {
+  try {
+    return await readFile(filePath, "utf-8");
+  } catch {
     return null;
   }
+}
+
+async function findArchivedVariant(filePath) {
+  try {
+    const dir = dirname(filePath);
+    const base = basename(filePath);
+    const files = await readdir(dir);
+    // Match <base>.deleted.* or <base>.reset.*
+    const match = files.find(
+      (f) => f.startsWith(base + ".deleted.") || f.startsWith(base + ".reset."),
+    );
+    return match ? `${dir}/${match}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildResult(content) {
+  const hash = createHash("sha256").update(content).digest("hex");
+  const lineCount = content.split("\n").filter((l) => l.trim()).length;
+  return {
+    transcriptJsonl: content,
+    transcriptHash: hash,
+    messageCount: Math.max(0, lineCount - 1),
+  };
 }
 
 // ---------------------------------------------------------------------------
