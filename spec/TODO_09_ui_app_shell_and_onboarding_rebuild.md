@@ -466,6 +466,7 @@ Likely additions during implementation:
 - [ ] define and implement a dedicated WhatsApp integration state page
 - [x] implement a dedicated settings shell with sectioned navigation
 - [x] extend workspace settings with a WorkOS-backed members view and member-management flow
+- [x] extend workspace settings with workspace time and region controls plus a shared workspace date-formatting baseline
 - [x] implement route-backed Agent status and instruction views
 - [x] implement a `Tools` section in the authenticated app shell
 - [x] implement a platform-admin-only `/platform` shell and organizations table
@@ -492,6 +493,7 @@ Likely additions during implementation:
 - users flagged as platform admins can reach a dedicated `/platform/organizations` operations view from the workspace sidebar
 - `/platform/organizations` renders a reusable TanStack-based data table listing org slug, Slack state, tenant/server status, configured runtime image, latest sync state, and operator actions
 - settings uses its own sidebar with route-backed user and workspace sections
+- workspace settings includes a `Time and Region` section with workspace-level timezone, locale, and time-format controls
 - the Agent area exposes route-backed status and instruction views
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder
 - `/{orgSlug}/tools` lists runtime capability surfaces that are not shown as integrations

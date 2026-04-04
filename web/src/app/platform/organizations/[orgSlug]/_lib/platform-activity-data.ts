@@ -1,3 +1,8 @@
+import {
+  formatSearchDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
+
 export type PlatformActivityJobRow = {
   attempt: number;
   createdAt: Date;
@@ -51,7 +56,10 @@ type PlatformActivityTenant = {
   }>;
 };
 
-export function buildPlatformActivityData(tenant: PlatformActivityTenant) {
+export function buildPlatformActivityData(
+  tenant: PlatformActivityTenant,
+  dateTimePreferences: WorkspaceDateTimePreferences,
+) {
   return {
     events: tenant.recentEvents.map((event) => ({
       createdAt: event.createdAt,
@@ -67,7 +75,7 @@ export function buildPlatformActivityData(tenant: PlatformActivityTenant) {
         event.eventType,
         event.step ?? "",
         event.message,
-        formatDateParts(event.createdAt),
+        formatDateParts(event.createdAt, dateTimePreferences),
       ]
         .join(" ")
         .toLowerCase(),
@@ -85,8 +93,8 @@ export function buildPlatformActivityData(tenant: PlatformActivityTenant) {
         job.status,
         job.step ?? "",
         job.error ?? "",
-        formatDateParts(job.startedAt ?? job.createdAt),
-        formatDateParts(job.finishedAt),
+        formatDateParts(job.startedAt ?? job.createdAt, dateTimePreferences),
+        formatDateParts(job.finishedAt, dateTimePreferences),
       ]
         .join(" ")
         .toLowerCase(),
@@ -97,13 +105,13 @@ export function buildPlatformActivityData(tenant: PlatformActivityTenant) {
   };
 }
 
-function formatDateParts(value: Date | null) {
+function formatDateParts(
+  value: Date | null,
+  dateTimePreferences: WorkspaceDateTimePreferences,
+) {
   if (!value) {
     return "";
   }
 
-  return [
-    value.toLocaleDateString("en"),
-    value.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }),
-  ].join(" ");
+  return formatSearchDateTime(value, dateTimePreferences);
 }

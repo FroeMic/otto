@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { SyncNotification } from "@/components/sync-notification";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SyncNotification } from "@/components/sync-notification";
 
 export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
   const [syncJobId, setSyncJobId] = useState<string | null>(null);
@@ -67,10 +67,7 @@ export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
           <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuItem
-            disabled={syncJobId !== null}
-            onClick={handleSync}
-          >
+          <DropdownMenuItem disabled={syncJobId !== null} onClick={handleSync}>
             <HugeiconsIcon
               icon={ArrowReloadHorizontalIcon}
               className="size-4"

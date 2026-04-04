@@ -93,6 +93,8 @@
   - the Slack OAuth routes now return users to the slug-scoped Slack integration page
   - settings now uses a dedicated settings shell with its own sidebar, route-backed sections, and a back-to-app action
   - workspace settings now includes a WorkOS-backed members page with searchable member/invitation rows, dynamic WorkOS role management, and admin invite/lifecycle actions
+  - workspace settings now also includes a `Time and Region` section with workspace-level timezone, locale, and time-format preferences stored on the organization and projected into tenant/runtime config where applicable
+  - workspace-facing session, scheduled-task, member, and platform operator date displays now use a shared explicit timezone/locale formatter instead of route-local `Intl.DateTimeFormat` copies
   - the Agent area now uses URL-backed `status` and `prompts` views instead of a single page-only dashboard
   - managed instruction editing now supports `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USERS.md`, and `TOOLS.md` with separate protected and shared sections
 - A platform-admin extension of the app shell is now implemented on `codex/platform-admin-main`:
@@ -113,6 +115,7 @@
   - the new activity view now combines jobs and events into one filtered surface with polling
   - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
   - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
+  - the platform organizations table and overview now inspect the ready tenant server over SSH and show the observed `openclaw-gateway` image separately from the configured target image
 - OpenClaw cron integration findings are now captured in `TODO_13_scheduled_tasks_visibility.md`:
   - OpenClaw already exposes stable typed `cron.list`, `cron.runs`, and related `cron.*` Gateway methods we can use for runtime read/reconcile flows
   - cron run history already carries `sessionKey`, so task-run rows can deep-link to synced session detail views

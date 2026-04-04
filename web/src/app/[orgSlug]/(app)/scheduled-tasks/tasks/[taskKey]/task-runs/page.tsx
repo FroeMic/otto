@@ -10,6 +10,7 @@ import {
   getScheduledTasksSyncState,
 } from "@/app/[orgSlug]/(app)/scheduled-tasks/_lib/scheduled-tasks-sync-state";
 import { listTenantScheduledTaskSessions } from "@/db/scheduled-tasks";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +39,15 @@ export default async function ScheduledTaskRunsDetailPage({
     taskKey,
     tenantId: agent.id,
   });
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
 
   return (
     <ScheduledTasksShell
+      dateTimePreferences={dateTimePreferences}
       hideHeader
       lastSyncedAt={getLatestScheduledTasksSyncTimestamp([task])}
       orgSlug={organization.slug}
@@ -52,6 +59,7 @@ export default async function ScheduledTaskRunsDetailPage({
     >
       <ScheduledTaskDetailShell orgSlug={organization.slug} task={task}>
         <ScheduledRunsContent
+          dateTimePreferences={dateTimePreferences}
           hideTaskColumn
           orgSlug={organization.slug}
           runs={runs}

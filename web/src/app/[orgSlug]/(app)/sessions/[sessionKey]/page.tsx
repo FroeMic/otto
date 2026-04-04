@@ -8,6 +8,7 @@ import {
   getUserExternalIds,
 } from "@/db/control-plane";
 import { getTenantScheduledTask } from "@/db/scheduled-tasks";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 import {
@@ -94,9 +95,15 @@ export default async function SessionDetailPage({
       members: memberNameMap,
     },
   });
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
 
   return (
     <TranscriptViewer
+      dateTimePreferences={dateTimePreferences}
       orgSlug={organization.slug}
       session={session}
       sessionName={sessionName}

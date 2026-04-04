@@ -1,3 +1,7 @@
+import {
+  normalizeTimeFormatPreference,
+  normalizeTimeZone,
+} from "@/lib/date-time";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
 import {
@@ -26,12 +30,14 @@ export type OpenClawTenantAudioConfig = {
 export type OpenClawTenantConfig = {
   audio?: OpenClawTenantAudioConfig;
   authTokenEnvVar: string;
+  envelopeTimezone?: "local" | "utc" | "user" | string;
   gatewayPort: number;
   ottoPlugins?: Array<{
     id: string;
     timeoutMs: number;
   }>;
   primaryModel?: string;
+  timeFormat?: "12" | "24" | "auto";
   slack?: {
     ackReactionEnabled: boolean;
     allowedChannelIds: string[];
@@ -55,6 +61,7 @@ export type OpenClawTenantConfig = {
   tenantId: string;
   integrations: string[];
   prompts: Record<string, string>;
+  userTimezone?: string;
   webSearch?: OpenClawWebSearchConfig;
   workspacePath: string;
 };
@@ -302,11 +309,26 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     {
       agents: {
         defaults: {
+          ...(config.envelopeTimezone
+            ? {
+                envelopeTimezone: config.envelopeTimezone,
+              }
+            : {}),
           ...(config.primaryModel
             ? {
                 model: {
                   primary: config.primaryModel,
                 },
+              }
+            : {}),
+          ...(config.timeFormat
+            ? {
+                timeFormat: config.timeFormat,
+              }
+            : {}),
+          ...(config.userTimezone
+            ? {
+                userTimezone: config.userTimezone,
               }
             : {}),
           workspace: config.workspacePath,
@@ -386,10 +408,15 @@ export function buildOpenClawTenantConfig(input: {
   const slackPolicy = parseSlackPolicy(config.slack);
   const whatsappPolicy = parseWhatsAppPolicy(config.whatsapp);
   const webSearch = parseWebSearchConfig(config.webSearch);
+  const userTimezone = normalizeTimeZone(readOptionalString(config.timezone));
+  const timeFormat = normalizeTimeFormatPreference(
+    readOptionalString(config.timeFormat),
+  );
 
   return {
     ...(audio ? { audio } : {}),
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+    envelopeTimezone: "user",
     gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
     integrations: Array.isArray(config.integrations)
       ? config.integrations.filter(
@@ -398,6 +425,7 @@ export function buildOpenClawTenantConfig(input: {
       : [],
     primaryModel: env.RUNTIME_MODEL_PRIMARY,
     prompts: parseStringRecord(config.prompts),
+    timeFormat,
     ...(controlPlaneBaseUrl
       ? {
           ottoPlugins: [
@@ -450,6 +478,7 @@ export function buildOpenClawTenantConfig(input: {
         }
       : {}),
     tenantId: input.tenantId,
+    userTimezone,
     workspacePath: "/home/node/.openclaw/workspace",
   };
 }
@@ -482,6 +511,10 @@ function parseStringArray(value: unknown) {
   return value.filter(
     (entry): entry is string => typeof entry === "string" && entry.length > 0,
   );
+}
+
+function readOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
 function parseSlackPolicy(value: unknown) {

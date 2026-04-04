@@ -10,6 +10,7 @@ import {
 import {
   formatStatus,
   formatTimestamp,
+  getPlatformOrganizationDateTimePreferences,
   getRuntimeImageHref,
   loadPlatformOrganizationDetailRouteContext,
 } from "@/app/platform/organizations/[orgSlug]/_lib/platform-organization-detail";
@@ -98,6 +99,8 @@ export default async function PlatformOrganizationOverviewPage({
   const { orgSlug } = await params;
   const { organization } =
     await loadPlatformOrganizationDetailRouteContext(orgSlug);
+  const dateTimePreferences =
+    getPlatformOrganizationDateTimePreferences(organization);
   const tenant = organization.tenant;
   const latestApplyRun = tenant?.latestApplyRun ?? null;
   const latestJob = tenant?.recentJobs[0] ?? null;
@@ -186,6 +189,7 @@ export default async function PlatformOrganizationOverviewPage({
                   latestApplyRun
                     ? `${formatStatus(latestApplyRun.status)} · ${formatTimestamp(
                         latestApplyRun.finishedAt ?? latestApplyRun.startedAt,
+                        dateTimePreferences,
                       )}`
                     : "No apply recorded"
                 }
@@ -198,6 +202,7 @@ export default async function PlatformOrganizationOverviewPage({
                         latestJob.finishedAt ??
                           latestJob.startedAt ??
                           latestJob.createdAt,
+                        dateTimePreferences,
                       )}`
                     : "No job recorded"
                 }
@@ -215,6 +220,18 @@ export default async function PlatformOrganizationOverviewPage({
             <SettingsSectionTitle>Current</SettingsSectionTitle>
             <SettingsCard>
               <OverviewRow label="Server IP" value={tenant.ipv4 ?? "Pending"} />
+              <OverviewRow label="Timezone" value={organization.timezone} />
+              <OverviewRow label="Locale" value={organization.locale} />
+              <OverviewRow
+                label="Time format"
+                value={
+                  organization.timeFormatPreference === "12"
+                    ? "12-hour"
+                    : organization.timeFormatPreference === "24"
+                      ? "24-hour"
+                      : "Automatic"
+                }
+              />
               <OverviewRow
                 label="Desired state"
                 value={

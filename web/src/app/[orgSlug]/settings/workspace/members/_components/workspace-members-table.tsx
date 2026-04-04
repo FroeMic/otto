@@ -62,20 +62,18 @@ import type {
   WorkspaceMemberDirectoryEntry,
   WorkspaceMemberRoleOption,
 } from "@/db/control-plane";
+import {
+  formatShortDate,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 
 type WorkspaceMembersTableProps = {
   availableRoles: WorkspaceMemberRoleOption[];
   canManageMembers: boolean;
+  dateTimePreferences: WorkspaceDateTimePreferences;
   entries: WorkspaceMemberDirectoryEntry[];
   orgSlug: string;
 };
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-  year: "numeric",
-});
 
 const FILTER_OPTIONS = [
   {
@@ -134,12 +132,15 @@ function normalizeWorkspaceEntry(
   };
 }
 
-function formatDate(value: Date | null) {
+function formatDate(
+  value: Date | null,
+  dateTimePreferences: WorkspaceDateTimePreferences,
+) {
   if (!value) {
     return "Never";
   }
 
-  return dateFormatter.format(value);
+  return formatShortDate(value, dateTimePreferences);
 }
 
 function formatStatusLabel(status: string) {
@@ -608,6 +609,7 @@ function WorkspaceMemberActionsCell({
 export function WorkspaceMembersTable({
   availableRoles,
   canManageMembers,
+  dateTimePreferences,
   entries,
   orgSlug,
 }: WorkspaceMembersTableProps) {
@@ -730,7 +732,7 @@ export function WorkspaceMembersTable({
         ),
         cell: ({ row }) => (
           <span className="text-sm text-foreground">
-            {formatDate(row.original.joinedAt)}
+            {formatDate(row.original.joinedAt, dateTimePreferences)}
           </span>
         ),
       },
@@ -743,7 +745,7 @@ export function WorkspaceMembersTable({
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.lastSeenAt
-              ? formatDate(row.original.lastSeenAt)
+              ? formatDate(row.original.lastSeenAt, dateTimePreferences)
               : row.original.rowType === "invitation"
                 ? "Not yet"
                 : "Not available"}

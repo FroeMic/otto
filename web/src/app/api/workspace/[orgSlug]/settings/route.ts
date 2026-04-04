@@ -4,8 +4,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getDb } from "@/db/client";
-import { syncUserFromSession } from "@/db/control-plane";
+import {
+  getOrganizationWorkspaceBySlug,
+  syncUserFromSession,
+  updateWorkspaceDateTimePreferences,
+} from "@/db/control-plane";
 import { organizations } from "@/db/schema";
+import {
+  isSupportedLocale,
+  isSupportedTimeZone,
+  normalizeTimeFormatPreference,
+} from "@/lib/date-time";
 import { getWorkOS } from "@/lib/workos";
 
 export const dynamic = "force-dynamic";
@@ -27,9 +36,47 @@ const updateSlugSchema = z.object({
     ),
 });
 
+const updateTimezoneSchema = z.object({
+  action: z.literal("update-timezone"),
+  timezone: z
+    .string()
+    .trim()
+    .min(1, "Timezone is required")
+    .refine(
+      (value) => isSupportedTimeZone(value),
+      "Timezone must be a valid IANA timezone",
+    ),
+});
+
+const updateLocaleSchema = z.object({
+  action: z.literal("update-locale"),
+  locale: z
+    .string()
+    .trim()
+    .min(1, "Locale is required")
+    .refine(
+      (value) => isSupportedLocale(value),
+      "Locale must be a valid BCP 47 locale",
+    ),
+});
+
+const updateTimeFormatSchema = z.object({
+  action: z.literal("update-time-format"),
+  timeFormatPreference: z
+    .string()
+    .trim()
+    .refine(
+      (value) => normalizeTimeFormatPreference(value) === value,
+      "Time format must be auto, 12, or 24",
+    ),
+});
+
 const bodySchema = z.discriminatedUnion("action", [
   updateNameSchema,
   updateSlugSchema,
+  updateLocaleSchema,
+  updateTimeFormatSchema,
+  updateTimezoneSchema,
 ]);
 
 export async function POST(
@@ -43,20 +90,10 @@ export async function POST(
 
     const db = getDb();
     const body = bodySchema.parse(await request.json());
-
-    // Find the organization by slug
-    const [org] = await db
-      .select()
-      .from(organizations)
-      .where(eq(organizations.slug, orgSlug))
-      .limit(1);
-
-    if (!org) {
-      return NextResponse.json(
-        { code: "not_found", message: "Workspace not found" },
-        { status: 404, headers: { "Cache-Control": "no-store" } },
-      );
-    }
+    const org = await getOrganizationWorkspaceBySlug({
+      orgSlug,
+      userExternalId: user.id,
+    });
 
     if (body.action === "update-name") {
       // Update name in WorkOS and local DB
@@ -102,6 +139,33 @@ export async function POST(
         { headers: { "Cache-Control": "no-store" } },
       );
     }
+
+    const result = await updateWorkspaceDateTimePreferences(
+      body.action === "update-timezone"
+        ? {
+            organizationId: org.id,
+            timezone: body.timezone,
+          }
+        : body.action === "update-locale"
+          ? {
+              locale: body.locale,
+              organizationId: org.id,
+            }
+          : {
+              organizationId: org.id,
+              timeFormatPreference: body.timeFormatPreference,
+            },
+    );
+
+    return NextResponse.json(
+      {
+        applyQueued: result.applyQueued,
+        locale: result.locale,
+        timeFormatPreference: result.timeFormatPreference,
+        timezone: result.timezone,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -12,6 +12,7 @@ import {
   getLatestTenantScheduledTasksRefreshJob,
   listTenantScheduledTasks,
 } from "@/db/scheduled-tasks";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +40,15 @@ export default async function ScheduledTasksPage({
     listTenantScheduledTasks({ tenantId: agent.id }),
     getLatestTenantScheduledTasksRefreshJob({ tenantId: agent.id }),
   ]);
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: organization.locale,
+    timeFormatPreference: organization.timeFormatPreference,
+    timeZone: organization.timezone,
+  });
 
   return (
     <ScheduledTasksShell
+      dateTimePreferences={dateTimePreferences}
       lastSyncedAt={getLatestScheduledTasksSyncTimestamp(jobs)}
       orgSlug={organization.slug}
       syncState={getScheduledTasksSyncState({
@@ -49,7 +56,11 @@ export default async function ScheduledTasksPage({
         latestRefreshJob,
       })}
     >
-      <ScheduledJobsContent jobs={jobs} orgSlug={organization.slug} />
+      <ScheduledJobsContent
+        dateTimePreferences={dateTimePreferences}
+        jobs={jobs}
+        orgSlug={organization.slug}
+      />
     </ScheduledTasksShell>
   );
 }

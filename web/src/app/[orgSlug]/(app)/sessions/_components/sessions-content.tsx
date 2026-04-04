@@ -12,6 +12,10 @@ import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
+  formatShortDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
+import {
   canViewSessionDetail,
   formatSessionName,
   getProviderIcon,
@@ -79,16 +83,6 @@ function formatCost(v: string | null): string {
   return `$${n.toFixed(4)}`;
 }
 
-function formatTime(date: Date | null): string {
-  if (!date) return "-";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
 function ProviderCell({
   provider,
   taskHref,
@@ -134,6 +128,7 @@ function ProviderCell({
 }
 
 function createColumns(input: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   orgSlug: string;
   currentUserExternalIds: string[];
   isPlatformAdmin: boolean;
@@ -271,7 +266,10 @@ function createColumns(input: {
       size: 130,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatTime(row.original.startedAt)}
+          {formatShortDateTime(
+            row.original.startedAt,
+            input.dateTimePreferences,
+          )}
         </span>
       ),
     },
@@ -279,6 +277,7 @@ function createColumns(input: {
 }
 
 export function SessionsContent({
+  dateTimePreferences,
   orgSlug,
   sessions,
   currentUserExternalIds = [],
@@ -287,6 +286,7 @@ export function SessionsContent({
   memberNames = {},
   cronTaskKeys = {},
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   orgSlug: string;
   sessions: SessionRow[];
   currentUserExternalIds?: string[];
@@ -308,13 +308,21 @@ export function SessionsContent({
   const columns = useMemo(
     () =>
       createColumns({
+        dateTimePreferences,
         orgSlug,
         currentUserExternalIds,
         isPlatformAdmin,
         nameMaps,
         cronTaskKeys,
       }),
-    [orgSlug, currentUserExternalIds, isPlatformAdmin, nameMaps, cronTaskKeys],
+    [
+      dateTimePreferences,
+      orgSlug,
+      currentUserExternalIds,
+      isPlatformAdmin,
+      nameMaps,
+      cronTaskKeys,
+    ],
   );
 
   const filtered = useMemo(() => {

@@ -2,6 +2,7 @@ import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-
 import { SettingsPageTitle } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { WorkspaceMembersTable } from "@/app/[orgSlug]/settings/workspace/members/_components/workspace-members-table";
 import { listWorkspaceMembers } from "@/db/control-plane";
+import { resolveDateTimePreferences } from "@/lib/date-time";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,16 @@ export default async function WorkspaceMembersSettingsPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const { user } = await loadOrganizationRouteContext(orgSlug);
+  const { currentOrganization, user } =
+    await loadOrganizationRouteContext(orgSlug);
   const memberDirectory = await listWorkspaceMembers({
     orgSlug,
     userExternalId: user.id,
+  });
+  const dateTimePreferences = resolveDateTimePreferences({
+    locale: currentOrganization.locale,
+    timeFormatPreference: currentOrganization.timeFormatPreference,
+    timeZone: currentOrganization.timezone,
   });
 
   return (
@@ -33,6 +40,7 @@ export default async function WorkspaceMembersSettingsPage({
       <WorkspaceMembersTable
         availableRoles={memberDirectory.availableRoles}
         canManageMembers={memberDirectory.canManageMembers}
+        dateTimePreferences={dateTimePreferences}
         entries={memberDirectory.entries}
         orgSlug={memberDirectory.organizationSlug}
       />

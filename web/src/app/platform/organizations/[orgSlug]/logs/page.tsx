@@ -11,6 +11,7 @@ import {
 import {
   formatStatus,
   formatTimestamp,
+  getPlatformOrganizationDateTimePreferences,
   getStatusVariant,
   loadPlatformOrganizationDetailRouteContext,
 } from "@/app/platform/organizations/[orgSlug]/_lib/platform-organization-detail";
@@ -75,6 +76,8 @@ export default async function PlatformOrganizationLogsPage({
   const { orgSlug } = await params;
   const { organization } =
     await loadPlatformOrganizationDetailRouteContext(orgSlug);
+  const dateTimePreferences =
+    getPlatformOrganizationDateTimePreferences(organization);
 
   if (!organization.tenant) {
     return (
@@ -138,6 +141,7 @@ export default async function PlatformOrganizationLogsPage({
                           <div className="text-xs text-muted-foreground">
                             {formatTimestamp(
                               job.finishedAt ?? job.startedAt ?? job.createdAt,
+                              dateTimePreferences,
                             )}
                           </div>
                         </div>
@@ -154,11 +158,15 @@ export default async function PlatformOrganizationLogsPage({
                             label="Started"
                             value={formatTimestamp(
                               job.startedAt ?? job.createdAt,
+                              dateTimePreferences,
                             )}
                           />
                           <MetadataRow
                             label="Finished"
-                            value={formatTimestamp(job.finishedAt)}
+                            value={formatTimestamp(
+                              job.finishedAt,
+                              dateTimePreferences,
+                            )}
                           />
                           {job.result?.host ? (
                             <MetadataRow label="Host" value={job.result.host} />
@@ -236,6 +244,7 @@ export default async function PlatformOrganizationLogsPage({
                               applyRun.finishedAt ??
                                 applyRun.startedAt ??
                                 applyRun.createdAt,
+                              dateTimePreferences,
                             )}
                           </div>
                         </div>
@@ -253,11 +262,17 @@ export default async function PlatformOrganizationLogsPage({
                           />
                           <MetadataRow
                             label="Started"
-                            value={formatTimestamp(applyRun.startedAt)}
+                            value={formatTimestamp(
+                              applyRun.startedAt,
+                              dateTimePreferences,
+                            )}
                           />
                           <MetadataRow
                             label="Finished"
-                            value={formatTimestamp(applyRun.finishedAt)}
+                            value={formatTimestamp(
+                              applyRun.finishedAt,
+                              dateTimePreferences,
+                            )}
                           />
                           {applyRun.error ? (
                             <MetadataRow label="Error" value={applyRun.error} />

@@ -7,6 +7,10 @@ import * as React from "react";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatShortDateTime,
+  type WorkspaceDateTimePreferences,
+} from "@/lib/date-time";
 
 type ScheduledRunRow = {
   error: string | null;
@@ -35,6 +39,7 @@ const statusBadgeVariant: Record<
 };
 
 function createColumns(
+  dateTimePreferences: WorkspaceDateTimePreferences,
   orgSlug: string,
   hideTaskColumn: boolean,
 ): Array<ColumnDef<ScheduledRunRow>> {
@@ -124,7 +129,7 @@ function createColumns(
       size: 150,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatDateTime(row.original.scheduledFor)}
+          {formatShortDateTime(row.original.scheduledFor, dateTimePreferences)}
         </span>
       ),
     },
@@ -137,7 +142,7 @@ function createColumns(
       size: 150,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatDateTime(row.original.startedAt)}
+          {formatShortDateTime(row.original.startedAt, dateTimePreferences)}
         </span>
       ),
     },
@@ -150,7 +155,7 @@ function createColumns(
       size: 150,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatDateTime(row.original.finishedAt)}
+          {formatShortDateTime(row.original.finishedAt, dateTimePreferences)}
         </span>
       ),
     },
@@ -160,10 +165,12 @@ function createColumns(
 }
 
 export function ScheduledRunsContent({
+  dateTimePreferences,
   hideTaskColumn = false,
   orgSlug,
   runs,
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   hideTaskColumn?: boolean;
   orgSlug: string;
   runs: Array<{
@@ -200,8 +207,8 @@ export function ScheduledRunsContent({
   );
 
   const columns = React.useMemo(
-    () => createColumns(orgSlug, hideTaskColumn),
-    [orgSlug, hideTaskColumn],
+    () => createColumns(dateTimePreferences, orgSlug, hideTaskColumn),
+    [dateTimePreferences, orgSlug, hideTaskColumn],
   );
 
   return (
@@ -223,19 +230,6 @@ export function ScheduledRunsContent({
       viewportClassName="max-w-full min-w-0 overflow-x-auto overflow-y-auto"
     />
   );
-}
-
-function formatDateTime(value: Date | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
 }
 
 function formatStatusLabel(status: string) {

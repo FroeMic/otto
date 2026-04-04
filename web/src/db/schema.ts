@@ -17,8 +17,15 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
   externalId: varchar("external_id", { length: 255 }).notNull().unique(),
   isReady: boolean("is_ready").default(false).notNull(),
+  locale: varchar("locale", { length: 32 }).default("en-US").notNull(),
   name: text("name").notNull(),
   slug: varchar("slug", { length: 128 }).notNull().unique(),
+  timeFormatPreference: varchar("time_format_preference", {
+    length: 16,
+  })
+    .default("auto")
+    .notNull(),
+  timezone: varchar("timezone", { length: 128 }).default("UTC").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
