@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Loading03Icon } from "@hugeicons/core-free-icons";
+import { Spinner } from "@/components/ui/spinner";
 
 const MIN_DISPLAY_MS = 10_000;
 const POLL_INTERVAL_MS = 1_000;
@@ -76,12 +75,9 @@ export function SyncNotification({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-2.5 rounded-lg border bg-background px-4 py-2.5 shadow-lg">
-        <HugeiconsIcon
-          icon={Loading03Icon}
-          className="size-4 animate-spin text-muted-foreground"
-        />
-        <span className="text-sm font-medium">{message}</span>
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-green-600 px-3 py-1.5 shadow-lg">
+        <Spinner className="text-white [&_svg]:size-3" />
+        <span className="text-xs font-medium text-white">{message}</span>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export function SessionsActionsMenu({ orgSlug }: { orgSlug: string }) {
       {syncJobId ? (
         <SyncNotification
           jobId={syncJobId}
-          message="Syncing Sessions and Session Transcripts"
+          message="Syncing Sessions"
           onDone={handleDone}
           orgSlug={orgSlug}
         />
