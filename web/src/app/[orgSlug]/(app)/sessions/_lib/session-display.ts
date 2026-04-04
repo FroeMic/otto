@@ -186,14 +186,23 @@ export function formatSessionName(input: {
 
 /**
  * Get the scheduled task link for a cron session, if applicable.
+ * Uses the cronTaskKeys map (session key → task key) to find the correct task.
  */
 export function getScheduledTaskHref(
   sessionKey: string,
   orgSlug: string,
+  cronTaskKeys?: Record<string, string>,
 ): string | null {
   const parsed = parseSessionKey(sessionKey);
-  if (parsed.provider !== "cron" || !parsed.id) return null;
-  return `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(parsed.id)}`;
+  if (parsed.provider !== "cron") return null;
+
+  // Look up the task key from the map (session key → task key)
+  const taskKey = cronTaskKeys?.[sessionKey];
+  if (taskKey) {
+    return `/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(taskKey)}`;
+  }
+
+  return null;
 }
 
 /**

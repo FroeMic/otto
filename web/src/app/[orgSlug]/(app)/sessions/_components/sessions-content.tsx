@@ -10,6 +10,7 @@ import { useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button-variants";
 
 import { SessionsActionsMenu } from "./sessions-actions-menu";
 
@@ -90,27 +91,48 @@ function formatTime(date: Date | null): string {
   }).format(date);
 }
 
-function ProviderCell({ provider }: { provider: string | null }) {
+function ProviderCell({
+  provider,
+  taskHref,
+}: {
+  provider: string | null;
+  taskHref?: string | null;
+}) {
   const icon = getProviderIcon(provider);
   const label = getProviderLabel(provider);
   const isCron = provider === "cron";
 
+  const iconElement = isCron ? (
+    <HugeiconsIcon
+      icon={Calendar03Icon}
+      className="size-4 shrink-0"
+    />
+  ) : icon ? (
+    <Image
+      alt={label}
+      className="size-4 shrink-0"
+      height={16}
+      src={icon}
+      width={16}
+    />
+  ) : null;
+
+  // Cron sessions with a task link render as a button-style link (like capabilities Source column)
+  if (isCron && taskHref) {
+    return (
+      <Link
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+        href={taskHref}
+      >
+        {iconElement}
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2">
-      {isCron ? (
-        <HugeiconsIcon
-          icon={Calendar03Icon}
-          className="size-4 shrink-0 text-muted-foreground"
-        />
-      ) : icon ? (
-        <Image
-          alt={label}
-          className="size-4 shrink-0"
-          height={16}
-          src={icon}
-          width={16}
-        />
-      ) : null}
+      {iconElement}
       <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   );
@@ -121,6 +143,7 @@ function createColumns(input: {
   currentUserExternalIds: string[];
   isPlatformAdmin: boolean;
   nameMaps: { channels: Map<string, string>; members: Map<string, string> };
+  cronTaskKeys: Record<string, string>;
 }): ColumnDef<SessionRow>[] {
   return [
     {
@@ -145,33 +168,14 @@ function createColumns(input: {
           sessionOriginFrom: row.original.originFrom,
         });
 
-        const taskHref = getScheduledTaskHref(
-          row.original.sessionKey,
-          input.orgSlug,
-        );
-
         if (canView) {
           return (
-            <div className="flex items-center gap-1.5 max-w-[280px]">
-              <Link
-                className="truncate text-sm font-medium text-foreground hover:underline"
-                href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
-              >
-                {name}
-              </Link>
-              {taskHref ? (
-                <Link
-                  href={taskHref}
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                  title="View scheduled task"
-                >
-                  <HugeiconsIcon
-                    icon={Calendar03Icon}
-                    className="size-3.5"
-                  />
-                </Link>
-              ) : null}
-            </div>
+            <Link
+              className="block max-w-[280px] truncate text-sm font-medium text-foreground hover:underline"
+              href={`/${input.orgSlug}/sessions/${encodeURIComponent(row.original.sessionKey)}`}
+            >
+              {name}
+            </Link>
           );
         }
 
@@ -188,10 +192,17 @@ function createColumns(input: {
     {
       id: "provider",
       header: "Channel",
-      size: 100,
+      size: 140,
       cell: ({ row }) => {
         const parsed = parseSessionKey(row.original.sessionKey);
-        return <ProviderCell provider={parsed.provider} />;
+        const taskHref = getScheduledTaskHref(
+          row.original.sessionKey,
+          input.orgSlug,
+          input.cronTaskKeys,
+        );
+        return (
+          <ProviderCell provider={parsed.provider} taskHref={taskHref} />
+        );
       },
     },
     {
@@ -283,6 +294,7 @@ export function SessionsContent({
   isPlatformAdmin = false,
   channelNames = {},
   memberNames = {},
+  cronTaskKeys = {},
 }: {
   orgSlug: string;
   sessions: SessionRow[];
@@ -290,6 +302,7 @@ export function SessionsContent({
   isPlatformAdmin?: boolean;
   channelNames?: Record<string, string>;
   memberNames?: Record<string, string>;
+  cronTaskKeys?: Record<string, string>;
 }) {
   const [filter, setFilter] = useState("");
 
@@ -308,8 +321,9 @@ export function SessionsContent({
         currentUserExternalIds,
         isPlatformAdmin,
         nameMaps,
+        cronTaskKeys,
       }),
-    [orgSlug, currentUserExternalIds, isPlatformAdmin, nameMaps],
+    [orgSlug, currentUserExternalIds, isPlatformAdmin, nameMaps, cronTaskKeys],
   );
 
   const filtered = useMemo(() => {
