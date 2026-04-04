@@ -59,7 +59,7 @@ function createColumns(orgSlug: string): Array<ColumnDef<ScheduledJobRow>> {
       size: 300,
       cell: ({ row }) => (
         <Link
-          className="block truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          className="block truncate text-sm font-medium text-foreground"
           href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(row.original.taskKey)}/overview`}
         >
           {row.original.name}

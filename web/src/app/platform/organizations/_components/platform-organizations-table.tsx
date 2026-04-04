@@ -311,7 +311,7 @@ const columns: ColumnDef<PlatformOrganization>[] = [
     header: "Organization",
     cell: ({ row }) => (
       <Link
-        className="block min-w-0 truncate font-medium text-foreground underline-offset-4 hover:underline"
+        className="block min-w-0 truncate font-medium text-foreground"
         href={`/platform/organizations/${row.original.slug}`}
       >
         {row.original.name === row.original.slug
@@ -413,7 +413,7 @@ const columns: ColumnDef<PlatformOrganization>[] = [
 
       return (
         <Link
-          className="truncate text-sm text-foreground underline-offset-4 hover:underline"
+          className="truncate text-sm text-foreground"
           href={href}
           rel="noreferrer"
           target="_blank"
