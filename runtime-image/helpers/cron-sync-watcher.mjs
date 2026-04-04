@@ -285,10 +285,17 @@ async function flushPendingChanges() {
 
   try {
     const tasks = await listCronTasks();
+    const taskIds = new Set(tasks.map((t) => t.id).filter(Boolean));
     const runs = [];
 
     for (const jobId of runJobIds) {
       const taskRuns = await listCronRuns(jobId);
+      if (taskRuns.length === 0 && !taskIds.has(jobId)) {
+        console.info(
+          `[otto-cron-sync] job ${jobId} deleted and no runs found yet — will retry`,
+        );
+        pendingRunJobIds.add(jobId);
+      }
       runs.push(...taskRuns);
     }
 
