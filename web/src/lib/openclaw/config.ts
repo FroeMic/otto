@@ -65,14 +65,23 @@ export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
 function buildWebSearchPluginEntries(
   webSearch: OpenClawWebSearchConfig | undefined,
-): Record<string, { config: { webSearch: Record<string, unknown> } }> {
+): Record<
+  string,
+  {
+    config: { webSearch: Record<string, unknown> };
+    enabled: true;
+  }
+> {
   if (!webSearch) {
     return {};
   }
 
   const entries: Record<
     string,
-    { config: { webSearch: Record<string, unknown> } }
+    {
+      config: { webSearch: Record<string, unknown> };
+      enabled: true;
+    }
   > = {};
 
   if (webSearch.brave) {
@@ -80,6 +89,7 @@ function buildWebSearchPluginEntries(
       config: {
         webSearch: webSearch.brave,
       },
+      enabled: true,
     };
   }
 
@@ -88,6 +98,7 @@ function buildWebSearchPluginEntries(
       config: {
         webSearch: webSearch.gemini,
       },
+      enabled: true,
     };
   }
 
@@ -96,6 +107,7 @@ function buildWebSearchPluginEntries(
       config: {
         webSearch: webSearch.grok,
       },
+      enabled: true,
     };
   }
 
@@ -104,6 +116,7 @@ function buildWebSearchPluginEntries(
       config: {
         webSearch: webSearch.kimi,
       },
+      enabled: true,
     };
   }
 
@@ -112,6 +125,7 @@ function buildWebSearchPluginEntries(
       config: {
         webSearch: webSearch.perplexity,
       },
+      enabled: true,
     };
   }
 
@@ -119,7 +133,7 @@ function buildWebSearchPluginEntries(
 }
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
-  const pluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const ottoPluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
   const ottoPluginEntries = Object.fromEntries(
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
@@ -132,6 +146,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   );
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
+  const pluginIds = [...new Set([...ottoPluginIds, ...Object.keys(webSearchPluginEntries)])];
   const pluginEntries = {
     ...ottoPluginEntries,
     ...webSearchPluginEntries,
