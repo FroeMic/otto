@@ -161,6 +161,20 @@ export class RuntimeManager {
     return value.length > 0 ? value : null;
   }
 
+  async inspectGatewayImage(connection: SshConnection): Promise<string | null> {
+    const result = await this.sshClient.exec(
+      connection,
+      buildShellCommand([
+        "docker inspect openclaw-gateway --format '{{.Config.Image}}' 2>/dev/null || true",
+      ]),
+      { timeoutMs: 15_000 },
+    );
+
+    const image = result.stdout.trim();
+
+    return image.length > 0 ? image : null;
+  }
+
   async ensureRuntimeDirectories(connection: SshConnection) {
     await this.execChecked(
       connection,

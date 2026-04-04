@@ -80,6 +80,8 @@ import {
   webSearchRuntimeConfigJsonSchema,
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
+import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
+import { RuntimeManager } from "@/lib/runtime/manager";
 import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
@@ -123,6 +125,7 @@ const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
+const runtimeManager = new RuntimeManager();
 
 function isSlackSurface(surfaceKind: string, surfaceKey: string) {
   return (
@@ -455,11 +458,13 @@ export type DashboardOrganization = {
 };
 
 export type PlatformOrganization = {
+  configuredRuntimeImage: string;
+  configuredRuntimeImageVersion: string | null;
   id: string;
   isReady: boolean;
   name: string;
-  runtimeImage: string;
-  runtimeImageVersion: string | null;
+  observedRuntimeImage: string | null;
+  observedRuntimeImageVersion: string | null;
   slackIntegration: SlackIntegrationSummary | null;
   slug: string;
   tenant: {
@@ -493,11 +498,13 @@ export type PlatformOrganization = {
 };
 
 export type PlatformOrganizationDetail = {
+  configuredRuntimeImage: string;
+  configuredRuntimeImageVersion: string | null;
   id: string;
   isReady: boolean;
   name: string;
-  runtimeImage: string;
-  runtimeImageVersion: string | null;
+  observedRuntimeImage: string | null;
+  observedRuntimeImageVersion: string | null;
   slackIntegration: SlackIntegrationSummary | null;
   slug: string;
   tenant: {
@@ -1007,8 +1014,10 @@ export async function listPlatformOrganizations(input: {
     return [];
   }
 
-  const runtimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
-  const runtimeImageVersion = extractRuntimeImageVersion(runtimeImage);
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  );
   const organizationIds = organizationRows.map(
     (organization) => organization.id,
   );
@@ -1041,6 +1050,9 @@ export async function listPlatformOrganizations(input: {
 
   const tenantIds = Array.from(latestTenantsByOrganization.values()).map(
     (tenant) => tenant.id,
+  );
+  const observedRuntimeImagesByTenant = await getObservedRuntimeImagesByTenant(
+    Array.from(latestTenantsByOrganization.values()),
   );
 
   const slackIntegrationRows =
@@ -1173,11 +1185,19 @@ export async function listPlatformOrganizations(input: {
     const tenant = latestTenantsByOrganization.get(organization.id) ?? null;
 
     return {
+      configuredRuntimeImage,
+      configuredRuntimeImageVersion,
       id: organization.id,
       isReady: organization.isReady,
       name: organization.name,
-      runtimeImage,
-      runtimeImageVersion,
+      observedRuntimeImage: tenant
+        ? (observedRuntimeImagesByTenant.get(tenant.id) ?? null)
+        : null,
+      observedRuntimeImageVersion: tenant
+        ? extractRuntimeImageVersionOrNull(
+            observedRuntimeImagesByTenant.get(tenant.id) ?? null,
+          )
+        : null,
       slackIntegration: tenant
         ? buildSlackIntegrationSummary(
             slackIntegrationsByTenant.get(tenant.id) ?? null,
@@ -1226,8 +1246,10 @@ export async function getPlatformOrganizationDetail(input: {
     return null;
   }
 
-  const runtimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
-  const runtimeImageVersion = extractRuntimeImageVersion(runtimeImage);
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  );
 
   const [tenant] = await db
     .select({
@@ -1246,11 +1268,13 @@ export async function getPlatformOrganizationDetail(input: {
 
   if (!tenant) {
     return {
+      configuredRuntimeImage,
+      configuredRuntimeImageVersion,
       id: organization.id,
       isReady: organization.isReady,
       name: organization.name,
-      runtimeImage,
-      runtimeImageVersion,
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
       slackIntegration: null,
       slug: organization.slug,
       tenant: null,
@@ -1373,12 +1397,18 @@ export async function getPlatformOrganizationDetail(input: {
     latestDesiredStateVersion = null;
   }
 
+  const observedRuntimeImage = await getObservedRuntimeImageForTenant(tenant);
+
   return {
+    configuredRuntimeImage,
+    configuredRuntimeImageVersion,
     id: organization.id,
     isReady: organization.isReady,
     name: organization.name,
-    runtimeImage,
-    runtimeImageVersion,
+    observedRuntimeImage,
+    observedRuntimeImageVersion: extractRuntimeImageVersionOrNull(
+      observedRuntimeImage,
+    ),
     slackIntegration: buildSlackIntegrationSummary(slackIntegration ?? null),
     slug: organization.slug,
     tenant: {
@@ -3498,6 +3528,53 @@ function extractRuntimeImageVersion(image: string) {
   }
 
   return null;
+}
+
+function extractRuntimeImageVersionOrNull(image: string | null) {
+  if (!image) {
+    return null;
+  }
+
+  return extractRuntimeImageVersion(image);
+}
+
+async function getObservedRuntimeImagesByTenant(
+  tenantsToInspect: Array<{
+    id: string;
+    serverStatus: string | null;
+    status: string;
+  }>,
+) {
+  const observedImages = await Promise.all(
+    tenantsToInspect.map(async (tenant) => {
+      const image = await getObservedRuntimeImageForTenant(tenant);
+
+      return [tenant.id, image] as const;
+    }),
+  );
+
+  return new Map(observedImages);
+}
+
+async function getObservedRuntimeImageForTenant(input: {
+  id: string;
+  serverStatus: string | null;
+  status: string;
+}) {
+  if (input.status !== "ready" || input.serverStatus !== "ready") {
+    return null;
+  }
+
+  try {
+    const runtimeConnection = await getTenantRuntimeConnection(
+      input.id,
+      "platform runtime image inspection",
+    );
+
+    return await runtimeManager.inspectGatewayImage(runtimeConnection);
+  } catch {
+    return null;
+  }
 }
 
 async function getLatestTenantForOrganizationSlug(

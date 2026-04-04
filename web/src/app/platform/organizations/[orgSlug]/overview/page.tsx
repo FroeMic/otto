@@ -102,7 +102,12 @@ export default async function PlatformOrganizationOverviewPage({
     latestApplyRun?.error ??
     latestJob?.error ??
     organization.slackIntegration?.lastError;
-  const runtimeImageHref = getRuntimeImageHref(organization.runtimeImage);
+  const observedRuntimeImageHref = organization.observedRuntimeImage
+    ? getRuntimeImageHref(organization.observedRuntimeImage)
+    : null;
+  const configuredRuntimeImageHref = getRuntimeImageHref(
+    organization.configuredRuntimeImage,
+  );
   const hasFailure =
     isFailureStatus(latestApplyRun?.status) ||
     isFailureStatus(latestJob?.status) ||
@@ -218,18 +223,39 @@ export default async function PlatformOrganizationOverviewPage({
               <OverviewRow
                 label="Runtime image"
                 value={
-                  runtimeImageHref ? (
+                  observedRuntimeImageHref ? (
                     <a
                       className="underline-offset-4 hover:underline"
-                      href={runtimeImageHref}
+                      href={observedRuntimeImageHref}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      {organization.runtimeImageVersion ??
-                        organization.runtimeImage}
+                      {organization.observedRuntimeImageVersion ??
+                        organization.observedRuntimeImage}
                     </a>
                   ) : (
-                    (organization.runtimeImageVersion ?? organization.runtimeImage)
+                    (organization.observedRuntimeImageVersion ??
+                      organization.observedRuntimeImage ??
+                      "Not available")
+                  )
+                }
+              />
+              <OverviewRow
+                label="Configured image"
+                value={
+                  configuredRuntimeImageHref ? (
+                    <a
+                      className="underline-offset-4 hover:underline"
+                      href={configuredRuntimeImageHref}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {organization.configuredRuntimeImageVersion ??
+                        organization.configuredRuntimeImage}
+                    </a>
+                  ) : (
+                    (organization.configuredRuntimeImageVersion ??
+                      organization.configuredRuntimeImage)
                   )
                 }
               />
