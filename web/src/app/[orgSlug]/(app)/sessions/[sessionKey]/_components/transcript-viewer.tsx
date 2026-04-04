@@ -3,6 +3,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import Image from "next/image";
+import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 
 import {
@@ -22,7 +23,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { ChevronDownIcon, WrenchIcon } from "lucide-react";
+import { ArrowUpRightIcon, ChevronDownIcon, WrenchIcon } from "lucide-react";
 
 import {
   parseTranscript,
@@ -239,6 +240,45 @@ function ChannelIcon({ channel }: { channel: string | null }) {
       src={icon}
       width={20}
     />
+  );
+}
+
+const CRON_KEY_RE = /^agent:[^:]+:cron:([^:]+)(?::run:.+)?$/;
+
+function extractCronJobId(sessionKey: string): string | null {
+  const match = CRON_KEY_RE.exec(sessionKey);
+  return match?.[1] ?? null;
+}
+
+function CronJobTitle({
+  title,
+  sessionKey,
+  orgSlug,
+}: {
+  title: string;
+  sessionKey: string;
+  orgSlug: string;
+}) {
+  const cronJobId = extractCronJobId(sessionKey);
+
+  if (cronJobId) {
+    return (
+      <h1 className="text-xl font-semibold tracking-tight">
+        <Link
+          href={`/${orgSlug}/scheduled-tasks/tasks/${encodeURIComponent(cronJobId)}/overview`}
+          className="inline-flex items-center gap-1.5 hover:underline"
+        >
+          {title}
+          <ArrowUpRightIcon className="size-4 text-muted-foreground" />
+        </Link>
+      </h1>
+    );
+  }
+
+  return (
+    <h1 className="text-xl font-semibold tracking-tight">
+      {title}
+    </h1>
   );
 }
 
@@ -626,9 +666,11 @@ export function TranscriptViewer({
           <div className="flex items-start gap-3 pb-6">
             <ChannelIcon channel={session.channel} />
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-xl font-semibold tracking-tight">
-                {resolveText(title)}
-              </h1>
+              <CronJobTitle
+                title={resolveText(title)}
+                sessionKey={session.sessionKey}
+                orgSlug={orgSlug}
+              />
               <p className="text-xs text-muted-foreground font-mono">
                 {session.sessionKey}
               </p>
