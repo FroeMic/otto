@@ -1,10 +1,8 @@
 "use client";
 
-import { ArrowLeft01Icon, Building03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowLeft, BuildingOffice } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
 import { PlatformUserMenu } from "@/app/platform/_components/platform-user-menu";
 import {
   Sidebar,
@@ -52,7 +50,7 @@ export function PlatformSidebar({
                 render={<Link href={`/${firstWorkspace.slug}/agent/status`} />}
                 size="lg"
               >
-                <HugeiconsIcon icon={ArrowLeft01Icon} />
+                <ArrowLeft />
                 <span>Back to Otto</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -70,7 +68,7 @@ export function PlatformSidebar({
                   render={<Link href={organizationsHref} />}
                   tooltip="Organizations"
                 >
-                  <HugeiconsIcon icon={Building03Icon} />
+                  <BuildingOffice />
                   <span>Organizations</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

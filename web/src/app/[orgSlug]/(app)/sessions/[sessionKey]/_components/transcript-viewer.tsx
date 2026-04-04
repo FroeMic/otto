@@ -1,7 +1,6 @@
 "use client";
 
-import { Calendar03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { CalendarBlank } from "@phosphor-icons/react/ssr";
 import { ArrowUpRightIcon, ChevronDownIcon, WrenchIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -247,12 +246,7 @@ const providerIcons: Record<string, string> = {
 
 function ChannelIcon({ channel }: { channel: string | null }) {
   if (channel === "cron") {
-    return (
-      <HugeiconsIcon
-        icon={Calendar03Icon}
-        className="size-5 shrink-0 text-muted-foreground"
-      />
-    );
+    return <CalendarBlank className="size-5 shrink-0 text-muted-foreground" />;
   }
   const icon = channel ? providerIcons[channel] : null;
   if (!icon) return null;

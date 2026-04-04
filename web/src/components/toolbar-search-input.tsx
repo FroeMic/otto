@@ -1,7 +1,6 @@
 "use client";
 
-import { Search01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { MagnifyingGlass } from "@phosphor-icons/react/ssr";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -27,10 +26,7 @@ export function ToolbarSearchInput({
       )}
       style={focused ? { borderColor: "var(--primary)" } : undefined}
     >
-      <HugeiconsIcon
-        className="size-4 shrink-0 text-muted-foreground"
-        icon={Search01Icon}
-      />
+      <MagnifyingGlass className="size-4 shrink-0 text-muted-foreground" />
       <input
         className={cn(
           "w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground",

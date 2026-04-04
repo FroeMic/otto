@@ -1,16 +1,11 @@
 "use client";
 
-import {
-  ArrowReloadHorizontalIcon,
-  MoreHorizontalIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowsClockwise, DotsThree } from "@phosphor-icons/react/ssr";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
-
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import {
@@ -283,12 +278,9 @@ function OrganizationActionsCell({
         }
       >
         {pendingAction ? (
-          <HugeiconsIcon
-            className="animate-spin"
-            icon={ArrowReloadHorizontalIcon}
-          />
+          <ArrowsClockwise className="animate-spin" />
         ) : (
-          <HugeiconsIcon icon={MoreHorizontalIcon} />
+          <DotsThree />
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

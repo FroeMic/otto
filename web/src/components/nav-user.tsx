@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Logout01Icon,
-  Settings01Icon,
-  UnfoldMoreIcon,
-  UserIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { CaretUpDown, Gear, SignOut, User } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -60,7 +54,7 @@ export function NavUser({
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs">{user.email}</span>
             </div>
-            <HugeiconsIcon icon={UnfoldMoreIcon} className="ml-auto size-4" />
+            <CaretUpDown className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="min-w-56 rounded-lg"
@@ -88,7 +82,7 @@ export function NavUser({
                   <Link href={`/${currentOrganizationSlug}/settings/user`} />
                 }
               >
-                <HugeiconsIcon icon={UserIcon} />
+                <User />
                 User settings
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -98,7 +92,7 @@ export function NavUser({
                   />
                 }
               >
-                <HugeiconsIcon icon={Settings01Icon} />
+                <Gear />
                 Workspace settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -106,7 +100,7 @@ export function NavUser({
             <DropdownMenuItem
               onClick={() => window.location.assign("/auth/sign-out")}
             >
-              <HugeiconsIcon icon={Logout01Icon} />
+              <SignOut />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

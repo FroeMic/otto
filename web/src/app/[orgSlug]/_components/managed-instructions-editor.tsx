@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  ArrowDown01Icon,
-  ArrowRight01Icon,
-  LockPasswordIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowRight, CaretDown, Lock } from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +49,8 @@ export function ManagedInstructionsEditor({
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const SystemChevronIcon = isSystemOpen ? CaretDown : ArrowRight;
+  const WorkspaceChevronIcon = isWorkspaceOpen ? CaretDown : ArrowRight;
 
   const isDirty = workspaceValue !== savedValue;
   const instructionTextareaClassName =
@@ -181,17 +177,12 @@ export function ManagedInstructionsEditor({
           onOpenChange={setIsSystemOpen}
         >
           <CollapsibleTrigger className="flex items-center gap-2 text-left">
-            <HugeiconsIcon
+            <SystemChevronIcon
               className="size-4 text-muted-foreground"
-              icon={isSystemOpen ? ArrowDown01Icon : ArrowRight01Icon}
-              strokeWidth={2}
+              weight="bold"
             />
             <span className="text-sm font-medium">System Instructions</span>
-            <HugeiconsIcon
-              className="size-4 text-muted-foreground"
-              icon={LockPasswordIcon}
-              strokeWidth={2}
-            />
+            <Lock className="size-4 text-muted-foreground" weight="bold" />
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-1">
             <Textarea
@@ -209,10 +200,9 @@ export function ManagedInstructionsEditor({
           onOpenChange={setIsWorkspaceOpen}
         >
           <CollapsibleTrigger className="flex items-center gap-2 text-left">
-            <HugeiconsIcon
+            <WorkspaceChevronIcon
               className="size-4 text-muted-foreground"
-              icon={isWorkspaceOpen ? ArrowDown01Icon : ArrowRight01Icon}
-              strokeWidth={2}
+              weight="bold"
             />
             <span className="text-sm font-medium">Workspace Instructions</span>
           </CollapsibleTrigger>

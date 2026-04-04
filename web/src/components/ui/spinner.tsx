@@ -1,5 +1,4 @@
-import { Loading03Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { SpinnerGap } from "@phosphor-icons/react/ssr";
 import { cn } from "@/lib/utils";
 
 function Spinner({ className, ...props }: React.ComponentProps<"output">) {
@@ -9,10 +8,9 @@ function Spinner({ className, ...props }: React.ComponentProps<"output">) {
       className={cn("inline-flex", className)}
       {...props}
     >
-      <HugeiconsIcon
+      <SpinnerGap
         aria-hidden="true"
-        icon={Loading03Icon}
-        strokeWidth={2}
+        weight="bold"
         className="size-4 animate-spin"
       />
     </output>

@@ -14,9 +14,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,
-  {
-    params,
-  }: { params: Promise<{ orgSlug: string; jobId: string }> },
+  { params }: { params: Promise<{ orgSlug: string; jobId: string }> },
 ) {
   try {
     const { orgSlug, jobId } = await params;
