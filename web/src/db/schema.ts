@@ -822,6 +822,7 @@ export const tenantSessions = pgTable(
     transcriptJsonl: text("transcript_jsonl"),
     transcriptHash: varchar("transcript_hash", { length: 64 }),
     messageCount: integer("message_count"),
+    lastMessageAt: bigint("last_message_at", { mode: "number" }),
 
     // subagent
     parentSessionKey: text("parent_session_key"),
@@ -859,6 +860,9 @@ export const tenantSessions = pgTable(
     tenantSessionUpdatedAtIdx: index(
       "tenant_sessions_tenant_id_session_updated_at_idx",
     ).on(table.tenantId, table.sessionUpdatedAt),
+    tenantLastMessageAtIdx: index(
+      "tenant_sessions_tenant_id_last_message_at_idx",
+    ).on(table.tenantId, table.lastMessageAt),
   }),
 );
 
