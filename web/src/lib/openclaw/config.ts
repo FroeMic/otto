@@ -286,6 +286,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         },
       }
     : undefined;
+  const execTools = {
+    exec: {
+      ask: "off",
+      host: "gateway",
+      security: "full",
+    },
+  };
   const gatewayToolsAllow = [
     "cron",
     ...(whatsappChannelConfig ? ["whatsapp_login"] : []),
@@ -317,15 +324,12 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             },
           }
         : {}),
-      ...(pluginTools || mediaTools || webTools
-        ? {
-            tools: {
-              ...(pluginTools ?? {}),
-              ...(mediaTools ?? {}),
-              ...(webTools ?? {}),
-            },
-          }
-        : {}),
+      tools: {
+        ...(pluginTools ?? {}),
+        ...execTools,
+        ...(mediaTools ?? {}),
+        ...(webTools ?? {}),
+      },
       session: {
         dmScope: "per-channel-peer",
       },
@@ -346,7 +350,12 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             channels: {
               ...(slackChannelConfig
                 ? {
-                    slack: slackChannelConfig,
+                    slack: {
+                      ...slackChannelConfig,
+                      execApprovals: {
+                        enabled: false,
+                      },
+                    },
                   }
                 : {}),
               ...(whatsappChannelConfig

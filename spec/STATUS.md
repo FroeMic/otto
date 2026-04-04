@@ -121,6 +121,11 @@
   - scheduled task definitions and run history are persisted in dedicated Postgres tables
   - the worker can pull runtime cron definitions and recent runs into the workspace database
   - the workspace scheduled-tasks page now shows synced tasks, recent runs, sync health, and a manual `Refresh from runtime` action
+- Otto runtime config now explicitly requests no exec approvals by default in rendered OpenClaw config:
+  - `tools.exec.host = "gateway"`
+  - `tools.exec.security = "full"`
+  - `tools.exec.ask = "off"`
+  - `channels.slack.execApprovals.enabled = false`
 - The public-auth redesign is now implemented:
   - the public auth entry uses an Otto-branded split shell inspired by `login-02` without importing the full block
   - the left panel now focuses on Otto avatar, short copy, and minimal route-specific actions

@@ -86,6 +86,17 @@ const slackCapabilitiesSchema = z.union([
   z.object({ interactiveReplies: z.boolean().optional() }).strict(),
 ]);
 
+const slackExecApprovalsSchema = z
+  .object({
+    agentFilter: z.array(z.string()).optional(),
+    approvers: z.array(stringOrNumberSchema).optional(),
+    enabled: z.boolean().optional(),
+    sessionFilter: z.array(z.string()).optional(),
+    target: z.enum(["dm", "channel", "both"]).optional(),
+  })
+  .strict()
+  .optional();
+
 const slackDmSchema = z
   .object({
     allowFrom: z.array(stringOrNumberSchema).optional(),
@@ -173,6 +184,7 @@ const slackAccountSchema = z
     dmPolicy: dmPolicySchema.optional(),
     dms: z.record(z.string(), dmConfigSchema.optional()).optional(),
     enabled: z.boolean().optional(),
+    execApprovals: slackExecApprovalsSchema,
     groupPolicy: groupPolicySchema.optional(),
     heartbeat: channelHeartbeatVisibilitySchema,
     historyLimit: z.number().int().min(0).optional(),
