@@ -45,6 +45,11 @@ describe("renderOpenClawConfig", () => {
       "otto-runtime-config",
       "otto-session-reporter",
     ]);
+    assert.deepEqual(renderedConfig.tools.exec, {
+      ask: "off",
+      host: "gateway",
+      security: "full",
+    });
     assert.deepEqual(renderedConfig.plugins.allow, [
       "otto-managed-config",
       "otto-runtime-config",
@@ -85,6 +90,9 @@ describe("renderOpenClawConfig", () => {
     assert.doesNotThrow(() =>
       validateOpenClawSlackConfig(renderedConfig.channels.slack),
     );
+    assert.deepEqual(renderedConfig.channels.slack.execApprovals, {
+      enabled: false,
+    });
   });
 
   it("renders Brave web search config into OpenClaw tools", () => {
