@@ -52,7 +52,7 @@ export default async function ScheduledTaskConfigurationPage({
       })}
     >
       <ScheduledTaskDetailShell orgSlug={organization.slug} task={task}>
-        <ScheduledTaskConfigurationContent task={task} />
+        <ScheduledTaskConfigurationContent dateTimePreferences={dateTimePreferences} task={task} />
       </ScheduledTaskDetailShell>
     </ScheduledTasksShell>
   );

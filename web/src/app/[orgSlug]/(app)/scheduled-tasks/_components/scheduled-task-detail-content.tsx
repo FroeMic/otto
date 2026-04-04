@@ -10,6 +10,7 @@ import {
   SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Textarea } from "@/components/ui/textarea";
+import type { WorkspaceDateTimePreferences } from "@/lib/date-time";
 import { describeScheduledTaskSchedule } from "@/lib/scheduled-tasks/cron-description";
 
 type ScheduledTaskDetailTask = {
@@ -32,12 +33,15 @@ const lockedTextareaClassName = [
 ].join(" ");
 
 export function ScheduledTaskOverviewContent({
+  dateTimePreferences,
   task,
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   task: ScheduledTaskDetailTask;
 }) {
   const prompt = readTaskPrompt(task.payloadJson);
   const scheduleDescription = describeScheduledTaskSchedule({
+    dateTimePreferences,
     scheduleExpression: task.scheduleExpression,
     scheduleJson: task.scheduleJson,
     timezone: task.timezone,
@@ -75,11 +79,14 @@ export function ScheduledTaskOverviewContent({
 }
 
 export function ScheduledTaskConfigurationContent({
+  dateTimePreferences,
   task,
 }: {
+  dateTimePreferences: WorkspaceDateTimePreferences;
   task: ScheduledTaskDetailTask;
 }) {
   const scheduleDescription = describeScheduledTaskSchedule({
+    dateTimePreferences,
     scheduleExpression: task.scheduleExpression,
     scheduleJson: task.scheduleJson,
     timezone: task.timezone,
