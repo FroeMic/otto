@@ -31,6 +31,8 @@ type BillingPreferences = {
 
 type WorkspaceBillingPreferencesCardProps = {
   initialPreferences: BillingPreferences;
+  latestRunFailureReason?: string | null;
+  latestRunStatus?: string | null;
   locale: string;
   orgSlug: string;
 };
@@ -49,6 +51,8 @@ function formatCredits(value: number, locale: string) {
 
 export function WorkspaceBillingPreferencesCard({
   initialPreferences,
+  latestRunFailureReason = null,
+  latestRunStatus = null,
   locale,
   orgSlug,
 }: WorkspaceBillingPreferencesCardProps) {
@@ -115,7 +119,10 @@ export function WorkspaceBillingPreferencesCard({
         <SettingsRowLabel>
           <SettingsRowTitle>Auto-reload</SettingsRowTitle>
           <SettingsRowDescription>
-            Automatically add credits when your balance is low.
+            {latestRunStatus === "failed"
+              ? "The last auto-reload attempt failed. Update your billing details or spend limit if needed."
+              : "Automatically add credits when your balance is low."}
+            {latestRunFailureReason ? ` ${latestRunFailureReason}` : ""}
           </SettingsRowDescription>
         </SettingsRowLabel>
         <Switch
@@ -185,8 +192,11 @@ export function WorkspaceBillingPreferencesCard({
 export function WorkspaceSpendLimitCard({
   initialPreferences,
   locale,
+  monthlySpendCents = 0,
   orgSlug,
-}: WorkspaceBillingPreferencesCardProps) {
+}: WorkspaceBillingPreferencesCardProps & {
+  monthlySpendCents?: number;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [spendLimitUsd, setSpendLimitUsd] = useState(
@@ -236,7 +246,7 @@ export function WorkspaceSpendLimitCard({
       <SettingsRowLabel>
         <SettingsRowTitle>Monthly spend limit</SettingsRowTitle>
         <SettingsRowDescription>
-          Auto-reload pauses after this amount is spent per month.
+          Auto-reload pauses after this amount is spent per month. {formatUsd(monthlySpendCents / 100, locale)} spent so far this month.
         </SettingsRowDescription>
       </SettingsRowLabel>
       <div className="flex items-center gap-1.5">

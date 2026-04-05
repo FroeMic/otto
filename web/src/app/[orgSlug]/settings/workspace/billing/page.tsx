@@ -61,6 +61,12 @@ function getInvoiceBadgeVariant(status: string | null) {
   return "outline";
 }
 
+function getAutoTopOffBadgeVariant(status: string) {
+  if (status === "succeeded") return "secondary";
+  if (status === "failed") return "destructive";
+  return "outline";
+}
+
 export default async function WorkspaceBillingPage({
   params,
   searchParams,
@@ -270,6 +276,12 @@ export default async function WorkspaceBillingPage({
           <SettingsCard>
             <WorkspaceBillingPreferencesCard
               initialPreferences={billingOverview.preferences}
+              latestRunFailureReason={
+                billingOverview.autoTopOff.latestRun?.failureReason ?? null
+              }
+              latestRunStatus={
+                billingOverview.autoTopOff.latestRun?.status ?? null
+              }
               locale={currentOrganization.locale}
               orgSlug={orgSlug}
             />
@@ -282,8 +294,43 @@ export default async function WorkspaceBillingPage({
             <WorkspaceSpendLimitCard
               initialPreferences={billingOverview.preferences}
               locale={currentOrganization.locale}
+              monthlySpendCents={billingOverview.autoTopOff.monthlySpendCents}
               orgSlug={orgSlug}
             />
+            {billingOverview.autoTopOff.latestRun ? (
+              <SettingsRow>
+                <SettingsRowLabel>
+                  <SettingsRowTitle>Latest auto-reload attempt</SettingsRowTitle>
+                  <SettingsRowDescription>
+                    {billingOverview.autoTopOff.latestRun.completedAt
+                      ? formatShortDate(
+                          billingOverview.autoTopOff.latestRun.completedAt,
+                          dateTimeInput,
+                        )
+                      : formatShortDate(
+                          billingOverview.autoTopOff.latestRun.createdAt,
+                          dateTimeInput,
+                        )}
+                    {" · "}
+                    {formatPriceFromCents(
+                      billingOverview.autoTopOff.latestRun.topOffAmountCents,
+                      "usd",
+                      currentOrganization.locale,
+                    )}
+                    {billingOverview.autoTopOff.latestRun.failureReason
+                      ? ` · ${billingOverview.autoTopOff.latestRun.failureReason}`
+                      : ""}
+                  </SettingsRowDescription>
+                </SettingsRowLabel>
+                <Badge
+                  variant={getAutoTopOffBadgeVariant(
+                    billingOverview.autoTopOff.latestRun.status,
+                  )}
+                >
+                  {billingOverview.autoTopOff.latestRun.status}
+                </Badge>
+              </SettingsRow>
+            ) : null}
           </SettingsCard>
         </SettingsSection>
 

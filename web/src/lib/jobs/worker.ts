@@ -1,6 +1,10 @@
 import { getEnv } from "@/lib/env";
 
 import { processApplyTenantConfigJob } from "./apply";
+import {
+  processExecuteBillingAutoTopOffJob,
+  runAutoTopOffEnqueueCycle,
+} from "./auto-top-off";
 import { runCreditBurndownSettlementCycle } from "./credit-burndown";
 import { runOpenAiUsageIngestionCycle } from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
@@ -33,6 +37,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
       return;
+    case JOB_TYPES.executeBillingAutoTopOff:
+      await processExecuteBillingAutoTopOffJob(job);
+      return;
     case JOB_TYPES.reconcileTenantScheduledTasks:
       await processReconcileTenantScheduledTasksJob(job);
       return;
@@ -63,11 +70,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 export async function runWorkerIteration(): Promise<number> {
   const syncedUsageTargets = await runOpenAiUsageIngestionCycle();
   const settledUsageBuckets = await runCreditBurndownSettlementCycle();
+  const queuedAutoTopOffJobs = await runAutoTopOffEnqueueCycle();
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
   if (jobs.length === 0) {
     console.info("[worker] no available jobs");
-    return syncedUsageTargets + settledUsageBuckets;
+    return syncedUsageTargets + settledUsageBuckets + queuedAutoTopOffJobs;
   }
 
   for (const job of jobs) {
@@ -78,5 +86,7 @@ export async function runWorkerIteration(): Promise<number> {
     }
   }
 
-  return jobs.length + syncedUsageTargets + settledUsageBuckets;
+  return (
+    jobs.length + syncedUsageTargets + settledUsageBuckets + queuedAutoTopOffJobs
+  );
 }

@@ -3,6 +3,7 @@ export const JOB_TYPES = {
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
+  executeBillingAutoTopOff: "execute_billing_auto_top_off",
   reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
   whatsappLinkSession: "whatsapp_link_session",
   whatsappDisconnect: "whatsapp_disconnect",
@@ -71,6 +72,11 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type ExecuteBillingAutoTopOffPayload = {
+  organizationId: string;
+  tenantId: string;
+};
+
 export type ReconcileTenantScheduledTasksPayload = {
   tenantId: string;
 };
@@ -113,6 +119,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;
       payload: RefreshRuntimeImagePayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.executeBillingAutoTopOff;
+      payload: ExecuteBillingAutoTopOffPayload;
     }
   | {
       jobType: typeof JOB_TYPES.reconcileTenantScheduledTasks;

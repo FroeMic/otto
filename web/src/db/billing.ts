@@ -1,8 +1,9 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
 import {
+  billingAutoTopOffRuns,
   billingCheckoutSessions,
   billingCustomers,
   billingPreferences,
@@ -17,7 +18,11 @@ import {
   CREDIT_LEDGER_ENTRY_TYPES,
   formatCreditsFromMilli,
 } from "@/lib/billing/openai-credit-pricing";
-import { type BillingPlanKey, getBillingPlanByKey } from "@/lib/billing/plans";
+import {
+  type BillingPlanKey,
+  getAutoTopOffPackByLookupKey,
+  getBillingPlanByKey,
+} from "@/lib/billing/plans";
 
 type StripeCustomerRecordInput = {
   defaultCurrency?: string | null;
@@ -52,8 +57,69 @@ export const DEFAULT_BILLING_PREFERENCES: BillingPreferencesRecord = {
   topOffAmountCents: 2_000,
 };
 
+export const AUTO_TOP_OFF_RUN_STATUSES = {
+  awaitingWebhook: "awaiting_webhook",
+  failed: "failed",
+  processing: "processing",
+  succeeded: "succeeded",
+} as const;
+
+const AUTO_TOP_OFF_ACTIVE_RUN_STATUSES = [
+  AUTO_TOP_OFF_RUN_STATUSES.processing,
+  AUTO_TOP_OFF_RUN_STATUSES.awaitingWebhook,
+] as const;
+
+const AUTO_TOP_OFF_ELIGIBLE_SUBSCRIPTION_STATUSES = [
+  "active",
+  "past_due",
+  "trialing",
+] as const;
+
+export type AutoTopOffRunStatus =
+  (typeof AUTO_TOP_OFF_RUN_STATUSES)[keyof typeof AUTO_TOP_OFF_RUN_STATUSES];
+
+export type BillingAutoTopOffExecutionTarget = {
+  currentBalanceCreditsMilli: number;
+  minimumBalanceCredits: number;
+  monthlySpendLimitCents: number;
+  organizationId: string;
+  stripeCustomerId: string;
+  tenantId: string;
+  topOffAmountCents: number;
+};
+
+export type BillingAutoTopOffRunSummary = {
+  completedAt: Date | null;
+  createdAt: Date;
+  creditsGrantedMilli: number;
+  failureReason: string | null;
+  status: AutoTopOffRunStatus;
+  stripeInvoiceId: string | null;
+  topOffAmountCents: number;
+};
+
 function normalizeDate(value: Date | null | undefined) {
   return value ?? null;
+}
+
+function numberFromValue(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function startOfMonth(date: Date) {
+  const next = new Date(date);
+  next.setDate(1);
+  next.setHours(0, 0, 0, 0);
+  return next;
 }
 
 export async function findBillingCustomerByOrganizationId(
@@ -303,6 +369,272 @@ export async function getOrganizationTenantForBilling(organizationId: string) {
   return tenant ?? null;
 }
 
+export async function listBillingAutoTopOffExecutionTargets() {
+  const db = getDb();
+  const rows = await db
+    .select({
+      minimumBalanceCredits: billingPreferences.minimumBalanceCredits,
+      monthlySpendLimitCents: billingPreferences.monthlySpendLimitCents,
+      organizationId: billingPreferences.organizationId,
+      stripeCustomerId: billingCustomers.stripeCustomerId,
+      topOffAmountCents: billingPreferences.topOffAmountCents,
+    })
+    .from(billingPreferences)
+    .innerJoin(
+      billingCustomers,
+      eq(billingCustomers.organizationId, billingPreferences.organizationId),
+    )
+    .innerJoin(
+      billingSubscriptions,
+      eq(
+        billingSubscriptions.organizationId,
+        billingPreferences.organizationId,
+      ),
+    )
+    .where(
+      and(
+        eq(billingPreferences.autoTopOffEnabled, true),
+        inArray(
+          billingSubscriptions.status,
+          AUTO_TOP_OFF_ELIGIBLE_SUBSCRIPTION_STATUSES,
+        ),
+      ),
+    );
+
+  const targets: BillingAutoTopOffExecutionTarget[] = [];
+
+  for (const row of rows) {
+    const tenant = await getOrganizationTenantForBilling(row.organizationId);
+
+    if (!tenant) {
+      continue;
+    }
+
+    const balance = await getTenantCreditBalanceSummary({
+      tenantId: tenant.id,
+    });
+
+    targets.push({
+      currentBalanceCreditsMilli: balance.currentBalanceCreditsMilli,
+      minimumBalanceCredits: row.minimumBalanceCredits,
+      monthlySpendLimitCents: row.monthlySpendLimitCents,
+      organizationId: row.organizationId,
+      stripeCustomerId: row.stripeCustomerId,
+      tenantId: tenant.id,
+      topOffAmountCents: row.topOffAmountCents,
+    });
+  }
+
+  return targets;
+}
+
+export async function getBillingAutoTopOffExecutionTargetByOrganizationId(
+  organizationId: string,
+) {
+  const targets = await listBillingAutoTopOffExecutionTargets();
+  return (
+    targets.find((target) => target.organizationId === organizationId) ?? null
+  );
+}
+
+export async function getBillingAutoTopOffMonthlySpendCents(input: {
+  monthStart?: Date;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const [summary] = await db
+    .select({
+      totalSpendCents: sql`coalesce(sum(${billingAutoTopOffRuns.topOffAmountCents}), 0)`,
+    })
+    .from(billingAutoTopOffRuns)
+    .where(
+      and(
+        eq(billingAutoTopOffRuns.organizationId, input.organizationId),
+        eq(billingAutoTopOffRuns.status, AUTO_TOP_OFF_RUN_STATUSES.succeeded),
+        gte(
+          billingAutoTopOffRuns.createdAt,
+          input.monthStart ?? startOfMonth(new Date()),
+        ),
+      ),
+    );
+
+  return numberFromValue(summary?.totalSpendCents);
+}
+
+export async function findLatestBillingAutoTopOffRunByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb();
+  const [run] = await db
+    .select({
+      completedAt: billingAutoTopOffRuns.completedAt,
+      createdAt: billingAutoTopOffRuns.createdAt,
+      creditsGrantedMilli: billingAutoTopOffRuns.creditsGrantedMilli,
+      failureReason: billingAutoTopOffRuns.failureReason,
+      status: billingAutoTopOffRuns.status,
+      stripeInvoiceId: billingAutoTopOffRuns.stripeInvoiceId,
+      topOffAmountCents: billingAutoTopOffRuns.topOffAmountCents,
+    })
+    .from(billingAutoTopOffRuns)
+    .where(eq(billingAutoTopOffRuns.organizationId, organizationId))
+    .orderBy(desc(billingAutoTopOffRuns.createdAt))
+    .limit(1);
+
+  return (run ?? null) as BillingAutoTopOffRunSummary | null;
+}
+
+export async function hasActiveBillingAutoTopOffRun(organizationId: string) {
+  const db = getDb();
+  const [run] = await db
+    .select({
+      id: billingAutoTopOffRuns.id,
+    })
+    .from(billingAutoTopOffRuns)
+    .where(
+      and(
+        eq(billingAutoTopOffRuns.organizationId, organizationId),
+        inArray(
+          billingAutoTopOffRuns.status,
+          AUTO_TOP_OFF_ACTIVE_RUN_STATUSES,
+        ),
+      ),
+    )
+    .orderBy(desc(billingAutoTopOffRuns.createdAt))
+    .limit(1);
+
+  return Boolean(run);
+}
+
+export async function createBillingAutoTopOffRun(input: {
+  creditsGrantedMilli: number;
+  monthlySpendLimitCents: number;
+  organizationId: string;
+  status: AutoTopOffRunStatus;
+  stripeCustomerId: string;
+  stripeIdempotencyKey: string;
+  tenantId: string;
+  topOffAmountCents: number;
+  triggerBalanceCreditsMilli: number;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const [run] = await db
+    .insert(billingAutoTopOffRuns)
+    .values({
+      completedAt:
+        input.status === AUTO_TOP_OFF_RUN_STATUSES.failed ||
+        input.status === AUTO_TOP_OFF_RUN_STATUSES.succeeded
+          ? now
+          : null,
+      creditsGrantedMilli: input.creditsGrantedMilli,
+      monthlySpendLimitCents: input.monthlySpendLimitCents,
+      organizationId: input.organizationId,
+      processedAt:
+        input.status === AUTO_TOP_OFF_RUN_STATUSES.processing ? now : null,
+      status: input.status,
+      stripeCustomerId: input.stripeCustomerId,
+      stripeIdempotencyKey: input.stripeIdempotencyKey,
+      tenantId: input.tenantId,
+      topOffAmountCents: input.topOffAmountCents,
+      triggerBalanceCreditsMilli: input.triggerBalanceCreditsMilli,
+      updatedAt: now,
+    })
+    .returning();
+
+  return run ?? null;
+}
+
+export async function updateBillingAutoTopOffRunToAwaitingWebhook(input: {
+  runId: string;
+  stripeInvoiceId: string;
+  stripeInvoiceItemId: string | null;
+  stripePriceId: string;
+  stripePriceLookupKey: string;
+}) {
+  const db = getDb();
+  const [run] = await db
+    .update(billingAutoTopOffRuns)
+    .set({
+      processedAt: new Date(),
+      status: AUTO_TOP_OFF_RUN_STATUSES.awaitingWebhook,
+      stripeInvoiceId: input.stripeInvoiceId,
+      stripeInvoiceItemId: input.stripeInvoiceItemId,
+      stripePriceId: input.stripePriceId,
+      stripePriceLookupKey: input.stripePriceLookupKey,
+      updatedAt: new Date(),
+    })
+    .where(eq(billingAutoTopOffRuns.id, input.runId))
+    .returning({
+      id: billingAutoTopOffRuns.id,
+    });
+
+  return run ?? null;
+}
+
+export async function markBillingAutoTopOffRunFailed(input: {
+  reason: string;
+  runId: string;
+  stripeInvoiceId?: string | null;
+}) {
+  const db = getDb();
+  const [run] = await db
+    .update(billingAutoTopOffRuns)
+    .set({
+      completedAt: new Date(),
+      failureReason: input.reason,
+      status: AUTO_TOP_OFF_RUN_STATUSES.failed,
+      stripeInvoiceId: input.stripeInvoiceId ?? undefined,
+      updatedAt: new Date(),
+    })
+    .where(eq(billingAutoTopOffRuns.id, input.runId))
+    .returning({
+      id: billingAutoTopOffRuns.id,
+    });
+
+  return run ?? null;
+}
+
+export async function markBillingAutoTopOffRunFailedByInvoiceId(input: {
+  reason: string;
+  stripeInvoiceId: string;
+}) {
+  const db = getDb();
+  const [run] = await db
+    .update(billingAutoTopOffRuns)
+    .set({
+      completedAt: new Date(),
+      failureReason: input.reason,
+      status: AUTO_TOP_OFF_RUN_STATUSES.failed,
+      updatedAt: new Date(),
+    })
+    .where(eq(billingAutoTopOffRuns.stripeInvoiceId, input.stripeInvoiceId))
+    .returning({
+      id: billingAutoTopOffRuns.id,
+    });
+
+  return run ?? null;
+}
+
+export async function markBillingAutoTopOffRunSucceededByInvoiceId(input: {
+  stripeInvoiceId: string;
+}) {
+  const db = getDb();
+  const [run] = await db
+    .update(billingAutoTopOffRuns)
+    .set({
+      completedAt: new Date(),
+      failureReason: null,
+      status: AUTO_TOP_OFF_RUN_STATUSES.succeeded,
+      updatedAt: new Date(),
+    })
+    .where(eq(billingAutoTopOffRuns.stripeInvoiceId, input.stripeInvoiceId))
+    .returning({
+      id: billingAutoTopOffRuns.id,
+    });
+
+  return run ?? null;
+}
+
 export async function createSubscriptionCreditGrant(input: {
   creditsGrantedMilli: number;
   expiresAt: Date | null;
@@ -361,6 +693,90 @@ export async function createSubscriptionCreditGrant(input: {
         creditsDeltaMilli: grant.creditsGrantedMilli,
         description: `${plan.name} monthly credits from Stripe invoice ${input.stripeInvoiceId} (${formatCreditsFromMilli(grant.creditsGrantedMilli)} credits)`,
         entryType: CREDIT_LEDGER_ENTRY_TYPES.subscriptionGrant,
+        sourceId: grant.id,
+        sourceType: "credit_grant",
+        tenantId: grant.tenantId ?? tenant.id,
+      })
+      .returning({
+        id: creditLedgerEntries.id,
+      });
+
+    await tx
+      .update(creditGrants)
+      .set({
+        ledgerEntryId: ledgerEntry?.id ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(creditGrants.id, grant.id));
+
+    return {
+      created: true,
+      creditGrantId: grant.id,
+      tenantId: tenant.id,
+    };
+  });
+}
+
+export async function createTopUpCreditGrant(input: {
+  creditsGrantedMilli: number;
+  lookupKey: string;
+  organizationId: string;
+  stripeInvoiceId: string;
+}) {
+  const db = getDb();
+  const tenant = await getOrganizationTenantForBilling(input.organizationId);
+
+  if (!tenant) {
+    throw new Error(
+      "Cannot grant top-up credits because the workspace has no tenant.",
+    );
+  }
+
+  const pack = getAutoTopOffPackByLookupKey(input.lookupKey);
+
+  if (!pack) {
+    throw new Error(`Unknown top-up lookup key: ${input.lookupKey}`);
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+  return db.transaction(async (tx) => {
+    const [grant] = await tx
+      .insert(creditGrants)
+      .values({
+        creditsGrantedMilli: input.creditsGrantedMilli,
+        expiresAt,
+        organizationId: input.organizationId,
+        planKey: null,
+        sourceExternalId: input.stripeInvoiceId,
+        sourceType: "stripe_top_up_invoice",
+        tenantId: tenant.id,
+      })
+      .onConflictDoNothing({
+        target: [creditGrants.sourceType, creditGrants.sourceExternalId],
+      })
+      .returning({
+        creditsGrantedMilli: creditGrants.creditsGrantedMilli,
+        id: creditGrants.id,
+        tenantId: creditGrants.tenantId,
+      });
+
+    if (!grant) {
+      return {
+        created: false,
+        creditGrantId: null,
+        tenantId: tenant.id,
+      };
+    }
+
+    const [ledgerEntry] = await tx
+      .insert(creditLedgerEntries)
+      .values({
+        billableUnits: 0,
+        creditsDeltaMilli: grant.creditsGrantedMilli,
+        description: `${pack.label} credits from Stripe invoice ${input.stripeInvoiceId} (${formatCreditsFromMilli(grant.creditsGrantedMilli)} credits)`,
+        entryType: CREDIT_LEDGER_ENTRY_TYPES.topUpGrant,
         sourceId: grant.id,
         sourceType: "credit_grant",
         tenantId: grant.tenantId ?? tenant.id,
@@ -446,7 +862,18 @@ export async function getWorkspaceBillingOverview(input: {
         .limit(12)
     : [];
 
+  const [latestAutoTopOffRun, monthlyAutoTopOffSpendCents] = await Promise.all([
+    findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId),
+    getBillingAutoTopOffMonthlySpendCents({
+      organizationId: input.organizationId,
+    }),
+  ]);
+
   return {
+    autoTopOff: {
+      latestRun: latestAutoTopOffRun,
+      monthlySpendCents: monthlyAutoTopOffSpendCents,
+    },
     balance,
     customer,
     organization,

@@ -1115,6 +1115,61 @@ export const billingPreferences = pgTable(
   }),
 );
 
+export const billingAutoTopOffRuns = pgTable(
+  "billing_auto_top_off_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
+    status: varchar("status", { length: 64 }).notNull(),
+    triggerBalanceCreditsMilli: bigint("trigger_balance_credits_milli", {
+      mode: "number",
+    }).notNull(),
+    topOffAmountCents: integer("top_off_amount_cents").notNull(),
+    creditsGrantedMilli: bigint("credits_granted_milli", {
+      mode: "number",
+    }).notNull(),
+    monthlySpendLimitCents: integer("monthly_spend_limit_cents").notNull(),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).notNull(),
+    stripePriceId: varchar("stripe_price_id", { length: 255 }),
+    stripePriceLookupKey: varchar("stripe_price_lookup_key", { length: 64 }),
+    stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }),
+    stripeInvoiceItemId: varchar("stripe_invoice_item_id", { length: 255 }),
+    stripeIdempotencyKey: varchar("stripe_idempotency_key", {
+      length: 255,
+    })
+      .notNull()
+      .unique(),
+    failureReason: text("failure_reason"),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationCreatedAtIdx: index(
+      "billing_auto_top_off_runs_organization_id_created_at_idx",
+    ).on(table.organizationId, table.createdAt),
+    organizationStatusIdx: index(
+      "billing_auto_top_off_runs_organization_id_status_idx",
+    ).on(table.organizationId, table.status),
+    tenantCreatedAtIdx: index(
+      "billing_auto_top_off_runs_tenant_id_created_at_idx",
+    ).on(table.tenantId, table.createdAt),
+    stripeInvoiceUniqueIdx: uniqueIndex(
+      "billing_auto_top_off_runs_stripe_invoice_id_idx",
+    ).on(table.stripeInvoiceId),
+  }),
+);
+
 export const creditGrants = pgTable(
   "credit_grants",
   {

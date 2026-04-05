@@ -1,6 +1,10 @@
 import Stripe from "stripe";
 
-import { type BillingPlanKey, getBillingPlanByKey } from "@/lib/billing/plans";
+import {
+  type BillingPlanKey,
+  getAutoTopOffPackByLookupKey,
+  getBillingPlanByKey,
+} from "@/lib/billing/plans";
 import { getStripeSecretKey } from "@/lib/env";
 
 let cachedStripe: Stripe | null = null;
@@ -38,22 +42,63 @@ export async function getStripeRecurringPriceIdForPlanKey(
     throw new Error(`Unknown billing plan key: ${planKey}`);
   }
 
-  const stripe = getStripe();
-  console.info("[billing/stripe] resolving recurring price", {
+  return getStripePriceIdForLookupKey({
+    description: plan.name,
+    expectedCurrency: "usd",
+    expectedInterval: "month",
+    expectedType: "recurring",
     lookupKey: plan.key,
-    planName: plan.name,
+    logPrefix: "billing/stripe",
+  });
+}
+
+export async function getStripeOneTimePriceIdForTopUpLookupKey(
+  lookupKey: string,
+) {
+  const pack = getAutoTopOffPackByLookupKey(lookupKey);
+
+  if (!pack) {
+    throw new Error(`Unknown top-up lookup key: ${lookupKey}`);
+  }
+
+  return getStripePriceIdForLookupKey({
+    description: pack.label,
+    expectedCurrency: "usd",
+    expectedInterval: null,
+    expectedType: "one_time",
+    lookupKey,
+    logPrefix: "billing/stripe",
+  });
+}
+
+async function getStripePriceIdForLookupKey(input: {
+  description: string;
+  expectedCurrency: string;
+  expectedInterval: "month" | null;
+  expectedType: "one_time" | "recurring";
+  lookupKey: string;
+  logPrefix: string;
+}) {
+
+  const stripe = getStripe();
+  console.info(`[${input.logPrefix}] resolving price`, {
+    description: input.description,
+    expectedCurrency: input.expectedCurrency,
+    expectedInterval: input.expectedInterval,
+    expectedType: input.expectedType,
+    lookupKey: input.lookupKey,
   });
 
   const prices = await stripe.prices.list({
     active: true,
     expand: ["data.product"],
     limit: 10,
-    lookup_keys: [plan.key],
+    lookup_keys: [input.lookupKey],
   });
 
-  console.info("[billing/stripe] lookup returned prices", {
+  console.info(`[${input.logPrefix}] lookup returned prices`, {
     hasMore: prices.has_more,
-    lookupKey: plan.key,
+    lookupKey: input.lookupKey,
     returnedCount: prices.data.length,
   });
 
@@ -84,11 +129,14 @@ export async function getStripeRecurringPriceIdForPlanKey(
     };
   });
 
-  const recurringMonthlyPrices = prices.data.filter((price) => {
-    const matchesLookupKey = price.lookup_key === plan.key;
-    const matchesCurrency = price.currency === "usd";
-    const matchesInterval = price.recurring?.interval === "month";
-    const matchesType = price.type === "recurring";
+  const matchingPrices = prices.data.filter((price) => {
+    const matchesLookupKey = price.lookup_key === input.lookupKey;
+    const matchesCurrency = price.currency === input.expectedCurrency;
+    const matchesInterval =
+      input.expectedInterval === null
+        ? price.recurring === null
+        : price.recurring?.interval === input.expectedInterval;
+    const matchesType = price.type === input.expectedType;
     const expandedProduct =
       typeof price.product === "string" ? null : (price.product ?? null);
     const productName =
@@ -100,7 +148,7 @@ export async function getStripeRecurringPriceIdForPlanKey(
         ? price.product
         : (expandedProduct?.id ?? null);
 
-    console.info("[billing/stripe] price candidate", {
+    console.info(`[${input.logPrefix}] price candidate`, {
       active: price.active,
       currency: price.currency,
       id: price.id,
@@ -124,19 +172,19 @@ export async function getStripeRecurringPriceIdForPlanKey(
     );
   });
 
-  console.info("[billing/stripe] filtered recurring monthly prices", {
-    lookupKey: plan.key,
-    matchingCount: recurringMonthlyPrices.length,
-    matchingPriceIds: recurringMonthlyPrices.map((price) => price.id),
+  console.info(`[${input.logPrefix}] filtered prices`, {
+    lookupKey: input.lookupKey,
+    matchingCount: matchingPrices.length,
+    matchingPriceIds: matchingPrices.map((price) => price.id),
   });
 
-  if (recurringMonthlyPrices.length !== 1) {
-    console.error("[billing/stripe] recurring price resolution failed", {
-      expectedCurrency: "usd",
-      expectedInterval: "month",
-      expectedType: "recurring",
-      lookupKey: plan.key,
-      matchingCount: recurringMonthlyPrices.length,
+  if (matchingPrices.length !== 1) {
+    console.error(`[${input.logPrefix}] price resolution failed`, {
+      expectedCurrency: input.expectedCurrency,
+      expectedInterval: input.expectedInterval,
+      expectedType: input.expectedType,
+      lookupKey: input.lookupKey,
+      matchingCount: matchingPrices.length,
       returnedPrices: describedPrices,
     });
 
@@ -150,20 +198,20 @@ export async function getStripeRecurringPriceIdForPlanKey(
         : "none";
 
     throw new Error(
-      `Expected exactly one active monthly Stripe price for lookup key ${plan.key} in usd. Returned prices: ${returnedPriceSummary}. Make sure Stripe has exactly one active recurring monthly USD price with this lookup key.`,
+      `Expected exactly one active ${input.expectedType === "recurring" ? "monthly recurring" : "one-time"} Stripe price for lookup key ${input.lookupKey} in ${input.expectedCurrency}. Returned prices: ${returnedPriceSummary}. Make sure Stripe has exactly one active ${input.expectedType === "recurring" ? "recurring monthly" : "one-time"} ${input.expectedCurrency.toUpperCase()} price with this lookup key.`,
     );
   }
 
-  const [price] = recurringMonthlyPrices;
+  const [price] = matchingPrices;
 
   if (!price) {
     throw new Error(
-      `Expected exactly one active monthly Stripe price for lookup key ${plan.key}.`,
+      `Expected exactly one active Stripe price for lookup key ${input.lookupKey}.`,
     );
   }
 
-  console.info("[billing/stripe] resolved recurring price", {
-    lookupKey: plan.key,
+  console.info(`[${input.logPrefix}] resolved price`, {
+    lookupKey: input.lookupKey,
     priceId: price.id,
   });
 
