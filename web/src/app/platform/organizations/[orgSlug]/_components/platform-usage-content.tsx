@@ -203,11 +203,13 @@ const SPEND_MODALITIES: Array<{ label: string; value: SpendModality }> = [
 ];
 
 function getSpendChartConfig(modality: SpendModality): ChartConfig {
+  // Order: first key = bottom of stack, last key = top of stack.
+  // Legend reads left-to-right in this same order.
   if (modality === "all") {
     return {
+      inputCachedTokens: { color: "var(--chart-4)", label: "Cached input" },
       inputTokens: { color: "var(--chart-1)", label: "Input" },
       outputTokens: { color: "var(--chart-2)", label: "Output" },
-      inputCachedTokens: { color: "var(--chart-4)", label: "Cached input" },
     };
   }
   const prefix = modality.charAt(0).toUpperCase() + modality.slice(1);
