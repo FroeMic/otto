@@ -126,6 +126,7 @@ const SLACK_PROVIDER_KEY = "slack";
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
+const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
 const runtimeManager = new RuntimeManager();
 
@@ -6542,25 +6543,10 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
 }
 
 export async function getTenantRuntimeGatewayToken(tenantId: string) {
-  const db = getDb();
-  const [secret] = await db
-    .select({
-      ciphertext: tenantRuntimeSecrets.ciphertext,
-    })
-    .from(tenantRuntimeSecrets)
-    .where(
-      and(
-        eq(tenantRuntimeSecrets.tenantId, tenantId),
-        eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
-      ),
-    )
-    .limit(1);
-
-  if (!secret?.ciphertext) {
-    return null;
-  }
-
-  return decryptControlPlaneSecret(secret.ciphertext);
+  return getTenantRuntimeSecretValue({
+    secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
+    tenantId,
+  });
 }
 
 export async function ensureTenantRuntimeGatewayToken(tenantId: string) {
@@ -6583,65 +6569,78 @@ export async function storeTenantRuntimeGatewayToken(input: {
   gatewayToken: string;
   tenantId: string;
 }) {
-  const db = getDb();
-  const now = new Date();
-  const ciphertext = encryptControlPlaneSecret(input.gatewayToken);
-
-  const [existingSecret] = await db
-    .select({
-      id: tenantRuntimeSecrets.id,
-    })
-    .from(tenantRuntimeSecrets)
-    .where(
-      and(
-        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
-        eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
-      ),
-    )
-    .limit(1);
-
-  if (existingSecret) {
-    await db
-      .update(tenantRuntimeSecrets)
-      .set({
-        ciphertext,
-        rotatedAt: now,
-      })
-      .where(eq(tenantRuntimeSecrets.id, existingSecret.id));
-
-    return;
-  }
-
-  await db.insert(tenantRuntimeSecrets).values({
-    ciphertext,
+  await storeTenantRuntimeSecretValue({
+    plaintext: input.gatewayToken,
     secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
     tenantId: input.tenantId,
   });
 }
 
-export async function getTenantByRuntimeGatewayToken(gatewayToken: string) {
+export async function getTenantRuntimeTenantToken(tenantId: string) {
+  return getTenantRuntimeSecretValue({
+    secretType: TENANT_TOKEN_SECRET_TYPE,
+    tenantId,
+  });
+}
+
+export async function ensureTenantRuntimeTenantToken(tenantId: string) {
+  const existingToken = await getTenantRuntimeTenantToken(tenantId);
+
+  if (existingToken) {
+    return existingToken;
+  }
+
+  const tenantToken = buildTenantToken();
+  await storeTenantRuntimeTenantToken({
+    tenantId,
+    tenantToken,
+  });
+
+  return tenantToken;
+}
+
+export async function storeTenantRuntimeTenantToken(input: {
+  tenantId: string;
+  tenantToken: string;
+}) {
+  await storeTenantRuntimeSecretValue({
+    lookupHash: createTokenLookupHash(input.tenantToken),
+    plaintext: input.tenantToken,
+    secretType: TENANT_TOKEN_SECRET_TYPE,
+    tenantId: input.tenantId,
+  });
+}
+
+export async function getTenantByTenantToken(tenantToken: string) {
   const db = getDb();
-  const runtimeSecrets = await db
+  const lookupHash = createTokenLookupHash(tenantToken);
+  const [secret] = await db
     .select({
       ciphertext: tenantRuntimeSecrets.ciphertext,
       tenantId: tenantRuntimeSecrets.tenantId,
     })
     .from(tenantRuntimeSecrets)
     .where(
-      eq(tenantRuntimeSecrets.secretType, OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE),
-    );
+      and(
+        eq(tenantRuntimeSecrets.secretType, TENANT_TOKEN_SECRET_TYPE),
+        eq(tenantRuntimeSecrets.lookupHash, lookupHash),
+      ),
+    )
+    .limit(1);
 
-  for (const secret of runtimeSecrets) {
-    const storedToken = decryptControlPlaneSecret(secret.ciphertext);
-
-    if (tokensMatch(storedToken, gatewayToken)) {
-      return {
-        tenantId: secret.tenantId,
-      };
-    }
+  if (!secret?.ciphertext) {
+    return null;
   }
 
-  return null;
+  const storedToken = decryptControlPlaneSecret(secret.ciphertext);
+
+  if (!tokensMatch(storedToken, tenantToken)) {
+    return null;
+  }
+
+  return {
+    tenantId: secret.tenantId,
+  };
 }
 
 export async function enqueueTenantConfigApply(input: {
@@ -8049,8 +8048,85 @@ async function markWhatsAppIntegrationPendingApply(
     );
 }
 
+async function getTenantRuntimeSecretValue(input: {
+  secretType: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const [secret] = await db
+    .select({
+      ciphertext: tenantRuntimeSecrets.ciphertext,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
+        eq(tenantRuntimeSecrets.secretType, input.secretType),
+      ),
+    )
+    .limit(1);
+
+  if (!secret?.ciphertext) {
+    return null;
+  }
+
+  return decryptControlPlaneSecret(secret.ciphertext);
+}
+
+async function storeTenantRuntimeSecretValue(input: {
+  tenantId: string;
+  secretType: string;
+  plaintext: string;
+  lookupHash?: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+
+  const [existingSecret] = await db
+    .select({
+      id: tenantRuntimeSecrets.id,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
+        eq(tenantRuntimeSecrets.secretType, input.secretType),
+      ),
+    )
+    .limit(1);
+
+  if (existingSecret) {
+    await db
+      .update(tenantRuntimeSecrets)
+      .set({
+        ciphertext,
+        lookupHash: input.lookupHash ?? null,
+        rotatedAt: now,
+      })
+      .where(eq(tenantRuntimeSecrets.id, existingSecret.id));
+
+    return;
+  }
+
+  await db.insert(tenantRuntimeSecrets).values({
+    ciphertext,
+    lookupHash: input.lookupHash ?? null,
+    secretType: input.secretType,
+    tenantId: input.tenantId,
+  });
+}
+
 function buildGatewayToken() {
   return randomBytes(24).toString("base64url");
+}
+
+function buildTenantToken() {
+  return randomBytes(24).toString("base64url");
+}
+
+function createTokenLookupHash(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 async function getTenantRuntimeState(tx: DbTransaction, tenantId: string) {

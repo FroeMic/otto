@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
+  ensureTenantRuntimeTenantToken,
   getLatestTenantDesiredState,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
@@ -289,6 +290,7 @@ async function applyProvisionedCredentialToTenantRuntime(tenantId: string) {
   ]);
 
   let gatewayToken = await getTenantRuntimeGatewayToken(tenantId);
+  const tenantToken = await ensureTenantRuntimeTenantToken(tenantId);
 
   if (!gatewayToken) {
     gatewayToken = await runtimeManager.readRuntimeEnvValue(
@@ -327,6 +329,7 @@ async function applyProvisionedCredentialToTenantRuntime(tenantId: string) {
   await runtimeManager.applyTenantConfig(runtimeConnection, {
     desiredStateVersion: desiredState.version,
     gatewayToken,
+    tenantToken,
     managedBootstrapFiles: managedConfig.files.map((file) => ({
       contents: file.renderedContent,
       filename: file.path,

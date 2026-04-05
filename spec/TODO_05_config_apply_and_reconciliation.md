@@ -114,7 +114,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - no host root requirement for the OpenClaw process
   - no Docker socket mounted into the runtime container
   - prefer host key verification through `RUNTIME_SSH_KNOWN_HOSTS` instead of blindly trusting first use
-  - any runtime-initiated edits to managed bootstrap files must flow back through a control-plane API authenticated by the tenant gateway token instead of local file writes becoming authoritative
+  - any runtime-initiated edits to managed bootstrap files must flow back through a control-plane API authenticated by a tenant-scoped runtime token instead of local file writes becoming authoritative
   - runtime-driven managed-config mutations should include an expected managed-config version so concurrent UI and agent edits fail explicitly instead of silently overwriting each other
   - if runtime-managed tools depend on an Otto-owned OpenClaw plugin, the tenant runtime must use the Otto custom image layer instead of the raw upstream image
 - Keep the interface job-runner agnostic:
