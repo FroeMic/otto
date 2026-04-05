@@ -107,7 +107,7 @@ For Stripe billing, also configure:
   - `plus_monthly`
   - `pro_monthly`
   - `max_monthly`
-- a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook`
+- a Stripe webhook endpoint at `https://<your-domain>/webhooks/stripe`
 - webhook events:
   - `checkout.session.completed`
   - `customer.subscription.updated`

@@ -48,7 +48,7 @@ docker compose up -d
    - to enable hosted billing, set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`
    - create four recurring monthly Stripe prices in USD for `Basic`, `Plus`, `Pro`, and `Max`
    - set the Stripe price `lookup_key` values exactly to `basic_monthly`, `plus_monthly`, `pro_monthly`, and `max_monthly`
-   - configure a Stripe webhook endpoint at `http://localhost:3000/api/stripe/webhook` for local development and enable `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`
+   - configure a Stripe webhook endpoint at `http://localhost:3000/webhooks/stripe` for local development and enable `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`
    - enable the Stripe billing portal in the dashboard so Otto can create portal sessions for payment methods, invoices, cancellation, and plan changes
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution

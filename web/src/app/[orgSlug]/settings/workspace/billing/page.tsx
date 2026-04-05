@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { getWorkspaceBillingOverview } from "@/db/billing";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
 import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
-import { type BillingPlanKey, getBillingPlans } from "@/lib/billing/plans";
+import { getBillingPlans } from "@/lib/billing/plans";
 import { formatShortDate, formatShortDateTime } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
@@ -43,11 +43,15 @@ export default async function WorkspaceBillingPage({
   const billingOverview = await getWorkspaceBillingOverview({
     organizationId: currentOrganization.id,
   });
+  const usageWindowEnd = new Date();
+  const usageWindowStart = new Date(
+    usageWindowEnd.getTime() - 24 * 60 * 60 * 1000,
+  );
   const usageOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
-        from: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        from: usageWindowStart,
         tenantId: billingOverview.tenant.id,
-        to: new Date(),
+        to: usageWindowEnd,
       })
     : null;
   const billingConfigured = hasStripeBillingConfig();
@@ -93,7 +97,8 @@ export default async function WorkspaceBillingPage({
           <Alert variant="destructive">
             <AlertTitle>Stripe billing is not configured</AlertTitle>
             <AlertDescription>
-              Set the Stripe secret key, webhook secret, and monthly price IDs
+              Set the Stripe secret key and webhook secret, then configure the
+              recurring plan prices in Stripe with the expected lookup keys
               before enabling paid plans for this workspace.
             </AlertDescription>
           </Alert>
@@ -196,7 +201,7 @@ export default async function WorkspaceBillingPage({
               <WorkspaceBillingActions
                 canManageBilling={billingConfigured}
                 canOpenBillingPortal={Boolean(billingOverview.customer)}
-                currentPlanKey={(billingOverview.subscription?.planKey as BillingPlanKey) ?? null}
+                currentPlanKey={currentPlan?.key ?? null}
                 orgSlug={orgSlug}
               />
             </SettingsRow>

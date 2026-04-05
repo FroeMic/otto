@@ -104,7 +104,7 @@ export async function processProvisionTenantOpenAiKeyJob(
         tenantId: tenant.id,
       });
 
-    let desiredStateVersion: number | null = null;
+    const desiredStateVersion: number | null = null;
 
     if (runtimeReady) {
       await appendJobEvent(

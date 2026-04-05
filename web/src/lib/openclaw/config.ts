@@ -487,8 +487,7 @@ export function buildOpenClawTenantConfig(input: {
   );
   const primaryModel = env.RUNTIME_MODEL_PRIMARY;
   const proxyModelConfig = resolveProxyModelConfig({
-    audioUsesOpenAi:
-      shouldRouteAudioThroughOpenAiProxy(audio),
+    audioUsesOpenAi: shouldRouteAudioThroughOpenAiProxy(audio),
     controlPlaneBaseUrl,
     primaryModel,
   });

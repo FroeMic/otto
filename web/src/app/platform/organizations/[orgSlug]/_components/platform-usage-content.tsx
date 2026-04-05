@@ -1,16 +1,10 @@
 "use client";
 
-import * as React from "react";
-import { format } from "date-fns";
-import type { DateRange } from "react-day-picker";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { CalendarBlank } from "@phosphor-icons/react/ssr";
+import { format } from "date-fns";
+import * as React from "react";
+import type { DateRange } from "react-day-picker";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -120,13 +114,41 @@ type DatePreset = {
 
 const DATE_PRESETS: DatePreset[] = [
   { from: () => startOfDay(new Date()), label: "Today", to: () => new Date() },
-  { from: () => startOfWeek(new Date()), label: "This week", to: () => new Date() },
-  { from: () => startOfMonth(new Date()), label: "This month", to: () => new Date() },
-  { from: () => startOfYear(new Date()), label: "This year", to: () => new Date() },
-  { from: () => new Date(Date.now() - 24 * 60 * 60 * 1000), label: "Last 24h", to: () => new Date() },
-  { from: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), label: "Last 7d", to: () => new Date() },
-  { from: () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), label: "Last 30d", to: () => new Date() },
-  { from: () => new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), label: "Last 365d", to: () => new Date() },
+  {
+    from: () => startOfWeek(new Date()),
+    label: "This week",
+    to: () => new Date(),
+  },
+  {
+    from: () => startOfMonth(new Date()),
+    label: "This month",
+    to: () => new Date(),
+  },
+  {
+    from: () => startOfYear(new Date()),
+    label: "This year",
+    to: () => new Date(),
+  },
+  {
+    from: () => new Date(Date.now() - 24 * 60 * 60 * 1000),
+    label: "Last 24h",
+    to: () => new Date(),
+  },
+  {
+    from: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    label: "Last 7d",
+    to: () => new Date(),
+  },
+  {
+    from: () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    label: "Last 30d",
+    to: () => new Date(),
+  },
+  {
+    from: () => new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+    label: "Last 365d",
+    to: () => new Date(),
+  },
 ];
 
 const DEFAULT_PRESET_INDEX = 5; // Last 7d
@@ -186,9 +208,7 @@ function formatDollarsFromMicros(micros: number) {
 }
 
 function formatUsageTypeLabel(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return value.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // --- Spend chart modality options ---
@@ -225,11 +245,7 @@ function bucketKey(isoString: string, hourly: boolean) {
   return hourly ? isoString.slice(0, 13) : isoString.slice(0, 10);
 }
 
-function generateTimeBuckets(
-  from: Date,
-  to: Date,
-  hourly: boolean,
-): string[] {
+function generateTimeBuckets(from: Date, to: Date, hourly: boolean): string[] {
   const keys: string[] = [];
   const current = new Date(from);
   // Truncate to hour/day boundary in UTC
@@ -265,14 +281,24 @@ function getSpendChartData(
   return allKeys.map((key) => {
     const row = dataByKey.get(key);
     // Parse the key back to a date for formatting
-    const bucketDate = new Date(hourly ? `${key}:00:00.000Z` : `${key}T00:00:00.000Z`);
+    const bucketDate = new Date(
+      hourly ? `${key}:00:00.000Z` : `${key}T00:00:00.000Z`,
+    );
     const timeLabel = timeFormatter.format(bucketDate);
 
     if (modality === "text") {
-      return { timeLabel, input: row?.inputTextTokens ?? 0, output: row?.outputTextTokens ?? 0 };
+      return {
+        timeLabel,
+        input: row?.inputTextTokens ?? 0,
+        output: row?.outputTextTokens ?? 0,
+      };
     }
     if (modality === "audio") {
-      return { timeLabel, input: row?.inputAudioTokens ?? 0, output: row?.outputAudioTokens ?? 0 };
+      return {
+        timeLabel,
+        input: row?.inputAudioTokens ?? 0,
+        output: row?.outputAudioTokens ?? 0,
+      };
     }
     if (modality === "image") {
       return { timeLabel, input: row?.inputImageTokens ?? 0, output: 0 };
@@ -316,7 +342,8 @@ export function PlatformUsageContent({
   const [customRange, setCustomRange] = React.useState<DateRange | undefined>();
   const [data, setData] = React.useState<UsageOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [spendModality, setSpendModality] = React.useState<SpendModality>("all");
+  const [spendModality, setSpendModality] =
+    React.useState<SpendModality>("all");
 
   const dateRange = React.useMemo(() => {
     if (activePreset !== null) {
@@ -382,7 +409,12 @@ export function PlatformUsageContent({
 
   const spendChartConfig = getSpendChartConfig(spendModality);
   const spendChartData = data?.timeSeries
-    ? getSpendChartData(data.timeSeries, spendModality, timeFormatter, dateRange)
+    ? getSpendChartData(
+        data.timeSeries,
+        spendModality,
+        timeFormatter,
+        dateRange,
+      )
     : [];
   const spendDataKeys = Object.keys(spendChartConfig);
 
@@ -418,7 +450,10 @@ export function PlatformUsageContent({
           subtitle="in selected period"
           value={
             summary
-              ? formatCredits(formatCreditsFromMilli(summary.totalCreditsBurnedMilli), locale)
+              ? formatCredits(
+                  formatCreditsFromMilli(summary.totalCreditsBurnedMilli),
+                  locale,
+                )
               : undefined
           }
         />
@@ -456,9 +491,7 @@ export function PlatformUsageContent({
             summary ? `${summary.activeModels} models active` : undefined
           }
           value={
-            summary
-              ? formatCompact(summary.totalRequests, locale)
-              : undefined
+            summary ? formatCompact(summary.totalRequests, locale) : undefined
           }
         />
       </div>
@@ -611,7 +644,9 @@ export function PlatformUsageContent({
               </TableHeader>
               <TableBody>
                 {data.usageByModel.map((row) => {
-                  const credits = formatCreditsFromMilli(row.creditsBurnedMilli);
+                  const credits = formatCreditsFromMilli(
+                    row.creditsBurnedMilli,
+                  );
                   const costPer1kCredits =
                     credits > 0
                       ? formatDollarsFromMicros(
@@ -635,9 +670,7 @@ export function PlatformUsageContent({
                       <TableCell>
                         {formatDollarsFromMicros(row.providerCostMicros)}
                       </TableCell>
-                      <TableCell>
-                        {formatCredits(credits, locale)}
-                      </TableCell>
+                      <TableCell>{formatCredits(credits, locale)}</TableCell>
                       <TableCell>{costPer1kCredits}</TableCell>
                     </TableRow>
                   );
@@ -716,9 +749,7 @@ function DateRangeDropdown({
         if (!nextOpen) setShowCalendar(false);
       }}
     >
-      <PopoverTrigger
-        className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
-      >
+      <PopoverTrigger className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80">
         <CalendarBlank className="size-3.5" weight="bold" />
         {activeLabel}
       </PopoverTrigger>
