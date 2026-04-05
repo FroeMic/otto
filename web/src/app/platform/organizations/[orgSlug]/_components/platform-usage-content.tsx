@@ -123,8 +123,7 @@ function formatCompactCount(value: number, locale: string) {
 
 function formatCredits(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
