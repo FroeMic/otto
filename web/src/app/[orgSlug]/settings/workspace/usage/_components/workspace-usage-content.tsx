@@ -8,15 +8,7 @@ import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   type ChartConfig,
   ChartContainer,
@@ -28,15 +20,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  SettingsCard,
+  SettingsRow,
+  SettingsRowLabel,
+  SettingsRowTitle,
+} from "@/app/[orgSlug]/settings/_components/settings-layout";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type UsageOverview = {
   summary: {
@@ -67,6 +58,7 @@ type UsageOverview = {
 };
 
 type WorkspaceUsageContentProps = {
+  autoReloadEnabled: boolean;
   currentBalanceCreditsMilli: number;
   currentCycleStartIso: string;
   initialOverview: UsageOverview;
@@ -78,7 +70,6 @@ type WorkspaceUsageContentProps = {
   orgSlug: string;
 };
 
-type Granularity = "day" | "hour" | "week";
 type RangePresetKey =
   | "current_cycle"
   | "last_30d"
@@ -89,21 +80,14 @@ type RangePresetKey =
 const creditsChartConfig = {
   creditsBurned: {
     color: "var(--chart-1)",
-    label: "Credits burned",
-  },
-} satisfies ChartConfig;
-
-const usageTypeChartConfig = {
-  creditsBurned: {
-    color: "var(--chart-2)",
-    label: "Credits burned",
+    label: "Credits",
   },
 } satisfies ChartConfig;
 
 function formatCredits(milli: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: milli % 1000 === 0 ? 0 : 3,
-  }).format(milli / 1000);
+    maximumFractionDigits: 0,
+  }).format(Math.round(milli / 1000));
 }
 
 function formatCompact(value: number, locale: string) {
@@ -120,88 +104,57 @@ function startOfMonth(date: Date) {
   return next;
 }
 
-function startOfWeek(date: Date) {
-  const next = new Date(date);
-  const day = next.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  next.setDate(next.getDate() + diff);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
+// --- Time bucket helpers ---
 
-function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function startOfHour(date: Date) {
-  const next = new Date(date);
-  next.setMinutes(0, 0, 0);
-  return next;
-}
+type Granularity = "day" | "hour" | "week";
 
 function getGranularity(from: Date, to: Date): Granularity {
   const rangeMs = to.getTime() - from.getTime();
-
-  if (rangeMs <= 48 * 60 * 60 * 1000) {
-    return "hour";
-  }
-
-  if (rangeMs > 90 * 24 * 60 * 60 * 1000) {
-    return "week";
-  }
-
+  if (rangeMs <= 48 * 60 * 60 * 1000) return "hour";
+  if (rangeMs > 90 * 24 * 60 * 60 * 1000) return "week";
   return "day";
 }
 
-function floorDate(date: Date, granularity: Granularity) {
-  if (granularity === "hour") {
-    return startOfHour(date);
-  }
-
-  if (granularity === "week") {
-    return startOfWeek(date);
-  }
-
-  return startOfDay(date);
+function bucketKey(isoString: string, granularity: Granularity) {
+  return granularity === "hour" ? isoString.slice(0, 13) : isoString.slice(0, 10);
 }
 
-function advanceDate(date: Date, granularity: Granularity) {
-  const next = new Date(date);
-
+function generateTimeBuckets(from: Date, to: Date, granularity: Granularity): string[] {
+  const keys: string[] = [];
+  const current = new Date(from);
   if (granularity === "hour") {
-    next.setHours(next.getHours() + 1);
-    return next;
+    current.setUTCMinutes(0, 0, 0);
+  } else if (granularity === "week") {
+    const day = current.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    current.setUTCDate(current.getUTCDate() + diff);
+    current.setUTCHours(0, 0, 0, 0);
+  } else {
+    current.setUTCHours(0, 0, 0, 0);
   }
-
-  if (granularity === "week") {
-    next.setDate(next.getDate() + 7);
-    return next;
+  const stepMs =
+    granularity === "hour"
+      ? 60 * 60 * 1000
+      : granularity === "week"
+        ? 7 * 24 * 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000;
+  while (current <= to) {
+    keys.push(bucketKey(current.toISOString(), granularity));
+    current.setTime(current.getTime() + stepMs);
   }
-
-  next.setDate(next.getDate() + 1);
-  return next;
+  return keys;
 }
 
-function bucketKey(date: Date, granularity: Granularity) {
+function formatBucketLabel(key: string, granularity: Granularity) {
   if (granularity === "hour") {
-    return date.toISOString().slice(0, 13);
+    const d = new Date(`${key}:00:00.000Z`);
+    return format(d, "MMM d, HH:00");
   }
-
-  return date.toISOString().slice(0, 10);
-}
-
-function formatBucketLabel(date: Date, granularity: Granularity) {
-  if (granularity === "hour") {
-    return format(date, "MMM d, HH:00");
-  }
-
+  const d = new Date(`${key}T00:00:00.000Z`);
   if (granularity === "week") {
-    return `Week of ${format(date, "MMM d")}`;
+    return `Week of ${format(d, "MMM d")}`;
   }
-
-  return format(date, "MMM d");
+  return format(d, "MMM d");
 }
 
 function getCreditsChartData(
@@ -210,65 +163,33 @@ function getCreditsChartData(
   to: Date,
 ) {
   const granularity = getGranularity(from, to);
-  const aggregated = new Map<string, { creditsBurned: number; date: Date }>();
+  const dataByKey = new Map<string, number>();
 
   for (const row of timeSeries) {
-    const rowDate = new Date(row.bucketTime);
-    const bucketDate = floorDate(rowDate, granularity);
-    const key = bucketKey(bucketDate, granularity);
-    const current = aggregated.get(key);
-    const creditsBurned = row.creditsBurnedMilli / 1000;
-
-    if (current) {
-      current.creditsBurned += creditsBurned;
-      continue;
-    }
-
-    aggregated.set(key, {
-      creditsBurned,
-      date: bucketDate,
-    });
+    const key = bucketKey(row.bucketTime, granularity);
+    dataByKey.set(key, (dataByKey.get(key) ?? 0) + row.creditsBurnedMilli / 1000);
   }
 
-  const chartData = [];
-  let cursor = floorDate(from, granularity);
-  const end = floorDate(to, granularity);
-
-  while (cursor <= end) {
-    const key = bucketKey(cursor, granularity);
-    const match = aggregated.get(key);
-
-    chartData.push({
-      creditsBurned: match?.creditsBurned ?? 0,
-      label: formatBucketLabel(cursor, granularity),
-    });
-
-    cursor = advanceDate(cursor, granularity);
-  }
-
-  return chartData;
-}
-
-function getDateRangeLabel(range: DateRange) {
-  if (!range.from) {
-    return "Select range";
-  }
-
-  if (!range.to) {
-    return format(range.from, "MMM d, yyyy");
-  }
-
-  return `${format(range.from, "MMM d, yyyy")} – ${format(range.to, "MMM d, yyyy")}`;
+  const allKeys = generateTimeBuckets(from, to, granularity);
+  return allKeys.map((key) => ({
+    creditsBurned: dataByKey.get(key) ?? 0,
+    label: formatBucketLabel(key, granularity),
+  }));
 }
 
 function createRange(from: Date, to: Date): DateRange {
-  return {
-    from,
-    to,
-  };
+  return { from, to };
 }
 
+const RANGE_PRESETS: Array<{ key: Exclude<RangePresetKey, "custom">; label: string }> = [
+  { key: "current_cycle", label: "Current billing cycle" },
+  { key: "last_7d", label: "Last 7 days" },
+  { key: "last_30d", label: "Last 30 days" },
+  { key: "this_month", label: "This month" },
+];
+
 export function WorkspaceUsageContent({
+  autoReloadEnabled,
   currentBalanceCreditsMilli,
   currentCycleStartIso,
   initialOverview,
@@ -286,24 +207,18 @@ export function WorkspaceUsageContent({
   );
   const hasMountedRef = React.useRef(false);
 
-  const presetRanges = {
-    current_cycle: createRange(new Date(currentCycleStartIso), new Date()),
-    last_30d: createRange(
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      new Date(),
-    ),
-    last_7d: createRange(
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-      new Date(),
-    ),
-    this_month: createRange(startOfMonth(new Date()), new Date()),
-  } satisfies Record<Exclude<RangePresetKey, "custom">, DateRange>;
+  const presetRanges = React.useMemo(
+    () => ({
+      current_cycle: createRange(new Date(currentCycleStartIso), new Date()),
+      last_30d: createRange(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), new Date()),
+      last_7d: createRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()),
+      this_month: createRange(startOfMonth(new Date()), new Date()),
+    }),
+    [currentCycleStartIso],
+  );
 
   React.useEffect(() => {
-    if (!dateRange.from || !dateRange.to) {
-      return;
-    }
-
+    if (!dateRange.from || !dateRange.to) return;
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
       return;
@@ -312,24 +227,16 @@ export function WorkspaceUsageContent({
     let cancelled = false;
 
     const load = async () => {
-      const fromDate = dateRange.from;
-      const toDate = dateRange.to;
-
-      if (!fromDate || !toDate) {
-        return;
-      }
-
+      if (!dateRange.from || !dateRange.to) return;
       setIsLoading(true);
       setError(null);
 
       try {
         const params = new URLSearchParams({
-          from: fromDate.toISOString(),
-          to: toDate.toISOString(),
+          from: dateRange.from.toISOString(),
+          to: dateRange.to.toISOString(),
         });
-        const response = await fetch(
-          `/api/workspace/${orgSlug}/usage?${params}`,
-        );
+        const response = await fetch(`/api/workspace/${orgSlug}/usage?${params}`);
         const body = (await response.json().catch(() => null)) as
           | UsageOverview
           | { message?: string }
@@ -355,94 +262,46 @@ export function WorkspaceUsageContent({
           );
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     void load();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [dateRange.from, dateRange.to, orgSlug]);
 
   const creditsChartData =
     dateRange.from && dateRange.to
       ? getCreditsChartData(overview.timeSeries, dateRange.from, dateRange.to)
       : [];
-  const usageByType = overview.usageByType
-    .map((row) => ({
-      creditsBurned: row.creditsBurnedMilli / 1000,
-      requestCount: row.requestCount,
-      usageType: row.usageType.replaceAll("_", " "),
-    }))
-    .sort((left, right) => right.creditsBurned - left.creditsBurned);
+
+  const activeLabel =
+    selectedPreset !== "custom"
+      ? RANGE_PRESETS.find((p) => p.key === selectedPreset)?.label ?? "Select range"
+      : dateRange.from && dateRange.to
+        ? `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`
+        : "Select range";
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
-          <p className="text-sm text-muted-foreground">
-            Track workspace usage in credits for the current billing cycle or a
-            custom date range.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ["current_cycle", "Current billing cycle"],
-              ["last_7d", "Last 7 days"],
-              ["last_30d", "Last 30 days"],
-              ["this_month", "This month"],
-            ] as const
-          ).map(([key, label]) => (
-            <Button
-              key={key}
-              onClick={() => {
-                setSelectedPreset(key);
-                setDateRange(presetRanges[key]);
-              }}
-              size="sm"
-              variant={selectedPreset === key ? "secondary" : "outline"}
-            >
-              {label}
-            </Button>
-          ))}
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  size="sm"
-                  variant={
-                    selectedPreset === "custom" ? "secondary" : "outline"
-                  }
-                >
-                  <CalendarBlank data-icon="inline-start" />
-                  {getDateRangeLabel(dateRange)}
-                </Button>
-              }
-            />
-            <PopoverContent align="end" className="w-auto p-0">
-              <Calendar
-                initialFocus
-                mode="range"
-                numberOfMonths={2}
-                selected={dateRange}
-                onSelect={(nextRange) => {
-                  if (!nextRange?.from || !nextRange.to) {
-                    return;
-                  }
-
-                  setSelectedPreset("custom");
-                  setDateRange(nextRange);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+      {/* Heading + date range dropdown */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
+        <DateRangeDropdown
+          activeLabel={activeLabel}
+          customRange={dateRange}
+          onCustomRangeChange={(range) => {
+            if (range?.from && range?.to) {
+              setSelectedPreset("custom");
+              setDateRange(range);
+            }
+          }}
+          onPresetSelect={(key) => {
+            setSelectedPreset(key);
+            setDateRange(presetRanges[key]);
+          }}
+          selectedPreset={selectedPreset}
+        />
       </div>
 
       {error ? (
@@ -452,240 +311,199 @@ export function WorkspaceUsageContent({
         </Alert>
       ) : null}
 
+      {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Current balance</CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCredits(currentBalanceCreditsMilli, locale)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Remaining spendable credits in this workspace.
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Credits used</CardDescription>
-            <CardTitle className="text-2xl">
-              {formatCredits(overview.summary.totalCreditsBurnedMilli, locale)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Burned in the selected time range.
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Requests</CardDescription>
-            <CardTitle className="text-2xl">
-              {new Intl.NumberFormat(locale).format(
-                overview.summary.totalRequests,
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Counted across the selected time range.
-          </CardContent>
-        </Card>
+        <SettingsCard>
+          <SettingsRow>
+            <SettingsRowLabel>
+              <div className="text-sm text-muted-foreground">Sessions</div>
+              <div className="text-2xl font-semibold tracking-tight">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  new Intl.NumberFormat(locale).format(overview.summary.totalRequests)
+                )}
+              </div>
+            </SettingsRowLabel>
+          </SettingsRow>
+        </SettingsCard>
+        <SettingsCard>
+          <SettingsRow>
+            <SettingsRowLabel>
+              <div className="text-sm text-muted-foreground">Credits used</div>
+              <div className="text-2xl font-semibold tracking-tight">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20" />
+                ) : (
+                  formatCredits(overview.summary.totalCreditsBurnedMilli, locale)
+                )}
+              </div>
+            </SettingsRowLabel>
+          </SettingsRow>
+        </SettingsCard>
+        <SettingsCard>
+          <SettingsRow>
+            <SettingsRowLabel>
+              <div className="text-sm text-muted-foreground">Remaining credits</div>
+              <div className="text-2xl font-semibold tracking-tight">
+                {formatCredits(currentBalanceCreditsMilli, locale)}
+              </div>
+            </SettingsRowLabel>
+          </SettingsRow>
+        </SettingsCard>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Credits used over time</CardTitle>
-            <CardDescription>
-              Credits burned in the selected range, grouped by hour, day, or
-              week depending on the duration.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
-            ) : (
-              <ChartContainer
-                className="h-72 w-full"
-                config={creditsChartConfig}
-              >
-                <BarChart data={creditsChartData}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    axisLine={false}
-                    dataKey="label"
-                    minTickGap={24}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickFormatter={(value) => formatCompact(value, locale)}
-                    tickLine={false}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => (
-                          <div className="flex w-full items-center justify-between gap-3">
-                            <span className="text-muted-foreground">
-                              Credits burned
-                            </span>
-                            <span className="font-mono font-medium text-foreground">
-                              {formatCredits(Number(value) * 1000, locale)}
-                            </span>
-                          </div>
-                        )}
-                      />
-                    }
-                  />
-                  <Bar
-                    dataKey="creditsBurned"
-                    fill="var(--color-creditsBurned)"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Auto-reload credits</CardTitle>
-            <CardDescription>
-              Automatically add credit when you reach your minimum balance.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="rounded-lg border bg-muted/30 px-4 py-3">
-              <div className="text-sm font-medium">Auto-reload is off</div>
-              <div className="text-sm text-muted-foreground">
-                Configure auto-reload settings in Billing.
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              render={<Link href={`/${orgSlug}/settings/workspace/billing`} />}
-              variant="outline"
-            >
-              Open billing settings
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Credits by type</CardTitle>
-            <CardDescription>
-              Burn grouped by usage type for the selected range.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
-            ) : usageByType.length > 0 ? (
-              <ChartContainer
-                className="h-72 w-full"
-                config={usageTypeChartConfig}
-              >
-                <BarChart
-                  data={usageByType}
-                  layout="vertical"
-                  margin={{ left: 16, right: 16 }}
-                >
-                  <CartesianGrid horizontal={false} />
-                  <XAxis
-                    axisLine={false}
-                    tickFormatter={(value) => formatCompact(value, locale)}
-                    tickLine={false}
-                    type="number"
-                  />
-                  <YAxis
-                    axisLine={false}
-                    dataKey="usageType"
-                    tickLine={false}
-                    type="category"
-                    width={140}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => (
-                          <div className="flex w-full items-center justify-between gap-3">
-                            <span className="text-muted-foreground">
-                              Credits burned
-                            </span>
-                            <span className="font-mono font-medium text-foreground">
-                              {formatCredits(Number(value) * 1000, locale)}
-                            </span>
-                          </div>
-                        )}
-                      />
-                    }
-                  />
-                  <Bar
-                    dataKey="creditsBurned"
-                    fill="var(--color-creditsBurned)"
-                    radius={8}
-                  />
-                </BarChart>
-              </ChartContainer>
-            ) : (
-              <div className="rounded-lg border border-dashed px-4 py-8 text-sm text-muted-foreground">
-                No credit usage was recorded in this range yet.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top models</CardTitle>
-            <CardDescription>
-              Models with the highest credit burn in the selected range.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
-            ) : overview.usageByModel.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Model</TableHead>
-                    <TableHead className="text-right">Credits</TableHead>
-                    <TableHead className="text-right">Requests</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {overview.usageByModel.slice(0, 8).map((row) => (
-                    <TableRow key={`${row.usageType}-${row.model}`}>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">{row.model}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {row.usageType.replaceAll("_", " ")}
+      {/* Usage over time chart — single column */}
+      <SettingsCard>
+        <div className="px-5 pt-5 pb-1">
+          <div className="text-sm font-medium">Usage over time</div>
+        </div>
+        <div className="px-5 pb-5">
+          {isLoading ? (
+            <Skeleton className="h-72 w-full rounded-xl" />
+          ) : (
+            <ChartContainer className="h-72 w-full" config={creditsChartConfig}>
+              <BarChart data={creditsChartData}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="label"
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickFormatter={(value) => formatCompact(value, locale)}
+                  tickLine={false}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => (
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Credits</span>
+                          <span className="font-mono font-medium text-foreground">
+                            {formatCredits(Number(value) * 1000, locale)}
                           </span>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCredits(row.creditsBurnedMilli, locale)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {new Intl.NumberFormat(locale).format(row.requestCount)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="rounded-lg border border-dashed px-4 py-8 text-sm text-muted-foreground">
-                No model-level usage is available for this range yet.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                      )}
+                    />
+                  }
+                />
+                <Bar
+                  dataKey="creditsBurned"
+                  fill="var(--color-creditsBurned)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </div>
+      </SettingsCard>
+
+      {/* Auto-reload row */}
+      <SettingsCard>
+        <SettingsRow>
+          <SettingsRowLabel>
+            <SettingsRowTitle>Auto-reload credits</SettingsRowTitle>
+            <div className="text-sm text-muted-foreground">
+              {autoReloadEnabled
+                ? "Active — credits are added automatically when your balance is low."
+                : "Off — enable in billing settings to automatically add credits."}
+            </div>
+          </SettingsRowLabel>
+          <Link
+            className="text-sm font-medium text-foreground hover:underline"
+            href={`/${orgSlug}/settings/workspace/billing`}
+          >
+            {autoReloadEnabled ? "Manage" : "Configure"}
+          </Link>
+        </SettingsRow>
+      </SettingsCard>
     </div>
+  );
+}
+
+// --- Date range dropdown ---
+
+function DateRangeDropdown({
+  activeLabel,
+  customRange,
+  onCustomRangeChange,
+  onPresetSelect,
+  selectedPreset,
+}: {
+  activeLabel: string;
+  customRange: DateRange | undefined;
+  onCustomRangeChange: (range: DateRange | undefined) => void;
+  onPresetSelect: (key: Exclude<RangePresetKey, "custom">) => void;
+  selectedPreset: RangePresetKey;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [showCalendar, setShowCalendar] = React.useState(false);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setShowCalendar(false);
+      }}
+    >
+      <PopoverTrigger
+        className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
+      >
+        <CalendarBlank className="size-3.5" weight="bold" />
+        {activeLabel}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto p-0">
+        {showCalendar ? (
+          <Calendar
+            defaultMonth={customRange?.from}
+            mode="range"
+            numberOfMonths={2}
+            selected={customRange}
+            onSelect={(range) => {
+              onCustomRangeChange(range);
+              if (range?.from && range?.to) {
+                setOpen(false);
+                setShowCalendar(false);
+              }
+            }}
+          />
+        ) : (
+          <div className="flex flex-col py-1">
+            {RANGE_PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                className={cn(
+                  "px-4 py-1.5 text-left text-sm transition-colors hover:bg-muted",
+                  selectedPreset === preset.key
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+                onClick={() => {
+                  onPresetSelect(preset.key);
+                  setOpen(false);
+                }}
+                type="button"
+              >
+                {preset.label}
+              </button>
+            ))}
+            <div className="my-1 h-px bg-border" />
+            <button
+              className="flex items-center gap-2 px-4 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
+              onClick={() => setShowCalendar(true)}
+              type="button"
+            >
+              <CalendarBlank className="size-3.5" weight="bold" />
+              Custom range…
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

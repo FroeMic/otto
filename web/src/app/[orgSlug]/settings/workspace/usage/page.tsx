@@ -50,6 +50,7 @@ export default async function WorkspaceUsagePage({
   return (
     <SettingsPage>
       <WorkspaceUsageContent
+        autoReloadEnabled={billingOverview.preferences.autoTopOffEnabled}
         currentBalanceCreditsMilli={
           billingOverview.balance.currentBalanceCreditsMilli
         }

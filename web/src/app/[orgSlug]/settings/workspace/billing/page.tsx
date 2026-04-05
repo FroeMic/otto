@@ -10,7 +10,6 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
   SettingsSection,
-  SettingsSectionDescription,
   SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import {
@@ -54,14 +53,8 @@ function formatPriceFromCents(
 }
 
 function getInvoiceBadgeVariant(status: string | null) {
-  if (status === "paid") {
-    return "secondary";
-  }
-
-  if (status === "uncollectible" || status === "void") {
-    return "destructive";
-  }
-
+  if (status === "paid") return "secondary";
+  if (status === "uncollectible" || status === "void") return "destructive";
   return "outline";
 }
 
@@ -85,15 +78,6 @@ export default async function WorkspaceBillingPage({
         (plan) => plan.key === billingOverview.subscription?.planKey,
       ) ?? null)
     : null;
-  const currentPlanIndex = currentPlan
-    ? plans.findIndex((plan) => plan.key === currentPlan.key)
-    : -1;
-  const suggestedPlan =
-    currentPlanIndex >= 0 && currentPlanIndex < plans.length - 1
-      ? (plans[currentPlanIndex + 1] ?? null)
-      : currentPlan
-        ? null
-        : (plans[0] ?? null);
   const dateTimeInput = {
     locale: currentOrganization.locale,
     timeFormatPreference: currentOrganization.timeFormatPreference,
@@ -118,14 +102,8 @@ export default async function WorkspaceBillingPage({
   return (
     <SettingsPage>
       <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <SettingsPageTitle>Billing</SettingsPageTitle>
-            <p className="text-sm text-muted-foreground">
-              Manage your plan, billing settings, and upcoming invoices for this
-              workspace.
-            </p>
-          </div>
+        <div className="flex items-center justify-between">
+          <SettingsPageTitle>Billing</SettingsPageTitle>
           <Button
             render={
               <Link href={`/${orgSlug}/settings/workspace/billing/plans`} />
@@ -169,10 +147,6 @@ export default async function WorkspaceBillingPage({
 
         <SettingsSection>
           <SettingsSectionTitle>Current subscription</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            View your current plan, renewal date, and the actions available for
-            subscription management.
-          </SettingsSectionDescription>
           <SettingsCard>
             <SettingsRow>
               <SettingsRowLabel>
@@ -181,7 +155,7 @@ export default async function WorkspaceBillingPage({
                 </SettingsRowTitle>
                 <SettingsRowDescription>
                   {currentPlan
-                    ? `${formatPrice(currentPlan.monthlyPriceUsd, currentOrganization.locale)}/month · ${formatCredits(currentPlan.creditsIncluded, currentOrganization.locale)} credits included each month`
+                    ? `${formatPrice(currentPlan.monthlyPriceUsd, currentOrganization.locale)}/month · ${formatCredits(currentPlan.creditsIncluded, currentOrganization.locale)} credits included`
                     : "Choose a paid plan to start getting included monthly credits."}
                 </SettingsRowDescription>
               </SettingsRowLabel>
@@ -203,9 +177,6 @@ export default async function WorkspaceBillingPage({
             <SettingsRow>
               <SettingsRowLabel>
                 <SettingsRowTitle>Renewal</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Plan changes remain managed in Stripe for now.
-                </SettingsRowDescription>
               </SettingsRowLabel>
               <div className="text-right text-sm">
                 {billingOverview.subscription?.currentPeriodEnd
@@ -218,88 +189,81 @@ export default async function WorkspaceBillingPage({
             </SettingsRow>
             <SettingsRow className="items-start">
               <SettingsRowLabel>
-                <SettingsRowTitle>Actions</SettingsRowTitle>
+                <SettingsRowTitle>Manage billing details</SettingsRowTitle>
                 <SettingsRowDescription>
-                  Use Stripe to update payment details, switch plans, or cancel
-                  once a subscription is active.
+                  Update payment methods, view invoices, or manage your
+                  subscription in the billing portal.
                 </SettingsRowDescription>
               </SettingsRowLabel>
-              <div className="flex flex-wrap gap-2">
-                <WorkspaceManageBillingButton
-                  canOpenBillingPortal={Boolean(billingOverview.customer)}
-                  orgSlug={orgSlug}
-                />
-                {!currentPlan && billingConfigured && plans[0] ? (
-                  <WorkspaceCheckoutButton
-                    canManageBilling={billingConfigured}
-                    label={`Start ${plans[0].name}`}
-                    orgSlug={orgSlug}
-                    planKey={plans[0].key}
-                  />
-                ) : null}
-              </div>
+              <WorkspaceManageBillingButton
+                canOpenBillingPortal={Boolean(billingOverview.customer)}
+                orgSlug={orgSlug}
+              />
             </SettingsRow>
           </SettingsCard>
         </SettingsSection>
 
         <SettingsSection>
-          <SettingsSectionTitle>Change plan</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            Compare plans in Otto, then use Stripe to apply the change for this
-            workspace.
-          </SettingsSectionDescription>
+          <SettingsSectionTitle>Manage plan</SettingsSectionTitle>
           <SettingsCard>
             <SettingsRow>
               <SettingsRowLabel>
-                <SettingsRowTitle>
-                  {suggestedPlan
-                    ? currentPlan
-                      ? `Move to ${suggestedPlan.name}`
-                      : "Choose your first plan"
-                    : "You are already on the highest plan"}
-                </SettingsRowTitle>
+                <SettingsRowTitle>Compare plans</SettingsRowTitle>
                 <SettingsRowDescription>
-                  {suggestedPlan
-                    ? `${formatPrice(suggestedPlan.monthlyPriceUsd, currentOrganization.locale)}/month · ${formatCredits(suggestedPlan.creditsIncluded, currentOrganization.locale)} credits each month`
-                    : "Compare plans to review the full catalog and manage future changes in Stripe."}
+                  See what each plan includes and find the right fit.
                 </SettingsRowDescription>
               </SettingsRowLabel>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  render={
-                    <Link
-                      href={`/${orgSlug}/settings/workspace/billing/plans`}
-                    />
-                  }
-                  variant="outline"
-                >
-                  View all plans
-                </Button>
-                {currentPlan ? (
-                  <WorkspaceManageBillingButton
-                    canOpenBillingPortal={Boolean(billingOverview.customer)}
-                    label="Change in billing"
-                    orgSlug={orgSlug}
+              <Button
+                render={
+                  <Link
+                    href={`/${orgSlug}/settings/workspace/billing/plans`}
                   />
-                ) : suggestedPlan ? (
-                  <WorkspaceCheckoutButton
-                    canManageBilling={billingConfigured}
-                    label={`Choose ${suggestedPlan.name}`}
-                    orgSlug={orgSlug}
-                    planKey={suggestedPlan.key}
-                  />
-                ) : null}
-              </div>
+                }
+                variant="outline"
+              >
+                View all plans
+              </Button>
+            </SettingsRow>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>Change plan</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Switch to a different plan through the billing portal.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+              {currentPlan ? (
+                <WorkspaceManageBillingButton
+                  canOpenBillingPortal={Boolean(billingOverview.customer)}
+                  label="Change plan"
+                  orgSlug={orgSlug}
+                />
+              ) : billingConfigured && plans[0] ? (
+                <WorkspaceCheckoutButton
+                  canManageBilling={billingConfigured}
+                  label={`Start ${plans[0].name}`}
+                  orgSlug={orgSlug}
+                  planKey={plans[0].key}
+                />
+              ) : null}
+            </SettingsRow>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>Cancel subscription</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Cancel your current plan through the billing portal.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+              <WorkspaceManageBillingButton
+                canOpenBillingPortal={Boolean(billingOverview.customer)}
+                label="Manage subscription"
+                orgSlug={orgSlug}
+              />
             </SettingsRow>
           </SettingsCard>
         </SettingsSection>
 
         <SettingsSection>
           <SettingsSectionTitle>Auto-reload credits</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            Automatically add credits when your balance drops below a minimum
-            threshold.
-          </SettingsSectionDescription>
           <SettingsCard>
             <WorkspaceBillingPreferencesCard
               initialPreferences={billingOverview.preferences}
@@ -311,10 +275,6 @@ export default async function WorkspaceBillingPage({
 
         <SettingsSection>
           <SettingsSectionTitle>Invoices</SettingsSectionTitle>
-          <SettingsSectionDescription>
-            Review recent subscription invoices and open the Stripe-hosted
-            invoice pages when they are available.
-          </SettingsSectionDescription>
           <SettingsCard>
             {invoicesError ? (
               <SettingsRow>
@@ -390,7 +350,7 @@ export default async function WorkspaceBillingPage({
                   <SettingsRowTitle>No invoices yet</SettingsRowTitle>
                   <SettingsRowDescription>
                     Your invoice history will appear here after the first
-                    successful Stripe payment.
+                    successful payment.
                   </SettingsRowDescription>
                 </SettingsRowLabel>
               </SettingsRow>
