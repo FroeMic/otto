@@ -76,7 +76,6 @@ export class OpenAiUsageCollector implements ProviderUsageCollector {
     return {
       buckets,
       nextPage: getNullableString(pageRecord.next_page),
-      rawPage: pageRecord,
     };
   }
 }
@@ -99,70 +98,37 @@ function flattenUsageBucket(input: {
   return results.map((rawResult) => {
     const resultRecord = getRecord(rawResult, "OpenAI usage result");
     const externalApiKeyId = getNullableString(resultRecord.api_key_id);
-    const externalProjectId = getNullableString(resultRecord.project_id);
-    const externalUserId = getNullableString(resultRecord.user_id);
     const model = getNullableString(resultRecord.model);
 
     return {
-      bucketEndAt,
-      bucketKey: buildUsageBucketKey({
-        bucketEndAt,
-        bucketStartAt,
-        externalApiKeyId,
-        externalProjectId,
-        externalUserId,
-        model,
-        usageType: input.usageType,
-      }),
       bucketStartAt,
+      bucketEndAt,
       externalApiKeyId,
-      externalProjectId,
-      externalUserId,
-      metrics: stripUsageDimensionFields(resultRecord),
+      itemCount: getFirstNumber(resultRecord, [
+        "num_model_requests",
+        "num_requests",
+        "num_images",
+        "num_moderations",
+      ]),
+      inputAudioTokens: getOptionalNumber(resultRecord.input_audio_tokens),
+      inputCachedTokens: getOptionalNumber(resultRecord.input_cached_tokens),
+      inputImageTokens: getOptionalNumber(resultRecord.input_image_tokens),
+      inputTextTokens: getOptionalNumber(resultRecord.input_text_tokens),
+      inputTokens: getOptionalNumber(resultRecord.input_tokens),
+      inputUncachedTokens: getOptionalNumber(
+        resultRecord.input_uncached_tokens,
+      ),
       model,
-      rawBucket: input.rawBucket,
-      rawResult: resultRecord,
+      outputAudioTokens: getOptionalNumber(resultRecord.output_audio_tokens),
+      outputImageTokens: getOptionalNumber(resultRecord.output_image_tokens),
+      outputTextTokens: getOptionalNumber(resultRecord.output_text_tokens),
+      outputTokens: getOptionalNumber(resultRecord.output_tokens),
+      sessionCount: getFirstNumber(resultRecord, ["num_sessions"]),
+      usageBytes: getFirstNumber(resultRecord, [
+        "usage_bytes",
+        "storage_bytes",
+      ]),
     };
-  });
-}
-
-function stripUsageDimensionFields(resultRecord: Record<string, unknown>) {
-  const metrics: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(resultRecord)) {
-    if (
-      key === "api_key_id" ||
-      key === "model" ||
-      key === "object" ||
-      key === "project_id" ||
-      key === "user_id"
-    ) {
-      continue;
-    }
-
-    metrics[key] = value;
-  }
-
-  return metrics;
-}
-
-function buildUsageBucketKey(input: {
-  bucketEndAt: Date;
-  bucketStartAt: Date;
-  externalApiKeyId: string | null;
-  externalProjectId: string | null;
-  externalUserId: string | null;
-  model: string | null;
-  usageType: ProviderUsageType;
-}) {
-  return JSON.stringify({
-    apiKeyId: input.externalApiKeyId,
-    bucketEndAt: input.bucketEndAt.toISOString(),
-    bucketStartAt: input.bucketStartAt.toISOString(),
-    model: input.model,
-    projectId: input.externalProjectId,
-    usageType: input.usageType,
-    userId: input.externalUserId,
   });
 }
 
@@ -188,6 +154,32 @@ function getNumber(value: unknown, label: string) {
   }
 
   return value;
+}
+
+function getOptionalNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    throw new Error("Expected OpenAI response number field");
+  }
+
+  return value;
+}
+
+function getFirstNumber(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    return getOptionalNumber(value);
+  }
+
+  return null;
 }
 
 function getRecord(value: unknown, label: string) {

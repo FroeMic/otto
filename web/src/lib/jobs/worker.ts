@@ -1,10 +1,7 @@
 import { getEnv } from "@/lib/env";
 
 import { processApplyTenantConfigJob } from "./apply";
-import {
-  processIngestOpenAiUsageJob,
-  scheduleOpenAiUsageIngestionJobs,
-} from "./openai-usage";
+import { runOpenAiUsageIngestionCycle } from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
 import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
@@ -31,9 +28,6 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.provisionTenantOpenAiKey:
       await processProvisionTenantOpenAiKeyJob(job);
-      return;
-    case JOB_TYPES.ingestOpenAiUsage:
-      await processIngestOpenAiUsageJob(job);
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
@@ -66,12 +60,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 }
 
 export async function runWorkerIteration(): Promise<number> {
-  const scheduledUsageJobs = await scheduleOpenAiUsageIngestionJobs();
+  const syncedUsageTargets = await runOpenAiUsageIngestionCycle();
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
   if (jobs.length === 0) {
     console.info("[worker] no available jobs");
-    return scheduledUsageJobs;
+    return syncedUsageTargets;
   }
 
   for (const job of jobs) {
@@ -82,5 +76,5 @@ export async function runWorkerIteration(): Promise<number> {
     }
   }
 
-  return jobs.length + scheduledUsageJobs;
+  return jobs.length + syncedUsageTargets;
 }
