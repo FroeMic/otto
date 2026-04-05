@@ -45,7 +45,9 @@ export default async function WorkspaceBillingPage({
   });
   const usageOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
+        from: new Date(Date.now() - 24 * 60 * 60 * 1000),
         tenantId: billingOverview.tenant.id,
+        to: new Date(),
       })
     : null;
   const billingConfigured = hasStripeBillingConfig();
