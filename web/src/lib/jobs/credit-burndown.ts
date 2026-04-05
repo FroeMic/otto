@@ -4,8 +4,10 @@ import {
 } from "@/db/credit-ledger";
 import {
   CREDIT_SETTLEMENT_STATUSES,
+  type OpenAiUsageBucketPricingInput,
   priceOpenAiUsageBucket,
 } from "@/lib/billing/openai-credit-pricing";
+import type { ProviderUsageType } from "@/lib/providers/types";
 
 const CREDIT_SETTLEMENT_SWEEP_INTERVAL_MS = 30_000;
 const CREDIT_SETTLEMENT_BATCH_SIZE = 250;
@@ -29,7 +31,10 @@ export async function runCreditBurndownSettlementCycle() {
 
   for (const bucket of buckets) {
     try {
-      const decision = priceOpenAiUsageBucket(bucket);
+      const decision = priceOpenAiUsageBucket({
+        ...bucket,
+        usageType: bucket.usageType as ProviderUsageType,
+      } satisfies OpenAiUsageBucketPricingInput);
 
       await recordProviderUsageSettlement({
         bucketId: bucket.bucketId,

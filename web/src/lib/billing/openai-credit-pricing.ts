@@ -162,22 +162,24 @@ function calculateTextTokenCostMicros(
     input.outputAudioTokens !== null ||
     input.outputImageTokens !== null;
 
-  const uncachedTextInputTokens =
+  const uncachedTextInputTokens = toNullableNumber(
     input.inputUncachedTokens ??
-    (input.inputTokens !== null &&
-    input.inputCachedTokens !== null &&
-    !hasSpecificInputDimensions
-      ? Math.max(input.inputTokens - input.inputCachedTokens, 0)
-      : (input.inputTextTokens ??
-        (!hasSpecificInputDimensions ? input.inputTokens : 0)));
-  const cachedTextInputTokens = input.inputCachedTokens ?? 0;
-  const textOutputTokens =
+      (input.inputTokens !== null &&
+      input.inputCachedTokens !== null &&
+      !hasSpecificInputDimensions
+        ? Math.max(input.inputTokens - input.inputCachedTokens, 0)
+        : (input.inputTextTokens ??
+          (!hasSpecificInputDimensions ? input.inputTokens : 0))),
+  );
+  const cachedTextInputTokens = toNullableNumber(input.inputCachedTokens);
+  const textOutputTokens = toNullableNumber(
     input.outputTextTokens ??
-    (!hasSpecificOutputDimensions ? input.outputTokens : 0);
-  const audioInputTokens = input.inputAudioTokens ?? 0;
-  const audioOutputTokens = input.outputAudioTokens ?? 0;
-  const imageInputTokens = input.inputImageTokens ?? 0;
-  const imageOutputTokens = input.outputImageTokens ?? 0;
+      (!hasSpecificOutputDimensions ? input.outputTokens : 0),
+  );
+  const audioInputTokens = toNullableNumber(input.inputAudioTokens);
+  const audioOutputTokens = toNullableNumber(input.outputAudioTokens);
+  const imageInputTokens = toNullableNumber(input.inputImageTokens);
+  const imageOutputTokens = toNullableNumber(input.outputImageTokens);
 
   return roundMicros(
     uncachedTextInputTokens * (rate.pricePerMillionTextInput ?? 0) +
