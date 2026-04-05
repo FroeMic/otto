@@ -5,6 +5,11 @@
   "providers": [
     "openai-proxy"
   ],
+  "contracts": {
+    "mediaUnderstandingProviders": [
+      "openai-proxy"
+    ]
+  },
   "providerAuthEnvVars": {
     "openai-proxy": [
       "TENANT_TOKEN"

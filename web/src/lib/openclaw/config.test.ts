@@ -233,6 +233,46 @@ describe("renderOpenClawConfig", () => {
     assert.equal(renderedConfig.tools.alsoAllow, undefined);
   });
 
+  it("routes audio transcription through openai-proxy when the proxy provider is configured", () => {
+    const config: OpenClawTenantConfig = {
+      audio: {
+        enabled: true,
+        maxBytes: 20 * 1024 * 1024,
+        models: [{ model: "gpt-4o-mini-transcribe", provider: "openai" }],
+      },
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: ["slack"],
+      modelProviders: {
+        "openai-proxy": {
+          api: "openai-responses",
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
+          apiKey: "${TENANT_TOKEN}",
+          baseUrl:
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
+            "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+          models: [],
+        },
+      },
+      ottoProviderPlugins: [
+        {
+          id: "otto-ai-provider",
+        },
+      ],
+      prompts: {},
+      tenantId: "tenant_123",
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.tools.media.audio, {
+      enabled: true,
+      maxBytes: 20 * 1024 * 1024,
+      models: [{ model: "gpt-4o-mini-transcribe", provider: "openai-proxy" }],
+    });
+  });
+
   it("renders custom workspace time settings into agent defaults", () => {
     const config: OpenClawTenantConfig = {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",

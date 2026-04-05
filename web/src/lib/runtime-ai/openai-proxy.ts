@@ -1,6 +1,8 @@
 import { getTenantOpenAiApiKey } from "@/db/provider-accounts";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const OPENAI_AUDIO_TRANSCRIPTIONS_URL =
+  "https://api.openai.com/v1/audio/transcriptions";
 const HOP_BY_HOP_HEADERS = new Set([
   "authorization",
   "connection",
@@ -30,6 +32,29 @@ export async function proxyOpenAiResponsesRequest(input: {
   request: Request;
   tenantId: string;
 }) {
+  return proxyOpenAiRequest({
+    request: input.request,
+    tenantId: input.tenantId,
+    upstreamUrl: OPENAI_RESPONSES_URL,
+  });
+}
+
+export async function proxyOpenAiAudioTranscriptionsRequest(input: {
+  request: Request;
+  tenantId: string;
+}) {
+  return proxyOpenAiRequest({
+    request: input.request,
+    tenantId: input.tenantId,
+    upstreamUrl: OPENAI_AUDIO_TRANSCRIPTIONS_URL,
+  });
+}
+
+async function proxyOpenAiRequest(input: {
+  request: Request;
+  tenantId: string;
+  upstreamUrl: string;
+}) {
   const apiKey = await getTenantOpenAiApiKey(input.tenantId);
 
   if (!apiKey) {
@@ -42,7 +67,7 @@ export async function proxyOpenAiResponsesRequest(input: {
   const bodyBuffer = Buffer.from(await input.request.arrayBuffer());
   let upstreamResponse: Response;
   try {
-    upstreamResponse = await fetch(OPENAI_RESPONSES_URL, {
+    upstreamResponse = await fetch(input.upstreamUrl, {
       method: "POST",
       headers: buildOpenAiRequestHeaders({
         apiKey,
