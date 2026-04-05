@@ -67,7 +67,7 @@
     - the runtime OpenAI proxy now rejects new upstream requests when the workspace ledger balance is `<= 0`
     - this is a balance gate, not a reservation system, so some settlement lag still exists until reservation-based enforcement is added
   - the first Stripe billing slice now also exists:
-    - hosted Stripe Checkout can start a workspace subscription for `Starter`, `Growth`, or `Scale`
+    - hosted Stripe Checkout can start a workspace subscription for `Starter`, `Pro`, or `Max`
     - the Stripe billing portal can open for workspaces that already have a Stripe customer
     - Stripe customer and current subscription state are mirrored into Otto billing tables
     - `invoice.paid` now creates idempotent recurring monthly credit grants in Otto's ledger

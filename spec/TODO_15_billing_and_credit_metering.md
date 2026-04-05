@@ -72,20 +72,23 @@ Assumption from the product discussion: the third plan is meant to be `$200 -> 1
 Recommended v1 package to lock in now:
 
 - Starter: `$50/month` for `25,000` credits
-- Growth: `$90/month` for `60,000` credits
-- Scale: `$200/month` for `100,000` credits
+- Pro: `$90/month` for `60,000` credits
+- Max: `$200/month` for `100,000` credits
 
 Locked plan catalog for v1:
 
 - `starter_monthly`
+  - user-facing name: `Starter`
   - price: `$50/month`
   - included credits: `25,000`
   - Stripe product family: `subscription`
 - `growth_monthly`
+  - user-facing name: `Pro`
   - price: `$90/month`
   - included credits: `60,000`
   - Stripe product family: `subscription`
 - `scale_monthly`
+  - user-facing name: `Max`
   - price: `$200/month`
   - included credits: `100,000`
   - Stripe product family: `subscription`
@@ -697,7 +700,7 @@ Exit check:
 Current implementation notes:
 
 - the first Stripe subscription-commerce slice now exists:
-  - Otto creates Stripe Checkout sessions for `starter_monthly`, `growth_monthly`, and `scale_monthly`
+  - Otto creates Stripe Checkout sessions for `Starter`, `Pro`, and `Max` while keeping the internal plan keys `starter_monthly`, `growth_monthly`, and `scale_monthly`
   - Otto creates Stripe billing portal sessions for workspaces that already have a Stripe customer
   - Otto mirrors Stripe customer and current subscription state into:
     - `billing_customers`
