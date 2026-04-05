@@ -75,12 +75,51 @@ Recommended v1 package to lock in now:
 - Growth: `$90/month` for `60,000` credits
 - Scale: `$200/month` for `100,000` credits
 
+Locked plan catalog for v1:
+
+- `starter_monthly`
+  - price: `$50/month`
+  - included credits: `25,000`
+  - Stripe product family: `subscription`
+- `growth_monthly`
+  - price: `$90/month`
+  - included credits: `60,000`
+  - Stripe product family: `subscription`
+- `scale_monthly`
+  - price: `$200/month`
+  - included credits: `100,000`
+  - Stripe product family: `subscription`
+
+Locked top-up catalog for v1:
+
+- `top_up_10000`
+  - price: `$25`
+  - granted credits: `10,000`
+  - expiry: `12 months after purchase`
+- `top_up_25000`
+  - price: `$55`
+  - granted credits: `25,000`
+  - expiry: `12 months after purchase`
+- `top_up_50000`
+  - price: `$100`
+  - granted credits: `50,000`
+  - expiry: `12 months after purchase`
+
+Catalog rules:
+
+- plan keys and top-up keys are stable internal ids and must not be renamed after Stripe products exist
+- product copy can change later without changing the key
+- plan prices are locked for the first implementation slice and should not be treated as runtime-configurable yet
+- top-up packs are intentionally priced at a worse effective rate than the best subscription tier so subscriptions remain the default commercial path
+
 Policy decisions:
 
 - subscriptions renew monthly
 - included credits expire at the end of the current billing period
-- billing should anchor to the start of the calendar month when feasible
-- signup mid-month should use Stripe proration or a short initial stub period rather than an Otto-side custom invoice flow
+- billing anchors to the first day of the calendar month in the workspace timezone when Stripe supports the desired anchor directly; otherwise anchor in UTC and keep Otto policy text calendar-month based
+- signup mid-month uses Stripe proration to the next month boundary rather than an Otto-side custom invoice flow
+- upgrades take effect immediately with Stripe-managed proration
+- downgrades take effect at the next renewal boundary to avoid clawing back already-granted included credits
 - no rollover for included monthly credits in v1
 
 Top-up policy:
@@ -89,6 +128,8 @@ Top-up policy:
 - implement top-ups as one-time Stripe Checkout purchases, not subscription quantity changes
 - paid top-up credits should expire after `12 months` by default so the product does not feel punitive
 - include metadata on each top-up price for `credits_granted`, `plan_family=top_up`, and `expiry_policy`
+- top-up packs do not change the renewal date or subscription tier
+- top-up credits are burned after included monthly credits are exhausted so included credits still expire cleanly at period end
 
 Overage policy:
 
@@ -147,11 +188,23 @@ Hidden fair-use policy:
 ### v1 rules
 
 - keep the base plans as fixed recurring prices, not metered subscription items
-- keep plan metadata in both Otto config and Stripe metadata:
+- keep plan metadata in both Otto config and Stripe metadata
+- use this recurring-price metadata contract:
   - `otto_plan_key`
+  - `otto_plan_family=subscription`
   - `included_credits`
-  - `credit_expiry_policy`
-  - `workspace_limit_policy`
+  - `credit_expiry_policy=period_end`
+  - `workspace_limit_policy=prepaid`
+  - `billing_interval=monthly`
+- use this top-up-price metadata contract:
+  - `otto_top_up_key`
+  - `otto_plan_family=top_up`
+  - `credits_granted`
+  - `credit_expiry_policy=12_months`
+  - `workspace_limit_policy=prepaid`
+- use this shared product metadata where helpful:
+  - `otto_catalog_version=v1`
+  - `otto_currency=usd`
 - treat Otto as the source of truth for credit balances even if Stripe metadata mirrors plan values
 
 ### Why not make Stripe the credit ledger
@@ -500,6 +553,8 @@ Recommended job types:
 
 ## Ordered implementation roadmap
 
+The roadmap below is intentionally ordered as vertical slices rather than one schema-heavy foundation phase. Each step should leave Otto with one new end-to-end capability that can be validated before the next layer is added.
+
 ### Step 1: Lock billing primitives and catalog shape
 
 Goal:
@@ -517,112 +572,98 @@ Exit check:
 
 - there is one stable definition of plans, credits, expiry, and Stripe mapping
 
-### Step 2: Add schema and billing service foundation
+### Step 2: Ingest raw OpenAI usage buckets
 
 Goal:
 
-- introduce the internal ledger, subscription mirrors, and provider-account records without yet billing real customers
+- prove that Otto can collect real provider usage on a recurring cadence and persist it immutably without involving credits or Stripe yet
 
 Deliverables:
 
-- Drizzle schema for billing and provider metering tables
-- shared `billing` and `providers` service modules
-- idempotency keys and event-processing patterns for Stripe and provider polling
+- minimal schema for raw usage ingestion runs and raw usage buckets
+- OpenAI usage collector that polls per-minute usage by `project_id`, ideally also grouped by `api_key_id` and `model`
+- idempotent worker job and cursor strategy for recent-window backfill and retry
+- operator-only diagnostics for ingestion success, lag, and bucket counts
 
 Exit check:
 
-- a workspace can have a billing customer, subscription record, and credit ledger state in local dev
+- Otto can show recent raw OpenAI usage for a real tenant project from data stored in Postgres
 
-### Step 3: Ship Stripe subscription checkout and billing portal
+### Step 3: Add operator visibility for provider usage and cost
 
 Goal:
 
-- let a workspace start, manage, and cancel a paid plan through Stripe-hosted surfaces
+- make the raw provider data legible before any commercial burn logic is attached to it
 
 Deliverables:
 
+- platform-facing usage view or table showing recent usage by workspace, model, and API key
+- daily OpenAI cost reconciliation by project
+- drift and missing-bucket diagnostics between usage polling and cost polling
+- links from provider rows back to workspace and tenant context
+
+Exit check:
+
+- an operator can inspect raw provider usage and reconciled daily cost without using the OpenAI dashboard
+
+### Step 4: Ship Stripe subscription checkout and billing portal
+
+Goal:
+
+- let a workspace start, manage, and cancel a paid plan through Stripe-hosted surfaces before credits are burned
+
+Deliverables:
+
+- minimal billing schema for `billing_customers`, `billing_subscriptions`, and Stripe event idempotency
 - plan selection action in the workspace
 - subscription Checkout session creation
 - Stripe billing portal session creation
-- webhook-backed subscription state sync
+- webhook-backed subscription state sync without credit grants yet
 
 Exit check:
 
-- a test workspace can subscribe, renew, fail payment, and cancel with state visible in Otto
+- a test workspace can subscribe, renew, fail payment, and cancel with subscription state visible in Otto
 
-### Step 4: Grant and expire credits from Stripe events
+### Step 5: Grant credits from Stripe payments
 
 Goal:
 
-- make Stripe payments produce real Otto credits with clear period boundaries
+- make successful Stripe payments create spendable Otto credits with a clear period model
 
 Deliverables:
 
+- immutable credit ledger tables
 - recurring credit grants on `invoice.paid`
 - one-time top-up credit grants on successful payment
+- derived workspace balance read path
 - credit expiry job for included credits and top-up packs
-- immutable credit ledger with derived workspace balance
 
 Exit check:
 
-- the workspace billing page can show current balance and grant history based on Otto data alone
+- Otto can show a correct workspace balance and grant history using only Otto billing data
 
-### Step 5: Add OpenAI tenant provisioning and credential rotation
-
-Goal:
-
-- provision and store tenant-scoped OpenAI credentials through a provider abstraction
-
-Deliverables:
-
-- OpenAI project creation
-- OpenAI service-account creation
-- encrypted credential storage and rotation metadata
-- runtime projection path for the tenant credential
-
-Exit check:
-
-- a tenant runtime can use its own OpenAI project credential instead of the shared fallback path
-
-### Step 6: Add provider usage and cost ingestion
+### Step 6: Convert provider usage into billable units and credit debits
 
 Goal:
 
-- ingest raw provider usage and costs without yet making them the only enforcement mechanism
-
-Deliverables:
-
-- minutely OpenAI usage polling by project
-- daily OpenAI cost reconciliation by project
-- immutable storage of raw usage and cost buckets
-- drift and ingestion diagnostics
-
-Exit check:
-
-- Otto can show recent raw provider usage and daily reconciled cost for a workspace
-
-### Step 7: Convert usage to billable units and credits
-
-Goal:
-
-- make provider usage produce reproducible, versioned credit burn
+- turn already-ingested raw provider data into reproducible, explainable credit burn
 
 Deliverables:
 
 - rule-versioned usage conversion
-- credit debit entries linked to raw provider data
-- reconciliation between raw provider usage, conversion results, and workspace balance
-- soft threshold alerts before hard enforcement
+- billable-unit calculation linked back to raw usage buckets
+- credit debit entries linked to the conversion result
+- reconciliation views between raw provider usage, conversion outputs, and workspace balance
 
 Exit check:
 
-- Otto can explain why a workspace lost credits for a given usage bucket
+- Otto can explain why a workspace lost credits for a specific provider usage bucket
 
-### Step 8: Ship the workspace billing page
+### Step 7: Ship the workspace billing page
 
 Goal:
 
-- expose billing and credits in the workspace instead of making Stripe the only user surface
+- expose plan, balance, recent burn, and billing controls in the workspace instead of making Stripe the only user surface
 
 Deliverables:
 
@@ -636,24 +677,59 @@ Exit check:
 
 - an org admin can understand plan, balance, recent burn, and next steps from within the workspace
 
-### Step 9: Add fair-use windows and hard-stop enforcement
+### Step 8: Add top-ups and expiry policy enforcement
 
 Goal:
 
-- prevent runaway or abusive spend without turning window limits into the public pricing model
+- complete the prepaid wallet model with manual replenishment and deterministic expiry behavior
+
+Deliverables:
+
+- top-up pack Checkout flow
+- one-time payment webhook handling
+- included-credit expiry behavior
+- paid top-up expiry behavior
+- user-facing messaging around what expires when
+
+Exit check:
+
+- a workspace can run out of included credits, buy a top-up, and see the correct resulting balance and expiry windows
+
+### Step 9: Add soft alerts and fair-use windows
+
+Goal:
+
+- surface depletion risk and abuse signals before Otto starts actively blocking usage
 
 Deliverables:
 
 - shadow-mode rolling window evaluator
 - alert thresholds
+- low-balance and projected-depletion alerts
+- operator visibility into window hits and shadow blocking decisions
+
+Exit check:
+
+- Otto can predict and surface risky spend patterns without changing public billing behavior
+
+### Step 10: Add hard-stop enforcement
+
+Goal:
+
+- prevent new paid usage once Otto has enough confidence in the ledger and provider reconciliation loop
+
+Deliverables:
+
 - runtime-side or request-side balance checks where Otto has a control point
-- hard-stop behavior once the system proves reliable
+- narrow in-flight settlement buffer
+- explicit out-of-credits behavior and recovery path
+- audit trail for blocked requests and post-stop adjustments
 
 Exit check:
 
 - Otto can stop new paid usage when the workspace is out of credits while still preserving auditable burn history
 
-### Step 10: Decide whether to add Stripe metered overage
+### Step 11: Decide whether to add Stripe metered overage
 
 Goal:
 
@@ -690,10 +766,10 @@ Exit check:
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [x] harden OpenAI key rotation so it reuses the project, applies the new key to runtime, verifies deployment, and then deletes the previous service account
-- [ ] validate the final live plan pricing and top-up pack values before implementation
-- [ ] validate whether calendar-month anchors or signup-date anchors are the better launch default
+- [x] validate the final live plan pricing and top-up pack values before implementation
+- [x] validate whether calendar-month anchors or signup-date anchors are the better launch default
 - [ ] decide whether the first live enforcement step should be soft-stop only or hard-stop with request reservation
-- [ ] decide whether paid top-up credits should expire after 12 months or never expire
+- [x] decide whether paid top-up credits should expire after 12 months or never expire
 - [ ] validate the OpenAI provisioning spike against a real admin key and confirm the exact service-account response shape
 
 ## Open questions
