@@ -11,6 +11,10 @@ const PLATFORM_ORGANIZATION_TABS = [
     label: "Overview",
   },
   {
+    href: (orgSlug: string) => `/platform/organizations/${orgSlug}/usage`,
+    label: "Usage",
+  },
+  {
     href: (orgSlug: string) => `/platform/organizations/${orgSlug}/access`,
     label: "Access",
   },

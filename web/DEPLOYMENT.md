@@ -1,9 +1,9 @@
-# Control-Plane Deployment
+# Otto Public Deployment
 
 This deploy target assumes one public control-plane VPS on Hetzner:
 
-- public HTTPS for the web UI
-- local Docker Compose services for `caddy`, `web`, `worker`, and `postgres`
+- public HTTPS for both the marketing site and the workspace app
+- local Docker Compose services for `caddy`, `www`, `web`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -26,14 +26,16 @@ Verify you can reach the host over Tailscale, then remove any public firewall ru
 
 ## 3. Prepare the app
 
-On the host, place the repo and create the production env file:
+On the host, place the repo and create the production env files:
 
 ```bash
 cp .env.production.example .env
+cp ../www/.env.production.example ../www/.env
 ```
 
 Set at least:
 
+- `LANDING_PAGE_DOMAIN`
 - `CONTROL_PLANE_DOMAIN`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
@@ -51,6 +53,13 @@ Set at least:
 - `CONTROL_PLANE_OPENAI_ADMIN_API_KEY` so Otto can provision the initial tenant-specific OpenAI project and service-account key during tenant bootstrap and later rotate it
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
+
+In `../www/.env`, set the landing-site browser analytics values you want baked
+into the public site build:
+
+- `NEXT_PUBLIC_POSTHOG_ENABLED`
+- `NEXT_PUBLIC_POSTHOG_HOST`
+- `NEXT_PUBLIC_POSTHOG_TOKEN`
 
 For Brave web search, also set:
 
@@ -84,10 +93,10 @@ RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.1.1
 
 on the control-plane host before rebuilding the production stack.
 
-If PostHog browser analytics is enabled, make sure `NEXT_PUBLIC_POSTHOG_ENABLED`,
-`NEXT_PUBLIC_POSTHOG_HOST`, and `NEXT_PUBLIC_POSTHOG_TOKEN` are already present
-in `.env` before running `docker compose ... build`. Next.js inlines
-`NEXT_PUBLIC_*` values into the browser bundle at build time.
+If PostHog browser analytics is enabled on the landing site, make sure those
+`NEXT_PUBLIC_*` values are already present in `../www/.env` before running
+`docker compose ... build`. Next.js inlines `NEXT_PUBLIC_*` values into the
+browser bundle at build time.
 
 ```bash
 docker compose -f docker-compose.prod.yml build
@@ -102,9 +111,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 Verify:
 
+- `https://<your-landing-domain>/` returns `200`
 - `https://<your-domain>/healthz` returns `200`
+- the apex or landing hostname resolves to the same VPS that runs Caddy
 - the `web` and `worker` containers stay healthy
+- the `www` container stays healthy
 - Postgres answers on `127.0.0.1:5433` on the host
+- `LANDING_PAGE_DOMAIN` matches the public marketing hostname
 - `CONTROL_PLANE_DOMAIN` matches the public app hostname
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public app origin

@@ -1,214 +1,171 @@
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
-  jobRuns,
   providerAccounts,
   providerUsageBuckets,
-  providerUsageIngestionRuns,
+  providerUsageSyncStates,
 } from "@/db/schema";
-import { JOB_STATUSES, JOB_TYPES } from "@/lib/jobs/types";
 import type {
-  ProviderKey,
   ProviderUsageBucketResult,
   ProviderUsageType,
 } from "@/lib/providers/types";
 
 const OPENAI_PROVIDER_KEY = "openai";
 
-export async function listDueOpenAiUsageIngestionTargets(input: {
+export async function listDueOpenAiUsageSyncTargets(input: {
   pollIntervalMs: number;
   usageType: ProviderUsageType;
 }) {
   const db = getDb();
-  const providerRows = await db
+  const notBefore = new Date(Date.now() - input.pollIntervalMs);
+
+  return db
     .select({
       externalProjectId: providerAccounts.externalProjectId,
+      lastSuccessfulEndAt: providerUsageSyncStates.lastSuccessfulEndAt,
       providerAccountId: providerAccounts.id,
+      pollIntervalSeconds: providerUsageSyncStates.pollIntervalSeconds,
       tenantId: providerAccounts.tenantId,
     })
     .from(providerAccounts)
+    .leftJoin(
+      providerUsageSyncStates,
+      and(
+        eq(providerUsageSyncStates.providerAccountId, providerAccounts.id),
+        eq(providerUsageSyncStates.usageType, input.usageType),
+      ),
+    )
     .where(
       and(
         eq(providerAccounts.providerKey, OPENAI_PROVIDER_KEY),
         eq(providerAccounts.status, "active"),
         isNull(providerAccounts.revokedAt),
         isNotNull(providerAccounts.externalProjectId),
+        or(
+          isNull(providerUsageSyncStates.id),
+          lte(providerUsageSyncStates.lastAttemptedAt, notBefore),
+        ),
       ),
     );
-
-  const dueTargets: Array<{
-    externalProjectId: string;
-    providerAccountId: string;
-    tenantId: string;
-  }> = [];
-  const notBefore = Date.now() - input.pollIntervalMs;
-
-  for (const providerRow of providerRows) {
-    if (!providerRow.externalProjectId) {
-      continue;
-    }
-
-    const [activeJob] = await db
-      .select({
-        id: jobRuns.id,
-      })
-      .from(jobRuns)
-      .where(
-        and(
-          eq(jobRuns.jobType, JOB_TYPES.ingestOpenAiUsage),
-          eq(jobRuns.tenantId, providerRow.tenantId),
-          sql`${jobRuns.payloadJson} ->> 'usageType' = ${input.usageType}`,
-          inArray(jobRuns.status, [JOB_STATUSES.queued, JOB_STATUSES.running]),
-        ),
-      )
-      .limit(1);
-
-    if (activeJob) {
-      continue;
-    }
-
-    const [latestRun] = await db
-      .select({
-        finishedAt: providerUsageIngestionRuns.finishedAt,
-      })
-      .from(providerUsageIngestionRuns)
-      .where(
-        and(
-          eq(
-            providerUsageIngestionRuns.providerAccountId,
-            providerRow.providerAccountId,
-          ),
-          eq(providerUsageIngestionRuns.providerKey, OPENAI_PROVIDER_KEY),
-          eq(providerUsageIngestionRuns.usageType, input.usageType),
-          eq(providerUsageIngestionRuns.status, "succeeded"),
-        ),
-      )
-      .orderBy(desc(providerUsageIngestionRuns.finishedAt))
-      .limit(1);
-
-    if (latestRun?.finishedAt && latestRun.finishedAt.getTime() > notBefore) {
-      continue;
-    }
-
-    dueTargets.push({
-      externalProjectId: providerRow.externalProjectId,
-      providerAccountId: providerRow.providerAccountId,
-      tenantId: providerRow.tenantId,
-    });
-  }
-
-  return dueTargets;
 }
 
-export async function createProviderUsageIngestionRun(input: {
-  bucketWidth: string;
-  groupBy: string[];
-  jobRunId: string;
+export async function getProviderUsageSyncState(input: {
   providerAccountId: string;
-  providerKey: ProviderKey;
-  requestJson: Record<string, unknown>;
-  requestedEndAt: Date;
-  requestedStartAt: Date;
-  status: string;
+  usageType: ProviderUsageType;
+}) {
+  const db = getDb();
+  const [syncState] = await db
+    .select()
+    .from(providerUsageSyncStates)
+    .where(
+      and(
+        eq(providerUsageSyncStates.providerAccountId, input.providerAccountId),
+        eq(providerUsageSyncStates.usageType, input.usageType),
+      ),
+    )
+    .limit(1);
+
+  return syncState ?? null;
+}
+
+export async function beginProviderUsageSyncAttempt(input: {
+  pollIntervalSeconds: number;
+  providerAccountId: string;
   tenantId: string;
   usageType: ProviderUsageType;
 }) {
   const db = getDb();
-  const [run] = await db
-    .insert(providerUsageIngestionRuns)
+  const now = new Date();
+
+  await db
+    .insert(providerUsageSyncStates)
     .values({
-      bucketWidth: input.bucketWidth,
-      groupByJson: input.groupBy,
-      jobRunId: input.jobRunId,
+      lastAttemptedAt: now,
+      pollIntervalSeconds: input.pollIntervalSeconds,
       providerAccountId: input.providerAccountId,
-      providerKey: input.providerKey,
-      requestJson: input.requestJson,
-      requestedEndAt: input.requestedEndAt,
-      requestedStartAt: input.requestedStartAt,
-      status: input.status,
       tenantId: input.tenantId,
       usageType: input.usageType,
     })
-    .returning();
-
-  return run;
+    .onConflictDoUpdate({
+      set: {
+        lastAttemptedAt: now,
+        pollIntervalSeconds: input.pollIntervalSeconds,
+        updatedAt: now,
+      },
+      target: [
+        providerUsageSyncStates.providerAccountId,
+        providerUsageSyncStates.usageType,
+      ],
+    });
 }
 
-export async function getLatestProviderUsageIngestionRun(input: {
+export async function markProviderUsageSyncSucceeded(input: {
+  lastSuccessfulEndAt: Date;
   providerAccountId: string;
-  providerKey: ProviderKey;
+  rowCount: number;
   usageType: ProviderUsageType;
 }) {
   const db = getDb();
-  const [run] = await db
-    .select()
-    .from(providerUsageIngestionRuns)
+  const now = new Date();
+
+  await db
+    .update(providerUsageSyncStates)
+    .set({
+      consecutiveFailures: 0,
+      lastError: null,
+      lastErrorAt: null,
+      lastRowCount: input.rowCount,
+      lastSuccessfulEndAt: input.lastSuccessfulEndAt,
+      updatedAt: now,
+    })
     .where(
       and(
-        eq(
-          providerUsageIngestionRuns.providerAccountId,
-          input.providerAccountId,
-        ),
-        eq(providerUsageIngestionRuns.providerKey, input.providerKey),
-        eq(providerUsageIngestionRuns.usageType, input.usageType),
+        eq(providerUsageSyncStates.providerAccountId, input.providerAccountId),
+        eq(providerUsageSyncStates.usageType, input.usageType),
       ),
-    )
-    .orderBy(desc(providerUsageIngestionRuns.createdAt))
-    .limit(1);
-
-  return run ?? null;
+    );
 }
 
-export async function markProviderUsageIngestionRunSucceeded(input: {
-  ingestionRunId: string;
-  pageCount: number;
-  requestLatencyMs: number;
-  rowCount: number;
-}) {
-  const db = getDb();
-
-  await db
-    .update(providerUsageIngestionRuns)
-    .set({
-      finishedAt: new Date(),
-      pageCount: input.pageCount,
-      requestLatencyMs: input.requestLatencyMs,
-      rowCount: input.rowCount,
-      status: "succeeded",
-      updatedAt: new Date(),
-    })
-    .where(eq(providerUsageIngestionRuns.id, input.ingestionRunId));
-}
-
-export async function markProviderUsageIngestionRunFailed(input: {
+export async function markProviderUsageSyncFailed(input: {
   error: string;
-  ingestionRunId: string;
-  pageCount: number;
-  requestLatencyMs: number;
-  rowCount: number;
+  providerAccountId: string;
+  usageType: ProviderUsageType;
 }) {
   const db = getDb();
+  const now = new Date();
 
   await db
-    .update(providerUsageIngestionRuns)
+    .update(providerUsageSyncStates)
     .set({
-      finishedAt: new Date(),
+      consecutiveFailures: sql`${providerUsageSyncStates.consecutiveFailures} + 1`,
       lastError: input.error,
-      pageCount: input.pageCount,
-      requestLatencyMs: input.requestLatencyMs,
-      rowCount: input.rowCount,
-      status: "failed",
-      updatedAt: new Date(),
+      lastErrorAt: now,
+      updatedAt: now,
     })
-    .where(eq(providerUsageIngestionRuns.id, input.ingestionRunId));
+    .where(
+      and(
+        eq(providerUsageSyncStates.providerAccountId, input.providerAccountId),
+        eq(providerUsageSyncStates.usageType, input.usageType),
+      ),
+    );
 }
 
 export async function upsertProviderUsageBuckets(input: {
   buckets: ProviderUsageBucketResult[];
-  ingestionRunId: string;
   providerAccountId: string;
-  providerKey: ProviderKey;
   tenantId: string;
   usageType: ProviderUsageType;
 }) {
@@ -224,44 +181,258 @@ export async function upsertProviderUsageBuckets(input: {
     .values(
       input.buckets.map((bucket) => ({
         bucketEndAt: bucket.bucketEndAt,
-        bucketKey: bucket.bucketKey,
         bucketStartAt: bucket.bucketStartAt,
-        externalApiKeyId: bucket.externalApiKeyId,
-        externalProjectId: bucket.externalProjectId,
-        externalUserId: bucket.externalUserId,
-        ingestionRunId: input.ingestionRunId,
-        ingestedAt: now,
-        metricsJson: bucket.metrics,
-        model: bucket.model,
+        externalApiKeyId: bucket.externalApiKeyId ?? "",
+        inputAudioTokens: bucket.inputAudioTokens,
+        inputCachedTokens: bucket.inputCachedTokens,
+        inputImageTokens: bucket.inputImageTokens,
+        inputTextTokens: bucket.inputTextTokens,
+        inputTokens: bucket.inputTokens,
+        inputUncachedTokens: bucket.inputUncachedTokens,
+        itemCount: bucket.itemCount,
+        model: bucket.model ?? "",
+        outputAudioTokens: bucket.outputAudioTokens,
+        outputImageTokens: bucket.outputImageTokens,
+        outputTextTokens: bucket.outputTextTokens,
+        outputTokens: bucket.outputTokens,
         providerAccountId: input.providerAccountId,
-        providerKey: input.providerKey,
-        rawBucketJson: bucket.rawBucket,
-        rawResultJson: bucket.rawResult,
+        sessionCount: bucket.sessionCount,
         tenantId: input.tenantId,
         updatedAt: now,
+        usageBytes: bucket.usageBytes,
         usageType: input.usageType,
       })),
     )
     .onConflictDoUpdate({
       set: {
-        bucketEndAt: sql`excluded.bucket_end_at`,
-        bucketStartAt: sql`excluded.bucket_start_at`,
-        externalApiKeyId: sql`excluded.external_api_key_id`,
-        externalProjectId: sql`excluded.external_project_id`,
-        externalUserId: sql`excluded.external_user_id`,
-        ingestionRunId: sql`excluded.ingestion_run_id`,
-        ingestedAt: now,
-        metricsJson: sql`excluded.metrics_json`,
-        model: sql`excluded.model`,
-        rawBucketJson: sql`excluded.raw_bucket_json`,
-        rawResultJson: sql`excluded.raw_result_json`,
+        inputAudioTokens: sql`excluded.input_audio_tokens`,
+        inputCachedTokens: sql`excluded.input_cached_tokens`,
+        inputImageTokens: sql`excluded.input_image_tokens`,
+        inputTextTokens: sql`excluded.input_text_tokens`,
+        inputTokens: sql`excluded.input_tokens`,
+        inputUncachedTokens: sql`excluded.input_uncached_tokens`,
+        itemCount: sql`excluded.item_count`,
+        outputAudioTokens: sql`excluded.output_audio_tokens`,
+        outputImageTokens: sql`excluded.output_image_tokens`,
+        outputTextTokens: sql`excluded.output_text_tokens`,
+        outputTokens: sql`excluded.output_tokens`,
+        sessionCount: sql`excluded.session_count`,
         updatedAt: now,
+        usageBytes: sql`excluded.usage_bytes`,
       },
       target: [
         providerUsageBuckets.providerAccountId,
-        providerUsageBuckets.bucketKey,
+        providerUsageBuckets.usageType,
+        providerUsageBuckets.bucketStartAt,
+        providerUsageBuckets.bucketEndAt,
+        providerUsageBuckets.externalApiKeyId,
+        providerUsageBuckets.model,
       ],
     });
 
   return input.buckets.length;
+}
+
+function numberFromValue(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function dateFromValue(value: unknown) {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+export async function getTenantProviderUsageOverview(input: {
+  hours?: number;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const lookbackHours = input.hours ?? 24;
+  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+  const bucketHourExpression = sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`;
+  const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`;
+  const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`;
+
+  const [
+    summaryRows,
+    hourlyRows,
+    usageTypeRows,
+    modelRows,
+    recentBucketRows,
+    syncStateRows,
+  ] = await Promise.all([
+    db
+      .select({
+        activeApiKeys: sql`count(distinct nullif(${providerUsageBuckets.externalApiKeyId}, ''))`,
+        activeModels: sql`count(distinct nullif(${providerUsageBuckets.model}, ''))`,
+        latestBucketEndAt: sql<Date | null>`max(${providerUsageBuckets.bucketEndAt})`,
+        totalInputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        totalOutputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        totalRequests: requestCountExpression,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      ),
+    db
+      .select({
+        bucketHour: bucketHourExpression,
+        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        requestCount: requestCountExpression,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      )
+      .groupBy(bucketHourExpression)
+      .orderBy(asc(bucketHourExpression)),
+    db
+      .select({
+        requestCount: requestCountExpression,
+        totalTokens: totalTokensExpression,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      )
+      .groupBy(providerUsageBuckets.usageType)
+      .orderBy(
+        desc(totalTokensExpression),
+        asc(providerUsageBuckets.usageType),
+      ),
+    db
+      .select({
+        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        model: providerUsageBuckets.model,
+        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        requestCount: requestCountExpression,
+        totalTokens: totalTokensExpression,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+          ne(providerUsageBuckets.model, ""),
+        ),
+      )
+      .groupBy(providerUsageBuckets.usageType, providerUsageBuckets.model)
+      .orderBy(desc(totalTokensExpression), desc(requestCountExpression))
+      .limit(8),
+    db
+      .select({
+        bucketEndAt: providerUsageBuckets.bucketEndAt,
+        bucketStartAt: providerUsageBuckets.bucketStartAt,
+        externalApiKeyId: providerUsageBuckets.externalApiKeyId,
+        inputTokens: providerUsageBuckets.inputTokens,
+        itemCount: providerUsageBuckets.itemCount,
+        model: providerUsageBuckets.model,
+        outputTokens: providerUsageBuckets.outputTokens,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(eq(providerUsageBuckets.tenantId, input.tenantId))
+      .orderBy(desc(providerUsageBuckets.bucketStartAt))
+      .limit(20),
+    db
+      .select({
+        consecutiveFailures: providerUsageSyncStates.consecutiveFailures,
+        lastAttemptedAt: providerUsageSyncStates.lastAttemptedAt,
+        lastError: providerUsageSyncStates.lastError,
+        lastErrorAt: providerUsageSyncStates.lastErrorAt,
+        lastRowCount: providerUsageSyncStates.lastRowCount,
+        lastSuccessfulEndAt: providerUsageSyncStates.lastSuccessfulEndAt,
+        usageType: providerUsageSyncStates.usageType,
+      })
+      .from(providerUsageSyncStates)
+      .where(eq(providerUsageSyncStates.tenantId, input.tenantId))
+      .orderBy(asc(providerUsageSyncStates.usageType)),
+  ]);
+
+  const summary = summaryRows[0] ?? {
+    activeApiKeys: 0,
+    activeModels: 0,
+    latestBucketEndAt: null,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalRequests: 0,
+  };
+
+  return {
+    hourlyBuckets: hourlyRows.map((row) => ({
+      bucketHour: dateFromValue(row.bucketHour) ?? new Date(0),
+      inputTokens: numberFromValue(row.inputTokens),
+      outputTokens: numberFromValue(row.outputTokens),
+      requestCount: numberFromValue(row.requestCount),
+    })),
+    recentBuckets: recentBucketRows.map((row) => ({
+      bucketEndAt: dateFromValue(row.bucketEndAt) ?? new Date(0),
+      bucketStartAt: dateFromValue(row.bucketStartAt) ?? new Date(0),
+      externalApiKeyId: row.externalApiKeyId,
+      inputTokens: numberFromValue(row.inputTokens),
+      itemCount: numberFromValue(row.itemCount),
+      model: row.model,
+      outputTokens: numberFromValue(row.outputTokens),
+      usageType: row.usageType,
+    })),
+    summary: {
+      activeApiKeys: numberFromValue(summary.activeApiKeys),
+      activeModels: numberFromValue(summary.activeModels),
+      latestBucketEndAt: dateFromValue(summary.latestBucketEndAt),
+      totalInputTokens: numberFromValue(summary.totalInputTokens),
+      totalOutputTokens: numberFromValue(summary.totalOutputTokens),
+      totalRequests: numberFromValue(summary.totalRequests),
+    },
+    syncStates: syncStateRows.map((row) => ({
+      consecutiveFailures: row.consecutiveFailures,
+      lastAttemptedAt: dateFromValue(row.lastAttemptedAt),
+      lastError: row.lastError,
+      lastErrorAt: dateFromValue(row.lastErrorAt),
+      lastRowCount: row.lastRowCount,
+      lastSuccessfulEndAt: dateFromValue(row.lastSuccessfulEndAt),
+      usageType: row.usageType,
+    })),
+    usageByModel: modelRows.map((row) => ({
+      inputTokens: numberFromValue(row.inputTokens),
+      model: row.model,
+      outputTokens: numberFromValue(row.outputTokens),
+      requestCount: numberFromValue(row.requestCount),
+      totalTokens: numberFromValue(row.totalTokens),
+      usageType: row.usageType,
+    })),
+    usageByType: usageTypeRows.map((row) => ({
+      requestCount: numberFromValue(row.requestCount),
+      totalTokens: numberFromValue(row.totalTokens),
+      usageType: row.usageType,
+    })),
+  };
 }

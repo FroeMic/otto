@@ -45,22 +45,28 @@ export type ProvisionTenantCredentialResult = {
 };
 
 export type ProviderUsageBucketResult = {
-  bucketEndAt: Date;
-  bucketKey: string;
   bucketStartAt: Date;
+  bucketEndAt: Date;
   externalApiKeyId: string | null;
-  externalProjectId: string | null;
-  externalUserId: string | null;
-  metrics: Record<string, unknown>;
+  itemCount: number | null;
+  inputAudioTokens: number | null;
+  inputCachedTokens: number | null;
+  inputImageTokens: number | null;
+  inputTextTokens: number | null;
+  inputTokens: number | null;
+  inputUncachedTokens: number | null;
   model: string | null;
-  rawBucket: Record<string, unknown>;
-  rawResult: Record<string, unknown>;
+  outputAudioTokens: number | null;
+  outputImageTokens: number | null;
+  outputTextTokens: number | null;
+  outputTokens: number | null;
+  sessionCount: number | null;
+  usageBytes: number | null;
 };
 
 export type FetchUsageBucketsResult = {
   buckets: ProviderUsageBucketResult[];
   nextPage: string | null;
-  rawPage: Record<string, unknown>;
 };
 
 export interface ProviderProvisioner {

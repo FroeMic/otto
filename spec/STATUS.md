@@ -13,6 +13,7 @@
 ## Current state
 
 - Repository state is still mostly bootstrap.
+- A parallel public-site planning track now exists in `www/spec/` for a standalone marketing site that will sit beside `web/` instead of inside it.
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
@@ -33,8 +34,8 @@
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
 - Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
 - The first raw OpenAI usage-ingestion foundation now exists:
-  - the worker auto-queues recurring OpenAI usage ingestion jobs for active tenant projects
-  - raw minute buckets and ingestion-run metadata are now stored in Postgres for the current OpenAI org-usage endpoint set:
+  - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
+  - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
     - `completions`
     - `embeddings`
     - `audio_speeches`
@@ -43,7 +44,12 @@
     - `moderations`
     - `vector_stores`
     - `code_interpreter_sessions`
-  - ingestion is intentionally raw-only, with no inline credit conversion and no Stripe meter-event emission
+  - ingestion is intentionally usage-only, with no inline credit conversion and no Stripe meter-event emission
+  - the platform organization detail surface now exposes a dedicated `Usage` tab for raw provider visibility:
+    - 24-hour input/output token charts
+    - modality sync-state diagnostics
+    - top model summaries
+    - recent raw provider buckets by usage type, model, and API key
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -207,6 +213,7 @@
   - the workspace Agent header now shows a small hoverable readiness badge instead of a dedicated status page
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
+- The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state
@@ -300,6 +307,7 @@
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
+- In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
