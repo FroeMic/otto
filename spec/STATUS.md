@@ -45,6 +45,11 @@
     - `vector_stores`
     - `code_interpreter_sessions`
   - ingestion is intentionally usage-only, with no inline credit conversion and no Stripe meter-event emission
+  - the platform organization detail surface now exposes a dedicated `Usage` tab for raw provider visibility:
+    - 24-hour input/output token charts
+    - modality sync-state diagnostics
+    - top model summaries
+    - recent raw provider buckets by usage type, model, and API key
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -206,6 +211,7 @@
   - the workspace Agent header now shows a small hoverable readiness badge instead of a dedicated status page
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
+- The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state

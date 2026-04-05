@@ -1,4 +1,16 @@
-import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
@@ -219,4 +231,208 @@ export async function upsertProviderUsageBuckets(input: {
     });
 
   return input.buckets.length;
+}
+
+function numberFromValue(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function dateFromValue(value: unknown) {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+export async function getTenantProviderUsageOverview(input: {
+  hours?: number;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const lookbackHours = input.hours ?? 24;
+  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
+  const bucketHourExpression = sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`;
+  const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`;
+  const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`;
+
+  const [
+    summaryRows,
+    hourlyRows,
+    usageTypeRows,
+    modelRows,
+    recentBucketRows,
+    syncStateRows,
+  ] = await Promise.all([
+    db
+      .select({
+        activeApiKeys: sql`count(distinct nullif(${providerUsageBuckets.externalApiKeyId}, ''))`,
+        activeModels: sql`count(distinct nullif(${providerUsageBuckets.model}, ''))`,
+        latestBucketEndAt: sql<Date | null>`max(${providerUsageBuckets.bucketEndAt})`,
+        totalInputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        totalOutputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        totalRequests: requestCountExpression,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      ),
+    db
+      .select({
+        bucketHour: bucketHourExpression,
+        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        requestCount: requestCountExpression,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      )
+      .groupBy(bucketHourExpression)
+      .orderBy(asc(bucketHourExpression)),
+    db
+      .select({
+        requestCount: requestCountExpression,
+        totalTokens: totalTokensExpression,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+        ),
+      )
+      .groupBy(providerUsageBuckets.usageType)
+      .orderBy(
+        desc(totalTokensExpression),
+        asc(providerUsageBuckets.usageType),
+      ),
+    db
+      .select({
+        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+        model: providerUsageBuckets.model,
+        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+        requestCount: requestCountExpression,
+        totalTokens: totalTokensExpression,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(
+        and(
+          eq(providerUsageBuckets.tenantId, input.tenantId),
+          gte(providerUsageBuckets.bucketStartAt, since),
+          ne(providerUsageBuckets.model, ""),
+        ),
+      )
+      .groupBy(providerUsageBuckets.usageType, providerUsageBuckets.model)
+      .orderBy(desc(totalTokensExpression), desc(requestCountExpression))
+      .limit(8),
+    db
+      .select({
+        bucketEndAt: providerUsageBuckets.bucketEndAt,
+        bucketStartAt: providerUsageBuckets.bucketStartAt,
+        externalApiKeyId: providerUsageBuckets.externalApiKeyId,
+        inputTokens: providerUsageBuckets.inputTokens,
+        itemCount: providerUsageBuckets.itemCount,
+        model: providerUsageBuckets.model,
+        outputTokens: providerUsageBuckets.outputTokens,
+        usageType: providerUsageBuckets.usageType,
+      })
+      .from(providerUsageBuckets)
+      .where(eq(providerUsageBuckets.tenantId, input.tenantId))
+      .orderBy(desc(providerUsageBuckets.bucketStartAt))
+      .limit(20),
+    db
+      .select({
+        consecutiveFailures: providerUsageSyncStates.consecutiveFailures,
+        lastAttemptedAt: providerUsageSyncStates.lastAttemptedAt,
+        lastError: providerUsageSyncStates.lastError,
+        lastErrorAt: providerUsageSyncStates.lastErrorAt,
+        lastRowCount: providerUsageSyncStates.lastRowCount,
+        lastSuccessfulEndAt: providerUsageSyncStates.lastSuccessfulEndAt,
+        usageType: providerUsageSyncStates.usageType,
+      })
+      .from(providerUsageSyncStates)
+      .where(eq(providerUsageSyncStates.tenantId, input.tenantId))
+      .orderBy(asc(providerUsageSyncStates.usageType)),
+  ]);
+
+  const summary = summaryRows[0] ?? {
+    activeApiKeys: 0,
+    activeModels: 0,
+    latestBucketEndAt: null,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalRequests: 0,
+  };
+
+  return {
+    hourlyBuckets: hourlyRows.map((row) => ({
+      bucketHour: dateFromValue(row.bucketHour) ?? new Date(0),
+      inputTokens: numberFromValue(row.inputTokens),
+      outputTokens: numberFromValue(row.outputTokens),
+      requestCount: numberFromValue(row.requestCount),
+    })),
+    recentBuckets: recentBucketRows.map((row) => ({
+      bucketEndAt: dateFromValue(row.bucketEndAt) ?? new Date(0),
+      bucketStartAt: dateFromValue(row.bucketStartAt) ?? new Date(0),
+      externalApiKeyId: row.externalApiKeyId,
+      inputTokens: numberFromValue(row.inputTokens),
+      itemCount: numberFromValue(row.itemCount),
+      model: row.model,
+      outputTokens: numberFromValue(row.outputTokens),
+      usageType: row.usageType,
+    })),
+    summary: {
+      activeApiKeys: numberFromValue(summary.activeApiKeys),
+      activeModels: numberFromValue(summary.activeModels),
+      latestBucketEndAt: dateFromValue(summary.latestBucketEndAt),
+      totalInputTokens: numberFromValue(summary.totalInputTokens),
+      totalOutputTokens: numberFromValue(summary.totalOutputTokens),
+      totalRequests: numberFromValue(summary.totalRequests),
+    },
+    syncStates: syncStateRows.map((row) => ({
+      consecutiveFailures: row.consecutiveFailures,
+      lastAttemptedAt: dateFromValue(row.lastAttemptedAt),
+      lastError: row.lastError,
+      lastErrorAt: dateFromValue(row.lastErrorAt),
+      lastRowCount: row.lastRowCount,
+      lastSuccessfulEndAt: dateFromValue(row.lastSuccessfulEndAt),
+      usageType: row.usageType,
+    })),
+    usageByModel: modelRows.map((row) => ({
+      inputTokens: numberFromValue(row.inputTokens),
+      model: row.model,
+      outputTokens: numberFromValue(row.outputTokens),
+      requestCount: numberFromValue(row.requestCount),
+      totalTokens: numberFromValue(row.totalTokens),
+      usageType: row.usageType,
+    })),
+    usageByType: usageTypeRows.map((row) => ({
+      requestCount: numberFromValue(row.requestCount),
+      totalTokens: numberFromValue(row.totalTokens),
+      usageType: row.usageType,
+    })),
+  };
 }
