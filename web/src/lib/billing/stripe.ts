@@ -27,6 +27,26 @@ export type StripeInvoicePreviewSummary = {
   id: string;
 };
 
+type PreviewTaxIdType =
+  Stripe.InvoiceCreatePreviewParams.CustomerDetails.TaxId["type"];
+
+function toStripeAddressParam(
+  address: Stripe.Address | null | undefined,
+): Stripe.AddressParam | undefined {
+  if (!address) {
+    return undefined;
+  }
+
+  return {
+    city: address.city ?? undefined,
+    country: address.country ?? undefined,
+    line1: address.line1 ?? undefined,
+    line2: address.line2 ?? undefined,
+    postal_code: address.postal_code ?? undefined,
+    state: address.state ?? undefined,
+  };
+}
+
 export function getStripe() {
   if (cachedStripe) {
     return cachedStripe;
@@ -135,9 +155,52 @@ export async function previewStripeTopUpInvoiceCharge(input: {
   const priceId = await getStripeOneTimePriceIdForTopUpLookupKey(
     input.topUpLookupKey,
   );
+  const customer = await stripe.customers.retrieve(input.stripeCustomerId);
+
+  if (customer.deleted) {
+    throw new Error(
+      `Stripe customer ${input.stripeCustomerId} was deleted and cannot be used for auto-top-off previews.`,
+    );
+  }
+
+  const taxIds = await stripe.customers.listTaxIds(input.stripeCustomerId, {
+    limit: 20,
+  });
+  const shippingAddress = toStripeAddressParam(customer.shipping?.address);
+  const shippingName = customer.shipping?.name ?? null;
+  const previewTaxIds = taxIds.data
+    .filter(
+      (
+        taxId,
+      ): taxId is typeof taxId & {
+        type: PreviewTaxIdType;
+      } => taxId.type !== "unknown",
+    )
+    .map((taxId) => ({
+      type: taxId.type,
+      value: taxId.value,
+    }));
 
   const preview = await stripe.invoices.createPreview({
-    customer: input.stripeCustomerId,
+    currency: "usd",
+    customer_details: {
+      address: toStripeAddressParam(customer.address),
+      shipping:
+        customer.shipping && shippingAddress && shippingName
+          ? {
+              address: shippingAddress,
+              name: shippingName,
+              phone: customer.shipping.phone ?? undefined,
+            }
+          : undefined,
+      tax: customer.tax?.ip_address
+        ? {
+            ip_address: customer.tax.ip_address,
+          }
+        : undefined,
+      tax_exempt: customer.tax_exempt ?? undefined,
+      tax_ids: previewTaxIds,
+    },
     invoice_items: [
       {
         price: priceId,
