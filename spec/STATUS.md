@@ -33,6 +33,11 @@
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
 - Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
+- The first `openai-proxy` inference slice is now implemented for opt-in runtimes:
+  - `runtime-plugins/otto-ai-provider` registers an OpenAI-family `openai-proxy` provider
+  - when `RUNTIME_MODEL_PRIMARY` is set to `openai-proxy/...`, tenant `openclaw.json` now projects `models.providers.openai-proxy` plus the bundled `otto-ai-provider` plugin
+  - runtime inference requests now target a runtime-authenticated control-plane OpenAI Responses proxy at `/api/internal/runtime/ai/openai/v1/responses`
+  - this first slice intentionally still leaves direct `OPENAI_API_KEY` env projection in place until the remaining migration work removes legacy direct-key consumers like audio/STT paths
 - The first raw OpenAI usage-ingestion foundation now exists:
   - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
   - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
@@ -203,6 +208,12 @@
 
 ## Recent progress
 
+- The first `TODO_16_runtime_ai_provider_proxy.md` implementation slice is now in code:
+  - `runtime-plugins/otto-ai-provider` is bundled into the custom runtime image and exposes `openai-proxy` as an OpenAI-family provider plugin
+  - `openai-proxy` uses `TENANT_TOKEN` as its current runtime auth credential and resolves `OTTO_CONTROL_PLANE_BASE_URL` through `prepareRuntimeAuth(...)`
+  - the control plane now exposes `/api/internal/runtime/ai/openai/v1/responses`, which authenticates the tenant runtime and forwards OpenAI Responses requests server-side with the tenant's stored upstream OpenAI API key
+  - tenant OpenClaw config rendering now adds `models.providers.openai-proxy` only when `RUNTIME_MODEL_PRIMARY` selects `openai-proxy/...`, keeping rollout opt-in per runtime image + model setting
+  - removing direct `OPENAI_API_KEY` projection remains deferred to a later `TODO_16` step once remaining legacy OpenAI runtime consumers are migrated
 - The next runtime-security architecture slice is now captured in `TODO_16_runtime_ai_provider_proxy.md`:
   - Otto should remove upstream AI provider keys from tenant runtime env
   - a new `otto-ai-provider` package should authenticate to an Otto-owned AI gateway with tenant-scoped Otto credentials
@@ -302,7 +313,12 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
+- Continue `TODO_16_runtime_ai_provider_proxy.md` by:
+  - canarying `openai-proxy/gpt-5.4` on one tenant runtime and verifying normal Responses traffic succeeds through `/api/internal/runtime/ai/openai/v1/responses`
+  - deciding which remaining runtime features still require direct `OPENAI_API_KEY` projection before removing it from the managed inference path
+  - adding request attribution metadata for proxied OpenAI calls so later billing and reconciliation can tie requests to the active provider credential revision
+  - deciding whether the next auth hardening step should introduce a dedicated Otto AI bootstrap credential or keep `TENANT_TOKEN` as the first production auth boundary for the proxy
+- Then continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
   - adding the runtime release schema migration and DB-backed active release record
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics

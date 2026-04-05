@@ -183,6 +183,49 @@ describe("renderOpenClawConfig", () => {
     assert.equal(renderedConfig.agents.defaults.userTimezone, "Europe/Berlin");
   });
 
+  it("renders openai-proxy as a provider plugin-backed model config", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      modelProviders: {
+        "openai-proxy": {
+          api: "openai-responses",
+          apiKey: "${TENANT_TOKEN}",
+          baseUrl:
+            "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+          models: [],
+        },
+      },
+      ottoProviderPlugins: [
+        {
+          id: "otto-ai-provider",
+        },
+      ],
+      primaryModel: "openai-proxy/gpt-5.4",
+      prompts: {},
+      tenantId: "tenant_123",
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.equal(
+      renderedConfig.agents.defaults.model.primary,
+      "openai-proxy/gpt-5.4",
+    );
+    assert.deepEqual(renderedConfig.plugins.allow, ["otto-ai-provider"]);
+    assert.equal(renderedConfig.plugins.entries["otto-ai-provider"].enabled, true);
+    assert.deepEqual(renderedConfig.models.providers["openai-proxy"], {
+      api: "openai-responses",
+      apiKey: "${TENANT_TOKEN}",
+      baseUrl:
+        "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+      models: [],
+    });
+    assert.equal(renderedConfig.tools.alsoAllow, undefined);
+  });
+
   it("renders custom workspace time settings into agent defaults", () => {
     const config: OpenClawTenantConfig = {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",

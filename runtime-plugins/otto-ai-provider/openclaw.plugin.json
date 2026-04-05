@@ -1,0 +1,26 @@
+{
+  "id": "otto-ai-provider",
+  "name": "Otto AI Provider",
+  "description": "Otto-managed OpenAI proxy provider.",
+  "providers": [
+    "openai-proxy"
+  ],
+  "providerAuthEnvVars": {
+    "openai-proxy": [
+      "TENANT_TOKEN"
+    ]
+  },
+  "providerAuthChoices": [
+    {
+      "provider": "openai-proxy",
+      "method": "api-key",
+      "choiceId": "openai-proxy-tenant-token",
+      "choiceLabel": "Otto tenant token",
+      "groupId": "otto-ai-provider",
+      "groupLabel": "Otto AI Provider",
+      "cliFlag": "--tenant-token",
+      "cliOption": "--tenant-token <token>",
+      "cliDescription": "Tenant-scoped Otto runtime token"
+    }
+  ]
+}
