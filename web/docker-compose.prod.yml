@@ -68,6 +68,27 @@ services:
       timeout: 5s
       retries: 5
 
+  www:
+    environment:
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      PORT: 3000
+    build:
+      context: ../www
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   worker:
     <<: *app-env
     build:
@@ -85,9 +106,12 @@ services:
   caddy:
     image: caddy:2.9-alpine
     depends_on:
+      www:
+        condition: service_healthy
       web:
         condition: service_healthy
     environment:
+      LANDING_PAGE_DOMAIN: ${LANDING_PAGE_DOMAIN:?set LANDING_PAGE_DOMAIN in .env}
       CONTROL_PLANE_DOMAIN: ${CONTROL_PLANE_DOMAIN:?set CONTROL_PLANE_DOMAIN in .env}
     ports:
       - "80:80"

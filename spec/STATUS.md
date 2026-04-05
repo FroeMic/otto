@@ -13,6 +13,7 @@
 ## Current state
 
 - Repository state is still mostly bootstrap.
+- A parallel public-site planning track now exists in `www/spec/` for a standalone marketing site that will sit beside `web/` instead of inside it.
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
@@ -298,6 +299,7 @@
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
+- In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
