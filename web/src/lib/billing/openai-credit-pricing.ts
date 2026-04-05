@@ -327,7 +327,7 @@ export function priceOpenAiUsageBucket(
 }
 
 export function formatCreditsFromMilli(creditsMilli: number) {
-  return creditsMilli / FULL_CREDIT_MILLI;
+  return Math.round(creditsMilli / FULL_CREDIT_MILLI);
 }
 
 export function formatUsdFromBillableUnits(billableUnits: number) {
