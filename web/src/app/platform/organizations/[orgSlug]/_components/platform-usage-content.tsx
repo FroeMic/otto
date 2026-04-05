@@ -465,7 +465,7 @@ export function PlatformUsageContent({
 
       {/* Charts */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col gap-1.5">
@@ -534,7 +534,7 @@ export function PlatformUsageContent({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>Requests by type</CardTitle>
             <CardDescription>Request counts by modality</CardDescription>
@@ -584,7 +584,7 @@ export function PlatformUsageContent({
       </div>
 
       {/* Top models table */}
-      <Card>
+      <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Top models</CardTitle>
           <CardDescription>
@@ -665,7 +665,7 @@ function StatCard({
   value?: string;
 }) {
   return (
-    <Card size="sm">
+    <Card className="rounded-lg" size="sm">
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle>
