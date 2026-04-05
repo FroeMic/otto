@@ -1,9 +1,9 @@
 import type Stripe from "stripe";
 
 import {
-  createTopUpCreditGrant,
   buildSubscriptionRecordFromStripe,
   createSubscriptionCreditGrant,
+  createTopUpCreditGrant,
   findOrganizationIdByStripeCustomerId,
   hasProcessedStripeWebhookEvent,
   markBillingAutoTopOffRunFailedByInvoiceId,
@@ -190,8 +190,9 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  const autoTopOffLookupKey = invoice.metadata.otto_top_up_lookup_key ?? null;
-  const chargeKind = invoice.metadata.otto_charge_kind ?? null;
+  const metadata = invoice.metadata ?? {};
+  const autoTopOffLookupKey = metadata.otto_top_up_lookup_key ?? null;
+  const chargeKind = metadata.otto_charge_kind ?? null;
 
   if (chargeKind === "auto_top_off" && autoTopOffLookupKey) {
     await handleAutoTopOffInvoicePaid(invoice, autoTopOffLookupKey);
@@ -272,9 +273,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  const metadata = invoice.metadata ?? {};
+
   if (
-    invoice.metadata.otto_charge_kind === "auto_top_off" &&
-    invoice.metadata.otto_top_up_lookup_key
+    metadata.otto_charge_kind === "auto_top_off" &&
+    metadata.otto_top_up_lookup_key
   ) {
     await markBillingAutoTopOffRunFailedByInvoiceId({
       reason:
@@ -314,7 +317,7 @@ async function handleAutoTopOffInvoicePaid(
   }
 
   const organizationId =
-    invoice.metadata.organization_id ??
+    invoice.metadata?.organization_id ??
     (await findOrganizationIdByStripeCustomerId(stripeCustomerId)) ??
     null;
 

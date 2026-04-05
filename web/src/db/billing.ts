@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
@@ -80,12 +80,19 @@ export type AutoTopOffRunStatus =
 
 export type BillingAutoTopOffExecutionTarget = {
   currentBalanceCreditsMilli: number;
+  currentPeriodEnd: Date | null;
+  currentPeriodStart: Date | null;
   minimumBalanceCredits: number;
   monthlySpendLimitCents: number;
   organizationId: string;
   stripeCustomerId: string;
   tenantId: string;
   topOffAmountCents: number;
+};
+
+export type BillingCycleWindow = {
+  end: Date | null;
+  start: Date;
 };
 
 export type BillingAutoTopOffRunSummary = {
@@ -102,24 +109,31 @@ function normalizeDate(value: Date | null | undefined) {
   return value ?? null;
 }
 
-function numberFromValue(value: unknown) {
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
-}
-
 function startOfMonth(date: Date) {
   const next = new Date(date);
   next.setDate(1);
   next.setHours(0, 0, 0, 0);
   return next;
+}
+
+export function getBillingCycleWindow(input: {
+  currentPeriodEnd?: Date | null;
+  currentPeriodStart?: Date | null;
+  now?: Date;
+}): BillingCycleWindow {
+  const now = input.now ?? new Date();
+
+  if (input.currentPeriodStart) {
+    return {
+      end: input.currentPeriodEnd ?? null,
+      start: input.currentPeriodStart,
+    };
+  }
+
+  return {
+    end: null,
+    start: startOfMonth(now),
+  };
 }
 
 export async function findBillingCustomerByOrganizationId(
@@ -373,6 +387,8 @@ export async function listBillingAutoTopOffExecutionTargets() {
   const db = getDb();
   const rows = await db
     .select({
+      currentPeriodEnd: billingSubscriptions.currentPeriodEnd,
+      currentPeriodStart: billingSubscriptions.currentPeriodStart,
       minimumBalanceCredits: billingPreferences.minimumBalanceCredits,
       monthlySpendLimitCents: billingPreferences.monthlySpendLimitCents,
       organizationId: billingPreferences.organizationId,
@@ -416,6 +432,8 @@ export async function listBillingAutoTopOffExecutionTargets() {
 
     targets.push({
       currentBalanceCreditsMilli: balance.currentBalanceCreditsMilli,
+      currentPeriodEnd: row.currentPeriodEnd,
+      currentPeriodStart: row.currentPeriodStart,
       minimumBalanceCredits: row.minimumBalanceCredits,
       monthlySpendLimitCents: row.monthlySpendLimitCents,
       organizationId: row.organizationId,
@@ -435,30 +453,6 @@ export async function getBillingAutoTopOffExecutionTargetByOrganizationId(
   return (
     targets.find((target) => target.organizationId === organizationId) ?? null
   );
-}
-
-export async function getBillingAutoTopOffMonthlySpendCents(input: {
-  monthStart?: Date;
-  organizationId: string;
-}) {
-  const db = getDb();
-  const [summary] = await db
-    .select({
-      totalSpendCents: sql`coalesce(sum(${billingAutoTopOffRuns.topOffAmountCents}), 0)`,
-    })
-    .from(billingAutoTopOffRuns)
-    .where(
-      and(
-        eq(billingAutoTopOffRuns.organizationId, input.organizationId),
-        eq(billingAutoTopOffRuns.status, AUTO_TOP_OFF_RUN_STATUSES.succeeded),
-        gte(
-          billingAutoTopOffRuns.createdAt,
-          input.monthStart ?? startOfMonth(new Date()),
-        ),
-      ),
-    );
-
-  return numberFromValue(summary?.totalSpendCents);
 }
 
 export async function findLatestBillingAutoTopOffRunByOrganizationId(
@@ -493,10 +487,7 @@ export async function hasActiveBillingAutoTopOffRun(organizationId: string) {
     .where(
       and(
         eq(billingAutoTopOffRuns.organizationId, organizationId),
-        inArray(
-          billingAutoTopOffRuns.status,
-          AUTO_TOP_OFF_ACTIVE_RUN_STATUSES,
-        ),
+        inArray(billingAutoTopOffRuns.status, AUTO_TOP_OFF_ACTIVE_RUN_STATUSES),
       ),
     )
     .orderBy(desc(billingAutoTopOffRuns.createdAt))
@@ -862,17 +853,12 @@ export async function getWorkspaceBillingOverview(input: {
         .limit(12)
     : [];
 
-  const [latestAutoTopOffRun, monthlyAutoTopOffSpendCents] = await Promise.all([
-    findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId),
-    getBillingAutoTopOffMonthlySpendCents({
-      organizationId: input.organizationId,
-    }),
-  ]);
+  const latestAutoTopOffRun =
+    await findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId);
 
   return {
     autoTopOff: {
       latestRun: latestAutoTopOffRun,
-      monthlySpendCents: monthlyAutoTopOffSpendCents,
     },
     balance,
     customer,

@@ -24,8 +24,22 @@ export default async function WorkspaceUsagePage({
     organizationId: currentOrganization.id,
   });
   const now = new Date();
-  const currentCycleStart =
-    billingOverview.subscription?.currentPeriodStart ?? startOfMonth(now);
+  const sub = billingOverview.subscription;
+  const currentCycleStart = sub?.currentPeriodStart ?? startOfMonth(now);
+  const currentCycleEnd = sub?.currentPeriodEnd ?? null;
+
+  // Compute previous billing cycle if subscription exists
+  let previousCycleStart: Date | null = null;
+  let previousCycleEnd: Date | null = null;
+  if (sub?.currentPeriodStart && sub?.currentPeriodEnd) {
+    const cycleDurationMs =
+      sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime();
+    previousCycleEnd = new Date(sub.currentPeriodStart.getTime());
+    previousCycleStart = new Date(
+      sub.currentPeriodStart.getTime() - cycleDurationMs,
+    );
+  }
+
   const initialOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
         from: currentCycleStart,
@@ -54,6 +68,7 @@ export default async function WorkspaceUsagePage({
         currentBalanceCreditsMilli={
           billingOverview.balance.currentBalanceCreditsMilli
         }
+        currentCycleEndIso={currentCycleEnd?.toISOString() ?? null}
         currentCycleStartIso={currentCycleStart.toISOString()}
         initialOverview={initialOverview}
         initialRange={{
@@ -62,6 +77,8 @@ export default async function WorkspaceUsagePage({
         }}
         locale={currentOrganization.locale}
         orgSlug={orgSlug}
+        previousCycleEndIso={previousCycleEnd?.toISOString() ?? null}
+        previousCycleStartIso={previousCycleStart?.toISOString() ?? null}
       />
     </SettingsPage>
   );

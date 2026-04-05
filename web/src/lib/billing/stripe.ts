@@ -21,6 +21,12 @@ export type StripeInvoiceSummary = {
   status: string | null;
 };
 
+export type StripeInvoicePreviewSummary = {
+  amountDueCents: number;
+  currency: string;
+  id: string;
+};
+
 export function getStripe() {
   if (cachedStripe) {
     return cachedStripe;
@@ -71,6 +77,82 @@ export async function getStripeOneTimePriceIdForTopUpLookupKey(
   });
 }
 
+export async function getStripeBillingCycleSpendCents(input: {
+  periodEnd?: Date | null;
+  periodStart: Date;
+  stripeCustomerId: string;
+}) {
+  const stripe = getStripe();
+  let startingAfter: string | undefined;
+  let totalPaidCents = 0;
+
+  while (true) {
+    const invoices = await stripe.invoices.list({
+      customer: input.stripeCustomerId,
+      limit: 100,
+      starting_after: startingAfter,
+    });
+
+    for (const invoice of invoices.data) {
+      const paidAtUnix = invoice.status_transitions.paid_at;
+
+      if (!paidAtUnix || invoice.status !== "paid") {
+        continue;
+      }
+
+      const paidAt = new Date(paidAtUnix * 1000);
+
+      if (paidAt < input.periodStart) {
+        return totalPaidCents;
+      }
+
+      if (input.periodEnd && paidAt >= input.periodEnd) {
+        continue;
+      }
+
+      totalPaidCents += invoice.amount_paid;
+    }
+
+    if (!invoices.has_more) {
+      return totalPaidCents;
+    }
+
+    const lastInvoice = invoices.data.at(-1);
+
+    if (!lastInvoice) {
+      return totalPaidCents;
+    }
+
+    startingAfter = lastInvoice.id;
+  }
+}
+
+export async function previewStripeTopUpInvoiceCharge(input: {
+  stripeCustomerId: string;
+  topUpLookupKey: string;
+}): Promise<StripeInvoicePreviewSummary> {
+  const stripe = getStripe();
+  const priceId = await getStripeOneTimePriceIdForTopUpLookupKey(
+    input.topUpLookupKey,
+  );
+
+  const preview = await stripe.invoices.createPreview({
+    customer: input.stripeCustomerId,
+    invoice_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+  });
+
+  return {
+    amountDueCents: preview.amount_due,
+    currency: preview.currency,
+    id: preview.id,
+  };
+}
+
 async function getStripePriceIdForLookupKey(input: {
   description: string;
   expectedCurrency: string;
@@ -79,7 +161,6 @@ async function getStripePriceIdForLookupKey(input: {
   lookupKey: string;
   logPrefix: string;
 }) {
-
   const stripe = getStripe();
   console.info(`[${input.logPrefix}] resolving price`, {
     description: input.description,

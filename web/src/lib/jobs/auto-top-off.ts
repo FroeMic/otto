@@ -1,24 +1,25 @@
 import { randomUUID } from "node:crypto";
 
 import { and, eq, inArray } from "drizzle-orm";
-
-import { getDb } from "@/db/client";
 import {
   AUTO_TOP_OFF_RUN_STATUSES,
   createBillingAutoTopOffRun,
   findLatestBillingAutoTopOffRunByOrganizationId,
   getBillingAutoTopOffExecutionTargetByOrganizationId,
-  getBillingAutoTopOffMonthlySpendCents,
+  getBillingCycleWindow,
   hasActiveBillingAutoTopOffRun,
   listBillingAutoTopOffExecutionTargets,
   markBillingAutoTopOffRunFailed,
   updateBillingAutoTopOffRunToAwaitingWebhook,
 } from "@/db/billing";
+import { getDb } from "@/db/client";
 import { jobRuns } from "@/db/schema";
 import { getAutoTopOffPackByAmountCents } from "@/lib/billing/plans";
 import {
   getStripe,
+  getStripeBillingCycleSpendCents,
   getStripeOneTimePriceIdForTopUpLookupKey,
+  previewStripeTopUpInvoiceCharge,
 } from "@/lib/billing/stripe";
 
 import {
@@ -29,9 +30,9 @@ import {
 } from "./queue";
 import {
   type ClaimedJob,
+  type ExecuteBillingAutoTopOffPayload,
   JOB_STATUSES,
   JOB_TYPES,
-  type ExecuteBillingAutoTopOffPayload,
 } from "./types";
 
 const AUTO_TOP_OFF_SCAN_INTERVAL_MS = 30_000;
@@ -48,6 +49,43 @@ const AUTO_TOP_OFF_EVENTS = {
 } as const;
 
 let nextAutoTopOffScanAt = 0;
+
+async function getBillingCycleSpendGuard(input: {
+  currentPeriodEnd: Date | null;
+  currentPeriodStart: Date | null;
+  monthlySpendLimitCents: number;
+  stripeCustomerId: string;
+  topUpLookupKey: string;
+}) {
+  const billingCycleWindow = getBillingCycleWindow({
+    currentPeriodEnd: input.currentPeriodEnd,
+    currentPeriodStart: input.currentPeriodStart,
+  });
+
+  const [currentCycleSpendCents, preview] = await Promise.all([
+    getStripeBillingCycleSpendCents({
+      periodEnd: billingCycleWindow.end,
+      periodStart: billingCycleWindow.start,
+      stripeCustomerId: input.stripeCustomerId,
+    }),
+    previewStripeTopUpInvoiceCharge({
+      stripeCustomerId: input.stripeCustomerId,
+      topUpLookupKey: input.topUpLookupKey,
+    }),
+  ]);
+
+  const previewChargeCents = preview.amountDueCents;
+  const wouldExceedLimit =
+    input.monthlySpendLimitCents > 0 &&
+    currentCycleSpendCents + previewChargeCents > input.monthlySpendLimitCents;
+
+  return {
+    billingCycleWindow,
+    currentCycleSpendCents,
+    previewChargeCents,
+    wouldExceedLimit,
+  };
+}
 
 export async function runAutoTopOffEnqueueCycle() {
   const now = Date.now();
@@ -82,20 +120,26 @@ export async function runAutoTopOffEnqueueCycle() {
     if (
       latestRun?.status === AUTO_TOP_OFF_RUN_STATUSES.failed &&
       latestRun.completedAt &&
-      latestRun.completedAt.getTime() >
-        now - AUTO_TOP_OFF_FAILURE_COOLDOWN_MS
+      latestRun.completedAt.getTime() > now - AUTO_TOP_OFF_FAILURE_COOLDOWN_MS
     ) {
       continue;
     }
 
-    const monthlySpendCents = await getBillingAutoTopOffMonthlySpendCents({
-      organizationId: target.organizationId,
+    const pack = getAutoTopOffPackByAmountCents(target.topOffAmountCents);
+
+    if (!pack) {
+      continue;
+    }
+
+    const spendGuard = await getBillingCycleSpendGuard({
+      currentPeriodEnd: target.currentPeriodEnd,
+      currentPeriodStart: target.currentPeriodStart,
+      monthlySpendLimitCents: target.monthlySpendLimitCents,
+      stripeCustomerId: target.stripeCustomerId,
+      topUpLookupKey: pack.lookupKey,
     });
 
-    if (
-      monthlySpendCents + target.topOffAmountCents >
-      target.monthlySpendLimitCents
-    ) {
+    if (spendGuard.wouldExceedLimit) {
       continue;
     }
 
@@ -187,27 +231,32 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       return;
     }
 
-    const monthlySpendCents = await getBillingAutoTopOffMonthlySpendCents({
-      organizationId: target.organizationId,
+    const spendGuard = await getBillingCycleSpendGuard({
+      currentPeriodEnd: target.currentPeriodEnd,
+      currentPeriodStart: target.currentPeriodStart,
+      monthlySpendLimitCents: target.monthlySpendLimitCents,
+      stripeCustomerId: target.stripeCustomerId,
+      topUpLookupKey: pack.lookupKey,
     });
 
-    if (
-      monthlySpendCents + pack.amountCents >
-      target.monthlySpendLimitCents
-    ) {
+    if (spendGuard.wouldExceedLimit) {
       await appendJobEvent(
         job.id,
         AUTO_TOP_OFF_EVENTS.skipped,
-        "Skipped auto-top-off because the monthly spend limit would be exceeded.",
+        "Skipped auto-top-off because the billing cycle spend limit would be exceeded by the next Stripe top-up charge.",
         {
-          monthlySpendCents,
+          billingCycleEnd:
+            spendGuard.billingCycleWindow.end?.toISOString() ?? null,
+          billingCycleStart: spendGuard.billingCycleWindow.start.toISOString(),
+          currentCycleSpendCents: spendGuard.currentCycleSpendCents,
           monthlySpendLimitCents: target.monthlySpendLimitCents,
-          nextTopOffAmountCents: pack.amountCents,
+          previewChargeCents: spendGuard.previewChargeCents,
           organizationId: target.organizationId,
         },
       );
       await markJobSucceeded(job.id, {
-        monthlySpendCents,
+        currentCycleSpendCents: spendGuard.currentCycleSpendCents,
+        previewChargeCents: spendGuard.previewChargeCents,
         skipped: true,
       });
       return;
@@ -218,9 +267,14 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       AUTO_TOP_OFF_EVENTS.eligible,
       "Workspace is below the auto-top-off threshold. Starting a Stripe top-up charge.",
       {
+        billingCycleEnd:
+          spendGuard.billingCycleWindow.end?.toISOString() ?? null,
+        billingCycleStart: spendGuard.billingCycleWindow.start.toISOString(),
         currentBalanceCreditsMilli: target.currentBalanceCreditsMilli,
+        currentCycleSpendCents: spendGuard.currentCycleSpendCents,
         minimumBalanceCredits: target.minimumBalanceCredits,
         organizationId: target.organizationId,
+        previewChargeCents: spendGuard.previewChargeCents,
         topOffAmountCents: pack.amountCents,
       },
     );

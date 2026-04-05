@@ -429,15 +429,29 @@ Locked UX/product decisions for this slice:
   - auto-top-off enabled
   - minimum balance threshold
   - top-up pack key
-  - monthly spend limit
+  - billing cycle spend limit
 - wire those settings into the billing page UI
 - show recent Stripe invoice history directly on the workspace billing page
+- define the spend limit as total billed spend in the current billing cycle, including tax
 
 #### Phase 4: Auto-top-off execution
 
 - implement idempotent automatic top-up purchase jobs
-- enforce the monthly spend limit by pausing auto-top-off once the cap is reached
+- resolve fixed top-up packs in Stripe via one-time price lookup keys:
+  - `top_up_20`
+  - `top_up_50`
+  - `top_up_100`
+  - `top_up_200`
+- enforce the billing cycle spend limit by pausing auto-top-off once the cap is reached
+- calculate billed-so-far from paid Stripe invoices in the active billing cycle, including tax
+- preview the next Stripe top-up invoice before execution and block when that charge would exceed the cap
 - grant purchased credits through the same Otto ledger path as other top-ups
+
+#### Phase 5: Manual top-up checkout
+
+- add a workspace-visible manual top-up purchase path using the same fixed Stripe packs
+- reuse the same top-up grant ledger flow as auto-top-off
+- expose top-up purchases in the billing page alongside subscription invoices
 
 ## Data model additions
 

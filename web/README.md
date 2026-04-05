@@ -136,6 +136,9 @@ bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 - the control plane can provision Hetzner tenant servers through the worker
 - runtime bootstrap and config apply now execute over SSH
 - production deployment artifacts now exist for one public control-plane VPS with local Postgres and a dedicated worker
+- Stripe billing currently expects:
+  - recurring monthly plan price lookup keys: `basic_monthly`, `plus_monthly`, `pro_monthly`, `max_monthly`
+  - one-time auto-top-off price lookup keys: `top_up_20`, `top_up_50`, `top_up_100`, `top_up_200`
 
 ## Notes
 

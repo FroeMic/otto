@@ -87,6 +87,9 @@ export async function runWorkerIteration(): Promise<number> {
   }
 
   return (
-    jobs.length + syncedUsageTargets + settledUsageBuckets + queuedAutoTopOffJobs
+    jobs.length +
+    syncedUsageTargets +
+    settledUsageBuckets +
+    queuedAutoTopOffJobs
   );
 }

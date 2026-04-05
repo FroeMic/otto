@@ -23,9 +23,19 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getWorkspaceBillingOverview } from "@/db/billing";
-import { getBillingPlans } from "@/lib/billing/plans";
-import { listStripeInvoicesForCustomer } from "@/lib/billing/stripe";
+import {
+  getBillingCycleWindow,
+  getWorkspaceBillingOverview,
+} from "@/db/billing";
+import {
+  getAutoTopOffPackByAmountCents,
+  getBillingPlans,
+} from "@/lib/billing/plans";
+import {
+  getStripeBillingCycleSpendCents,
+  listStripeInvoicesForCustomer,
+  previewStripeTopUpInvoiceCharge,
+} from "@/lib/billing/stripe";
 import { formatShortDate } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
@@ -94,6 +104,13 @@ export default async function WorkspaceBillingPage({
   };
   let invoices: Awaited<ReturnType<typeof listStripeInvoicesForCustomer>> = [];
   let invoicesError: string | null = null;
+  let currentCycleSpendCents = 0;
+  let nextAutoReloadChargeCents: number | null = null;
+  const billingCycleWindow = getBillingCycleWindow({
+    currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
+    currentPeriodStart:
+      billingOverview.subscription?.currentPeriodStart ?? null,
+  });
 
   if (billingConfigured && billingOverview.customer) {
     try {
@@ -106,7 +123,43 @@ export default async function WorkspaceBillingPage({
           ? error.message
           : "Invoice history is temporarily unavailable.";
     }
+
+    try {
+      currentCycleSpendCents = await getStripeBillingCycleSpendCents({
+        periodEnd: billingCycleWindow.end,
+        periodStart: billingCycleWindow.start,
+        stripeCustomerId: billingOverview.customer.stripeCustomerId,
+      });
+    } catch (error) {
+      console.error("[billing] failed to load billing cycle spend", error);
+    }
+
+    const selectedTopUpPack = getAutoTopOffPackByAmountCents(
+      billingOverview.preferences.topOffAmountCents,
+    );
+
+    if (billingOverview.preferences.autoTopOffEnabled && selectedTopUpPack) {
+      try {
+        const preview = await previewStripeTopUpInvoiceCharge({
+          stripeCustomerId: billingOverview.customer.stripeCustomerId,
+          topUpLookupKey: selectedTopUpPack.lookupKey,
+        });
+        nextAutoReloadChargeCents = preview.amountDueCents;
+      } catch (error) {
+        console.error(
+          "[billing] failed to preview next auto-reload invoice",
+          error,
+        );
+      }
+    }
   }
+
+  const wouldBlockNextAutoReload =
+    billingOverview.preferences.autoTopOffEnabled &&
+    billingOverview.preferences.monthlySpendLimitCents > 0 &&
+    nextAutoReloadChargeCents !== null &&
+    currentCycleSpendCents + nextAutoReloadChargeCents >
+      billingOverview.preferences.monthlySpendLimitCents;
 
   return (
     <SettingsPage>
@@ -224,9 +277,7 @@ export default async function WorkspaceBillingPage({
               </SettingsRowLabel>
               <Button
                 render={
-                  <Link
-                    href={`/${orgSlug}/settings/workspace/billing/plans`}
-                  />
+                  <Link href={`/${orgSlug}/settings/workspace/billing/plans`} />
                 }
                 variant="outline"
               >
@@ -292,15 +343,19 @@ export default async function WorkspaceBillingPage({
           <SettingsSectionTitle>Spend limit</SettingsSectionTitle>
           <SettingsCard>
             <WorkspaceSpendLimitCard
+              currentCycleSpendCents={currentCycleSpendCents}
               initialPreferences={billingOverview.preferences}
               locale={currentOrganization.locale}
-              monthlySpendCents={billingOverview.autoTopOff.monthlySpendCents}
+              nextAutoReloadChargeCents={nextAutoReloadChargeCents}
               orgSlug={orgSlug}
+              wouldBlockNextAutoReload={wouldBlockNextAutoReload}
             />
             {billingOverview.autoTopOff.latestRun ? (
               <SettingsRow>
                 <SettingsRowLabel>
-                  <SettingsRowTitle>Latest auto-reload attempt</SettingsRowTitle>
+                  <SettingsRowTitle>
+                    Latest auto-reload attempt
+                  </SettingsRowTitle>
                   <SettingsRowDescription>
                     {billingOverview.autoTopOff.latestRun.completedAt
                       ? formatShortDate(
