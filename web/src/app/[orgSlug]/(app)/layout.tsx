@@ -23,6 +23,7 @@ export default async function WorkspaceShellLayout({
       }))}
       user={{
         email: user.email,
+        id: user.id,
         isPlatformAdmin: user.isPlatformAdmin,
         name: user.name,
       }}

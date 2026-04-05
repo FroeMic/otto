@@ -6,6 +6,7 @@ import {
   SignOut,
 } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -22,6 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { resetPostHogBrowserAnalytics } from "@/lib/posthog/browser";
 
 type PlatformUserMenuProps = {
   organizations: Array<{
@@ -30,6 +32,7 @@ type PlatformUserMenuProps = {
   }>;
   user: {
     email: string;
+    id: string;
     name: string;
   };
 };
@@ -100,7 +103,10 @@ export function PlatformUserMenu({
             ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => window.location.assign("/auth/sign-out")}
+              onClick={() => {
+                resetPostHogBrowserAnalytics();
+                window.location.assign("/auth/sign-out");
+              }}
             >
               <SignOut />
               Log out

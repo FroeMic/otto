@@ -20,7 +20,6 @@ const envSchema = z.object({
   RUNTIME_OPENCLAW_IMAGE: z
     .string()
     .default("ghcr.io/openclaw/openclaw:2026.4.1"),
-  RUNTIME_OPENAI_API_KEY: z.string().optional(),
   RUNTIME_BRAVE_API_KEY: z.string().optional(),
   RUNTIME_GEMINI_API_KEY: z.string().optional(),
   RUNTIME_KIMI_API_KEY: z.string().optional(),
@@ -87,7 +86,14 @@ const envSchema = z.object({
   RUNTIME_SSH_USERNAME: z.string().default("root"),
   CONTROL_PLANE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
+  CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_ENABLED: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_TOKEN: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
@@ -130,6 +136,16 @@ export function getControlPlaneOAuthStateSecret() {
     getEnv().CONTROL_PLANE_OAUTH_STATE_SECRET,
     "CONTROL_PLANE_OAUTH_STATE_SECRET",
   );
+}
+
+export function getControlPlaneOpenAiAdminApiKey() {
+  const value = getEnv().CONTROL_PLANE_OPENAI_ADMIN_API_KEY;
+
+  if (!value) {
+    throw new Error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is required");
+  }
+
+  return value;
 }
 
 export function getControlPlaneBaseUrl() {

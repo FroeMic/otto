@@ -48,6 +48,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   }>;
   user: {
     email: string;
+    id: string;
     isPlatformAdmin: boolean;
     name: string;
   };

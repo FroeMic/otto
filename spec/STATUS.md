@@ -32,7 +32,19 @@
   - verify those files on the tenant server before marking the tenant ready
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
-- Runtime bootstrap can now preconfigure the tenant gateway with `OPENAI_API_KEY` and a default model via `RUNTIME_OPENAI_API_KEY` and `RUNTIME_MODEL_PRIMARY`.
+- Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
+- The first raw OpenAI usage-ingestion foundation now exists:
+  - the worker auto-queues recurring OpenAI usage ingestion jobs for active tenant projects
+  - raw minute buckets and ingestion-run metadata are now stored in Postgres for the current OpenAI org-usage endpoint set:
+    - `completions`
+    - `embeddings`
+    - `audio_speeches`
+    - `audio_transcriptions`
+    - `images`
+    - `moderations`
+    - `vector_stores`
+    - `code_interpreter_sessions`
+  - ingestion is intentionally raw-only, with no inline credit conversion and no Stripe meter-event emission
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -154,6 +166,10 @@
   - users with a newly created workspace are held on a non-shell waiting page until the org is marked ready
   - Slack OAuth, provisioning, and the org-scoped shell are blocked until `organizations.is_ready = true`
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
+- Runtime AI proxy planning now lives in `TODO_16_runtime_ai_provider_proxy.md`:
+  - tenant runtimes should stop receiving upstream AI provider keys directly
+  - Otto should own an AI gateway plus an `otto-ai-provider` plugin package
+  - the first provider entry should be `openai-proxy`, with embeddings and speech/TTS following distinct OpenClaw extension seams
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
 - The control plane deployment target is now more explicit:
@@ -176,9 +192,14 @@
 - Voice-note support is now captured in `TODO_10_voice_note_understanding.md`; the first slice should project OpenClaw audio transcription config now, while preserving compatibility with the later shared Slack HTTP-ingress design in `TODO_06_integrations_and_oauth.md`.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 - Prefer control-plane-owned scheduled task definitions and session history over runtime-local cron state, with runtime callbacks plus reconciliation keeping execution state current.
+- Prefer Otto-owned AI provider proxying over projecting upstream provider secrets directly into tenant runtimes.
 
 ## Recent progress
 
+- The next runtime-security architecture slice is now captured in `TODO_16_runtime_ai_provider_proxy.md`:
+  - Otto should remove upstream AI provider keys from tenant runtime env
+  - a new `otto-ai-provider` package should authenticate to an Otto-owned AI gateway with tenant-scoped Otto credentials
+  - embeddings can likely reuse OpenAI-compatible proxying, while speech/TTS should use a dedicated speech-provider path and STT remains a separate follow-on concern
 - The workspace Agent area is now instruction-first instead of split across a workspace-facing status tab plus a separate configuration tab:
   - `/agent` now redirects to the first managed instruction file route instead of `/agent/prompts`
   - the only remaining Agent tabs are the route-backed managed instruction files with user-facing labels like `Agent.md`
@@ -241,12 +262,35 @@
   - invite dialogs accept multiple comma/newline-separated emails plus an explicit WorkOS role
   - pending invites appear in the table immediately after send
   - row actions now support role changes, suspend/reactivate, and invitation resend/revoke flows
+- The control plane can now optionally send browser analytics to PostHog in production:
+  - browser analytics initializes through Next.js `instrumentation-client.ts`
+  - analytics stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true` and the build runs in production
+  - browser capture now uses Next.js `/ingest` rewrites to forward requests to PostHog EU Cloud instead of calling the PostHog domain directly from the browser
+  - the default config only captures SPA pageviews and identifies signed-in users; autocapture, session replay, surveys, and heatmaps stay disabled to keep usage predictable
+- Billing and credit-metering planning is now captured in `TODO_15_billing_and_credit_metering.md`:
+  - Otto should use a prepaid credit burndown model with Stripe as the commerce system and Otto as the ledger authority
+  - billing should be organization-scoped in the workspace, with tenant, session, model, and provider attribution underneath
+  - OpenAI should be the first provider integration through a provider abstraction that can later support other models and vendors
+  - the first rollout should favor fixed subscription plans, manual top-ups, no postpaid overage, and hidden fair-use windows in shadow mode
+- The first OpenAI tenant-provisioning spike is now implemented in `web/`:
+  - `provider_accounts` and `provider_credentials` now exist as tenant-scoped persistence for managed provider projects and encrypted credentials
+  - `web/src/lib/providers/openai/provisioning.ts` can create an OpenAI project and service account using `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
+  - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
+  - initial tenant bootstrap now provisions the first tenant-specific OpenAI API key before runtime files are rendered, so runtime apply and bootstrap no longer rely on a shared fallback key
+  - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
+- The platform operator surface can now provision or rotate tenant-specific OpenAI keys from `/platform/organizations/[orgSlug]/overview`:
+  - the three-dot organization action menu now exposes `Provision OpenAI API key` or `Rotate OpenAI API key` based on current tenant provider state
+  - the action runs through a queued control-plane job instead of an inline request handler
+  - OpenAI key rotation now preserves historical credential rows and `external_api_key_id` values so usage grouped by API key remains reconstructable after mid-cycle rotations
+  - OpenAI project naming is now stable and project-scoped across rotations using `otto_<workspace-id>_<workspace-name>` with the workspace id first for continuity
+  - OpenAI key rotation now reuses the existing project, reapplies the tenant runtime, verifies the deployed `OPENAI_API_KEY`, and only then deletes the previous service account
 
 ## Current product target
 
 - Build the first internal alpha defined in `FIRST_INCREMENT_PLAN.md`.
 - Scope that alpha to tenant creation, durable provisioning jobs, and dashboard visibility.
 - In parallel, prepare the authenticated app-shell rebuild so the product can move to org-scoped workspace UI after the current bootstrap slice.
+- In parallel, keep the billing and credit-metering plan in `TODO_15_billing_and_credit_metering.md` as the source of truth for the first paid commercial slice.
 
 ## Next recommended implementation step
 
@@ -256,6 +300,14 @@
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
+- When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
+  - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
+  - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
+  - next, add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
+  - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
+  - then add Otto credit grants, ledger entries, and derived balances from Stripe events
+  - then convert raw provider usage into billable units and credit debits
+  - then ship the workspace billing page, top-ups, soft alerts, and only later hard-stop enforcement
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification

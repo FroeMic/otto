@@ -169,6 +169,34 @@
       "when": 1775340000000,
       "tag": "0023_repair_last_message_at",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1775384055705,
+      "tag": "0024_overrated_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1775385745751,
+      "tag": "0025_easy_ender_wiggin",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1775387822198,
+      "tag": "0026_mature_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1775390673201,
+      "tag": "0027_luxuriant_changeling",
+      "breakpoints": true
     }
   ]
 }

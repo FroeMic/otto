@@ -38,7 +38,8 @@ docker compose up -d
    - set one of `RUNTIME_DEPLOY_PRIVATE_KEY`, `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`, or rely on a loaded local SSH agent
    - optionally override `RUNTIME_OPENCLAW_IMAGE` if you need a non-default OpenClaw runtime image
    - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
-   - to preconfigure the default OpenAI model, set `RUNTIME_OPENAI_API_KEY` and optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
+   - to preconfigure the default OpenAI model, optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
+   - to let the control plane provision the initial tenant-specific OpenAI project and service-account key during runtime bootstrap, set `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`
    - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels
@@ -46,6 +47,10 @@ docker compose up -d
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution
+   - optional PostHog browser analytics env vars:
+    - `NEXT_PUBLIC_POSTHOG_ENABLED=true` only in the real production environment
+    - `NEXT_PUBLIC_POSTHOG_HOST=/ingest` to proxy browser capture through the app domain
+    - `NEXT_PUBLIC_POSTHOG_TOKEN=<ph_project_token>`
 8. Install dependencies.
 9. Generate migrations with `npm run db:generate`.
 10. Apply migrations with `npm run db:migrate`.
@@ -88,7 +93,7 @@ From the repo root, run both together:
 bun run dev:all
 ```
 
-Test the configured OpenAI runtime key directly:
+Test the configured OpenAI admin provisioning key directly:
 
 ```bash
 bun run test:openai-token
@@ -132,6 +137,9 @@ bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 - route handlers should stay thin
 - long-running work must go through the worker
 - `trigger.dev` is intentionally deferred for the first increment
+- PostHog browser analytics is wired through `src/instrumentation-client.ts` and stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true` and the build runs with `NODE_ENV=production`
+- PostHog browser capture now uses `/ingest` rewrites in `next.config.ts`, so the browser talks to the workspace domain and Next.js forwards requests to PostHog EU Cloud
+- the default integration is intentionally cheap: SPA pageviews only, no autocapture, no session replay, no surveys, and no heatmaps
 
 ## Production deployment
 

@@ -49,6 +49,7 @@ Set at least:
 - `HETZNER_API_TOKEN`
 - one of `RUNTIME_DEPLOY_PRIVATE_KEY` or `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`
 - `CONTROL_PLANE_ENCRYPTION_SECRET`
+- `CONTROL_PLANE_OPENAI_ADMIN_API_KEY` so Otto can provision the initial tenant-specific OpenAI project and service-account key during tenant bootstrap and later rotate it
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
@@ -83,6 +84,11 @@ RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.1.1
 ```
 
 on the control-plane host before rebuilding the production stack.
+
+If PostHog browser analytics is enabled, make sure `NEXT_PUBLIC_POSTHOG_ENABLED`,
+`NEXT_PUBLIC_POSTHOG_HOST`, and `NEXT_PUBLIC_POSTHOG_TOKEN` are already present
+in `.env` before running `docker compose ... build`. Next.js inlines
+`NEXT_PUBLIC_*` values into the browser bundle at build time.
 
 ```bash
 docker compose -f docker-compose.prod.yml build

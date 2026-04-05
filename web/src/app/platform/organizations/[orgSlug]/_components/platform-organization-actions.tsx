@@ -14,19 +14,22 @@ import {
 
 type PlatformOrganizationActionsProps = {
   hasTenant: boolean;
+  hasTenantOpenAiProvider: boolean;
   orgSlug: string;
   runtimeReady: boolean;
 };
 
-type OrganizationAction = "apply" | "refresh-image";
+type OrganizationAction = "apply" | "provision-openai-key" | "refresh-image";
 
 const ACTION_LABELS: Record<OrganizationAction, string> = {
   apply: "Applying Config",
+  "provision-openai-key": "Provisioning OpenAI API Key",
   "refresh-image": "Pulling and Restarting Image",
 };
 
 export function PlatformOrganizationActions({
   hasTenant,
+  hasTenantOpenAiProvider,
   orgSlug,
   runtimeReady,
 }: PlatformOrganizationActionsProps) {
@@ -37,7 +40,9 @@ export function PlatformOrganizationActions({
     const endpoint =
       action === "apply"
         ? `/api/platform/organizations/${orgSlug}/apply`
-        : `/api/platform/organizations/${orgSlug}/refresh-image`;
+        : action === "provision-openai-key"
+          ? `/api/platform/organizations/${orgSlug}/provision-openai-key`
+          : `/api/platform/organizations/${orgSlug}/refresh-image`;
 
     try {
       const response = await fetch(endpoint, { method: "POST" });
@@ -54,7 +59,11 @@ export function PlatformOrganizationActions({
       }
 
       if (body?.jobId) {
-        setSyncMessage(ACTION_LABELS[action]);
+        setSyncMessage(
+          action === "provision-openai-key" && hasTenantOpenAiProvider
+            ? "Rotating OpenAI API Key"
+            : ACTION_LABELS[action],
+        );
         setSyncJobId(body.jobId);
       }
     } catch (error) {
@@ -93,14 +102,25 @@ export function PlatformOrganizationActions({
         >
           <DotsThree weight="bold" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="min-w-60">
           <DropdownMenuItem
+            className="whitespace-nowrap"
             disabled={!hasTenant || !runtimeReady || syncJobId !== null}
             onClick={() => runAction("apply")}
           >
             Apply tenant config
           </DropdownMenuItem>
           <DropdownMenuItem
+            className="whitespace-nowrap"
+            disabled={!hasTenant || syncJobId !== null}
+            onClick={() => runAction("provision-openai-key")}
+          >
+            {hasTenantOpenAiProvider
+              ? "Rotate OpenAI API key"
+              : "Provision OpenAI API key"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="whitespace-nowrap"
             disabled={!hasTenant || !runtimeReady || syncJobId !== null}
             onClick={() => runAction("refresh-image")}
           >
