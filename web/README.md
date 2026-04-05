@@ -47,6 +47,10 @@ docker compose up -d
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`
    - optionally tune `RUNTIME_SSH_USERNAME`, `RUNTIME_SSH_PORT`, `RUNTIME_SSH_CONNECT_TIMEOUT_MS`, `RUNTIME_SSH_COMMAND_TIMEOUT_MS`, and `RUNTIME_SSH_READY_TIMEOUT_MS` for SSH checks and remote command execution
+   - optional PostHog browser analytics env vars:
+    - `NEXT_PUBLIC_POSTHOG_ENABLED=true` only in the real production environment
+    - `NEXT_PUBLIC_POSTHOG_HOST=/ingest` to proxy browser capture through the app domain
+    - `NEXT_PUBLIC_POSTHOG_TOKEN=<ph_project_token>`
 8. Install dependencies.
 9. Generate migrations with `npm run db:generate`.
 10. Apply migrations with `npm run db:migrate`.
@@ -133,6 +137,9 @@ bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 - route handlers should stay thin
 - long-running work must go through the worker
 - `trigger.dev` is intentionally deferred for the first increment
+- PostHog browser analytics is wired through `src/instrumentation-client.ts` and stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true` and the build runs with `NODE_ENV=production`
+- PostHog browser capture now uses `/ingest` rewrites in `next.config.ts`, so the browser talks to the workspace domain and Next.js forwards requests to PostHog EU Cloud
+- the default integration is intentionally cheap: SPA pageviews only, no autocapture, no session replay, no surveys, and no heatmaps
 
 ## Production deployment
 

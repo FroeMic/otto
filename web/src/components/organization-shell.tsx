@@ -9,6 +9,7 @@ import {
   BreadcrumbProvider,
   useBreadcrumbSegments,
 } from "@/components/breadcrumb-context";
+import { PostHogUserIdentity } from "@/components/posthog-user-identity";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -71,6 +72,7 @@ type OrganizationShellProps = {
   }>;
   user: {
     email: string;
+    id: string;
     isPlatformAdmin: boolean;
     name: string;
   };
@@ -153,16 +155,20 @@ export function OrganizationShell({
 
   if (isSetupFlow) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-10">
-          <div className="w-full">{children}</div>
-        </main>
-      </div>
+      <>
+        <PostHogUserIdentity user={user} />
+        <div className="min-h-screen bg-background">
+          <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-10">
+            <div className="w-full">{children}</div>
+          </main>
+        </div>
+      </>
     );
   }
 
   return (
     <BreadcrumbProvider>
+      <PostHogUserIdentity user={user} />
       <SidebarProvider>
         <AppSidebar
           currentOrganization={currentOrganization}

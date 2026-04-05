@@ -22,6 +22,7 @@ export default async function SettingsLayout({
       }}
       user={{
         email: user.email,
+        id: user.id,
         name: user.name,
       }}
     >

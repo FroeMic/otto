@@ -2,6 +2,7 @@
 
 import { CaretUpDown, Gear, SignOut, User } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { resetPostHogBrowserAnalytics } from "@/lib/posthog/browser";
 
 export function NavUser({
   currentOrganizationSlug,
@@ -26,6 +28,7 @@ export function NavUser({
   currentOrganizationSlug: string;
   user: {
     email: string;
+    id: string;
     name: string;
   };
 }) {
@@ -98,7 +101,10 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => window.location.assign("/auth/sign-out")}
+              onClick={() => {
+                resetPostHogBrowserAnalytics();
+                window.location.assign("/auth/sign-out");
+              }}
             >
               <SignOut />
               Log out

@@ -240,6 +240,11 @@
   - invite dialogs accept multiple comma/newline-separated emails plus an explicit WorkOS role
   - pending invites appear in the table immediately after send
   - row actions now support role changes, suspend/reactivate, and invitation resend/revoke flows
+- The control plane can now optionally send browser analytics to PostHog in production:
+  - browser analytics initializes through Next.js `instrumentation-client.ts`
+  - analytics stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true` and the build runs in production
+  - browser capture now uses Next.js `/ingest` rewrites to forward requests to PostHog EU Cloud instead of calling the PostHog domain directly from the browser
+  - the default config only captures SPA pageviews and identifies signed-in users; autocapture, session replay, surveys, and heatmaps stay disabled to keep usage predictable
 - Billing and credit-metering planning is now captured in `TODO_15_billing_and_credit_metering.md`:
   - Otto should use a prepaid credit burndown model with Stripe as the commerce system and Otto as the ledger authority
   - billing should be organization-scoped in the workspace, with tenant, session, model, and provider attribution underneath

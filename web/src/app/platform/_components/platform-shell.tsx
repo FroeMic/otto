@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import type * as React from "react";
 
 import { PlatformSidebar } from "@/app/platform/_components/platform-sidebar";
+import { PostHogUserIdentity } from "@/components/posthog-user-identity";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -23,6 +24,7 @@ type PlatformShellProps = {
   }>;
   user: {
     email: string;
+    id: string;
     name: string;
   };
 };
@@ -61,6 +63,7 @@ export function PlatformShell({
 
   return (
     <SidebarProvider>
+      <PostHogUserIdentity user={user} />
       <PlatformSidebar organizations={organizations} user={user} />
       <SidebarInset>
         <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
