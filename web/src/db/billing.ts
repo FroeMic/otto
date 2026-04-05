@@ -86,6 +86,7 @@ export type BillingAutoTopOffExecutionTarget = {
   monthlySpendLimitCents: number;
   organizationId: string;
   stripeCustomerId: string;
+  stripeSubscriptionId: string | null;
   tenantId: string;
   topOffAmountCents: number;
 };
@@ -393,6 +394,7 @@ export async function listBillingAutoTopOffExecutionTargets() {
       monthlySpendLimitCents: billingPreferences.monthlySpendLimitCents,
       organizationId: billingPreferences.organizationId,
       stripeCustomerId: billingCustomers.stripeCustomerId,
+      stripeSubscriptionId: billingSubscriptions.stripeSubscriptionId,
       topOffAmountCents: billingPreferences.topOffAmountCents,
     })
     .from(billingPreferences)
@@ -438,6 +440,7 @@ export async function listBillingAutoTopOffExecutionTargets() {
       monthlySpendLimitCents: row.monthlySpendLimitCents,
       organizationId: row.organizationId,
       stripeCustomerId: row.stripeCustomerId,
+      stripeSubscriptionId: row.stripeSubscriptionId,
       tenantId: tenant.id,
       topOffAmountCents: row.topOffAmountCents,
     });

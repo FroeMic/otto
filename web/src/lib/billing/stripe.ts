@@ -27,6 +27,17 @@ export type StripeInvoicePreviewSummary = {
   id: string;
 };
 
+export type StripeAutoTopOffPaymentMethodStatus = {
+  customerDefaultPaymentMethodId: string | null;
+  effectivePaymentMethodId: string | null;
+  fallbackCustomerPaymentMethodId: string | null;
+  hasReusablePaymentMethod: boolean;
+  subscriptionDefaultPaymentMethodId: string | null;
+};
+
+export const AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE =
+  "Auto-reload needs a default payment method in Stripe. Open Manage billing and set a default card before Otto can charge top-ups automatically.";
+
 type PreviewTaxIdType =
   Stripe.InvoiceCreatePreviewParams.CustomerDetails.TaxId["type"];
 
@@ -45,6 +56,16 @@ function toStripeAddressParam(
     postal_code: address.postal_code ?? undefined,
     state: address.state ?? undefined,
   };
+}
+
+function getExpandableId<T extends { id: string }>(
+  value: string | T | null | undefined,
+) {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : value.id;
 }
 
 export function getStripe() {
@@ -214,6 +235,144 @@ export async function previewStripeTopUpInvoiceCharge(input: {
     currency: preview.currency,
     id: preview.id,
   };
+}
+
+export async function getStripeAutoTopOffPaymentMethodStatus(input: {
+  stripeCustomerId: string;
+  stripeSubscriptionId?: string | null;
+}): Promise<StripeAutoTopOffPaymentMethodStatus> {
+  const stripe = getStripe();
+  const customer = await stripe.customers.retrieve(input.stripeCustomerId);
+
+  if (customer.deleted) {
+    return {
+      customerDefaultPaymentMethodId: null,
+      effectivePaymentMethodId: null,
+      fallbackCustomerPaymentMethodId: null,
+      hasReusablePaymentMethod: false,
+      subscriptionDefaultPaymentMethodId: null,
+    };
+  }
+
+  const customerDefaultPaymentMethodId = getExpandableId(
+    customer.invoice_settings.default_payment_method,
+  );
+  const savedPaymentMethods = await stripe.customers.listPaymentMethods(
+    input.stripeCustomerId,
+    {
+      limit: 1,
+      type: "card",
+    },
+  );
+  const fallbackCustomerPaymentMethodId =
+    savedPaymentMethods.data[0]?.id ?? null;
+
+  if (!input.stripeSubscriptionId) {
+    return {
+      customerDefaultPaymentMethodId,
+      effectivePaymentMethodId: customerDefaultPaymentMethodId,
+      fallbackCustomerPaymentMethodId,
+      hasReusablePaymentMethod: Boolean(customerDefaultPaymentMethodId),
+      subscriptionDefaultPaymentMethodId: null,
+    };
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(
+    input.stripeSubscriptionId,
+    {
+      expand: ["default_payment_method"],
+    },
+  );
+  const subscriptionDefaultPaymentMethodId = getExpandableId(
+    subscription.default_payment_method,
+  );
+  const effectivePaymentMethodId =
+    customerDefaultPaymentMethodId ?? subscriptionDefaultPaymentMethodId;
+
+  return {
+    customerDefaultPaymentMethodId,
+    effectivePaymentMethodId,
+    fallbackCustomerPaymentMethodId,
+    hasReusablePaymentMethod: Boolean(effectivePaymentMethodId),
+    subscriptionDefaultPaymentMethodId,
+  };
+}
+
+export async function syncStripeAutoTopOffPaymentMethodDefaults(input: {
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+}) {
+  const stripe = getStripe();
+  const status = await getStripeAutoTopOffPaymentMethodStatus(input);
+  const paymentMethodId =
+    status.effectivePaymentMethodId ?? status.fallbackCustomerPaymentMethodId;
+
+  if (!paymentMethodId) {
+    return {
+      ...status,
+      synced: false,
+    };
+  }
+
+  if (status.customerDefaultPaymentMethodId !== paymentMethodId) {
+    await stripe.customers.update(input.stripeCustomerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+  }
+
+  if (status.subscriptionDefaultPaymentMethodId !== paymentMethodId) {
+    await stripe.subscriptions.update(input.stripeSubscriptionId, {
+      default_payment_method: paymentMethodId,
+    });
+  }
+
+  return {
+    ...status,
+    customerDefaultPaymentMethodId: paymentMethodId,
+    effectivePaymentMethodId: paymentMethodId,
+    hasReusablePaymentMethod: true,
+    subscriptionDefaultPaymentMethodId: paymentMethodId,
+    synced: true,
+  };
+}
+
+export async function getStripeInvoiceFailureReason(input: {
+  defaultMessage: string;
+  stripeInvoiceId: string;
+}) {
+  const stripe = getStripe();
+  const invoice = (await stripe.invoices.retrieve(input.stripeInvoiceId, {
+    expand: ["payment_intent"],
+  })) as unknown as {
+    last_finalization_error?: {
+      message?: string | null;
+    } | null;
+    payment_intent?:
+      | string
+      | {
+          last_payment_error?: {
+            message?: string | null;
+          } | null;
+        }
+      | null;
+  };
+
+  if (invoice.last_finalization_error?.message) {
+    return invoice.last_finalization_error.message;
+  }
+
+  const paymentIntent =
+    typeof invoice.payment_intent === "string"
+      ? null
+      : (invoice.payment_intent ?? null);
+
+  if (paymentIntent?.last_payment_error?.message) {
+    return paymentIntent.last_payment_error.message;
+  }
+
+  return input.defaultMessage;
 }
 
 async function getStripePriceIdForLookupKey(input: {

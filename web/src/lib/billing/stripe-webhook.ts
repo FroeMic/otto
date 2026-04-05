@@ -17,7 +17,11 @@ import {
   getAutoTopOffPackByLookupKey,
   getBillingPlanByKey,
 } from "@/lib/billing/plans";
-import { getStripe } from "@/lib/billing/stripe";
+import {
+  getStripe,
+  getStripeInvoiceFailureReason,
+  syncStripeAutoTopOffPaymentMethodDefaults,
+} from "@/lib/billing/stripe";
 import { getStripeWebhookSecret } from "@/lib/env";
 
 export async function handleStripeWebhookRequest(request: Request) {
@@ -139,6 +143,10 @@ async function handleCheckoutSessionCompleted(
   const subscription = await stripe.subscriptions.retrieve(
     session.subscription,
   );
+  await syncStripeAutoTopOffPaymentMethodDefaults({
+    stripeCustomerId,
+    stripeSubscriptionId: session.subscription,
+  });
   await handleSubscriptionChange(subscription);
 }
 
@@ -214,6 +222,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const stripe = getStripe();
   const subscription =
     await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  await syncStripeAutoTopOffPaymentMethodDefaults({
+    stripeCustomerId,
+    stripeSubscriptionId,
+  });
   const primaryItem = subscription.items.data[0] ?? null;
   const organizationId =
     (await findOrganizationIdByStripeCustomerId(stripeCustomerId)) ??
@@ -279,10 +291,12 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     metadata.otto_charge_kind === "auto_top_off" &&
     metadata.otto_top_up_lookup_key
   ) {
+    const reason = await getStripeInvoiceFailureReason({
+      defaultMessage: "Stripe could not collect the auto-top-off invoice.",
+      stripeInvoiceId: invoice.id,
+    });
     await markBillingAutoTopOffRunFailedByInvoiceId({
-      reason:
-        invoice.last_finalization_error?.message ??
-        "Stripe could not collect the auto-top-off invoice.",
+      reason,
       stripeInvoiceId: invoice.id,
     });
     return;
