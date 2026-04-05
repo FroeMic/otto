@@ -11,6 +11,7 @@ type ButtonSize = React.ComponentProps<typeof Button>["size"];
 
 type WorkspaceManageBillingButtonProps = {
   canOpenBillingPortal: boolean;
+  className?: string;
   label?: string;
   orgSlug: string;
   size?: ButtonSize;
@@ -19,6 +20,7 @@ type WorkspaceManageBillingButtonProps = {
 
 type WorkspaceCheckoutButtonProps = {
   canManageBilling: boolean;
+  className?: string;
   label: string;
   orgSlug: string;
   planKey: BillingPlanKey;
@@ -28,6 +30,7 @@ type WorkspaceCheckoutButtonProps = {
 
 export function WorkspaceManageBillingButton({
   canOpenBillingPortal,
+  className,
   label = "Manage billing",
   orgSlug,
   size = "default",
@@ -64,6 +67,7 @@ export function WorkspaceManageBillingButton({
 
   return (
     <Button
+      className={className}
       disabled={pending || !canOpenBillingPortal}
       onClick={openBillingPortal}
       size={size}
@@ -76,6 +80,7 @@ export function WorkspaceManageBillingButton({
 
 export function WorkspaceCheckoutButton({
   canManageBilling,
+  className,
   label,
   orgSlug,
   planKey,
@@ -120,6 +125,7 @@ export function WorkspaceCheckoutButton({
 
   return (
     <Button
+      className={className}
       disabled={pending || !canManageBilling}
       onClick={startCheckout}
       size={size}
