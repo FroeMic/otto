@@ -4,8 +4,6 @@ import * as React from "react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -219,27 +217,67 @@ function getSpendChartConfig(modality: SpendModality): ChartConfig {
   };
 }
 
+function generateTimeBuckets(
+  from: Date,
+  to: Date,
+  hourly: boolean,
+): Date[] {
+  const buckets: Date[] = [];
+  const current = new Date(from);
+  if (hourly) {
+    current.setMinutes(0, 0, 0);
+  } else {
+    current.setHours(0, 0, 0, 0);
+  }
+  const stepMs = hourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  while (current <= to) {
+    buckets.push(new Date(current));
+    current.setTime(current.getTime() + stepMs);
+  }
+  return buckets;
+}
+
 function getSpendChartData(
   timeSeries: TimeSeriesRow[],
   modality: SpendModality,
   timeFormatter: Intl.DateTimeFormat,
+  dateRange: { from: Date; to: Date },
 ) {
-  return timeSeries.map((row) => {
-    const timeLabel = timeFormatter.format(new Date(row.bucketTime));
+  const rangeMs = dateRange.to.getTime() - dateRange.from.getTime();
+  const hourly = rangeMs <= 48 * 60 * 60 * 1000;
+  const allBuckets = generateTimeBuckets(dateRange.from, dateRange.to, hourly);
+
+  // Index actual data by bucket key
+  const dataByKey = new Map<string, TimeSeriesRow>();
+  for (const row of timeSeries) {
+    const d = new Date(row.bucketTime);
+    const key = hourly
+      ? `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`
+      : `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+    dataByKey.set(key, row);
+  }
+
+  return allBuckets.map((bucket) => {
+    const key = hourly
+      ? `${bucket.getUTCFullYear()}-${bucket.getUTCMonth()}-${bucket.getUTCDate()}-${bucket.getUTCHours()}`
+      : `${bucket.getUTCFullYear()}-${bucket.getUTCMonth()}-${bucket.getUTCDate()}`;
+    const row = dataByKey.get(key);
+    const timeLabel = timeFormatter.format(bucket);
+
     if (modality === "text") {
-      return { timeLabel, input: row.inputTextTokens, output: row.outputTextTokens };
+      return { timeLabel, input: row?.inputTextTokens ?? 0, output: row?.outputTextTokens ?? 0 };
     }
     if (modality === "audio") {
-      return { timeLabel, input: row.inputAudioTokens, output: row.outputAudioTokens };
+      return { timeLabel, input: row?.inputAudioTokens ?? 0, output: row?.outputAudioTokens ?? 0 };
     }
     if (modality === "image") {
-      return { timeLabel, input: row.inputImageTokens, output: 0 };
+      return { timeLabel, input: row?.inputImageTokens ?? 0, output: 0 };
     }
     return {
       timeLabel,
-      inputTokens: row.inputTokens,
-      outputTokens: row.outputTokens,
-      inputCachedTokens: row.inputCachedTokens,
+      inputTokens: row?.inputTokens ?? 0,
+      outputTokens: row?.outputTokens ?? 0,
+      inputCachedTokens: row?.inputCachedTokens ?? 0,
     };
   });
 }
@@ -340,7 +378,7 @@ export function PlatformUsageContent({
 
   const spendChartConfig = getSpendChartConfig(spendModality);
   const spendChartData = data?.timeSeries
-    ? getSpendChartData(data.timeSeries, spendModality, timeFormatter)
+    ? getSpendChartData(data.timeSeries, spendModality, timeFormatter, dateRange)
     : [];
   const spendDataKeys = Object.keys(spendChartConfig);
 
@@ -461,9 +499,15 @@ export function PlatformUsageContent({
                 className="aspect-auto h-[280px] w-full"
                 config={spendChartConfig}
               >
-                <AreaChart data={spendChartData}>
+                <BarChart data={spendChartData}>
                   <CartesianGrid vertical={false} />
-                  <XAxis axisLine={false} dataKey="timeLabel" tickLine={false} />
+                  <XAxis
+                    axisLine={false}
+                    dataKey="timeLabel"
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    tick={{ fontSize: 11 }}
+                  />
                   <YAxis
                     axisLine={false}
                     tickFormatter={(v: number) => formatCompact(v, locale)}
@@ -471,18 +515,16 @@ export function PlatformUsageContent({
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  {spendDataKeys.map((key, i) => (
-                    <Area
+                  {spendDataKeys.map((key) => (
+                    <Bar
                       key={key}
                       dataKey={key}
                       fill={`var(--color-${key})`}
-                      fillOpacity={0.15 + i * 0.05}
                       stackId="tokens"
-                      stroke={`var(--color-${key})`}
-                      type="monotone"
+                      radius={key === spendDataKeys[spendDataKeys.length - 1] ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                     />
                   ))}
-                </AreaChart>
+                </BarChart>
               </ChartContainer>
             )}
           </CardContent>
