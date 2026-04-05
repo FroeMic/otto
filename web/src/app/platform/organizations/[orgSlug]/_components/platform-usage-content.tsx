@@ -228,15 +228,15 @@ function getSpendChartConfig(modality: SpendModality): ChartConfig {
   // Colors: lightest at top, darkest at bottom.
   if (modality === "all") {
     return {
-      outputTokens: { color: "hsl(25, 70%, 80%)", label: "Output" },
-      inputTokens: { color: "hsl(25, 70%, 55%)", label: "Input" },
-      inputCachedTokens: { color: "hsl(25, 70%, 30%)", label: "Input cached" },
+      outputTokens: { color: "var(--chart-2)", label: "Output" },
+      inputTokens: { color: "var(--chart-1)", label: "Input" },
+      inputCachedTokens: { color: "var(--chart-4)", label: "Input cached" },
     };
   }
   const prefix = modality.charAt(0).toUpperCase() + modality.slice(1);
   return {
-    output: { color: "hsl(25, 70%, 75%)", label: `${prefix} output` },
-    input: { color: "hsl(25, 70%, 40%)", label: `${prefix} input` },
+    output: { color: "var(--chart-2)", label: `${prefix} output` },
+    input: { color: "var(--chart-1)", label: `${prefix} input` },
   };
 }
 
