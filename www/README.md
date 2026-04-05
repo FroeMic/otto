@@ -27,11 +27,11 @@ own public analytics configuration separate from `web/.env`.
 
 ## Commands
 
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run typecheck`
-- `npm run format`
+- `bun run dev`
+- `bun run build`
+- `bun run lint`
+- `bun run typecheck`
+- `bun run format`
 
 ## PostHog
 
