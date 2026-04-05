@@ -118,58 +118,72 @@ export default async function WorkspaceBillingPage({
   });
 
   if (billingConfigured && billingOverview.customer) {
-    try {
-      invoices = await listStripeInvoicesForCustomer({
-        stripeCustomerId: billingOverview.customer.stripeCustomerId,
-      });
-    } catch (error) {
-      invoicesError =
-        error instanceof Error
-          ? error.message
-          : "Invoice history is temporarily unavailable.";
-    }
-
-    try {
-      currentCycleSpendCents = await getStripeBillingCycleSpendCents({
-        periodEnd: billingCycleWindow.end,
-        periodStart: billingCycleWindow.start,
-        stripeCustomerId: billingOverview.customer.stripeCustomerId,
-      });
-    } catch (error) {
-      console.error("[billing] failed to load billing cycle spend", error);
-    }
-
-    try {
-      autoTopOffPaymentMethodStatus =
-        await getStripeAutoTopOffPaymentMethodStatus({
-          stripeCustomerId: billingOverview.customer.stripeCustomerId,
-          stripeSubscriptionId:
-            billingOverview.subscription?.stripeSubscriptionId ?? null,
-        });
-    } catch (error) {
-      console.error(
-        "[billing] failed to load auto-reload payment method status",
-        error,
-      );
-    }
-
+    const customerId = billingOverview.customer.stripeCustomerId;
     const selectedTopUpPack = getAutoTopOffPackByAmountCents(
       billingOverview.preferences.topOffAmountCents,
     );
+    const shouldPreviewTopUp =
+      billingOverview.preferences.autoTopOffEnabled && selectedTopUpPack;
 
-    if (billingOverview.preferences.autoTopOffEnabled && selectedTopUpPack) {
-      try {
-        const preview = await previewStripeTopUpInvoiceCharge({
-          stripeCustomerId: billingOverview.customer.stripeCustomerId,
-          topUpLookupKey: selectedTopUpPack.lookupKey,
-        });
-        nextAutoReloadChargeCents = preview.amountDueCents;
-      } catch (error) {
-        console.error(
-          "[billing] failed to preview next auto-reload invoice",
-          error,
-        );
-      }
+    const [
+      invoicesResult,
+      spendResult,
+      paymentMethodStatusResult,
+      previewResult,
+    ] = await Promise.allSettled([
+      listStripeInvoicesForCustomer({ stripeCustomerId: customerId }),
+      getStripeBillingCycleSpendCents({
+        periodEnd: billingCycleWindow.end,
+        periodStart: billingCycleWindow.start,
+        stripeCustomerId: customerId,
+      }),
+      getStripeAutoTopOffPaymentMethodStatus({
+        stripeCustomerId: customerId,
+        stripeSubscriptionId:
+          billingOverview.subscription?.stripeSubscriptionId ?? null,
+      }),
+      shouldPreviewTopUp
+        ? previewStripeTopUpInvoiceCharge({
+            stripeCustomerId: customerId,
+            topUpLookupKey: selectedTopUpPack.lookupKey,
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (invoicesResult.status === "fulfilled") {
+      invoices = invoicesResult.value;
+    } else {
+      invoicesError =
+        invoicesResult.reason instanceof Error
+          ? invoicesResult.reason.message
+          : "Invoice history is temporarily unavailable.";
+    }
+
+    if (spendResult.status === "fulfilled") {
+      currentCycleSpendCents = spendResult.value;
+    } else {
+      console.error(
+        "[billing] failed to load billing cycle spend",
+        spendResult.reason,
+      );
+    }
+
+    if (paymentMethodStatusResult.status === "fulfilled") {
+      autoTopOffPaymentMethodStatus = paymentMethodStatusResult.value;
+    } else {
+      console.error(
+        "[billing] failed to load auto-reload payment method status",
+        paymentMethodStatusResult.reason,
+      );
+    }
+
+    if (previewResult.status === "fulfilled" && previewResult.value) {
+      nextAutoReloadChargeCents = previewResult.value.amountDueCents;
+    } else if (previewResult.status === "rejected") {
+      console.error(
+        "[billing] failed to preview next auto-reload invoice",
+        previewResult.reason,
+      );
     }
   }
 

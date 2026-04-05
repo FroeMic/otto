@@ -672,11 +672,7 @@ export function TranscriptViewer({
     [memberNames, channelNames],
   );
 
-  const title =
-    session.displayName ||
-    session.label ||
-    session.subject ||
-    session.sessionKey;
+  const title = sessionName;
 
   return (
     <ResolveTextContext.Provider value={resolveText}>
