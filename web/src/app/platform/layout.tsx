@@ -23,6 +23,7 @@ export default async function PlatformLayout({
       }))}
       user={{
         email: user.email,
+        id: user.id,
         name: user.name,
       }}
     >

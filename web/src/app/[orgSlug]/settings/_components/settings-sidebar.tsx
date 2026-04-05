@@ -24,6 +24,7 @@ type SettingsSidebarProps = React.ComponentProps<typeof Sidebar> & {
   };
   user: {
     email: string;
+    id: string;
     name: string;
   };
 };

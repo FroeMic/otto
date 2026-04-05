@@ -88,6 +88,12 @@ const envSchema = z.object({
   CONTROL_PLANE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_ENABLED: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_TOKEN: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
