@@ -62,9 +62,22 @@ export async function POST(
       throw new Error("The public app base URL is not configured.");
     }
 
+    console.info("[billing/checkout] starting checkout", {
+      organizationId: organization.id,
+      organizationSlug: organization.slug,
+      planKey: plan.key,
+      userId: user.id,
+    });
+
     let customer = await findBillingCustomerByOrganizationId(organization.id);
 
     if (!customer) {
+      console.info("[billing/checkout] creating Stripe customer", {
+        organizationId: organization.id,
+        organizationSlug: organization.slug,
+        planKey: plan.key,
+      });
+
       const stripeCustomer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -80,11 +93,27 @@ export async function POST(
         organizationId: organization.id,
         stripeCustomerId: stripeCustomer.id,
       });
+
+      console.info("[billing/checkout] created Stripe customer", {
+        organizationId: organization.id,
+        organizationSlug: organization.slug,
+        stripeCustomerId: stripeCustomer.id,
+      });
     }
 
     if (!customer) {
       throw new Error("Failed to create or load the Stripe customer.");
     }
+
+    const stripePriceId = await getStripeRecurringPriceIdForPlanKey(plan.key);
+
+    console.info("[billing/checkout] resolved Stripe price", {
+      organizationId: organization.id,
+      organizationSlug: organization.slug,
+      planKey: plan.key,
+      stripeCustomerId: customer.stripeCustomerId,
+      stripePriceId,
+    });
 
     const session = await stripe.checkout.sessions.create({
       cancel_url: `${baseUrl}/${organization.slug}/settings/workspace/billing?checkout=canceled`,
@@ -92,7 +121,7 @@ export async function POST(
       customer: customer.stripeCustomerId,
       line_items: [
         {
-          price: await getStripeRecurringPriceIdForPlanKey(plan.key),
+          price: stripePriceId,
           quantity: 1,
         },
       ],
@@ -110,6 +139,16 @@ export async function POST(
         },
       },
       success_url: `${baseUrl}/${organization.slug}/settings/workspace/billing?checkout=success`,
+    });
+
+    console.info("[billing/checkout] created checkout session", {
+      organizationId: organization.id,
+      organizationSlug: organization.slug,
+      planKey: plan.key,
+      sessionId: session.id,
+      stripeCustomerId: customer.stripeCustomerId,
+      stripePriceId,
+      urlPresent: Boolean(session.url),
     });
 
     await recordBillingCheckoutSession({
@@ -138,6 +177,16 @@ export async function POST(
         400,
       );
     }
+
+    console.error("[billing/checkout] checkout failed", {
+      error:
+        error instanceof Error
+          ? {
+              message: error.message,
+              name: error.name,
+            }
+          : { message: "Unknown billing checkout failure" },
+    });
 
     return json(
       {
