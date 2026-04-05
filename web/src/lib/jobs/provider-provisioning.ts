@@ -18,6 +18,7 @@ import {
 } from "@/db/provider-accounts";
 import { tenantServers, tenants } from "@/db/schema";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
+import { getEnv } from "@/lib/env";
 import { OpenAiProvisioner } from "@/lib/providers/openai/provisioning";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
@@ -71,6 +72,7 @@ export async function processProvisionTenantOpenAiKeyJob(
       existingProviderAccount?.externalServiceAccountId ?? null;
     const runtimeReady =
       tenant.status === "ready" && tenant.serverStatus === "ready";
+    const usesProxyPrimaryModel = isProxyPrimaryModelEnabled();
 
     await appendJobEvent(
       job.id,
@@ -121,7 +123,7 @@ export async function processProvisionTenantOpenAiKeyJob(
 
     let desiredStateVersion: number | null = null;
 
-    if (runtimeReady) {
+    if (runtimeReady && !usesProxyPrimaryModel) {
       await appendJobEvent(
         job.id,
         OPENAI_PROVISION_EVENTS.applyingCredential,
@@ -156,6 +158,18 @@ export async function processProvisionTenantOpenAiKeyJob(
       );
     }
 
+    if (runtimeReady && usesProxyPrimaryModel) {
+      await appendJobEvent(
+        job.id,
+        OPENAI_PROVISION_EVENTS.applyingCredential,
+        "Stored the new OpenAI API key in Otto only; skipped tenant runtime apply because the primary model uses openai-proxy",
+        {
+          apiKeyId: provisionedCredential.apiKeyId,
+          tenantId: tenant.id,
+        },
+      );
+    }
+
     let previousServiceAccountDeleted = false;
 
     if (
@@ -168,6 +182,16 @@ export async function processProvisionTenantOpenAiKeyJob(
           job.id,
           OPENAI_PROVISION_EVENTS.skippedPreviousServiceAccountDeletion,
           "Skipped deleting the previous OpenAI service account because the tenant runtime is not ready for apply/verification",
+          {
+            previousServiceAccountId,
+            tenantId: tenant.id,
+          },
+        );
+      } else if (usesProxyPrimaryModel) {
+        await appendJobEvent(
+          job.id,
+          OPENAI_PROVISION_EVENTS.skippedPreviousServiceAccountDeletion,
+          "Skipped deleting the previous OpenAI service account because the tenant runtime still carries the legacy direct key for non-proxy features",
           {
             previousServiceAccountId,
             tenantId: tenant.id,
@@ -196,6 +220,7 @@ export async function processProvisionTenantOpenAiKeyJob(
       action,
       previousServiceAccountDeleted,
       previousServiceAccountId,
+      usesProxyPrimaryModel,
       runtimeReady,
     });
 
@@ -353,7 +378,16 @@ function buildProvisioningResultNote(input: {
   runtimeReady: boolean;
   previousServiceAccountId: string | null;
   previousServiceAccountDeleted: boolean;
+  usesProxyPrimaryModel: boolean;
 }) {
+  if (input.usesProxyPrimaryModel) {
+    if (input.action === "rotate" && input.previousServiceAccountId) {
+      return "The new tenant-specific key is stored in Otto and will be used by openai-proxy. Tenant runtime apply and previous-service-account deletion were skipped so legacy direct-key runtime features keep working.";
+    }
+
+    return "The new tenant-specific key is stored in Otto and will be used by openai-proxy. Tenant runtime apply was skipped because the primary model no longer depends on direct OPENAI_API_KEY projection.";
+  }
+
   if (!input.runtimeReady) {
     return input.action === "rotate" && input.previousServiceAccountId
       ? "The new tenant-specific key is stored. Reapply tenant config before disabling the previous OpenAI service account."
@@ -369,4 +403,8 @@ function buildProvisioningResultNote(input: {
   }
 
   return "The new tenant-specific key was applied and verified on the tenant runtime.";
+}
+
+function isProxyPrimaryModelEnabled() {
+  return getEnv().RUNTIME_MODEL_PRIMARY.startsWith("openai-proxy/");
 }

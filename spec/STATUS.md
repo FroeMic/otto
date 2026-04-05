@@ -38,6 +38,7 @@
   - when `RUNTIME_MODEL_PRIMARY` is set to `openai-proxy/...`, tenant `openclaw.json` now projects `models.providers.openai-proxy` plus the bundled `otto-ai-provider` plugin
   - runtime inference requests now target a runtime-authenticated control-plane OpenAI Responses proxy at `/api/internal/runtime/ai/openai/v1/responses`
   - this first slice intentionally still leaves direct `OPENAI_API_KEY` env projection in place until the remaining migration work removes legacy direct-key consumers like audio/STT paths
+  - when the primary model uses `openai-proxy/...`, OpenAI key rotation should now update Otto DB state only and must not reapply the tenant runtime or delete the previous service account yet, because legacy runtime features still depend on the old direct key
 - The first raw OpenAI usage-ingestion foundation now exists:
   - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
   - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
@@ -219,6 +220,10 @@
   - the control plane now exposes `/api/internal/runtime/ai/openai/v1/responses`, which authenticates the tenant runtime and forwards OpenAI Responses requests server-side with the tenant's stored upstream OpenAI API key
   - tenant OpenClaw config rendering now adds `models.providers.openai-proxy` only when `RUNTIME_MODEL_PRIMARY` selects `openai-proxy/...`, keeping rollout opt-in per runtime image + model setting
   - removing direct `OPENAI_API_KEY` projection remains deferred to a later `TODO_16` step once remaining legacy OpenAI runtime consumers are migrated
+  - OpenAI key rotation now treats `openai-proxy/...` runtimes differently:
+    - new keys are verified against OpenAI directly and stored in Otto DB for proxy use
+    - tenant runtime apply is skipped
+    - previous OpenAI service-account deletion is skipped so legacy direct-key runtime features keep working until they are migrated
 - The next runtime-security architecture slice is now captured in `TODO_16_runtime_ai_provider_proxy.md`:
   - Otto should remove upstream AI provider keys from tenant runtime env
   - a new `otto-ai-provider` package should authenticate to an Otto-owned AI gateway with tenant-scoped Otto credentials

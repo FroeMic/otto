@@ -249,6 +249,10 @@ function normalizeOpenAiModel(value: string) {
     return value.slice("openai/".length);
   }
 
+  if (value.startsWith("openai-proxy/")) {
+    return value.slice("openai-proxy/".length);
+  }
+
   if (!value.includes("/")) {
     return value;
   }
