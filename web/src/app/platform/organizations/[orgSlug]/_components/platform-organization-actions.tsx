@@ -248,7 +248,7 @@ export function PlatformOrganizationActions({
           <DropdownMenuItem
             className="whitespace-nowrap"
             disabled={!hasTenant || syncJobId !== null || isGrantPending}
-            onSelect={() => setIsGrantDialogOpen(true)}
+            onClick={() => setIsGrantDialogOpen(true)}
           >
             Grant credits
           </DropdownMenuItem>
