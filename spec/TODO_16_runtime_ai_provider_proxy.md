@@ -309,6 +309,16 @@ The proxy must preserve correct attribution across provider key rotation.
 
 Tenant runtime `.env` still receives `OPENAI_API_KEY` directly.
 
+The first implementation slice now also exists in code:
+
+- `runtime-plugins/otto-ai-provider` registers `openai-proxy`
+- tenant runtimes can opt into `openai-proxy/...` as the primary model
+- `openai-proxy` currently authenticates proxied calls with `TENANT_TOKEN`
+- the control plane now proxies OpenAI Responses at `/api/internal/runtime/ai/openai/v1/responses`
+
+This keeps the first inference path testable without yet removing every
+remaining direct OpenAI runtime dependency.
+
 ### Target state
 
 Tenant runtime should instead receive only Otto-scoped configuration, for example:
@@ -431,13 +441,14 @@ Exit check:
 - [x] define how speech / TTS fits the proxy boundary
 - [x] identify STT / transcription as a separate follow-on path
 - [x] define attribution and rotation requirements needed for billing
-- [ ] implement the gateway and plugin
+- [x] implement the first `openai-proxy` gateway and plugin slice
 - [ ] remove direct `OPENAI_API_KEY` projection from tenant runtimes
 
 ## Open questions
 
 - Should the Otto AI gateway live as a dedicated service process immediately, or can the first streaming implementation safely live in `web/` behind a stronger internal boundary before being extracted?
 - Should the runtime bootstrap credential be stored as an Otto-managed runtime secret only, or should it be derivable from the existing tenant gateway token with stricter audience and capability scoping?
+- The first implementation currently reuses `TENANT_TOKEN` for proxied inference auth. Do we keep that as the production boundary for v1, or still introduce a dedicated Otto AI bootstrap credential before broad rollout?
 - For embeddings, is reusing OpenClaw's existing OpenAI-compatible remote adapter sufficient, or do we want a first-class Otto embedding adapter for stronger explicitness?
 - For speech providers, should the first Otto speech provider wrap OpenAI TTS only, or should the interface be designed for immediate multi-provider fallback?
 - Do we want to proxy OpenAI WebSocket transport later, or explicitly standardize on HTTP / SSE for Otto-managed OpenAI inference?

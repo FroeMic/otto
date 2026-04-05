@@ -32,9 +32,24 @@ export type OpenClawTenantConfig = {
   authTokenEnvVar: string;
   envelopeTimezone?: "local" | "utc" | "user" | string;
   gatewayPort: number;
+  modelProviders?: Record<
+    string,
+    {
+      api?: string;
+      apiKey?: string;
+      baseUrl?: string;
+      models?: Array<{
+        id: string;
+        name: string;
+      }>;
+    }
+  >;
   ottoPlugins?: Array<{
     id: string;
     timeoutMs: number;
+  }>;
+  ottoProviderPlugins?: Array<{
+    id: string;
   }>;
   primaryModel?: string;
   timeFormat?: "12" | "24" | "auto";
@@ -69,6 +84,9 @@ export type OpenClawTenantConfig = {
 export const OPENCLAW_GATEWAY_BIND = "lan";
 export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
+
+const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
+const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
 
 function buildWebSearchPluginEntries(
   webSearch: OpenClawWebSearchConfig | undefined,
@@ -140,8 +158,8 @@ function buildWebSearchPluginEntries(
 }
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
-  const ottoPluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
-  const ottoPluginEntries = Object.fromEntries(
+  const ottoToolPluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const ottoToolPluginEntries = Object.fromEntries(
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
       {
@@ -152,18 +170,33 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       },
     ]),
   );
+  const ottoProviderPluginIds =
+    config.ottoProviderPlugins?.map((plugin) => plugin.id) ?? [];
+  const ottoProviderPluginEntries = Object.fromEntries(
+    (config.ottoProviderPlugins ?? []).map((plugin) => [
+      plugin.id,
+      {
+        enabled: true,
+      },
+    ]),
+  );
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
   const pluginIds = [
-    ...new Set([...ottoPluginIds, ...Object.keys(webSearchPluginEntries)]),
+    ...new Set([
+      ...ottoToolPluginIds,
+      ...ottoProviderPluginIds,
+      ...Object.keys(webSearchPluginEntries),
+    ]),
   ];
   const pluginEntries = {
-    ...ottoPluginEntries,
+    ...ottoToolPluginEntries,
+    ...ottoProviderPluginEntries,
     ...webSearchPluginEntries,
   };
   const pluginTools =
-    pluginIds.length > 0
+    ottoToolPluginIds.length > 0
       ? {
-          alsoAllow: pluginIds,
+          alsoAllow: ottoToolPluginIds,
         }
       : undefined;
   const slack = config.slack;
@@ -351,6 +384,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
+      ...(config.modelProviders
+        ? {
+            models: {
+              providers: config.modelProviders,
+            },
+          }
+        : {}),
       ...(Object.keys(pluginEntries).length > 0 || pluginIds.length > 0
         ? {
             plugins: {
@@ -429,6 +469,11 @@ export function buildOpenClawTenantConfig(input: {
   const timeFormat = normalizeTimeFormatPreference(
     readOptionalString(config.timeFormat),
   );
+  const primaryModel = env.RUNTIME_MODEL_PRIMARY;
+  const proxyModelConfig = resolveProxyModelConfig({
+    controlPlaneBaseUrl,
+    primaryModel,
+  });
 
   return {
     ...(audio ? { audio } : {}),
@@ -440,7 +485,13 @@ export function buildOpenClawTenantConfig(input: {
           (value): value is string => typeof value === "string",
         )
       : [],
-    primaryModel: env.RUNTIME_MODEL_PRIMARY,
+    ...(proxyModelConfig
+      ? {
+          modelProviders: proxyModelConfig.modelProviders,
+          ottoProviderPlugins: proxyModelConfig.plugins,
+        }
+      : {}),
+    primaryModel,
     prompts: parseStringRecord(config.prompts),
     timeFormat,
     ...(controlPlaneBaseUrl
@@ -497,6 +548,37 @@ export function buildOpenClawTenantConfig(input: {
     tenantId: input.tenantId,
     userTimezone,
     workspacePath: "/home/node/.openclaw/workspace",
+  };
+}
+
+function resolveProxyModelConfig(input: {
+  controlPlaneBaseUrl?: string;
+  primaryModel: string;
+}) {
+  if (!input.primaryModel.startsWith(`${OPENAI_PROXY_PROVIDER_ID}/`)) {
+    return null;
+  }
+
+  if (!input.controlPlaneBaseUrl) {
+    throw new Error(
+      `${OPENAI_PROXY_PROVIDER_ID} requires OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
+    );
+  }
+
+  return {
+    modelProviders: {
+      [OPENAI_PROXY_PROVIDER_ID]: {
+        api: "openai-responses",
+        apiKey: "${TENANT_TOKEN}",
+        baseUrl: "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+        models: [],
+      },
+    },
+    plugins: [
+      {
+        id: OTTO_AI_PROVIDER_PLUGIN_ID,
+      },
+    ],
   };
 }
 
