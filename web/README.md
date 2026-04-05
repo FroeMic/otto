@@ -39,6 +39,7 @@ docker compose up -d
    - optionally override `RUNTIME_OPENCLAW_IMAGE` if you need a non-default OpenClaw runtime image
    - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
    - to preconfigure the default OpenAI model, set `RUNTIME_OPENAI_API_KEY` and optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
+   - to let the control plane provision tenant-specific OpenAI projects and service-account keys, set `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
    - in the Slack app config, add the same redirect URI, for example `http://localhost:3000/oauth/callback/slack`
    - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels

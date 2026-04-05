@@ -687,10 +687,12 @@ Exit check:
 - [x] define the OpenAI-first but provider-extensible provisioning and usage-ingestion model
 - [x] define the workspace billing page scope and self-serve Stripe surfaces
 - [x] define the billing, provider, ledger, webhook, and reconciliation roadmap
+- [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [ ] validate the final live plan pricing and top-up pack values before implementation
 - [ ] validate whether calendar-month anchors or signup-date anchors are the better launch default
 - [ ] decide whether the first live enforcement step should be soft-stop only or hard-stop with request reservation
 - [ ] decide whether paid top-up credits should expire after 12 months or never expire
+- [ ] validate the OpenAI provisioning spike against a real admin key and confirm the exact service-account response shape
 
 ## Open questions
 

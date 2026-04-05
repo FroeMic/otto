@@ -245,6 +245,12 @@
   - billing should be organization-scoped in the workspace, with tenant, session, model, and provider attribution underneath
   - OpenAI should be the first provider integration through a provider abstraction that can later support other models and vendors
   - the first rollout should favor fixed subscription plans, manual top-ups, no postpaid overage, and hidden fair-use windows in shadow mode
+- The first OpenAI tenant-provisioning spike is now implemented in `web/`:
+  - `provider_accounts` and `provider_credentials` now exist as tenant-scoped persistence for managed provider projects and encrypted credentials
+  - `web/src/lib/providers/openai/provisioning.ts` can create an OpenAI project and service account using `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
+  - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
+  - tenant runtime env rendering now prefers the stored tenant-specific OpenAI key over the shared `RUNTIME_OPENAI_API_KEY` fallback on bootstrap and apply
+  - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
 
 ## Current product target
 
@@ -261,6 +267,8 @@
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
+  - run the new OpenAI provisioning spike against a real tenant with a configured `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
+  - confirm the exact OpenAI service-account create response shape and that a provisioned key succeeds on a real Responses API request
   - lock the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior
   - add the billing ledger and provider-account schema first
   - ship Stripe Checkout, billing portal, and idempotent webhook handling before provider metering or hard enforcement
