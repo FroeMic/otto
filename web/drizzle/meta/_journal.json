@@ -183,6 +183,13 @@
       "when": 1775385745751,
       "tag": "0025_easy_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1775387822198,
+      "tag": "0026_mature_taskmaster",
+      "breakpoints": true
     }
   ]
 }

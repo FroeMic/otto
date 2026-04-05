@@ -260,6 +260,8 @@
   - the three-dot organization action menu now exposes `Provision OpenAI API key` or `Rotate OpenAI API key` based on current tenant provider state
   - the action runs through a queued control-plane job instead of an inline request handler
   - OpenAI key rotation now preserves historical credential rows and `external_api_key_id` values so usage grouped by API key remains reconstructable after mid-cycle rotations
+  - OpenAI project naming is now stable and project-scoped across rotations using `otto_<workspace-id>_<workspace-name>` with the workspace id first for continuity
+  - OpenAI key rotation now reuses the existing project, reapplies the tenant runtime, verifies the deployed `OPENAI_API_KEY`, and only then deletes the previous service account
 
 ## Current product target
 

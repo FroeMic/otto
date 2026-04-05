@@ -97,6 +97,7 @@ export async function storeProviderCredential(input: {
   providerAccountId: string;
   credentialType: ProviderCredentialType;
   externalApiKeyId?: string | null;
+  externalServiceAccountId?: string | null;
   plaintext: string;
 }) {
   const db = getDb();
@@ -108,6 +109,7 @@ export async function storeProviderCredential(input: {
       ciphertext,
       credentialType: input.credentialType,
       externalApiKeyId: input.externalApiKeyId ?? null,
+      externalServiceAccountId: input.externalServiceAccountId ?? null,
       providerAccountId: input.providerAccountId,
     })
     .returning();
@@ -194,6 +196,7 @@ export async function getTenantOpenAiProviderSummary(tenantId: string) {
     .select({
       createdAt: providerCredentials.createdAt,
       externalApiKeyId: providerCredentials.externalApiKeyId,
+      externalServiceAccountId: providerCredentials.externalServiceAccountId,
       revokedAt: providerCredentials.revokedAt,
     })
     .from(providerCredentials)
@@ -208,6 +211,7 @@ export async function getTenantOpenAiProviderSummary(tenantId: string) {
     activeCredentialCount: credentialRows.filter(
       (credential) => credential.revokedAt === null,
     ).length,
+    activeServiceAccountId: activeCredential?.externalServiceAccountId ?? null,
     latestCredentialCreatedAt: credentialRows[0]?.createdAt ?? null,
     projectId: providerAccount.externalProjectId,
     status: providerAccount.status,
@@ -303,6 +307,7 @@ export async function persistProvisionedProviderCredential(input: {
         ciphertext,
         credentialType: input.credentialType,
         externalApiKeyId: input.externalApiKeyId ?? null,
+        externalServiceAccountId: input.externalServiceAccountId ?? null,
         providerAccountId: providerAccount.id,
       })
       .returning();

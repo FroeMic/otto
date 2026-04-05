@@ -20,4 +20,8 @@ export interface ProviderProvisioner {
     tenantName: string;
     verify?: boolean;
   }): Promise<ProvisionTenantCredentialResult>;
+  deleteTenantCredential(input: {
+    projectId: string;
+    serviceAccountId: string;
+  }): Promise<void>;
 }
