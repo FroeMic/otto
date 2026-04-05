@@ -737,6 +737,71 @@ export const tenantRuntimeSecrets = pgTable(
   }),
 );
 
+export const providerAccounts = pgTable(
+  "provider_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    displayName: text("display_name"),
+    externalProjectId: varchar("external_project_id", {
+      length: 255,
+    }),
+    externalServiceAccountId: varchar("external_service_account_id", {
+      length: 255,
+    }),
+    externalApiKeyId: varchar("external_api_key_id", {
+      length: 255,
+    }),
+    status: varchar("status", { length: 64 }).notNull(),
+    provisionedAt: timestamp("provisioned_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("provider_accounts_tenant_id_idx").on(table.tenantId),
+    tenantProviderUniqueIdx: uniqueIndex(
+      "provider_accounts_tenant_id_provider_key_idx",
+    ).on(table.tenantId, table.providerKey),
+    tenantProviderStatusIdx: index(
+      "provider_accounts_tenant_id_provider_key_status_idx",
+    ).on(table.tenantId, table.providerKey, table.status),
+  }),
+);
+
+export const providerCredentials = pgTable(
+  "provider_credentials",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    providerAccountId: uuid("provider_account_id")
+      .references(() => providerAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    credentialType: varchar("credential_type", { length: 64 }).notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    keyVersion: integer("key_version").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => ({
+    providerAccountIdx: index(
+      "provider_credentials_provider_account_id_idx",
+    ).on(table.providerAccountId),
+    providerAccountCredentialTypeUniqueIdx: uniqueIndex(
+      "provider_credentials_provider_account_id_credential_type_idx",
+    ).on(table.providerAccountId, table.credentialType),
+  }),
+);
+
 export const tenantApplyRuns = pgTable(
   "tenant_apply_runs",
   {

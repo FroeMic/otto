@@ -5,6 +5,8 @@ import {
   replaceTenantScheduledTasksSnapshot,
   upsertTenantScheduledTaskRuns,
 } from "@/db/scheduled-tasks";
+import { enqueueJob } from "@/lib/jobs/queue";
+import { JOB_TYPES } from "@/lib/jobs/types";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 import {
   normalizeRuntimeRun,
@@ -88,6 +90,16 @@ export async function POST(request: Request) {
       await upsertTenantScheduledTaskRuns({
         runs: runSnapshots,
         tenantId,
+      });
+
+      // Trigger a session sync so cron session transcripts are pulled.
+      // The plugin may not catch these because OpenClaw emits transcript
+      // updates without a sessionKey for many code paths.
+      await enqueueJob({
+        jobType: JOB_TYPES.syncTenantSessions,
+        payload: { tenantId },
+      }).catch(() => {
+        // Best-effort — don't fail the run sync if session sync can't be queued
       });
     }
 

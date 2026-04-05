@@ -42,6 +42,7 @@ export type SessionRow = {
   totalTokens: number | null;
   estimatedCostUsd: string | null;
   messageCount: number | null;
+  lastMessageAt: number | null;
   spawnDepth: number | null;
   sessionUpdatedAt: number | null;
   lastSyncedAt: Date;
@@ -259,17 +260,22 @@ function createColumns(input: {
       ),
     },
     {
-      accessorKey: "startedAt",
-      header: "Started",
+      accessorKey: "lastMessageAt",
+      header: "Last Message",
       size: 130,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatShortDateTime(
-            row.original.startedAt,
-            input.dateTimePreferences,
-          )}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const ts = row.original.lastMessageAt;
+        return (
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {ts
+              ? formatShortDateTime(new Date(ts), input.dateTimePreferences)
+              : formatShortDateTime(
+                  row.original.startedAt,
+                  input.dateTimePreferences,
+                )}
+          </span>
+        );
+      },
     },
   ];
 }

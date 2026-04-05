@@ -245,12 +245,24 @@
   - analytics stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true` and the build runs in production
   - browser capture now uses Next.js `/ingest` rewrites to forward requests to PostHog EU Cloud instead of calling the PostHog domain directly from the browser
   - the default config only captures SPA pageviews and identifies signed-in users; autocapture, session replay, surveys, and heatmaps stay disabled to keep usage predictable
+- Billing and credit-metering planning is now captured in `TODO_15_billing_and_credit_metering.md`:
+  - Otto should use a prepaid credit burndown model with Stripe as the commerce system and Otto as the ledger authority
+  - billing should be organization-scoped in the workspace, with tenant, session, model, and provider attribution underneath
+  - OpenAI should be the first provider integration through a provider abstraction that can later support other models and vendors
+  - the first rollout should favor fixed subscription plans, manual top-ups, no postpaid overage, and hidden fair-use windows in shadow mode
+- The first OpenAI tenant-provisioning spike is now implemented in `web/`:
+  - `provider_accounts` and `provider_credentials` now exist as tenant-scoped persistence for managed provider projects and encrypted credentials
+  - `web/src/lib/providers/openai/provisioning.ts` can create an OpenAI project and service account using `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
+  - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
+  - tenant runtime env rendering now prefers the stored tenant-specific OpenAI key over the shared `RUNTIME_OPENAI_API_KEY` fallback on bootstrap and apply
+  - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
 
 ## Current product target
 
 - Build the first internal alpha defined in `FIRST_INCREMENT_PLAN.md`.
 - Scope that alpha to tenant creation, durable provisioning jobs, and dashboard visibility.
 - In parallel, prepare the authenticated app-shell rebuild so the product can move to org-scoped workspace UI after the current bootstrap slice.
+- In parallel, keep the billing and credit-metering plan in `TODO_15_billing_and_credit_metering.md` as the source of truth for the first paid commercial slice.
 
 ## Next recommended implementation step
 
@@ -259,6 +271,13 @@
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
+- When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
+  - run the new OpenAI provisioning spike against a real tenant with a configured `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
+  - confirm the exact OpenAI service-account create response shape and that a provisioned key succeeds on a real Responses API request
+  - lock the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior
+  - add the billing ledger and provider-account schema first
+  - ship Stripe Checkout, billing portal, and idempotent webhook handling before provider metering or hard enforcement
+  - then add OpenAI project/service-account provisioning, minutely usage polling, daily cost reconciliation, and the workspace billing page
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification

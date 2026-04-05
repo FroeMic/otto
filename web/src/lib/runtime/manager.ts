@@ -1,3 +1,4 @@
+import { getTenantOpenAiApiKey } from "@/db/provider-accounts";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import {
   OPENCLAW_GATEWAY_CONTAINER_PORT,
@@ -198,7 +199,7 @@ export class RuntimeManager {
       tenantId: string;
     },
   ) {
-    const runtimeFiles = buildTenantRuntimeFiles({
+    const runtimeFiles = await buildTenantRuntimeFiles({
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
@@ -694,16 +695,20 @@ function shellQuoteForShell(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-function buildRuntimeEnvFile(input: {
+async function buildRuntimeEnvFile(input: {
   gatewayToken: string;
   slackBotToken?: string | null;
+  tenantId: string;
 }) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
   const webSearch = resolveRuntimeWebSearchConfig();
+  const tenantOpenAiApiKey = await getTenantOpenAiApiKey(input.tenantId);
 
-  if (env.RUNTIME_OPENAI_API_KEY) {
+  if (tenantOpenAiApiKey) {
+    lines.push(`OPENAI_API_KEY=${tenantOpenAiApiKey}`);
+  } else if (env.RUNTIME_OPENAI_API_KEY) {
     lines.push(`OPENAI_API_KEY=${env.RUNTIME_OPENAI_API_KEY}`);
   }
 
@@ -724,7 +729,7 @@ function buildRuntimeEnvFile(input: {
   return `${lines.join("\n")}\n`;
 }
 
-function buildTenantRuntimeFiles(input: {
+async function buildTenantRuntimeFiles(input: {
   desiredStateVersion: number;
   gatewayToken: string;
   managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
@@ -733,7 +738,7 @@ function buildTenantRuntimeFiles(input: {
   openClawConfig: OpenClawTenantConfig;
   slackBotToken?: string | null;
   tenantId: string;
-}): RuntimeFile[] {
+}): Promise<RuntimeFile[]> {
   return [
     ...input.managedBootstrapFiles.map((file) => ({
       contents: file.contents,
@@ -747,9 +752,10 @@ function buildTenantRuntimeFiles(input: {
     },
     {
       path: "/opt/openclaw/home/.env",
-      contents: buildRuntimeEnvFile({
+      contents: await buildRuntimeEnvFile({
         gatewayToken: input.gatewayToken,
         slackBotToken: input.slackBotToken,
+        tenantId: input.tenantId,
       }),
       mode: 0o600,
     },

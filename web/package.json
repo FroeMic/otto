@@ -10,6 +10,7 @@
     "worker": "bun src/worker/index.ts",
     "test:terminology": "node --import tsx --test src/lib/openclaw/managed-config.test.ts src/test/terminology-audit.test.ts",
     "test:openai-token": "node src/scripts/test-openai-token.mjs",
+    "tenant:openai:provision": "bun src/scripts/provision-openai-tenant.ts",
     "tenant:runtime": "bun src/scripts/tenant-runtime.ts",
     "tenant:runtime:apply": "bun src/scripts/tenant-runtime.ts apply",
     "tenant:runtime:refresh-image": "bun src/scripts/tenant-runtime.ts refresh-image",

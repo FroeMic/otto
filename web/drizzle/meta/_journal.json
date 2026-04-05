@@ -169,6 +169,13 @@
       "when": 1775340000000,
       "tag": "0023_repair_last_message_at",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1775384055705,
+      "tag": "0024_overrated_mole_man",
+      "breakpoints": true
     }
   ]
 }

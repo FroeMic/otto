@@ -40,6 +40,7 @@ This folder is the source of truth for implementation planning and session-to-se
 13. `TODO_12_runtime_dashboard_access.md`
 14. `TODO_13_scheduled_tasks_visibility.md`
 15. `TODO_14_session_history_visibility.md`
+16. `TODO_15_billing_and_credit_metering.md`
 
 ## Trigger.dev decision
 
