@@ -16,7 +16,10 @@ import {
   WorkspaceCheckoutButton,
   WorkspaceManageBillingButton,
 } from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-actions";
-import { WorkspaceBillingPreferencesCard } from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-preferences-card";
+import {
+  WorkspaceBillingPreferencesCard,
+  WorkspaceSpendLimitCard,
+} from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-preferences-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,6 +277,17 @@ export default async function WorkspaceBillingPage({
         </SettingsSection>
 
         <SettingsSection>
+          <SettingsSectionTitle>Spend limit</SettingsSectionTitle>
+          <SettingsCard>
+            <WorkspaceSpendLimitCard
+              initialPreferences={billingOverview.preferences}
+              locale={currentOrganization.locale}
+              orgSlug={orgSlug}
+            />
+          </SettingsCard>
+        </SettingsSection>
+
+        <SettingsSection>
           <SettingsSectionTitle>Invoices</SettingsSectionTitle>
           <SettingsCard>
             {invoicesError ? (
@@ -293,6 +307,14 @@ export default async function WorkspaceBillingPage({
                   <SettingsRowLabel>
                     <SettingsRowTitle>
                       {invoice.number ?? "Stripe invoice"}
+                      {invoice.status ? (
+                        <Badge
+                          className="ml-2"
+                          variant={getInvoiceBadgeVariant(invoice.status)}
+                        >
+                          {invoice.status}
+                        </Badge>
+                      ) : null}
                     </SettingsRowTitle>
                     <SettingsRowDescription>
                       {formatShortDate(invoice.createdAt, dateTimeInput)} ·{" "}
@@ -305,43 +327,22 @@ export default async function WorkspaceBillingPage({
                       )}
                     </SettingsRowDescription>
                   </SettingsRowLabel>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={getInvoiceBadgeVariant(invoice.status)}>
-                      {invoice.status ?? "open"}
-                    </Badge>
-                    {invoice.hostedInvoiceUrl ? (
-                      <Button
-                        render={
-                          <a
-                            aria-label={`View ${invoice.number ?? "invoice"} in Stripe`}
-                            href={invoice.hostedInvoiceUrl}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            View
-                          </a>
-                        }
-                        size="sm"
-                        variant="outline"
-                      />
-                    ) : null}
-                    {invoice.invoicePdfUrl ? (
-                      <Button
-                        render={
-                          <a
-                            aria-label={`Download PDF for ${invoice.number ?? "invoice"}`}
-                            href={invoice.invoicePdfUrl}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            PDF
-                          </a>
-                        }
-                        size="sm"
-                        variant="outline"
-                      />
-                    ) : null}
-                  </div>
+                  {invoice.hostedInvoiceUrl ? (
+                    <Button
+                      render={
+                        <a
+                          aria-label={`View ${invoice.number ?? "invoice"} in Stripe`}
+                          href={invoice.hostedInvoiceUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          View
+                        </a>
+                      }
+                      size="sm"
+                      variant="outline"
+                    />
+                  ) : null}
                 </SettingsRow>
               ))
             ) : (
