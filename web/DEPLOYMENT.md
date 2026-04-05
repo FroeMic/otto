@@ -107,6 +107,16 @@ For Stripe billing, also configure:
   - `plus_monthly`
   - `pro_monthly`
   - `max_monthly`
+- one-time top-up prices in Stripe for:
+  - `Basic top-up` at `$20`
+  - `Plus top-up` at `$50`
+  - `Pro top-up` at `$100`
+  - `Max top-up` at `$200`
+- set their Stripe price `lookup_key` values exactly to:
+  - `top_up_20`
+  - `top_up_50`
+  - `top_up_100`
+  - `top_up_200`
 - a Stripe webhook endpoint at `https://<your-domain>/webhooks/stripe`
 - webhook events:
   - `checkout.session.completed`

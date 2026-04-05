@@ -6,7 +6,12 @@ import Link from "next/link";
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsRowLabel,
+  SettingsRowTitle,
+} from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -20,12 +25,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsRowLabel,
-  SettingsRowTitle,
-} from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -122,10 +121,16 @@ function getGranularity(from: Date, to: Date): Granularity {
 }
 
 function bucketKey(isoString: string, granularity: Granularity) {
-  return granularity === "hour" ? isoString.slice(0, 13) : isoString.slice(0, 10);
+  return granularity === "hour"
+    ? isoString.slice(0, 13)
+    : isoString.slice(0, 10);
 }
 
-function generateTimeBuckets(from: Date, to: Date, granularity: Granularity): string[] {
+function generateTimeBuckets(
+  from: Date,
+  to: Date,
+  granularity: Granularity,
+): string[] {
   const keys: string[] = [];
   const current = new Date(from);
   if (granularity === "hour") {
@@ -173,7 +178,10 @@ function getCreditsChartData(
 
   for (const row of timeSeries) {
     const key = bucketKey(row.bucketTime, granularity);
-    dataByKey.set(key, (dataByKey.get(key) ?? 0) + row.creditsBurnedMilli / 1000);
+    dataByKey.set(
+      key,
+      (dataByKey.get(key) ?? 0) + row.creditsBurnedMilli / 1000,
+    );
   }
 
   const allKeys = generateTimeBuckets(from, to, granularity);
@@ -222,12 +230,15 @@ export function WorkspaceUsageContent({
     ? new Date(currentCycleEndIso)
     : new Date();
 
-  const hasPreviousCycle = Boolean(previousCycleStartIso && previousCycleEndIso);
+  const hasPreviousCycle = Boolean(
+    previousCycleStartIso && previousCycleEndIso,
+  );
 
   const presetList = React.useMemo(() => {
-    const items: Array<{ key: Exclude<RangePresetKey, "custom">; label: string }> = [
-      { key: "current_cycle", label: "Current billing cycle" },
-    ];
+    const items: Array<{
+      key: Exclude<RangePresetKey, "custom">;
+      label: string;
+    }> = [{ key: "current_cycle", label: "Current billing cycle" }];
     if (hasPreviousCycle) {
       items.push({ key: "previous_cycle", label: "Previous billing cycle" });
     }
@@ -243,10 +254,22 @@ export function WorkspaceUsageContent({
 
   const presetRanges = React.useMemo(() => {
     const ranges: Record<string, DateRange> = {
-      current_cycle: createRange(new Date(currentCycleStartIso), currentCycleEnd),
-      last_24h: createRange(new Date(Date.now() - 24 * 60 * 60 * 1000), new Date()),
-      last_30d: createRange(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), new Date()),
-      last_7d: createRange(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()),
+      current_cycle: createRange(
+        new Date(currentCycleStartIso),
+        currentCycleEnd,
+      ),
+      last_24h: createRange(
+        new Date(Date.now() - 24 * 60 * 60 * 1000),
+        new Date(),
+      ),
+      last_30d: createRange(
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        new Date(),
+      ),
+      last_7d: createRange(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        new Date(),
+      ),
       this_month: createRange(startOfMonth(new Date()), new Date()),
       today: createRange(startOfToday(), new Date()),
     };
@@ -257,7 +280,12 @@ export function WorkspaceUsageContent({
       );
     }
     return ranges;
-  }, [currentCycleStartIso, currentCycleEnd, previousCycleStartIso, previousCycleEndIso]);
+  }, [
+    currentCycleStartIso,
+    currentCycleEnd,
+    previousCycleStartIso,
+    previousCycleEndIso,
+  ]);
 
   React.useEffect(() => {
     if (!dateRange.from || !dateRange.to) return;
@@ -278,7 +306,9 @@ export function WorkspaceUsageContent({
           from: dateRange.from.toISOString(),
           to: dateRange.to.toISOString(),
         });
-        const response = await fetch(`/api/workspace/${orgSlug}/usage?${params}`);
+        const response = await fetch(
+          `/api/workspace/${orgSlug}/usage?${params}`,
+        );
         const body = (await response.json().catch(() => null)) as
           | UsageOverview
           | { message?: string }
@@ -309,7 +339,9 @@ export function WorkspaceUsageContent({
     };
 
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [dateRange.from, dateRange.to, orgSlug]);
 
   const creditsChartData =
@@ -319,7 +351,8 @@ export function WorkspaceUsageContent({
 
   const activeLabel =
     selectedPreset !== "custom"
-      ? presetList.find((p) => p.key === selectedPreset)?.label ?? "Select range"
+      ? (presetList.find((p) => p.key === selectedPreset)?.label ??
+        "Select range")
       : dateRange.from && dateRange.to
         ? `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`
         : "Select range";
@@ -364,7 +397,9 @@ export function WorkspaceUsageContent({
                 {isLoading ? (
                   <Skeleton className="h-8 w-16" />
                 ) : (
-                  new Intl.NumberFormat(locale).format(overview.summary.totalRequests)
+                  new Intl.NumberFormat(locale).format(
+                    overview.summary.totalRequests,
+                  )
                 )}
               </div>
             </SettingsRowLabel>
@@ -378,7 +413,10 @@ export function WorkspaceUsageContent({
                 {isLoading ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
-                  formatCredits(overview.summary.totalCreditsBurnedMilli, locale)
+                  formatCredits(
+                    overview.summary.totalCreditsBurnedMilli,
+                    locale,
+                  )
                 )}
               </div>
             </SettingsRowLabel>
@@ -387,7 +425,9 @@ export function WorkspaceUsageContent({
         <SettingsCard>
           <SettingsRow>
             <SettingsRowLabel>
-              <div className="text-sm text-muted-foreground">Remaining credits</div>
+              <div className="text-sm text-muted-foreground">
+                Remaining credits
+              </div>
               <div className="text-2xl font-semibold tracking-tight">
                 {formatCredits(currentBalanceCreditsMilli, locale)}
               </div>
@@ -496,9 +536,7 @@ function DateRangeDropdown({
         if (!nextOpen) setShowCalendar(false);
       }}
     >
-      <PopoverTrigger
-        className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
-      >
+      <PopoverTrigger className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80">
         <CalendarBlank className="size-3.5" weight="bold" />
         {activeLabel}
       </PopoverTrigger>

@@ -1,4 +1,4 @@
-import { Check, CreditCard, Lightning } from "@phosphor-icons/react/ssr";
+import { Check } from "@phosphor-icons/react/ssr";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import {
@@ -121,13 +121,19 @@ export default async function WorkspaceBillingPlansPage({
                     ) : null}
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {formatPrice(plan.monthlyPriceUsd, currentOrganization.locale)}
+                    {formatPrice(
+                      plan.monthlyPriceUsd,
+                      currentOrganization.locale,
+                    )}
                     /month
                   </span>
                 </div>
 
                 <div className="text-3xl font-semibold tracking-tight">
-                  {formatCredits(plan.creditsIncluded, currentOrganization.locale)}
+                  {formatCredits(
+                    plan.creditsIncluded,
+                    currentOrganization.locale,
+                  )}
                   <span className="ml-1.5 text-sm font-normal text-muted-foreground">
                     credits/month
                   </span>

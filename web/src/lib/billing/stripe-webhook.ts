@@ -3,14 +3,20 @@ import type Stripe from "stripe";
 import {
   buildSubscriptionRecordFromStripe,
   createSubscriptionCreditGrant,
+  createTopUpCreditGrant,
   findOrganizationIdByStripeCustomerId,
   hasProcessedStripeWebhookEvent,
+  markBillingAutoTopOffRunFailedByInvoiceId,
+  markBillingAutoTopOffRunSucceededByInvoiceId,
   markStripeWebhookEventProcessed,
   recordBillingCheckoutSession,
   upsertBillingCustomerRecord,
   upsertBillingSubscriptionRecord,
 } from "@/db/billing";
-import { getBillingPlanByKey } from "@/lib/billing/plans";
+import {
+  getAutoTopOffPackByLookupKey,
+  getBillingPlanByKey,
+} from "@/lib/billing/plans";
 import { getStripe } from "@/lib/billing/stripe";
 import { getStripeWebhookSecret } from "@/lib/env";
 
@@ -184,6 +190,15 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  const metadata = invoice.metadata ?? {};
+  const autoTopOffLookupKey = metadata.otto_top_up_lookup_key ?? null;
+  const chargeKind = metadata.otto_charge_kind ?? null;
+
+  if (chargeKind === "auto_top_off" && autoTopOffLookupKey) {
+    await handleAutoTopOffInvoicePaid(invoice, autoTopOffLookupKey);
+    return;
+  }
+
   const stripeCustomerId = getStripeCustomerId(invoice.customer);
 
   if (!stripeCustomerId) {
@@ -258,6 +273,21 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  const metadata = invoice.metadata ?? {};
+
+  if (
+    metadata.otto_charge_kind === "auto_top_off" &&
+    metadata.otto_top_up_lookup_key
+  ) {
+    await markBillingAutoTopOffRunFailedByInvoiceId({
+      reason:
+        invoice.last_finalization_error?.message ??
+        "Stripe could not collect the auto-top-off invoice.",
+      stripeInvoiceId: invoice.id,
+    });
+    return;
+  }
+
   const stripeSubscriptionId = getStripeInvoiceSubscriptionId(invoice);
 
   if (!stripeSubscriptionId) {
@@ -268,6 +298,42 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscription =
     await stripe.subscriptions.retrieve(stripeSubscriptionId);
   await handleSubscriptionChange(subscription);
+}
+
+async function handleAutoTopOffInvoicePaid(
+  invoice: Stripe.Invoice,
+  lookupKey: string,
+) {
+  const pack = getAutoTopOffPackByLookupKey(lookupKey);
+
+  if (!pack) {
+    return;
+  }
+
+  const stripeCustomerId = getStripeCustomerId(invoice.customer);
+
+  if (!stripeCustomerId) {
+    return;
+  }
+
+  const organizationId =
+    invoice.metadata?.organization_id ??
+    (await findOrganizationIdByStripeCustomerId(stripeCustomerId)) ??
+    null;
+
+  if (!organizationId) {
+    return;
+  }
+
+  await createTopUpCreditGrant({
+    creditsGrantedMilli: pack.creditsGranted * 1_000,
+    lookupKey,
+    organizationId,
+    stripeInvoiceId: invoice.id,
+  });
+  await markBillingAutoTopOffRunSucceededByInvoiceId({
+    stripeInvoiceId: invoice.id,
+  });
 }
 
 function getStripeCustomerId(

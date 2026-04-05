@@ -23,9 +23,19 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getWorkspaceBillingOverview } from "@/db/billing";
-import { getBillingPlans } from "@/lib/billing/plans";
-import { listStripeInvoicesForCustomer } from "@/lib/billing/stripe";
+import {
+  getBillingCycleWindow,
+  getWorkspaceBillingOverview,
+} from "@/db/billing";
+import {
+  getAutoTopOffPackByAmountCents,
+  getBillingPlans,
+} from "@/lib/billing/plans";
+import {
+  getStripeBillingCycleSpendCents,
+  listStripeInvoicesForCustomer,
+  previewStripeTopUpInvoiceCharge,
+} from "@/lib/billing/stripe";
 import { formatShortDate } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
@@ -61,6 +71,12 @@ function getInvoiceBadgeVariant(status: string | null) {
   return "outline";
 }
 
+function getAutoTopOffBadgeVariant(status: string) {
+  if (status === "succeeded") return "secondary";
+  if (status === "failed") return "destructive";
+  return "outline";
+}
+
 export default async function WorkspaceBillingPage({
   params,
   searchParams,
@@ -88,6 +104,13 @@ export default async function WorkspaceBillingPage({
   };
   let invoices: Awaited<ReturnType<typeof listStripeInvoicesForCustomer>> = [];
   let invoicesError: string | null = null;
+  let currentCycleSpendCents = 0;
+  let nextAutoReloadChargeCents: number | null = null;
+  const billingCycleWindow = getBillingCycleWindow({
+    currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
+    currentPeriodStart:
+      billingOverview.subscription?.currentPeriodStart ?? null,
+  });
 
   if (billingConfigured && billingOverview.customer) {
     try {
@@ -100,18 +123,43 @@ export default async function WorkspaceBillingPage({
           ? error.message
           : "Invoice history is temporarily unavailable.";
     }
+
+    try {
+      currentCycleSpendCents = await getStripeBillingCycleSpendCents({
+        periodEnd: billingCycleWindow.end,
+        periodStart: billingCycleWindow.start,
+        stripeCustomerId: billingOverview.customer.stripeCustomerId,
+      });
+    } catch (error) {
+      console.error("[billing] failed to load billing cycle spend", error);
+    }
+
+    const selectedTopUpPack = getAutoTopOffPackByAmountCents(
+      billingOverview.preferences.topOffAmountCents,
+    );
+
+    if (billingOverview.preferences.autoTopOffEnabled && selectedTopUpPack) {
+      try {
+        const preview = await previewStripeTopUpInvoiceCharge({
+          stripeCustomerId: billingOverview.customer.stripeCustomerId,
+          topUpLookupKey: selectedTopUpPack.lookupKey,
+        });
+        nextAutoReloadChargeCents = preview.amountDueCents;
+      } catch (error) {
+        console.error(
+          "[billing] failed to preview next auto-reload invoice",
+          error,
+        );
+      }
+    }
   }
 
-  // Calculate current billing cycle spend from paid invoices
-  const currentPeriodStart = billingOverview.subscription?.currentPeriodStart;
-  const currentCycleSpendCents = invoices
-    .filter(
-      (inv) =>
-        inv.status === "paid" &&
-        currentPeriodStart &&
-        inv.createdAt >= currentPeriodStart,
-    )
-    .reduce((sum, inv) => sum + inv.amountPaidCents, 0);
+  const wouldBlockNextAutoReload =
+    billingOverview.preferences.autoTopOffEnabled &&
+    billingOverview.preferences.monthlySpendLimitCents > 0 &&
+    nextAutoReloadChargeCents !== null &&
+    currentCycleSpendCents + nextAutoReloadChargeCents >
+      billingOverview.preferences.monthlySpendLimitCents;
 
   return (
     <SettingsPage>
@@ -229,9 +277,7 @@ export default async function WorkspaceBillingPage({
               </SettingsRowLabel>
               <Button
                 render={
-                  <Link
-                    href={`/${orgSlug}/settings/workspace/billing/plans`}
-                  />
+                  <Link href={`/${orgSlug}/settings/workspace/billing/plans`} />
                 }
                 variant="outline"
               >
@@ -281,6 +327,12 @@ export default async function WorkspaceBillingPage({
           <SettingsCard>
             <WorkspaceBillingPreferencesCard
               initialPreferences={billingOverview.preferences}
+              latestRunFailureReason={
+                billingOverview.autoTopOff.latestRun?.failureReason ?? null
+              }
+              latestRunStatus={
+                billingOverview.autoTopOff.latestRun?.status ?? null
+              }
               locale={currentOrganization.locale}
               orgSlug={orgSlug}
             />
@@ -294,8 +346,46 @@ export default async function WorkspaceBillingPage({
               currentCycleSpendCents={currentCycleSpendCents}
               initialPreferences={billingOverview.preferences}
               locale={currentOrganization.locale}
+              nextAutoReloadChargeCents={nextAutoReloadChargeCents}
               orgSlug={orgSlug}
+              wouldBlockNextAutoReload={wouldBlockNextAutoReload}
             />
+            {billingOverview.autoTopOff.latestRun ? (
+              <SettingsRow>
+                <SettingsRowLabel>
+                  <SettingsRowTitle>
+                    Latest auto-reload attempt
+                  </SettingsRowTitle>
+                  <SettingsRowDescription>
+                    {billingOverview.autoTopOff.latestRun.completedAt
+                      ? formatShortDate(
+                          billingOverview.autoTopOff.latestRun.completedAt,
+                          dateTimeInput,
+                        )
+                      : formatShortDate(
+                          billingOverview.autoTopOff.latestRun.createdAt,
+                          dateTimeInput,
+                        )}
+                    {" · "}
+                    {formatPriceFromCents(
+                      billingOverview.autoTopOff.latestRun.topOffAmountCents,
+                      "usd",
+                      currentOrganization.locale,
+                    )}
+                    {billingOverview.autoTopOff.latestRun.failureReason
+                      ? ` · ${billingOverview.autoTopOff.latestRun.failureReason}`
+                      : ""}
+                  </SettingsRowDescription>
+                </SettingsRowLabel>
+                <Badge
+                  variant={getAutoTopOffBadgeVariant(
+                    billingOverview.autoTopOff.latestRun.status,
+                  )}
+                >
+                  {billingOverview.autoTopOff.latestRun.status}
+                </Badge>
+              </SettingsRow>
+            ) : null}
           </SettingsCard>
         </SettingsSection>
 

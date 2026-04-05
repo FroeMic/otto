@@ -239,6 +239,13 @@
       "when": 1775421750889,
       "tag": "0033_steep_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1775424890513,
+      "tag": "0034_true_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

@@ -71,8 +71,20 @@
     - the Stripe billing portal can open for workspaces that already have a Stripe customer
     - Stripe customer and current subscription state are mirrored into Otto billing tables
     - `invoice.paid` now creates idempotent recurring monthly credit grants in Otto's ledger
-    - a workspace-visible settings billing page now shows plan, status, renewal, balance, recent grants, and recent ledger activity
+    - a workspace-visible settings billing page now shows plan, status, renewal, invoice history, and auto-top-off settings
     - included-credit expiry is not enforced yet; `credit_grants.expires_at` is stored but there is no expiry job yet
+  - the first auto-top-off execution slice now exists on top of Stripe billing:
+    - workspace billing preferences persist auto-top-off enabled state, minimum balance, selected fixed pack, and a billing cycle spend cap
+    - the worker now enqueues and executes idempotent auto-top-off Stripe charges when balance falls below the configured threshold
+    - auto-top-off uses one-time Stripe prices resolved by lookup key:
+      - `top_up_20`
+      - `top_up_50`
+      - `top_up_100`
+      - `top_up_200`
+    - billed spend is measured from paid Stripe invoices within the active billing cycle, using the subscription period with a first-of-month fallback
+    - the billing cycle spend cap includes tax and is checked against a previewed next Stripe top-up invoice before Otto attempts the charge
+    - successful top-up invoices now create positive top-up credit grants in Otto's ledger through the same grant path as other funded credits
+    - manual top-up checkout is still not implemented yet
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:

@@ -31,6 +31,8 @@ type BillingPreferences = {
 
 type WorkspaceBillingPreferencesCardProps = {
   initialPreferences: BillingPreferences;
+  latestRunFailureReason?: string | null;
+  latestRunStatus?: string | null;
   locale: string;
   orgSlug: string;
 };
@@ -39,7 +41,9 @@ type WorkspaceSpendLimitCardProps = {
   currentCycleSpendCents: number;
   initialPreferences: BillingPreferences;
   locale: string;
+  nextAutoReloadChargeCents: number | null;
   orgSlug: string;
+  wouldBlockNextAutoReload: boolean;
 };
 
 function formatUsd(value: number, locale: string) {
@@ -56,6 +60,8 @@ function formatCredits(value: number, locale: string) {
 
 export function WorkspaceBillingPreferencesCard({
   initialPreferences,
+  latestRunFailureReason = null,
+  latestRunStatus = null,
   locale,
   orgSlug,
 }: WorkspaceBillingPreferencesCardProps) {
@@ -111,7 +117,7 @@ export function WorkspaceBillingPreferencesCard({
         });
       }, 600);
     },
-    [orgSlug, router, startTransition],
+    [orgSlug, router],
   );
 
   function update(patch: Partial<BillingPreferences>) {
@@ -128,15 +134,16 @@ export function WorkspaceBillingPreferencesCard({
         <SettingsRowLabel>
           <SettingsRowTitle>Auto-reload</SettingsRowTitle>
           <SettingsRowDescription>
-            Automatically add credits when your balance is low.
+            {latestRunStatus === "failed"
+              ? "The last auto-reload attempt failed. Update your billing details or spend limit if needed."
+              : "Automatically add credits when your balance is low."}
+            {latestRunFailureReason ? ` ${latestRunFailureReason}` : ""}
           </SettingsRowDescription>
         </SettingsRowLabel>
         <Switch
           checked={prefs.autoTopOffEnabled}
           disabled={isPending}
-          onCheckedChange={(checked) =>
-            update({ autoTopOffEnabled: checked })
-          }
+          onCheckedChange={(checked) => update({ autoTopOffEnabled: checked })}
         />
       </SettingsRow>
       <SettingsRow>
@@ -209,24 +216,16 @@ export function WorkspaceSpendLimitCard({
   currentCycleSpendCents,
   initialPreferences,
   locale,
+  nextAutoReloadChargeCents,
   orgSlug,
+  wouldBlockNextAutoReload,
 }: WorkspaceSpendLimitCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const packs = useMemo(() => getAutoTopOffPacks(), []);
   const [spendLimitUsd, setSpendLimitUsd] = useState(
     initialPreferences.monthlySpendLimitCents / 100,
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const selectedPack = packs.find(
-    (p) => p.amountCents === initialPreferences.topOffAmountCents,
-  );
-  const nextReloadCents = selectedPack?.amountCents ?? 0;
-  const wouldExceedLimit =
-    initialPreferences.autoTopOffEnabled &&
-    spendLimitUsd > 0 &&
-    currentCycleSpendCents + nextReloadCents > spendLimitUsd * 100;
 
   function handleChange(value: number) {
     setSpendLimitUsd(value);
@@ -298,13 +297,20 @@ export function WorkspaceSpendLimitCard({
             {formatUsd(currentCycleSpendCents / 100, locale)} of{" "}
             {spendLimitUsd > 0
               ? `${formatUsd(spendLimitUsd, locale)} limit`
-              : "no limit set"}
+              : "no limit set"}{" "}
+            billed so far, including tax.
           </SettingsRowDescription>
         </SettingsRowLabel>
-        {wouldExceedLimit ? (
-          <span className="text-xs text-muted-foreground">
-            Next auto-reload will be blocked
-          </span>
+        {wouldBlockNextAutoReload ? (
+          <div className="text-right text-xs text-muted-foreground">
+            <div>Next auto-reload will be blocked</div>
+            {nextAutoReloadChargeCents !== null ? (
+              <div>
+                Previewed top-up charge incl. tax:{" "}
+                {formatUsd(nextAutoReloadChargeCents / 100, locale)}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </SettingsRow>
     </>
