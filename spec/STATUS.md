@@ -32,14 +32,13 @@
   - verify those files on the tenant server before marking the tenant ready
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
-- Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
 - The first `openai-proxy` inference slice is now implemented for opt-in runtimes:
   - `runtime-plugins/otto-ai-provider` registers an OpenAI-family `openai-proxy` provider
   - when `RUNTIME_MODEL_PRIMARY` is set to `openai-proxy/...`, tenant `openclaw.json` now projects `models.providers.openai-proxy` plus the bundled `otto-ai-provider` plugin
   - runtime inference requests now target a runtime-authenticated control-plane OpenAI Responses proxy at `/api/internal/runtime/ai/openai/v1/responses`
   - tenant audio transcription can now also route through the same `openai-proxy` provider using the control-plane OpenAI audio transcription proxy at `/api/internal/runtime/ai/openai/v1/audio/transcriptions`
-  - direct `OPENAI_API_KEY` env projection still remains until the remaining legacy direct-key consumers outside the current Otto runtime config, such as future speech/TTS or voice-call paths, are either migrated or kept unsupported
-  - when the primary model uses `openai-proxy/...`, OpenAI key rotation should now update Otto DB state only and must not reapply the tenant runtime or delete the previous service account yet, because legacy runtime features still depend on the old direct key
+  - tenant runtime `.env` no longer receives `OPENAI_API_KEY`
+  - OpenAI key rotation now updates Otto DB state only and no longer reapplies or verifies tenant runtime env
 - The first raw OpenAI usage-ingestion foundation now exists:
   - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
   - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
@@ -220,13 +219,12 @@
   - `openai-proxy` uses `TENANT_TOKEN` as its current runtime auth credential and resolves `OTTO_CONTROL_PLANE_BASE_URL` through `prepareRuntimeAuth(...)`
   - the control plane now exposes `/api/internal/runtime/ai/openai/v1/responses`, which authenticates the tenant runtime and forwards OpenAI Responses requests server-side with the tenant's stored upstream OpenAI API key
   - tenant OpenClaw config rendering now adds `models.providers.openai-proxy` only when `RUNTIME_MODEL_PRIMARY` selects `openai-proxy/...`, keeping rollout opt-in per runtime image + model setting
-  - removing direct `OPENAI_API_KEY` projection remains deferred to a later `TODO_16` step once remaining legacy OpenAI runtime consumers are migrated
-  - OpenAI key rotation now treats `openai-proxy/...` runtimes differently:
+  - direct `OPENAI_API_KEY` projection has now been removed from tenant runtime env for Otto-managed runtime config
+  - OpenAI key rotation is now DB-only:
     - new keys are verified against OpenAI directly and stored in Otto DB for proxy use
     - tenant runtime apply is skipped
-    - previous OpenAI service-account deletion is skipped so legacy direct-key runtime features keep working until they are migrated
+    - tenant runtime env verification is skipped
 - The next runtime-security architecture slice is now captured in `TODO_16_runtime_ai_provider_proxy.md`:
-  - Otto should remove upstream AI provider keys from tenant runtime env
   - a new `otto-ai-provider` package should authenticate to an Otto-owned AI gateway with tenant-scoped Otto credentials
   - embeddings can likely reuse OpenAI-compatible proxying, while speech/TTS should use a dedicated speech-provider path and STT remains a separate follow-on concern
 - The workspace Agent area is now instruction-first instead of split across a workspace-facing status tab plus a separate configuration tab:
@@ -314,7 +312,7 @@
   - the action runs through a queued control-plane job instead of an inline request handler
   - OpenAI key rotation now preserves historical credential rows and `external_api_key_id` values so usage grouped by API key remains reconstructable after mid-cycle rotations
   - OpenAI project naming is now stable and project-scoped across rotations using `otto_<workspace-id>_<workspace-name>` with the workspace id first for continuity
-  - OpenAI key rotation now reuses the existing project, reapplies the tenant runtime, verifies the deployed `OPENAI_API_KEY`, and only then deletes the previous service account
+  - OpenAI key rotation now reuses the existing project, stores the replacement key in Otto DB, and no longer relies on tenant runtime env deployment
 
 ## Current product target
 
@@ -326,8 +324,8 @@
 ## Next recommended implementation step
 
 - Continue `TODO_16_runtime_ai_provider_proxy.md` by:
-  - canarying `openai-proxy/gpt-5.4` on one tenant runtime and verifying normal Responses traffic succeeds through `/api/internal/runtime/ai/openai/v1/responses`
-  - deciding which remaining runtime features still require direct `OPENAI_API_KEY` projection before removing it from the managed inference path
+  - broadening canary coverage for `openai-proxy/gpt-5.4` plus proxied audio transcription on tenant runtimes
+  - deciding whether TTS, voice-call, and embeddings should be proxied next or kept unsupported
   - adding request attribution metadata for proxied OpenAI calls so later billing and reconciliation can tie requests to the active provider credential revision
   - deciding whether the next auth hardening step should introduce a dedicated Otto AI bootstrap credential or keep `TENANT_TOKEN` as the first production auth boundary for the proxy
 - Then continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
