@@ -10,7 +10,14 @@ import type {
 const OPENAI_ADMIN_API_BASE_URL = "https://api.openai.com/v1";
 
 const OPENAI_USAGE_ENDPOINTS: Record<ProviderUsageType, string> = {
+  audio_speeches: "/organization/usage/audio_speeches",
+  audio_transcriptions: "/organization/usage/audio_transcriptions",
+  code_interpreter_sessions: "/organization/usage/code_interpreter_sessions",
   completions: "/organization/usage/completions",
+  embeddings: "/organization/usage/embeddings",
+  images: "/organization/usage/images",
+  moderations: "/organization/usage/moderations",
+  vector_stores: "/organization/usage/vector_stores",
 };
 
 export class OpenAiUsageCollector implements ProviderUsageCollector {

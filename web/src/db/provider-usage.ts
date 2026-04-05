@@ -58,6 +58,7 @@ export async function listDueOpenAiUsageIngestionTargets(input: {
         and(
           eq(jobRuns.jobType, JOB_TYPES.ingestOpenAiUsage),
           eq(jobRuns.tenantId, providerRow.tenantId),
+          sql`${jobRuns.payloadJson} ->> 'usageType' = ${input.usageType}`,
           inArray(jobRuns.status, [JOB_STATUSES.queued, JOB_STATUSES.running]),
         ),
       )

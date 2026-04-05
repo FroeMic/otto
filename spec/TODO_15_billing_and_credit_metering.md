@@ -636,9 +636,18 @@ Deliverables:
 
 Current implementation notes:
 
-- the first shipped ingestion slice targets OpenAI `completions` usage only
+- the current ingestion slice covers the current OpenAI organization usage endpoints:
+  - `completions`
+  - `embeddings`
+  - `audio_speeches`
+  - `audio_transcriptions`
+  - `images`
+  - `moderations`
+  - `vector_stores`
+  - `code_interpreter_sessions`
 - the worker now auto-queues one-shot ingestion jobs on a recurring cadence for active tenant OpenAI projects
 - each job stores raw minute-bucket results plus ingestion-run metadata in Otto-owned Postgres tables
+- OpenAI `audio_translations` does not currently have a matching organization usage endpoint in the official reference, so translation-specific raw ingestion remains out of scope until that surface exists or costs become the only available source
 - credit conversion, Stripe reporting, and workspace-visible usage remain explicitly downstream work
 
 Exit check:

@@ -5,7 +5,14 @@ export const PROVIDER_KEYS = {
 export type ProviderKey = (typeof PROVIDER_KEYS)[keyof typeof PROVIDER_KEYS];
 
 export const PROVIDER_USAGE_TYPES = {
+  audioSpeeches: "audio_speeches",
+  audioTranscriptions: "audio_transcriptions",
+  codeInterpreterSessions: "code_interpreter_sessions",
   completions: "completions",
+  embeddings: "embeddings",
+  images: "images",
+  moderations: "moderations",
+  vectorStores: "vector_stores",
 } as const;
 
 export type ProviderUsageType =
