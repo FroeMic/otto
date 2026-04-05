@@ -636,6 +636,11 @@ Deliverables:
 
 Current implementation notes:
 
+- the platform organization detail surface now includes a dedicated `Usage` tab showing the last 24 hours of raw provider usage from Postgres, including:
+  - hourly token charts
+  - modality sync state
+  - top models
+  - recent raw provider buckets by usage type, model, and API key
 - the current ingestion slice covers the current OpenAI organization usage endpoints:
   - `completions`
   - `embeddings`
