@@ -6,24 +6,86 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { BillingPlanKey } from "@/lib/billing/plans";
 
-type WorkspaceBillingActionsProps = {
-  canManageBilling: boolean;
+type ButtonVariant = React.ComponentProps<typeof Button>["variant"];
+type ButtonSize = React.ComponentProps<typeof Button>["size"];
+
+type WorkspaceManageBillingButtonProps = {
   canOpenBillingPortal: boolean;
-  currentPlanKey: BillingPlanKey | null;
+  label?: string;
   orgSlug: string;
+  size?: ButtonSize;
+  variant?: ButtonVariant;
 };
 
-export function WorkspaceBillingActions({
-  canManageBilling,
-  canOpenBillingPortal,
-  currentPlanKey,
-  orgSlug,
-}: WorkspaceBillingActionsProps) {
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
-  const hasActiveSubscription = currentPlanKey !== null;
+type WorkspaceCheckoutButtonProps = {
+  canManageBilling: boolean;
+  label: string;
+  orgSlug: string;
+  planKey: BillingPlanKey;
+  size?: ButtonSize;
+  variant?: ButtonVariant;
+};
 
-  const startCheckout = async (planKey: BillingPlanKey) => {
-    setPendingKey(planKey);
+export function WorkspaceManageBillingButton({
+  canOpenBillingPortal,
+  label = "Manage billing",
+  orgSlug,
+  size = "default",
+  variant = "outline",
+}: WorkspaceManageBillingButtonProps) {
+  const [pending, setPending] = useState(false);
+
+  const openBillingPortal = async () => {
+    setPending(true);
+
+    try {
+      const response = await fetch(`/api/workspace/${orgSlug}/billing/portal`, {
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => null)) as {
+        message?: string;
+        url?: string | null;
+      } | null;
+
+      if (!response.ok || !body?.url) {
+        throw new Error(body?.message ?? "Failed to open billing portal.");
+      }
+
+      window.location.href = body.url;
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to open billing portal.",
+      );
+      setPending(false);
+    }
+  };
+
+  return (
+    <Button
+      disabled={pending || !canOpenBillingPortal}
+      onClick={openBillingPortal}
+      size={size}
+      variant={variant}
+    >
+      {pending ? "Opening billing…" : label}
+    </Button>
+  );
+}
+
+export function WorkspaceCheckoutButton({
+  canManageBilling,
+  label,
+  orgSlug,
+  planKey,
+  size = "default",
+  variant = "default",
+}: WorkspaceCheckoutButtonProps) {
+  const [pending, setPending] = useState(false);
+
+  const startCheckout = async () => {
+    setPending(true);
 
     try {
       const response = await fetch(
@@ -52,82 +114,18 @@ export function WorkspaceBillingActions({
           ? error.message
           : "Failed to start billing checkout.",
       );
-      setPendingKey(null);
-    }
-  };
-
-  const openBillingPortal = async () => {
-    setPendingKey("portal");
-
-    try {
-      const response = await fetch(`/api/workspace/${orgSlug}/billing/portal`, {
-        method: "POST",
-      });
-      const body = (await response.json().catch(() => null)) as {
-        message?: string;
-        url?: string | null;
-      } | null;
-
-      if (!response.ok || !body?.url) {
-        throw new Error(body?.message ?? "Failed to open billing portal.");
-      }
-
-      window.location.href = body.url;
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to open billing portal.",
-      );
-      setPendingKey(null);
+      setPending(false);
     }
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        disabled={pendingKey !== null || !canOpenBillingPortal}
-        onClick={openBillingPortal}
-        variant="outline"
-      >
-        {pendingKey === "portal" ? "Opening billing…" : "Manage billing"}
-      </Button>
-      <Button
-        disabled={
-          pendingKey !== null || hasActiveSubscription || !canManageBilling
-        }
-        onClick={() => startCheckout("basic_monthly")}
-        variant={currentPlanKey === "basic_monthly" ? "secondary" : "outline"}
-      >
-        {pendingKey === "basic_monthly" ? "Redirecting…" : "Choose Basic"}
-      </Button>
-      <Button
-        disabled={
-          pendingKey !== null || hasActiveSubscription || !canManageBilling
-        }
-        onClick={() => startCheckout("plus_monthly")}
-        variant={currentPlanKey === "plus_monthly" ? "secondary" : "outline"}
-      >
-        {pendingKey === "plus_monthly" ? "Redirecting…" : "Choose Plus"}
-      </Button>
-      <Button
-        disabled={
-          pendingKey !== null || hasActiveSubscription || !canManageBilling
-        }
-        onClick={() => startCheckout("pro_monthly")}
-        variant={currentPlanKey === "pro_monthly" ? "secondary" : "outline"}
-      >
-        {pendingKey === "pro_monthly" ? "Redirecting…" : "Choose Pro"}
-      </Button>
-      <Button
-        disabled={
-          pendingKey !== null || hasActiveSubscription || !canManageBilling
-        }
-        onClick={() => startCheckout("max_monthly")}
-        variant={currentPlanKey === "max_monthly" ? "secondary" : "default"}
-      >
-        {pendingKey === "max_monthly" ? "Redirecting…" : "Choose Max"}
-      </Button>
-    </div>
+    <Button
+      disabled={pending || !canManageBilling}
+      onClick={startCheckout}
+      size={size}
+      variant={variant}
+    >
+      {pending ? "Redirecting…" : label}
+    </Button>
   );
 }

@@ -29,6 +29,11 @@ function useSettingsBreadcrumb(orgSlug: string, orgName: string) {
   const settingsPath = pathname.replace(`/${orgSlug}/settings`, "");
 
   if (settingsPath.startsWith("/user")) return ["Account"];
+  if (settingsPath.startsWith("/workspace/usage")) return [orgName, "Usage"];
+  if (settingsPath.startsWith("/workspace/billing/plans"))
+    return [orgName, "Billing", "Plans"];
+  if (settingsPath.startsWith("/workspace/billing"))
+    return [orgName, "Billing"];
   if (settingsPath.startsWith("/workspace/members"))
     return [orgName, "Members"];
   if (settingsPath.startsWith("/workspace")) return [orgName, "General"];

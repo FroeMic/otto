@@ -366,6 +366,78 @@ Stripe remains the hosted surface for:
 - subscription cancellation
 - subscription plan switch flows that fit the configured portal catalog
 
+### Workspace billing and usage redesign decisions
+
+For the next workspace-facing billing slice, split subscription management and usage analytics into separate settings pages.
+
+Routes:
+
+- `web/src/app/[orgSlug]/settings/workspace/billing/page.tsx`
+- `web/src/app/[orgSlug]/settings/workspace/billing/plans/page.tsx`
+- `web/src/app/[orgSlug]/settings/workspace/usage/page.tsx`
+
+Navigation:
+
+- keep `Billing` under the `Workspace` section in settings
+- add a separate `Usage` entry under `Workspace`
+
+Locked UX/product decisions for this slice:
+
+- if the workspace has no active subscription, the default usage range fallback is the first day of the current month through now
+- plan changes remain Stripe-portal-managed in v1 rather than introducing an Otto-managed subscription-change flow
+- the plans comparison page is the workspace-owned surface for comparing `Basic`, `Plus`, `Pro`, and `Max`, but plan changes themselves still route into Stripe for subscribed workspaces
+- auto-top-off should use fixed top-up packs only:
+  - `$20`
+  - `$50`
+  - `$100`
+  - `$200`
+- those auto-top-off packs should use the same credit conversion rate as the subscription catalog
+- usage charts should adapt grouping by range:
+  - short ranges can group by hour
+  - mid ranges can group by day
+  - longer ranges can group by week
+- the workspace usage page should stay strictly credit-native:
+  - show credit usage, not tokens
+  - do not add a separate `included credits this cycle` metric yet
+- remove `Recent activity` and `Recent grants` from the workspace billing page once the split lands
+
+### Workspace billing and usage roadmap
+
+#### Phase 1: Information architecture and page split
+
+- redesign the workspace billing page around:
+  - current subscription and plan
+  - renewal
+  - billing actions
+  - auto-top-off placeholder state
+  - invoices placeholder state
+- move plan comparison into a dedicated `billing/plans` subpage with Linear-style plan lanes
+- add a dedicated workspace usage page focused on credit consumption
+- add `Usage` to the workspace settings sidebar
+
+#### Phase 2: Workspace usage analytics
+
+- default the usage page to the current billing cycle window
+- allow range filters similar to the existing platform usage page
+- chart credits burned over time only
+- show credit usage grouped by usage type and model without exposing tokens
+- include auto-top-off status with a link back to billing settings
+
+#### Phase 3: Auto-top-off settings model
+
+- add organization-scoped billing preferences for:
+  - auto-top-off enabled
+  - minimum balance threshold
+  - top-up pack key
+  - monthly spend limit
+- wire those settings into the billing page UI
+
+#### Phase 4: Auto-top-off execution
+
+- implement idempotent automatic top-up purchase jobs
+- enforce the monthly spend limit by pausing auto-top-off once the cap is reached
+- grant purchased credits through the same Otto ledger path as other top-ups
+
 ## Data model additions
 
 Billing should be organization-scoped first, with optional tenant and session attribution on usage records.
@@ -720,7 +792,7 @@ Current implementation notes:
     - `billing_webhook_events`
 - the current workspace billing page uses the hosted Stripe surfaces for first subscription signup and ongoing self-serve billing management
 - once a workspace already has a subscription, plan changes are intentionally pushed into the Stripe billing portal rather than creating a second subscription through Checkout
-- this slice depends on Stripe price ids configured in control-plane env rather than trying to discover prices dynamically from Stripe metadata
+- recurring Stripe prices are resolved by the stable plan `lookup_key` values instead of hardcoding Stripe price ids per environment
 
 ### Step 5: Grant credits from Stripe payments
 
@@ -807,15 +879,29 @@ Exit check:
 Current implementation notes:
 
 - a first workspace billing page now exists at `web/src/app/[orgSlug]/settings/workspace/billing/page.tsx`
-- the workspace settings sidebar now includes `Billing`
+- the workspace settings sidebar now includes both `Billing` and `Usage`
 - the page currently shows:
   - current plan and Stripe subscription status
   - renewal date
-  - current Otto credit balance
-  - recent credit grants
-  - recent ledger activity
   - hosted Checkout and billing portal actions
-- the page does not yet include top-ups, expiry messaging, or rich usage charts
+  - a placeholder auto-top-off section
+  - an invoices placeholder
+- the workspace settings surface now also includes:
+  - a dedicated `Usage` page at `web/src/app/[orgSlug]/settings/workspace/usage/page.tsx`
+  - a dedicated plans comparison page at `web/src/app/[orgSlug]/settings/workspace/billing/plans/page.tsx`
+- the new workspace usage page currently shows:
+  - current balance
+  - credits used in the selected range
+  - request counts
+  - credits burned over time with billing-cycle-first defaults
+  - credits by usage type
+  - top models by credit burn
+  - an auto-top-off status card linking back to billing settings
+- this slice still does not include:
+  - real invoice history
+  - persisted auto-top-off settings
+  - top-up Checkout
+  - expiry messaging
 
 ### Step 8: Add top-ups and expiry policy enforcement
 
@@ -910,6 +996,7 @@ Exit check:
 - [x] define the OpenAI-first but provider-extensible provisioning and usage-ingestion model
 - [x] define the workspace billing page scope and self-serve Stripe surfaces
 - [x] define the billing, provider, ledger, webhook, and reconciliation roadmap
+- [x] split the workspace billing and usage settings surfaces and add a dedicated plans comparison page
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [x] harden OpenAI key rotation so it reuses the project, applies the new key to runtime, verifies deployment, and then deletes the previous service account

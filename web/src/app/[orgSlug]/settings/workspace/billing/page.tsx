@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import {
   SettingsCard,
@@ -11,22 +13,31 @@ import {
   SettingsSectionDescription,
   SettingsSectionTitle,
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
-import { WorkspaceBillingActions } from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-actions";
+import {
+  WorkspaceCheckoutButton,
+  WorkspaceManageBillingButton,
+} from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { getWorkspaceBillingOverview } from "@/db/billing";
-import { getTenantProviderUsageOverview } from "@/db/provider-usage";
-import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
 import { getBillingPlans } from "@/lib/billing/plans";
-import { formatShortDate, formatShortDateTime } from "@/lib/date-time";
+import { formatShortDate } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
-function formatNumber(value: number, locale: string) {
+function formatCredits(value: number, locale: string) {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+function formatPrice(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
+    currency: "USD",
+    maximumFractionDigits: 0,
+    style: "currency",
   }).format(value);
 }
 
@@ -43,17 +54,6 @@ export default async function WorkspaceBillingPage({
   const billingOverview = await getWorkspaceBillingOverview({
     organizationId: currentOrganization.id,
   });
-  const usageWindowEnd = new Date();
-  const usageWindowStart = new Date(
-    usageWindowEnd.getTime() - 24 * 60 * 60 * 1000,
-  );
-  const usageOverview = billingOverview.tenant
-    ? await getTenantProviderUsageOverview({
-        from: usageWindowStart,
-        tenantId: billingOverview.tenant.id,
-        to: usageWindowEnd,
-      })
-    : null;
   const billingConfigured = hasStripeBillingConfig();
   const plans = billingConfigured ? getBillingPlans() : [];
   const currentPlan = billingOverview.subscription?.planKey
@@ -61,6 +61,15 @@ export default async function WorkspaceBillingPage({
         (plan) => plan.key === billingOverview.subscription?.planKey,
       ) ?? null)
     : null;
+  const currentPlanIndex = currentPlan
+    ? plans.findIndex((plan) => plan.key === currentPlan.key)
+    : -1;
+  const suggestedPlan =
+    currentPlanIndex >= 0 && currentPlanIndex < plans.length - 1
+      ? (plans[currentPlanIndex + 1] ?? null)
+      : currentPlan
+        ? null
+        : (plans[0] ?? null);
   const dateTimeInput = {
     locale: currentOrganization.locale,
     timeFormatPreference: currentOrganization.timeFormatPreference,
@@ -70,21 +79,36 @@ export default async function WorkspaceBillingPage({
   return (
     <SettingsPage>
       <div className="flex flex-col gap-8">
-        <SettingsPageTitle>Billing</SettingsPageTitle>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <SettingsPageTitle>Billing</SettingsPageTitle>
+            <p className="text-sm text-muted-foreground">
+              Manage your plan, billing settings, and upcoming invoices for this
+              workspace.
+            </p>
+          </div>
+          <Button
+            render={
+              <Link href={`/${orgSlug}/settings/workspace/billing/plans`} />
+            }
+            variant="outline"
+          >
+            All plans
+          </Button>
+        </div>
 
         {checkout === "success" ? (
-          <Alert>
-            <AlertTitle>Checkout completed</AlertTitle>
+          <Alert className="rounded-lg">
+            <AlertTitle>Subscription started</AlertTitle>
             <AlertDescription>
-              Stripe completed the hosted checkout flow. Credits are granted
-              only after the related invoice is paid and the webhook is
-              processed.
+              Your checkout is complete. Your plan and credit balance will
+              update as soon as payment is confirmed.
             </AlertDescription>
           </Alert>
         ) : null}
 
         {checkout === "canceled" ? (
-          <Alert>
+          <Alert className="rounded-lg">
             <AlertTitle>Checkout canceled</AlertTitle>
             <AlertDescription>
               No billing changes were made. You can start checkout again from
@@ -94,7 +118,7 @@ export default async function WorkspaceBillingPage({
         ) : null}
 
         {!billingConfigured ? (
-          <Alert variant="destructive">
+          <Alert className="rounded-lg" variant="destructive">
             <AlertTitle>Stripe billing is not configured</AlertTitle>
             <AlertDescription>
               Set the Stripe secret key and webhook secret, then configure the
@@ -105,31 +129,32 @@ export default async function WorkspaceBillingPage({
         ) : null}
 
         <SettingsSection>
-          <SettingsSectionTitle>Current plan</SettingsSectionTitle>
+          <SettingsSectionTitle>Current subscription</SettingsSectionTitle>
           <SettingsSectionDescription>
-            Manage the paid plan and the spendable credit balance for this
-            workspace.
+            View your current plan, renewal date, and the actions available for
+            subscription management.
           </SettingsSectionDescription>
           <SettingsCard>
             <SettingsRow>
               <SettingsRowLabel>
-                <SettingsRowTitle>Plan</SettingsRowTitle>
+                <SettingsRowTitle>
+                  {currentPlan ? `${currentPlan.name} plan` : "No active plan"}
+                </SettingsRowTitle>
                 <SettingsRowDescription>
-                  {billingOverview.subscription
-                    ? "Current Stripe-backed subscription mirrored into Otto."
-                    : "No active paid plan is connected to this workspace yet."}
+                  {currentPlan
+                    ? `${formatPrice(currentPlan.monthlyPriceUsd, currentOrganization.locale)}/month · ${formatCredits(currentPlan.creditsIncluded, currentOrganization.locale)} credits included each month`
+                    : "Choose a paid plan to start getting included monthly credits."}
                 </SettingsRowDescription>
               </SettingsRowLabel>
               <div className="flex items-center gap-2">
-                {billingOverview.subscription ? (
+                {currentPlan ? (
                   <>
-                    <Badge variant="secondary">
-                      {currentPlan?.name ??
-                        billingOverview.subscription.planKey}
-                    </Badge>
-                    <Badge variant="outline">
-                      {billingOverview.subscription.status}
-                    </Badge>
+                    <Badge variant="secondary">Current</Badge>
+                    {billingOverview.subscription ? (
+                      <Badge variant="outline">
+                        {billingOverview.subscription.status}
+                      </Badge>
+                    ) : null}
                   </>
                 ) : (
                   <Badge variant="outline">No subscription</Badge>
@@ -138,46 +163,9 @@ export default async function WorkspaceBillingPage({
             </SettingsRow>
             <SettingsRow>
               <SettingsRowLabel>
-                <SettingsRowTitle>Current balance</SettingsRowTitle>
-                <SettingsRowDescription>
-                  The proxy and usage settlement pipeline both read from Otto’s
-                  internal ledger balance.
-                </SettingsRowDescription>
-              </SettingsRowLabel>
-              <div className="text-right">
-                <div className="text-sm font-medium">
-                  {formatNumber(
-                    formatCreditsFromMilli(
-                      billingOverview.balance.currentBalanceCreditsMilli,
-                    ),
-                    currentOrganization.locale,
-                  )}{" "}
-                  credits
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatNumber(
-                    formatCreditsFromMilli(
-                      billingOverview.balance.totalGrantedCreditsMilli,
-                    ),
-                    currentOrganization.locale,
-                  )}{" "}
-                  granted ·{" "}
-                  {formatNumber(
-                    formatCreditsFromMilli(
-                      billingOverview.balance.totalDebitedCreditsMilli,
-                    ),
-                    currentOrganization.locale,
-                  )}{" "}
-                  burned
-                </div>
-              </div>
-            </SettingsRow>
-            <SettingsRow>
-              <SettingsRowLabel>
                 <SettingsRowTitle>Renewal</SettingsRowTitle>
                 <SettingsRowDescription>
-                  Otto grants included monthly credits from paid invoices and
-                  expires them at the end of the billing period.
+                  Plan changes remain managed in Stripe for now.
                 </SettingsRowDescription>
               </SettingsRowLabel>
               <div className="text-right text-sm">
@@ -191,144 +179,139 @@ export default async function WorkspaceBillingPage({
             </SettingsRow>
             <SettingsRow className="items-start">
               <SettingsRowLabel>
-                <SettingsRowTitle>Billing actions</SettingsRowTitle>
+                <SettingsRowTitle>Actions</SettingsRowTitle>
                 <SettingsRowDescription>
-                  Hosted checkout is used for starting a plan. The Stripe portal
-                  handles payment methods, invoices, cancellation, and plan
-                  changes.
+                  Use Stripe to update payment details, switch plans, or cancel
+                  once a subscription is active.
                 </SettingsRowDescription>
               </SettingsRowLabel>
-              <WorkspaceBillingActions
-                canManageBilling={billingConfigured}
-                canOpenBillingPortal={Boolean(billingOverview.customer)}
-                currentPlanKey={currentPlan?.key ?? null}
-                orgSlug={orgSlug}
-              />
+              <div className="flex flex-wrap gap-2">
+                <WorkspaceManageBillingButton
+                  canOpenBillingPortal={Boolean(billingOverview.customer)}
+                  orgSlug={orgSlug}
+                />
+                {!currentPlan && billingConfigured && plans[0] ? (
+                  <WorkspaceCheckoutButton
+                    canManageBilling={billingConfigured}
+                    label={`Start ${plans[0].name}`}
+                    orgSlug={orgSlug}
+                    planKey={plans[0].key}
+                  />
+                ) : null}
+              </div>
             </SettingsRow>
           </SettingsCard>
         </SettingsSection>
 
         <SettingsSection>
-          <SettingsSectionTitle>Plans</SettingsSectionTitle>
-          <SettingsCard>
-            {plans.map((plan) => (
-              <SettingsRow key={plan.key}>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>{plan.name}</SettingsRowTitle>
-                  <SettingsRowDescription>
-                    {new Intl.NumberFormat(currentOrganization.locale).format(
-                      plan.creditsIncluded,
-                    )}{" "}
-                    credits included each month.
-                  </SettingsRowDescription>
-                </SettingsRowLabel>
-                <div className="text-right text-sm font-medium">
-                  ${plan.monthlyPriceUsd}/month
-                </div>
-              </SettingsRow>
-            ))}
-          </SettingsCard>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionTitle>Recent grants</SettingsSectionTitle>
-          <SettingsCard>
-            {billingOverview.recentGrants.length > 0 ? (
-              billingOverview.recentGrants.map((grant) => (
-                <SettingsRow key={grant.id}>
-                  <SettingsRowLabel>
-                    <SettingsRowTitle>
-                      {grant.planKey ?? grant.sourceType}
-                    </SettingsRowTitle>
-                    <SettingsRowDescription>
-                      Granted{" "}
-                      {formatShortDateTime(grant.grantedAt, dateTimeInput)}
-                      {grant.expiresAt
-                        ? ` · Expires ${formatShortDate(grant.expiresAt, dateTimeInput)}`
-                        : ""}
-                    </SettingsRowDescription>
-                  </SettingsRowLabel>
-                  <div className="text-right text-sm font-medium">
-                    +
-                    {formatNumber(
-                      formatCreditsFromMilli(grant.creditsGrantedMilli),
-                      currentOrganization.locale,
-                    )}{" "}
-                    credits
-                  </div>
-                </SettingsRow>
-              ))
-            ) : (
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>No grants yet</SettingsRowTitle>
-                  <SettingsRowDescription>
-                    Subscription and top-up grants will appear here after Stripe
-                    payments are processed.
-                  </SettingsRowDescription>
-                </SettingsRowLabel>
-              </SettingsRow>
-            )}
-          </SettingsCard>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionTitle>Recent activity</SettingsSectionTitle>
+          <SettingsSectionTitle>Change plan</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            Compare plans in Otto, then use Stripe to apply the change for this
+            workspace.
+          </SettingsSectionDescription>
           <SettingsCard>
             <SettingsRow>
               <SettingsRowLabel>
-                <SettingsRowTitle>24-hour usage</SettingsRowTitle>
+                <SettingsRowTitle>
+                  {suggestedPlan
+                    ? currentPlan
+                      ? `Move to ${suggestedPlan.name}`
+                      : "Choose your first plan"
+                    : "You are already on the highest plan"}
+                </SettingsRowTitle>
                 <SettingsRowDescription>
-                  Recent raw usage and credit burn continue to live on the
-                  platform usage view internally; this workspace page exposes a
-                  concise summary first.
+                  {suggestedPlan
+                    ? `${formatPrice(suggestedPlan.monthlyPriceUsd, currentOrganization.locale)}/month · ${formatCredits(suggestedPlan.creditsIncluded, currentOrganization.locale)} credits each month`
+                    : "Compare plans to review the full catalog and manage future changes in Stripe."}
                 </SettingsRowDescription>
               </SettingsRowLabel>
-              <div className="text-right text-sm">
-                {usageOverview ? (
-                  <>
-                    <div>
-                      {new Intl.NumberFormat(currentOrganization.locale).format(
-                        usageOverview.summary.totalRequests,
-                      )}{" "}
-                      requests
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatNumber(
-                        formatCreditsFromMilli(
-                          usageOverview.summary.totalCreditsBurnedMilli,
-                        ),
-                        currentOrganization.locale,
-                      )}{" "}
-                      credits burned
-                    </div>
-                  </>
-                ) : (
-                  "No tenant usage yet"
-                )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  render={
+                    <Link
+                      href={`/${orgSlug}/settings/workspace/billing/plans`}
+                    />
+                  }
+                  variant="outline"
+                >
+                  View all plans
+                </Button>
+                {currentPlan ? (
+                  <WorkspaceManageBillingButton
+                    canOpenBillingPortal={Boolean(billingOverview.customer)}
+                    label="Change in billing"
+                    orgSlug={orgSlug}
+                  />
+                ) : suggestedPlan ? (
+                  <WorkspaceCheckoutButton
+                    canManageBilling={billingConfigured}
+                    label={`Choose ${suggestedPlan.name}`}
+                    orgSlug={orgSlug}
+                    planKey={suggestedPlan.key}
+                  />
+                ) : null}
               </div>
             </SettingsRow>
-            {billingOverview.recentLedgerEntries.length > 0
-              ? billingOverview.recentLedgerEntries.map((entry) => (
-                  <SettingsRow key={entry.id}>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>{entry.entryType}</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        {entry.description ?? "Credit ledger entry"} ·{" "}
-                        {formatShortDateTime(entry.createdAt, dateTimeInput)}
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <div className="text-right text-sm font-medium">
-                      {entry.creditsDeltaMilli >= 0 ? "+" : ""}
-                      {formatNumber(
-                        formatCreditsFromMilli(entry.creditsDeltaMilli),
-                        currentOrganization.locale,
-                      )}{" "}
-                      credits
-                    </div>
-                  </SettingsRow>
-                ))
-              : null}
+          </SettingsCard>
+        </SettingsSection>
+
+        <SettingsSection>
+          <SettingsSectionTitle>Auto-reload credits</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            Automatically add credits when your balance drops below a minimum
+            threshold.
+          </SettingsSectionDescription>
+          <SettingsCard>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>Auto-reload</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Automatically add credit when you reach your minimum balance.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline">Coming soon</Badge>
+                <Switch checked={false} disabled />
+              </div>
+            </SettingsRow>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>Monthly spend limit</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Auto-reload will pause after reaching this monthly limit.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+              <div className="w-full max-w-40">
+                <Input disabled value="$200" />
+              </div>
+            </SettingsRow>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>Available top-up packs</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Auto-reload will later support fixed top-up packs at $20, $50,
+                  $100, and $200.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsSection>
+
+        <SettingsSection>
+          <SettingsSectionTitle>Invoices</SettingsSectionTitle>
+          <SettingsSectionDescription>
+            Invoice history will appear here after the first successful payment.
+          </SettingsSectionDescription>
+          <SettingsCard>
+            <SettingsRow>
+              <SettingsRowLabel>
+                <SettingsRowTitle>No invoices yet</SettingsRowTitle>
+                <SettingsRowDescription>
+                  Use Manage billing to view invoices in Stripe once they are
+                  available.
+                </SettingsRowDescription>
+              </SettingsRowLabel>
+            </SettingsRow>
           </SettingsCard>
         </SettingsSection>
       </div>
