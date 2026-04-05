@@ -9,12 +9,19 @@ import {
   getTenantManagedConfigByVersion,
   getTenantSlackBotToken,
 } from "@/db/control-plane";
+import {
+  getProviderAccountByTenantAndKey,
+  getTenantOpenAiApiKey,
+  PROVIDER_CREDENTIAL_TYPES,
+  persistProvisionedProviderCredential,
+} from "@/db/provider-accounts";
 import { tenantServers, tenants } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { HetznerClient } from "@/lib/hetzner/client";
 import { renderCloudInit } from "@/lib/hetzner/cloud-init";
 import { FakeHetznerClient } from "@/lib/hetzner/fake";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
+import { OpenAiProvisioner } from "@/lib/providers/openai/provisioning";
 import { RuntimeManager } from "@/lib/runtime/manager";
 import { SshClient } from "@/lib/ssh/client";
 
@@ -33,6 +40,7 @@ import {
 } from "./types";
 
 const fakeHetznerClient = new FakeHetznerClient();
+const openAiProvisioner = new OpenAiProvisioner();
 const runtimeManager = new RuntimeManager();
 const sshClient = new SshClient();
 const STEP_DELAY_MS = 10_000;
@@ -436,6 +444,24 @@ async function bootstrapRuntime(
       },
     );
 
+    const openAiCredential = await ensureTenantOpenAiCredential(
+      payload.tenantId,
+    );
+
+    if (openAiCredential.created) {
+      await appendJobEvent(
+        jobId,
+        "bootstrapping_runtime",
+        "Provisioned the initial tenant-specific OpenAI API key before runtime bootstrap",
+        {
+          apiKeyId: openAiCredential.apiKeyId,
+          projectId: openAiCredential.projectId,
+          serviceAccountId: openAiCredential.serviceAccountId,
+          tenantId: payload.tenantId,
+        },
+      );
+    }
+
     const desiredState = await getLatestTenantDesiredState(payload.tenantId);
     const gatewayToken = await ensureTenantRuntimeGatewayToken(
       payload.tenantId,
@@ -499,6 +525,69 @@ async function bootstrapRuntime(
     },
     new Date(Date.now() + getProvisioningDelayMs()),
   );
+}
+
+async function ensureTenantOpenAiCredential(tenantId: string): Promise<{
+  apiKeyId: string | null;
+  created: boolean;
+  projectId: string | null;
+  serviceAccountId: string | null;
+}> {
+  const existingKey = await getTenantOpenAiApiKey(tenantId);
+
+  if (existingKey) {
+    return {
+      apiKeyId: null,
+      created: false,
+      projectId: null,
+      serviceAccountId: null,
+    };
+  }
+
+  const [tenant] = await getDb()
+    .select({
+      id: tenants.id,
+      name: tenants.name,
+    })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  if (!tenant) {
+    throw new Error(`Provisioning could not find tenant ${tenantId}`);
+  }
+
+  const existingAccount = await getProviderAccountByTenantAndKey(
+    tenant.id,
+    "openai",
+  );
+  const provisionedCredential = await openAiProvisioner.createTenantCredential({
+    existingProjectId: existingAccount?.externalProjectId ?? null,
+    tenantId: tenant.id,
+    tenantName: tenant.name,
+    verify: true,
+  });
+
+  await persistProvisionedProviderCredential({
+    credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
+    displayName: provisionedCredential.displayName,
+    externalApiKeyId: provisionedCredential.apiKeyId,
+    externalProjectId: provisionedCredential.projectId,
+    externalServiceAccountId: provisionedCredential.serviceAccountId,
+    plaintext: provisionedCredential.apiKey,
+    provisionedAt: new Date(),
+    providerKey: provisionedCredential.providerKey,
+    revokedAt: null,
+    status: "active",
+    tenantId: tenant.id,
+  });
+
+  return {
+    apiKeyId: provisionedCredential.apiKeyId,
+    created: true,
+    projectId: provisionedCredential.projectId,
+    serviceAccountId: provisionedCredential.serviceAccountId,
+  };
 }
 
 async function startRuntime(

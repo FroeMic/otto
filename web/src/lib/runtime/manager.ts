@@ -708,8 +708,6 @@ async function buildRuntimeEnvFile(input: {
 
   if (tenantOpenAiApiKey) {
     lines.push(`OPENAI_API_KEY=${tenantOpenAiApiKey}`);
-  } else if (env.RUNTIME_OPENAI_API_KEY) {
-    lines.push(`OPENAI_API_KEY=${env.RUNTIME_OPENAI_API_KEY}`);
   }
 
   if (controlPlaneBaseUrl) {

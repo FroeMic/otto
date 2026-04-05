@@ -57,7 +57,7 @@ So this spec must not introduce a payload transformation or runtime contract tha
 
 OpenClaw already supports native audio and voice-note transcription through `tools.media.audio`, including OpenAI-backed transcription and command parsing from the resulting transcript.
 
-Otto already projects `RUNTIME_OPENAI_API_KEY` from the control plane into tenant runtime `.env` as `OPENAI_API_KEY`, so the smallest reliable first slice is:
+Otto now provisions and projects a tenant-specific OpenAI API key into tenant runtime `.env` as `OPENAI_API_KEY`, so the smallest reliable first slice is:
 
 - compile audio transcription defaults into tenant desired state
 - render the corresponding `tools.media.audio` block into `openclaw.json`
@@ -105,9 +105,9 @@ The rendered OpenClaw config should include:
 - `tools.media.audio.maxBytes: 20971520`
 - `tools.media.audio.models = [{ provider: "openai", model: "gpt-4o-mini-transcribe" }]`
 
-Runtime auth should continue to use the existing env projection:
+Runtime auth should continue to use the existing tenant-scoped env projection:
 
-- control-plane env: `RUNTIME_OPENAI_API_KEY`
+- control-plane env: `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
 - tenant runtime `.env`: `OPENAI_API_KEY`
 
 Do not add new runtime env vars for v1 audio support.
@@ -201,7 +201,7 @@ Exit check:
 
 - tenant desired state includes audio-transcription defaults for Slack-capable runtimes
 - rendered tenant `openclaw.json` includes the expected `tools.media.audio` configuration
-- rendered tenant `.env` still includes `OPENAI_API_KEY` when `RUNTIME_OPENAI_API_KEY` is configured
+- rendered tenant `.env` includes `OPENAI_API_KEY` from the tenant-specific managed OpenAI credential
 - new Slack installs request `files:read`
 - a Slack voice note under the configured runtime size cap is transcribed and used as message input
 - command parsing continues to work when the original message is a voice note transcript
