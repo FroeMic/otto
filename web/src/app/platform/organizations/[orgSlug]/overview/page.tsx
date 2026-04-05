@@ -211,7 +211,9 @@ export default async function PlatformOrganizationOverviewPage({
             {latestFailure ? (
               <Alert className="rounded-lg" variant="destructive">
                 <AlertTitle>{latestIssueTitle}</AlertTitle>
-                <AlertDescription>{latestFailure}</AlertDescription>
+                <AlertDescription className="max-w-full overflow-hidden break-all">
+                  {latestFailure}
+                </AlertDescription>
               </Alert>
             ) : null}
           </SettingsSection>
