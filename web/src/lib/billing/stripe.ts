@@ -45,6 +45,33 @@ export async function getStripeRecurringPriceIdForPlanKey(
     returnedCount: prices.data.length,
   });
 
+  const describedPrices = prices.data.map((price) => {
+    const expandedProduct =
+      typeof price.product === "string" ? null : (price.product ?? null);
+    const productName =
+      expandedProduct && "name" in expandedProduct
+        ? expandedProduct.name
+        : null;
+    const productId =
+      typeof price.product === "string"
+        ? price.product
+        : (expandedProduct?.id ?? null);
+
+    return {
+      active: price.active,
+      currency: price.currency,
+      id: price.id,
+      livemode: price.livemode,
+      lookupKey: price.lookup_key,
+      productId,
+      productName,
+      recurringInterval: price.recurring?.interval ?? null,
+      recurringIntervalCount: price.recurring?.interval_count ?? null,
+      type: price.type,
+      unitAmount: price.unit_amount,
+    };
+  });
+
   const recurringMonthlyPrices = prices.data.filter((price) => {
     const matchesLookupKey = price.lookup_key === plan.key;
     const matchesCurrency = price.currency === "usd";
@@ -93,12 +120,25 @@ export async function getStripeRecurringPriceIdForPlanKey(
 
   if (recurringMonthlyPrices.length !== 1) {
     console.error("[billing/stripe] recurring price resolution failed", {
+      expectedCurrency: "usd",
+      expectedInterval: "month",
+      expectedType: "recurring",
       lookupKey: plan.key,
       matchingCount: recurringMonthlyPrices.length,
-      returnedPriceIds: prices.data.map((price) => price.id),
+      returnedPrices: describedPrices,
     });
+
+    const returnedPriceSummary =
+      describedPrices.length > 0
+        ? describedPrices
+            .map((price) => {
+              return `${price.id} (currency=${price.currency}, type=${price.type}, interval=${price.recurringInterval ?? "none"}, active=${price.active}, product=${price.productName ?? price.productId ?? "unknown"})`;
+            })
+            .join("; ")
+        : "none";
+
     throw new Error(
-      `Expected exactly one active monthly Stripe price for lookup key ${plan.key}.`,
+      `Expected exactly one active monthly Stripe price for lookup key ${plan.key} in usd. Returned prices: ${returnedPriceSummary}. Make sure Stripe has exactly one active recurring monthly USD price with this lookup key.`,
     );
   }
 
