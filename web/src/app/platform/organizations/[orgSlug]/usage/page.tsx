@@ -11,6 +11,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
+import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
 
 function formatUsageTypeLabel(value: string) {
   return value
@@ -28,6 +29,19 @@ function formatApiKeyLabel(value: string) {
   }
 
   return `${value.slice(0, 8)}…${value.slice(-4)}`;
+}
+
+function formatSettlementStatusLabel(value: string | null) {
+  switch (value) {
+    case "priced":
+      return "Priced";
+    case "no_charge":
+      return "No charge";
+    case "unsupported":
+      return "Not yet priced";
+    default:
+      return "Pending";
+  }
 }
 
 export default async function PlatformOrganizationUsagePage({
@@ -86,6 +100,7 @@ export default async function PlatformOrganizationUsagePage({
   return (
     <PlatformUsageContent
       hourlyBuckets={usageOverview.hourlyBuckets.map((bucket) => ({
+        creditsBurned: formatCreditsFromMilli(bucket.creditsBurnedMilli),
         hourLabel: hourlyFormatter.format(bucket.bucketHour),
         inputTokens: bucket.inputTokens,
         outputTokens: bucket.outputTokens,
@@ -96,10 +111,14 @@ export default async function PlatformOrganizationUsagePage({
       recentBuckets={usageOverview.recentBuckets.map((bucket) => ({
         apiKeyLabel: formatApiKeyLabel(bucket.externalApiKeyId),
         bucketLabel: formatTimestamp(bucket.bucketStartAt, dateTimePreferences),
+        creditsBurned: formatCreditsFromMilli(bucket.creditsBurnedMilli),
         inputTokens: bucket.inputTokens,
         itemCount: bucket.itemCount,
         modelLabel: bucket.model || "Not grouped",
         outputTokens: bucket.outputTokens,
+        settlementStatusLabel: formatSettlementStatusLabel(
+          bucket.settlementStatus,
+        ),
         usageTypeLabel: formatUsageTypeLabel(bucket.usageType),
       }))}
       summary={{
@@ -111,6 +130,9 @@ export default async function PlatformOrganizationUsagePage({
               dateTimePreferences,
             )
           : null,
+        totalCreditsBurned: formatCreditsFromMilli(
+          usageOverview.summary.totalCreditsBurnedMilli,
+        ),
         totalInputTokens: usageOverview.summary.totalInputTokens,
         totalOutputTokens: usageOverview.summary.totalOutputTokens,
         totalRequests: usageOverview.summary.totalRequests,
@@ -134,6 +156,7 @@ export default async function PlatformOrganizationUsagePage({
         usageTypeLabel: formatUsageTypeLabel(state.usageType),
       }))}
       usageByModel={usageOverview.usageByModel.map((row) => ({
+        creditsBurned: formatCreditsFromMilli(row.creditsBurnedMilli),
         inputTokens: row.inputTokens,
         model: row.model,
         outputTokens: row.outputTokens,
@@ -142,6 +165,7 @@ export default async function PlatformOrganizationUsagePage({
         usageTypeLabel: formatUsageTypeLabel(row.usageType),
       }))}
       usageByType={usageOverview.usageByType.map((row) => ({
+        creditsBurned: formatCreditsFromMilli(row.creditsBurnedMilli),
         requestCount: row.requestCount,
         totalTokens: row.totalTokens,
         usageTypeLabel: formatUsageTypeLabel(row.usageType),

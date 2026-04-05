@@ -50,6 +50,11 @@
     - modality sync-state diagnostics
     - top model summaries
     - recent raw provider buckets by usage type, model, and API key
+  - the first credit burndown slice now sits directly on top of those stored buckets:
+    - a hardcoded `openai_credit_v1` ruleset prices supported OpenAI usage buckets into provider-cost micro-units
+    - each provider bucket is settled once into either `priced`, `no_charge`, or `unsupported`
+    - priced buckets create append-only debit entries in Otto's new credit ledger
+    - the platform `Usage` tab now shows implied credits burned and settlement status per bucket/model
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -214,6 +219,7 @@
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
 - The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
+- The next billing step after this slice should be Stripe-backed credit grants and balance reads, not daily provider cost reconciliation.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state

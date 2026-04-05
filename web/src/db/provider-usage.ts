@@ -16,6 +16,7 @@ import { getDb } from "@/db/client";
 import {
   providerAccounts,
   providerUsageBuckets,
+  providerUsageSettlements,
   providerUsageSyncStates,
 } from "@/db/schema";
 import type {
@@ -269,6 +270,7 @@ export async function getTenantProviderUsageOverview(input: {
   const bucketHourExpression = sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`;
   const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`;
   const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`;
+  const creditsBurnedMilliExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.creditsBurnedMilli}, 0)), 0)`;
 
   const [
     summaryRows,
@@ -283,11 +285,19 @@ export async function getTenantProviderUsageOverview(input: {
         activeApiKeys: sql`count(distinct nullif(${providerUsageBuckets.externalApiKeyId}, ''))`,
         activeModels: sql`count(distinct nullif(${providerUsageBuckets.model}, ''))`,
         latestBucketEndAt: sql<Date | null>`max(${providerUsageBuckets.bucketEndAt})`,
+        totalCreditsBurnedMilli: creditsBurnedMilliExpression,
         totalInputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
         totalOutputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
         totalRequests: requestCountExpression,
       })
       .from(providerUsageBuckets)
+      .leftJoin(
+        providerUsageSettlements,
+        eq(
+          providerUsageSettlements.providerUsageBucketId,
+          providerUsageBuckets.id,
+        ),
+      )
       .where(
         and(
           eq(providerUsageBuckets.tenantId, input.tenantId),
@@ -297,11 +307,19 @@ export async function getTenantProviderUsageOverview(input: {
     db
       .select({
         bucketHour: bucketHourExpression,
+        creditsBurnedMilli: creditsBurnedMilliExpression,
         inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
         outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
         requestCount: requestCountExpression,
       })
       .from(providerUsageBuckets)
+      .leftJoin(
+        providerUsageSettlements,
+        eq(
+          providerUsageSettlements.providerUsageBucketId,
+          providerUsageBuckets.id,
+        ),
+      )
       .where(
         and(
           eq(providerUsageBuckets.tenantId, input.tenantId),
@@ -312,11 +330,19 @@ export async function getTenantProviderUsageOverview(input: {
       .orderBy(asc(bucketHourExpression)),
     db
       .select({
+        creditsBurnedMilli: creditsBurnedMilliExpression,
         requestCount: requestCountExpression,
         totalTokens: totalTokensExpression,
         usageType: providerUsageBuckets.usageType,
       })
       .from(providerUsageBuckets)
+      .leftJoin(
+        providerUsageSettlements,
+        eq(
+          providerUsageSettlements.providerUsageBucketId,
+          providerUsageBuckets.id,
+        ),
+      )
       .where(
         and(
           eq(providerUsageBuckets.tenantId, input.tenantId),
@@ -330,6 +356,7 @@ export async function getTenantProviderUsageOverview(input: {
       ),
     db
       .select({
+        creditsBurnedMilli: creditsBurnedMilliExpression,
         inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
         model: providerUsageBuckets.model,
         outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
@@ -338,6 +365,13 @@ export async function getTenantProviderUsageOverview(input: {
         usageType: providerUsageBuckets.usageType,
       })
       .from(providerUsageBuckets)
+      .leftJoin(
+        providerUsageSettlements,
+        eq(
+          providerUsageSettlements.providerUsageBucketId,
+          providerUsageBuckets.id,
+        ),
+      )
       .where(
         and(
           eq(providerUsageBuckets.tenantId, input.tenantId),
@@ -352,14 +386,23 @@ export async function getTenantProviderUsageOverview(input: {
       .select({
         bucketEndAt: providerUsageBuckets.bucketEndAt,
         bucketStartAt: providerUsageBuckets.bucketStartAt,
+        creditsBurnedMilli: providerUsageSettlements.creditsBurnedMilli,
         externalApiKeyId: providerUsageBuckets.externalApiKeyId,
         inputTokens: providerUsageBuckets.inputTokens,
         itemCount: providerUsageBuckets.itemCount,
         model: providerUsageBuckets.model,
         outputTokens: providerUsageBuckets.outputTokens,
+        settlementStatus: providerUsageSettlements.settlementStatus,
         usageType: providerUsageBuckets.usageType,
       })
       .from(providerUsageBuckets)
+      .leftJoin(
+        providerUsageSettlements,
+        eq(
+          providerUsageSettlements.providerUsageBucketId,
+          providerUsageBuckets.id,
+        ),
+      )
       .where(eq(providerUsageBuckets.tenantId, input.tenantId))
       .orderBy(desc(providerUsageBuckets.bucketStartAt))
       .limit(20),
@@ -382,6 +425,7 @@ export async function getTenantProviderUsageOverview(input: {
     activeApiKeys: 0,
     activeModels: 0,
     latestBucketEndAt: null,
+    totalCreditsBurnedMilli: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalRequests: 0,
@@ -390,6 +434,7 @@ export async function getTenantProviderUsageOverview(input: {
   return {
     hourlyBuckets: hourlyRows.map((row) => ({
       bucketHour: dateFromValue(row.bucketHour) ?? new Date(0),
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
       inputTokens: numberFromValue(row.inputTokens),
       outputTokens: numberFromValue(row.outputTokens),
       requestCount: numberFromValue(row.requestCount),
@@ -397,17 +442,20 @@ export async function getTenantProviderUsageOverview(input: {
     recentBuckets: recentBucketRows.map((row) => ({
       bucketEndAt: dateFromValue(row.bucketEndAt) ?? new Date(0),
       bucketStartAt: dateFromValue(row.bucketStartAt) ?? new Date(0),
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
       externalApiKeyId: row.externalApiKeyId,
       inputTokens: numberFromValue(row.inputTokens),
       itemCount: numberFromValue(row.itemCount),
       model: row.model,
       outputTokens: numberFromValue(row.outputTokens),
+      settlementStatus: row.settlementStatus,
       usageType: row.usageType,
     })),
     summary: {
       activeApiKeys: numberFromValue(summary.activeApiKeys),
       activeModels: numberFromValue(summary.activeModels),
       latestBucketEndAt: dateFromValue(summary.latestBucketEndAt),
+      totalCreditsBurnedMilli: numberFromValue(summary.totalCreditsBurnedMilli),
       totalInputTokens: numberFromValue(summary.totalInputTokens),
       totalOutputTokens: numberFromValue(summary.totalOutputTokens),
       totalRequests: numberFromValue(summary.totalRequests),
@@ -422,6 +470,7 @@ export async function getTenantProviderUsageOverview(input: {
       usageType: row.usageType,
     })),
     usageByModel: modelRows.map((row) => ({
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
       inputTokens: numberFromValue(row.inputTokens),
       model: row.model,
       outputTokens: numberFromValue(row.outputTokens),
@@ -430,6 +479,7 @@ export async function getTenantProviderUsageOverview(input: {
       usageType: row.usageType,
     })),
     usageByType: usageTypeRows.map((row) => ({
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
       requestCount: numberFromValue(row.requestCount),
       totalTokens: numberFromValue(row.totalTokens),
       usageType: row.usageType,
