@@ -48,7 +48,7 @@ Set at least:
 - `HETZNER_API_TOKEN`
 - one of `RUNTIME_DEPLOY_PRIVATE_KEY` or `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`
 - `CONTROL_PLANE_ENCRYPTION_SECRET`
-- `CONTROL_PLANE_OPENAI_ADMIN_API_KEY` if you want Otto to provision tenant-specific OpenAI projects and service-account keys
+- `CONTROL_PLANE_OPENAI_ADMIN_API_KEY` so Otto can provision the initial tenant-specific OpenAI project and service-account key during tenant bootstrap and later rotate it
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 

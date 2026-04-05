@@ -1,34 +1,21 @@
 import "dotenv/config";
 
-const runtimeKey = process.env.RUNTIME_OPENAI_API_KEY;
-const runtimeModel = process.env.RUNTIME_MODEL_PRIMARY || "openai/gpt-5.4";
+const adminKey = process.env.CONTROL_PLANE_OPENAI_ADMIN_API_KEY;
 
-if (!runtimeKey) {
-  console.error("RUNTIME_OPENAI_API_KEY is missing.");
+if (!adminKey) {
+  console.error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is missing.");
   process.exit(1);
 }
-
-const model = normalizeOpenAiModel(runtimeModel);
-
-if (!model) {
-  console.error(
-    `RUNTIME_MODEL_PRIMARY must be an openai/* model for this smoke test. Received: ${runtimeModel}`,
-  );
-  process.exit(1);
-}
-
-const response = await fetch("https://api.openai.com/v1/responses", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${runtimeKey}`,
-    "Content-Type": "application/json",
+const response = await fetch(
+  "https://api.openai.com/v1/organization/projects",
+  {
+    headers: {
+      Authorization: `Bearer ${adminKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "GET",
   },
-  body: JSON.stringify({
-    input: "Reply with exactly PONG.",
-    max_output_tokens: 32,
-    model,
-  }),
-});
+);
 
 const body = await response.json();
 
@@ -46,37 +33,7 @@ if (!response.ok) {
   process.exit(1);
 }
 
-const text = extractText(body);
+const projects = Array.isArray(body?.data) ? body.data : [];
 
-console.info("OpenAI request succeeded.");
-console.info(`model=${body.model ?? model}`);
-console.info(`status=${body.status ?? "unknown"}`);
-console.info(`output=${text || "<no text returned>"}`);
-
-function normalizeOpenAiModel(value) {
-  if (value.startsWith("openai/")) {
-    return value.slice("openai/".length);
-  }
-
-  if (!value.includes("/")) {
-    return value;
-  }
-
-  return null;
-}
-
-function extractText(body) {
-  const outputs = Array.isArray(body?.output) ? body.output : [];
-
-  for (const item of outputs) {
-    const parts = Array.isArray(item?.content) ? item.content : [];
-
-    for (const part of parts) {
-      if (part?.type === "output_text" && part?.text) {
-        return part.text;
-      }
-    }
-  }
-
-  return "";
-}
+console.info("OpenAI admin request succeeded.");
+console.info(`projects=${projects.length}`);

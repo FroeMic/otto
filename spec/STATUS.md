@@ -31,7 +31,7 @@
   - verify those files on the tenant server before marking the tenant ready
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
-- Runtime bootstrap can now preconfigure the tenant gateway with `OPENAI_API_KEY` and a default model via `RUNTIME_OPENAI_API_KEY` and `RUNTIME_MODEL_PRIMARY`.
+- Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -254,7 +254,7 @@
   - `provider_accounts` and `provider_credentials` now exist as tenant-scoped persistence for managed provider projects and encrypted credentials
   - `web/src/lib/providers/openai/provisioning.ts` can create an OpenAI project and service account using `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
   - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
-  - tenant runtime env rendering now prefers the stored tenant-specific OpenAI key over the shared `RUNTIME_OPENAI_API_KEY` fallback on bootstrap and apply
+  - initial tenant bootstrap now provisions the first tenant-specific OpenAI API key before runtime files are rendered, so runtime apply and bootstrap no longer rely on a shared fallback key
   - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
 - The platform operator surface can now provision or rotate tenant-specific OpenAI keys from `/platform/organizations/[orgSlug]/overview`:
   - the three-dot organization action menu now exposes `Provision OpenAI API key` or `Rotate OpenAI API key` based on current tenant provider state
