@@ -4,6 +4,7 @@ import {
 } from "@/lib/providers/types";
 
 export const CREDIT_LEDGER_ENTRY_TYPES = {
+  manualGrant: "manual_grant",
   providerUsageDebit: "provider_usage_debit",
 } as const;
 

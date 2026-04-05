@@ -1,4 +1,3 @@
-import { getTenantOpenAiApiKey } from "@/db/provider-accounts";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import {
   OPENCLAW_GATEWAY_CONTAINER_PORT,
@@ -705,18 +704,12 @@ async function buildRuntimeEnvFile(input: {
   gatewayToken: string;
   tenantToken: string;
   slackBotToken?: string | null;
-  tenantId: string;
 }) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
   lines.push(`TENANT_TOKEN=${input.tenantToken}`);
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
   const webSearch = resolveRuntimeWebSearchConfig();
-  const tenantOpenAiApiKey = await getTenantOpenAiApiKey(input.tenantId);
-
-  if (tenantOpenAiApiKey) {
-    lines.push(`OPENAI_API_KEY=${tenantOpenAiApiKey}`);
-  }
 
   if (controlPlaneBaseUrl) {
     lines.push(`OTTO_CONTROL_PLANE_BASE_URL=${controlPlaneBaseUrl}`);
@@ -763,7 +756,6 @@ async function buildTenantRuntimeFiles(input: {
         gatewayToken: input.gatewayToken,
         tenantToken: input.tenantToken,
         slackBotToken: input.slackBotToken,
-        tenantId: input.tenantId,
       }),
       mode: 0o600,
     },

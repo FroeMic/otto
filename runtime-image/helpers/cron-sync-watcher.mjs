@@ -15,6 +15,7 @@ const CRON_RUNS_DIR = `${CRON_ROOT}/runs`;
 
 const gatewayPort = process.env.OPENCLAW_GATEWAY_PORT || DEFAULT_GATEWAY_PORT;
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || "";
+const tenantToken = process.env.TENANT_TOKEN || "";
 const controlPlaneBaseUrl = normalizeBaseUrl(
   process.env.OTTO_CONTROL_PLANE_BASE_URL || "",
 );
@@ -34,9 +35,9 @@ const pendingRunJobIds = new Set();
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-if (!gatewayToken || !controlPlaneBaseUrl) {
+if (!gatewayToken || !tenantToken || !controlPlaneBaseUrl) {
   console.info(
-    "[otto-cron-sync] watcher disabled: missing OPENCLAW_GATEWAY_TOKEN or OTTO_CONTROL_PLANE_BASE_URL",
+    "[otto-cron-sync] watcher disabled: missing OPENCLAW_GATEWAY_TOKEN, TENANT_TOKEN, or OTTO_CONTROL_PLANE_BASE_URL",
   );
   process.exit(0);
 }
@@ -446,7 +447,7 @@ async function postScheduledTaskSync(payload) {
       {
         body: JSON.stringify(payload),
         headers: {
-          Authorization: `Bearer ${gatewayToken}`,
+          Authorization: `Bearer ${tenantToken}`,
           "Content-Type": "application/json",
         },
         method: "POST",

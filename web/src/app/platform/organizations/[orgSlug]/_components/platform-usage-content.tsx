@@ -81,6 +81,12 @@ type UsageOverview = {
   }>;
 };
 
+type CreditBalance = {
+  currentBalance: number;
+  totalDebited: number;
+  totalGranted: number;
+};
+
 // --- Date range presets ---
 
 type DatePreset = {
@@ -171,8 +177,15 @@ function formatCount(value: number, locale: string) {
   return new Intl.NumberFormat(locale).format(value);
 }
 
+function formatCredits(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 3,
+    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
+  }).format(value);
+}
+
 function formatCreditsFromMilli(milli: number) {
-  return Math.round(milli / 1000);
+  return milli / 1000;
 }
 
 function formatDollarsFromMicros(micros: number) {
@@ -207,12 +220,14 @@ const requestsChartConfig = {
 // --- Props ---
 
 type PlatformUsageContentProps = {
+  creditBalance: CreditBalance;
   locale: string;
   orgSlug: string;
   timezone: string;
 };
 
 export function PlatformUsageContent({
+  creditBalance,
   locale,
   orgSlug,
   timezone,
@@ -295,8 +310,8 @@ export function PlatformUsageContent({
         <StatCard
           label="Credit balance"
           loading={false}
-          subtitle="Coming soon"
-          value="—"
+          subtitle={`${formatCredits(creditBalance.totalGranted, locale)} granted · ${formatCredits(creditBalance.totalDebited, locale)} debited`}
+          value={formatCredits(creditBalance.currentBalance, locale)}
         />
         <StatCard
           label="Credits burned"
@@ -304,7 +319,7 @@ export function PlatformUsageContent({
           subtitle="in selected period"
           value={
             summary
-              ? formatCount(formatCreditsFromMilli(summary.totalCreditsBurnedMilli), locale)
+              ? formatCredits(formatCreditsFromMilli(summary.totalCreditsBurnedMilli), locale)
               : undefined
           }
         />
@@ -393,7 +408,7 @@ export function PlatformUsageContent({
                             <div className="flex flex-col gap-0.5">
                               <span>{formatDollarsFromMicros(row.providerCostMicros)}</span>
                               <span className="text-muted-foreground">
-                                {formatCount(formatCreditsFromMilli(row.creditsBurnedMilli), locale)} credits
+                                {formatCredits(formatCreditsFromMilli(row.creditsBurnedMilli), locale)} credits
                               </span>
                               <span className="text-muted-foreground">
                                 {formatCompact(row.inputTokens + row.outputTokens, locale)} tokens
@@ -503,7 +518,7 @@ export function PlatformUsageContent({
                       {formatCount(row.totalTokens, locale)}
                     </TableCell>
                     <TableCell>
-                      {formatCount(formatCreditsFromMilli(row.creditsBurnedMilli), locale)}
+                      {formatCredits(formatCreditsFromMilli(row.creditsBurnedMilli), locale)}
                     </TableCell>
                     <TableCell>
                       {formatDollarsFromMicros(row.providerCostMicros)}

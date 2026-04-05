@@ -6,6 +6,8 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
+import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
 
 export default async function PlatformOrganizationUsagePage({
   params,
@@ -49,8 +51,23 @@ export default async function PlatformOrganizationUsagePage({
     );
   }
 
+  const creditBalance = await getTenantCreditBalanceSummary({
+    tenantId: tenant.id,
+  });
+
   return (
     <PlatformUsageContent
+      creditBalance={{
+        currentBalance: formatCreditsFromMilli(
+          creditBalance.currentBalanceCreditsMilli,
+        ),
+        totalDebited: formatCreditsFromMilli(
+          creditBalance.totalDebitedCreditsMilli,
+        ),
+        totalGranted: formatCreditsFromMilli(
+          creditBalance.totalGrantedCreditsMilli,
+        ),
+      }}
       locale={organization.locale}
       orgSlug={orgSlug}
       timezone={organization.timezone}
