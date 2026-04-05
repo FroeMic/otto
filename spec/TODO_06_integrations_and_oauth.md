@@ -183,7 +183,7 @@ Recommended tables:
   - `disconnected_at`
   - `last_apply_run_id`
   - `last_delivery_error`
-- `slack_installations`
+- `integration_slack_installations`
   - `id`
   - `tenant_integration_id`
   - `slack_team_id`
@@ -197,7 +197,7 @@ Recommended tables:
   - `installed_at`
   - `last_token_refresh_at`
   - `last_webhook_at`
-- `integration_secrets`
+- `integration_credentials`
   - `id`
   - `tenant_integration_id`
   - `secret_type`
@@ -205,7 +205,7 @@ Recommended tables:
   - `key_version`
   - `created_at`
   - `rotated_at`
-- `messaging_workspaces`
+- `integration_messaging_workspaces`
   - `id`
   - `tenant_integration_id`
   - `external_workspace_id`
@@ -213,7 +213,7 @@ Recommended tables:
   - `sync_status`
   - `last_synced_at`
   - `last_sync_error`
-- `messaging_workspace_members`
+- `integration_messaging_workspace_members`
   - `id`
   - `messaging_workspace_id`
   - `external_member_id`
@@ -222,7 +222,7 @@ Recommended tables:
   - `is_deleted`
   - `profile_json`
   - `last_synced_at`
-- `messaging_conversations`
+- `integration_messaging_conversations`
   - `id`
   - `messaging_workspace_id`
   - `external_conversation_id`

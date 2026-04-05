@@ -12,10 +12,10 @@ import {
   storeTenantRuntimeGatewayToken,
 } from "@/db/control-plane";
 import {
+  integrationWhatsAppInstallations,
   tenantApplyRuns,
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-  whatsappInstallations,
 } from "@/db/schema";
 import { buildOpenClawTenantConfig } from "@/lib/openclaw/config";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
@@ -385,13 +385,16 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
       disconnectedAt: tenantIntegrations.disconnectedAt,
       id: tenantIntegrations.id,
       status: tenantIntegrations.status,
-      whatsappSelfE164: whatsappInstallations.selfE164,
-      whatsappSelfJid: whatsappInstallations.selfJid,
+      whatsappSelfE164: integrationWhatsAppInstallations.selfE164,
+      whatsappSelfJid: integrationWhatsAppInstallations.selfJid,
     })
     .from(tenantIntegrations)
     .leftJoin(
-      whatsappInstallations,
-      eq(whatsappInstallations.tenantIntegrationId, tenantIntegrations.id),
+      integrationWhatsAppInstallations,
+      eq(
+        integrationWhatsAppInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(

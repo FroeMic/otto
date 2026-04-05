@@ -218,6 +218,13 @@
       "when": 1775400001000,
       "tag": "0030_rare_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1775400663358,
+      "tag": "0031_rename_integration_tables",
+      "breakpoints": true
     }
   ]
 }

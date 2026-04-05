@@ -3,10 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { activateTenantWhatsAppAfterPairing } from "@/db/control-plane";
 import {
+  integrationWhatsAppInstallations,
+  integrationWhatsAppLinkSessions,
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-  whatsappInstallations,
-  whatsappLinkSessions,
 } from "@/db/schema";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
@@ -580,12 +580,12 @@ async function getLinkSession(linkSessionId: string) {
   const db = getDb();
   const [linkSession] = await db
     .select({
-      forceRelink: whatsappLinkSessions.forceRelink,
-      id: whatsappLinkSessions.id,
-      tenantIntegrationId: whatsappLinkSessions.tenantIntegrationId,
+      forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+      id: integrationWhatsAppLinkSessions.id,
+      tenantIntegrationId: integrationWhatsAppLinkSessions.tenantIntegrationId,
     })
-    .from(whatsappLinkSessions)
-    .where(eq(whatsappLinkSessions.id, linkSessionId))
+    .from(integrationWhatsAppLinkSessions)
+    .where(eq(integrationWhatsAppLinkSessions.id, linkSessionId))
     .limit(1);
 
   return linkSession ?? null;
@@ -604,7 +604,7 @@ async function markLinkSessionStatus(
   const db = getDb();
 
   await db
-    .update(whatsappLinkSessions)
+    .update(integrationWhatsAppLinkSessions)
     .set({
       ...(input.completedAt !== undefined
         ? { completedAt: input.completedAt }
@@ -615,7 +615,7 @@ async function markLinkSessionStatus(
       status: input.status,
       updatedAt: new Date(),
     })
-    .where(eq(whatsappLinkSessions.id, linkSessionId));
+    .where(eq(integrationWhatsAppLinkSessions.id, linkSessionId));
 }
 
 async function markIntegrationStatus(
@@ -672,15 +672,20 @@ async function completeLinkSession(input: {
 
     const [existingInstallation] = await tx
       .select({
-        id: whatsappInstallations.id,
+        id: integrationWhatsAppInstallations.id,
       })
-      .from(whatsappInstallations)
-      .where(eq(whatsappInstallations.tenantIntegrationId, integration.id))
+      .from(integrationWhatsAppInstallations)
+      .where(
+        eq(
+          integrationWhatsAppInstallations.tenantIntegrationId,
+          integration.id,
+        ),
+      )
       .limit(1);
 
     if (existingInstallation) {
       await tx
-        .update(whatsappInstallations)
+        .update(integrationWhatsAppInstallations)
         .set({
           lastSeenAt: now,
           linkedAt: now,
@@ -688,9 +693,11 @@ async function completeLinkSession(input: {
           selfJid: input.selfJid,
           updatedAt: now,
         })
-        .where(eq(whatsappInstallations.id, existingInstallation.id));
+        .where(
+          eq(integrationWhatsAppInstallations.id, existingInstallation.id),
+        );
     } else {
-      await tx.insert(whatsappInstallations).values({
+      await tx.insert(integrationWhatsAppInstallations).values({
         lastSeenAt: now,
         linkedAt: now,
         selfE164: input.selfE164,
@@ -712,7 +719,7 @@ async function completeLinkSession(input: {
       .where(eq(tenantIntegrations.id, integration.id));
 
     await tx
-      .update(whatsappLinkSessions)
+      .update(integrationWhatsAppLinkSessions)
       .set({
         completedAt: now,
         expiresAt: null,
@@ -720,7 +727,7 @@ async function completeLinkSession(input: {
         status: "connected",
         updatedAt: now,
       })
-      .where(eq(whatsappLinkSessions.id, input.linkSessionId));
+      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId));
   });
 }
 
@@ -734,14 +741,14 @@ async function failLinkSession(input: {
 
   await db.transaction(async (tx) => {
     await tx
-      .update(whatsappLinkSessions)
+      .update(integrationWhatsAppLinkSessions)
       .set({
         completedAt: now,
         lastError: input.error,
         status: "failed",
         updatedAt: now,
       })
-      .where(eq(whatsappLinkSessions.id, input.linkSessionId));
+      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId));
 
     await tx
       .update(tenantIntegrations)
@@ -783,7 +790,7 @@ async function markWhatsAppDisconnected(tenantId: string) {
     }
 
     await tx
-      .update(whatsappInstallations)
+      .update(integrationWhatsAppInstallations)
       .set({
         lastSeenAt: now,
         linkedAt: null,
@@ -791,7 +798,12 @@ async function markWhatsAppDisconnected(tenantId: string) {
         selfJid: null,
         updatedAt: now,
       })
-      .where(eq(whatsappInstallations.tenantIntegrationId, integration.id));
+      .where(
+        eq(
+          integrationWhatsAppInstallations.tenantIntegrationId,
+          integration.id,
+        ),
+      );
 
     await tx
       .update(tenantIntegrations)
