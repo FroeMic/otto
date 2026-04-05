@@ -45,6 +45,7 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - `spec/` stores planning state and implementation sequencing.
 - Placeholder docs should be replaced when they become misleading.
 - Use `bun run ...` as the default way to invoke scripts for `web/` work unless a task specifically requires `npm`.
+- This applies to routine verification too: prefer `bun run build`, `bun run lint`, `bun run test:...`, and other `web/` package scripts over `npm run ...`.
 - For UI work in `web/`, use official shadcn components by default unless the user explicitly asks for a custom component.
 - If a needed shadcn component is not installed, install it via the shadcn CLI instead of hand-rolling a replacement.
 - If you cannot install the required shadcn component cleanly, stop and ask the user to install or approve installing it before continuing.

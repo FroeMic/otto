@@ -66,6 +66,7 @@ export class RuntimeManager {
       tenantId: string;
       desiredStateVersion: number;
       gatewayToken: string;
+      tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
@@ -75,6 +76,7 @@ export class RuntimeManager {
     await this.writeTenantConfigFiles(connection, {
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
+      tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       metadataTimestampKey: "bootstrappedAt",
@@ -106,6 +108,7 @@ export class RuntimeManager {
     input: {
       desiredStateVersion: number;
       gatewayToken: string;
+      tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
@@ -116,6 +119,7 @@ export class RuntimeManager {
     await this.writeTenantConfigFiles(connection, {
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
+      tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
@@ -191,6 +195,7 @@ export class RuntimeManager {
     input: {
       desiredStateVersion: number;
       gatewayToken: string;
+      tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       metadataPath: string;
       metadataTimestampKey: string;
@@ -202,6 +207,7 @@ export class RuntimeManager {
     const runtimeFiles = await buildTenantRuntimeFiles({
       desiredStateVersion: input.desiredStateVersion,
       gatewayToken: input.gatewayToken,
+      tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       metadataPath: input.metadataPath,
       metadataTimestampKey: input.metadataTimestampKey,
@@ -697,11 +703,13 @@ function shellQuoteForShell(value: string) {
 
 async function buildRuntimeEnvFile(input: {
   gatewayToken: string;
+  tenantToken: string;
   slackBotToken?: string | null;
   tenantId: string;
 }) {
   const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
+  lines.push(`TENANT_TOKEN=${input.tenantToken}`);
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
   const webSearch = resolveRuntimeWebSearchConfig();
   const tenantOpenAiApiKey = await getTenantOpenAiApiKey(input.tenantId);
@@ -730,6 +738,7 @@ async function buildRuntimeEnvFile(input: {
 async function buildTenantRuntimeFiles(input: {
   desiredStateVersion: number;
   gatewayToken: string;
+  tenantToken: string;
   managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
   metadataPath: string;
   metadataTimestampKey: string;
@@ -752,6 +761,7 @@ async function buildTenantRuntimeFiles(input: {
       path: "/opt/openclaw/home/.env",
       contents: await buildRuntimeEnvFile({
         gatewayToken: input.gatewayToken,
+        tenantToken: input.tenantToken,
         slackBotToken: input.slackBotToken,
         tenantId: input.tenantId,
       }),

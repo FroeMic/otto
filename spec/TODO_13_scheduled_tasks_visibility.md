@@ -241,7 +241,7 @@ Payload shape should support both full task snapshots and incremental run upsert
 
 The route should:
 
-- authenticate with the tenant gateway token via the existing runtime-auth path
+- authenticate with the tenant-scoped runtime token via the existing runtime-auth path
 - validate bounded batch sizes
 - replace tasks and upsert runs using separate scheduled-task DB helpers
 - set `lastSyncedAt` and clear `lastSyncError` on successful task updates

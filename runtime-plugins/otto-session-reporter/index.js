@@ -311,8 +311,8 @@ function resolveControlPlaneBaseUrl() {
   return value || null;
 }
 
-function resolveGatewayToken() {
-  const raw = process.env.OPENCLAW_GATEWAY_TOKEN ?? "";
+function resolveTenantToken() {
+  const raw = process.env.TENANT_TOKEN ?? "";
   const value = raw.trim();
   return value || null;
 }
@@ -347,7 +347,7 @@ function resolveDebounceMs(api) {
 
 async function requestControlPlane(api, input) {
   const baseUrl = resolveControlPlaneBaseUrl();
-  const token = resolveGatewayToken();
+  const token = resolveTenantToken();
   const timeoutMs = resolveTimeoutMs(api);
 
   if (!baseUrl) {
@@ -363,7 +363,7 @@ async function requestControlPlane(api, input) {
     return {
       ok: false,
       code: "control_plane_env_missing",
-      error: "OPENCLAW_GATEWAY_TOKEN is not set in the runtime environment.",
+      error: "TENANT_TOKEN is not set in the runtime environment.",
     };
   }
 

@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { getTenantRuntimeGatewayToken } from "@/db/control-plane";
+import { getTenantRuntimeTenantToken } from "@/db/control-plane";
 import { organizations, tenantServers, tenants } from "@/db/schema";
 import { logCliError } from "@/lib/cli-error";
 import { getControlPlaneBaseUrl } from "@/lib/env";
@@ -36,22 +36,22 @@ async function main() {
     throw new Error(`No tenant found for organization slug "${orgSlug}".`);
   }
 
-  const gatewayToken = await getTenantRuntimeGatewayToken(target.tenantId);
+  const tenantToken = await getTenantRuntimeTenantToken(target.tenantId);
 
-  if (!gatewayToken) {
+  if (!tenantToken) {
     throw new Error(
-      `Tenant ${target.tenantId} does not have a saved gateway token yet.`,
+      `Tenant ${target.tenantId} does not have a saved tenant token yet.`,
     );
   }
 
   const listResponse = await fetchRuntimeSurface({
     baseUrl,
-    gatewayToken,
+    tenantToken,
     path: "/api/internal/runtime/surfaces",
   });
   const surfaceResponse = await fetchRuntimeSurface({
     baseUrl,
-    gatewayToken,
+    tenantToken,
     path: `/api/internal/runtime/surfaces/${encodeURIComponent(surfaceKind)}/${encodeURIComponent(surfaceKey)}`,
   });
 
@@ -72,7 +72,7 @@ async function main() {
           ? listResponse.surfaces.map((surface: { id?: string }) => surface.id)
           : [],
         verificationNotes: [
-          "These responses are fetched with the tenant runtime gateway token against the same internal control-plane endpoints the otto-runtime-config plugin uses.",
+          "These responses are fetched with the tenant token against the same internal control-plane endpoints the otto-runtime-config plugin uses.",
           "If the custom Otto runtime image is deployed, the runtime plugin should expose matching surface data to the agent.",
         ],
       },
@@ -105,12 +105,12 @@ async function getLatestTenantForOrganization(
 
 async function fetchRuntimeSurface(input: {
   baseUrl: string;
-  gatewayToken: string;
+  tenantToken: string;
   path: string;
 }) {
   const response = await fetch(`${input.baseUrl}${input.path}`, {
     headers: {
-      Authorization: `Bearer ${input.gatewayToken}`,
+      Authorization: `Bearer ${input.tenantToken}`,
     },
   });
   const text = await response.text();

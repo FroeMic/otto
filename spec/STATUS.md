@@ -61,7 +61,9 @@
   - reconnect after the tenant runtime is already ready is now supported through desired-state versioning plus `apply_tenant_config`
 - The config-apply slice is now implemented:
   - `tenant_desired_states` versions are now unique per tenant and Slack reconnects create new desired-state versions instead of mutating prior state
-  - `tenant_runtime_secrets` now persist runtime-only secrets such as the OpenClaw gateway token under control-plane encryption
+  - `tenant_runtime_secrets` now persist runtime-only secrets under control-plane encryption
+  - tenant runtimes now project separate `OPENCLAW_GATEWAY_TOKEN` and `TENANT_TOKEN` values
+  - `OPENCLAW_GATEWAY_TOKEN` remains the OpenClaw gateway auth secret, while `TENANT_TOKEN` is the runtime-to-control-plane auth credential for Otto-owned internal APIs and plugins
   - `tenant_apply_runs` now record queued, running, succeeded, and failed apply attempts per desired-state version
   - the worker now handles `apply_tenant_config` by writing runtime files atomically, restarting the tenant runtime, and verifying health
   - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
@@ -70,7 +72,7 @@
   - the control plane now seeds and versions `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` separately from the writable workspace
   - desired state now pins a specific managed config version so bootstrap and later apply runs project deterministic file contents into the tenant runtime workspace root
   - the settings page now exposes locked system blocks plus a shared editable block for those files and saves changes through the existing apply pipeline
-  - a runtime-authenticated internal API now exists at `/api/internal/runtime/managed-config` so a future OpenClaw plugin can list, read, and update those managed files using the tenant gateway token
+  - a runtime-authenticated internal API now exists at `/api/internal/runtime/managed-config` so a future OpenClaw plugin can list, read, and update those managed files using the tenant token
   - managed-config writes can now carry an expected version to avoid silent user/agent overwrites, and the tenant runtime now receives `OTTO_CONTROL_PLANE_BASE_URL` in `.env` for future plugin callbacks
   - rendered `TOOLS.md` system instructions now inject the Otto base URL plus the current workspace slug, so Otto can answer with full control-plane URLs like the Slack settings page instead of only relative paths
 - The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
