@@ -22,5 +22,10 @@
       "cliOption": "--tenant-token <token>",
       "cliDescription": "Tenant-scoped Otto runtime token"
     }
-  ]
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
 }
