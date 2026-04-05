@@ -102,6 +102,17 @@ export default async function WorkspaceBillingPage({
     }
   }
 
+  // Calculate current billing cycle spend from paid invoices
+  const currentPeriodStart = billingOverview.subscription?.currentPeriodStart;
+  const currentCycleSpendCents = invoices
+    .filter(
+      (inv) =>
+        inv.status === "paid" &&
+        currentPeriodStart &&
+        inv.createdAt >= currentPeriodStart,
+    )
+    .reduce((sum, inv) => sum + inv.amountPaidCents, 0);
+
   return (
     <SettingsPage>
       <div className="flex flex-col gap-8">
@@ -280,6 +291,7 @@ export default async function WorkspaceBillingPage({
           <SettingsSectionTitle>Spend limit</SettingsSectionTitle>
           <SettingsCard>
             <WorkspaceSpendLimitCard
+              currentCycleSpendCents={currentCycleSpendCents}
               initialPreferences={billingOverview.preferences}
               locale={currentOrganization.locale}
               orgSlug={orgSlug}

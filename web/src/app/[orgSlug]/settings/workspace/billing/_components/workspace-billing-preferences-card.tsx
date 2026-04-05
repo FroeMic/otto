@@ -35,6 +35,13 @@ type WorkspaceBillingPreferencesCardProps = {
   orgSlug: string;
 };
 
+type WorkspaceSpendLimitCardProps = {
+  currentCycleSpendCents: number;
+  initialPreferences: BillingPreferences;
+  locale: string;
+  orgSlug: string;
+};
+
 function formatUsd(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     currency: "USD",
@@ -57,6 +64,10 @@ export function WorkspaceBillingPreferencesCard({
   const packs = useMemo(() => getAutoTopOffPacks(), []);
   const [prefs, setPrefs] = useState(initialPreferences);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedPack = packs.find(
+    (p) => p.amountCents === prefs.topOffAmountCents,
+  );
 
   const save = useCallback(
     (next: BillingPreferences) => {
@@ -109,6 +120,8 @@ export function WorkspaceBillingPreferencesCard({
     save(next);
   }
 
+  const fieldsDisabled = isPending || !prefs.autoTopOffEnabled;
+
   return (
     <>
       <SettingsRow>
@@ -133,19 +146,22 @@ export function WorkspaceBillingPreferencesCard({
             Reload triggers at this credit level.
           </SettingsRowDescription>
         </SettingsRowLabel>
-        <Input
-          className="w-32 text-right"
-          disabled={isPending}
-          inputMode="numeric"
-          min={0}
-          onChange={(e) => {
-            const val = Number.parseInt(e.target.value, 10);
-            if (!Number.isNaN(val) && val >= 0)
-              update({ minimumBalanceCredits: val });
-          }}
-          type="number"
-          value={prefs.minimumBalanceCredits}
-        />
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">Credits</span>
+          <Input
+            className="w-28 text-right"
+            disabled={fieldsDisabled}
+            inputMode="numeric"
+            min={0}
+            onChange={(e) => {
+              const val = Number.parseInt(e.target.value, 10);
+              if (!Number.isNaN(val) && val >= 0)
+                update({ minimumBalanceCredits: val });
+            }}
+            type="number"
+            value={prefs.minimumBalanceCredits}
+          />
+        </div>
       </SettingsRow>
       <SettingsRow>
         <SettingsRowLabel>
@@ -155,13 +171,18 @@ export function WorkspaceBillingPreferencesCard({
           </SettingsRowDescription>
         </SettingsRowLabel>
         <Select
+          disabled={fieldsDisabled}
           onValueChange={(value) => {
             if (value) update({ topOffAmountCents: Number(value) });
           }}
           value={String(prefs.topOffAmountCents)}
         >
-          <SelectTrigger className="w-48">
-            <SelectValue />
+          <SelectTrigger className="w-52">
+            <SelectValue>
+              {selectedPack
+                ? `${formatUsd(selectedPack.amountCents / 100, locale)} · ${formatCredits(selectedPack.creditsGranted, locale)} credits`
+                : "Select pack"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent align="end">
             <SelectGroup>
@@ -170,8 +191,10 @@ export function WorkspaceBillingPreferencesCard({
                   key={pack.amountCents}
                   value={String(pack.amountCents)}
                 >
-                  {formatUsd(pack.amountCents / 100, locale)} ·{" "}
-                  {formatCredits(pack.creditsGranted, locale)} credits
+                  <span className="flex items-center gap-1.5">
+                    {formatUsd(pack.amountCents / 100, locale)} ·{" "}
+                    {formatCredits(pack.creditsGranted, locale)} credits
+                  </span>
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -183,16 +206,27 @@ export function WorkspaceBillingPreferencesCard({
 }
 
 export function WorkspaceSpendLimitCard({
+  currentCycleSpendCents,
   initialPreferences,
   locale,
   orgSlug,
-}: WorkspaceBillingPreferencesCardProps) {
+}: WorkspaceSpendLimitCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const packs = useMemo(() => getAutoTopOffPacks(), []);
   const [spendLimitUsd, setSpendLimitUsd] = useState(
     initialPreferences.monthlySpendLimitCents / 100,
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedPack = packs.find(
+    (p) => p.amountCents === initialPreferences.topOffAmountCents,
+  );
+  const nextReloadCents = selectedPack?.amountCents ?? 0;
+  const wouldExceedLimit =
+    initialPreferences.autoTopOffEnabled &&
+    spendLimitUsd > 0 &&
+    currentCycleSpendCents + nextReloadCents > spendLimitUsd * 100;
 
   function handleChange(value: number) {
     setSpendLimitUsd(value);
@@ -232,28 +266,47 @@ export function WorkspaceSpendLimitCard({
   }
 
   return (
-    <SettingsRow>
-      <SettingsRowLabel>
-        <SettingsRowTitle>Monthly spend limit</SettingsRowTitle>
-        <SettingsRowDescription>
-          Auto-reload pauses after this amount is spent per month.
-        </SettingsRowDescription>
-      </SettingsRowLabel>
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm text-muted-foreground">$</span>
-        <Input
-          className="w-24 text-right"
-          disabled={isPending}
-          inputMode="numeric"
-          min={0}
-          onChange={(e) => {
-            const val = Number.parseInt(e.target.value, 10);
-            if (!Number.isNaN(val) && val >= 0) handleChange(val);
-          }}
-          type="number"
-          value={spendLimitUsd}
-        />
-      </div>
-    </SettingsRow>
+    <>
+      <SettingsRow>
+        <SettingsRowLabel>
+          <SettingsRowTitle>Billing cycle spend limit</SettingsRowTitle>
+          <SettingsRowDescription>
+            Auto-reload pauses after this amount (incl. tax) is spent in a
+            billing cycle.
+          </SettingsRowDescription>
+        </SettingsRowLabel>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">$</span>
+          <Input
+            className="w-24 text-right"
+            disabled={isPending}
+            inputMode="numeric"
+            min={0}
+            onChange={(e) => {
+              const val = Number.parseInt(e.target.value, 10);
+              if (!Number.isNaN(val) && val >= 0) handleChange(val);
+            }}
+            type="number"
+            value={spendLimitUsd}
+          />
+        </div>
+      </SettingsRow>
+      <SettingsRow>
+        <SettingsRowLabel>
+          <SettingsRowTitle>Current cycle spend</SettingsRowTitle>
+          <SettingsRowDescription>
+            {formatUsd(currentCycleSpendCents / 100, locale)} of{" "}
+            {spendLimitUsd > 0
+              ? `${formatUsd(spendLimitUsd, locale)} limit`
+              : "no limit set"}
+          </SettingsRowDescription>
+        </SettingsRowLabel>
+        {wouldExceedLimit ? (
+          <span className="text-xs text-muted-foreground">
+            Next auto-reload will be blocked
+          </span>
+        ) : null}
+      </SettingsRow>
+    </>
   );
 }
