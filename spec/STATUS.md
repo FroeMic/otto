@@ -278,7 +278,7 @@
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
-  - lock the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior
+  - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - ship raw OpenAI usage ingestion first as a narrow vertical slice, storing immutable per-minute usage buckets in Otto
   - add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
   - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync

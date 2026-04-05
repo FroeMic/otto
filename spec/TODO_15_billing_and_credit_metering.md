@@ -75,12 +75,51 @@ Recommended v1 package to lock in now:
 - Growth: `$90/month` for `60,000` credits
 - Scale: `$200/month` for `100,000` credits
 
+Locked plan catalog for v1:
+
+- `starter_monthly`
+  - price: `$50/month`
+  - included credits: `25,000`
+  - Stripe product family: `subscription`
+- `growth_monthly`
+  - price: `$90/month`
+  - included credits: `60,000`
+  - Stripe product family: `subscription`
+- `scale_monthly`
+  - price: `$200/month`
+  - included credits: `100,000`
+  - Stripe product family: `subscription`
+
+Locked top-up catalog for v1:
+
+- `top_up_10000`
+  - price: `$25`
+  - granted credits: `10,000`
+  - expiry: `12 months after purchase`
+- `top_up_25000`
+  - price: `$55`
+  - granted credits: `25,000`
+  - expiry: `12 months after purchase`
+- `top_up_50000`
+  - price: `$100`
+  - granted credits: `50,000`
+  - expiry: `12 months after purchase`
+
+Catalog rules:
+
+- plan keys and top-up keys are stable internal ids and must not be renamed after Stripe products exist
+- product copy can change later without changing the key
+- plan prices are locked for the first implementation slice and should not be treated as runtime-configurable yet
+- top-up packs are intentionally priced at a worse effective rate than the best subscription tier so subscriptions remain the default commercial path
+
 Policy decisions:
 
 - subscriptions renew monthly
 - included credits expire at the end of the current billing period
-- billing should anchor to the start of the calendar month when feasible
-- signup mid-month should use Stripe proration or a short initial stub period rather than an Otto-side custom invoice flow
+- billing anchors to the first day of the calendar month in the workspace timezone when Stripe supports the desired anchor directly; otherwise anchor in UTC and keep Otto policy text calendar-month based
+- signup mid-month uses Stripe proration to the next month boundary rather than an Otto-side custom invoice flow
+- upgrades take effect immediately with Stripe-managed proration
+- downgrades take effect at the next renewal boundary to avoid clawing back already-granted included credits
 - no rollover for included monthly credits in v1
 
 Top-up policy:
@@ -89,6 +128,8 @@ Top-up policy:
 - implement top-ups as one-time Stripe Checkout purchases, not subscription quantity changes
 - paid top-up credits should expire after `12 months` by default so the product does not feel punitive
 - include metadata on each top-up price for `credits_granted`, `plan_family=top_up`, and `expiry_policy`
+- top-up packs do not change the renewal date or subscription tier
+- top-up credits are burned after included monthly credits are exhausted so included credits still expire cleanly at period end
 
 Overage policy:
 
@@ -147,11 +188,23 @@ Hidden fair-use policy:
 ### v1 rules
 
 - keep the base plans as fixed recurring prices, not metered subscription items
-- keep plan metadata in both Otto config and Stripe metadata:
+- keep plan metadata in both Otto config and Stripe metadata
+- use this recurring-price metadata contract:
   - `otto_plan_key`
+  - `otto_plan_family=subscription`
   - `included_credits`
-  - `credit_expiry_policy`
-  - `workspace_limit_policy`
+  - `credit_expiry_policy=period_end`
+  - `workspace_limit_policy=prepaid`
+  - `billing_interval=monthly`
+- use this top-up-price metadata contract:
+  - `otto_top_up_key`
+  - `otto_plan_family=top_up`
+  - `credits_granted`
+  - `credit_expiry_policy=12_months`
+  - `workspace_limit_policy=prepaid`
+- use this shared product metadata where helpful:
+  - `otto_catalog_version=v1`
+  - `otto_currency=usd`
 - treat Otto as the source of truth for credit balances even if Stripe metadata mirrors plan values
 
 ### Why not make Stripe the credit ledger
@@ -713,10 +766,10 @@ Exit check:
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [x] harden OpenAI key rotation so it reuses the project, applies the new key to runtime, verifies deployment, and then deletes the previous service account
-- [ ] validate the final live plan pricing and top-up pack values before implementation
-- [ ] validate whether calendar-month anchors or signup-date anchors are the better launch default
+- [x] validate the final live plan pricing and top-up pack values before implementation
+- [x] validate whether calendar-month anchors or signup-date anchors are the better launch default
 - [ ] decide whether the first live enforcement step should be soft-stop only or hard-stop with request reservation
-- [ ] decide whether paid top-up credits should expire after 12 months or never expire
+- [x] decide whether paid top-up credits should expire after 12 months or never expire
 - [ ] validate the OpenAI provisioning spike against a real admin key and confirm the exact service-account response shape
 
 ## Open questions
