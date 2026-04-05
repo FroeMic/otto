@@ -43,9 +43,15 @@ export default async function WorkspaceBillingPage({
   const billingOverview = await getWorkspaceBillingOverview({
     organizationId: currentOrganization.id,
   });
+  const usageWindowEnd = new Date();
+  const usageWindowStart = new Date(
+    usageWindowEnd.getTime() - 24 * 60 * 60 * 1000,
+  );
   const usageOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
+        from: usageWindowStart,
         tenantId: billingOverview.tenant.id,
+        to: usageWindowEnd,
       })
     : null;
   const billingConfigured = hasStripeBillingConfig();
@@ -91,7 +97,8 @@ export default async function WorkspaceBillingPage({
           <Alert variant="destructive">
             <AlertTitle>Stripe billing is not configured</AlertTitle>
             <AlertDescription>
-              Set the Stripe secret key, webhook secret, and monthly price IDs
+              Set the Stripe secret key and webhook secret, then configure the
+              recurring plan prices in Stripe with the expected lookup keys
               before enabling paid plans for this workspace.
             </AlertDescription>
           </Alert>
@@ -194,7 +201,7 @@ export default async function WorkspaceBillingPage({
               <WorkspaceBillingActions
                 canManageBilling={billingConfigured}
                 canOpenBillingPortal={Boolean(billingOverview.customer)}
-                currentPlanKey={billingOverview.subscription?.planKey ?? null}
+                currentPlanKey={currentPlan?.key ?? null}
                 orgSlug={orgSlug}
               />
             </SettingsRow>

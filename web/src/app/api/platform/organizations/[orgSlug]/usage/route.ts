@@ -1,7 +1,10 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
-import { getPlatformTenantTarget, syncUserFromSession } from "@/db/control-plane";
+import {
+  getPlatformTenantTarget,
+  syncUserFromSession,
+} from "@/db/control-plane";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
 
 export const dynamic = "force-dynamic";
@@ -24,14 +27,20 @@ export async function GET(
     const toParam = url.searchParams.get("to");
 
     if (!fromParam || !toParam) {
-      return json({ code: "bad_request", message: "Missing from/to params" }, 400);
+      return json(
+        { code: "bad_request", message: "Missing from/to params" },
+        400,
+      );
     }
 
     const from = new Date(fromParam);
     const to = new Date(toParam);
 
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-      return json({ code: "bad_request", message: "Invalid from/to dates" }, 400);
+      return json(
+        { code: "bad_request", message: "Invalid from/to dates" },
+        400,
+      );
     }
 
     const tenant = await getPlatformTenantTarget({
@@ -61,8 +70,7 @@ export async function GET(
     return json(
       {
         code: "usage_fetch_failed",
-        message:
-          error instanceof Error ? error.message : "Usage fetch failed.",
+        message: error instanceof Error ? error.message : "Usage fetch failed.",
       },
       500,
     );

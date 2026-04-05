@@ -545,7 +545,7 @@ Recommended job types:
   - `openai/provisioning.ts`
   - `openai/usage.ts`
   - `openai/costs.ts`
-- `web/src/app/api/stripe/webhook/route.ts`
+- `web/src/app/webhooks/stripe/route.ts`
 - `web/src/app/api/workspace/[orgSlug]/billing/checkout/route.ts`
 - `web/src/app/api/workspace/[orgSlug]/billing/top-ups/route.ts`
 - `web/src/app/api/workspace/[orgSlug]/billing/portal/route.ts`
