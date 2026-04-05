@@ -578,6 +578,55 @@ Goal:
 
 - prove that Otto can collect real provider usage on a recurring cadence and persist it immutably without involving credits or Stripe yet
 
+Pipeline decision for this step:
+
+- do not convert usage into billable units or credits inline during ingestion
+- do not emit Stripe meter events from the ingestion job
+- treat ingestion as the raw-facts layer only
+
+Reasoning:
+
+- raw provider buckets need to remain reproducible and reprocessable when pricing rules change
+- failed or delayed conversion must not force a re-fetch from OpenAI if the raw buckets are already stored
+- Stripe should stay out of the operational loop until Otto has a stable prepaid ledger and a clear overage decision
+
+Step-2 pipeline shape:
+
+1. A worker job chooses a short recent time window for a tenant's OpenAI project.
+2. Otto calls the OpenAI usage endpoint with `bucket_width=1m`, filtered by `project_id`, grouped by at least `project_id`, `api_key_id`, and `model`.
+3. Otto stores the raw response and the flattened bucket rows immutably in Postgres.
+4. Otto records ingestion-run metadata such as request window, cursor, latency, row counts, and any retry state.
+5. Otto can re-run overlapping recent windows to capture late-arriving usage without mutating historical raw payloads.
+
+Recommended v1 storage split:
+
+- `provider_usage_ingestion_runs`
+  - one row per polling attempt
+  - includes provider, tenant, project, time window, status, and request metadata
+- `provider_usage_buckets`
+  - one row per flattened minute bucket result
+  - includes provider, tenant, project, API key, model, bucket window, usage object type, and the raw JSON payload for that bucket result
+
+Idempotency rule:
+
+- uniqueness should be based on provider + tenant + usage object type + bucket start/end + grouping dimensions such as `project_id`, `api_key_id`, and `model`
+- reruns should upsert or ignore exact duplicates rather than append unbounded duplicate rows
+
+Out of scope for Step 2:
+
+- credit grants
+- credit debits
+- billable-unit conversion
+- user-facing balances
+- Stripe meter events
+- hard-stop enforcement
+
+What happens later:
+
+- Step 3 adds operator visibility for the raw usage and daily costs
+- Step 6 consumes the stored raw usage buckets and produces billable units plus credit debits
+- Step 11 is the first place where Stripe meter-event emission should even be reconsidered, and only for optional postpaid overage
+
 Deliverables:
 
 - minimal schema for raw usage ingestion runs and raw usage buckets
