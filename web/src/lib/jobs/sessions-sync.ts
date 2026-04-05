@@ -281,11 +281,16 @@ function buildTranscriptResult(content: string): TranscriptResult {
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const entry = JSON.parse(lines[i]);
-      if (entry.type === "message" && typeof entry.message?.timestamp === "number") {
+      if (
+        entry.type === "message" &&
+        typeof entry.message?.timestamp === "number"
+      ) {
         lastMessageAt = entry.message.timestamp;
         break;
       }
-    } catch { /* skip malformed lines */ }
+    } catch {
+      /* skip malformed lines */
+    }
   }
   return {
     transcriptJsonl: content,

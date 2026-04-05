@@ -211,7 +211,7 @@ export function ScheduledJobsContent({
           taskKey: job.taskKey,
         };
       }),
-    [jobs],
+    [jobs, dateTimePreferences],
   );
 
   const filteredRows = React.useMemo(() => {
