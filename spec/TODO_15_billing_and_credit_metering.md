@@ -67,27 +67,36 @@ Lock the first Otto billing architecture around a prepaid credit burndown model 
 
 ## Initial commercial package
 
-Assumption from the product discussion: the third plan is meant to be `$200 -> 100,000 credits`, not `$200 -> 100,000 dollars`.
+Assumption from the product discussion: the plan amounts below are user-facing package definitions, while Otto still keeps the underlying credit denomination stable at `1 USD provider-cost basis = 1,000 credits`.
 
 Recommended v1 package to lock in now:
 
-- Starter: `$50/month` for `25,000` credits
-- Growth: `$90/month` for `60,000` credits
-- Scale: `$200/month` for `100,000` credits
+- Basic: `$20/month` for `10,000` credits
+- Plus: `$50/month` for `30,000` credits
+- Pro: `$100/month` for `70,000` credits
+- Max: `$200/month` for `150,000` credits
 
 Locked plan catalog for v1:
 
-- `starter_monthly`
+- `basic_monthly`
+  - user-facing name: `Basic`
+  - price: `$20/month`
+  - included credits: `10,000`
+  - Stripe product family: `subscription`
+- `plus_monthly`
+  - user-facing name: `Plus`
   - price: `$50/month`
-  - included credits: `25,000`
+  - included credits: `30,000`
   - Stripe product family: `subscription`
-- `growth_monthly`
-  - price: `$90/month`
-  - included credits: `60,000`
+- `pro_monthly`
+  - user-facing name: `Pro`
+  - price: `$100/month`
+  - included credits: `70,000`
   - Stripe product family: `subscription`
-- `scale_monthly`
+- `max_monthly`
+  - user-facing name: `Max`
   - price: `$200/month`
-  - included credits: `100,000`
+  - included credits: `150,000`
   - Stripe product family: `subscription`
 
 Locked top-up catalog for v1:
@@ -205,6 +214,11 @@ Hidden fair-use policy:
 - use this shared product metadata where helpful:
   - `otto_catalog_version=v1`
   - `otto_currency=usd`
+- set Stripe recurring price `lookup_key` values exactly to the Otto plan keys:
+  - `basic_monthly`
+  - `plus_monthly`
+  - `pro_monthly`
+  - `max_monthly`
 - treat Otto as the source of truth for credit balances even if Stripe metadata mirrors plan values
 
 ### Why not make Stripe the credit ledger
@@ -694,6 +708,20 @@ Exit check:
 
 - a test workspace can subscribe, renew, fail payment, and cancel with subscription state visible in Otto
 
+Current implementation notes:
+
+- the first Stripe subscription-commerce slice now exists:
+  - Otto creates Stripe Checkout sessions for `Basic`, `Plus`, `Pro`, and `Max` using the stable internal plan keys `basic_monthly`, `plus_monthly`, `pro_monthly`, and `max_monthly`
+  - Otto creates Stripe billing portal sessions for workspaces that already have a Stripe customer
+  - Otto mirrors Stripe customer and current subscription state into:
+    - `billing_customers`
+    - `billing_subscriptions`
+    - `billing_checkout_sessions`
+    - `billing_webhook_events`
+- the current workspace billing page uses the hosted Stripe surfaces for first subscription signup and ongoing self-serve billing management
+- once a workspace already has a subscription, plan changes are intentionally pushed into the Stripe billing portal rather than creating a second subscription through Checkout
+- this slice depends on Stripe price ids configured in control-plane env rather than trying to discover prices dynamically from Stripe metadata
+
 ### Step 5: Grant credits from Stripe payments
 
 Goal:
@@ -711,6 +739,15 @@ Deliverables:
 Exit check:
 
 - Otto can show a correct workspace balance and grant history using only Otto billing data
+
+Current implementation notes:
+
+- recurring Stripe invoice payments now create positive Otto credit grants:
+  - `invoice.paid` creates an idempotent `credit_grants` row keyed by the Stripe invoice id
+  - each successful new grant also creates a positive ledger entry in `credit_ledger_entries`
+  - included monthly credits currently expire logically via `credit_grants.expires_at`, but no expiry job has been implemented yet to burn those expired balances back out of the ledger
+- top-up grants are still out of scope in the current code slice
+- the current page shows derived balance plus recent grants and ledger activity from Otto data only
 
 ### Step 6: Convert provider usage into billable units and credit debits
 
@@ -766,6 +803,19 @@ Deliverables:
 Exit check:
 
 - an org admin can understand plan, balance, recent burn, and next steps from within the workspace
+
+Current implementation notes:
+
+- a first workspace billing page now exists at `web/src/app/[orgSlug]/settings/workspace/billing/page.tsx`
+- the workspace settings sidebar now includes `Billing`
+- the page currently shows:
+  - current plan and Stripe subscription status
+  - renewal date
+  - current Otto credit balance
+  - recent credit grants
+  - recent ledger activity
+  - hosted Checkout and billing portal actions
+- the page does not yet include top-ups, expiry messaging, or rich usage charts
 
 ### Step 8: Add top-ups and expiry policy enforcement
 

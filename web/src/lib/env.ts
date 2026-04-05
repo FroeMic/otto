@@ -88,6 +88,8 @@ const envSchema = z.object({
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_ENABLED: z
     .enum(["true", "false"])
     .transform((value) => value === "true")
@@ -146,6 +148,35 @@ export function getControlPlaneOpenAiAdminApiKey() {
   }
 
   return value;
+}
+
+export function getStripeSecretKey() {
+  const value = getEnv().STRIPE_SECRET_KEY;
+
+  if (!value) {
+    throw new Error("STRIPE_SECRET_KEY is required");
+  }
+
+  return value;
+}
+
+export function getStripeWebhookSecret() {
+  const value = getEnv().STRIPE_WEBHOOK_SECRET;
+
+  if (!value) {
+    throw new Error("STRIPE_WEBHOOK_SECRET is required");
+  }
+
+  return value;
+}
+
+export function hasStripeBillingConfig() {
+  try {
+    getStripeSecretKey();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getControlPlaneBaseUrl() {
