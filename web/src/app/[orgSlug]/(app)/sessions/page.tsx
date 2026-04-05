@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import {
   getConversationNameMap,
+  getMemberNameMap,
   getUserExternalIds,
   listTenantSessions,
 } from "@/db/control-plane";
@@ -32,6 +33,7 @@ export default async function SessionsPage({
     sessions,
     currentUserExternalIds,
     conversationNameMap,
+    memberNameMap,
     cronTaskKeyMap,
   ] = await Promise.all([
     agent ? listTenantSessions({ tenantId: agent.id }) : [],
@@ -40,10 +42,12 @@ export default async function SessionsPage({
       organizationId: organization.id,
     }),
     getConversationNameMap({ organizationId: organization.id }),
+    getMemberNameMap({ organizationId: organization.id }),
     agent ? getCronSessionTaskKeyMap({ tenantId: agent.id }) : new Map(),
   ]);
 
   const channelNames = Object.fromEntries(conversationNameMap);
+  const memberNames = Object.fromEntries(memberNameMap);
   const cronTaskKeys = Object.fromEntries(cronTaskKeyMap);
   const dateTimePreferences = resolveDateTimePreferences({
     locale: organization.locale,
@@ -59,6 +63,7 @@ export default async function SessionsPage({
       currentUserExternalIds={currentUserExternalIds}
       isPlatformAdmin={user.isPlatformAdmin}
       channelNames={channelNames}
+      memberNames={memberNames}
       cronTaskKeys={cronTaskKeys}
     />
   );
