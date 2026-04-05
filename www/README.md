@@ -2,12 +2,12 @@
 
 This is Otto's public website app.
 
-## Local env
+## Env
 
-Copy the example file if you want to enable browser analytics locally:
+For local development:
 
 ```bash
-.env.example -> .env.local
+cp .env.example .env.local
 ```
 
 Available variables:
@@ -15,6 +15,15 @@ Available variables:
 - `NEXT_PUBLIC_POSTHOG_ENABLED`
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_TOKEN`
+
+For Docker or production builds, create:
+
+```bash
+cp .env.production.example .env
+```
+
+The Docker build reads `www/.env` directly, so the landing site can keep its
+own public analytics configuration separate from `web/.env`.
 
 ## Commands
 
