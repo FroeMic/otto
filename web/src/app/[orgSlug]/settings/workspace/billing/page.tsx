@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { getWorkspaceBillingOverview } from "@/db/billing";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
 import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
-import { getBillingPlans } from "@/lib/billing/plans";
+import { type BillingPlanKey, getBillingPlans } from "@/lib/billing/plans";
 import { formatShortDate, formatShortDateTime } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
@@ -196,7 +196,7 @@ export default async function WorkspaceBillingPage({
               <WorkspaceBillingActions
                 canManageBilling={billingConfigured}
                 canOpenBillingPortal={Boolean(billingOverview.customer)}
-                currentPlanKey={billingOverview.subscription?.planKey ?? null}
+                currentPlanKey={(billingOverview.subscription?.planKey as BillingPlanKey) ?? null}
                 orgSlug={orgSlug}
               />
             </SettingsRow>
