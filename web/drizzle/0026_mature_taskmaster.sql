@@ -1,0 +1,2 @@
+ALTER TABLE "provider_credentials" ADD COLUMN "external_service_account_id" varchar(255);--> statement-breakpoint
+CREATE UNIQUE INDEX "provider_credentials_provider_account_id_credential_type_active_idx" ON "provider_credentials" USING btree ("provider_account_id","credential_type") WHERE "provider_credentials"."revoked_at" is null;

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -787,6 +788,9 @@ export const providerCredentials = pgTable(
     externalApiKeyId: varchar("external_api_key_id", {
       length: 255,
     }),
+    externalServiceAccountId: varchar("external_service_account_id", {
+      length: 255,
+    }),
     ciphertext: text("ciphertext").notNull(),
     keyVersion: integer("key_version").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -802,6 +806,11 @@ export const providerCredentials = pgTable(
     providerAccountCredentialTypeIdx: index(
       "provider_credentials_provider_account_id_credential_type_idx",
     ).on(table.providerAccountId, table.credentialType),
+    providerAccountCredentialActiveUniqueIdx: uniqueIndex(
+      "provider_credentials_provider_account_id_credential_type_active_idx",
+    )
+      .on(table.providerAccountId, table.credentialType)
+      .where(sql`${table.revokedAt} is null`),
     providerAccountCredentialStatusIdx: index(
       "provider_credentials_provider_account_id_credential_type_revoked_at_idx",
     ).on(table.providerAccountId, table.credentialType, table.revokedAt),

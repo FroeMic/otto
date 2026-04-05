@@ -37,10 +37,10 @@ export class OpenAiProvisioner implements ProviderProvisioner {
       input.tenantId,
     );
     const project = input.existingProjectId
-      ? {
-          id: input.existingProjectId,
+      ? await updateOpenAiProject({
           name: projectName,
-        }
+          projectId: input.existingProjectId,
+        })
       : await createOpenAiProject(projectName);
     const serviceAccount = await createOpenAiServiceAccount({
       name: serviceAccountName,
@@ -60,6 +60,13 @@ export class OpenAiProvisioner implements ProviderProvisioner {
       serviceAccountId: serviceAccount.id,
     };
   }
+
+  async deleteTenantCredential(input: {
+    projectId: string;
+    serviceAccountId: string;
+  }): Promise<void> {
+    await deleteOpenAiServiceAccount(input);
+  }
 }
 
 async function createOpenAiProject(name: string): Promise<OpenAiProject> {
@@ -70,6 +77,28 @@ async function createOpenAiProject(name: string): Promise<OpenAiProject> {
 
   if (typeof body.id !== "string" || typeof body.name !== "string") {
     throw new Error("OpenAI project creation returned an invalid response");
+  }
+
+  return {
+    id: body.id,
+    name: body.name,
+  };
+}
+
+async function updateOpenAiProject(input: {
+  projectId: string;
+  name: string;
+}): Promise<OpenAiProject> {
+  const body = await fetchOpenAiAdminJson(
+    `/organization/projects/${input.projectId}`,
+    {
+      body: JSON.stringify({ name: input.name }),
+      method: "POST",
+    },
+  );
+
+  if (typeof body.id !== "string" || typeof body.name !== "string") {
+    throw new Error("OpenAI project update returned an invalid response");
   }
 
   return {
@@ -111,6 +140,18 @@ async function createOpenAiServiceAccount(input: {
   };
 }
 
+async function deleteOpenAiServiceAccount(input: {
+  projectId: string;
+  serviceAccountId: string;
+}): Promise<void> {
+  await fetchOpenAiAdminJson(
+    `/organization/projects/${input.projectId}/service_accounts/${input.serviceAccountId}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 async function verifyOpenAiApiKey(apiKey: string) {
   const configuredModel = getEnv().RUNTIME_MODEL_PRIMARY;
   const model = normalizeOpenAiModel(configuredModel);
@@ -144,7 +185,7 @@ async function fetchOpenAiAdminJson(
   path: string,
   init: {
     body?: string;
-    method: "GET" | "POST";
+    method: "DELETE" | "GET" | "POST";
   },
 ) {
   const response = await fetch(`${OPENAI_ADMIN_API_BASE_URL}${path}`, {
@@ -165,7 +206,12 @@ async function fetchOpenAiAdminJson(
 }
 
 function buildOpenAiProjectName(tenantName: string, tenantId: string) {
-  return truncateLabel(`Otto ${tenantName.trim()} ${tenantId.slice(0, 8)}`, 64);
+  const normalizedName = normalizeOpenAiProjectSegment(tenantName);
+
+  return truncateLabel(
+    normalizedName ? `otto_${tenantId}_${normalizedName}` : `otto_${tenantId}`,
+    64,
+  );
 }
 
 function buildOpenAiServiceAccountName(tenantName: string, tenantId: string) {
@@ -188,6 +234,14 @@ function truncateLabel(value: string, maxLength: number) {
   }
 
   return value.slice(0, maxLength);
+}
+
+function normalizeOpenAiProjectSegment(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function normalizeOpenAiModel(value: string) {

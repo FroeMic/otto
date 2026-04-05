@@ -548,6 +548,7 @@ export type PlatformOrganizationDetail = {
     openAiProvider: {
       activeApiKeyId: string | null;
       activeCredentialCount: number;
+      activeServiceAccountId: string | null;
       latestCredentialCreatedAt: Date | null;
       projectId: string | null;
       status: string;
