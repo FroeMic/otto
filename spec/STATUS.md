@@ -252,8 +252,10 @@
   - `billing/plans` now exists as the workspace-owned comparison surface for `Basic`, `Plus`, `Pro`, and `Max`
   - usage defaults to the current billing cycle and falls back to the first day of the current month when no subscription exists yet
   - plan changes remain Stripe-portal-managed in v1
-  - auto-top-off is visible as placeholder UI, with the real implementation still deferred
-- The next workspace billing step after this slice should be real auto-top-off settings persistence plus invoice visibility, not another billing IA refactor.
+  - workspace billing preferences are now persisted for auto-top-off enabled state, minimum balance, fixed pack amount, and monthly spend limit
+  - the workspace billing page now shows recent Stripe invoice history when a billing customer exists
+  - automatic top-up charging is still deferred; this slice only persists the settings and exposes invoice visibility
+- The next workspace billing step after this slice should be auto-top-off execution plus manual top-up checkout, not another billing IA refactor.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state
