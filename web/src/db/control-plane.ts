@@ -9,6 +9,10 @@ import type {
 import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
+import {
+  createManualCreditGrant,
+  getTenantCreditBalanceSummary,
+} from "@/db/credit-ledger";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
@@ -3920,6 +3924,48 @@ export async function triggerPlatformOrganizationRefreshImage(input: {
   return {
     jobId,
     queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function grantPlatformOrganizationCredits(input: {
+  credits: number;
+  note: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const credits = Number(input.credits);
+  const creditsDeltaMilli = Math.round(credits * 1_000);
+  const note = input.note.trim();
+
+  if (!Number.isFinite(credits) || credits <= 0 || creditsDeltaMilli <= 0) {
+    throw new Error("Credits must be a positive number.");
+  }
+
+  if (note.length === 0) {
+    throw new Error("A reason is required for manual credit grants.");
+  }
+
+  const grant = await createManualCreditGrant({
+    creditsDeltaMilli,
+    description: `Manual credit grant by ${input.userExternalId}: ${note}`,
+    tenantId: tenant.tenantId,
+  });
+  const balance = await getTenantCreditBalanceSummary({
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    balanceCreditsMilli: balance.currentBalanceCreditsMilli,
+    grantedCreditsMilli: grant.creditsDeltaMilli,
+    ledgerEntryId: grant.id,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
   };

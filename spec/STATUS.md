@@ -61,6 +61,11 @@
     - each provider bucket is settled once into either `priced`, `no_charge`, or `unsupported`
     - priced buckets create append-only debit entries in Otto's new credit ledger
     - the platform `Usage` tab now shows implied credits burned and settlement status per bucket/model
+  - the first balance and enforcement slice now exists on top of that ledger:
+    - platform admins can issue manual positive credit grants to a workspace
+    - the platform `Usage` tab now shows current credit balance alongside granted and debited totals
+    - the runtime OpenAI proxy now rejects new upstream requests when the workspace ledger balance is `<= 0`
+    - this is a balance gate, not a reservation system, so some settlement lag still exists until reservation-based enforcement is added
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -234,7 +239,7 @@
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
 - The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
-- The next billing step after this slice should be Stripe-backed credit grants and balance reads, not daily provider cost reconciliation.
+- The next billing step after this slice should be Stripe-backed credit grants and a workspace-visible billing page, not daily provider cost reconciliation.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state

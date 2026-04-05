@@ -1,4 +1,6 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
@@ -10,6 +12,33 @@ import type { OpenAiUsageBucketPricingDecision } from "@/lib/billing/openai-cred
 import { CREDIT_LEDGER_ENTRY_TYPES } from "@/lib/billing/openai-credit-pricing";
 
 const PROVIDER_USAGE_BUCKET_SOURCE_TYPE = "provider_usage_bucket";
+const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant";
+
+function numberFromValue(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function dateFromValue(value: unknown) {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
 
 export async function listUnsettledProviderUsageBuckets(input?: {
   limit?: number;
@@ -145,4 +174,75 @@ export async function recordProviderUsageSettlement(input: {
 
     return insertedSettlement?.id ?? null;
   });
+}
+
+export async function createManualCreditGrant(input: {
+  creditsDeltaMilli: number;
+  description: string;
+  tenantId: string;
+}) {
+  if (input.creditsDeltaMilli <= 0) {
+    throw new Error("Manual credit grants must be positive.");
+  }
+
+  const db = getDb();
+  const [entry] = await db
+    .insert(creditLedgerEntries)
+    .values({
+      billableUnits: 0,
+      creditsDeltaMilli: input.creditsDeltaMilli,
+      description: input.description,
+      entryType: CREDIT_LEDGER_ENTRY_TYPES.manualGrant,
+      sourceId: randomUUID(),
+      sourceType: PLATFORM_MANUAL_GRANT_SOURCE_TYPE,
+      tenantId: input.tenantId,
+    })
+    .returning({
+      createdAt: creditLedgerEntries.createdAt,
+      creditsDeltaMilli: creditLedgerEntries.creditsDeltaMilli,
+      id: creditLedgerEntries.id,
+    });
+
+  if (!entry) {
+    throw new Error("Failed to create manual credit grant.");
+  }
+
+  return {
+    createdAt: entry.createdAt,
+    creditsDeltaMilli: entry.creditsDeltaMilli,
+    id: entry.id,
+  };
+}
+
+export async function getTenantCreditBalanceSummary(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+  const [summary] = await db
+    .select({
+      currentBalanceCreditsMilli: sql`coalesce(sum(${creditLedgerEntries.creditsDeltaMilli}), 0)`,
+      latestEntryCreatedAt: sql<Date | null>`max(${creditLedgerEntries.createdAt})`,
+      totalDebitedCreditsMilli: sql`coalesce(sum(case when ${creditLedgerEntries.creditsDeltaMilli} < 0 then -${creditLedgerEntries.creditsDeltaMilli} else 0 end), 0)`,
+      totalGrantedCreditsMilli: sql`coalesce(sum(case when ${creditLedgerEntries.creditsDeltaMilli} > 0 then ${creditLedgerEntries.creditsDeltaMilli} else 0 end), 0)`,
+    })
+    .from(creditLedgerEntries)
+    .where(eq(creditLedgerEntries.tenantId, input.tenantId));
+
+  return {
+    currentBalanceCreditsMilli: numberFromValue(
+      summary?.currentBalanceCreditsMilli,
+    ),
+    latestEntryCreatedAt: dateFromValue(summary?.latestEntryCreatedAt),
+    totalDebitedCreditsMilli: numberFromValue(
+      summary?.totalDebitedCreditsMilli,
+    ),
+    totalGrantedCreditsMilli: numberFromValue(
+      summary?.totalGrantedCreditsMilli,
+    ),
+  };
+}
+
+export async function getTenantCreditBalanceMilli(tenantId: string) {
+  const summary = await getTenantCreditBalanceSummary({ tenantId });
+  return summary.currentBalanceCreditsMilli;
 }
