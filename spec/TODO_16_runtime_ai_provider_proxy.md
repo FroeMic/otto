@@ -52,7 +52,7 @@ Today the tenant runtime still receives an upstream provider secret directly thr
 
 Current Otto behavior:
 
-- the control plane writes `OPENAI_API_KEY` into tenant runtime `.env`
+- the control plane historically wrote `OPENAI_API_KEY` into tenant runtime `.env`
 - OpenClaw resolves provider auth from env / config / auth profiles
 - the runner stores the resolved runtime credential in auth storage for inference
 
@@ -307,7 +307,7 @@ The proxy must preserve correct attribution across provider key rotation.
 
 ### Current state
 
-Tenant runtime `.env` still receives `OPENAI_API_KEY` directly.
+Before the proxy rollout, tenant runtime `.env` received `OPENAI_API_KEY` directly.
 
 The first implementation slice now also exists in code:
 
@@ -329,7 +329,7 @@ Tenant runtime should instead receive only Otto-scoped configuration, for exampl
 
 Once the proxy path is fully rolled out:
 
-- stop projecting `OPENAI_API_KEY` to the runtime for Otto-managed inference
+- stop projecting `OPENAI_API_KEY` to the runtime for Otto-managed runtime config
 - keep direct provider-key projection only where a legacy fallback is explicitly required during migration
 
 ## Rollout sequence
@@ -410,7 +410,7 @@ Exit check:
 
 Deliverables:
 
-- runtime env projection no longer writes `OPENAI_API_KEY` for the managed inference path
+- runtime env projection no longer writes `OPENAI_API_KEY` for the managed runtime path
 - rollback plan documented in runtime release spec
 
 Exit check:
@@ -442,7 +442,7 @@ Exit check:
 - [x] identify STT / transcription as a separate follow-on path
 - [x] define attribution and rotation requirements needed for billing
 - [x] implement the first `openai-proxy` gateway and plugin slice
-- [ ] remove direct `OPENAI_API_KEY` projection from tenant runtimes
+- [x] remove direct `OPENAI_API_KEY` projection from tenant runtimes
 
 ## Open questions
 
