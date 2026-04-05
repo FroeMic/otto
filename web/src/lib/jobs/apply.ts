@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
+  ensureTenantRuntimeTenantToken,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
   getTenantDesiredStateByVersion,
@@ -110,6 +111,7 @@ export async function processApplyTenantConfigJob(
     );
 
     let gatewayToken = await getTenantRuntimeGatewayToken(payload.tenantId);
+    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId);
 
     if (!gatewayToken) {
       gatewayToken = await runtimeManager.readRuntimeEnvValue(
@@ -168,6 +170,7 @@ export async function processApplyTenantConfigJob(
     await runtimeManager.writeTenantConfigFiles(runtimeConnection, {
       desiredStateVersion: desiredState.version,
       gatewayToken,
+      tenantToken,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
       managedBootstrapFiles: managedConfig.files.map((file) => ({

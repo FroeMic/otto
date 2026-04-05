@@ -208,8 +208,15 @@
     {
       "idx": 29,
       "version": "7",
+      "when": 1775400000000,
+      "tag": "0029_known_gateway_split",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
       "when": 1775397902694,
-      "tag": "0029_rare_iron_monger",
+      "tag": "0030_rare_iron_monger",
       "breakpoints": true
     }
   ]

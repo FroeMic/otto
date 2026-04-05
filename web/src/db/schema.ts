@@ -724,6 +724,7 @@ export const tenantRuntimeSecrets = pgTable(
       .notNull(),
     secretType: varchar("secret_type", { length: 64 }).notNull(),
     ciphertext: text("ciphertext").notNull(),
+    lookupHash: varchar("lookup_hash", { length: 64 }),
     keyVersion: integer("key_version").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -735,6 +736,11 @@ export const tenantRuntimeSecrets = pgTable(
     tenantSecretTypeUniqueIdx: uniqueIndex(
       "tenant_runtime_secrets_tenant_id_secret_type_idx",
     ).on(table.tenantId, table.secretType),
+    secretTypeLookupHashUniqueIdx: uniqueIndex(
+      "tenant_runtime_secrets_secret_type_lookup_hash_idx",
+    )
+      .on(table.secretType, table.lookupHash)
+      .where(sql`${table.lookupHash} is not null`),
   }),
 );
 

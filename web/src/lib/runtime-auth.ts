@@ -1,4 +1,4 @@
-import { getTenantByRuntimeGatewayToken } from "@/db/control-plane";
+import { getTenantByTenantToken } from "@/db/control-plane";
 
 export async function authenticateTenantRuntimeRequest(request: Request) {
   const authorization = request.headers.get("authorization");
@@ -7,16 +7,16 @@ export async function authenticateTenantRuntimeRequest(request: Request) {
     throw new Error("Missing runtime bearer token");
   }
 
-  const gatewayToken = authorization.slice("Bearer ".length).trim();
+  const tenantToken = authorization.slice("Bearer ".length).trim();
 
-  if (!gatewayToken) {
+  if (!tenantToken) {
     throw new Error("Missing runtime bearer token");
   }
 
   const start = Date.now();
-  console.log("[runtime-auth] looking up gateway token…");
+  console.log("[runtime-auth] looking up tenant token…");
 
-  const tenant = await getTenantByRuntimeGatewayToken(gatewayToken);
+  const tenant = await getTenantByTenantToken(tenantToken);
   const elapsed = Date.now() - start;
 
   if (!tenant) {

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   ensureTenantRuntimeGatewayToken,
+  ensureTenantRuntimeTenantToken,
   getLatestTenantDesiredState,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
@@ -466,6 +467,7 @@ async function bootstrapRuntime(
     const gatewayToken = await ensureTenantRuntimeGatewayToken(
       payload.tenantId,
     );
+    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId);
     const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
     const managedConfigVersion = getManagedConfigVersionFromConfigJson(
       desiredState.configJson,
@@ -486,6 +488,7 @@ async function bootstrapRuntime(
       {
         desiredStateVersion: desiredState.version,
         gatewayToken,
+        tenantToken,
         managedBootstrapFiles: managedConfig.files.map((file) => ({
           contents: file.renderedContent,
           filename: file.path,
