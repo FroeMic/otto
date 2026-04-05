@@ -165,6 +165,10 @@
   - users with a newly created workspace are held on a non-shell waiting page until the org is marked ready
   - Slack OAuth, provisioning, and the org-scoped shell are blocked until `organizations.is_ready = true`
 - The prefixed ID strategy is still planned but not yet implemented in the schema; the current UI slice hides raw IDs by using organization slugs in user-facing routes instead.
+- Runtime AI proxy planning now lives in `TODO_16_runtime_ai_provider_proxy.md`:
+  - tenant runtimes should stop receiving upstream AI provider keys directly
+  - Otto should own an AI gateway plus an `otto-ai-provider` plugin package
+  - the first provider entry should be `openai-proxy`, with embeddings and speech/TTS following distinct OpenClaw extension seams
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
 - The control plane deployment target is now more explicit:
@@ -187,9 +191,14 @@
 - Voice-note support is now captured in `TODO_10_voice_note_understanding.md`; the first slice should project OpenClaw audio transcription config now, while preserving compatibility with the later shared Slack HTTP-ingress design in `TODO_06_integrations_and_oauth.md`.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 - Prefer control-plane-owned scheduled task definitions and session history over runtime-local cron state, with runtime callbacks plus reconciliation keeping execution state current.
+- Prefer Otto-owned AI provider proxying over projecting upstream provider secrets directly into tenant runtimes.
 
 ## Recent progress
 
+- The next runtime-security architecture slice is now captured in `TODO_16_runtime_ai_provider_proxy.md`:
+  - Otto should remove upstream AI provider keys from tenant runtime env
+  - a new `otto-ai-provider` package should authenticate to an Otto-owned AI gateway with tenant-scoped Otto credentials
+  - embeddings can likely reuse OpenAI-compatible proxying, while speech/TTS should use a dedicated speech-provider path and STT remains a separate follow-on concern
 - The workspace Agent area is now instruction-first instead of split across a workspace-facing status tab plus a separate configuration tab:
   - `/agent` now redirects to the first managed instruction file route instead of `/agent/prompts`
   - the only remaining Agent tabs are the route-backed managed instruction files with user-facing labels like `Agent.md`
