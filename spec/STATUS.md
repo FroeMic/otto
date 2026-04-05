@@ -251,6 +251,10 @@
   - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
   - tenant runtime env rendering now prefers the stored tenant-specific OpenAI key over the shared `RUNTIME_OPENAI_API_KEY` fallback on bootstrap and apply
   - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
+- The platform operator surface can now provision or rotate tenant-specific OpenAI keys from `/platform/organizations/[orgSlug]/overview`:
+  - the three-dot organization action menu now exposes `Provision OpenAI API key` or `Rotate OpenAI API key` based on current tenant provider state
+  - the action runs through a queued control-plane job instead of an inline request handler
+  - OpenAI key rotation now preserves historical credential rows and `external_api_key_id` values so usage grouped by API key remains reconstructable after mid-cycle rotations
 
 ## Current product target
 

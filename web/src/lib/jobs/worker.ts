@@ -1,6 +1,7 @@
 import { getEnv } from "@/lib/env";
 
 import { processApplyTenantConfigJob } from "./apply";
+import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
 import { processProvisionTenantServerJob } from "./provisioning";
 import { claimAvailableJobs, markJobFailed } from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
@@ -23,6 +24,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   switch (job.jobType) {
     case JOB_TYPES.applyTenantConfig:
       await processApplyTenantConfigJob(job);
+      return;
+    case JOB_TYPES.provisionTenantOpenAiKey:
+      await processProvisionTenantOpenAiKeyJob(job);
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);

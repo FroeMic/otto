@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { providerAccounts, providerCredentials } from "@/db/schema";
@@ -96,47 +96,45 @@ export async function upsertProviderAccount(input: {
 export async function storeProviderCredential(input: {
   providerAccountId: string;
   credentialType: ProviderCredentialType;
+  externalApiKeyId?: string | null;
   plaintext: string;
 }) {
   const db = getDb();
-  const now = new Date();
   const ciphertext = encryptControlPlaneSecret(input.plaintext);
-  const [existingCredential] = await db
-    .select()
-    .from(providerCredentials)
-    .where(
-      and(
-        eq(providerCredentials.providerAccountId, input.providerAccountId),
-        eq(providerCredentials.credentialType, input.credentialType),
-      ),
-    )
-    .limit(1);
-
-  if (existingCredential) {
-    const [updatedCredential] = await db
-      .update(providerCredentials)
-      .set({
-        ciphertext,
-        keyVersion: existingCredential.keyVersion + 1,
-        revokedAt: null,
-        rotatedAt: now,
-      })
-      .where(eq(providerCredentials.id, existingCredential.id))
-      .returning();
-
-    return updatedCredential;
-  }
 
   const [createdCredential] = await db
     .insert(providerCredentials)
     .values({
       ciphertext,
       credentialType: input.credentialType,
+      externalApiKeyId: input.externalApiKeyId ?? null,
       providerAccountId: input.providerAccountId,
     })
     .returning();
 
   return createdCredential;
+}
+
+export async function revokeActiveProviderCredentials(input: {
+  providerAccountId: string;
+  credentialType: ProviderCredentialType;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db
+    .update(providerCredentials)
+    .set({
+      revokedAt: now,
+      rotatedAt: now,
+    })
+    .where(
+      and(
+        eq(providerCredentials.providerAccountId, input.providerAccountId),
+        eq(providerCredentials.credentialType, input.credentialType),
+        isNull(providerCredentials.revokedAt),
+      ),
+    );
 }
 
 export async function getProviderCredentialPlaintext(input: {
@@ -163,6 +161,7 @@ export async function getProviderCredentialPlaintext(input: {
         isNull(providerAccounts.revokedAt),
       ),
     )
+    .orderBy(desc(providerCredentials.createdAt))
     .limit(1);
 
   if (!credential?.ciphertext) {
@@ -177,5 +176,140 @@ export async function getTenantOpenAiApiKey(tenantId: string) {
     credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
     providerKey: "openai",
     tenantId,
+  });
+}
+
+export async function getTenantOpenAiProviderSummary(tenantId: string) {
+  const db = getDb();
+  const providerAccount = await getProviderAccountByTenantAndKey(
+    tenantId,
+    "openai",
+  );
+
+  if (!providerAccount) {
+    return null;
+  }
+
+  const credentialRows = await db
+    .select({
+      createdAt: providerCredentials.createdAt,
+      externalApiKeyId: providerCredentials.externalApiKeyId,
+      revokedAt: providerCredentials.revokedAt,
+    })
+    .from(providerCredentials)
+    .where(eq(providerCredentials.providerAccountId, providerAccount.id))
+    .orderBy(desc(providerCredentials.createdAt));
+
+  const activeCredential =
+    credentialRows.find((credential) => credential.revokedAt === null) ?? null;
+
+  return {
+    activeApiKeyId: activeCredential?.externalApiKeyId ?? null,
+    activeCredentialCount: credentialRows.filter(
+      (credential) => credential.revokedAt === null,
+    ).length,
+    latestCredentialCreatedAt: credentialRows[0]?.createdAt ?? null,
+    projectId: providerAccount.externalProjectId,
+    status: providerAccount.status,
+    totalCredentialCount: credentialRows.length,
+  };
+}
+
+export async function persistProvisionedProviderCredential(input: {
+  tenantId: string;
+  providerKey: ProviderKey;
+  displayName?: string | null;
+  externalProjectId?: string | null;
+  externalServiceAccountId?: string | null;
+  externalApiKeyId?: string | null;
+  status: string;
+  provisionedAt?: Date | null;
+  revokedAt?: Date | null;
+  credentialType: ProviderCredentialType;
+  plaintext: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+
+  return db.transaction(async (tx) => {
+    const [existingAccount] = await tx
+      .select()
+      .from(providerAccounts)
+      .where(
+        and(
+          eq(providerAccounts.tenantId, input.tenantId),
+          eq(providerAccounts.providerKey, input.providerKey),
+        ),
+      )
+      .limit(1);
+
+    const providerAccount = existingAccount
+      ? (
+          await tx
+            .update(providerAccounts)
+            .set({
+              displayName: input.displayName ?? existingAccount.displayName,
+              externalApiKeyId:
+                input.externalApiKeyId ?? existingAccount.externalApiKeyId,
+              externalProjectId:
+                input.externalProjectId ?? existingAccount.externalProjectId,
+              externalServiceAccountId:
+                input.externalServiceAccountId ??
+                existingAccount.externalServiceAccountId,
+              provisionedAt:
+                input.provisionedAt ?? existingAccount.provisionedAt,
+              revokedAt: input.revokedAt ?? existingAccount.revokedAt,
+              status: input.status,
+              updatedAt: now,
+            })
+            .where(eq(providerAccounts.id, existingAccount.id))
+            .returning()
+        )[0]
+      : (
+          await tx
+            .insert(providerAccounts)
+            .values({
+              displayName: input.displayName ?? null,
+              externalApiKeyId: input.externalApiKeyId ?? null,
+              externalProjectId: input.externalProjectId ?? null,
+              externalServiceAccountId: input.externalServiceAccountId ?? null,
+              provisionedAt: input.provisionedAt ?? null,
+              providerKey: input.providerKey,
+              revokedAt: input.revokedAt ?? null,
+              status: input.status,
+              tenantId: input.tenantId,
+            })
+            .returning()
+        )[0];
+
+    await tx
+      .update(providerCredentials)
+      .set({
+        revokedAt: now,
+        rotatedAt: now,
+      })
+      .where(
+        and(
+          eq(providerCredentials.providerAccountId, providerAccount.id),
+          eq(providerCredentials.credentialType, input.credentialType),
+          isNull(providerCredentials.revokedAt),
+        ),
+      );
+
+    const [providerCredential] = await tx
+      .insert(providerCredentials)
+      .values({
+        ciphertext,
+        credentialType: input.credentialType,
+        externalApiKeyId: input.externalApiKeyId ?? null,
+        providerAccountId: providerAccount.id,
+      })
+      .returning();
+
+    return {
+      providerAccount,
+      providerCredential,
+    };
   });
 }

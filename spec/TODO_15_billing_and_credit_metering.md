@@ -688,6 +688,7 @@ Exit check:
 - [x] define the workspace billing page scope and self-serve Stripe surfaces
 - [x] define the billing, provider, ledger, webhook, and reconciliation roadmap
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
+- [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [ ] validate the final live plan pricing and top-up pack values before implementation
 - [ ] validate whether calendar-month anchors or signup-date anchors are the better launch default
 - [ ] decide whether the first live enforcement step should be soft-stop only or hard-stop with request reservation

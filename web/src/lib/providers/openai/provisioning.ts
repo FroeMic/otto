@@ -23,6 +23,7 @@ type OpenAiServiceAccount = {
 
 export class OpenAiProvisioner implements ProviderProvisioner {
   async createTenantCredential(input: {
+    existingProjectId?: string | null;
     tenantId: string;
     tenantName: string;
     verify?: boolean;
@@ -35,7 +36,12 @@ export class OpenAiProvisioner implements ProviderProvisioner {
       input.tenantName,
       input.tenantId,
     );
-    const project = await createOpenAiProject(projectName);
+    const project = input.existingProjectId
+      ? {
+          id: input.existingProjectId,
+          name: projectName,
+        }
+      : await createOpenAiProject(projectName);
     const serviceAccount = await createOpenAiServiceAccount({
       name: serviceAccountName,
       projectId: project.id,
@@ -168,9 +174,10 @@ function buildOpenAiServiceAccountName(tenantName: string, tenantId: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
+  const suffix = Date.now().toString(36).slice(-6);
 
   return truncateLabel(
-    `otto-${normalizedName || "tenant"}-${tenantId.slice(0, 8)}`,
+    `otto-${normalizedName || "tenant"}-${tenantId.slice(0, 8)}-${suffix}`,
     64,
   );
 }

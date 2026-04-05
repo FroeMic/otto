@@ -784,6 +784,9 @@ export const providerCredentials = pgTable(
       .references(() => providerAccounts.id, { onDelete: "cascade" })
       .notNull(),
     credentialType: varchar("credential_type", { length: 64 }).notNull(),
+    externalApiKeyId: varchar("external_api_key_id", {
+      length: 255,
+    }),
     ciphertext: text("ciphertext").notNull(),
     keyVersion: integer("key_version").default(1).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -796,9 +799,12 @@ export const providerCredentials = pgTable(
     providerAccountIdx: index(
       "provider_credentials_provider_account_id_idx",
     ).on(table.providerAccountId),
-    providerAccountCredentialTypeUniqueIdx: uniqueIndex(
+    providerAccountCredentialTypeIdx: index(
       "provider_credentials_provider_account_id_credential_type_idx",
     ).on(table.providerAccountId, table.credentialType),
+    providerAccountCredentialStatusIdx: index(
+      "provider_credentials_provider_account_id_credential_type_revoked_at_idx",
+    ).on(table.providerAccountId, table.credentialType, table.revokedAt),
   }),
 );
 

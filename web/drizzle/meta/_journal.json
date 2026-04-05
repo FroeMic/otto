@@ -176,6 +176,13 @@
       "when": 1775384055705,
       "tag": "0024_overrated_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1775385745751,
+      "tag": "0025_easy_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }
