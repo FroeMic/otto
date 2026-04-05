@@ -246,7 +246,14 @@
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
 - The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
-- The next billing step after this slice should be top-up Checkout plus credit-expiry enforcement, not daily provider cost reconciliation.
+- The workspace billing/settings surface is now split more cleanly:
+  - `Billing` is now subscription-focused and no longer mixes in recent grants or recent usage activity
+  - `Usage` now exists as a dedicated workspace settings page for credit analytics
+  - `billing/plans` now exists as the workspace-owned comparison surface for `Basic`, `Plus`, `Pro`, and `Max`
+  - usage defaults to the current billing cycle and falls back to the first day of the current month when no subscription exists yet
+  - plan changes remain Stripe-portal-managed in v1
+  - auto-top-off is visible as placeholder UI, with the real implementation still deferred
+- The next workspace billing step after this slice should be real auto-top-off settings persistence plus invoice visibility, not another billing IA refactor.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state
