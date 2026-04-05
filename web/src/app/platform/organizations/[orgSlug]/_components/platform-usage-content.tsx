@@ -30,7 +30,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -44,6 +48,21 @@ import { cn } from "@/lib/utils";
 
 // --- Types ---
 
+type TimeSeriesRow = {
+  bucketTime: string;
+  creditsBurnedMilli: number;
+  providerCostMicros: number;
+  inputTokens: number;
+  outputTokens: number;
+  inputCachedTokens: number;
+  inputTextTokens: number;
+  outputTextTokens: number;
+  inputAudioTokens: number;
+  outputAudioTokens: number;
+  inputImageTokens: number;
+  requestCount: number;
+};
+
 type UsageOverview = {
   summary: {
     activeApiKeys: number;
@@ -54,14 +73,7 @@ type UsageOverview = {
     totalOutputTokens: number;
     totalRequests: number;
   };
-  timeSeries: Array<{
-    bucketTime: string;
-    creditsBurnedMilli: number;
-    providerCostMicros: number;
-    inputTokens: number;
-    outputTokens: number;
-    requestCount: number;
-  }>;
+  timeSeries: TimeSeriesRow[];
   usageByModel: Array<{
     creditsBurnedMilli: number;
     providerCostMicros: number;
@@ -87,6 +99,19 @@ type CreditBalance = {
   totalGranted: number;
 };
 
+// --- All usage types in OpenClaw ---
+
+const ALL_USAGE_TYPES = [
+  "completions",
+  "embeddings",
+  "audio_transcriptions",
+  "audio_speeches",
+  "images",
+  "moderations",
+  "code_interpreter_sessions",
+  "vector_stores",
+] as const;
+
 // --- Date range presets ---
 
 type DatePreset = {
@@ -96,46 +121,14 @@ type DatePreset = {
 };
 
 const DATE_PRESETS: DatePreset[] = [
-  {
-    from: () => startOfDay(new Date()),
-    label: "Today",
-    to: () => new Date(),
-  },
-  {
-    from: () => startOfWeek(new Date()),
-    label: "This week",
-    to: () => new Date(),
-  },
-  {
-    from: () => startOfMonth(new Date()),
-    label: "This month",
-    to: () => new Date(),
-  },
-  {
-    from: () => startOfYear(new Date()),
-    label: "This year",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 24 * 60 * 60 * 1000),
-    label: "Last 24h",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    label: "Last 7d",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    label: "Last 30d",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-    label: "Last 365d",
-    to: () => new Date(),
-  },
+  { from: () => startOfDay(new Date()), label: "Today", to: () => new Date() },
+  { from: () => startOfWeek(new Date()), label: "This week", to: () => new Date() },
+  { from: () => startOfMonth(new Date()), label: "This month", to: () => new Date() },
+  { from: () => startOfYear(new Date()), label: "This year", to: () => new Date() },
+  { from: () => new Date(Date.now() - 24 * 60 * 60 * 1000), label: "Last 24h", to: () => new Date() },
+  { from: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), label: "Last 7d", to: () => new Date() },
+  { from: () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), label: "Last 30d", to: () => new Date() },
+  { from: () => new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), label: "Last 365d", to: () => new Date() },
 ];
 
 const DEFAULT_PRESET_INDEX = 5; // Last 7d
@@ -179,13 +172,12 @@ function formatCount(value: number, locale: string) {
 
 function formatCredits(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 3,
-    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
-  }).format(value);
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
 }
 
 function formatCreditsFromMilli(milli: number) {
-  return milli / 1000;
+  return Math.round(milli / 1000);
 }
 
 function formatDollarsFromMicros(micros: number) {
@@ -201,14 +193,58 @@ function formatUsageTypeLabel(value: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// --- Chart configs ---
+// --- Spend chart modality options ---
 
-const spendChartConfig = {
-  providerCost: {
-    color: "var(--chart-1)",
-    label: "Estimated cost ($)",
-  },
-} satisfies ChartConfig;
+type SpendModality = "all" | "text" | "audio" | "image";
+
+const SPEND_MODALITIES: Array<{ label: string; value: SpendModality }> = [
+  { label: "All", value: "all" },
+  { label: "Text", value: "text" },
+  { label: "Audio", value: "audio" },
+  { label: "Image", value: "image" },
+];
+
+function getSpendChartConfig(modality: SpendModality): ChartConfig {
+  if (modality === "all") {
+    return {
+      inputTokens: { color: "var(--chart-1)", label: "Input" },
+      outputTokens: { color: "var(--chart-2)", label: "Output" },
+      inputCachedTokens: { color: "var(--chart-4)", label: "Cached input" },
+    };
+  }
+  const prefix = modality.charAt(0).toUpperCase() + modality.slice(1);
+  return {
+    input: { color: "var(--chart-1)", label: `${prefix} input` },
+    output: { color: "var(--chart-2)", label: `${prefix} output` },
+  };
+}
+
+function getSpendChartData(
+  timeSeries: TimeSeriesRow[],
+  modality: SpendModality,
+  timeFormatter: Intl.DateTimeFormat,
+) {
+  return timeSeries.map((row) => {
+    const timeLabel = timeFormatter.format(new Date(row.bucketTime));
+    if (modality === "text") {
+      return { timeLabel, input: row.inputTextTokens, output: row.outputTextTokens };
+    }
+    if (modality === "audio") {
+      return { timeLabel, input: row.inputAudioTokens, output: row.outputAudioTokens };
+    }
+    if (modality === "image") {
+      return { timeLabel, input: row.inputImageTokens, output: 0 };
+    }
+    return {
+      timeLabel,
+      inputTokens: row.inputTokens,
+      outputTokens: row.outputTokens,
+      inputCachedTokens: row.inputCachedTokens,
+    };
+  });
+}
+
+// --- Chart configs ---
 
 const requestsChartConfig = {
   requestCount: {
@@ -238,6 +274,7 @@ export function PlatformUsageContent({
   const [customRange, setCustomRange] = React.useState<DateRange | undefined>();
   const [data, setData] = React.useState<UsageOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [spendModality, setSpendModality] = React.useState<SpendModality>("all");
 
   const dateRange = React.useMemo(() => {
     if (activePreset !== null) {
@@ -287,10 +324,30 @@ export function PlatformUsageContent({
 
   const summary = data?.summary;
 
+  // Build usageByType with all types present (even if 0)
+  const usageByTypeComplete = React.useMemo(() => {
+    const byType = new Map(
+      (data?.usageByType ?? []).map((row) => [row.usageType, row]),
+    );
+    return ALL_USAGE_TYPES.map((type) => ({
+      creditsBurnedMilli: byType.get(type)?.creditsBurnedMilli ?? 0,
+      providerCostMicros: byType.get(type)?.providerCostMicros ?? 0,
+      requestCount: byType.get(type)?.requestCount ?? 0,
+      totalTokens: byType.get(type)?.totalTokens ?? 0,
+      usageType: type,
+    }));
+  }, [data?.usageByType]);
+
+  const spendChartConfig = getSpendChartConfig(spendModality);
+  const spendChartData = data?.timeSeries
+    ? getSpendChartData(data.timeSeries, spendModality, timeFormatter)
+    : [];
+  const spendDataKeys = Object.keys(spendChartConfig);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 px-4 pb-6 md:px-6">
-      {/* Date range picker */}
-      <DateRangePicker
+      {/* Date range dropdown */}
+      <DateRangeDropdown
         activePreset={activePreset}
         customRange={customRange}
         onCustomRangeChange={(range) => {
@@ -324,9 +381,9 @@ export function PlatformUsageContent({
           }
         />
         <StatCard
-          label="Estimated cost"
+          label="Cost"
           loading={loading}
-          subtitle="OpenAI spend"
+          subtitle="OpenAI API spend"
           value={
             summary
               ? formatDollarsFromMicros(summary.totalProviderCostMicros)
@@ -354,9 +411,7 @@ export function PlatformUsageContent({
           label="Requests"
           loading={loading}
           subtitle={
-            summary
-              ? `${summary.activeModels} models active`
-              : undefined
+            summary ? `${summary.activeModels} models active` : undefined
           }
           value={
             summary
@@ -370,8 +425,31 @@ export function PlatformUsageContent({
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
-            <CardTitle>Spend over time</CardTitle>
-            <CardDescription>Estimated OpenAI cost by time period</CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-1.5">
+                <CardTitle>Token usage over time</CardTitle>
+                <CardDescription>
+                  Token breakdown by time period
+                </CardDescription>
+              </div>
+              <div className="inline-flex items-center gap-1 rounded-full bg-muted p-[3px] text-xs">
+                {SPEND_MODALITIES.map((m) => (
+                  <button
+                    key={m.value}
+                    className={cn(
+                      "inline-flex h-6 items-center justify-center rounded-full px-2 text-xs font-medium transition-colors",
+                      spendModality === m.value
+                        ? "bg-background text-foreground"
+                        : "text-foreground/60 hover:text-foreground",
+                    )}
+                    onClick={() => setSpendModality(m.value)}
+                    type="button"
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -383,50 +461,27 @@ export function PlatformUsageContent({
                 className="aspect-auto h-[280px] w-full"
                 config={spendChartConfig}
               >
-                <AreaChart
-                  data={data.timeSeries.map((row) => ({
-                    ...row,
-                    providerCost: row.providerCostMicros / 1_000_000,
-                    timeLabel: timeFormatter.format(new Date(row.bucketTime)),
-                  }))}
-                >
+                <AreaChart data={spendChartData}>
                   <CartesianGrid vertical={false} />
                   <XAxis axisLine={false} dataKey="timeLabel" tickLine={false} />
                   <YAxis
                     axisLine={false}
-                    tickFormatter={(v: number) =>
-                      v === 0 ? "$0" : `$${v.toFixed(2)}`
-                    }
+                    tickFormatter={(v: number) => formatCompact(v, locale)}
                     tickLine={false}
                   />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value, _name, item) => {
-                          const row = item.payload;
-                          return (
-                            <div className="flex flex-col gap-0.5">
-                              <span>{formatDollarsFromMicros(row.providerCostMicros)}</span>
-                              <span className="text-muted-foreground">
-                                {formatCredits(formatCreditsFromMilli(row.creditsBurnedMilli), locale)} credits
-                              </span>
-                              <span className="text-muted-foreground">
-                                {formatCompact(row.inputTokens + row.outputTokens, locale)} tokens
-                              </span>
-                            </div>
-                          );
-                        }}
-                      />
-                    }
-                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Area
-                    dataKey="providerCost"
-                    fill="var(--color-providerCost)"
-                    fillOpacity={0.2}
-                    stroke="var(--color-providerCost)"
-                    type="monotone"
-                  />
+                  {spendDataKeys.map((key, i) => (
+                    <Area
+                      key={key}
+                      dataKey={key}
+                      fill={`var(--color-${key})`}
+                      fillOpacity={0.15 + i * 0.05}
+                      stackId="tokens"
+                      stroke={`var(--color-${key})`}
+                      type="monotone"
+                    />
+                  ))}
                 </AreaChart>
               </ChartContainer>
             )}
@@ -441,8 +496,6 @@ export function PlatformUsageContent({
           <CardContent>
             {loading ? (
               <Skeleton className="h-[280px] w-full" />
-            ) : !data?.usageByType.length ? (
-              <EmptyChartPlaceholder message="No usage data for this period." />
             ) : (
               <ChartContainer
                 className="aspect-auto h-[280px] w-full"
@@ -450,7 +503,7 @@ export function PlatformUsageContent({
               >
                 <BarChart
                   accessibilityLayer
-                  data={data.usageByType.map((row) => ({
+                  data={usageByTypeComplete.map((row) => ({
                     ...row,
                     usageTypeLabel: formatUsageTypeLabel(row.usageType),
                   }))}
@@ -460,6 +513,11 @@ export function PlatformUsageContent({
                     axisLine={false}
                     dataKey="usageTypeLabel"
                     tickLine={false}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
                   />
                   <YAxis
                     axisLine={false}
@@ -500,31 +558,44 @@ export function PlatformUsageContent({
                   <TableHead>Type</TableHead>
                   <TableHead>Requests</TableHead>
                   <TableHead>Tokens</TableHead>
+                  <TableHead>API cost</TableHead>
                   <TableHead>Credits</TableHead>
-                  <TableHead>Cost ($)</TableHead>
+                  <TableHead>Cost / credit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.usageByModel.map((row) => (
-                  <TableRow key={`${row.usageType}-${row.model}`}>
-                    <TableCell className="max-w-0 truncate font-mono text-xs">
-                      {row.model}
-                    </TableCell>
-                    <TableCell>{formatUsageTypeLabel(row.usageType)}</TableCell>
-                    <TableCell>
-                      {formatCount(row.requestCount, locale)}
-                    </TableCell>
-                    <TableCell>
-                      {formatCount(row.totalTokens, locale)}
-                    </TableCell>
-                    <TableCell>
-                      {formatCredits(formatCreditsFromMilli(row.creditsBurnedMilli), locale)}
-                    </TableCell>
-                    <TableCell>
-                      {formatDollarsFromMicros(row.providerCostMicros)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {data.usageByModel.map((row) => {
+                  const credits = formatCreditsFromMilli(row.creditsBurnedMilli);
+                  const costPerCredit =
+                    credits > 0
+                      ? formatDollarsFromMicros(
+                          Math.round(row.providerCostMicros / credits),
+                        )
+                      : "—";
+                  return (
+                    <TableRow key={`${row.usageType}-${row.model}`}>
+                      <TableCell className="max-w-0 truncate font-mono text-xs">
+                        {row.model}
+                      </TableCell>
+                      <TableCell>
+                        {formatUsageTypeLabel(row.usageType)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCount(row.requestCount, locale)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCount(row.totalTokens, locale)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDollarsFromMicros(row.providerCostMicros)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCredits(credits, locale)}
+                      </TableCell>
+                      <TableCell>{costPerCredit}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -570,7 +641,7 @@ function StatCard({
   );
 }
 
-function DateRangePicker({
+function DateRangeDropdown({
   activePreset,
   customRange,
   onCustomRangeChange,
@@ -581,50 +652,80 @@ function DateRangePicker({
   onCustomRangeChange: (range: DateRange | undefined) => void;
   onPresetSelect: (index: number) => void;
 }) {
+  const [open, setOpen] = React.useState(false);
+  const [showCalendar, setShowCalendar] = React.useState(false);
+
+  const activeLabel =
+    activePreset !== null
+      ? DATE_PRESETS[activePreset].label
+      : customRange?.from && customRange?.to
+        ? `${format(customRange.from, "MMM d, yyyy")} – ${format(customRange.to, "MMM d, yyyy")}`
+        : "Select range";
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-muted p-[3px] text-xs text-muted-foreground">
-        {DATE_PRESETS.map((preset, index) => (
-          <button
-            key={preset.label}
-            className={cn(
-              "inline-flex h-7 items-center justify-center rounded-full border border-transparent px-2.5 text-xs font-medium transition-colors hover:text-foreground",
-              activePreset === index
-                ? "bg-background text-foreground"
-                : "text-foreground/60",
-            )}
-            onClick={() => onPresetSelect(index)}
-            type="button"
-          >
-            {preset.label}
-          </button>
-        ))}
-      </div>
-      <Popover>
-        <PopoverTrigger
-          className={cn(
-            "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-transparent bg-muted px-3 text-xs font-medium transition-colors hover:text-foreground",
-            activePreset === null
-              ? "bg-background text-foreground ring-1 ring-foreground/10"
-              : "text-foreground/60",
-          )}
-        >
-          <CalendarBlank className="size-3.5" weight="bold" />
-          {customRange?.from && customRange?.to
-            ? `${format(customRange.from, "MMM d")} – ${format(customRange.to, "MMM d")}`
-            : "Custom"}
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-auto p-0">
-          <Calendar
-            defaultMonth={customRange?.from}
-            mode="range"
-            numberOfMonths={2}
-            selected={customRange}
-            onSelect={onCustomRangeChange}
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setShowCalendar(false);
+      }}
+    >
+      <PopoverTrigger
+        className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
+      >
+        <CalendarBlank className="size-3.5" weight="bold" />
+        {activeLabel}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        {showCalendar ? (
+          <div className="flex flex-col">
+            <Calendar
+              defaultMonth={customRange?.from}
+              mode="range"
+              numberOfMonths={2}
+              selected={customRange}
+              onSelect={(range) => {
+                onCustomRangeChange(range);
+                if (range?.from && range?.to) {
+                  setOpen(false);
+                  setShowCalendar(false);
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col py-1">
+            {DATE_PRESETS.map((preset, index) => (
+              <button
+                key={preset.label}
+                className={cn(
+                  "px-4 py-1.5 text-left text-sm transition-colors hover:bg-muted",
+                  activePreset === index
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+                onClick={() => {
+                  onPresetSelect(index);
+                  setOpen(false);
+                }}
+                type="button"
+              >
+                {preset.label}
+              </button>
+            ))}
+            <div className="my-1 h-px bg-border" />
+            <button
+              className="flex items-center gap-2 px-4 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted"
+              onClick={() => setShowCalendar(true)}
+              type="button"
+            >
+              <CalendarBlank className="size-3.5" weight="bold" />
+              Custom range…
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
