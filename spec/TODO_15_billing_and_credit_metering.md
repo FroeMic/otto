@@ -819,6 +819,13 @@ Exit check:
 
 - Otto can stop new paid usage when the workspace is out of credits while still preserving auditable burn history
 
+Current implementation notes:
+
+- the first enforcement slice now uses the runtime OpenAI proxy as the control point for traffic that flows through `otto-ai-provider`
+- manual positive credit grants can now be issued by platform admins before Stripe-backed grants exist
+- the proxy now blocks new upstream OpenAI requests when the workspace ledger balance is `<= 0`
+- this first stop is balance-gated but not reservation-based, so it still relies on the existing delayed usage settlement loop rather than pre-request reservations
+
 ### Step 11: Decide whether to add Stripe metered overage
 
 Goal:

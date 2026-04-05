@@ -10,6 +10,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
 import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
 
@@ -88,9 +89,14 @@ export default async function PlatformOrganizationUsagePage({
 
   const dateTimePreferences =
     getPlatformOrganizationDateTimePreferences(organization);
-  const usageOverview = await getTenantProviderUsageOverview({
-    tenantId: tenant.id,
-  });
+  const [usageOverview, creditBalance] = await Promise.all([
+    getTenantProviderUsageOverview({
+      tenantId: tenant.id,
+    }),
+    getTenantCreditBalanceSummary({
+      tenantId: tenant.id,
+    }),
+  ]);
   const hourlyFormatter = new Intl.DateTimeFormat(organization.locale, {
     hour: "numeric",
     minute: "2-digit",
@@ -124,14 +130,23 @@ export default async function PlatformOrganizationUsagePage({
       summary={{
         activeApiKeys: usageOverview.summary.activeApiKeys,
         activeModels: usageOverview.summary.activeModels,
+        currentCreditBalance: formatCreditsFromMilli(
+          creditBalance.currentBalanceCreditsMilli,
+        ),
         latestBucketLabel: usageOverview.summary.latestBucketEndAt
           ? formatTimestamp(
               usageOverview.summary.latestBucketEndAt,
               dateTimePreferences,
             )
           : null,
+        totalCreditsDebited: formatCreditsFromMilli(
+          creditBalance.totalDebitedCreditsMilli,
+        ),
         totalCreditsBurned: formatCreditsFromMilli(
           usageOverview.summary.totalCreditsBurnedMilli,
+        ),
+        totalCreditsGranted: formatCreditsFromMilli(
+          creditBalance.totalGrantedCreditsMilli,
         ),
         totalInputTokens: usageOverview.summary.totalInputTokens,
         totalOutputTokens: usageOverview.summary.totalOutputTokens,

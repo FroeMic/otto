@@ -78,8 +78,11 @@ type PlatformUsageContentProps = {
   summary: {
     activeApiKeys: number;
     activeModels: number;
+    currentCreditBalance: number;
     latestBucketLabel: string | null;
+    totalCreditsDebited: number;
     totalCreditsBurned: number;
+    totalCreditsGranted: number;
     totalInputTokens: number;
     totalOutputTokens: number;
     totalRequests: number;
@@ -123,7 +126,8 @@ function formatCompactCount(value: number, locale: string) {
 
 function formatCredits(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 3,
+    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
   }).format(value);
 }
 
@@ -169,7 +173,7 @@ export function PlatformUsageContent({
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <Card size="sm">
           <CardHeader>
             <CardDescription>Input tokens</CardDescription>
@@ -204,6 +208,18 @@ export function PlatformUsageContent({
           <CardContent className="text-xs text-muted-foreground">
             {summary.activeModels} models and {summary.activeApiKeys} API keys
             active
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>Credits balance</CardDescription>
+            <CardTitle>
+              {formatCredits(summary.currentCreditBalance, locale)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground">
+            {formatCredits(summary.totalCreditsGranted, locale)} granted ·{" "}
+            {formatCredits(summary.totalCreditsDebited, locale)} debited
           </CardContent>
         </Card>
         <Card size="sm">

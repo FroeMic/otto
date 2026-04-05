@@ -1,3 +1,4 @@
+import { getTenantCreditBalanceMilli } from "@/db/credit-ledger";
 import { getTenantOpenAiApiKey } from "@/db/provider-accounts";
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
@@ -56,6 +57,12 @@ async function proxyOpenAiRequest(input: {
   upstreamUrl: string;
 }) {
   const apiKey = await getTenantOpenAiApiKey(input.tenantId);
+  const balanceCreditsMilli = await getTenantCreditBalanceMilli(input.tenantId);
+
+  assertTenantCreditsAvailable({
+    balanceCreditsMilli,
+    tenantId: input.tenantId,
+  });
 
   if (!apiKey) {
     throw new OpenAiProxyError(
@@ -89,6 +96,23 @@ async function proxyOpenAiRequest(input: {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
   });
+}
+
+export function assertTenantCreditsAvailable(input: {
+  balanceCreditsMilli: number;
+  tenantId: string;
+}) {
+  if (input.balanceCreditsMilli > 0) {
+    return;
+  }
+
+  console.warn(
+    `[runtime-ai] blocked tenant=${input.tenantId} due to exhausted balance balanceCreditsMilli=${input.balanceCreditsMilli}`,
+  );
+  throw new OpenAiProxyError(
+    "This workspace is out of credits. Add credits before sending more requests.",
+    402,
+  );
 }
 
 function buildOpenAiRequestHeaders(input: {
