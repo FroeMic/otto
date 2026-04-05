@@ -927,6 +927,97 @@ export const providerUsageBuckets = pgTable(
   }),
 );
 
+export const creditLedgerEntries = pgTable(
+  "credit_ledger_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    entryType: varchar("entry_type", { length: 64 }).notNull(),
+    sourceType: varchar("source_type", { length: 64 }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    billableUnits: bigint("billable_units", { mode: "number" })
+      .default(0)
+      .notNull(),
+    creditsDeltaMilli: bigint("credits_delta_milli", { mode: "number" })
+      .default(0)
+      .notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantCreatedAtIdx: index(
+      "credit_ledger_entries_tenant_id_created_at_idx",
+    ).on(table.tenantId, table.createdAt),
+    sourceIdx: uniqueIndex(
+      "credit_ledger_entries_source_type_source_id_entry_type_idx",
+    ).on(table.sourceType, table.sourceId, table.entryType),
+  }),
+);
+
+export const providerUsageSettlements = pgTable(
+  "provider_usage_settlements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    providerUsageBucketId: uuid("provider_usage_bucket_id")
+      .references(() => providerUsageBuckets.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    providerAccountId: uuid("provider_account_id")
+      .references(() => providerAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    settlementStatus: varchar("settlement_status", { length: 64 }).notNull(),
+    pricingVersion: varchar("pricing_version", { length: 128 }).notNull(),
+    providerCostMicros: bigint("provider_cost_micros", { mode: "number" })
+      .default(0)
+      .notNull(),
+    billableUnits: bigint("billable_units", { mode: "number" })
+      .default(0)
+      .notNull(),
+    creditsBurnedMilli: bigint("credits_burned_milli", { mode: "number" })
+      .default(0)
+      .notNull(),
+    ledgerEntryId: uuid("ledger_entry_id").references(
+      () => creditLedgerEntries.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    note: text("note"),
+    settledAt: timestamp("settled_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    bucketUniqueIdx: uniqueIndex(
+      "provider_usage_settlements_provider_usage_bucket_id_idx",
+    ).on(table.providerUsageBucketId),
+    ledgerEntryUniqueIdx: uniqueIndex(
+      "provider_usage_settlements_ledger_entry_id_idx",
+    ).on(table.ledgerEntryId),
+    tenantSettledAtIdx: index(
+      "provider_usage_settlements_tenant_id_settled_at_idx",
+    ).on(table.tenantId, table.settledAt),
+    providerAccountSettledAtIdx: index(
+      "provider_usage_settlements_provider_account_id_settled_at_idx",
+    ).on(table.providerAccountId, table.settledAt),
+    statusIdx: index("provider_usage_settlements_settlement_status_idx").on(
+      table.settlementStatus,
+    ),
+  }),
+);
+
 export const tenantApplyRuns = pgTable(
   "tenant_apply_runs",
   {

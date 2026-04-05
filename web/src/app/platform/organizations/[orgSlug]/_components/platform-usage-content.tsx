@@ -56,6 +56,7 @@ const usageTypeChartConfig = {
 
 type PlatformUsageContentProps = {
   hourlyBuckets: Array<{
+    creditsBurned: number;
     hourLabel: string;
     inputTokens: number;
     outputTokens: number;
@@ -66,16 +67,19 @@ type PlatformUsageContentProps = {
   recentBuckets: Array<{
     apiKeyLabel: string;
     bucketLabel: string;
+    creditsBurned: number;
     inputTokens: number;
     itemCount: number;
     modelLabel: string;
     outputTokens: number;
+    settlementStatusLabel: string;
     usageTypeLabel: string;
   }>;
   summary: {
     activeApiKeys: number;
     activeModels: number;
     latestBucketLabel: string | null;
+    totalCreditsBurned: number;
     totalInputTokens: number;
     totalOutputTokens: number;
     totalRequests: number;
@@ -90,6 +94,7 @@ type PlatformUsageContentProps = {
     usageTypeLabel: string;
   }>;
   usageByModel: Array<{
+    creditsBurned: number;
     inputTokens: number;
     model: string;
     outputTokens: number;
@@ -98,6 +103,7 @@ type PlatformUsageContentProps = {
     usageTypeLabel: string;
   }>;
   usageByType: Array<{
+    creditsBurned: number;
     requestCount: number;
     totalTokens: number;
     usageTypeLabel: string;
@@ -112,6 +118,13 @@ function formatCompactCount(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10_000 ? 0 : 1,
     notation: "compact",
+  }).format(value);
+}
+
+function formatCredits(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 3,
+    minimumFractionDigits: value > 0 && value < 1 ? 3 : 0,
   }).format(value);
 }
 
@@ -151,12 +164,13 @@ export function PlatformUsageContent({
         <AlertTitle>Raw provider usage</AlertTitle>
         <AlertDescription>
           This view shows the last {lookbackLabel} of OpenAI usage Otto stored
-          for this workspace. Credit conversion and daily cost reconciliation
-          are still separate follow-up slices.
+          for this workspace plus the current hardcoded v1 credit burndown
+          settlement. Daily cost reconciliation is still a separate follow-up
+          slice.
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card size="sm">
           <CardHeader>
             <CardDescription>Input tokens</CardDescription>
@@ -191,6 +205,17 @@ export function PlatformUsageContent({
           <CardContent className="text-xs text-muted-foreground">
             {summary.activeModels} models and {summary.activeApiKeys} API keys
             active
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>Credits burned</CardDescription>
+            <CardTitle>
+              {formatCredits(summary.totalCreditsBurned, locale)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground">
+            Derived from the v1 hardcoded pricing ruleset.
           </CardContent>
         </Card>
         <Card size="sm">
@@ -386,6 +411,7 @@ export function PlatformUsageContent({
                   <TableHead>Type</TableHead>
                   <TableHead>Requests</TableHead>
                   <TableHead>Tokens</TableHead>
+                  <TableHead>Credits</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -407,6 +433,9 @@ export function PlatformUsageContent({
                       </TableCell>
                       <TableCell>
                         {formatCount(row.totalTokens, locale)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCredits(row.creditsBurned, locale)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -439,6 +468,8 @@ export function PlatformUsageContent({
                   <TableHead>Type</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>API key</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Credits</TableHead>
                   <TableHead>Requests</TableHead>
                   <TableHead>Input</TableHead>
                   <TableHead>Output</TableHead>
@@ -447,7 +478,7 @@ export function PlatformUsageContent({
               <TableBody>
                 {recentBuckets.length === 0 ? (
                   <TableRow>
-                    <TableCell className="text-muted-foreground" colSpan={7}>
+                    <TableCell className="text-muted-foreground" colSpan={9}>
                       No raw provider buckets have been stored yet.
                     </TableCell>
                   </TableRow>
@@ -463,6 +494,10 @@ export function PlatformUsageContent({
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {bucket.apiKeyLabel}
+                      </TableCell>
+                      <TableCell>{bucket.settlementStatusLabel}</TableCell>
+                      <TableCell>
+                        {formatCredits(bucket.creditsBurned, locale)}
                       </TableCell>
                       <TableCell>
                         {formatCount(bucket.itemCount, locale)}

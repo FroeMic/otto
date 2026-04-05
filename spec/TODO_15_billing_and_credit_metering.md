@@ -729,6 +729,26 @@ Exit check:
 
 - Otto can explain why a workspace lost credits for a specific provider usage bucket
 
+Current implementation notes:
+
+- the first burndown slice now settles stored OpenAI usage buckets into an Otto-owned ledger with a hardcoded `openai_credit_v1` ruleset
+- settlement is append-only and idempotent:
+  - each provider usage bucket can be settled only once
+  - priced buckets create a linked debit ledger entry
+  - unsupported or zero-charge buckets still get a settlement row so they are not retried forever
+- the current ruleset keeps concepts separate while using a simple initial exchange:
+  - `provider_cost_micros` -> `billable_units`
+  - `billable_units` -> `credits_burned_milli`
+  - in `v1`, `1 billable unit = 1 milli-credit = 1 micro-dollar` of provider-cost basis
+- the current hardcoded ruleset supports explainable pricing for:
+  - `completions` on selected text/audio-preview model families
+  - `embeddings`
+  - `audio_transcriptions`
+  - `audio_speeches`
+  - `vector_stores`
+- unsupported usage types or models are recorded as unsupported settlements instead of guessed debits
+- the platform `Usage` tab now shows implied credits burned and settlement status alongside the raw provider buckets
+
 ### Step 7: Ship the workspace billing page
 
 Goal:

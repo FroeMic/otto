@@ -1,6 +1,7 @@
 import { getEnv } from "@/lib/env";
 
 import { processApplyTenantConfigJob } from "./apply";
+import { runCreditBurndownSettlementCycle } from "./credit-burndown";
 import { runOpenAiUsageIngestionCycle } from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
 import { processProvisionTenantServerJob } from "./provisioning";
@@ -61,11 +62,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 
 export async function runWorkerIteration(): Promise<number> {
   const syncedUsageTargets = await runOpenAiUsageIngestionCycle();
+  const settledUsageBuckets = await runCreditBurndownSettlementCycle();
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
   if (jobs.length === 0) {
     console.info("[worker] no available jobs");
-    return syncedUsageTargets;
+    return syncedUsageTargets + settledUsageBuckets;
   }
 
   for (const job of jobs) {
@@ -76,5 +78,5 @@ export async function runWorkerIteration(): Promise<number> {
     }
   }
 
-  return jobs.length + syncedUsageTargets;
+  return jobs.length + syncedUsageTargets + settledUsageBuckets;
 }
