@@ -232,6 +232,13 @@
       "when": 1775407782815,
       "tag": "0032_confused_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1775421750889,
+      "tag": "0033_steep_ego",
+      "breakpoints": true
     }
   ]
 }

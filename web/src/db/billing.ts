@@ -5,6 +5,7 @@ import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
 import {
   billingCheckoutSessions,
   billingCustomers,
+  billingPreferences,
   billingSubscriptions,
   billingWebhookEvents,
   creditGrants,
@@ -35,6 +36,20 @@ type StripeSubscriptionRecordInput = {
   stripePriceId: string | null;
   stripeSubscriptionId: string;
   trialEnd: Date | null;
+};
+
+export type BillingPreferencesRecord = {
+  autoTopOffEnabled: boolean;
+  minimumBalanceCredits: number;
+  monthlySpendLimitCents: number;
+  topOffAmountCents: number;
+};
+
+export const DEFAULT_BILLING_PREFERENCES: BillingPreferencesRecord = {
+  autoTopOffEnabled: false,
+  minimumBalanceCredits: 2_000,
+  monthlySpendLimitCents: 20_000,
+  topOffAmountCents: 2_000,
 };
 
 function normalizeDate(value: Date | null | undefined) {
@@ -106,6 +121,51 @@ export async function findBillingSubscriptionByOrganizationId(
     .limit(1);
 
   return subscription ?? null;
+}
+
+export async function getBillingPreferencesByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb();
+  const [preferences] = await db
+    .select()
+    .from(billingPreferences)
+    .where(eq(billingPreferences.organizationId, organizationId))
+    .limit(1);
+
+  return preferences ?? null;
+}
+
+export async function upsertBillingPreferences(input: {
+  organizationId: string;
+  preferences: BillingPreferencesRecord;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  const [record] = await db
+    .insert(billingPreferences)
+    .values({
+      autoTopOffEnabled: input.preferences.autoTopOffEnabled,
+      minimumBalanceCredits: input.preferences.minimumBalanceCredits,
+      monthlySpendLimitCents: input.preferences.monthlySpendLimitCents,
+      organizationId: input.organizationId,
+      topOffAmountCents: input.preferences.topOffAmountCents,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        autoTopOffEnabled: input.preferences.autoTopOffEnabled,
+        minimumBalanceCredits: input.preferences.minimumBalanceCredits,
+        monthlySpendLimitCents: input.preferences.monthlySpendLimitCents,
+        topOffAmountCents: input.preferences.topOffAmountCents,
+        updatedAt: now,
+      },
+      target: billingPreferences.organizationId,
+    })
+    .returning();
+
+  return record ?? null;
 }
 
 export async function upsertBillingSubscriptionRecord(
@@ -330,21 +390,23 @@ export async function getWorkspaceBillingOverview(input: {
 }) {
   const db = getDb();
 
-  const [organization, subscription, customer, tenant] = await Promise.all([
-    db
-      .select({
-        id: organizations.id,
-        name: organizations.name,
-        slug: organizations.slug,
-      })
-      .from(organizations)
-      .where(eq(organizations.id, input.organizationId))
-      .limit(1)
-      .then((rows) => rows[0] ?? null),
-    findBillingSubscriptionByOrganizationId(input.organizationId),
-    findBillingCustomerByOrganizationId(input.organizationId),
-    getOrganizationTenantForBilling(input.organizationId),
-  ]);
+  const [organization, subscription, customer, preferences, tenant] =
+    await Promise.all([
+      db
+        .select({
+          id: organizations.id,
+          name: organizations.name,
+          slug: organizations.slug,
+        })
+        .from(organizations)
+        .where(eq(organizations.id, input.organizationId))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      findBillingSubscriptionByOrganizationId(input.organizationId),
+      findBillingCustomerByOrganizationId(input.organizationId),
+      getBillingPreferencesByOrganizationId(input.organizationId),
+      getOrganizationTenantForBilling(input.organizationId),
+    ]);
 
   const balance = tenant
     ? await getTenantCreditBalanceSummary({ tenantId: tenant.id })
@@ -388,6 +450,7 @@ export async function getWorkspaceBillingOverview(input: {
     balance,
     customer,
     organization,
+    preferences: preferences ?? DEFAULT_BILLING_PREFERENCES,
     recentGrants,
     recentLedgerEntries,
     subscription,

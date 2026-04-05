@@ -1086,6 +1086,35 @@ export const billingWebhookEvents = pgTable(
   }),
 );
 
+export const billingPreferences = pgTable(
+  "billing_preferences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    autoTopOffEnabled: boolean("auto_top_off_enabled").default(false).notNull(),
+    minimumBalanceCredits: integer("minimum_balance_credits")
+      .default(2_000)
+      .notNull(),
+    topOffAmountCents: integer("top_off_amount_cents").default(2_000).notNull(),
+    monthlySpendLimitCents: integer("monthly_spend_limit_cents")
+      .default(20_000)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationUniqueIdx: uniqueIndex(
+      "billing_preferences_organization_id_idx",
+    ).on(table.organizationId),
+  }),
+);
+
 export const creditGrants = pgTable(
   "credit_grants",
   {

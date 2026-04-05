@@ -17,13 +17,13 @@ import {
   WorkspaceCheckoutButton,
   WorkspaceManageBillingButton,
 } from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-actions";
+import { WorkspaceBillingPreferencesCard } from "@/app/[orgSlug]/settings/workspace/billing/_components/workspace-billing-preferences-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { getWorkspaceBillingOverview } from "@/db/billing";
 import { getBillingPlans } from "@/lib/billing/plans";
+import { listStripeInvoicesForCustomer } from "@/lib/billing/stripe";
 import { formatShortDate } from "@/lib/date-time";
 import { hasStripeBillingConfig } from "@/lib/env";
 
@@ -39,6 +39,30 @@ function formatPrice(value: number, locale: string) {
     maximumFractionDigits: 0,
     style: "currency",
   }).format(value);
+}
+
+function formatPriceFromCents(
+  amountCents: number,
+  currency: string,
+  locale: string,
+) {
+  return new Intl.NumberFormat(locale, {
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: 2,
+    style: "currency",
+  }).format(amountCents / 100);
+}
+
+function getInvoiceBadgeVariant(status: string | null) {
+  if (status === "paid") {
+    return "secondary";
+  }
+
+  if (status === "uncollectible" || status === "void") {
+    return "destructive";
+  }
+
+  return "outline";
 }
 
 export default async function WorkspaceBillingPage({
@@ -75,6 +99,21 @@ export default async function WorkspaceBillingPage({
     timeFormatPreference: currentOrganization.timeFormatPreference,
     timeZone: currentOrganization.timezone,
   };
+  let invoices: Awaited<ReturnType<typeof listStripeInvoicesForCustomer>> = [];
+  let invoicesError: string | null = null;
+
+  if (billingConfigured && billingOverview.customer) {
+    try {
+      invoices = await listStripeInvoicesForCustomer({
+        stripeCustomerId: billingOverview.customer.stripeCustomerId,
+      });
+    } catch (error) {
+      invoicesError =
+        error instanceof Error
+          ? error.message
+          : "Invoice history is temporarily unavailable.";
+    }
+  }
 
   return (
     <SettingsPage>
@@ -262,56 +301,100 @@ export default async function WorkspaceBillingPage({
             threshold.
           </SettingsSectionDescription>
           <SettingsCard>
-            <SettingsRow>
-              <SettingsRowLabel>
-                <SettingsRowTitle>Auto-reload</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Automatically add credit when you reach your minimum balance.
-                </SettingsRowDescription>
-              </SettingsRowLabel>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">Coming soon</Badge>
-                <Switch checked={false} disabled />
-              </div>
-            </SettingsRow>
-            <SettingsRow>
-              <SettingsRowLabel>
-                <SettingsRowTitle>Monthly spend limit</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Auto-reload will pause after reaching this monthly limit.
-                </SettingsRowDescription>
-              </SettingsRowLabel>
-              <div className="w-full max-w-40">
-                <Input disabled value="$200" />
-              </div>
-            </SettingsRow>
-            <SettingsRow>
-              <SettingsRowLabel>
-                <SettingsRowTitle>Available top-up packs</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Auto-reload will later support fixed top-up packs at $20, $50,
-                  $100, and $200.
-                </SettingsRowDescription>
-              </SettingsRowLabel>
-            </SettingsRow>
+            <WorkspaceBillingPreferencesCard
+              initialPreferences={billingOverview.preferences}
+              locale={currentOrganization.locale}
+              orgSlug={orgSlug}
+            />
           </SettingsCard>
         </SettingsSection>
 
         <SettingsSection>
           <SettingsSectionTitle>Invoices</SettingsSectionTitle>
           <SettingsSectionDescription>
-            Invoice history will appear here after the first successful payment.
+            Review recent subscription invoices and open the Stripe-hosted
+            invoice pages when they are available.
           </SettingsSectionDescription>
           <SettingsCard>
-            <SettingsRow>
-              <SettingsRowLabel>
-                <SettingsRowTitle>No invoices yet</SettingsRowTitle>
-                <SettingsRowDescription>
-                  Use Manage billing to view invoices in Stripe once they are
-                  available.
-                </SettingsRowDescription>
-              </SettingsRowLabel>
-            </SettingsRow>
+            {invoicesError ? (
+              <SettingsRow>
+                <SettingsRowLabel>
+                  <SettingsRowTitle>
+                    Invoice history unavailable
+                  </SettingsRowTitle>
+                  <SettingsRowDescription>
+                    {invoicesError}
+                  </SettingsRowDescription>
+                </SettingsRowLabel>
+              </SettingsRow>
+            ) : invoices.length > 0 ? (
+              invoices.map((invoice) => (
+                <SettingsRow key={invoice.id}>
+                  <SettingsRowLabel>
+                    <SettingsRowTitle>
+                      {invoice.number ?? "Stripe invoice"}
+                    </SettingsRowTitle>
+                    <SettingsRowDescription>
+                      {formatShortDate(invoice.createdAt, dateTimeInput)} ·{" "}
+                      {formatPriceFromCents(
+                        invoice.amountPaidCents > 0
+                          ? invoice.amountPaidCents
+                          : invoice.amountDueCents,
+                        invoice.currency,
+                        currentOrganization.locale,
+                      )}
+                    </SettingsRowDescription>
+                  </SettingsRowLabel>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={getInvoiceBadgeVariant(invoice.status)}>
+                      {invoice.status ?? "open"}
+                    </Badge>
+                    {invoice.hostedInvoiceUrl ? (
+                      <Button
+                        render={
+                          <a
+                            aria-label={`View ${invoice.number ?? "invoice"} in Stripe`}
+                            href={invoice.hostedInvoiceUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            View
+                          </a>
+                        }
+                        size="sm"
+                        variant="outline"
+                      />
+                    ) : null}
+                    {invoice.invoicePdfUrl ? (
+                      <Button
+                        render={
+                          <a
+                            aria-label={`Download PDF for ${invoice.number ?? "invoice"}`}
+                            href={invoice.invoicePdfUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            PDF
+                          </a>
+                        }
+                        size="sm"
+                        variant="outline"
+                      />
+                    ) : null}
+                  </div>
+                </SettingsRow>
+              ))
+            ) : (
+              <SettingsRow>
+                <SettingsRowLabel>
+                  <SettingsRowTitle>No invoices yet</SettingsRowTitle>
+                  <SettingsRowDescription>
+                    Your invoice history will appear here after the first
+                    successful Stripe payment.
+                  </SettingsRowDescription>
+                </SettingsRowLabel>
+              </SettingsRow>
+            )}
           </SettingsCard>
         </SettingsSection>
       </div>

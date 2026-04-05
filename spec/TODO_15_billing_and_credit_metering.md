@@ -423,7 +423,7 @@ Locked UX/product decisions for this slice:
 - show credit usage grouped by usage type and model without exposing tokens
 - include auto-top-off status with a link back to billing settings
 
-#### Phase 3: Auto-top-off settings model
+#### Phase 3: Auto-top-off settings and invoice visibility
 
 - add organization-scoped billing preferences for:
   - auto-top-off enabled
@@ -431,6 +431,7 @@ Locked UX/product decisions for this slice:
   - top-up pack key
   - monthly spend limit
 - wire those settings into the billing page UI
+- show recent Stripe invoice history directly on the workspace billing page
 
 #### Phase 4: Auto-top-off execution
 
@@ -884,8 +885,12 @@ Current implementation notes:
   - current plan and Stripe subscription status
   - renewal date
   - hosted Checkout and billing portal actions
-  - a placeholder auto-top-off section
-  - an invoices placeholder
+  - persisted auto-top-off billing preferences:
+    - enabled state
+    - minimum balance threshold
+    - fixed pack amount
+    - monthly spend limit
+  - recent Stripe invoice history when a billing customer exists
 - the workspace settings surface now also includes:
   - a dedicated `Usage` page at `web/src/app/[orgSlug]/settings/workspace/usage/page.tsx`
   - a dedicated plans comparison page at `web/src/app/[orgSlug]/settings/workspace/billing/plans/page.tsx`
@@ -898,8 +903,7 @@ Current implementation notes:
   - top models by credit burn
   - an auto-top-off status card linking back to billing settings
 - this slice still does not include:
-  - real invoice history
-  - persisted auto-top-off settings
+  - automatic top-up execution
   - top-up Checkout
   - expiry messaging
 
@@ -997,6 +1001,7 @@ Exit check:
 - [x] define the workspace billing page scope and self-serve Stripe surfaces
 - [x] define the billing, provider, ledger, webhook, and reconciliation roadmap
 - [x] split the workspace billing and usage settings surfaces and add a dedicated plans comparison page
+- [x] persist workspace auto-top-off billing preferences and show Stripe invoice history on the billing page
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [x] harden OpenAI key rotation so it reuses the project, applies the new key to runtime, verifies deployment, and then deletes the previous service account

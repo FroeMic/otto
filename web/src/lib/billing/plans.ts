@@ -15,6 +15,12 @@ export type BillingPlan = {
   name: string;
 };
 
+export type AutoTopOffPack = {
+  amountCents: number;
+  creditsGranted: number;
+  label: string;
+};
+
 export function getBillingPlans(): BillingPlan[] {
   return [
     {
@@ -46,4 +52,12 @@ export function getBillingPlans(): BillingPlan[] {
 
 export function getBillingPlanByKey(key: string): BillingPlan | null {
   return getBillingPlans().find((plan) => plan.key === key) ?? null;
+}
+
+export function getAutoTopOffPacks(): AutoTopOffPack[] {
+  return getBillingPlans().map((plan) => ({
+    amountCents: plan.monthlyPriceUsd * 100,
+    creditsGranted: plan.creditsIncluded,
+    label: plan.name,
+  }));
 }

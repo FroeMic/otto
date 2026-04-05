@@ -5,6 +5,18 @@ import { getStripeSecretKey } from "@/lib/env";
 
 let cachedStripe: Stripe | null = null;
 
+export type StripeInvoiceSummary = {
+  amountDueCents: number;
+  amountPaidCents: number;
+  createdAt: Date;
+  currency: string;
+  hostedInvoiceUrl: string | null;
+  id: string;
+  invoicePdfUrl: string | null;
+  number: string | null;
+  status: string | null;
+};
+
 export function getStripe() {
   if (cachedStripe) {
     return cachedStripe;
@@ -156,4 +168,27 @@ export async function getStripeRecurringPriceIdForPlanKey(
   });
 
   return price.id;
+}
+
+export async function listStripeInvoicesForCustomer(input: {
+  limit?: number;
+  stripeCustomerId: string;
+}): Promise<StripeInvoiceSummary[]> {
+  const stripe = getStripe();
+  const invoices = await stripe.invoices.list({
+    customer: input.stripeCustomerId,
+    limit: input.limit ?? 12,
+  });
+
+  return invoices.data.map((invoice) => ({
+    amountDueCents: invoice.amount_due,
+    amountPaidCents: invoice.amount_paid,
+    createdAt: new Date(invoice.created * 1000),
+    currency: invoice.currency,
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+    id: invoice.id,
+    invoicePdfUrl: invoice.invoice_pdf ?? null,
+    number: invoice.number,
+    status: invoice.status,
+  }));
 }
