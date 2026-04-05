@@ -1,6 +1,7 @@
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
+  ingestOpenAiUsage: "ingest_openai_usage",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
   reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
@@ -61,6 +62,10 @@ export type ProvisionTenantOpenAiKeyPayload = {
   tenantId: string;
 };
 
+export type IngestOpenAiUsagePayload = {
+  tenantId: string;
+};
+
 export type ApplyTenantConfigPayload = {
   tenantId: string;
   desiredStateVersion: number;
@@ -105,6 +110,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantOpenAiKey;
       payload: ProvisionTenantOpenAiKeyPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.ingestOpenAiUsage;
+      payload: IngestOpenAiUsagePayload;
     }
   | {
       jobType: typeof JOB_TYPES.applyTenantConfig;

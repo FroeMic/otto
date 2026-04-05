@@ -817,6 +817,125 @@ export const providerCredentials = pgTable(
   }),
 );
 
+export const providerUsageIngestionRuns = pgTable(
+  "provider_usage_ingestion_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    jobRunId: uuid("job_run_id")
+      .references(() => jobRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    providerAccountId: uuid("provider_account_id")
+      .references(() => providerAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    usageType: varchar("usage_type", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    requestedStartAt: timestamp("requested_start_at", {
+      withTimezone: true,
+    }).notNull(),
+    requestedEndAt: timestamp("requested_end_at", {
+      withTimezone: true,
+    }).notNull(),
+    bucketWidth: varchar("bucket_width", { length: 16 }).notNull(),
+    groupByJson: jsonb("group_by_json").notNull(),
+    requestJson: jsonb("request_json").notNull(),
+    pageCursor: varchar("page_cursor", { length: 255 }),
+    pageCount: integer("page_count").default(0).notNull(),
+    rowCount: integer("row_count").default(0).notNull(),
+    requestLatencyMs: integer("request_latency_ms"),
+    lastError: text("last_error"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    jobRunUniqueIdx: uniqueIndex(
+      "provider_usage_ingestion_runs_job_run_id_idx",
+    ).on(table.jobRunId),
+    tenantIdx: index("provider_usage_ingestion_runs_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    providerAccountIdx: index(
+      "provider_usage_ingestion_runs_provider_account_id_idx",
+    ).on(table.providerAccountId),
+    providerUsageFinishedIdx: index(
+      "provider_usage_ingestion_runs_provider_account_id_usage_type_finished_at_idx",
+    ).on(table.providerAccountId, table.usageType, table.finishedAt),
+    statusIdx: index("provider_usage_ingestion_runs_status_idx").on(
+      table.status,
+    ),
+  }),
+);
+
+export const providerUsageBuckets = pgTable(
+  "provider_usage_buckets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ingestionRunId: uuid("ingestion_run_id")
+      .references(() => providerUsageIngestionRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    providerAccountId: uuid("provider_account_id")
+      .references(() => providerAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    usageType: varchar("usage_type", { length: 64 }).notNull(),
+    bucketKey: text("bucket_key").notNull(),
+    bucketStartAt: timestamp("bucket_start_at", {
+      withTimezone: true,
+    }).notNull(),
+    bucketEndAt: timestamp("bucket_end_at", { withTimezone: true }).notNull(),
+    externalProjectId: varchar("external_project_id", {
+      length: 255,
+    }),
+    externalApiKeyId: varchar("external_api_key_id", {
+      length: 255,
+    }),
+    externalUserId: varchar("external_user_id", {
+      length: 255,
+    }),
+    model: text("model"),
+    metricsJson: jsonb("metrics_json").notNull(),
+    rawBucketJson: jsonb("raw_bucket_json").notNull(),
+    rawResultJson: jsonb("raw_result_json").notNull(),
+    ingestedAt: timestamp("ingested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    providerAccountBucketUniqueIdx: uniqueIndex(
+      "provider_usage_buckets_provider_account_id_bucket_key_idx",
+    ).on(table.providerAccountId, table.bucketKey),
+    tenantBucketStartIdx: index(
+      "provider_usage_buckets_tenant_id_bucket_start_at_idx",
+    ).on(table.tenantId, table.bucketStartAt),
+    providerUsageBucketIdx: index(
+      "provider_usage_buckets_provider_account_id_usage_type_bucket_start_at_idx",
+    ).on(table.providerAccountId, table.usageType, table.bucketStartAt),
+    projectApiKeyIdx: index(
+      "provider_usage_buckets_external_project_id_external_api_key_id_idx",
+    ).on(table.externalProjectId, table.externalApiKeyId),
+  }),
+);
+
 export const tenantApplyRuns = pgTable(
   "tenant_apply_runs",
   {
