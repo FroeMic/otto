@@ -634,6 +634,13 @@ Deliverables:
 - idempotent worker job and cursor strategy for recent-window backfill and retry
 - operator-only diagnostics for ingestion success, lag, and bucket counts
 
+Current implementation notes:
+
+- the first shipped ingestion slice targets OpenAI `completions` usage only
+- the worker now auto-queues one-shot ingestion jobs on a recurring cadence for active tenant OpenAI projects
+- each job stores raw minute-bucket results plus ingestion-run metadata in Otto-owned Postgres tables
+- credit conversion, Stripe reporting, and workspace-visible usage remain explicitly downstream work
+
 Exit check:
 
 - Otto can show recent raw OpenAI usage for a real tenant project from data stored in Postgres

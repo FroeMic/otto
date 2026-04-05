@@ -32,6 +32,10 @@
 - The control plane can also start the official OpenClaw container on the tenant server and verify it with `openclaw health`.
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
 - Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
+- The first raw OpenAI usage-ingestion foundation now exists:
+  - the worker auto-queues recurring OpenAI usage ingestion jobs for active tenant projects
+  - raw `completions` minute buckets and ingestion-run metadata are now stored in Postgres
+  - ingestion is intentionally raw-only, with no inline credit conversion and no Stripe meter-event emission
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -279,8 +283,8 @@
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
-  - ship raw OpenAI usage ingestion first as a narrow vertical slice, storing immutable per-minute usage buckets in Otto
-  - add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
+  - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
+  - next, add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
   - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
   - then add Otto credit grants, ledger entries, and derived balances from Stripe events
   - then convert raw provider usage into billable units and credit debits
