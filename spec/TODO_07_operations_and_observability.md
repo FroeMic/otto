@@ -33,7 +33,6 @@ Add the minimum operational tooling needed to support pilot tenants safely.
 
 - [x] add tenant status dashboard
 - [x] add apply history view
-- [x] add contextual runtime-auth logging for runtime-to-control-plane requests
 - [ ] add retry controls
 - [ ] add basic alerting or error reporting
 
