@@ -40,11 +40,12 @@ export default async function WorkspaceUsagePage({
     );
   }
 
+  const initialRangeTo = currentCycleEnd ?? now;
   const initialOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
         from: currentCycleStart,
         tenantId: billingOverview.tenant.id,
-        to: now,
+        to: initialRangeTo,
       })
     : {
         summary: {
@@ -73,7 +74,7 @@ export default async function WorkspaceUsagePage({
         initialOverview={initialOverview}
         initialRange={{
           from: currentCycleStart.toISOString(),
-          to: now.toISOString(),
+          to: initialRangeTo.toISOString(),
         }}
         locale={currentOrganization.locale}
         orgSlug={orgSlug}
