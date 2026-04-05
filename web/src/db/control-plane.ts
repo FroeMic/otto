@@ -1020,6 +1020,18 @@ export async function getDashboardOrganizations(
   });
 }
 
+export async function listPlatformOrganizationSlugs(input: {
+  userExternalId: string;
+}): Promise<Array<{ name: string; slug: string }>> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  return db
+    .select({ name: organizations.name, slug: organizations.slug })
+    .from(organizations)
+    .orderBy(asc(organizations.name), asc(organizations.slug));
+}
+
 export async function listPlatformOrganizations(input: {
   userExternalId: string;
 }): Promise<PlatformOrganization[]> {
@@ -1320,95 +1332,127 @@ export async function getPlatformOrganizationDetail(input: {
     };
   }
 
-  const [slackIntegration] = await db
-    .select({
-      connectedAt: tenantIntegrations.connectedAt,
-      lastError: tenantIntegrations.lastError,
-      lastErrorAt: tenantIntegrations.lastErrorAt,
-      status: tenantIntegrations.status,
-      teamId: slackInstallations.slackTeamId,
-      teamName: slackInstallations.slackTeamName,
-    })
-    .from(tenantIntegrations)
-    .leftJoin(
-      slackInstallations,
-      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
-    )
-    .where(
-      and(
-        eq(tenantIntegrations.tenantId, tenant.id),
-        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
-      ),
-    )
-    .limit(1);
+  const [
+    slackIntegrationRows,
+    recentApplyRunRows,
+    { recentJobRows, jobEventRows },
+    recentEventRows,
+    latestDesiredStateVersion,
+    observedRuntimeImage,
+    openAiProvider,
+  ] = await Promise.all([
+    // Slack integration
+    db
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        lastError: tenantIntegrations.lastError,
+        lastErrorAt: tenantIntegrations.lastErrorAt,
+        status: tenantIntegrations.status,
+        teamId: slackInstallations.slackTeamId,
+        teamName: slackInstallations.slackTeamName,
+      })
+      .from(tenantIntegrations)
+      .leftJoin(
+        slackInstallations,
+        eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+      )
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, tenant.id),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1),
 
-  const recentApplyRunRows = await db
-    .select({
-      createdAt: tenantApplyRuns.createdAt,
-      desiredStateVersion: tenantApplyRuns.desiredStateVersion,
-      error: tenantApplyRuns.error,
-      finishedAt: tenantApplyRuns.finishedAt,
-      id: tenantApplyRuns.id,
-      restartStderr: tenantApplyRuns.restartStderr,
-      restartStdout: tenantApplyRuns.restartStdout,
-      startedAt: tenantApplyRuns.startedAt,
-      status: tenantApplyRuns.status,
-      verifyStderr: tenantApplyRuns.verifyStderr,
-      verifyStdout: tenantApplyRuns.verifyStdout,
-    })
-    .from(tenantApplyRuns)
-    .where(eq(tenantApplyRuns.tenantId, tenant.id))
-    .orderBy(desc(tenantApplyRuns.createdAt))
-    .limit(8);
+    // Recent apply runs
+    db
+      .select({
+        createdAt: tenantApplyRuns.createdAt,
+        desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+        error: tenantApplyRuns.error,
+        finishedAt: tenantApplyRuns.finishedAt,
+        id: tenantApplyRuns.id,
+        restartStderr: tenantApplyRuns.restartStderr,
+        restartStdout: tenantApplyRuns.restartStdout,
+        startedAt: tenantApplyRuns.startedAt,
+        status: tenantApplyRuns.status,
+        verifyStderr: tenantApplyRuns.verifyStderr,
+        verifyStdout: tenantApplyRuns.verifyStdout,
+      })
+      .from(tenantApplyRuns)
+      .where(eq(tenantApplyRuns.tenantId, tenant.id))
+      .orderBy(desc(tenantApplyRuns.createdAt))
+      .limit(8),
 
-  const recentJobRows = await db
-    .select({
-      attempt: jobRuns.attempt,
-      createdAt: jobRuns.createdAt,
-      error: jobRuns.error,
-      finishedAt: jobRuns.finishedAt,
-      id: jobRuns.id,
-      jobType: jobRuns.jobType,
-      payloadJson: jobRuns.payloadJson,
-      resultJson: jobRuns.resultJson,
-      startedAt: jobRuns.startedAt,
-      status: jobRuns.status,
-    })
-    .from(jobRuns)
-    .where(eq(jobRuns.tenantId, tenant.id))
-    .orderBy(desc(jobRuns.createdAt))
-    .limit(50);
+    // Recent jobs + their events (chained, but parallel with other queries)
+    (async () => {
+      const recentJobRows = await db
+        .select({
+          attempt: jobRuns.attempt,
+          createdAt: jobRuns.createdAt,
+          error: jobRuns.error,
+          finishedAt: jobRuns.finishedAt,
+          id: jobRuns.id,
+          jobType: jobRuns.jobType,
+          payloadJson: jobRuns.payloadJson,
+          resultJson: jobRuns.resultJson,
+          startedAt: jobRuns.startedAt,
+          status: jobRuns.status,
+        })
+        .from(jobRuns)
+        .where(eq(jobRuns.tenantId, tenant.id))
+        .orderBy(desc(jobRuns.createdAt))
+        .limit(50);
 
-  const recentJobIds = recentJobRows.map((job) => job.id);
-  const jobEventRows =
-    recentJobIds.length === 0
-      ? []
-      : await db
-          .select({
-            createdAt: jobEvents.createdAt,
-            eventType: jobEvents.eventType,
-            jobRunId: jobEvents.jobRunId,
-            message: jobEvents.message,
-          })
-          .from(jobEvents)
-          .where(inArray(jobEvents.jobRunId, recentJobIds))
-          .orderBy(desc(jobEvents.createdAt));
+      const recentJobIds = recentJobRows.map((job) => job.id);
+      const jobEventRows =
+        recentJobIds.length === 0
+          ? []
+          : await db
+              .select({
+                createdAt: jobEvents.createdAt,
+                eventType: jobEvents.eventType,
+                jobRunId: jobEvents.jobRunId,
+                message: jobEvents.message,
+              })
+              .from(jobEvents)
+              .where(inArray(jobEvents.jobRunId, recentJobIds))
+              .orderBy(desc(jobEvents.createdAt))
+              .limit(500);
 
-  const recentEventRows = await db
-    .select({
-      createdAt: jobEvents.createdAt,
-      eventType: jobEvents.eventType,
-      jobRunId: jobEvents.jobRunId,
-      jobStatus: jobRuns.status,
-      jobType: jobRuns.jobType,
-      message: jobEvents.message,
-      payloadJson: jobRuns.payloadJson,
-    })
-    .from(jobEvents)
-    .innerJoin(jobRuns, eq(jobRuns.id, jobEvents.jobRunId))
-    .where(eq(jobRuns.tenantId, tenant.id))
-    .orderBy(desc(jobEvents.createdAt))
-    .limit(200);
+      return { recentJobRows, jobEventRows };
+    })(),
+
+    // Recent events
+    db
+      .select({
+        createdAt: jobEvents.createdAt,
+        eventType: jobEvents.eventType,
+        jobRunId: jobEvents.jobRunId,
+        jobStatus: jobRuns.status,
+        jobType: jobRuns.jobType,
+        message: jobEvents.message,
+        payloadJson: jobRuns.payloadJson,
+      })
+      .from(jobEvents)
+      .innerJoin(jobRuns, eq(jobRuns.id, jobEvents.jobRunId))
+      .where(eq(jobRuns.tenantId, tenant.id))
+      .orderBy(desc(jobEvents.createdAt))
+      .limit(200),
+
+    // Latest desired state version
+    getLatestTenantDesiredState(tenant.id)
+      .then((state) => state.version)
+      .catch(() => null),
+
+    // Observed runtime image (SSH call — runs in parallel, no longer blocks)
+    getObservedRuntimeImageForTenant(tenant),
+
+    // OpenAI provider summary
+    getTenantOpenAiProviderSummary(tenant.id),
+  ]);
+
+  const slackIntegration = slackIntegrationRows[0];
 
   const jobEventsByJobRunId = new Map<
     string,
@@ -1428,17 +1472,6 @@ export async function getPlatformOrganizationDetail(input: {
     });
     jobEventsByJobRunId.set(event.jobRunId, existingEvents);
   }
-
-  let latestDesiredStateVersion: number | null = null;
-  try {
-    latestDesiredStateVersion = (await getLatestTenantDesiredState(tenant.id))
-      .version;
-  } catch {
-    latestDesiredStateVersion = null;
-  }
-
-  const observedRuntimeImage = await getObservedRuntimeImageForTenant(tenant);
-  const openAiProvider = await getTenantOpenAiProviderSummary(tenant.id);
 
   return {
     configuredRuntimeImage,
