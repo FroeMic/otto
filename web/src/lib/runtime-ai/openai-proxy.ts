@@ -110,8 +110,8 @@ export function assertTenantCreditsAvailable(input: {
     `[runtime-ai] blocked tenant=${input.tenantId} due to exhausted balance balanceCreditsMilli=${input.balanceCreditsMilli}`,
   );
   throw new OpenAiProxyError(
-    "This workspace is out of credits. Add credits before sending more requests.",
-    402,
+    "You exceeded your current quota, please check your plan and billing details. Cause: You have run out of credits or hit your maximum monthly spend. Solution: Buy more credits or increase your limits.",
+    429,
   );
 }
 

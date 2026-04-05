@@ -24,7 +24,7 @@ test("blocks proxy requests when the tenant balance is zero", () => {
       }),
     (error) =>
       error instanceof OpenAiProxyError &&
-      error.status === 402 &&
-      error.message.includes("out of credits"),
+      error.status === 429 &&
+      error.message.includes("exceeded your current quota"),
   );
 });
