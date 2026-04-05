@@ -12,6 +12,8 @@ import {
   PROVIDER_USAGE_BUCKET_WIDTHS,
   PROVIDER_USAGE_GROUP_BY_FIELDS,
   PROVIDER_USAGE_TYPES,
+  type ProviderUsageGroupByField,
+  type ProviderUsageType,
 } from "@/lib/providers/types";
 
 import {
@@ -28,11 +30,68 @@ const OPENAI_USAGE_POLL_INTERVAL_MS = 60_000;
 const OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS = 30_000;
 const OPENAI_USAGE_INITIAL_LOOKBACK_MINUTES = 60;
 const OPENAI_USAGE_OVERLAP_LOOKBACK_MINUTES = 15;
-const OPENAI_USAGE_GROUP_BY = [
-  PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
-  PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
-  PROVIDER_USAGE_GROUP_BY_FIELDS.model,
-] as const;
+
+const OPENAI_USAGE_CONFIGS: Array<{
+  groupBy: ProviderUsageGroupByField[];
+  usageType: ProviderUsageType;
+}> = [
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.completions,
+  },
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.embeddings,
+  },
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.audioSpeeches,
+  },
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.audioTranscriptions,
+  },
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.images,
+  },
+  {
+    groupBy: [
+      PROVIDER_USAGE_GROUP_BY_FIELDS.projectId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.apiKeyId,
+      PROVIDER_USAGE_GROUP_BY_FIELDS.model,
+    ],
+    usageType: PROVIDER_USAGE_TYPES.moderations,
+  },
+  {
+    groupBy: [PROVIDER_USAGE_GROUP_BY_FIELDS.projectId],
+    usageType: PROVIDER_USAGE_TYPES.vectorStores,
+  },
+  {
+    groupBy: [PROVIDER_USAGE_GROUP_BY_FIELDS.projectId],
+    usageType: PROVIDER_USAGE_TYPES.codeInterpreterSessions,
+  },
+];
 
 const OPENAI_USAGE_INGEST_EVENTS = {
   failed: "ingest_openai_usage_failed",
@@ -53,33 +112,39 @@ export async function scheduleOpenAiUsageIngestionJobs() {
 
   nextSchedulerSweepAt = now + OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS;
 
-  const dueTargets = await listDueOpenAiUsageIngestionTargets({
-    pollIntervalMs: OPENAI_USAGE_POLL_INTERVAL_MS,
-    usageType: PROVIDER_USAGE_TYPES.completions,
-  });
+  let queuedCount = 0;
 
-  for (const dueTarget of dueTargets) {
-    const jobId = await enqueueJob({
-      jobType: JOB_TYPES.ingestOpenAiUsage,
-      payload: {
-        tenantId: dueTarget.tenantId,
-      },
+  for (const usageConfig of OPENAI_USAGE_CONFIGS) {
+    const dueTargets = await listDueOpenAiUsageIngestionTargets({
+      pollIntervalMs: OPENAI_USAGE_POLL_INTERVAL_MS,
+      usageType: usageConfig.usageType,
     });
 
-    await appendJobEvent(
-      jobId,
-      OPENAI_USAGE_INGEST_EVENTS.queued,
-      "Queued OpenAI usage ingestion",
-      {
-        providerAccountId: dueTarget.providerAccountId,
-        projectId: dueTarget.externalProjectId,
-        tenantId: dueTarget.tenantId,
-        usageType: PROVIDER_USAGE_TYPES.completions,
-      },
-    );
+    for (const dueTarget of dueTargets) {
+      const jobId = await enqueueJob({
+        jobType: JOB_TYPES.ingestOpenAiUsage,
+        payload: {
+          tenantId: dueTarget.tenantId,
+          usageType: usageConfig.usageType,
+        },
+      });
+      queuedCount += 1;
+
+      await appendJobEvent(
+        jobId,
+        OPENAI_USAGE_INGEST_EVENTS.queued,
+        "Queued OpenAI usage ingestion",
+        {
+          providerAccountId: dueTarget.providerAccountId,
+          projectId: dueTarget.externalProjectId,
+          tenantId: dueTarget.tenantId,
+          usageType: usageConfig.usageType,
+        },
+      );
+    }
   }
 
-  return dueTargets.length;
+  return queuedCount;
 }
 
 export async function processIngestOpenAiUsageJob(
@@ -92,6 +157,7 @@ export async function processIngestOpenAiUsageJob(
   }
 
   const payload = parseIngestOpenAiUsagePayload(job.payload);
+  const usageConfig = getOpenAiUsageConfig(payload.usageType);
   const providerAccount = await getProviderAccountByTenantAndKey(
     payload.tenantId,
     "openai",
@@ -107,20 +173,20 @@ export async function processIngestOpenAiUsageJob(
   const latestRun = await getLatestProviderUsageIngestionRun({
     providerAccountId: providerAccount.id,
     providerKey: "openai",
-    usageType: PROVIDER_USAGE_TYPES.completions,
+    usageType: payload.usageType,
   });
   const window = determineUsageWindow(latestRun?.requestedEndAt ?? null);
   const requestJson = {
     bucketWidth: PROVIDER_USAGE_BUCKET_WIDTHS.oneMinute,
     endTime: window.endTime.toISOString(),
-    groupBy: [...OPENAI_USAGE_GROUP_BY],
+    groupBy: usageConfig.groupBy,
     projectId: providerAccount.externalProjectId,
     startTime: window.startTime.toISOString(),
-    usageType: PROVIDER_USAGE_TYPES.completions,
+    usageType: payload.usageType,
   };
   const ingestionRun = await createProviderUsageIngestionRun({
     bucketWidth: PROVIDER_USAGE_BUCKET_WIDTHS.oneMinute,
-    groupBy: [...OPENAI_USAGE_GROUP_BY],
+    groupBy: usageConfig.groupBy,
     jobRunId: job.id,
     providerAccountId: providerAccount.id,
     providerKey: "openai",
@@ -129,7 +195,7 @@ export async function processIngestOpenAiUsageJob(
     requestedStartAt: window.startTime,
     status: "running",
     tenantId: payload.tenantId,
-    usageType: PROVIDER_USAGE_TYPES.completions,
+    usageType: payload.usageType,
   });
 
   let pageCount = 0;
@@ -147,7 +213,7 @@ export async function processIngestOpenAiUsageJob(
         projectId: providerAccount.externalProjectId,
         startTime: window.startTime.toISOString(),
         tenantId: payload.tenantId,
-        usageType: PROVIDER_USAGE_TYPES.completions,
+        usageType: payload.usageType,
       },
     );
 
@@ -157,11 +223,11 @@ export async function processIngestOpenAiUsageJob(
       const usagePage = await openAiUsageCollector.fetchUsageBuckets({
         bucketWidth: PROVIDER_USAGE_BUCKET_WIDTHS.oneMinute,
         endTime: window.endTime,
-        groupBy: [...OPENAI_USAGE_GROUP_BY],
+        groupBy: usageConfig.groupBy,
         page: nextPage,
         projectId: providerAccount.externalProjectId,
         startTime: window.startTime,
-        usageType: PROVIDER_USAGE_TYPES.completions,
+        usageType: payload.usageType,
       });
 
       pageCount += 1;
@@ -185,7 +251,7 @@ export async function processIngestOpenAiUsageJob(
         providerAccountId: providerAccount.id,
         providerKey: "openai",
         tenantId: payload.tenantId,
-        usageType: PROVIDER_USAGE_TYPES.completions,
+        usageType: payload.usageType,
       });
       nextPage = usagePage.nextPage;
     } while (nextPage);
@@ -207,7 +273,7 @@ export async function processIngestOpenAiUsageJob(
         projectId: providerAccount.externalProjectId,
         rowCount,
         tenantId: payload.tenantId,
-        usageType: PROVIDER_USAGE_TYPES.completions,
+        usageType: payload.usageType,
       },
     );
     await markJobSucceeded(job.id, {
@@ -217,7 +283,7 @@ export async function processIngestOpenAiUsageJob(
       requestedStartAt: window.startTime.toISOString(),
       rowCount,
       tenantId: payload.tenantId,
-      usageType: PROVIDER_USAGE_TYPES.completions,
+      usageType: payload.usageType,
     });
   } catch (error) {
     const message = getErrorMessage(error);
@@ -239,7 +305,7 @@ export async function processIngestOpenAiUsageJob(
         pageCount,
         rowCount,
         tenantId: payload.tenantId,
-        usageType: PROVIDER_USAGE_TYPES.completions,
+        usageType: payload.usageType,
       },
     );
     await markJobFailed(job.id, message);
@@ -249,12 +315,29 @@ export async function processIngestOpenAiUsageJob(
 
 function parseIngestOpenAiUsagePayload(payload: Record<string, unknown>) {
   const tenantId = payload.tenantId;
+  const usageType = payload.usageType ?? PROVIDER_USAGE_TYPES.completions;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("OpenAI usage ingestion payload missing tenantId");
   }
 
-  return { tenantId };
+  if (!isProviderUsageType(usageType)) {
+    throw new Error("OpenAI usage ingestion payload missing usageType");
+  }
+
+  return { tenantId, usageType };
+}
+
+function getOpenAiUsageConfig(usageType: ProviderUsageType) {
+  const usageConfig = OPENAI_USAGE_CONFIGS.find(
+    (config) => config.usageType === usageType,
+  );
+
+  if (!usageConfig) {
+    throw new Error(`Unsupported OpenAI usage type: ${usageType}`);
+  }
+
+  return usageConfig;
 }
 
 function determineUsageWindow(previousRequestedEndAt: Date | null) {
@@ -283,4 +366,10 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown OpenAI usage ingestion error";
+}
+
+function isProviderUsageType(value: unknown): value is ProviderUsageType {
+  return Object.values(PROVIDER_USAGE_TYPES).includes(
+    value as ProviderUsageType,
+  );
 }

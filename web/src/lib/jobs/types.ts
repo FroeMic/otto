@@ -1,3 +1,5 @@
+import type { ProviderUsageType } from "@/lib/providers/types";
+
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
@@ -64,6 +66,7 @@ export type ProvisionTenantOpenAiKeyPayload = {
 
 export type IngestOpenAiUsagePayload = {
   tenantId: string;
+  usageType: ProviderUsageType;
 };
 
 export type ApplyTenantConfigPayload = {

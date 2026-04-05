@@ -34,7 +34,15 @@
 - Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
 - The first raw OpenAI usage-ingestion foundation now exists:
   - the worker auto-queues recurring OpenAI usage ingestion jobs for active tenant projects
-  - raw `completions` minute buckets and ingestion-run metadata are now stored in Postgres
+  - raw minute buckets and ingestion-run metadata are now stored in Postgres for the current OpenAI org-usage endpoint set:
+    - `completions`
+    - `embeddings`
+    - `audio_speeches`
+    - `audio_transcriptions`
+    - `images`
+    - `moderations`
+    - `vector_stores`
+    - `code_interpreter_sessions`
   - ingestion is intentionally raw-only, with no inline credit conversion and no Stripe meter-event emission
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
