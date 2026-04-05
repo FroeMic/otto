@@ -16,11 +16,7 @@ import {
   CREDIT_LEDGER_ENTRY_TYPES,
   formatCreditsFromMilli,
 } from "@/lib/billing/openai-credit-pricing";
-import {
-  type BillingPlanKey,
-  getBillingPlanByKey,
-  getBillingPlanByStripePriceId,
-} from "@/lib/billing/plans";
+import { type BillingPlanKey, getBillingPlanByKey } from "@/lib/billing/plans";
 
 type StripeCustomerRecordInput = {
   defaultCurrency?: string | null;
@@ -409,6 +405,7 @@ export function buildSubscriptionRecordFromStripe(input: {
     items: Array<{
       price: {
         id: string;
+        lookupKey: string | null;
       } | null;
     }>;
     status: string;
@@ -416,9 +413,10 @@ export function buildSubscriptionRecordFromStripe(input: {
     id: string;
   };
 }) {
-  const stripePriceId = input.subscription.items[0]?.price?.id ?? null;
-  const plan = stripePriceId
-    ? getBillingPlanByStripePriceId(stripePriceId)
+  const stripePrice = input.subscription.items[0]?.price ?? null;
+  const stripePriceId = stripePrice?.id ?? null;
+  const plan = stripePrice?.lookupKey
+    ? getBillingPlanByKey(stripePrice.lookupKey)
     : null;
 
   return {

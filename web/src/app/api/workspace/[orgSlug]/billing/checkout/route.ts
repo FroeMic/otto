@@ -12,7 +12,10 @@ import {
   syncUserFromSession,
 } from "@/db/control-plane";
 import { getBillingPlanByKey } from "@/lib/billing/plans";
-import { getStripe } from "@/lib/billing/stripe";
+import {
+  getStripe,
+  getStripeRecurringPriceIdForPlanKey,
+} from "@/lib/billing/stripe";
 import { getControlPlaneBaseUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +92,7 @@ export async function POST(
       customer: customer.stripeCustomerId,
       line_items: [
         {
-          price: plan.stripePriceId,
+          price: await getStripeRecurringPriceIdForPlanKey(plan.key),
           quantity: 1,
         },
       ],

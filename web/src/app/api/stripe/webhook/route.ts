@@ -172,6 +172,7 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
           price: item.price
             ? {
                 id: item.price.id,
+                lookupKey: item.price.lookup_key,
               }
             : null,
         })),
@@ -226,6 +227,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         price: item.price
           ? {
               id: item.price.id,
+              lookupKey: item.price.lookup_key,
             }
           : null,
       })),

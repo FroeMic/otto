@@ -54,10 +54,6 @@ Set at least:
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_BASIC_MONTHLY`
-- `STRIPE_PRICE_PLUS_MONTHLY`
-- `STRIPE_PRICE_PRO_MONTHLY`
-- `STRIPE_PRICE_MAX_MONTHLY`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
 In `../www/.env`, set the landing-site browser analytics values you want baked
@@ -106,12 +102,11 @@ For Stripe billing, also configure:
   - `Plus` at `$50/month`
   - `Pro` at `$100/month`
   - `Max` at `$200/month`
-- point:
-  - `STRIPE_PRICE_BASIC_MONTHLY`
-  - `STRIPE_PRICE_PLUS_MONTHLY`
-  - `STRIPE_PRICE_PRO_MONTHLY`
-  - `STRIPE_PRICE_MAX_MONTHLY`
-  at those Stripe `price_...` ids
+- set their Stripe price `lookup_key` values exactly to:
+  - `basic_monthly`
+  - `plus_monthly`
+  - `pro_monthly`
+  - `max_monthly`
 - a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook`
 - webhook events:
   - `checkout.session.completed`

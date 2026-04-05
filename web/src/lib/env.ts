@@ -88,10 +88,6 @@ const envSchema = z.object({
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
-  STRIPE_PRICE_BASIC_MONTHLY: z.string().optional(),
-  STRIPE_PRICE_MAX_MONTHLY: z.string().optional(),
-  STRIPE_PRICE_PLUS_MONTHLY: z.string().optional(),
-  STRIPE_PRICE_PRO_MONTHLY: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_ENABLED: z
@@ -174,32 +170,9 @@ export function getStripeWebhookSecret() {
   return value;
 }
 
-export function getStripePriceIds() {
-  const env = getEnv();
-
-  if (
-    !env.STRIPE_PRICE_BASIC_MONTHLY ||
-    !env.STRIPE_PRICE_PLUS_MONTHLY ||
-    !env.STRIPE_PRICE_PRO_MONTHLY ||
-    !env.STRIPE_PRICE_MAX_MONTHLY
-  ) {
-    throw new Error(
-      "Stripe billing price IDs are not fully configured. Set STRIPE_PRICE_BASIC_MONTHLY, STRIPE_PRICE_PLUS_MONTHLY, STRIPE_PRICE_PRO_MONTHLY, and STRIPE_PRICE_MAX_MONTHLY.",
-    );
-  }
-
-  return {
-    basicMonthly: env.STRIPE_PRICE_BASIC_MONTHLY,
-    maxMonthly: env.STRIPE_PRICE_MAX_MONTHLY,
-    plusMonthly: env.STRIPE_PRICE_PLUS_MONTHLY,
-    proMonthly: env.STRIPE_PRICE_PRO_MONTHLY,
-  };
-}
-
 export function hasStripeBillingConfig() {
   try {
     getStripeSecretKey();
-    getStripePriceIds();
     return true;
   } catch {
     return false;

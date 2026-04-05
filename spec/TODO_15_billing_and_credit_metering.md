@@ -214,6 +214,11 @@ Hidden fair-use policy:
 - use this shared product metadata where helpful:
   - `otto_catalog_version=v1`
   - `otto_currency=usd`
+- set Stripe recurring price `lookup_key` values exactly to the Otto plan keys:
+  - `basic_monthly`
+  - `plus_monthly`
+  - `pro_monthly`
+  - `max_monthly`
 - treat Otto as the source of truth for credit balances even if Stripe metadata mirrors plan values
 
 ### Why not make Stripe the credit ledger
