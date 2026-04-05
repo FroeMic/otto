@@ -6,8 +6,7 @@ import { getDb } from "@/db/client";
 import {
   getProviderAccountByTenantAndKey,
   PROVIDER_CREDENTIAL_TYPES,
-  storeProviderCredential,
-  upsertProviderAccount,
+  persistProvisionedProviderCredential,
 } from "@/db/provider-accounts";
 import { organizations, tenantServers, tenants } from "@/db/schema";
 import { logCliError } from "@/lib/cli-error";
@@ -43,25 +42,26 @@ async function main() {
 
   const provisioner = new OpenAiProvisioner();
   const provisioned = await provisioner.createTenantCredential({
+    existingProjectId: existingAccount?.externalProjectId ?? null,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
     verify: !options.skipVerify,
   });
-  const providerAccount = await upsertProviderAccount({
-    displayName: provisioned.displayName,
-    externalApiKeyId: provisioned.apiKeyId,
-    externalProjectId: provisioned.projectId,
-    externalServiceAccountId: provisioned.serviceAccountId,
-    provisionedAt: new Date(),
-    providerKey: provisioned.providerKey,
-    status: "active",
-    tenantId: tenant.tenantId,
-  });
-  const providerCredential = await storeProviderCredential({
-    credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
-    plaintext: provisioned.apiKey,
-    providerAccountId: providerAccount.id,
-  });
+
+  const { providerAccount, providerCredential } =
+    await persistProvisionedProviderCredential({
+      credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
+      displayName: provisioned.displayName,
+      externalApiKeyId: provisioned.apiKeyId,
+      externalProjectId: provisioned.projectId,
+      externalServiceAccountId: provisioned.serviceAccountId,
+      plaintext: provisioned.apiKey,
+      provisionedAt: new Date(),
+      providerKey: provisioned.providerKey,
+      revokedAt: null,
+      status: "active",
+      tenantId: tenant.tenantId,
+    });
 
   console.info(
     JSON.stringify(

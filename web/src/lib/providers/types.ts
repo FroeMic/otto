@@ -15,6 +15,7 @@ export type ProvisionTenantCredentialResult = {
 
 export interface ProviderProvisioner {
   createTenantCredential(input: {
+    existingProjectId?: string | null;
     tenantId: string;
     tenantName: string;
     verify?: boolean;

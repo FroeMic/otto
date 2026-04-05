@@ -24,6 +24,9 @@ export default async function PlatformOrganizationDetailLayout({
           </div>
           <PlatformOrganizationActions
             hasTenant={Boolean(organization.tenant)}
+            hasTenantOpenAiProvider={Boolean(
+              organization.tenant?.openAiProvider,
+            )}
             orgSlug={organization.slug}
             runtimeReady={runtimeReady}
           />

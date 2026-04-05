@@ -9,6 +9,7 @@ import type {
 import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
+import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationSecrets,
   jobEvents,
@@ -544,6 +545,14 @@ export type PlatformOrganizationDetail = {
       step: string | null;
     } | null;
     name: string;
+    openAiProvider: {
+      activeApiKeyId: string | null;
+      activeCredentialCount: number;
+      latestCredentialCreatedAt: Date | null;
+      projectId: string | null;
+      status: string;
+      totalCredentialCount: number;
+    } | null;
     recentApplyRuns: Array<{
       createdAt: Date;
       desiredStateVersion: number;
@@ -1427,6 +1436,7 @@ export async function getPlatformOrganizationDetail(input: {
   }
 
   const observedRuntimeImage = await getObservedRuntimeImageForTenant(tenant);
+  const openAiProvider = await getTenantOpenAiProviderSummary(tenant.id);
 
   return {
     configuredRuntimeImage,
@@ -1452,6 +1462,7 @@ export async function getPlatformOrganizationDetail(input: {
         jobEventsByJobRunId,
       ),
       name: tenant.name,
+      openAiProvider,
       recentApplyRuns: recentApplyRunRows.map(buildTenantApplyRunDetail),
       recentJobs: recentJobRows.map((job) =>
         buildPlatformJobHistoryEntry(job, jobEventsByJobRunId),
@@ -3809,6 +3820,35 @@ export async function triggerPlatformOrganizationApply(input: {
 
   return {
     desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationProvisionOpenAiKey(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const existingProvider = await getTenantOpenAiProviderSummary(
+    tenant.tenantId,
+  );
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.provisionTenantOpenAiKey,
+    payload: {
+      tenantId: tenant.tenantId,
+    },
+  });
+
+  return {
+    action: existingProvider ? "rotate" : "provision",
     jobId,
     queued: true,
     tenantId: tenant.tenantId,
