@@ -128,7 +128,7 @@ Add onboarding and Slack integration records that exist before provisioning.
   - `connected_at`
   - `disconnected_at`
 
-- `slack_installations`
+- `integration_slack_installations`
   - `id`
   - `tenant_integration_id`
   - `slack_team_id`
@@ -140,7 +140,7 @@ Add onboarding and Slack integration records that exist before provisioning.
   - `installed_at`
   - `last_webhook_at`
 
-- `integration_secrets`
+- `integration_credentials`
   - `id`
   - `tenant_integration_id`
   - `secret_type`

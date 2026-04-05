@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import {
-  messagingConversations,
-  messagingWorkspaceMembers,
-  messagingWorkspaces,
+  integrationMessagingConversations,
+  integrationMessagingWorkspaceMembers,
+  integrationMessagingWorkspaces,
   tenantIntegrations,
 } from "@/db/schema";
 import type { SlackRuntimeConfig } from "@/lib/slack-config";
@@ -22,12 +22,15 @@ export async function getSlackDirectoryOptionsForTenant(
 ) {
   const [workspace] = await tx
     .select({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     })
-    .from(messagingWorkspaces)
+    .from(integrationMessagingWorkspaces)
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -47,26 +50,36 @@ export async function getSlackDirectoryOptionsForTenant(
   const [channelRows, userRows] = await Promise.all([
     tx
       .select({
-        description: messagingConversations.topic,
-        id: messagingConversations.externalConversationId,
-        isArchived: messagingConversations.isArchived,
-        label: messagingConversations.name,
-        metadataJson: messagingConversations.metadataJson,
-        purpose: messagingConversations.purpose,
-        type: messagingConversations.conversationType,
+        description: integrationMessagingConversations.topic,
+        id: integrationMessagingConversations.externalConversationId,
+        isArchived: integrationMessagingConversations.isArchived,
+        label: integrationMessagingConversations.name,
+        metadataJson: integrationMessagingConversations.metadataJson,
+        purpose: integrationMessagingConversations.purpose,
+        type: integrationMessagingConversations.conversationType,
       })
-      .from(messagingConversations)
-      .where(eq(messagingConversations.messagingWorkspaceId, workspace.id)),
+      .from(integrationMessagingConversations)
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
     tx
       .select({
-        description: messagingWorkspaceMembers.fullName,
-        id: messagingWorkspaceMembers.externalMemberId,
-        isDeleted: messagingWorkspaceMembers.isDeleted,
-        label: messagingWorkspaceMembers.displayName,
-        secondaryLabel: messagingWorkspaceMembers.username,
+        description: integrationMessagingWorkspaceMembers.fullName,
+        id: integrationMessagingWorkspaceMembers.externalMemberId,
+        isDeleted: integrationMessagingWorkspaceMembers.isDeleted,
+        label: integrationMessagingWorkspaceMembers.displayName,
+        secondaryLabel: integrationMessagingWorkspaceMembers.username,
       })
-      .from(messagingWorkspaceMembers)
-      .where(eq(messagingWorkspaceMembers.messagingWorkspaceId, workspace.id)),
+      .from(integrationMessagingWorkspaceMembers)
+      .where(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
   ]);
 
   return {

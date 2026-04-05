@@ -11,15 +11,17 @@ import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
-  integrationSecrets,
+  integrationCredentials,
+  integrationMessagingConversations,
+  integrationMessagingWorkspaceMembers,
+  integrationMessagingWorkspaces,
+  integrationSlackInstallations,
+  integrationWhatsAppInstallations,
+  integrationWhatsAppLinkSessions,
   jobEvents,
   jobRuns,
   memberships,
-  messagingConversations,
-  messagingWorkspaceMembers,
-  messagingWorkspaces,
   organizations,
-  slackInstallations,
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
@@ -35,8 +37,6 @@ import {
   userChannelIdentities,
   userPlatformRoles,
   users,
-  whatsappInstallations,
-  whatsappLinkSessions,
 } from "@/db/schema";
 import {
   decryptControlPlaneSecret,
@@ -807,14 +807,17 @@ export async function getDashboardOrganizations(
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
             status: tenantIntegrations.status,
-            teamId: slackInstallations.slackTeamId,
-            teamName: slackInstallations.slackTeamName,
+            teamId: integrationSlackInstallations.slackTeamId,
+            teamName: integrationSlackInstallations.slackTeamName,
             tenantId: tenantIntegrations.tenantId,
           })
           .from(tenantIntegrations)
           .leftJoin(
-            slackInstallations,
-            eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+            integrationSlackInstallations,
+            eq(
+              integrationSlackInstallations.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
           )
           .where(
             and(
@@ -830,15 +833,15 @@ export async function getDashboardOrganizations(
             connectedAt: tenantIntegrations.connectedAt,
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
-            selfE164: whatsappInstallations.selfE164,
+            selfE164: integrationWhatsAppInstallations.selfE164,
             status: tenantIntegrations.status,
             tenantId: tenantIntegrations.tenantId,
           })
           .from(tenantIntegrations)
           .leftJoin(
-            whatsappInstallations,
+            integrationWhatsAppInstallations,
             eq(
-              whatsappInstallations.tenantIntegrationId,
+              integrationWhatsAppInstallations.tenantIntegrationId,
               tenantIntegrations.id,
             ),
           )
@@ -1105,14 +1108,17 @@ export async function listPlatformOrganizations(input: {
             lastError: tenantIntegrations.lastError,
             lastErrorAt: tenantIntegrations.lastErrorAt,
             status: tenantIntegrations.status,
-            teamId: slackInstallations.slackTeamId,
-            teamName: slackInstallations.slackTeamName,
+            teamId: integrationSlackInstallations.slackTeamId,
+            teamName: integrationSlackInstallations.slackTeamName,
             tenantId: tenantIntegrations.tenantId,
           })
           .from(tenantIntegrations)
           .leftJoin(
-            slackInstallations,
-            eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+            integrationSlackInstallations,
+            eq(
+              integrationSlackInstallations.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
           )
           .where(
             and(
@@ -1348,13 +1354,16 @@ export async function getPlatformOrganizationDetail(input: {
         lastError: tenantIntegrations.lastError,
         lastErrorAt: tenantIntegrations.lastErrorAt,
         status: tenantIntegrations.status,
-        teamId: slackInstallations.slackTeamId,
-        teamName: slackInstallations.slackTeamName,
+        teamId: integrationSlackInstallations.slackTeamId,
+        teamName: integrationSlackInstallations.slackTeamName,
       })
       .from(tenantIntegrations)
       .leftJoin(
-        slackInstallations,
-        eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+        integrationSlackInstallations,
+        eq(
+          integrationSlackInstallations.tenantIntegrationId,
+          tenantIntegrations.id,
+        ),
       )
       .where(
         and(
@@ -3401,7 +3410,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       }
 
       await tx
-        .insert(messagingWorkspaceMembers)
+        .insert(integrationMessagingWorkspaceMembers)
         .values({
           avatarUrl: member.avatarUrl,
           displayName: member.displayName,
@@ -3417,8 +3426,8 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         })
         .onConflictDoUpdate({
           target: [
-            messagingWorkspaceMembers.messagingWorkspaceId,
-            messagingWorkspaceMembers.externalMemberId,
+            integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+            integrationMessagingWorkspaceMembers.externalMemberId,
           ],
           set: {
             avatarUrl: member.avatarUrl,
@@ -3448,7 +3457,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       }
 
       await tx
-        .insert(messagingConversations)
+        .insert(integrationMessagingConversations)
         .values({
           conversationType: conversation.conversationType,
           externalConversationId: conversation.externalConversationId,
@@ -3462,8 +3471,8 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         })
         .onConflictDoUpdate({
           target: [
-            messagingConversations.messagingWorkspaceId,
-            messagingConversations.externalConversationId,
+            integrationMessagingConversations.messagingWorkspaceId,
+            integrationMessagingConversations.externalConversationId,
           ],
           set: {
             conversationType: conversation.conversationType,
@@ -3486,7 +3495,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
     });
 
     await tx
-      .update(messagingWorkspaces)
+      .update(integrationMessagingWorkspaces)
       .set({
         lastSyncError: null,
         lastSyncErrorAt: null,
@@ -3494,7 +3503,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         syncStatus: "succeeded",
         updatedAt: now,
       })
-      .where(eq(messagingWorkspaces.id, messagingWorkspaceId));
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
   });
 
   // Resolve user channel identities from the freshly synced directory
@@ -3538,7 +3547,7 @@ export async function syncSlackUsersForTenantIntegration(input: {
       if (!member.externalMemberId) continue;
 
       await tx
-        .insert(messagingWorkspaceMembers)
+        .insert(integrationMessagingWorkspaceMembers)
         .values({
           avatarUrl: member.avatarUrl,
           displayName: member.displayName,
@@ -3554,8 +3563,8 @@ export async function syncSlackUsersForTenantIntegration(input: {
         })
         .onConflictDoUpdate({
           target: [
-            messagingWorkspaceMembers.messagingWorkspaceId,
-            messagingWorkspaceMembers.externalMemberId,
+            integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+            integrationMessagingWorkspaceMembers.externalMemberId,
           ],
           set: {
             avatarUrl: member.avatarUrl,
@@ -3606,7 +3615,7 @@ export async function syncSlackChannelsForTenantIntegration(input: {
       if (!conversation.externalConversationId) continue;
 
       await tx
-        .insert(messagingConversations)
+        .insert(integrationMessagingConversations)
         .values({
           conversationType: conversation.conversationType,
           externalConversationId: conversation.externalConversationId,
@@ -3620,8 +3629,8 @@ export async function syncSlackChannelsForTenantIntegration(input: {
         })
         .onConflictDoUpdate({
           target: [
-            messagingConversations.messagingWorkspaceId,
-            messagingConversations.externalConversationId,
+            integrationMessagingConversations.messagingWorkspaceId,
+            integrationMessagingConversations.externalConversationId,
           ],
           set: {
             conversationType: conversation.conversationType,
@@ -3666,14 +3675,14 @@ export async function recordMessagingWorkspaceSyncFailure(input: {
     });
 
     await tx
-      .update(messagingWorkspaces)
+      .update(integrationMessagingWorkspaces)
       .set({
         lastSyncError: input.error,
         lastSyncErrorAt: now,
         syncStatus: "failed",
         updatedAt: now,
       })
-      .where(eq(messagingWorkspaces.id, messagingWorkspaceId));
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
   });
 }
 
@@ -3681,18 +3690,18 @@ export async function getTenantSlackBotToken(tenantId: string) {
   const db = getDb();
   const [integrationSecret] = await db
     .select({
-      ciphertext: integrationSecrets.ciphertext,
+      ciphertext: integrationCredentials.ciphertext,
     })
-    .from(integrationSecrets)
+    .from(integrationCredentials)
     .innerJoin(
       tenantIntegrations,
-      eq(integrationSecrets.tenantIntegrationId, tenantIntegrations.id),
+      eq(integrationCredentials.tenantIntegrationId, tenantIntegrations.id),
     )
     .where(
       and(
         eq(tenantIntegrations.tenantId, tenantId),
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
-        eq(integrationSecrets.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
+        eq(integrationCredentials.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
       ),
     )
     .limit(1);
@@ -4897,19 +4906,21 @@ export async function disableTenantWhatsAppIntegration(input: {
     );
     const [session] = await tx
       .select({
-        completedAt: whatsappLinkSessions.completedAt,
-        createdAt: whatsappLinkSessions.createdAt,
-        expiresAt: whatsappLinkSessions.expiresAt,
-        forceRelink: whatsappLinkSessions.forceRelink,
-        id: whatsappLinkSessions.id,
-        lastError: whatsappLinkSessions.lastError,
-        qrDataUrl: whatsappLinkSessions.qrDataUrl,
-        status: whatsappLinkSessions.status,
-        updatedAt: whatsappLinkSessions.updatedAt,
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
       })
-      .from(whatsappLinkSessions)
-      .where(eq(whatsappLinkSessions.tenantIntegrationId, integration.id))
-      .orderBy(desc(whatsappLinkSessions.createdAt))
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
       .limit(1);
     const now = new Date();
 
@@ -4920,7 +4931,7 @@ export async function disableTenantWhatsAppIntegration(input: {
         session.status === "qr_ready")
     ) {
       await tx
-        .update(whatsappLinkSessions)
+        .update(integrationWhatsAppLinkSessions)
         .set({
           completedAt: now,
           expiresAt: null,
@@ -4929,7 +4940,7 @@ export async function disableTenantWhatsAppIntegration(input: {
           status: "dismissed",
           updatedAt: now,
         })
-        .where(eq(whatsappLinkSessions.id, session.id));
+        .where(eq(integrationWhatsAppLinkSessions.id, session.id));
     }
 
     let desiredStateVersion: number | null = null;
@@ -5194,7 +5205,7 @@ export async function createTenantWhatsAppLinkSession(input: {
 
     const now = new Date();
     const [linkSession] = await tx
-      .insert(whatsappLinkSessions)
+      .insert(integrationWhatsAppLinkSessions)
       .values({
         expiresAt: new Date(now.getTime() + 3 * 60_000),
         forceRelink: Boolean(input.forceRelink),
@@ -5203,15 +5214,15 @@ export async function createTenantWhatsAppLinkSession(input: {
         tenantIntegrationId: integration.id,
       })
       .returning({
-        completedAt: whatsappLinkSessions.completedAt,
-        createdAt: whatsappLinkSessions.createdAt,
-        expiresAt: whatsappLinkSessions.expiresAt,
-        forceRelink: whatsappLinkSessions.forceRelink,
-        id: whatsappLinkSessions.id,
-        lastError: whatsappLinkSessions.lastError,
-        qrDataUrl: whatsappLinkSessions.qrDataUrl,
-        status: whatsappLinkSessions.status,
-        updatedAt: whatsappLinkSessions.updatedAt,
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
       });
 
     await tx
@@ -5267,19 +5278,21 @@ export async function getCurrentTenantWhatsAppLinkSession(input: {
 
     const [session] = await tx
       .select({
-        completedAt: whatsappLinkSessions.completedAt,
-        createdAt: whatsappLinkSessions.createdAt,
-        expiresAt: whatsappLinkSessions.expiresAt,
-        forceRelink: whatsappLinkSessions.forceRelink,
-        id: whatsappLinkSessions.id,
-        lastError: whatsappLinkSessions.lastError,
-        qrDataUrl: whatsappLinkSessions.qrDataUrl,
-        status: whatsappLinkSessions.status,
-        updatedAt: whatsappLinkSessions.updatedAt,
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
       })
-      .from(whatsappLinkSessions)
-      .where(eq(whatsappLinkSessions.tenantIntegrationId, integration.id))
-      .orderBy(desc(whatsappLinkSessions.createdAt))
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
       .limit(1);
 
     return buildTenantWhatsAppLinkSession(session ?? null);
@@ -5351,12 +5364,14 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
 
     const [session] = await tx
       .select({
-        id: whatsappLinkSessions.id,
-        status: whatsappLinkSessions.status,
+        id: integrationWhatsAppLinkSessions.id,
+        status: integrationWhatsAppLinkSessions.status,
       })
-      .from(whatsappLinkSessions)
-      .where(eq(whatsappLinkSessions.tenantIntegrationId, integration.id))
-      .orderBy(desc(whatsappLinkSessions.createdAt))
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
       .limit(1);
 
     if (!session) {
@@ -5369,7 +5384,7 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
     const now = new Date();
 
     await tx
-      .update(whatsappLinkSessions)
+      .update(integrationWhatsAppLinkSessions)
       .set({
         completedAt: now,
         expiresAt: null,
@@ -5378,7 +5393,7 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
         status: "dismissed",
         updatedAt: now,
       })
-      .where(eq(whatsappLinkSessions.id, session.id));
+      .where(eq(integrationWhatsAppLinkSessions.id, session.id));
 
     if (integration.status === "linking") {
       await tx
@@ -5394,18 +5409,18 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
 
     const [updatedSession] = await tx
       .select({
-        completedAt: whatsappLinkSessions.completedAt,
-        createdAt: whatsappLinkSessions.createdAt,
-        expiresAt: whatsappLinkSessions.expiresAt,
-        forceRelink: whatsappLinkSessions.forceRelink,
-        id: whatsappLinkSessions.id,
-        lastError: whatsappLinkSessions.lastError,
-        qrDataUrl: whatsappLinkSessions.qrDataUrl,
-        status: whatsappLinkSessions.status,
-        updatedAt: whatsappLinkSessions.updatedAt,
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
       })
-      .from(whatsappLinkSessions)
-      .where(eq(whatsappLinkSessions.id, session.id))
+      .from(integrationWhatsAppLinkSessions)
+      .where(eq(integrationWhatsAppLinkSessions.id, session.id))
       .limit(1);
 
     return {
@@ -6710,29 +6725,32 @@ async function upsertMessagingWorkspace(
 ) {
   const [existingWorkspace] = await tx
     .select({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     })
-    .from(messagingWorkspaces)
+    .from(integrationMessagingWorkspaces)
     .where(
-      eq(messagingWorkspaces.tenantIntegrationId, input.tenantIntegrationId),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        input.tenantIntegrationId,
+      ),
     )
     .limit(1);
 
   if (existingWorkspace) {
     await tx
-      .update(messagingWorkspaces)
+      .update(integrationMessagingWorkspaces)
       .set({
         displayName: input.workspaceDisplayName,
         externalWorkspaceId: input.externalWorkspaceId,
         updatedAt: input.now,
       })
-      .where(eq(messagingWorkspaces.id, existingWorkspace.id));
+      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id));
 
     return existingWorkspace.id;
   }
 
   const [workspace] = await tx
-    .insert(messagingWorkspaces)
+    .insert(integrationMessagingWorkspaces)
     .values({
       displayName: input.workspaceDisplayName,
       externalWorkspaceId: input.externalWorkspaceId,
@@ -6740,7 +6758,7 @@ async function upsertMessagingWorkspace(
       tenantIntegrationId: input.tenantIntegrationId,
     })
     .returning({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     });
 
   return workspace.id;
@@ -6755,12 +6773,12 @@ async function removeStaleMessagingWorkspaceMembers(
 ) {
   const existingMembers = await tx
     .select({
-      externalMemberId: messagingWorkspaceMembers.externalMemberId,
+      externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
     })
-    .from(messagingWorkspaceMembers)
+    .from(integrationMessagingWorkspaceMembers)
     .where(
       eq(
-        messagingWorkspaceMembers.messagingWorkspaceId,
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
     );
@@ -6775,14 +6793,17 @@ async function removeStaleMessagingWorkspaceMembers(
   }
 
   await tx
-    .delete(messagingWorkspaceMembers)
+    .delete(integrationMessagingWorkspaceMembers)
     .where(
       and(
         eq(
-          messagingWorkspaceMembers.messagingWorkspaceId,
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
           input.messagingWorkspaceId,
         ),
-        inArray(messagingWorkspaceMembers.externalMemberId, staleMemberIds),
+        inArray(
+          integrationMessagingWorkspaceMembers.externalMemberId,
+          staleMemberIds,
+        ),
       ),
     );
 }
@@ -6796,12 +6817,13 @@ async function removeStaleMessagingConversations(
 ) {
   const existingConversations = await tx
     .select({
-      externalConversationId: messagingConversations.externalConversationId,
+      externalConversationId:
+        integrationMessagingConversations.externalConversationId,
     })
-    .from(messagingConversations)
+    .from(integrationMessagingConversations)
     .where(
       eq(
-        messagingConversations.messagingWorkspaceId,
+        integrationMessagingConversations.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
     );
@@ -6818,15 +6840,15 @@ async function removeStaleMessagingConversations(
   }
 
   await tx
-    .delete(messagingConversations)
+    .delete(integrationMessagingConversations)
     .where(
       and(
         eq(
-          messagingConversations.messagingWorkspaceId,
+          integrationMessagingConversations.messagingWorkspaceId,
           input.messagingWorkspaceId,
         ),
         inArray(
-          messagingConversations.externalConversationId,
+          integrationMessagingConversations.externalConversationId,
           staleConversationIds,
         ),
       ),
@@ -6891,15 +6913,20 @@ async function upsertSlackIntegrationForTenant(
 
   const [existingInstallation] = await tx
     .select({
-      id: slackInstallations.id,
+      id: integrationSlackInstallations.id,
     })
-    .from(slackInstallations)
-    .where(eq(slackInstallations.tenantIntegrationId, tenantIntegrationId))
+    .from(integrationSlackInstallations)
+    .where(
+      eq(
+        integrationSlackInstallations.tenantIntegrationId,
+        tenantIntegrationId,
+      ),
+    )
     .limit(1);
 
   if (existingInstallation) {
     await tx
-      .update(slackInstallations)
+      .update(integrationSlackInstallations)
       .set({
         installerUserId: input.installerUserId,
         installedAt: input.now,
@@ -6909,9 +6936,9 @@ async function upsertSlackIntegrationForTenant(
         slackTeamName: input.slackTeamName,
         updatedAt: input.now,
       })
-      .where(eq(slackInstallations.id, existingInstallation.id));
+      .where(eq(integrationSlackInstallations.id, existingInstallation.id));
   } else {
-    await tx.insert(slackInstallations).values({
+    await tx.insert(integrationSlackInstallations).values({
       installedAt: input.now,
       installerUserId: input.installerUserId,
       scopeCsv: input.scopeCsv,
@@ -6924,29 +6951,29 @@ async function upsertSlackIntegrationForTenant(
 
   const [existingSecret] = await tx
     .select({
-      id: integrationSecrets.id,
+      id: integrationCredentials.id,
     })
-    .from(integrationSecrets)
+    .from(integrationCredentials)
     .where(
       and(
-        eq(integrationSecrets.tenantIntegrationId, tenantIntegrationId),
-        eq(integrationSecrets.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
+        eq(integrationCredentials.tenantIntegrationId, tenantIntegrationId),
+        eq(integrationCredentials.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
       ),
     )
     .limit(1);
 
   if (existingSecret) {
     await tx
-      .update(integrationSecrets)
+      .update(integrationCredentials)
       .set({
         ciphertext: encryptControlPlaneSecret(input.botToken),
         rotatedAt: input.now,
       })
-      .where(eq(integrationSecrets.id, existingSecret.id));
+      .where(eq(integrationCredentials.id, existingSecret.id));
     return tenantIntegrationId;
   }
 
-  await tx.insert(integrationSecrets).values({
+  await tx.insert(integrationCredentials).values({
     ciphertext: encryptControlPlaneSecret(input.botToken),
     secretType: SLACK_BOT_TOKEN_SECRET_TYPE,
     tenantIntegrationId,
@@ -7112,15 +7139,18 @@ async function compileTenantDesiredStateConfig(
       .select({
         connectedAt: tenantIntegrations.connectedAt,
         disconnectedAt: tenantIntegrations.disconnectedAt,
-        installerUserId: slackInstallations.installerUserId,
-        slackBotUserId: slackInstallations.slackBotUserId,
-        slackTeamId: slackInstallations.slackTeamId,
-        slackTeamName: slackInstallations.slackTeamName,
+        installerUserId: integrationSlackInstallations.installerUserId,
+        slackBotUserId: integrationSlackInstallations.slackBotUserId,
+        slackTeamId: integrationSlackInstallations.slackTeamId,
+        slackTeamName: integrationSlackInstallations.slackTeamName,
       })
       .from(tenantIntegrations)
       .leftJoin(
-        slackInstallations,
-        eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+        integrationSlackInstallations,
+        eq(
+          integrationSlackInstallations.tenantIntegrationId,
+          tenantIntegrations.id,
+        ),
       )
       .where(
         and(
@@ -7440,14 +7470,17 @@ async function getWhatsAppIntegrationForTenant(
       id: tenantIntegrations.id,
       lastError: tenantIntegrations.lastError,
       lastErrorAt: tenantIntegrations.lastErrorAt,
-      selfE164: whatsappInstallations.selfE164,
-      selfJid: whatsappInstallations.selfJid,
+      selfE164: integrationWhatsAppInstallations.selfE164,
+      selfJid: integrationWhatsAppInstallations.selfJid,
       status: tenantIntegrations.status,
     })
     .from(tenantIntegrations)
     .leftJoin(
-      whatsappInstallations,
-      eq(whatsappInstallations.tenantIntegrationId, tenantIntegrations.id),
+      integrationWhatsAppInstallations,
+      eq(
+        integrationWhatsAppInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -7503,14 +7536,17 @@ async function getConnectedSlackInstallationForTenant(
     .select({
       connectedAt: tenantIntegrations.connectedAt,
       disconnectedAt: tenantIntegrations.disconnectedAt,
-      slackTeamId: slackInstallations.slackTeamId,
-      slackTeamName: slackInstallations.slackTeamName,
+      slackTeamId: integrationSlackInstallations.slackTeamId,
+      slackTeamName: integrationSlackInstallations.slackTeamName,
       tenantIntegrationId: tenantIntegrations.id,
     })
     .from(tenantIntegrations)
     .innerJoin(
-      slackInstallations,
-      eq(slackInstallations.tenantIntegrationId, tenantIntegrations.id),
+      integrationSlackInstallations,
+      eq(
+        integrationSlackInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -7626,12 +7662,15 @@ async function validateSlackRuntimeConfigSemantics(
 ) {
   const [workspace] = await tx
     .select({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     })
-    .from(messagingWorkspaces)
+    .from(integrationMessagingWorkspaces)
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -7657,17 +7696,28 @@ async function validateSlackRuntimeConfigSemantics(
   const [members, conversations] = await Promise.all([
     tx
       .select({
-        externalMemberId: messagingWorkspaceMembers.externalMemberId,
+        externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
       })
-      .from(messagingWorkspaceMembers)
-      .where(eq(messagingWorkspaceMembers.messagingWorkspaceId, workspace.id)),
+      .from(integrationMessagingWorkspaceMembers)
+      .where(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
     tx
       .select({
-        externalConversationId: messagingConversations.externalConversationId,
-        isArchived: messagingConversations.isArchived,
+        externalConversationId:
+          integrationMessagingConversations.externalConversationId,
+        isArchived: integrationMessagingConversations.isArchived,
       })
-      .from(messagingConversations)
-      .where(eq(messagingConversations.messagingWorkspaceId, workspace.id)),
+      .from(integrationMessagingConversations)
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
   ]);
 
   const validUserIds = new Set(
@@ -7723,12 +7773,15 @@ async function getSlackDirectoryOptions(
 ) {
   const [workspace] = await tx
     .select({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     })
-    .from(messagingWorkspaces)
+    .from(integrationMessagingWorkspaces)
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -7748,31 +7801,42 @@ async function getSlackDirectoryOptions(
   const [members, conversations] = await Promise.all([
     tx
       .select({
-        displayName: messagingWorkspaceMembers.displayName,
-        externalMemberId: messagingWorkspaceMembers.externalMemberId,
-        fullName: messagingWorkspaceMembers.fullName,
-        isDeleted: messagingWorkspaceMembers.isDeleted,
-        username: messagingWorkspaceMembers.username,
+        displayName: integrationMessagingWorkspaceMembers.displayName,
+        externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+        fullName: integrationMessagingWorkspaceMembers.fullName,
+        isDeleted: integrationMessagingWorkspaceMembers.isDeleted,
+        username: integrationMessagingWorkspaceMembers.username,
       })
-      .from(messagingWorkspaceMembers)
-      .where(eq(messagingWorkspaceMembers.messagingWorkspaceId, workspace.id))
+      .from(integrationMessagingWorkspaceMembers)
+      .where(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          workspace.id,
+        ),
+      )
       .orderBy(
-        messagingWorkspaceMembers.displayName,
-        messagingWorkspaceMembers.username,
+        integrationMessagingWorkspaceMembers.displayName,
+        integrationMessagingWorkspaceMembers.username,
       ),
     tx
       .select({
-        conversationType: messagingConversations.conversationType,
-        externalConversationId: messagingConversations.externalConversationId,
-        isArchived: messagingConversations.isArchived,
-        metadataJson: messagingConversations.metadataJson,
-        name: messagingConversations.name,
-        purpose: messagingConversations.purpose,
-        topic: messagingConversations.topic,
+        conversationType: integrationMessagingConversations.conversationType,
+        externalConversationId:
+          integrationMessagingConversations.externalConversationId,
+        isArchived: integrationMessagingConversations.isArchived,
+        metadataJson: integrationMessagingConversations.metadataJson,
+        name: integrationMessagingConversations.name,
+        purpose: integrationMessagingConversations.purpose,
+        topic: integrationMessagingConversations.topic,
       })
-      .from(messagingConversations)
-      .where(eq(messagingConversations.messagingWorkspaceId, workspace.id))
-      .orderBy(messagingConversations.name),
+      .from(integrationMessagingConversations)
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      )
+      .orderBy(integrationMessagingConversations.name),
   ]);
 
   return {
@@ -7811,12 +7875,15 @@ async function getSlackMemberChannelIds(
 ) {
   const [workspace] = await tx
     .select({
-      id: messagingWorkspaces.id,
+      id: integrationMessagingWorkspaces.id,
     })
-    .from(messagingWorkspaces)
+    .from(integrationMessagingWorkspaces)
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -7832,13 +7899,16 @@ async function getSlackMemberChannelIds(
 
   const conversations = await tx
     .select({
-      externalConversationId: messagingConversations.externalConversationId,
-      isArchived: messagingConversations.isArchived,
-      metadataJson: messagingConversations.metadataJson,
+      externalConversationId:
+        integrationMessagingConversations.externalConversationId,
+      isArchived: integrationMessagingConversations.isArchived,
+      metadataJson: integrationMessagingConversations.metadataJson,
     })
-    .from(messagingConversations)
-    .where(eq(messagingConversations.messagingWorkspaceId, workspace.id))
-    .orderBy(messagingConversations.name);
+    .from(integrationMessagingConversations)
+    .where(
+      eq(integrationMessagingConversations.messagingWorkspaceId, workspace.id),
+    )
+    .orderBy(integrationMessagingConversations.name);
 
   return conversations
     .filter(
@@ -8801,25 +8871,28 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
   // Get all messaging workspace members for this org's integrations
   const workspaceMembers = await db
     .select({
-      externalMemberId: messagingWorkspaceMembers.externalMemberId,
-      email: messagingWorkspaceMembers.email,
-      displayName: messagingWorkspaceMembers.displayName,
-      fullName: messagingWorkspaceMembers.fullName,
-      username: messagingWorkspaceMembers.username,
-      avatarUrl: messagingWorkspaceMembers.avatarUrl,
+      externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+      email: integrationMessagingWorkspaceMembers.email,
+      displayName: integrationMessagingWorkspaceMembers.displayName,
+      fullName: integrationMessagingWorkspaceMembers.fullName,
+      username: integrationMessagingWorkspaceMembers.username,
+      avatarUrl: integrationMessagingWorkspaceMembers.avatarUrl,
       providerKey: tenantIntegrations.providerKey,
     })
-    .from(messagingWorkspaceMembers)
+    .from(integrationMessagingWorkspaceMembers)
     .innerJoin(
-      messagingWorkspaces,
+      integrationMessagingWorkspaces,
       eq(
-        messagingWorkspaceMembers.messagingWorkspaceId,
-        messagingWorkspaces.id,
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
       ),
     )
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
     .where(eq(tenants.organizationId, input.organizationId));
@@ -8874,17 +8947,23 @@ export async function getConversationNameMap(input: {
 
   const rows = await db
     .select({
-      externalId: messagingConversations.externalConversationId,
-      name: messagingConversations.name,
+      externalId: integrationMessagingConversations.externalConversationId,
+      name: integrationMessagingConversations.name,
     })
-    .from(messagingConversations)
+    .from(integrationMessagingConversations)
     .innerJoin(
-      messagingWorkspaces,
-      eq(messagingConversations.messagingWorkspaceId, messagingWorkspaces.id),
+      integrationMessagingWorkspaces,
+      eq(
+        integrationMessagingConversations.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
+      ),
     )
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
     .where(eq(tenants.organizationId, input.organizationId));
@@ -8906,21 +8985,24 @@ export async function getMemberNameMap(input: {
 
   const rows = await db
     .select({
-      externalId: messagingWorkspaceMembers.externalMemberId,
-      displayName: messagingWorkspaceMembers.displayName,
-      fullName: messagingWorkspaceMembers.fullName,
+      externalId: integrationMessagingWorkspaceMembers.externalMemberId,
+      displayName: integrationMessagingWorkspaceMembers.displayName,
+      fullName: integrationMessagingWorkspaceMembers.fullName,
     })
-    .from(messagingWorkspaceMembers)
+    .from(integrationMessagingWorkspaceMembers)
     .innerJoin(
-      messagingWorkspaces,
+      integrationMessagingWorkspaces,
       eq(
-        messagingWorkspaceMembers.messagingWorkspaceId,
-        messagingWorkspaces.id,
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
       ),
     )
     .innerJoin(
       tenantIntegrations,
-      eq(messagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
     .where(eq(tenants.organizationId, input.organizationId));

@@ -70,8 +70,8 @@
 - Slack OAuth routes now exist under `/oauth/start/slack` and `/oauth/callback/slack`, and the callback can complete onboarding by storing the tenant bot token and starting provisioning.
 - The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
 - Slack control-plane state is now more durable:
-  - `tenant_integrations`, `slack_installations`, and `integration_secrets` now persist the canonical Slack installation state
-  - generic `messaging_workspaces`, `messaging_workspace_members`, and `messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
+  - `tenant_integrations`, `integration_slack_installations`, and `integration_credentials` now persist the canonical Slack installation state
+  - generic `integration_messaging_workspaces`, `integration_messaging_workspace_members`, and `integration_messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
   - Slack OAuth failures are now recorded on the onboarding session and surfaced back in the onboarding and Slack integration pages
   - reconnect / retry is now supported while an organization is still in setup
   - reconnect after the tenant runtime is already ready is now supported through desired-state versioning plus `apply_tenant_config`
@@ -264,7 +264,7 @@
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
-  - `tenant_integrations` now has WhatsApp-backed install state plus `whatsapp_installations` and `whatsapp_link_sessions`
+  - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
   - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
   - worker handlers now exist for WhatsApp QR linking and disconnect, and the workspace has initial WhatsApp integration routes plus a dedicated setup page
   - WhatsApp QR linking is being moved off OpenClaw's `web.login.start` / `web.login.wait` path and onto an Otto-owned helper shipped in the custom runtime image, because the upstream QR RPC flow does not recover reliably from the post-pairing `515 restart required` branch

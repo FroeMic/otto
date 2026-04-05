@@ -192,8 +192,8 @@ export const tenantIntegrations = pgTable(
   }),
 );
 
-export const slackInstallations = pgTable(
-  "slack_installations",
+export const integrationSlackInstallations = pgTable(
+  "integration_slack_installations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
@@ -214,13 +214,13 @@ export const slackInstallations = pgTable(
   },
   (table) => ({
     tenantIntegrationUniqueIdx: uniqueIndex(
-      "slack_installations_tenant_integration_id_idx",
+      "integration_slack_installations_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
   }),
 );
 
-export const whatsappInstallations = pgTable(
-  "whatsapp_installations",
+export const integrationWhatsAppInstallations = pgTable(
+  "integration_whatsapp_installations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
@@ -239,13 +239,13 @@ export const whatsappInstallations = pgTable(
   },
   (table) => ({
     tenantIntegrationUniqueIdx: uniqueIndex(
-      "whatsapp_installations_tenant_integration_id_idx",
+      "integration_whatsapp_installations_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
   }),
 );
 
-export const whatsappLinkSessions = pgTable(
-  "whatsapp_link_sessions",
+export const integrationWhatsAppLinkSessions = pgTable(
+  "integration_whatsapp_link_sessions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
@@ -267,16 +267,16 @@ export const whatsappLinkSessions = pgTable(
   },
   (table) => ({
     tenantIntegrationIdx: index(
-      "whatsapp_link_sessions_tenant_integration_id_idx",
+      "integration_whatsapp_link_sessions_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
     tenantIntegrationStatusIdx: index(
-      "whatsapp_link_sessions_tenant_integration_id_status_idx",
+      "integration_whatsapp_link_sessions_tenant_integration_id_status_idx",
     ).on(table.tenantIntegrationId, table.status),
   }),
 );
 
-export const integrationSecrets = pgTable(
-  "integration_secrets",
+export const integrationCredentials = pgTable(
+  "integration_credentials",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
@@ -292,16 +292,16 @@ export const integrationSecrets = pgTable(
   },
   (table) => ({
     tenantIntegrationIdx: index(
-      "integration_secrets_tenant_integration_id_idx",
+      "integration_credentials_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
     tenantIntegrationSecretTypeUniqueIdx: uniqueIndex(
-      "integration_secrets_tenant_integration_id_secret_type_idx",
+      "integration_credentials_tenant_integration_id_secret_type_idx",
     ).on(table.tenantIntegrationId, table.secretType),
   }),
 );
 
-export const messagingWorkspaces = pgTable(
-  "messaging_workspaces",
+export const integrationMessagingWorkspaces = pgTable(
+  "integration_messaging_workspaces",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
@@ -324,20 +324,22 @@ export const messagingWorkspaces = pgTable(
   },
   (table) => ({
     tenantIntegrationUniqueIdx: uniqueIndex(
-      "messaging_workspaces_tenant_integration_id_idx",
+      "integration_messaging_workspaces_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
     workspaceExternalIdUniqueIdx: uniqueIndex(
-      "messaging_workspaces_tenant_integration_id_external_workspace_id_idx",
+      "integration_messaging_workspaces_tenant_integration_id_external_workspace_id_idx",
     ).on(table.tenantIntegrationId, table.externalWorkspaceId),
   }),
 );
 
-export const messagingWorkspaceMembers = pgTable(
-  "messaging_workspace_members",
+export const integrationMessagingWorkspaceMembers = pgTable(
+  "integration_messaging_workspace_members",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     messagingWorkspaceId: uuid("messaging_workspace_id")
-      .references(() => messagingWorkspaces.id, { onDelete: "cascade" })
+      .references(() => integrationMessagingWorkspaces.id, {
+        onDelete: "cascade",
+      })
       .notNull(),
     externalMemberId: varchar("external_member_id", { length: 255 }).notNull(),
     username: varchar("username", { length: 255 }),
@@ -358,20 +360,22 @@ export const messagingWorkspaceMembers = pgTable(
   },
   (table) => ({
     workspaceMemberIdx: index(
-      "messaging_workspace_members_workspace_id_idx",
+      "integration_messaging_workspace_members_workspace_id_idx",
     ).on(table.messagingWorkspaceId),
     workspaceMemberUniqueIdx: uniqueIndex(
-      "messaging_workspace_members_workspace_id_external_member_id_idx",
+      "integration_messaging_workspace_members_workspace_id_external_member_id_idx",
     ).on(table.messagingWorkspaceId, table.externalMemberId),
   }),
 );
 
-export const messagingConversations = pgTable(
-  "messaging_conversations",
+export const integrationMessagingConversations = pgTable(
+  "integration_messaging_conversations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     messagingWorkspaceId: uuid("messaging_workspace_id")
-      .references(() => messagingWorkspaces.id, { onDelete: "cascade" })
+      .references(() => integrationMessagingWorkspaces.id, {
+        onDelete: "cascade",
+      })
       .notNull(),
     externalConversationId: varchar("external_conversation_id", {
       length: 255,
@@ -392,10 +396,10 @@ export const messagingConversations = pgTable(
   },
   (table) => ({
     workspaceConversationIdx: index(
-      "messaging_conversations_workspace_id_idx",
+      "integration_messaging_conversations_workspace_id_idx",
     ).on(table.messagingWorkspaceId),
     workspaceConversationUniqueIdx: uniqueIndex(
-      "messaging_conversations_workspace_id_external_conversation_id_idx",
+      "integration_messaging_conversations_workspace_id_external_conversation_id_idx",
     ).on(table.messagingWorkspaceId, table.externalConversationId),
   }),
 );
