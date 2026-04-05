@@ -102,14 +102,16 @@ export function PlatformOrganizationActions({
         >
           <DotsThree weight="bold" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="min-w-60">
           <DropdownMenuItem
+            className="whitespace-nowrap"
             disabled={!hasTenant || !runtimeReady || syncJobId !== null}
             onClick={() => runAction("apply")}
           >
             Apply tenant config
           </DropdownMenuItem>
           <DropdownMenuItem
+            className="whitespace-nowrap"
             disabled={!hasTenant || syncJobId !== null}
             onClick={() => runAction("provision-openai-key")}
           >
@@ -118,6 +120,7 @@ export function PlatformOrganizationActions({
               : "Provision OpenAI API key"}
           </DropdownMenuItem>
           <DropdownMenuItem
+            className="whitespace-nowrap"
             disabled={!hasTenant || !runtimeReady || syncJobId !== null}
             onClick={() => runAction("refresh-image")}
           >
