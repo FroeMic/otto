@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Gear, User } from "@phosphor-icons/react/ssr";
+import { ArrowLeft, CreditCard, Gear, User } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";
@@ -50,6 +50,12 @@ const SETTINGS_NAV_ITEMS = {
       icon: <User />,
       match: "section",
       title: "Members",
+    },
+    {
+      href: (orgSlug: string) => `/${orgSlug}/settings/workspace/billing`,
+      icon: <CreditCard />,
+      match: "section",
+      title: "Billing",
     },
   ],
 } as const;

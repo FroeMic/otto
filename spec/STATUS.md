@@ -66,6 +66,13 @@
     - the platform `Usage` tab now shows current credit balance alongside granted and debited totals
     - the runtime OpenAI proxy now rejects new upstream requests when the workspace ledger balance is `<= 0`
     - this is a balance gate, not a reservation system, so some settlement lag still exists until reservation-based enforcement is added
+  - the first Stripe billing slice now also exists:
+    - hosted Stripe Checkout can start a workspace subscription for `Starter`, `Growth`, or `Scale`
+    - the Stripe billing portal can open for workspaces that already have a Stripe customer
+    - Stripe customer and current subscription state are mirrored into Otto billing tables
+    - `invoice.paid` now creates idempotent recurring monthly credit grants in Otto's ledger
+    - a workspace-visible settings billing page now shows plan, status, renewal, balance, recent grants, and recent ledger activity
+    - included-credit expiry is not enforced yet; `credit_grants.expires_at` is stored but there is no expiry job yet
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -239,7 +246,7 @@
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
 - The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
-- The next billing step after this slice should be Stripe-backed credit grants and a workspace-visible billing page, not daily provider cost reconciliation.
+- The next billing step after this slice should be top-up Checkout plus credit-expiry enforcement, not daily provider cost reconciliation.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state

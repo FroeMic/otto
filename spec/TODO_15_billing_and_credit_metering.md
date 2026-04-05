@@ -694,6 +694,20 @@ Exit check:
 
 - a test workspace can subscribe, renew, fail payment, and cancel with subscription state visible in Otto
 
+Current implementation notes:
+
+- the first Stripe subscription-commerce slice now exists:
+  - Otto creates Stripe Checkout sessions for `starter_monthly`, `growth_monthly`, and `scale_monthly`
+  - Otto creates Stripe billing portal sessions for workspaces that already have a Stripe customer
+  - Otto mirrors Stripe customer and current subscription state into:
+    - `billing_customers`
+    - `billing_subscriptions`
+    - `billing_checkout_sessions`
+    - `billing_webhook_events`
+- the current workspace billing page uses the hosted Stripe surfaces for first subscription signup and ongoing self-serve billing management
+- once a workspace already has a subscription, plan changes are intentionally pushed into the Stripe billing portal rather than creating a second subscription through Checkout
+- this slice depends on Stripe price ids configured in control-plane env rather than trying to discover prices dynamically from Stripe metadata
+
 ### Step 5: Grant credits from Stripe payments
 
 Goal:
@@ -711,6 +725,15 @@ Deliverables:
 Exit check:
 
 - Otto can show a correct workspace balance and grant history using only Otto billing data
+
+Current implementation notes:
+
+- recurring Stripe invoice payments now create positive Otto credit grants:
+  - `invoice.paid` creates an idempotent `credit_grants` row keyed by the Stripe invoice id
+  - each successful new grant also creates a positive ledger entry in `credit_ledger_entries`
+  - included monthly credits currently expire logically via `credit_grants.expires_at`, but no expiry job has been implemented yet to burn those expired balances back out of the ledger
+- top-up grants are still out of scope in the current code slice
+- the current page shows derived balance plus recent grants and ledger activity from Otto data only
 
 ### Step 6: Convert provider usage into billable units and credit debits
 
@@ -766,6 +789,19 @@ Deliverables:
 Exit check:
 
 - an org admin can understand plan, balance, recent burn, and next steps from within the workspace
+
+Current implementation notes:
+
+- a first workspace billing page now exists at `web/src/app/[orgSlug]/settings/workspace/billing/page.tsx`
+- the workspace settings sidebar now includes `Billing`
+- the page currently shows:
+  - current plan and Stripe subscription status
+  - renewal date
+  - current Otto credit balance
+  - recent credit grants
+  - recent ledger activity
+  - hosted Checkout and billing portal actions
+- the page does not yet include top-ups, expiry messaging, or rich usage charts
 
 ### Step 8: Add top-ups and expiry policy enforcement
 

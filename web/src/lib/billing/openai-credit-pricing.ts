@@ -6,6 +6,7 @@ import {
 export const CREDIT_LEDGER_ENTRY_TYPES = {
   manualGrant: "manual_grant",
   providerUsageDebit: "provider_usage_debit",
+  subscriptionGrant: "subscription_grant",
 } as const;
 
 export const CREDIT_SETTLEMENT_STATUSES = {

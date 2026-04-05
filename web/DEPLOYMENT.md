@@ -52,6 +52,11 @@ Set at least:
 - `CONTROL_PLANE_ENCRYPTION_SECRET`
 - `CONTROL_PLANE_OPENAI_ADMIN_API_KEY` so Otto can provision the initial tenant-specific OpenAI project and service-account key during tenant bootstrap and later rotate it
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_STARTER_MONTHLY`
+- `STRIPE_PRICE_GROWTH_MONTHLY`
+- `STRIPE_PRICE_SCALE_MONTHLY`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
 In `../www/.env`, set the landing-site browser analytics values you want baked
@@ -92,6 +97,26 @@ RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.1.1
 ```
 
 on the control-plane host before rebuilding the production stack.
+
+For Stripe billing, also configure:
+
+- three recurring monthly prices in Stripe for:
+  - `Starter` at `$50/month`
+  - `Growth` at `$90/month`
+  - `Scale` at `$200/month`
+- point:
+  - `STRIPE_PRICE_STARTER_MONTHLY`
+  - `STRIPE_PRICE_GROWTH_MONTHLY`
+  - `STRIPE_PRICE_SCALE_MONTHLY`
+  at those Stripe `price_...` ids
+- a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook`
+- webhook events:
+  - `checkout.session.completed`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
+  - `invoice.paid`
+  - `invoice.payment_failed`
+- the Stripe billing portal, with customer-managed payment methods, invoices, cancellation, and plan changes enabled
 
 If PostHog browser analytics is enabled on the landing site, make sure those
 `NEXT_PUBLIC_*` values are already present in `../www/.env` before running
