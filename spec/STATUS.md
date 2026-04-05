@@ -278,12 +278,13 @@
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
-  - run the new OpenAI provisioning spike against a real tenant with a configured `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
-  - confirm the exact OpenAI service-account create response shape and that a provisioned key succeeds on a real Responses API request
   - lock the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior
-  - add the billing ledger and provider-account schema first
-  - ship Stripe Checkout, billing portal, and idempotent webhook handling before provider metering or hard enforcement
-  - then add OpenAI project/service-account provisioning, minutely usage polling, daily cost reconciliation, and the workspace billing page
+  - ship raw OpenAI usage ingestion first as a narrow vertical slice, storing immutable per-minute usage buckets in Otto
+  - add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
+  - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
+  - then add Otto credit grants, ledger entries, and derived balances from Stripe events
+  - then convert raw provider usage into billable units and credit debits
+  - then ship the workspace billing page, top-ups, soft alerts, and only later hard-stop enforcement
 - Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
   - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
