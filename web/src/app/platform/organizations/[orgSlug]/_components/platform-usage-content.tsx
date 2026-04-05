@@ -217,24 +217,30 @@ function getSpendChartConfig(modality: SpendModality): ChartConfig {
   };
 }
 
+function bucketKey(isoString: string, hourly: boolean) {
+  // Use the ISO prefix directly — matches server's date_trunc output
+  return hourly ? isoString.slice(0, 13) : isoString.slice(0, 10);
+}
+
 function generateTimeBuckets(
   from: Date,
   to: Date,
   hourly: boolean,
-): Date[] {
-  const buckets: Date[] = [];
+): string[] {
+  const keys: string[] = [];
   const current = new Date(from);
+  // Truncate to hour/day boundary in UTC
   if (hourly) {
-    current.setMinutes(0, 0, 0);
+    current.setUTCMinutes(0, 0, 0);
   } else {
-    current.setHours(0, 0, 0, 0);
+    current.setUTCHours(0, 0, 0, 0);
   }
   const stepMs = hourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
   while (current <= to) {
-    buckets.push(new Date(current));
+    keys.push(bucketKey(current.toISOString(), hourly));
     current.setTime(current.getTime() + stepMs);
   }
-  return buckets;
+  return keys;
 }
 
 function getSpendChartData(
@@ -245,24 +251,19 @@ function getSpendChartData(
 ) {
   const rangeMs = dateRange.to.getTime() - dateRange.from.getTime();
   const hourly = rangeMs <= 48 * 60 * 60 * 1000;
-  const allBuckets = generateTimeBuckets(dateRange.from, dateRange.to, hourly);
+  const allKeys = generateTimeBuckets(dateRange.from, dateRange.to, hourly);
 
   // Index actual data by bucket key
   const dataByKey = new Map<string, TimeSeriesRow>();
   for (const row of timeSeries) {
-    const d = new Date(row.bucketTime);
-    const key = hourly
-      ? `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`
-      : `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
-    dataByKey.set(key, row);
+    dataByKey.set(bucketKey(row.bucketTime, hourly), row);
   }
 
-  return allBuckets.map((bucket) => {
-    const key = hourly
-      ? `${bucket.getUTCFullYear()}-${bucket.getUTCMonth()}-${bucket.getUTCDate()}-${bucket.getUTCHours()}`
-      : `${bucket.getUTCFullYear()}-${bucket.getUTCMonth()}-${bucket.getUTCDate()}`;
+  return allKeys.map((key) => {
     const row = dataByKey.get(key);
-    const timeLabel = timeFormatter.format(bucket);
+    // Parse the key back to a date for formatting
+    const bucketDate = new Date(hourly ? `${key}:00:00.000Z` : `${key}T00:00:00.000Z`);
+    const timeLabel = timeFormatter.format(bucketDate);
 
     if (modality === "text") {
       return { timeLabel, input: row?.inputTextTokens ?? 0, output: row?.outputTextTokens ?? 0 };
