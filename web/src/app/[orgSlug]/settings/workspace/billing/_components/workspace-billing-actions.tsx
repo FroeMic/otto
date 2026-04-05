@@ -96,28 +96,37 @@ export function WorkspaceBillingActions({
         disabled={
           pendingKey !== null || hasActiveSubscription || !canManageBilling
         }
-        onClick={() => startCheckout("starter_monthly")}
-        variant={currentPlanKey === "starter_monthly" ? "secondary" : "outline"}
+        onClick={() => startCheckout("basic_monthly")}
+        variant={currentPlanKey === "basic_monthly" ? "secondary" : "outline"}
       >
-        {pendingKey === "starter_monthly" ? "Redirecting…" : "Choose Starter"}
+        {pendingKey === "basic_monthly" ? "Redirecting…" : "Choose Basic"}
       </Button>
       <Button
         disabled={
           pendingKey !== null || hasActiveSubscription || !canManageBilling
         }
-        onClick={() => startCheckout("growth_monthly")}
-        variant={currentPlanKey === "growth_monthly" ? "secondary" : "outline"}
+        onClick={() => startCheckout("plus_monthly")}
+        variant={currentPlanKey === "plus_monthly" ? "secondary" : "outline"}
       >
-        {pendingKey === "growth_monthly" ? "Redirecting…" : "Choose Growth"}
+        {pendingKey === "plus_monthly" ? "Redirecting…" : "Choose Plus"}
       </Button>
       <Button
         disabled={
           pendingKey !== null || hasActiveSubscription || !canManageBilling
         }
-        onClick={() => startCheckout("scale_monthly")}
-        variant={currentPlanKey === "scale_monthly" ? "secondary" : "default"}
+        onClick={() => startCheckout("pro_monthly")}
+        variant={currentPlanKey === "pro_monthly" ? "secondary" : "outline"}
       >
-        {pendingKey === "scale_monthly" ? "Redirecting…" : "Choose Scale"}
+        {pendingKey === "pro_monthly" ? "Redirecting…" : "Choose Pro"}
+      </Button>
+      <Button
+        disabled={
+          pendingKey !== null || hasActiveSubscription || !canManageBilling
+        }
+        onClick={() => startCheckout("max_monthly")}
+        variant={currentPlanKey === "max_monthly" ? "secondary" : "default"}
+      >
+        {pendingKey === "max_monthly" ? "Redirecting…" : "Choose Max"}
       </Button>
     </div>
   );

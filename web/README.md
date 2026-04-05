@@ -45,8 +45,8 @@ docker compose up -d
    - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
-   - to enable hosted billing, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_GROWTH_MONTHLY`, and `STRIPE_PRICE_SCALE_MONTHLY`
-   - create three recurring monthly Stripe prices in USD for `Starter`, `Growth`, and `Scale`, then point those env vars at the corresponding Stripe `price_...` ids
+   - to enable hosted billing, set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC_MONTHLY`, `STRIPE_PRICE_PLUS_MONTHLY`, `STRIPE_PRICE_PRO_MONTHLY`, and `STRIPE_PRICE_MAX_MONTHLY`
+   - create four recurring monthly Stripe prices in USD for `Basic`, `Plus`, `Pro`, and `Max`, then point those env vars at the corresponding Stripe `price_...` ids
    - configure a Stripe webhook endpoint at `http://localhost:3000/api/stripe/webhook` for local development and enable `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`
    - enable the Stripe billing portal in the dashboard so Otto can create portal sessions for payment methods, invoices, cancellation, and plan changes
    - `CONTROL_PLANE_ENCRYPTION_SECRET` and `CONTROL_PLANE_OAUTH_STATE_SECRET` are optional; if omitted, the control plane falls back to `WORKOS_COOKIE_PASSWORD`

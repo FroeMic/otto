@@ -54,9 +54,10 @@ Set at least:
 - `CONTROL_PLANE_OAUTH_STATE_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_STARTER_MONTHLY`
-- `STRIPE_PRICE_GROWTH_MONTHLY`
-- `STRIPE_PRICE_SCALE_MONTHLY`
+- `STRIPE_PRICE_BASIC_MONTHLY`
+- `STRIPE_PRICE_PLUS_MONTHLY`
+- `STRIPE_PRICE_PRO_MONTHLY`
+- `STRIPE_PRICE_MAX_MONTHLY`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
 In `../www/.env`, set the landing-site browser analytics values you want baked
@@ -100,14 +101,16 @@ on the control-plane host before rebuilding the production stack.
 
 For Stripe billing, also configure:
 
-- three recurring monthly prices in Stripe for:
-  - `Starter` at `$50/month`
-  - `Growth` at `$90/month`
-  - `Scale` at `$200/month`
+- four recurring monthly prices in Stripe for:
+  - `Basic` at `$20/month`
+  - `Plus` at `$50/month`
+  - `Pro` at `$100/month`
+  - `Max` at `$200/month`
 - point:
-  - `STRIPE_PRICE_STARTER_MONTHLY`
-  - `STRIPE_PRICE_GROWTH_MONTHLY`
-  - `STRIPE_PRICE_SCALE_MONTHLY`
+  - `STRIPE_PRICE_BASIC_MONTHLY`
+  - `STRIPE_PRICE_PLUS_MONTHLY`
+  - `STRIPE_PRICE_PRO_MONTHLY`
+  - `STRIPE_PRICE_MAX_MONTHLY`
   at those Stripe `price_...` ids
 - a Stripe webhook endpoint at `https://<your-domain>/api/stripe/webhook`
 - webhook events:

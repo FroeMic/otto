@@ -18,7 +18,12 @@ import { getControlPlaneBaseUrl } from "@/lib/env";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  planKey: z.enum(["starter_monthly", "growth_monthly", "scale_monthly"]),
+  planKey: z.enum([
+    "basic_monthly",
+    "plus_monthly",
+    "pro_monthly",
+    "max_monthly",
+  ]),
 });
 
 export async function POST(

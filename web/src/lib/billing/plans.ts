@@ -1,9 +1,10 @@
 import { getStripePriceIds } from "@/lib/env";
 
 export const BILLING_PLAN_KEYS = {
-  growthMonthly: "growth_monthly",
-  scaleMonthly: "scale_monthly",
-  starterMonthly: "starter_monthly",
+  basicMonthly: "basic_monthly",
+  maxMonthly: "max_monthly",
+  plusMonthly: "plus_monthly",
+  proMonthly: "pro_monthly",
 } as const;
 
 export type BillingPlanKey =
@@ -22,25 +23,32 @@ export function getBillingPlans(): BillingPlan[] {
 
   return [
     {
-      creditsIncluded: 25_000,
-      key: BILLING_PLAN_KEYS.starterMonthly,
+      creditsIncluded: 10_000,
+      key: BILLING_PLAN_KEYS.basicMonthly,
+      monthlyPriceUsd: 20,
+      name: "Basic",
+      stripePriceId: priceIds.basicMonthly,
+    },
+    {
+      creditsIncluded: 30_000,
+      key: BILLING_PLAN_KEYS.plusMonthly,
       monthlyPriceUsd: 50,
-      name: "Starter",
-      stripePriceId: priceIds.starterMonthly,
+      name: "Plus",
+      stripePriceId: priceIds.plusMonthly,
     },
     {
-      creditsIncluded: 60_000,
-      key: BILLING_PLAN_KEYS.growthMonthly,
-      monthlyPriceUsd: 90,
-      name: "Growth",
-      stripePriceId: priceIds.growthMonthly,
+      creditsIncluded: 70_000,
+      key: BILLING_PLAN_KEYS.proMonthly,
+      monthlyPriceUsd: 100,
+      name: "Pro",
+      stripePriceId: priceIds.proMonthly,
     },
     {
-      creditsIncluded: 100_000,
-      key: BILLING_PLAN_KEYS.scaleMonthly,
+      creditsIncluded: 150_000,
+      key: BILLING_PLAN_KEYS.maxMonthly,
       monthlyPriceUsd: 200,
-      name: "Scale",
-      stripePriceId: priceIds.scaleMonthly,
+      name: "Max",
+      stripePriceId: priceIds.maxMonthly,
     },
   ];
 }

@@ -114,9 +114,10 @@ async function handleCheckoutSessionCompleted(
     mode: session.mode,
     organizationId,
     planKey:
-      session.metadata?.plan_key === "starter_monthly" ||
-      session.metadata?.plan_key === "growth_monthly" ||
-      session.metadata?.plan_key === "scale_monthly"
+      session.metadata?.plan_key === "basic_monthly" ||
+      session.metadata?.plan_key === "plus_monthly" ||
+      session.metadata?.plan_key === "pro_monthly" ||
+      session.metadata?.plan_key === "max_monthly"
         ? session.metadata.plan_key
         : null,
     status: session.status ?? "complete",

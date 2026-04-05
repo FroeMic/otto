@@ -67,30 +67,36 @@ Lock the first Otto billing architecture around a prepaid credit burndown model 
 
 ## Initial commercial package
 
-Assumption from the product discussion: the third plan is meant to be `$200 -> 100,000 credits`, not `$200 -> 100,000 dollars`.
+Assumption from the product discussion: the plan amounts below are user-facing package definitions, while Otto still keeps the underlying credit denomination stable at `1 USD provider-cost basis = 1,000 credits`.
 
 Recommended v1 package to lock in now:
 
-- Starter: `$50/month` for `25,000` credits
-- Pro: `$90/month` for `60,000` credits
-- Max: `$200/month` for `100,000` credits
+- Basic: `$20/month` for `10,000` credits
+- Plus: `$50/month` for `30,000` credits
+- Pro: `$100/month` for `70,000` credits
+- Max: `$200/month` for `150,000` credits
 
 Locked plan catalog for v1:
 
-- `starter_monthly`
-  - user-facing name: `Starter`
+- `basic_monthly`
+  - user-facing name: `Basic`
+  - price: `$20/month`
+  - included credits: `10,000`
+  - Stripe product family: `subscription`
+- `plus_monthly`
+  - user-facing name: `Plus`
   - price: `$50/month`
-  - included credits: `25,000`
+  - included credits: `30,000`
   - Stripe product family: `subscription`
-- `growth_monthly`
+- `pro_monthly`
   - user-facing name: `Pro`
-  - price: `$90/month`
-  - included credits: `60,000`
+  - price: `$100/month`
+  - included credits: `70,000`
   - Stripe product family: `subscription`
-- `scale_monthly`
+- `max_monthly`
   - user-facing name: `Max`
   - price: `$200/month`
-  - included credits: `100,000`
+  - included credits: `150,000`
   - Stripe product family: `subscription`
 
 Locked top-up catalog for v1:
@@ -700,7 +706,7 @@ Exit check:
 Current implementation notes:
 
 - the first Stripe subscription-commerce slice now exists:
-  - Otto creates Stripe Checkout sessions for `Starter`, `Pro`, and `Max` while keeping the internal plan keys `starter_monthly`, `growth_monthly`, and `scale_monthly`
+  - Otto creates Stripe Checkout sessions for `Basic`, `Plus`, `Pro`, and `Max` using the stable internal plan keys `basic_monthly`, `plus_monthly`, `pro_monthly`, and `max_monthly`
   - Otto creates Stripe billing portal sessions for workspaces that already have a Stripe customer
   - Otto mirrors Stripe customer and current subscription state into:
     - `billing_customers`
