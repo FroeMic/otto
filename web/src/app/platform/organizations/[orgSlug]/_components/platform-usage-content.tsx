@@ -560,16 +560,16 @@ export function PlatformUsageContent({
                   <TableHead>Tokens</TableHead>
                   <TableHead>API cost</TableHead>
                   <TableHead>Credits</TableHead>
-                  <TableHead>Cost / credit</TableHead>
+                  <TableHead>Cost / 1k credits</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.usageByModel.map((row) => {
                   const credits = formatCreditsFromMilli(row.creditsBurnedMilli);
-                  const costPerCredit =
+                  const costPer1kCredits =
                     credits > 0
                       ? formatDollarsFromMicros(
-                          Math.round(row.providerCostMicros / credits),
+                          Math.round((row.providerCostMicros / credits) * 1000),
                         )
                       : "—";
                   return (
@@ -592,7 +592,7 @@ export function PlatformUsageContent({
                       <TableCell>
                         {formatCredits(credits, locale)}
                       </TableCell>
-                      <TableCell>{costPerCredit}</TableCell>
+                      <TableCell>{costPer1kCredits}</TableCell>
                     </TableRow>
                   );
                 })}
