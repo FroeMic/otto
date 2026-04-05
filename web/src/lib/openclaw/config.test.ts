@@ -191,8 +191,10 @@ describe("renderOpenClawConfig", () => {
       modelProviders: {
         "openai-proxy": {
           api: "openai-responses",
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
           apiKey: "${TENANT_TOKEN}",
           baseUrl:
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
             "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
           models: [],
         },
@@ -215,11 +217,16 @@ describe("renderOpenClawConfig", () => {
       "openai-proxy/gpt-5.4",
     );
     assert.deepEqual(renderedConfig.plugins.allow, ["otto-ai-provider"]);
-    assert.equal(renderedConfig.plugins.entries["otto-ai-provider"].enabled, true);
+    assert.equal(
+      renderedConfig.plugins.entries["otto-ai-provider"].enabled,
+      true,
+    );
     assert.deepEqual(renderedConfig.models.providers["openai-proxy"], {
       api: "openai-responses",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
       apiKey: "${TENANT_TOKEN}",
       baseUrl:
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
         "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
       models: [],
     });

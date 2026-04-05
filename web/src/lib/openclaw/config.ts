@@ -158,7 +158,8 @@ function buildWebSearchPluginEntries(
 }
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
-  const ottoToolPluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const ottoToolPluginIds =
+    config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
   const ottoToolPluginEntries = Object.fromEntries(
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
@@ -569,8 +570,11 @@ function resolveProxyModelConfig(input: {
     modelProviders: {
       [OPENAI_PROXY_PROVIDER_ID]: {
         api: "openai-responses",
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
         apiKey: "${TENANT_TOKEN}",
-        baseUrl: "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+        baseUrl:
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
+          "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
         models: [],
       },
     },

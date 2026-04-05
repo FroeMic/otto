@@ -1,8 +1,8 @@
-import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 import {
   OpenAiProxyError,
   proxyOpenAiResponsesRequest,
 } from "@/lib/runtime-ai/openai-proxy";
+import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
 

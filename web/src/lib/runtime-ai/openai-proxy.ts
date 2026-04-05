@@ -66,7 +66,10 @@ export async function proxyOpenAiResponsesRequest(input: {
   });
 }
 
-function buildOpenAiRequestHeaders(input: { apiKey: string; request: Request }) {
+function buildOpenAiRequestHeaders(input: {
+  apiKey: string;
+  request: Request;
+}) {
   const headers = new Headers();
 
   for (const [name, value] of input.request.headers.entries()) {

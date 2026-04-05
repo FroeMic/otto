@@ -1,7 +1,7 @@
 import {
+  DEFAULT_WORKSPACE_TIME_ZONE,
   formatShortDateTime,
   type WorkspaceDateTimePreferences,
-  DEFAULT_WORKSPACE_TIME_ZONE,
 } from "@/lib/date-time";
 
 type ScheduleInput = {
@@ -211,8 +211,7 @@ function convertCronTime(
 
   // Adjust to find the UTC instant where taskTimezone shows the desired hour:minute
   const adjustMs =
-    ((hour - (taskHour === 24 ? 0 : taskHour)) * 60 +
-      (minute - taskMinute)) *
+    ((hour - (taskHour === 24 ? 0 : taskHour)) * 60 + (minute - taskMinute)) *
     60_000;
   const corrected = new Date(guess.getTime() + adjustMs);
 
