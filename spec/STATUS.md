@@ -33,8 +33,8 @@
 - The first runtime start path currently uses direct `docker run` with bridge networking, container-wide gateway binding, and a host-loopback-only publish on port `18791`; Docker Compose is still deferred.
 - Runtime bootstrap now projects `OPENAI_API_KEY` from a tenant-specific managed OpenAI credential, while `RUNTIME_MODEL_PRIMARY` continues to set the default model.
 - The first raw OpenAI usage-ingestion foundation now exists:
-  - the worker auto-queues recurring OpenAI usage ingestion jobs for active tenant projects
-  - raw minute buckets and ingestion-run metadata are now stored in Postgres for the current OpenAI org-usage endpoint set:
+  - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
+  - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
     - `completions`
     - `embeddings`
     - `audio_speeches`
@@ -43,7 +43,7 @@
     - `moderations`
     - `vector_stores`
     - `code_interpreter_sessions`
-  - ingestion is intentionally raw-only, with no inline credit conversion and no Stripe meter-event emission
+  - ingestion is intentionally usage-only, with no inline credit conversion and no Stripe meter-event emission
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:

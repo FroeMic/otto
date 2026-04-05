@@ -592,20 +592,20 @@ Reasoning:
 
 Step-2 pipeline shape:
 
-1. A worker job chooses a short recent time window for a tenant's OpenAI project.
+1. The worker chooses a short recent time window for a tenant's OpenAI project.
 2. Otto calls the OpenAI usage endpoint with `bucket_width=1m`, filtered by `project_id`, grouped by at least `project_id`, `api_key_id`, and `model`.
-3. Otto stores the raw response and the flattened bucket rows immutably in Postgres.
-4. Otto records ingestion-run metadata such as request window, cursor, latency, row counts, and any retry state.
-5. Otto can re-run overlapping recent windows to capture late-arriving usage without mutating historical raw payloads.
+3. Otto stores only the flattened, billing-relevant bucket fields in Postgres.
+4. Otto stores one sync-state row per provider account plus usage type for cadence, cursor, and failure tracking.
+5. Otto can re-run overlapping recent windows to capture late-arriving usage without storing bulky raw payloads.
 
 Recommended v1 storage split:
 
-- `provider_usage_ingestion_runs`
-  - one row per polling attempt
-  - includes provider, tenant, project, time window, status, and request metadata
+- `provider_usage_sync_states`
+  - one row per provider account plus usage type
+  - includes cadence, last successful window end, and latest failure state
 - `provider_usage_buckets`
   - one row per flattened minute bucket result
-  - includes provider, tenant, project, API key, model, bucket window, usage object type, and the raw JSON payload for that bucket result
+  - includes provider account, tenant, API key, model, bucket window, usage object type, and unpacked typed metrics only
 
 Idempotency rule:
 
@@ -629,10 +629,10 @@ What happens later:
 
 Deliverables:
 
-- minimal schema for raw usage ingestion runs and raw usage buckets
+- minimal schema for raw usage sync state and typed usage buckets
 - OpenAI usage collector that polls per-minute usage by `project_id`, ideally also grouped by `api_key_id` and `model`
-- idempotent worker job and cursor strategy for recent-window backfill and retry
-- operator-only diagnostics for ingestion success, lag, and bucket counts
+- idempotent worker-side cursor strategy for recent-window backfill and retry
+- operator-only diagnostics for ingestion success, lag, bucket counts, and latest failure state
 
 Current implementation notes:
 
@@ -645,8 +645,8 @@ Current implementation notes:
   - `moderations`
   - `vector_stores`
   - `code_interpreter_sessions`
-- the worker now auto-queues one-shot ingestion jobs on a recurring cadence for active tenant OpenAI projects
-- each job stores raw minute-bucket results plus ingestion-run metadata in Otto-owned Postgres tables
+- the worker now polls those usage types directly on a recurring cadence instead of creating one persisted job row per metering tick
+- the database stores one compact sync-state row per modality plus one typed usage-bucket row per actual provider bucket
 - OpenAI `audio_translations` does not currently have a matching organization usage endpoint in the official reference, so translation-specific raw ingestion remains out of scope until that surface exists or costs become the only available source
 - credit conversion, Stripe reporting, and workspace-visible usage remain explicitly downstream work
 
