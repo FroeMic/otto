@@ -1,21 +1,33 @@
-# Next.js template
+# Otto public site
 
-This is a Next.js template with shadcn/ui.
+This is Otto's public website app.
 
-## Adding components
+## Local env
 
-To add components to your app, run the following command:
+Copy the example file if you want to enable browser analytics locally:
 
 ```bash
-npx shadcn@latest add button
+.env.example -> .env.local
 ```
 
-This will place the ui components in the `components` directory.
+Available variables:
 
-## Using components
+- `NEXT_PUBLIC_POSTHOG_ENABLED`
+- `NEXT_PUBLIC_POSTHOG_HOST`
+- `NEXT_PUBLIC_POSTHOG_TOKEN`
 
-To use the components in your app, import them as follows:
+## Commands
 
-```tsx
-import { Button } from "@/components/ui/button"
-```
+- `npm run dev`
+- `npm run build`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run format`
+
+## PostHog
+
+The app uses the same production-only browser analytics pattern as `web/`:
+
+- browser events initialize through `instrumentation-client.ts`
+- `/ingest` is proxied through Next.js rewrites
+- analytics stays off unless `NEXT_PUBLIC_POSTHOG_ENABLED=true`
