@@ -203,19 +203,20 @@ const SPEND_MODALITIES: Array<{ label: string; value: SpendModality }> = [
 ];
 
 function getSpendChartConfig(modality: SpendModality): ChartConfig {
-  // Order: first key = bottom of stack, last key = top of stack.
-  // Legend reads left-to-right in this same order.
+  // With reverseStackOrder on BarChart, first key = top of stack.
+  // Tooltip and legend list in config order (top to bottom visually).
+  // Colors: lightest at top, darkest at bottom.
   if (modality === "all") {
     return {
-      inputCachedTokens: { color: "var(--chart-4)", label: "Cached input" },
-      inputTokens: { color: "var(--chart-1)", label: "Input" },
-      outputTokens: { color: "var(--chart-2)", label: "Output" },
+      outputTokens: { color: "hsl(25, 70%, 80%)", label: "Output" },
+      inputTokens: { color: "hsl(25, 70%, 55%)", label: "Input" },
+      inputCachedTokens: { color: "hsl(25, 70%, 30%)", label: "Input cached" },
     };
   }
   const prefix = modality.charAt(0).toUpperCase() + modality.slice(1);
   return {
-    input: { color: "var(--chart-1)", label: `${prefix} input` },
-    output: { color: "var(--chart-2)", label: `${prefix} output` },
+    output: { color: "hsl(25, 70%, 75%)", label: `${prefix} output` },
+    input: { color: "hsl(25, 70%, 40%)", label: `${prefix} input` },
   };
 }
 
@@ -502,7 +503,7 @@ export function PlatformUsageContent({
                 className="aspect-auto h-[280px] w-full"
                 config={spendChartConfig}
               >
-                <BarChart data={spendChartData}>
+                <BarChart data={spendChartData} reverseStackOrder>
                   <CartesianGrid vertical={false} />
                   <XAxis
                     axisLine={false}
@@ -518,13 +519,13 @@ export function PlatformUsageContent({
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  {spendDataKeys.map((key) => (
+                  {spendDataKeys.map((key, i) => (
                     <Bar
                       key={key}
                       dataKey={key}
                       fill={`var(--color-${key})`}
                       stackId="tokens"
-                      radius={key === spendDataKeys[spendDataKeys.length - 1] ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+                      radius={i === 0 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                     />
                   ))}
                 </BarChart>
