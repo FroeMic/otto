@@ -3,10 +3,14 @@
   "private": true,
   "scripts": {
     "dev": "npm --prefix web run dev",
+    "dev:www": "npm --prefix www run dev",
     "worker": "npm --prefix web run worker",
     "dev:all": "npm --prefix web run dev:all",
     "lint": "npm --prefix web run lint",
+    "lint:www": "npm --prefix www run lint",
     "build": "npm --prefix web run build",
+    "build:www": "npm --prefix www run build",
+    "format:www": "npm --prefix www run format",
     "runtime:image:publish": "./publish-runtime-image.sh"
   }
 }

@@ -1,9 +1,9 @@
-# Control-Plane Deployment
+# Otto Public Deployment
 
 This deploy target assumes one public control-plane VPS on Hetzner:
 
-- public HTTPS for the web UI
-- local Docker Compose services for `caddy`, `web`, `worker`, and `postgres`
+- public HTTPS for both the marketing site and the workspace app
+- local Docker Compose services for `caddy`, `www`, `web`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -34,6 +34,7 @@ cp .env.production.example .env
 
 Set at least:
 
+- `LANDING_PAGE_DOMAIN`
 - `CONTROL_PLANE_DOMAIN`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
@@ -96,9 +97,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 Verify:
 
+- `https://<your-landing-domain>/` returns `200`
 - `https://<your-domain>/healthz` returns `200`
+- the apex or landing hostname resolves to the same VPS that runs Caddy
 - the `web` and `worker` containers stay healthy
+- the `www` container stays healthy
 - Postgres answers on `127.0.0.1:5433` on the host
+- `LANDING_PAGE_DOMAIN` matches the public marketing hostname
 - `CONTROL_PLANE_DOMAIN` matches the public app hostname
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public app origin
