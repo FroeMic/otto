@@ -37,7 +37,8 @@
   - `runtime-plugins/otto-ai-provider` registers an OpenAI-family `openai-proxy` provider
   - when `RUNTIME_MODEL_PRIMARY` is set to `openai-proxy/...`, tenant `openclaw.json` now projects `models.providers.openai-proxy` plus the bundled `otto-ai-provider` plugin
   - runtime inference requests now target a runtime-authenticated control-plane OpenAI Responses proxy at `/api/internal/runtime/ai/openai/v1/responses`
-  - this first slice intentionally still leaves direct `OPENAI_API_KEY` env projection in place until the remaining migration work removes legacy direct-key consumers like audio/STT paths
+  - tenant audio transcription can now also route through the same `openai-proxy` provider using the control-plane OpenAI audio transcription proxy at `/api/internal/runtime/ai/openai/v1/audio/transcriptions`
+  - direct `OPENAI_API_KEY` env projection still remains until the remaining legacy direct-key consumers outside the current Otto runtime config, such as future speech/TTS or voice-call paths, are either migrated or kept unsupported
   - when the primary model uses `openai-proxy/...`, OpenAI key rotation should now update Otto DB state only and must not reapply the tenant runtime or delete the previous service account yet, because legacy runtime features still depend on the old direct key
 - The first raw OpenAI usage-ingestion foundation now exists:
   - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick

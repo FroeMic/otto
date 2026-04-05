@@ -14,7 +14,7 @@ This should make Slack voice notes behave like normal message input for Otto:
 
 - extend tenant desired state to include audio transcription capability
 - render OpenClaw `tools.media.audio` config into tenant `openclaw.json`
-- reuse existing runtime OpenAI auth projection for transcription
+- route transcription through Otto-managed OpenAI proxying instead of requiring a direct runtime OpenAI key
 - update Slack install requirements so the runtime can read Slack-hosted private audio attachments
 - add control-plane and runtime verification for the voice-note path
 - document the dependency on future shared Slack HTTP ingress preserving attachment behavior
@@ -57,10 +57,11 @@ So this spec must not introduce a payload transformation or runtime contract tha
 
 OpenClaw already supports native audio and voice-note transcription through `tools.media.audio`, including OpenAI-backed transcription and command parsing from the resulting transcript.
 
-Otto now provisions and projects a tenant-specific OpenAI API key into tenant runtime `.env` as `OPENAI_API_KEY`, so the smallest reliable first slice is:
+The current preferred slice is:
 
 - compile audio transcription defaults into tenant desired state
 - render the corresponding `tools.media.audio` block into `openclaw.json`
+- route audio transcription through the Otto-managed `openai-proxy` provider when the runtime AI proxy is available
 - ensure Slack installs have the scopes required for attachment download
 
 The Otto custom runtime image currently does not bundle Whisper or other audio CLIs. Adding a CLI fallback now would turn this from a config/apply slice into a runtime packaging and support slice, so that is intentionally deferred.
@@ -103,16 +104,16 @@ The rendered OpenClaw config should include:
 
 - `tools.media.audio.enabled: true`
 - `tools.media.audio.maxBytes: 20971520`
-- `tools.media.audio.models = [{ provider: "openai", model: "gpt-4o-mini-transcribe" }]`
+- `tools.media.audio.models = [{ provider: "openai-proxy", model: "gpt-4o-mini-transcribe" }]` when Otto-managed AI proxying is available
 
-Runtime auth should continue to use the existing tenant-scoped env projection:
+Runtime auth should use the existing tenant-scoped Otto runtime auth:
 
-- control-plane env: `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
-- tenant runtime `.env`: `OPENAI_API_KEY`
+- tenant runtime `.env`: `TENANT_TOKEN`
+- tenant runtime `.env`: `OTTO_CONTROL_PLANE_BASE_URL`
+- tenant `openclaw.json`: `models.providers.openai-proxy.apiKey = ${TENANT_TOKEN}`
+- tenant `openclaw.json`: `models.providers.openai-proxy.baseUrl = ${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1`
 
-Do not add new runtime env vars for v1 audio support.
-
-Do not change the custom runtime image for this slice.
+The custom runtime image must bundle the `otto-ai-provider` plugin so OpenClaw can resolve `openai-proxy` for both model inference and audio transcription.
 
 ## Slack integration plan
 
@@ -178,7 +179,6 @@ Exit check:
 
 Deliverables:
 
-- apply flow still writes `OPENAI_API_KEY` into tenant `.env`
 - apply verification covers the audio config path
 - manual runtime validation proves a real Slack voice note is transcribed
 
@@ -201,18 +201,16 @@ Exit check:
 
 - tenant desired state includes audio-transcription defaults for Slack-capable runtimes
 - rendered tenant `openclaw.json` includes the expected `tools.media.audio` configuration
-- rendered tenant `.env` includes `OPENAI_API_KEY` from the tenant-specific managed OpenAI credential
 - new Slack installs request `files:read`
 - a Slack voice note under the configured runtime size cap is transcribed and used as message input
 - command parsing continues to work when the original message is a voice note transcript
-- no custom runtime-image change is required for the v1 rollout
 - the later shared HTTP-ingress work has an explicit requirement to preserve voice-note compatibility
 
 ## Status checklist
 
 - [x] define desired-state schema extension for audio transcription
 - [x] render OpenClaw audio config into tenant runtime config
-- [x] verify existing runtime env projection is sufficient for OpenAI transcription
+- [x] route audio transcription through the Otto-managed OpenAI proxy path
 - [x] add `files:read` to Slack install scope defaults
 - [x] surface reconnect-needed state for pre-scope-change Slack installs
 - [x] add unit coverage for desired-state compilation and config rendering

@@ -157,6 +157,21 @@ function buildWebSearchPluginEntries(
   return entries;
 }
 
+function shouldRouteAudioThroughOpenAiProxy(
+  audio: OpenClawTenantAudioConfig | undefined,
+) {
+  return Boolean(
+    audio?.enabled &&
+      audio.models.some(
+        (model) => normalizeProviderId(model.provider) === "openai",
+      ),
+  );
+}
+
+function normalizeProviderId(value: string) {
+  return value.trim().toLowerCase();
+}
+
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
@@ -314,7 +329,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                   maxBytes: config.audio.maxBytes,
                 }
               : {}),
-            models: config.audio.models,
+            models: maybeRewriteAudioModelsToProxy(config),
           },
         },
       }
@@ -472,6 +487,8 @@ export function buildOpenClawTenantConfig(input: {
   );
   const primaryModel = env.RUNTIME_MODEL_PRIMARY;
   const proxyModelConfig = resolveProxyModelConfig({
+    audioUsesOpenAi:
+      shouldRouteAudioThroughOpenAiProxy(audio),
     controlPlaneBaseUrl,
     primaryModel,
   });
@@ -553,10 +570,15 @@ export function buildOpenClawTenantConfig(input: {
 }
 
 function resolveProxyModelConfig(input: {
+  audioUsesOpenAi: boolean;
   controlPlaneBaseUrl?: string;
   primaryModel: string;
 }) {
-  if (!input.primaryModel.startsWith(`${OPENAI_PROXY_PROVIDER_ID}/`)) {
+  const needsProxyConfig =
+    input.primaryModel.startsWith(`${OPENAI_PROXY_PROVIDER_ID}/`) ||
+    input.audioUsesOpenAi;
+
+  if (!needsProxyConfig) {
     return null;
   }
 
@@ -584,6 +606,27 @@ function resolveProxyModelConfig(input: {
       },
     ],
   };
+}
+
+function maybeRewriteAudioModelsToProxy(config: OpenClawTenantConfig) {
+  const hasOpenAiProxyProvider =
+    Boolean(config.modelProviders?.[OPENAI_PROXY_PROVIDER_ID]) &&
+    (config.ottoProviderPlugins ?? []).some(
+      (plugin) => plugin.id === OTTO_AI_PROVIDER_PLUGIN_ID,
+    );
+
+  if (!hasOpenAiProxyProvider) {
+    return config.audio?.models;
+  }
+
+  return config.audio?.models.map((model) =>
+    normalizeProviderId(model.provider) === "openai"
+      ? {
+          ...model,
+          provider: OPENAI_PROXY_PROVIDER_ID,
+        }
+      : model,
+  );
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {

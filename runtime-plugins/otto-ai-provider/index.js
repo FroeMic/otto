@@ -1,10 +1,12 @@
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
+import { transcribeOpenAiCompatibleAudio } from "openclaw/plugin-sdk/media-understanding";
 
 const PROVIDER_ID = "openai-proxy";
 const PROVIDER_LABEL = "OpenAI Proxy";
 const DEFAULT_CONTEXT_TOKENS = 272_000;
 const DEFAULT_MAX_TOKENS = 128_000;
 const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
+const DEFAULT_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 
 export default defineSingleProviderPluginEntry({
   id: "otto-ai-provider",
@@ -62,6 +64,23 @@ export default defineSingleProviderPluginEntry({
     isModernModelRef: ({ modelId }) =>
       normalizeModelId(modelId).startsWith("gpt-5"),
   },
+  register(api) {
+    api.registerMediaUnderstandingProvider({
+      id: PROVIDER_ID,
+      capabilities: ["audio"],
+      transcribeAudio: async (params) => {
+        const baseUrl = requireProxyBaseUrl(params.baseUrl);
+
+        return transcribeOpenAiCompatibleAudio({
+          ...params,
+          baseUrl,
+          defaultBaseUrl: baseUrl,
+          defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
+          provider: PROVIDER_ID,
+        });
+      },
+    });
+  },
 });
 
 function buildDynamicModel(modelId) {
@@ -100,4 +119,14 @@ function normalizeControlPlaneBaseUrl(value) {
 
 function normalizeModelId(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function requireProxyBaseUrl(value) {
+  const baseUrl = normalizeControlPlaneBaseUrl(value);
+
+  if (!baseUrl) {
+    throw new Error("openai-proxy audio transcription requires a configured baseUrl.");
+  }
+
+  return baseUrl;
 }
