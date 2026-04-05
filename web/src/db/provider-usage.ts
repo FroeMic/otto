@@ -309,6 +309,12 @@ export async function getTenantProviderUsageOverview(input: {
           providerCostMicros: providerCostMicrosExpression,
           inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
           outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+          inputCachedTokens: sql`coalesce(sum(${providerUsageBuckets.inputCachedTokens}), 0)`,
+          inputTextTokens: sql`coalesce(sum(${providerUsageBuckets.inputTextTokens}), 0)`,
+          outputTextTokens: sql`coalesce(sum(${providerUsageBuckets.outputTextTokens}), 0)`,
+          inputAudioTokens: sql`coalesce(sum(${providerUsageBuckets.inputAudioTokens}), 0)`,
+          outputAudioTokens: sql`coalesce(sum(${providerUsageBuckets.outputAudioTokens}), 0)`,
+          inputImageTokens: sql`coalesce(sum(${providerUsageBuckets.inputImageTokens}), 0)`,
           requestCount: requestCountExpression,
         })
         .from(providerUsageBuckets)
@@ -377,6 +383,12 @@ export async function getTenantProviderUsageOverview(input: {
       providerCostMicros: numberFromValue(row.providerCostMicros),
       inputTokens: numberFromValue(row.inputTokens),
       outputTokens: numberFromValue(row.outputTokens),
+      inputCachedTokens: numberFromValue(row.inputCachedTokens),
+      inputTextTokens: numberFromValue(row.inputTextTokens),
+      outputTextTokens: numberFromValue(row.outputTextTokens),
+      inputAudioTokens: numberFromValue(row.inputAudioTokens),
+      outputAudioTokens: numberFromValue(row.outputAudioTokens),
+      inputImageTokens: numberFromValue(row.inputImageTokens),
       requestCount: numberFromValue(row.requestCount),
     })),
     usageByModel: modelRows.map((row) => ({
