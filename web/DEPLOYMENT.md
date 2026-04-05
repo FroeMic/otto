@@ -84,6 +84,11 @@ RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.1.1
 
 on the control-plane host before rebuilding the production stack.
 
+If PostHog browser analytics is enabled, make sure `NEXT_PUBLIC_POSTHOG_ENABLED`,
+`NEXT_PUBLIC_POSTHOG_HOST`, and `NEXT_PUBLIC_POSTHOG_TOKEN` are already present
+in `.env` before running `docker compose ... build`. Next.js inlines
+`NEXT_PUBLIC_*` values into the browser bundle at build time.
+
 ```bash
 docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml --profile ops run --rm migrate

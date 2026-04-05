@@ -33,6 +33,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
+        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
     command: ["npm", "run", "db:migrate"]
     depends_on:
       postgres:
@@ -45,6 +49,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
+        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,6 +73,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
+        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
     command: ["npm", "run", "worker"]
     depends_on:
       postgres:
