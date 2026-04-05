@@ -1016,6 +1016,7 @@ Exit check:
 - [x] define the billing, provider, ledger, webhook, and reconciliation roadmap
 - [x] split the workspace billing and usage settings surfaces and add a dedicated plans comparison page
 - [x] persist workspace auto-top-off billing preferences and show Stripe invoice history on the billing page
+- [x] ensure successful subscription checkout leaves a reusable Stripe default payment method for later auto-top-off charges, with clear workspace-visible warnings when it is missing
 - [x] implement the first OpenAI tenant-provisioning spike with encrypted provider credential storage and tenant-runtime key override support
 - [x] add a platform operator action to provision or rotate tenant-specific OpenAI keys without losing historical key IDs
 - [x] harden OpenAI key rotation so it reuses the project, applies the new key to runtime, verifies deployment, and then deletes the previous service account

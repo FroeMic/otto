@@ -16,10 +16,14 @@ import { getDb } from "@/db/client";
 import { jobRuns } from "@/db/schema";
 import { getAutoTopOffPackByAmountCents } from "@/lib/billing/plans";
 import {
+  AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE,
   getStripe,
+  getStripeAutoTopOffPaymentMethodStatus,
   getStripeBillingCycleSpendCents,
+  getStripeInvoiceFailureReason,
   getStripeOneTimePriceIdForTopUpLookupKey,
   previewStripeTopUpInvoiceCharge,
+  syncStripeAutoTopOffPaymentMethodDefaults,
 } from "@/lib/billing/stripe";
 
 import {
@@ -231,6 +235,63 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       return;
     }
 
+    let paymentMethodStatus = await getStripeAutoTopOffPaymentMethodStatus({
+      stripeCustomerId: target.stripeCustomerId,
+      stripeSubscriptionId: target.stripeSubscriptionId,
+    });
+
+    if (
+      !paymentMethodStatus.hasReusablePaymentMethod &&
+      target.stripeSubscriptionId
+    ) {
+      paymentMethodStatus = await syncStripeAutoTopOffPaymentMethodDefaults({
+        stripeCustomerId: target.stripeCustomerId,
+        stripeSubscriptionId: target.stripeSubscriptionId,
+      });
+    }
+
+    if (!paymentMethodStatus.hasReusablePaymentMethod) {
+      const stripeIdempotencyKey = `auto-top-off:${randomUUID()}`;
+      const run = await createBillingAutoTopOffRun({
+        creditsGrantedMilli: pack.creditsGranted * 1_000,
+        monthlySpendLimitCents: target.monthlySpendLimitCents,
+        organizationId: target.organizationId,
+        status: AUTO_TOP_OFF_RUN_STATUSES.processing,
+        stripeCustomerId: target.stripeCustomerId,
+        stripeIdempotencyKey,
+        tenantId: target.tenantId,
+        topOffAmountCents: pack.amountCents,
+        triggerBalanceCreditsMilli: target.currentBalanceCreditsMilli,
+      });
+
+      if (!run) {
+        throw new Error("Failed to create the auto-top-off run.");
+      }
+
+      const reason = AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE;
+      await markBillingAutoTopOffRunFailed({
+        reason,
+        runId: run.id,
+      });
+      await appendJobEvent(
+        job.id,
+        AUTO_TOP_OFF_EVENTS.failed,
+        "Skipped auto-top-off because Stripe has no reusable default payment method for this workspace.",
+        {
+          autoTopOffRunId: run.id,
+          organizationId: target.organizationId,
+          stripeCustomerId: target.stripeCustomerId,
+          stripeSubscriptionId: target.stripeSubscriptionId,
+        },
+      );
+      await markJobSucceeded(job.id, {
+        autoTopOffRunId: run.id,
+        reason,
+        skipped: true,
+      });
+      return;
+    }
+
     const spendGuard = await getBillingCycleSpendGuard({
       currentPeriodEnd: target.currentPeriodEnd,
       currentPeriodStart: target.currentPeriodStart,
@@ -371,6 +432,8 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       invoice.id,
       {
         off_session: true,
+        payment_method:
+          paymentMethodStatus.effectivePaymentMethodId ?? undefined,
       },
       {
         idempotencyKey: `${stripeIdempotencyKey}:pay`,
@@ -378,10 +441,14 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
     );
 
     if (paidInvoice.status !== "paid") {
-      await markBillingAutoTopOffRunFailed({
-        reason:
+      const reason = await getStripeInvoiceFailureReason({
+        defaultMessage:
           paidInvoice.last_finalization_error?.message ??
           `Stripe invoice payment returned status ${paidInvoice.status ?? "unknown"}.`,
+        stripeInvoiceId: invoice.id,
+      });
+      await markBillingAutoTopOffRunFailed({
+        reason,
         runId: run.id,
         stripeInvoiceId: invoice.id,
       });

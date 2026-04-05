@@ -76,6 +76,9 @@
   - the first auto-top-off execution slice now exists on top of Stripe billing:
     - workspace billing preferences persist auto-top-off enabled state, minimum balance, selected fixed pack, and a billing cycle spend cap
     - the worker now enqueues and executes idempotent auto-top-off Stripe charges when balance falls below the configured threshold
+    - successful subscription payments now sync a reusable Stripe default payment method onto the workspace customer/subscription so later auto-top-off charges can run off-session
+    - the billing page now warns clearly when auto-top-off is enabled but Stripe still has no reusable default payment method for the workspace
+    - the worker now fails those auto-top-off attempts early with the same actionable payment-method message instead of a generic invoice-collection failure
     - auto-top-off uses one-time Stripe prices resolved by lookup key:
       - `top_up_20`
       - `top_up_50`

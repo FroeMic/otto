@@ -131,6 +131,7 @@ export async function POST(
         plan_key: plan.key,
       },
       mode: "subscription",
+      payment_method_collection: "always",
       subscription_data: {
         metadata: {
           organization_id: organization.id,

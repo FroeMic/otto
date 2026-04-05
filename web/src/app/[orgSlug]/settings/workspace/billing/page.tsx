@@ -32,6 +32,8 @@ import {
   getBillingPlans,
 } from "@/lib/billing/plans";
 import {
+  AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE,
+  getStripeAutoTopOffPaymentMethodStatus,
   getStripeBillingCycleSpendCents,
   listStripeInvoicesForCustomer,
   previewStripeTopUpInvoiceCharge,
@@ -106,6 +108,9 @@ export default async function WorkspaceBillingPage({
   let invoicesError: string | null = null;
   let currentCycleSpendCents = 0;
   let nextAutoReloadChargeCents: number | null = null;
+  let autoTopOffPaymentMethodStatus: Awaited<
+    ReturnType<typeof getStripeAutoTopOffPaymentMethodStatus>
+  > | null = null;
   const billingCycleWindow = getBillingCycleWindow({
     currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
     currentPeriodStart:
@@ -134,6 +139,20 @@ export default async function WorkspaceBillingPage({
       console.error("[billing] failed to load billing cycle spend", error);
     }
 
+    try {
+      autoTopOffPaymentMethodStatus =
+        await getStripeAutoTopOffPaymentMethodStatus({
+          stripeCustomerId: billingOverview.customer.stripeCustomerId,
+          stripeSubscriptionId:
+            billingOverview.subscription?.stripeSubscriptionId ?? null,
+        });
+    } catch (error) {
+      console.error(
+        "[billing] failed to load auto-reload payment method status",
+        error,
+      );
+    }
+
     const selectedTopUpPack = getAutoTopOffPackByAmountCents(
       billingOverview.preferences.topOffAmountCents,
     );
@@ -160,6 +179,11 @@ export default async function WorkspaceBillingPage({
     nextAutoReloadChargeCents !== null &&
     currentCycleSpendCents + nextAutoReloadChargeCents >
       billingOverview.preferences.monthlySpendLimitCents;
+  const autoTopOffNeedsPaymentMethod =
+    billingOverview.preferences.autoTopOffEnabled &&
+    billingOverview.customer &&
+    autoTopOffPaymentMethodStatus !== null &&
+    !autoTopOffPaymentMethodStatus.hasReusablePaymentMethod;
 
   return (
     <SettingsPage>
@@ -324,6 +348,23 @@ export default async function WorkspaceBillingPage({
 
         <SettingsSection>
           <SettingsSectionTitle>Auto-reload credits</SettingsSectionTitle>
+          {autoTopOffNeedsPaymentMethod ? (
+            <Alert className="rounded-lg" variant="destructive">
+              <AlertTitle>
+                Auto-reload needs a default payment method
+              </AlertTitle>
+              <AlertDescription className="flex flex-col gap-3">
+                <span>{AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE}</span>
+                <div>
+                  <WorkspaceManageBillingButton
+                    canOpenBillingPortal={Boolean(billingOverview.customer)}
+                    label="Manage billing"
+                    orgSlug={orgSlug}
+                  />
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <SettingsCard>
             <WorkspaceBillingPreferencesCard
               initialPreferences={billingOverview.preferences}
