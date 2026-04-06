@@ -61,6 +61,12 @@ import {
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
 import {
+  buildRuntimeIntegrationManifestForKeys,
+  executeRuntimeIntegrationStub,
+  listSupportedRuntimeIntegrationKeys,
+  type RuntimeIntegrationManifestEntry,
+} from "@/lib/runtime-integrations/registry";
+import {
   fetchSlackMessagingDirectory,
   joinSlackChannel,
   leaveSlackChannel,
@@ -135,6 +141,8 @@ const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
 const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
 const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
+const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
+  listSupportedRuntimeIntegrationKeys();
 const runtimeManager = new RuntimeManager();
 
 function normalizeWorkspaceMembershipStatus(status: string) {
@@ -4312,6 +4320,48 @@ export async function listTenantToolConfigSurfacesForTenant(input: {
   );
 }
 
+export async function listRuntimeIntegrationManifestForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeIntegrationManifestEntry[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const providerKeys =
+      await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
+        tenantId: input.tenantId,
+      });
+
+    return buildRuntimeIntegrationManifestForKeys(providerKeys);
+  });
+}
+
+export async function executeRuntimeIntegrationForTenant(input: {
+  integrationKey: string;
+  params: Record<string, unknown>;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const providerKeys =
+      await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
+        tenantId: input.tenantId,
+      });
+    const integrationKey = input.integrationKey.trim().toLowerCase();
+
+    if (!providerKeys.includes(integrationKey)) {
+      throw new Error(
+        `Managed integration ${input.integrationKey} is not enabled for this tenant.`,
+      );
+    }
+
+    return executeRuntimeIntegrationStub({
+      integrationKey,
+      params: input.params,
+    });
+  });
+}
+
 export async function getTenantToolConfigSurface(input: {
   orgSlug: string;
   surfaceKey: string;
@@ -7375,6 +7425,25 @@ async function compileTenantDesiredStateConfig(
     }
   }
 
+  const managedRuntimeIntegrationKeys =
+    await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
+      tenantId,
+    });
+
+  if (managedRuntimeIntegrationKeys.length > 0) {
+    const integrations = Array.isArray(config.integrations)
+      ? [...config.integrations]
+      : [];
+
+    for (const providerKey of managedRuntimeIntegrationKeys) {
+      if (!integrations.includes(providerKey)) {
+        integrations.push(providerKey);
+      }
+    }
+
+    config.integrations = integrations;
+  }
+
   return config;
 }
 
@@ -7564,6 +7633,39 @@ async function getConnectedSlackIntegrationForTenant(
   }
 
   return slackIntegration;
+}
+
+async function getEnabledManagedRuntimeIntegrationKeysForTenantTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  if (MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS.length === 0) {
+    return [];
+  }
+
+  const rows = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(
+          tenantIntegrations.providerKey,
+          MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS,
+        ),
+      ),
+    );
+
+  return rows
+    .filter((row) => row.connectedAt && !row.disconnectedAt)
+    .map((row) => row.providerKey)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 async function getWhatsAppIntegrationForTenant(
