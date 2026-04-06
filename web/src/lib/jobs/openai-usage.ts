@@ -120,8 +120,7 @@ export async function runOpenAiUsageIngestionCycle() {
         syncedTargetCount += 1;
       } catch (error) {
         console.error(
-          `[worker] OpenAI usage sync failed for provider account ${dueTarget.providerAccountId} (${usageConfig.usageType})`,
-          error,
+          `[worker] OpenAI usage sync failed (${usageConfig.usageType}, providerAccountId=${dueTarget.providerAccountId}): ${getErrorMessage(error)}`,
         );
       }
     }

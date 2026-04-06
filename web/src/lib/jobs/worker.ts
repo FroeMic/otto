@@ -110,7 +110,11 @@ async function runMaintenanceStep(
   try {
     return await runStep();
   } catch (error) {
-    console.error(`[worker] ${label} failed`, error);
+    const message =
+      error instanceof Error && error.message.length > 0
+        ? error.message
+        : "Unknown worker maintenance error";
+    console.error(`[worker] ${label} failed: ${message}`);
     return 0;
   }
 }
