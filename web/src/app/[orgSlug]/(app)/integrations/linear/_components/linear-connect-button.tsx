@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Button, buttonVariants } from "@/components/ui/button";
 
 type Props = {
@@ -22,8 +20,8 @@ export function LinearConnectButton({
   }
 
   return (
-    <Link className={buttonVariants()} href={connectUrl}>
+    <a className={buttonVariants()} href={connectUrl}>
       {label}
-    </Link>
+    </a>
   );
 }
