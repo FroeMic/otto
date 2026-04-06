@@ -4,10 +4,15 @@ import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  let tenantId: string | null = null;
+  let integrationKey = "";
+  let operation = "unknown";
+
   try {
-    const { tenantId } = await authenticateTenantRuntimeRequest(request);
+    const auth = await authenticateTenantRuntimeRequest(request);
+    tenantId = auth.tenantId;
     const body = await request.json();
-    const integrationKey =
+    integrationKey =
       typeof body?.integrationKey === "string" ? body.integrationKey : "";
     const params =
       body?.params &&
@@ -15,6 +20,8 @@ export async function POST(request: Request) {
       !Array.isArray(body.params)
         ? (body.params as Record<string, unknown>)
         : null;
+    operation =
+      typeof params?.operation === "string" ? params.operation : "unknown";
 
     if (!integrationKey.trim()) {
       throw new Error("integrationKey is required.");
@@ -30,8 +37,16 @@ export async function POST(request: Request) {
       tenantId,
     });
 
+    console.info(
+      `[runtime-integrations] execute tenant=${tenantId} integration=${integrationKey} operation=${operation} ok=true`,
+    );
+
     return json(result);
   } catch (error) {
+    console.error(
+      `[runtime-integrations] execute tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} operation=${operation} failed`,
+      error,
+    );
     return handleRouteError(error);
   }
 }

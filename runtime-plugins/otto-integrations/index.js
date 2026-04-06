@@ -24,13 +24,22 @@ export default definePluginEntry({
     },
   },
   register(api) {
-    for (const integration of resolveManifest(api)) {
+    const manifest = resolveManifest(api);
+
+    console.info(
+      `[otto-integrations] register manifestCount=${manifest.length} tools=${manifest.map((integration) => integration.toolName).join(",") || "none"}`,
+    );
+
+    for (const integration of manifest) {
       api.registerTool(
         {
           name: integration.toolName,
           description: integration.toolDescription,
           parameters: integration.parametersSchema,
           async execute(_id, params) {
+            console.info(
+              `[otto-integrations] execute tool=${integration.toolName} integration=${integration.key} operation=${resolveOperation(params)}`,
+            );
             return buildToolResult(
               await executeIntegration(api, integration.key, params),
             );
@@ -64,8 +73,15 @@ async function executeIntegration(api, integrationKey, params) {
   });
 
   if (!response.ok) {
+    console.warn(
+      `[otto-integrations] execute failed integration=${integrationKey} operation=${resolveOperation(params)} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
     return response;
   }
+
+  console.info(
+    `[otto-integrations] execute succeeded integration=${integrationKey} operation=${resolveOperation(params)}`,
+  );
 
   return {
     ok: true,
@@ -119,6 +135,10 @@ function resolveTimeoutMs(api) {
   }
 
   return DEFAULT_TIMEOUT_MS;
+}
+
+function resolveOperation(params) {
+  return typeof params?.operation === "string" ? params.operation : "unknown";
 }
 
 async function requestControlPlane(api, input) {

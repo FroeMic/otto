@@ -7868,6 +7868,9 @@ async function executeLinearRuntimeIntegration(input: {
   });
 
   if (!connection || connection.status !== "connected") {
+    console.warn(
+      `[runtime-integrations] linear unavailable tenantIntegration=${input.tenantIntegrationId} connectionStatus=${connection?.status ?? "missing"} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"}`,
+    );
     throw new Error(
       "Linear needs attention. Reconnect Linear in your workspace.",
     );
@@ -7878,19 +7881,30 @@ async function executeLinearRuntimeIntegration(input: {
       throw new Error("linear only supports the search_issues operation.");
     }
 
-    return await searchLinearIssues({
+    const result = await searchLinearIssues({
       accessToken: connection.accessToken,
       limit:
         typeof input.params.limit === "number" ? input.params.limit : undefined,
       query: typeof input.params.query === "string" ? input.params.query : "",
     });
+
+    console.info(
+      `[runtime-integrations] linear search tenantIntegration=${input.tenantIntegrationId} operation=search_issues query=${JSON.stringify(result.query)} totalMatched=${result.totalMatched}`,
+    );
+
+    return result;
   } catch (error) {
     const provider = getOAuthProviderDefinition(LINEAR_PROVIDER_KEY);
+    const errorMessage = getUnknownErrorMessage(error);
+    const classifiedKind = provider?.classifyError(error) ?? "transient";
 
-    if (provider?.classifyError(error) === "reauthorize") {
+    if (classifiedKind === "reauthorize") {
+      console.warn(
+        `[runtime-integrations] linear request needs reauthorize tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} error=${errorMessage}`,
+      );
       await recordOauthConnectionAttention({
         connectionId: connection.connectionId,
-        errorMessage: getUnknownErrorMessage(error),
+        errorMessage,
         eventType: "request_failed_reauthorize",
         providerKey: LINEAR_PROVIDER_KEY,
         tenantIntegrationId: connection.tenantIntegrationId,
@@ -7901,6 +7915,9 @@ async function executeLinearRuntimeIntegration(input: {
       );
     }
 
+    console.error(
+      `[runtime-integrations] linear request failed tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} kind=${classifiedKind} error=${errorMessage}`,
+    );
     throw error;
   }
 }
