@@ -110,7 +110,6 @@ const slackDmSchema = z
 
 const slackChannelSchema = z
   .object({
-    allow: z.boolean().optional(),
     allowBots: z.boolean().optional(),
     enabled: z.boolean().optional(),
     requireMention: z.boolean().optional(),
