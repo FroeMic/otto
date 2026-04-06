@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PlatformUserMenu } from "@/app/platform/_components/platform-user-menu";
 import {
+  getPlatformOrganizationsHref,
+  usePlatformSourceWorkspaceSlug,
+} from "@/app/platform/_lib/source-workspace";
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -35,7 +39,7 @@ export function PlatformSidebar({
   ...props
 }: PlatformSidebarProps) {
   const pathname = usePathname();
-  const firstWorkspace = organizations[0] ?? null;
+  const sourceWorkspaceSlug = usePlatformSourceWorkspaceSlug(organizations);
   const organizationsHref = "/platform/organizations";
   const organizationsIsActive =
     pathname === organizationsHref ||
@@ -44,11 +48,11 @@ export function PlatformSidebar({
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="gap-3">
-        {firstWorkspace ? (
+        {sourceWorkspaceSlug ? (
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                render={<Link href={`/${firstWorkspace.slug}/agent/status`} />}
+                render={<Link href={`/${sourceWorkspaceSlug}/agent/status`} />}
                 size="lg"
               >
                 <ArrowLeft />
@@ -66,7 +70,15 @@ export function PlatformSidebar({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={organizationsIsActive}
-                  render={<Link href={organizationsHref} />}
+                  render={
+                    <Link
+                      href={
+                        sourceWorkspaceSlug
+                          ? getPlatformOrganizationsHref(sourceWorkspaceSlug)
+                          : organizationsHref
+                      }
+                    />
+                  }
                   tooltip="Organizations"
                 >
                   <BuildingOffice />
