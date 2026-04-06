@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   enqueueTenantConfigApply,
-  getLatestTenantDesiredState,
+  ensureCurrentTenantDesiredStateVersion,
 } from "@/db/control-plane";
 import {
   jobEvents,
@@ -24,7 +24,7 @@ const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_TIMEOUT_MS = 15 * 60_000;
 const runtimeManager = new RuntimeManager();
 
-type Command = "apply" | "refresh-image";
+type Command = "apply" | "refresh-image" | "recompile-desired-state";
 
 type TenantTarget = {
   ipv4: string | null;
@@ -55,7 +55,12 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0] as Command | undefined;
 
-  if (!command || (command !== "apply" && command !== "refresh-image")) {
+  if (
+    !command ||
+    (command !== "apply" &&
+      command !== "refresh-image" &&
+      command !== "recompile-desired-state")
+  ) {
     printUsage();
     process.exit(1);
   }
@@ -74,6 +79,11 @@ async function main() {
     return;
   }
 
+  if (command === "recompile-desired-state") {
+    await runRecompileDesiredState(tenant);
+    return;
+  }
+
   await runRefreshImage(tenant);
 }
 
@@ -89,7 +99,9 @@ async function runApply(
     tenant.tenantId,
     "tenant runtime apply script",
   );
-  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     tenantId: tenant.tenantId,
@@ -107,6 +119,7 @@ async function runApply(
         targetRef: tenant.targetRef,
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
+        desiredStateChanged: desiredState.changed,
         desiredStateVersion: desiredState.version,
       },
       null,
@@ -164,6 +177,28 @@ async function runRefreshImage(tenant: TenantTarget) {
         tenantName: tenant.tenantName,
         verifyStderr: verify.stderr,
         verifyStdout: verify.stdout,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function runRecompileDesiredState(tenant: TenantTarget) {
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+
+  console.info(
+    JSON.stringify(
+      {
+        action: "recompile-desired-state",
+        desiredStateChanged: desiredState.changed,
+        desiredStateVersion: desiredState.version,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
       },
       null,
       2,
@@ -359,10 +394,12 @@ function parseOptions(args: string[]) {
 function printUsage() {
   console.error(`Usage:
   bun src/scripts/tenant-runtime.ts apply --orgslug <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts recompile-desired-state --orgslug <org-slug>
   bun src/scripts/tenant-runtime.ts refresh-image --orgslug <org-slug>
 
 Examples:
   bun run tenant:runtime:apply -- --orgslug my-org
+  bun run tenant:runtime:recompile-desired-state -- --orgslug my-org
   bun run tenant:runtime:refresh-image -- --orgslug my-org
   bun run tenant:runtime:apply -- --orgslug my-org --no-wait
 `);
