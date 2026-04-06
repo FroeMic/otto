@@ -107,16 +107,23 @@ export async function runOpenAiUsageIngestionCycle() {
         continue;
       }
 
-      await syncOpenAiUsageTarget({
-        externalProjectId: dueTarget.externalProjectId,
-        groupBy: usageConfig.groupBy,
-        lastSuccessfulEndAt: dueTarget.lastSuccessfulEndAt,
-        pollIntervalSeconds: dueTarget.pollIntervalSeconds ?? 60,
-        providerAccountId: dueTarget.providerAccountId,
-        tenantId: dueTarget.tenantId,
-        usageType: usageConfig.usageType,
-      });
-      syncedTargetCount += 1;
+      try {
+        await syncOpenAiUsageTarget({
+          externalProjectId: dueTarget.externalProjectId,
+          groupBy: usageConfig.groupBy,
+          lastSuccessfulEndAt: dueTarget.lastSuccessfulEndAt,
+          pollIntervalSeconds: dueTarget.pollIntervalSeconds ?? 60,
+          providerAccountId: dueTarget.providerAccountId,
+          tenantId: dueTarget.tenantId,
+          usageType: usageConfig.usageType,
+        });
+        syncedTargetCount += 1;
+      } catch (error) {
+        console.error(
+          `[worker] OpenAI usage sync failed for provider account ${dueTarget.providerAccountId} (${usageConfig.usageType})`,
+          error,
+        );
+      }
     }
   }
 
