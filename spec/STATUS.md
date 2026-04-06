@@ -321,10 +321,12 @@
   - the runtime should expose one tool per integration via a new `otto-integrations` plugin
   - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
-- The first `TODO_17_managed_integrations_architecture.md` increment is now in progress on `codex/todo-17-increment-1`:
-  - a synthetic managed integration manifest is being wired through the control plane for one demo provider
-  - a new `otto-integrations` runtime plugin is being added so Otto can register one tool per enabled managed integration
+- The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
+  - a synthetic managed integration manifest now flows through the control plane for one demo provider
+  - the `otto-integrations` runtime plugin now registers one tool per enabled managed integration
   - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
+  - operator apply paths now ensure the current desired-state snapshot exists before enqueueing runtime apply, so newly enabled managed integrations can land in tenant `openclaw.json` without a separate manual recompilation step
+  - `bun run tenant:runtime:recompile-desired-state -- --orgslug <org-slug>` is now available as an explicit operator helper when desired-state freshness needs to be checked without applying
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`

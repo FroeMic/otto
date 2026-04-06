@@ -3931,13 +3931,16 @@ export async function triggerPlatformOrganizationApply(input: {
     throw new Error("Organization tenant not found");
   }
 
-  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     tenantId: tenant.tenantId,
   });
 
   return {
+    desiredStateChanged: desiredState.changed,
     desiredStateVersion: desiredState.version,
     jobId,
     queued: true,
@@ -6873,6 +6876,18 @@ export async function enqueueTenantConfigApply(input: {
   return jobId;
 }
 
+export async function ensureCurrentTenantDesiredStateVersion(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) =>
+    ensureCurrentTenantDesiredStateVersionTx(tx, {
+      tenantId: input.tenantId,
+    }),
+  );
+}
+
 async function upsertMessagingWorkspace(
   tx: DbTransaction,
   input: {
@@ -7273,6 +7288,55 @@ async function createNextDesiredStateVersion(
     });
 
   return createdDesiredState;
+}
+
+async function ensureCurrentTenantDesiredStateVersionTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [latestDesiredState] = await tx
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, input.tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+
+  if (
+    latestDesiredState &&
+    JSON.stringify(latestDesiredState.configJson) === JSON.stringify(configJson)
+  ) {
+    return {
+      changed: false,
+      configJson: latestDesiredState.configJson,
+      version: latestDesiredState.version,
+    };
+  }
+
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const [createdDesiredState] = await tx
+    .insert(tenantDesiredStates)
+    .values({
+      configJson,
+      tenantId: input.tenantId,
+      version: nextVersion,
+    })
+    .returning({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    });
+
+  return {
+    changed: true,
+    configJson: createdDesiredState.configJson,
+    version: createdDesiredState.version,
+  };
 }
 
 async function compileTenantDesiredStateConfig(
