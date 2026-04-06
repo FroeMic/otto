@@ -28,15 +28,15 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.1 \
-  -t ghcr.io/froemic/otto-openclaw:2026.4.1.1 .
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
+  -t ghcr.io/froemic/otto-openclaw:2026.4.5.1 .
 ```
 
 With the helper:
 
 ```bash
 IMAGE_REVISION=1 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.1 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
 ./publish-runtime-image.sh
 ```
 
@@ -71,7 +71,7 @@ IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 Point the control plane at the published custom image:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.1.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.5.1
 ```
 
 Tenant provisioning and later `apply_tenant_config` runs will then pull this
