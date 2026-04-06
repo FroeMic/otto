@@ -7,8 +7,6 @@ import {
 import { getEnv } from "@/lib/env";
 import { getWorkOS } from "@/lib/workos";
 
-export const dynamic = "force-dynamic";
-
 function getWebhookSignatureHeader(headers: Headers) {
   return (
     headers.get("workos-signature") ??
@@ -17,7 +15,7 @@ function getWebhookSignatureHeader(headers: Headers) {
   );
 }
 
-export async function POST(request: Request) {
+export async function handleWorkOSWebhookRequest(request: Request) {
   const secret = getEnv().WORKOS_WEBHOOK_SECRET;
 
   if (!secret) {
