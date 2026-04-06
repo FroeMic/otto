@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CaretDown, Lock } from "@phosphor-icons/react/ssr";
+import { CaretDown, CaretRight, Lock } from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
@@ -49,8 +49,8 @@ export function ManagedInstructionsEditor({
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
-  const SystemChevronIcon = isSystemOpen ? CaretDown : ArrowRight;
-  const WorkspaceChevronIcon = isWorkspaceOpen ? CaretDown : ArrowRight;
+  const SystemChevronIcon = isSystemOpen ? CaretDown : CaretRight;
+  const WorkspaceChevronIcon = isWorkspaceOpen ? CaretDown : CaretRight;
 
   const isDirty = workspaceValue !== savedValue;
   const instructionTextareaClassName =
