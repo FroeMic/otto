@@ -332,6 +332,7 @@
   - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
   - operator apply paths now ensure the current desired-state snapshot exists before enqueueing runtime apply, so newly enabled managed integrations can land in tenant `openclaw.json` without a separate manual recompilation step
   - `bun run tenant:runtime:recompile-desired-state -- --orgslug <org-slug>` is now available as an explicit operator helper when desired-state freshness needs to be checked without applying
+  - the plugin metadata now declares the current `demo_linear` tool contract explicitly, fixing a runtime bug where `otto-integrations` could load but expose zero tools on OpenClaw `2026.4.5`
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
