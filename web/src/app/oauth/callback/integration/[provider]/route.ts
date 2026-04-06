@@ -5,6 +5,7 @@ import {
   recordLinearOauthFailure,
 } from "@/db/control-plane";
 import { getLocalUserIdForExternalId } from "@/db/oauth";
+import { getControlPlaneBaseUrl } from "@/lib/env";
 import { getManagedIntegrationOauthCallbackContext } from "@/lib/oauth/service";
 
 export async function GET(
@@ -15,6 +16,7 @@ export async function GET(
     }>;
   },
 ) {
+  const redirectBaseUrl = getControlPlaneBaseUrl() || request.url;
   const { user } = await withAuth({ ensureSignedIn: true });
   const url = new URL(request.url);
   const { provider } = await context.params;
@@ -62,7 +64,7 @@ export async function GET(
         buildSuccessRedirect(
           callbackContext.session.organizationSlug,
           callbackContext.session.providerKey,
-          request.url,
+          redirectBaseUrl,
         ),
       );
     }
@@ -100,7 +102,7 @@ export async function GET(
       buildSuccessRedirect(
         callbackContext.session.organizationSlug,
         callbackContext.session.providerKey,
-        request.url,
+        redirectBaseUrl,
       ),
     );
   } catch (error) {
@@ -116,7 +118,7 @@ export async function GET(
         callbackContext?.session.organizationSlug ?? null,
         providerKey,
         getErrorMessage(error),
-        request.url,
+        redirectBaseUrl,
       ),
     );
   }
