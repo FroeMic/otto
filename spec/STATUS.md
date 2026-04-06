@@ -131,7 +131,7 @@
   - add a migration-backed runtime release model plus tenant applied desired-state tracking
   - use a manual operator rollout to force ready tenant VPSes to pull and restart on the active release
   - place runtime release activation and rollout controls on the Agent status / deployment view, aligned with the new gateway-access surface
-- The runtime dashboard access slice is now implemented in `web/`:
+- The runtime dashboard access slice is now treated as done for planning and is implemented in `web/`, but it is currently not working reliably end to end:
   - the Agent status page now reads the current tenant gateway token server-side from `tenant_runtime_secrets`
   - the Agent status UI now shows the localhost dashboard URL, SSH tunnel command, and masked token reveal/copy controls
   - missing runtime IP or token state now renders as unavailable instead of guessing fallback access details
@@ -239,7 +239,7 @@
 - Prefer a containerized OpenClaw runtime on each tenant VPS, with v1 config apply and restart performed over SSH through isolated service wrappers.
 - Prefer control-plane-owned managed bootstrap files projected onto the tenant runtime over treating local runtime edits as the source of truth for `AGENTS.md`, `IDENTITY.md`, or `TOOLS.md`.
 - Slack transport stays on Socket Mode for the current config/policy slice; revisit centralized HTTP ingress only when the shared-app routing model forces it.
-- Voice-note support is now captured in `TODO_10_voice_note_understanding.md`; the first slice should project OpenClaw audio transcription config now, while preserving compatibility with the later shared Slack HTTP-ingress design in `TODO_06_integrations_and_oauth.md`.
+- Voice-note support is now implemented and captured in `DONE_10_voice_note_understanding.md`; the shipped slice projects OpenClaw audio transcription config while preserving compatibility with the later shared Slack HTTP-ingress design in `TODO_06_integrations_and_oauth.md`.
 - Prefer a public HTTPS control-plane endpoint for the admin UI and shared integrations ingress, while keeping host-level admin access on a private Tailscale path.
 - Prefer control-plane-owned scheduled task definitions and session history over runtime-local cron state, with runtime callbacks plus reconciliation keeping execution state current.
 - Prefer Otto-owned AI provider proxying over projecting upstream provider secrets directly into tenant runtimes.
@@ -326,6 +326,12 @@
   - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
   - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
   - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
+- The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
+  - a synthetic managed integration manifest now flows through the control plane for one demo provider
+  - the `otto-integrations` runtime plugin now registers one tool per enabled managed integration
+  - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
+  - operator apply paths now ensure the current desired-state snapshot exists before enqueueing runtime apply, so newly enabled managed integrations can land in tenant `openclaw.json` without a separate manual recompilation step
+  - `bun run tenant:runtime:recompile-desired-state -- --orgslug <org-slug>` is now available as an explicit operator helper when desired-state freshness needs to be checked without applying
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
@@ -413,10 +419,10 @@
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
   - manually verifying that the control-plane UI and `otto-runtime-config` plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
   - running `npm run verify:runtime-surface -- <org-slug> web search` against a provisioned tenant after Brave env vars are set in the deployed control plane
-  - preserving the raw Slack attachment semantics needed for `TODO_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
-- Manually verify `TODO_10_voice_note_understanding.md` against a real Slack voice note on a provisioned tenant runtime:
-  - confirm a fresh install with `files:read` can transcribe a voice note
-  - confirm an older install without `files:read` shows reconnect-needed guidance until Slack is reconnected
+  - preserving the raw Slack attachment semantics needed for `DONE_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
+- Keep `DONE_10_voice_note_understanding.md` treated as complete, while preserving its regression constraints during later Slack ingress work:
+  - confirm a fresh install with `files:read` can transcribe a voice note if the Slack ingress path changes
+  - confirm an older install without `files:read` still shows reconnect-needed guidance until Slack is reconnected
 - Continue the managed-bootstrap-files slice by:
   - building and publishing the custom Otto runtime image so tenant servers actually run the bundled `otto-managed-config` and `otto-runtime-config` plugins instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
@@ -426,13 +432,14 @@
   - adding the runtime release schema migration and DB-backed active release record
   - removing `RUNTIME_OPENCLAW_IMAGE` from runtime code paths
   - wiring manual rollout so ready tenant VPSes re-pull and restart on the active release without advancing config unexpectedly
-- After the current runtime access fixes are stable, implement `TODO_12_runtime_dashboard_access.md` by:
+- Follow up on the remaining `DONE_12_runtime_dashboard_access.md` regression by:
+  - fixing the current end-to-end runtime dashboard access failure
   - manually verifying the dashboard login flow end to end through a real SSH tunnel
   - confirming the shown gateway token authenticates successfully in the OpenClaw dashboard
-- After the shared Slack ingress direction is locked, implement `TODO_10_voice_note_understanding.md` by:
-  - extending desired state with OpenClaw audio transcription defaults
-  - rendering `tools.media.audio` into tenant `openclaw.json`
-  - adding `files:read` to Slack scope defaults for fresh installs
+- After the shared Slack ingress direction is locked, preserve the `DONE_10_voice_note_understanding.md` behavior by:
+  - keeping OpenClaw audio transcription defaults intact
+  - keeping `tools.media.audio` projected into tenant `openclaw.json`
+  - keeping `files:read` in Slack scope defaults for fresh installs
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user

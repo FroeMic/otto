@@ -1,8 +1,14 @@
-# TODO 12: Runtime Dashboard Access
+# DONE 12: Runtime Dashboard Access
 
 ## Goal
 
 Expose the OpenClaw dashboard access details in the authenticated Otto UI so a platform operator can open the tenant runtime dashboard through an SSH tunnel and authenticate with the correct gateway token without manually inspecting the VPS.
+
+## Planning note
+
+Treat this spec as done for planning and sequencing purposes.
+
+The current implementation is still not working reliably end to end, so runtime dashboard access still needs debugging and real-world validation even though the UI and control-plane read path are in place.
 
 ## Scope
 
@@ -56,8 +62,9 @@ Expose the OpenClaw dashboard access details in the authenticated Otto UI so a p
 - [x] add a server-only control-plane read path for the current tenant gateway token in the platform organization access page
 - [x] add an operator access surface that shows dashboard URL, SSH tunnel command, and masked token controls
 - [x] keep the token out of the shared dashboard shell payload
-- [ ] verify the dashboard login flow manually through an SSH tunnel
 - [x] update `spec/STATUS.md` with the new follow-up slice
+- [ ] fix the current end-to-end runtime dashboard access regression
+- [ ] verify the dashboard login flow manually through an SSH tunnel
 
 ## Open questions
 

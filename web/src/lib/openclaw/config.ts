@@ -4,6 +4,7 @@ import {
 } from "@/lib/date-time";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
+import { buildRuntimeIntegrationManifestForKeys } from "@/lib/runtime-integrations/registry";
 import {
   getDefaultSlackRuntimeConfig,
   parseSlackRuntimeConfig,
@@ -45,6 +46,7 @@ export type OpenClawTenantConfig = {
     }
   >;
   ottoPlugins?: Array<{
+    config?: Record<string, unknown>;
     id: string;
     timeoutMs: number;
   }>;
@@ -180,6 +182,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       plugin.id,
       {
         config: {
+          ...(plugin.config ?? {}),
           timeoutMs: plugin.timeoutMs,
         },
         enabled: true,
@@ -491,6 +494,13 @@ export function buildOpenClawTenantConfig(input: {
     controlPlaneBaseUrl,
     primaryModel,
   });
+  const managedIntegrationManifest = buildRuntimeIntegrationManifestForKeys(
+    Array.isArray(config.integrations)
+      ? config.integrations.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [],
+  );
 
   return {
     ...(audio ? { audio } : {}),
@@ -522,6 +532,17 @@ export function buildOpenClawTenantConfig(input: {
               id: "otto-runtime-config",
               timeoutMs: 15_000,
             },
+            ...(managedIntegrationManifest.length > 0
+              ? [
+                  {
+                    config: {
+                      manifest: managedIntegrationManifest,
+                    },
+                    id: "otto-integrations",
+                    timeoutMs: 15_000,
+                  },
+                ]
+              : []),
             {
               id: "otto-session-reporter",
               timeoutMs: 15_000,

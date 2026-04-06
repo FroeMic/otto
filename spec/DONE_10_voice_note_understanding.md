@@ -1,4 +1,4 @@
-# TODO 10: Voice Note Understanding
+# DONE 10: Voice Note Understanding
 
 ## Goal
 
@@ -214,7 +214,7 @@ Exit check:
 - [x] add `files:read` to Slack install scope defaults
 - [x] surface reconnect-needed state for pre-scope-change Slack installs
 - [x] add unit coverage for desired-state compilation and config rendering
-- [ ] verify end-to-end Slack voice-note transcription manually
+- [x] verify end-to-end Slack voice-note transcription manually
 - [x] update `spec/STATUS.md` with progress and dependency notes
 - [x] update `TODO_06_integrations_and_oauth.md` with Slack ingress compatibility notes
 

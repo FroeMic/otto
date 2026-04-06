@@ -339,7 +339,7 @@ Recommended v1 router behavior:
 5. persist a delivery event row
 6. retry or dead-letter failed deliveries
 
-Compatibility requirement for `TODO_10_voice_note_understanding.md`:
+Compatibility requirement for `DONE_10_voice_note_understanding.md`:
 
 - preserve the Slack attachment metadata and private file URL semantics that OpenClaw expects for media download
 - avoid transforming inbound Slack payloads into a custom shape that would stop tenant runtimes from downloading and transcribing voice notes with the tenant bot token
