@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { jobEvents, jobRuns } from "@/db/schema";
+import { getEnv } from "@/lib/env";
 
 import type { ClaimedJob, ControlPlaneJobPayload } from "./types";
 import { JOB_STATUSES } from "./types";
@@ -34,19 +35,36 @@ export async function enqueueJob(job: ControlPlaneJobPayload): Promise<string> {
 
 export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
   const db = getDb();
+  const staleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
+  const staleRunningCutoff = new Date(Date.now() - staleTimeoutMs);
   const claimedJobs = await db.execute<{
     attempt: number;
     id: string;
     jobType: string;
     payload: Record<string, unknown>;
+    previousStatus: string;
     tenantId: string | null;
   }>(sql`
-    with claimed as (
-      select ${jobRuns.id}
+    with claimable as (
+      select
+        ${jobRuns.id} as id,
+        ${jobRuns.status} as "previousStatus"
       from ${jobRuns}
-      where ${jobRuns.status} = ${JOB_STATUSES.queued}
+      where (
+        ${jobRuns.status} = ${JOB_STATUSES.queued}
         and ${jobRuns.availableAt} <= now()
-      order by ${jobRuns.availableAt} asc, ${jobRuns.createdAt} asc
+      ) or (
+        ${jobRuns.status} = ${JOB_STATUSES.running}
+        and ${jobRuns.startedAt} <= ${staleRunningCutoff}
+      )
+      order by
+        case
+          when ${jobRuns.status} = ${JOB_STATUSES.queued} then 0
+          else 1
+        end asc,
+        ${jobRuns.availableAt} asc,
+        ${jobRuns.startedAt} asc,
+        ${jobRuns.createdAt} asc
       limit ${limit}
       for update skip locked
     )
@@ -56,14 +74,17 @@ export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
       attempt = ${jobRuns.attempt} + 1,
       started_at = now(),
       updated_at = now(),
+      finished_at = null,
       error = null
-    where ${jobRuns.id} in (select id from claimed)
+    from claimable
+    where ${jobRuns.id} = claimable.id
     returning
       ${jobRuns.id} as id,
       ${jobRuns.jobType} as "jobType",
       ${jobRuns.tenantId} as "tenantId",
       ${jobRuns.attempt} as attempt,
-      ${jobRuns.payloadJson} as payload
+      ${jobRuns.payloadJson} as payload,
+      claimable."previousStatus" as "previousStatus"
   `);
 
   const jobs = claimedJobs.map((job) => ({
@@ -71,18 +92,28 @@ export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
     id: job.id,
     jobType: job.jobType as ClaimedJob["jobType"],
     payload: parsePayload(job.payload),
+    previousStatus: job.previousStatus,
     tenantId: job.tenantId,
   }));
 
   await Promise.all(
     jobs.map((job) =>
-      appendJobEvent(job.id, JOB_STATUSES.running, "Job claimed by worker", {
-        attempt: job.attempt,
-      }),
+      appendJobEvent(
+        job.id,
+        JOB_STATUSES.running,
+        job.previousStatus === JOB_STATUSES.running
+          ? "Job reclaimed after stale worker timeout"
+          : "Job claimed by worker",
+        {
+          attempt: job.attempt,
+          previousStatus: job.previousStatus,
+          staleTimeoutMs,
+        },
+      ),
     ),
   );
 
-  return jobs;
+  return jobs.map(({ previousStatus: _previousStatus, ...job }) => job);
 }
 
 export async function markJobSucceeded(
