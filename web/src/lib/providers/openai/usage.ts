@@ -58,9 +58,19 @@ export class OpenAiUsageCollector implements ProviderUsageCollector {
         method: "GET",
       },
     );
-    const body = (await response.json()) as unknown;
+    const responseText = await response.text();
+    const { body, parseMode } = parseOpenAiResponseBody(responseText);
 
     if (!response.ok) {
+      console.error("[worker] OpenAI admin usage request failed", {
+        bodyPreview: getOpenAiResponseBodyPreview(body),
+        bodyShape: describeOpenAiResponseBody(body),
+        contentType: response.headers.get("content-type"),
+        parseMode,
+        projectId: input.projectId,
+        status: response.status,
+        usageType: input.usageType,
+      });
       throw new Error(buildOpenAiErrorMessage(body, response.status));
     }
 
@@ -215,5 +225,70 @@ function buildOpenAiErrorMessage(body: unknown, status: number) {
     }
   }
 
+  if (typeof body === "string" && body.trim().length > 0) {
+    return `OpenAI admin API request failed (${status}): ${body.trim()}`;
+  }
+
   return `OpenAI admin API request failed (${status})`;
+}
+
+function parseOpenAiResponseBody(responseText: string): {
+  body: unknown;
+  parseMode: "empty" | "json" | "text";
+} {
+  if (responseText.length === 0) {
+    return {
+      body: null,
+      parseMode: "empty",
+    };
+  }
+
+  try {
+    return {
+      body: JSON.parse(responseText) as unknown,
+      parseMode: "json",
+    };
+  } catch {
+    return {
+      body: responseText,
+      parseMode: "text",
+    };
+  }
+}
+
+function describeOpenAiResponseBody(body: unknown) {
+  if (body === null) {
+    return "null";
+  }
+
+  if (Array.isArray(body)) {
+    return `array(${body.length})`;
+  }
+
+  if (typeof body === "string") {
+    return `string(${body.length})`;
+  }
+
+  if (typeof body === "object") {
+    const keys = Object.keys(body as Record<string, unknown>);
+    return `object(${keys.join(",") || "no-keys"})`;
+  }
+
+  return typeof body;
+}
+
+function getOpenAiResponseBodyPreview(body: unknown) {
+  if (body === null) {
+    return null;
+  }
+
+  if (typeof body === "string") {
+    return body.slice(0, 500);
+  }
+
+  try {
+    return JSON.stringify(body).slice(0, 500);
+  } catch {
+    return String(body).slice(0, 500);
+  }
 }
