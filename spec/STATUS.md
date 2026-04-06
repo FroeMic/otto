@@ -306,6 +306,7 @@
   - inactive WorkOS memberships are now retained locally for projection state but no longer grant workspace access
   - settings now include the same workspace switcher as the main app shell so multi-workspace users can switch without leaving settings
   - `/webhooks/workos` now accepts optional WorkOS webhook pushes to accelerate membership and organization-name projection updates when `WORKOS_WEBHOOK_SECRET` is configured
+  - pending secondary workspaces now stay pinned to a workspace-scoped waiting route instead of bouncing to the first ready workspace
   - successful Slack directory syncs now prune users and channels missing from the latest Slack snapshot so reconnects do not leave stale directory entries behind
   - `All channels Otto is added to` now renders to OpenClaw as `groupPolicy: "open"` with a wildcard channel mention policy instead of incorrectly behaving like a manual allowlist
   - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`

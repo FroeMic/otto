@@ -63,7 +63,7 @@ export function getPendingAccessPath(orgSlug?: string) {
     return "/onboarding/wait-for-access";
   }
 
-  return `/onboarding/wait-for-access?orgSlug=${encodeURIComponent(orgSlug)}`;
+  return `/${encodeURIComponent(orgSlug)}/waiting`;
 }
 
 export function getPrimaryAgent(organization: DashboardOrganization) {
