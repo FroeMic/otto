@@ -110,8 +110,14 @@ Queue a tenant runtime apply against the latest desired state for an org:
 bun run tenant:runtime:apply -- --orgslug <org-slug>
 ```
 
-This uses the normal `apply_tenant_config` worker path, which already pulls the
-configured `RUNTIME_OPENCLAW_IMAGE` before recreating the runtime container.
+This uses the normal `apply_tenant_config` worker path and performs a
+config-only restart of the existing runtime container.
+
+Pull the configured image and apply the latest desired state in one step:
+
+```bash
+bun run tenant:runtime:deploy -- --orgslug <org-slug>
+```
 
 Force a ready tenant to pull `RUNTIME_OPENCLAW_IMAGE` and recreate the runtime
 container without changing config:

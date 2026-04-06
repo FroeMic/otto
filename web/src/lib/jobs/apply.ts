@@ -186,20 +186,32 @@ export async function processApplyTenantConfigJob(
       openClawConfig,
     });
 
+    const restartStep = payload.pullImageFirst
+      ? APPLY_STEPS.pullingRuntimeImage
+      : APPLY_STEPS.restartingRuntime;
+
     await markApplyRun(job.id, {
-      status: APPLY_STEPS.restartingRuntime,
+      status: restartStep,
     });
     await appendJobEvent(
       job.id,
-      APPLY_STEPS.restartingRuntime,
-      "Restarting tenant runtime",
+      restartStep,
+      payload.pullImageFirst
+        ? "Pulling runtime image and recreating tenant runtime"
+        : "Restarting tenant runtime",
       {
         host: runtimeConnection.host,
+        pullImageFirst: payload.pullImageFirst === true,
       },
     );
 
-    const restart =
-      await runtimeManager.restartGatewayWithResult(runtimeConnection);
+    const restart = await runtimeManager.restartGatewayWithResult(
+      runtimeConnection,
+      {
+        pullImage: payload.pullImageFirst ?? false,
+        strategy: payload.pullImageFirst ? "recreate" : "restart-container",
+      },
+    );
 
     await markApplyRun(job.id, {
       restartStderr: restart.stderr,
@@ -244,10 +256,12 @@ export async function processApplyTenantConfigJob(
       "Tenant runtime apply completed successfully",
       {
         desiredStateVersion: desiredState.version,
+        pullImageFirst: payload.pullImageFirst === true,
       },
     );
     await markJobSucceeded(job.id, {
       desiredStateVersion: desiredState.version,
+      pullImageFirst: payload.pullImageFirst === true,
     });
   } catch (error) {
     const message = getErrorMessage(error);
@@ -293,6 +307,7 @@ function parseApplyPayload(
 ): ApplyTenantConfigPayload {
   const tenantId = payload.tenantId;
   const desiredStateVersion = payload.desiredStateVersion;
+  const pullImageFirst = payload.pullImageFirst;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("Apply job payload is missing tenantId");
@@ -308,6 +323,7 @@ function parseApplyPayload(
 
   return {
     desiredStateVersion,
+    ...(typeof pullImageFirst === "boolean" ? { pullImageFirst } : {}),
     tenantId,
   };
 }

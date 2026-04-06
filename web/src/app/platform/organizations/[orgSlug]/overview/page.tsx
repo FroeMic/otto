@@ -61,6 +61,7 @@ function isInProgressStatus(status: string | null | undefined) {
     status === "loading_desired_state" ||
     status === "rendering_files" ||
     status === "writing_files" ||
+    status === "pulling_runtime_image" ||
     status === "restarting_runtime" ||
     status === "verifying_runtime" ||
     status === "applying" ||

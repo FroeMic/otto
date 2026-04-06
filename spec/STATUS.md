@@ -110,6 +110,9 @@
   - `OPENCLAW_GATEWAY_TOKEN` remains the OpenClaw gateway auth secret, while `TENANT_TOKEN` is the runtime-to-control-plane auth credential for Otto-owned internal APIs and plugins
   - `tenant_apply_runs` now record queued, running, succeeded, and failed apply attempts per desired-state version
   - the worker now handles `apply_tenant_config` by writing runtime files atomically, restarting the tenant runtime, and verifying health
+  - normal config applies now restart the existing runtime container without pulling a new image first
+  - apply file projection now batches atomic SFTP writes in one session and skips rewriting unchanged runtime files
+  - gateway health verification now uses a fast-start backoff instead of a fixed 15-second polling interval
   - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
 - The first managed-bootstrap-files slice is now implemented:
   - `tenant_managed_config_versions` and `tenant_managed_file_versions` now store canonical managed bootstrap files in the control plane
@@ -160,7 +163,7 @@
   - workspace sidebars now expose `Platform Administration` below the Slack link for flagged users
   - `/platform` now has its own protected shell and `/platform/organizations` page
   - `/platform/organizations` uses a reusable TanStack-based data table component with search, sorting, and row actions
-  - platform admins can queue `apply_tenant_config` and trigger runtime image pull/restart directly from the organizations table
+  - platform admins can queue `apply_tenant_config`, trigger runtime image pull/restart, and run a one-click `Pull new image and apply config` action directly from the organizations table
 - The platform organizations area now also has a dedicated per-organization detail page on `codex/platform-organization-detail`:
   - `/platform/organizations/[orgSlug]` shows workspace/runtime summary cards, operator actions, gateway access, recent apply history, latest apply diagnostics, recent jobs, and latest job events
   - the platform organizations table now links directly into that detail route from the organization name cell
@@ -172,6 +175,7 @@
     - `/platform/organizations/[orgSlug]/logs`
   - the new activity view now combines jobs and events into one filtered surface with polling
   - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
+  - the per-organization actions menu now also exposes the one-click `Pull new image and apply config` path
   - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
   - the platform organizations table and overview now inspect the ready tenant server over SSH and show the observed `openclaw-gateway` image separately from the configured target image
 - OpenClaw cron integration findings are now captured in `TODO_13_scheduled_tasks_visibility.md`:
@@ -357,6 +361,7 @@
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
+  - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:refresh-image -- <org-slug>` forces a ready tenant runtime to pull `RUNTIME_OPENCLAW_IMAGE` and recreate `openclaw-gateway` without requiring UI-driven config changes
 - The workspace members page now uses WorkOS organization roles dynamically instead of a fixed access display:
   - invite dialogs accept multiple comma/newline-separated emails plus an explicit WorkOS role

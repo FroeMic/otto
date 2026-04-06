@@ -221,8 +221,8 @@ export default async function PlatformOrganizationLogsPage({
               Config apply diagnostics
             </SettingsSectionTitle>
             <SettingsSectionDescription>
-              Review the most recent file-write, restart, and runtime
-              verification output from tenant config apply runs.
+              Review the most recent file-write, runtime restart or recreate,
+              and verification output from tenant config apply runs.
             </SettingsSectionDescription>
             {applyRuns.length === 0 ? (
               <EmptyDiagnosticsCard
