@@ -6,6 +6,7 @@ import {
   runAutoTopOffEnqueueCycle,
 } from "./auto-top-off";
 import { runCreditBurndownSettlementCycle } from "./credit-burndown";
+import { runOAuthConnectionRefreshCycle } from "./oauth-refresh";
 import { runOpenAiUsageIngestionCycle } from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
 import { processProvisionTenantServerJob } from "./provisioning";
@@ -80,11 +81,20 @@ export async function runWorkerIteration(): Promise<number> {
     "billing auto-top-off enqueue",
     runAutoTopOffEnqueueCycle,
   );
+  const refreshedOauthConnections = await runMaintenanceStep(
+    "OAuth connection refresh",
+    runOAuthConnectionRefreshCycle,
+  );
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
   if (jobs.length === 0) {
     console.info("[worker] no available jobs");
-    return syncedUsageTargets + settledUsageBuckets + queuedAutoTopOffJobs;
+    return (
+      syncedUsageTargets +
+      settledUsageBuckets +
+      queuedAutoTopOffJobs +
+      refreshedOauthConnections
+    );
   }
 
   for (const job of jobs) {
@@ -99,7 +109,8 @@ export async function runWorkerIteration(): Promise<number> {
     jobs.length +
     syncedUsageTargets +
     settledUsageBuckets +
-    queuedAutoTopOffJobs
+    queuedAutoTopOffJobs +
+    refreshedOauthConnections
   );
 }
 

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { LinearIntegrationPanel } from "@/app/[orgSlug]/(app)/integrations/linear/_components/linear-integration-panel";
 import { getTenantManagedIntegrationSummary } from "@/db/control-plane";
-import { hasNangoConfig } from "@/lib/env";
+import { hasLinearOAuthConfig } from "@/lib/env";
 import { getManagedIntegrationDefinition } from "@/lib/managed-integrations/catalog";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
@@ -95,9 +95,9 @@ export default async function LinearIntegrationPage({
   return (
     <LinearIntegrationPanel
       agentCapabilities={definition.agentCapabilities}
-      canConnect={hasNangoConfig()}
+      canConnect={hasLinearOAuthConfig()}
       connectActionLabel={getConnectActionLabel(uiState)}
-      connectSessionUrl={`/api/integrations/${orgSlug}/linear/connect-session`}
+      connectUrl={`/oauth/start/integration/linear?orgSlug=${encodeURIComponent(orgSlug)}`}
       iconSrc={definition.iconSrc}
       orgSlug={orgSlug}
       pageDescription={definition.pageDescription}

@@ -321,7 +321,7 @@
   - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
 - Managed integrations architecture planning is now captured in `TODO_17_managed_integrations_architecture.md`:
-  - managed outbound integrations should start with hosted Nango
+  - managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations
   - runtime execution should move through a dedicated `integration-gateway` container
   - the runtime should expose one tool per integration via a new `otto-integrations` plugin
   - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
@@ -331,6 +331,10 @@
   - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
   - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
   - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
+- OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
+  - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
+  - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
+  - the in-repo worker should handle refresh, retry, reconnect, and durable failure state before any hosted auth broker becomes the default
 - The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
   - a synthetic managed integration manifest now flows through the control plane for one demo provider
   - the `otto-integrations` runtime plugin now registers one tool per enabled managed integration
@@ -341,11 +345,15 @@
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
   - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
-  - hosted Nango now backs the first real Linear connect and reconnect flow from the workspace page
-  - Nango auth webhooks now persist canonical Linear connection state in `tenant_integrations` plus the new `integration_linear_installations` table
+  - the first Linear connect and reconnect flow shipped on top of hosted Nango, but that path is now being replaced by `TODO_19_oauth_connected_accounts_substrate.md`
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - the runtime integration manifest now includes `linear` only after connection succeeds
   - runtime `linear` execution is still a placeholder stub until the first live `search_issues` capability lands
+- The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now in progress on `codex/oauth-substrate-linear`:
+  - generic OAuth sessions, connections, credentials, and events now have dedicated Postgres tables
+  - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist
+  - Linear now uses Otto-owned OAuth state, encrypted credentials, and callback handling instead of the active hosted Nango path
+  - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
