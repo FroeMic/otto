@@ -11,7 +11,7 @@ export default async function SettingsLayout({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const { currentOrganization, user } =
+  const { currentOrganization, organizations, user } =
     await loadOrganizationRouteContext(orgSlug);
 
   return (
@@ -20,6 +20,10 @@ export default async function SettingsLayout({
         name: currentOrganization.name,
         slug: currentOrganization.slug,
       }}
+      organizations={organizations.map((organization) => ({
+        name: organization.name,
+        slug: organization.slug,
+      }))}
       user={{
         email: user.email,
         id: user.id,

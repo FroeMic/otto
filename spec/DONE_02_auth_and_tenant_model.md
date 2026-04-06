@@ -41,4 +41,4 @@ Establish user identity, organization ownership, and the first tenant records in
 ## Open questions
 
 - Decision: use WorkOS.
-- Note: organization switching can stay deferred until provisioning and operations are in place.
+- Resolved later: workspace switching is now implemented in the authenticated shell and settings, and local membership rows are treated as a WorkOS-synced projection instead of the source of truth for access.

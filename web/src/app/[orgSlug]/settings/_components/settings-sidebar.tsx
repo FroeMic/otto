@@ -1,9 +1,24 @@
 "use client";
 
-import { ArrowLeft, Gear, User } from "@phosphor-icons/react/ssr";
+import {
+  ArrowLeft,
+  BuildingOffice,
+  CaretUpDown,
+  Gear,
+  User,
+} from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavUser } from "@/components/nav-user";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +37,10 @@ type SettingsSidebarProps = React.ComponentProps<typeof Sidebar> & {
     name: string;
     slug: string;
   };
+  organizations: Array<{
+    name: string;
+    slug: string;
+  }>;
   user: {
     email: string;
     id: string;
@@ -66,6 +85,7 @@ function isSettingsItemActive(
 
 export function SettingsSidebar({
   currentOrganization,
+  organizations,
   user,
   ...props
 }: SettingsSidebarProps) {
@@ -75,6 +95,56 @@ export function SettingsSidebar({
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="gap-3">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="aria-expanded:bg-muted"
+                  />
+                }
+              >
+                <div className="flex size-8 items-center justify-center border bg-background">
+                  <BuildingOffice />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">
+                    {currentOrganization.name}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {currentOrganization.slug}
+                  </span>
+                </div>
+                <CaretUpDown className="ml-auto" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-64">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                  {organizations.map((organization) => (
+                    <DropdownMenuItem
+                      key={organization.slug}
+                      render={<Link href={`/${organization.slug}`} />}
+                    >
+                      <BuildingOffice />
+                      {organization.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      href={`/${currentOrganization.slug}/settings/workspace`}
+                    />
+                  }
+                >
+                  <Gear />
+                  Workspace settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               render={

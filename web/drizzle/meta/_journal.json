@@ -225,6 +225,13 @@
       "when": 1775400663358,
       "tag": "0031_rename_integration_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1775464514992,
+      "tag": "0032_slim_kabuki",
+      "breakpoints": true
     }
   ]
 }
