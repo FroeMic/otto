@@ -3,7 +3,7 @@
   "name": "Otto Integrations",
   "description": "Otto-managed integration tools backed by the workspace app.",
   "contracts": {
-    "tools": ["demo_linear"]
+    "tools": ["demo_linear", "linear"]
   },
   "configSchema": {
     "type": "object",
