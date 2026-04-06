@@ -99,6 +99,21 @@ function getVerificationErrorMessage(result: PromiseSettledResult<unknown>) {
     : "Unknown verification error";
 }
 
+function pickVerifiedEvent(
+  sdkVerification: PromiseSettledResult<WorkOSWebhookEvent>,
+  manualVerification: PromiseSettledResult<WorkOSWebhookEvent>,
+) {
+  if (sdkVerification.status === "fulfilled") {
+    return sdkVerification.value;
+  }
+
+  if (manualVerification.status === "fulfilled") {
+    return manualVerification.value;
+  }
+
+  return null;
+}
+
 export async function handleWorkOSWebhookRequest(request: Request) {
   const secret = getEnv().WORKOS_WEBHOOK_SECRET;
 
@@ -163,10 +178,11 @@ export async function handleWorkOSWebhookRequest(request: Request) {
       );
     }
 
-    const event =
-      sdkVerification.status === "fulfilled"
-        ? sdkVerification.value
-        : manualVerification.value;
+    const event = pickVerifiedEvent(sdkVerification, manualVerification);
+
+    if (!event) {
+      throw new Error("Verified WorkOS event payload was not available");
+    }
 
     switch (event.event) {
       case "organization_membership.created":
