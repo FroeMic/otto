@@ -348,7 +348,8 @@
   - the first Linear connect and reconnect flow shipped on top of hosted Nango, but that path is now being replaced by `TODO_19_oauth_connected_accounts_substrate.md`
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - the runtime integration manifest now includes `linear` only after connection succeeds
-  - runtime `linear` execution is still a placeholder stub until the first live `search_issues` capability lands
+  - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
 - The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now in progress on `codex/oauth-substrate-linear`:
   - generic OAuth sessions, connections, credentials, and events now have dedicated Postgres tables
   - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist

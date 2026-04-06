@@ -57,6 +57,19 @@ export type ClaimedOAuthRefreshConnection = {
   tokenVersion: number;
 };
 
+export type ConnectedOauthAccessRecord = {
+  accessToken: string;
+  connectionId: string;
+  credentialsExpiresAt: Date | null;
+  externalAccountId: string | null;
+  externalAccountLabel: string | null;
+  grantedScopes: string[];
+  providerKey: string;
+  requestedScopes: string[];
+  status: string;
+  tenantIntegrationId: string;
+};
+
 export async function createIntegrationOauthSession(input: {
   authorizeParams: Record<string, string>;
   expiresAt: Date;
@@ -161,6 +174,61 @@ export async function getIntegrationOauthSessionRecord(input: {
     tenantIntegrationId: row.tenantIntegrationId,
     userId: row.userId,
   } satisfies IntegrationOAuthSessionRecord;
+}
+
+export async function getConnectedOauthAccessForTenantIntegration(input: {
+  providerKey: string;
+  tenantIntegrationId: string;
+}) {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      accessTokenCiphertext: integrationOauthCredentials.accessTokenCiphertext,
+      connectionId: integrationOauthConnections.id,
+      credentialsExpiresAt: integrationOauthConnections.credentialsExpiresAt,
+      externalAccountId: integrationOauthConnections.externalAccountId,
+      externalAccountLabel: integrationOauthConnections.externalAccountLabel,
+      grantedScopesCsv: integrationOauthConnections.grantedScopesCsv,
+      providerKey: integrationOauthConnections.providerKey,
+      requestedScopesCsv: integrationOauthConnections.requestedScopesCsv,
+      status: integrationOauthConnections.status,
+      tenantIntegrationId: integrationOauthConnections.tenantIntegrationId,
+    })
+    .from(integrationOauthConnections)
+    .innerJoin(
+      integrationOauthCredentials,
+      eq(
+        integrationOauthCredentials.connectionId,
+        integrationOauthConnections.id,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationOauthConnections.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationOauthConnections.providerKey, input.providerKey),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    accessToken: decryptControlPlaneSecret(row.accessTokenCiphertext),
+    connectionId: row.connectionId,
+    credentialsExpiresAt: row.credentialsExpiresAt,
+    externalAccountId: row.externalAccountId,
+    externalAccountLabel: row.externalAccountLabel,
+    grantedScopes: splitScopeCsv(row.grantedScopesCsv),
+    providerKey: row.providerKey,
+    requestedScopes: splitScopeCsv(row.requestedScopesCsv),
+    status: row.status,
+    tenantIntegrationId: row.tenantIntegrationId,
+  } satisfies ConnectedOauthAccessRecord;
 }
 
 export async function appendIntegrationOauthEventTx(
@@ -626,6 +694,61 @@ export async function recordOauthRefreshFailure(input: {
           : "refresh_failed_transient",
       providerKey: input.providerKey,
       statusAfter: nextStatus,
+      statusBefore: existingConnection.status,
+      tenantIntegrationId: input.tenantIntegrationId,
+    });
+  });
+}
+
+export async function recordOauthConnectionAttention(input: {
+  connectionId: string;
+  errorMessage: string;
+  eventType: string;
+  providerKey: string;
+  tenantIntegrationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [existingConnection] = await tx
+      .select({
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(eq(integrationOauthConnections.id, input.connectionId))
+      .limit(1);
+
+    if (!existingConnection) {
+      return;
+    }
+
+    await tx
+      .update(integrationOauthConnections)
+      .set({
+        lastError: input.errorMessage,
+        lastErrorAt: now,
+        status: "needs_attention",
+        updatedAt: now,
+      })
+      .where(eq(integrationOauthConnections.id, input.connectionId));
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        lastError: input.errorMessage,
+        lastErrorAt: now,
+        status: "error",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId));
+
+    await appendIntegrationOauthEventTx(tx, {
+      connectionId: input.connectionId,
+      errorMessage: input.errorMessage,
+      eventType: input.eventType,
+      providerKey: input.providerKey,
+      statusAfter: "needs_attention",
       statusBefore: existingConnection.status,
       tenantIntegrationId: input.tenantIntegrationId,
     });

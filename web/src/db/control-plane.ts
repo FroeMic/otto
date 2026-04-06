@@ -16,7 +16,9 @@ import {
 } from "@/db/credit-ledger";
 import {
   appendIntegrationOauthEventTx,
+  getConnectedOauthAccessForTenantIntegration,
   markIntegrationOauthSessionConsumedTx,
+  recordOauthConnectionAttention,
   upsertOauthConnectionForTenantIntegrationTx,
 } from "@/db/oauth";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
@@ -58,7 +60,9 @@ import {
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
+import { searchLinearIssues } from "@/lib/managed-integrations/linear";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
+import { getOAuthProviderDefinition } from "@/lib/oauth/providers";
 import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
   buildManagedBootstrapFileContent,
@@ -4639,13 +4643,12 @@ export async function executeRuntimeIntegrationForTenant(input: {
   tenantId: string;
 }) {
   const db = getDb();
-
-  return db.transaction(async (tx) => {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const runtimeContext = await db.transaction(async (tx) => {
     const providerKeys =
       await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
         tenantId: input.tenantId,
       });
-    const integrationKey = input.integrationKey.trim().toLowerCase();
 
     if (!providerKeys.includes(integrationKey)) {
       throw new Error(
@@ -4653,10 +4656,49 @@ export async function executeRuntimeIntegrationForTenant(input: {
       );
     }
 
-    return executeRuntimeIntegrationStub({
+    if (integrationKey === LINEAR_PROVIDER_KEY) {
+      const [integration] = await tx
+        .select({
+          id: tenantIntegrations.id,
+        })
+        .from(tenantIntegrations)
+        .where(
+          and(
+            eq(tenantIntegrations.tenantId, input.tenantId),
+            eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+          ),
+        )
+        .limit(1);
+
+      if (!integration) {
+        throw new Error("Linear is not connected in this workspace.");
+      }
+
+      return {
+        integrationKey,
+        tenantIntegrationId: integration.id,
+      };
+    }
+
+    return {
       integrationKey,
+      tenantIntegrationId: null,
+    };
+  });
+
+  if (
+    runtimeContext.integrationKey === LINEAR_PROVIDER_KEY &&
+    runtimeContext.tenantIntegrationId
+  ) {
+    return executeLinearRuntimeIntegration({
       params: input.params,
+      tenantIntegrationId: runtimeContext.tenantIntegrationId,
     });
+  }
+
+  return executeRuntimeIntegrationStub({
+    integrationKey: runtimeContext.integrationKey,
+    params: input.params,
   });
 }
 
@@ -7814,6 +7856,61 @@ async function recordLinearIntegrationError(
       updatedAt: input.now,
     })
     .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function executeLinearRuntimeIntegration(input: {
+  params: Record<string, unknown>;
+  tenantIntegrationId: string;
+}) {
+  const connection = await getConnectedOauthAccessForTenantIntegration({
+    providerKey: LINEAR_PROVIDER_KEY,
+    tenantIntegrationId: input.tenantIntegrationId,
+  });
+
+  if (!connection || connection.status !== "connected") {
+    throw new Error(
+      "Linear needs attention. Reconnect Linear in your workspace.",
+    );
+  }
+
+  try {
+    if (input.params.operation !== "search_issues") {
+      throw new Error("linear only supports the search_issues operation.");
+    }
+
+    return await searchLinearIssues({
+      accessToken: connection.accessToken,
+      limit:
+        typeof input.params.limit === "number" ? input.params.limit : undefined,
+      query: typeof input.params.query === "string" ? input.params.query : "",
+    });
+  } catch (error) {
+    const provider = getOAuthProviderDefinition(LINEAR_PROVIDER_KEY);
+
+    if (provider?.classifyError(error) === "reauthorize") {
+      await recordOauthConnectionAttention({
+        connectionId: connection.connectionId,
+        errorMessage: getUnknownErrorMessage(error),
+        eventType: "request_failed_reauthorize",
+        providerKey: LINEAR_PROVIDER_KEY,
+        tenantIntegrationId: connection.tenantIntegrationId,
+      });
+
+      throw new Error(
+        "Linear needs attention. Reconnect Linear in your workspace.",
+      );
+    }
+
+    throw error;
+  }
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "The provider request failed.";
 }
 
 async function createNextDesiredStateVersion(
