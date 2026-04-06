@@ -3,15 +3,13 @@ import { SettingsPage } from "@/app/[orgSlug]/settings/_components/settings-layo
 import { WorkspaceUsageContent } from "@/app/[orgSlug]/settings/workspace/usage/_components/workspace-usage-content";
 import { getWorkspaceBillingOverview } from "@/db/billing";
 import { getTenantProviderUsageOverview } from "@/db/provider-usage";
+import {
+  endOfUtcMonth,
+  getPreviousBillingCycleRange,
+  startOfUtcMonth,
+} from "@/lib/usage-date-ranges";
 
 export const dynamic = "force-dynamic";
-
-function startOfMonth(date: Date) {
-  const next = new Date(date);
-  next.setDate(1);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
 
 export default async function WorkspaceUsagePage({
   params,
@@ -25,27 +23,17 @@ export default async function WorkspaceUsagePage({
   });
   const now = new Date();
   const sub = billingOverview.subscription;
-  const currentCycleStart = sub?.currentPeriodStart ?? startOfMonth(now);
-  const currentCycleEnd = sub?.currentPeriodEnd ?? null;
-
-  // Compute previous billing cycle if subscription exists
-  let previousCycleStart: Date | null = null;
-  let previousCycleEnd: Date | null = null;
-  if (sub?.currentPeriodStart && sub?.currentPeriodEnd) {
-    const cycleDurationMs =
-      sub.currentPeriodEnd.getTime() - sub.currentPeriodStart.getTime();
-    previousCycleEnd = new Date(sub.currentPeriodStart.getTime());
-    previousCycleStart = new Date(
-      sub.currentPeriodStart.getTime() - cycleDurationMs,
-    );
-  }
-
-  const initialRangeTo = currentCycleEnd ?? now;
+  const currentCycleStart = sub?.currentPeriodStart ?? startOfUtcMonth(now);
+  const currentCycleEnd = sub?.currentPeriodEnd ?? endOfUtcMonth(now);
+  const previousCycleRange = getPreviousBillingCycleRange({
+    currentPeriodEnd: sub?.currentPeriodEnd ?? null,
+    currentPeriodStart: sub?.currentPeriodStart ?? null,
+  });
   const initialOverview = billingOverview.tenant
     ? await getTenantProviderUsageOverview({
         from: currentCycleStart,
         tenantId: billingOverview.tenant.id,
-        to: initialRangeTo,
+        to: currentCycleEnd,
       })
     : {
         summary: {
@@ -74,12 +62,12 @@ export default async function WorkspaceUsagePage({
         initialOverview={initialOverview}
         initialRange={{
           from: currentCycleStart.toISOString(),
-          to: initialRangeTo.toISOString(),
+          to: currentCycleEnd.toISOString(),
         }}
         locale={currentOrganization.locale}
         orgSlug={orgSlug}
-        previousCycleEndIso={previousCycleEnd?.toISOString() ?? null}
-        previousCycleStartIso={previousCycleStart?.toISOString() ?? null}
+        previousCycleEndIso={previousCycleRange?.to.toISOString() ?? null}
+        previousCycleStartIso={previousCycleRange?.from.toISOString() ?? null}
       />
     </SettingsPage>
   );
