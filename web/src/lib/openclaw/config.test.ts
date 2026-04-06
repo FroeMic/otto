@@ -29,38 +29,6 @@ describe("renderOpenClawConfig", () => {
           timeoutMs: 15_000,
         },
         {
-          config: {
-            manifest: [
-              {
-                key: "demo-linear",
-                label: "Demo Linear",
-                operations: [
-                  {
-                    description: "Search demo issues.",
-                    key: "search_issues",
-                    label: "Search Issues",
-                  },
-                ],
-                parametersSchema: {
-                  additionalProperties: false,
-                  properties: {
-                    operation: {
-                      const: "search_issues",
-                      type: "string",
-                    },
-                    query: {
-                      minLength: 1,
-                      type: "string",
-                    },
-                  },
-                  required: ["operation", "query"],
-                  type: "object",
-                },
-                toolDescription: "Search demo Linear issues.",
-                toolName: "demo_linear",
-              },
-            ],
-          },
           id: "otto-integrations",
           timeoutMs: 15_000,
         },
@@ -95,36 +63,6 @@ describe("renderOpenClawConfig", () => {
     ]);
     assert.deepEqual(renderedConfig.plugins.entries["otto-integrations"], {
       config: {
-        manifest: [
-          {
-            key: "demo-linear",
-            label: "Demo Linear",
-            operations: [
-              {
-                description: "Search demo issues.",
-                key: "search_issues",
-                label: "Search Issues",
-              },
-            ],
-            parametersSchema: {
-              additionalProperties: false,
-              properties: {
-                operation: {
-                  const: "search_issues",
-                  type: "string",
-                },
-                query: {
-                  minLength: 1,
-                  type: "string",
-                },
-              },
-              required: ["operation", "query"],
-              type: "object",
-            },
-            toolDescription: "Search demo Linear issues.",
-            toolName: "demo_linear",
-          },
-        ],
         timeoutMs: 15_000,
       },
       enabled: true,

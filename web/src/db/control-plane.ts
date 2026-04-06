@@ -4403,6 +4403,112 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
+export type RuntimeTenantIntegration = RuntimeIntegrationManifestEntry & {
+  status: {
+    connected: boolean;
+    connectionStatus: string | null;
+    enabled: boolean;
+    integrationStatus: string | null;
+    needsAttention: boolean;
+  };
+};
+
+export async function listRuntimeIntegrationsForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const supportedKeys = listSupportedRuntimeIntegrationKeys();
+    const definitions = buildRuntimeIntegrationManifestForKeys(supportedKeys);
+
+    if (supportedKeys.length === 0) {
+      return [];
+    }
+
+    const rows = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        connectionStatus: integrationOauthConnections.status,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        integrationStatus: tenantIntegrations.status,
+        providerKey: tenantIntegrations.providerKey,
+      })
+      .from(tenantIntegrations)
+      .leftJoin(
+        integrationOauthConnections,
+        eq(
+          integrationOauthConnections.tenantIntegrationId,
+          tenantIntegrations.id,
+        ),
+      )
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, input.tenantId),
+          inArray(tenantIntegrations.providerKey, supportedKeys),
+        ),
+      );
+
+    const statusByProviderKey = new Map<
+      string,
+      {
+        connectedAt: Date | null;
+        connectionStatus: string | null;
+        disconnectedAt: Date | null;
+        integrationStatus: string | null;
+      }
+    >();
+
+    for (const row of rows) {
+      const existing = statusByProviderKey.get(row.providerKey);
+
+      if (!existing) {
+        statusByProviderKey.set(row.providerKey, row);
+        continue;
+      }
+
+      if (!existing.connectionStatus && row.connectionStatus) {
+        statusByProviderKey.set(row.providerKey, row);
+      }
+    }
+
+    return definitions.map((definition) => {
+      const row = statusByProviderKey.get(definition.key) ?? null;
+      const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
+      const integrationStatus = row?.integrationStatus ?? null;
+      const connectionStatus = row?.connectionStatus ?? null;
+
+      return {
+        ...definition,
+        status: {
+          connected,
+          connectionStatus,
+          enabled: connected,
+          integrationStatus,
+          needsAttention:
+            integrationStatus === "needs_attention" ||
+            connectionStatus === "needs_attention",
+        },
+      };
+    });
+  });
+}
+
+export async function getRuntimeIntegrationForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrations = await listRuntimeIntegrationsForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return (
+    integrations.find((integration) => integration.key === integrationKey) ??
+    null
+  );
+}
+
 export async function getTenantManagedIntegrationSummary(input: {
   orgSlug: string;
   providerKey: string;
