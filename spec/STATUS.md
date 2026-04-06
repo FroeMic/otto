@@ -351,6 +351,9 @@
   - the runtime integration manifest now includes `linear` only after connection succeeds
   - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
+- An experimental managed-integrations branch now exists on `codex/integrations-metatool-minimal`:
+  - `otto-integrations` is being tested as a static metatool plugin (`list`, `get`, `status`, `execute`) instead of dynamic one-tool-per-integration registration
+  - the goal of the prototype is to evaluate whether fixed runtime contracts plus control-plane discovery are operationally cleaner than projecting a per-tenant manifest into `openclaw.json`
 - The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now in progress on `codex/oauth-substrate-linear`:
   - generic OAuth sessions, connections, credentials, and events now have dedicated Postgres tables
   - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist
