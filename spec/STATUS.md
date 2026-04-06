@@ -226,6 +226,11 @@
   - use `WORKOS_REDIRECT_URI` for the callback URL
   - use `WORKOS_BASE_URL` for the externally visible app origin in Docker / reverse-proxy deployments
   - keep `NEXT_PUBLIC_WORKOS_REDIRECT_URI` only as a backward-compatibility fallback if older environments still set it
+- Workspace access now uses a WorkOS-backed membership projection instead of an append-only local cache:
+  - local `memberships` rows now store the WorkOS membership id plus projection status and sync timestamps
+  - request-time reconciliation now updates additions, role changes, inactive memberships, and removals
+  - dashboard org lists and workspace route access now only trust locally projected `active` memberships
+  - an optional WorkOS webhook endpoint can now fast-forward membership and organization-name updates into the local projection
 
 ## Active architectural decision
 
@@ -294,6 +299,13 @@
   - Slack channel policy now supports `Only pre-configured channels` vs `All channels Otto is added to`
   - the channel-management dialog can now add Otto to public Slack channels, remove Otto from joined channels, and show private-channel invite guidance
   - Slack settings page loads now refresh the synced Slack directory before rendering and fall back to cached data with an inline warning if the live refresh fails
+- WorkOS workspace membership drift is now addressed in code:
+  - the `memberships` table is now an explicit projection of WorkOS membership state, with `externalId`, `status`, `lastSyncedAt`, `removedAt`, and `updatedAt`
+  - signed-in workspace loads now reconcile the current user's WorkOS memberships before using local org access for routing or switcher state
+  - removed or revoked memberships are now marked `removed` locally and stop appearing in the workspace list
+  - inactive WorkOS memberships are now retained locally for projection state but no longer grant workspace access
+  - settings now include the same workspace switcher as the main app shell so multi-workspace users can switch without leaving settings
+  - `/api/workos/webhook` now accepts optional WorkOS webhook pushes to accelerate membership and organization-name projection updates when `WORKOS_WEBHOOK_SECRET` is configured
   - successful Slack directory syncs now prune users and channels missing from the latest Slack snapshot so reconnects do not leave stale directory entries behind
   - `All channels Otto is added to` now renders to OpenClaw as `groupPolicy: "open"` with a wildcard channel mention policy instead of incorrectly behaving like a manual allowlist
   - control-plane APIs now expose list/read/update endpoints for runtime config surfaces under `/api/runtime-config/...`

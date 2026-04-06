@@ -1,12 +1,16 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import {
   type DashboardOrganization,
   getDashboardOrganizations,
   hasPlatformAdminRole,
 } from "@/db/control-plane";
-import { getPendingAccessPath, isOrganizationReady } from "@/lib/workspace";
+import {
+  getOrganizationHomePath,
+  getPendingAccessPath,
+  isOrganizationReady,
+} from "@/lib/workspace";
 
 type OrganizationRouteContext = {
   currentOrganization: DashboardOrganization;
@@ -35,7 +39,7 @@ export async function loadOrganizationRouteContext(
   );
 
   if (!currentOrganization) {
-    notFound();
+    redirect(getOrganizationHomePath(organizations[0]));
   }
 
   if (!isOrganizationReady(currentOrganization)) {

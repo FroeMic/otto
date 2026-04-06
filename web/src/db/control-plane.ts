@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type {
   Invitation,
+  Organization,
   OrganizationMembership,
   Role,
   User,
@@ -132,7 +133,13 @@ const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
 const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
+const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
+const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
 const runtimeManager = new RuntimeManager();
+
+function normalizeWorkspaceMembershipStatus(status: string) {
+  return status.trim().toLowerCase();
+}
 
 function isSlackSurface(surfaceKind: string, surfaceKey: string) {
   return (
@@ -664,9 +671,34 @@ export type WorkspaceMemberDirectory = {
 export async function syncUserFromSession(user: User) {
   const syncedUser = await upsertLocalUser(user);
 
-  await backfillOrganizationsFromWorkOS(user.id, syncedUser.id);
+  await reconcileWorkspaceMembershipsFromWorkOS({
+    localUserId: syncedUser.id,
+    userExternalId: user.id,
+  });
 
   return syncedUser;
+}
+
+export async function reconcileWorkspaceMembershipProjectionForUser(
+  userExternalId: string,
+) {
+  await reconcileWorkspaceMembershipsFromWorkOS({
+    userExternalId,
+  });
+}
+
+export async function syncOrganizationProjectionFromWorkOS(input: {
+  organization: Pick<Organization, "id" | "name">;
+}) {
+  const db = getDb();
+
+  await db
+    .update(organizations)
+    .set({
+      name: input.organization.name,
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.externalId, input.organization.id));
 }
 
 async function upsertLocalUser(user: Pick<User, "email" | "id">) {
@@ -725,13 +757,9 @@ export async function getDashboardOrganizations(
   userExternalId: string,
 ): Promise<DashboardOrganization[]> {
   const db = getDb();
+  await backfillOrganizationsFromWorkOS(userExternalId);
 
-  let organizationRows = await getDashboardOrganizationRows(userExternalId);
-
-  if (organizationRows.length === 0) {
-    await backfillOrganizationsFromWorkOS(userExternalId);
-    organizationRows = await getDashboardOrganizationRows(userExternalId);
-  }
+  const organizationRows = await getDashboardOrganizationRows(userExternalId);
 
   if (organizationRows.length === 0) {
     return [];
@@ -1542,7 +1570,12 @@ async function getDashboardOrganizationRows(userExternalId: string) {
     .from(memberships)
     .innerJoin(users, eq(memberships.userId, users.id))
     .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
-    .where(eq(users.externalId, userExternalId));
+    .where(
+      and(
+        eq(users.externalId, userExternalId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    );
 }
 
 type AuthorizedWorkspaceMembershipContext = {
@@ -1562,8 +1595,11 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
   userExternalId: string;
 }): Promise<AuthorizedWorkspaceMembershipContext> {
   const db = getDb();
+  await backfillOrganizationsFromWorkOS(input.userExternalId);
+
   const [authorizedMembership] = await db
     .select({
+      localMembershipExternalId: memberships.externalId,
       localMembershipId: memberships.id,
       localRole: memberships.role,
       organizationExternalId: organizations.externalId,
@@ -1581,6 +1617,7 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
       and(
         eq(organizations.slug, input.orgSlug),
         eq(users.externalId, input.userExternalId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
       ),
     )
     .limit(1);
@@ -1589,52 +1626,17 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
     throw new Error("You do not have access to this organization");
   }
 
-  const workos = getWorkOS();
-  const currentMemberships = await (
-    await workos.userManagement.listOrganizationMemberships({
-      organizationId: authorizedMembership.organizationExternalId,
-      userId: input.userExternalId,
-    })
-  ).autoPagination();
-  const activeMembership = currentMemberships.find(
-    (membership) => membership.status === "active",
-  );
-
-  if (!activeMembership) {
-    throw new Error("You do not have access to this organization");
-  }
-
-  if (authorizedMembership.localRole !== activeMembership.role.slug) {
-    await db
-      .update(memberships)
-      .set({
-        role: activeMembership.role.slug,
-      })
-      .where(eq(memberships.id, authorizedMembership.localMembershipId));
-  }
-
-  if (
-    activeMembership.organizationName &&
-    activeMembership.organizationName !== authorizedMembership.organizationName
-  ) {
-    await db
-      .update(organizations)
-      .set({
-        name: activeMembership.organizationName,
-        updatedAt: new Date(),
-      })
-      .where(eq(organizations.id, authorizedMembership.organizationId));
+  if (!authorizedMembership.localMembershipExternalId) {
+    throw new Error("Workspace membership is missing WorkOS sync state");
   }
 
   return {
-    currentMembershipId: activeMembership.id,
-    currentRoleSlug: activeMembership.role.slug,
+    currentMembershipId: authorizedMembership.localMembershipExternalId,
+    currentRoleSlug: authorizedMembership.localRole,
     organizationExternalId: authorizedMembership.organizationExternalId,
     organizationId: authorizedMembership.organizationId,
     organizationLocale: authorizedMembership.organizationLocale,
-    organizationName:
-      activeMembership.organizationName ??
-      authorizedMembership.organizationName,
+    organizationName: authorizedMembership.organizationName,
     organizationSlug: authorizedMembership.organizationSlug,
     organizationTimeFormatPreference:
       authorizedMembership.organizationTimeFormatPreference,
@@ -1819,37 +1821,44 @@ async function backfillOrganizationsFromWorkOS(
   userExternalId: string,
   localUserId?: string,
 ) {
+  await reconcileWorkspaceMembershipsFromWorkOS({
+    localUserId,
+    userExternalId,
+  });
+}
+
+async function reconcileWorkspaceMembershipsFromWorkOS(input: {
+  localUserId?: string;
+  userExternalId: string;
+}) {
   const db = getDb();
   const workos = getWorkOS();
-  const workosUser = await workos.userManagement.getUser(userExternalId);
+  const now = new Date();
   const localUser =
-    localUserId !== undefined
-      ? { id: localUserId }
-      : await upsertLocalUser(workosUser);
+    input.localUserId !== undefined
+      ? { id: input.localUserId }
+      : await upsertLocalUser(
+          await workos.userManagement.getUser(input.userExternalId),
+        );
   const workosMemberships = await (
     await workos.userManagement.listOrganizationMemberships({
-      userId: userExternalId,
+      userId: input.userExternalId,
     })
   ).autoPagination();
-  const activeMemberships = workosMemberships.filter(
-    (membership) => membership.status === "active",
+  const externalOrganizationIds = Array.from(
+    new Set(workosMemberships.map((membership) => membership.organizationId)),
   );
-
-  if (activeMemberships.length === 0) {
-    return;
-  }
-
-  const externalOrganizationIds = activeMemberships.map(
-    (membership) => membership.organizationId,
-  );
-  const existingOrganizations = await db
-    .select({
-      externalId: organizations.externalId,
-      id: organizations.id,
-      name: organizations.name,
-    })
-    .from(organizations)
-    .where(inArray(organizations.externalId, externalOrganizationIds));
+  const existingOrganizations =
+    externalOrganizationIds.length === 0
+      ? []
+      : await db
+          .select({
+            externalId: organizations.externalId,
+            id: organizations.id,
+            name: organizations.name,
+          })
+          .from(organizations)
+          .where(inArray(organizations.externalId, externalOrganizationIds));
   const organizationsByExternalId = new Map(
     existingOrganizations.map((organization) => [
       organization.externalId,
@@ -1858,9 +1867,11 @@ async function backfillOrganizationsFromWorkOS(
   );
   const existingMembershipRows = await db
     .select({
+      externalId: memberships.externalId,
       id: memberships.id,
       organizationId: memberships.organizationId,
       role: memberships.role,
+      status: memberships.status,
     })
     .from(memberships)
     .where(eq(memberships.userId, localUser.id));
@@ -1871,7 +1882,9 @@ async function backfillOrganizationsFromWorkOS(
     ]),
   );
 
-  for (const membership of activeMemberships) {
+  const seenOrganizationIds = new Set<string>();
+
+  for (const membership of workosMemberships) {
     let localOrganization = organizationsByExternalId.get(
       membership.organizationId,
     );
@@ -1913,13 +1926,32 @@ async function backfillOrganizationsFromWorkOS(
     const existingMembership = existingMembershipsByOrgId.get(
       localOrganization.id,
     );
+    const nextStatus = normalizeWorkspaceMembershipStatus(membership.status);
 
     if (existingMembership) {
-      if (existingMembership.role !== membership.role.slug) {
+      seenOrganizationIds.add(localOrganization.id);
+
+      if (
+        existingMembership.externalId !== membership.id ||
+        existingMembership.role !== membership.role.slug ||
+        existingMembership.status !== nextStatus
+      ) {
         await db
           .update(memberships)
           .set({
+            externalId: membership.id,
+            lastSyncedAt: now,
             role: membership.role.slug,
+            removedAt: null,
+            status: nextStatus,
+            updatedAt: now,
+          })
+          .where(eq(memberships.id, existingMembership.id));
+      } else {
+        await db
+          .update(memberships)
+          .set({
+            lastSyncedAt: now,
           })
           .where(eq(memberships.id, existingMembership.id));
       }
@@ -1928,15 +1960,39 @@ async function backfillOrganizationsFromWorkOS(
     }
 
     await db.insert(memberships).values({
+      externalId: membership.id,
+      lastSyncedAt: now,
       organizationId: localOrganization.id,
+      removedAt: null,
       role: membership.role.slug,
+      status: nextStatus,
+      updatedAt: now,
       userId: localUser.id,
     });
     existingMembershipsByOrgId.set(localOrganization.id, {
+      externalId: membership.id,
       id: `pending-${localOrganization.id}`,
       organizationId: localOrganization.id,
       role: membership.role.slug,
+      status: nextStatus,
     });
+    seenOrganizationIds.add(localOrganization.id);
+  }
+
+  const removedMembershipIds = existingMembershipRows
+    .filter((membership) => !seenOrganizationIds.has(membership.organizationId))
+    .map((membership) => membership.id);
+
+  if (removedMembershipIds.length > 0) {
+    await db
+      .update(memberships)
+      .set({
+        lastSyncedAt: now,
+        removedAt: now,
+        status: REMOVED_WORKSPACE_MEMBERSHIP_STATUS,
+        updatedAt: now,
+      })
+      .where(inArray(memberships.id, removedMembershipIds));
   }
 }
 
@@ -2372,10 +2428,11 @@ export async function createWorkspaceOnboardingDraft(input: {
     name: input.workspaceName,
   });
 
-  await workos.userManagement.createOrganizationMembership({
-    organizationId: organization.id,
-    userId: input.user.id,
-  });
+  const ownerMembership =
+    await workos.userManagement.createOrganizationMembership({
+      organizationId: organization.id,
+      userId: input.user.id,
+    });
 
   await db.transaction(async (tx) => {
     const [createdOrganization] = await tx
@@ -2392,9 +2449,14 @@ export async function createWorkspaceOnboardingDraft(input: {
       });
 
     await tx.insert(memberships).values({
+      externalId: ownerMembership.id,
+      lastSyncedAt: new Date(),
       organizationId: createdOrganization.id,
+      removedAt: null,
+      role: ownerMembership.role.slug,
+      status: normalizeWorkspaceMembershipStatus(ownerMembership.status),
+      updatedAt: new Date(),
       userId: syncedUser.id,
-      role: "admin",
     });
 
     await tx.insert(tenantOnboardingSessions).values({
@@ -2429,6 +2491,7 @@ export async function createOnboardingDraftForOrganization(input: {
     .where(
       and(
         eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
         eq(users.externalId, input.userExternalId),
       ),
     );
@@ -8137,6 +8200,7 @@ async function getAuthorizedLatestTenantForOrganization(input: {
     .where(
       and(
         eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
         eq(users.externalId, input.userExternalId),
       ),
     )
@@ -8492,6 +8556,7 @@ export async function createTenantForOrganization(input: {
     .where(
       and(
         eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
         eq(users.externalId, input.userExternalId),
       ),
     );
@@ -8908,7 +8973,12 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
     })
     .from(memberships)
     .innerJoin(users, eq(memberships.userId, users.id))
-    .where(eq(memberships.organizationId, input.organizationId));
+    .where(
+      and(
+        eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    );
 
   if (orgMembers.length === 0) {
     return { resolved: 0, skipped: 0 };

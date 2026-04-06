@@ -1,5 +1,5 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { getDashboardOrganizations } from "@/db/control-plane";
 import { getOrganizationHomePath } from "@/lib/workspace";
@@ -17,7 +17,7 @@ export default async function OrganizationIndexPage({
   const organization = organizations.find((item) => item.slug === orgSlug);
 
   if (!organization) {
-    notFound();
+    redirect("/");
   }
 
   redirect(getOrganizationHomePath(organization));

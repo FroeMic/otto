@@ -18,6 +18,10 @@ type SettingsShellProps = {
     name: string;
     slug: string;
   };
+  organizations: Array<{
+    name: string;
+    slug: string;
+  }>;
   user: {
     email: string;
     id: string;
@@ -78,6 +82,7 @@ function useSettingsBreadcrumbs(
 export function SettingsShell({
   children,
   currentOrganization,
+  organizations,
   user,
 }: SettingsShellProps) {
   const breadcrumbs = useSettingsBreadcrumbs(
@@ -87,7 +92,11 @@ export function SettingsShell({
 
   return (
     <SidebarProvider>
-      <SettingsSidebar currentOrganization={currentOrganization} user={user} />
+      <SettingsSidebar
+        currentOrganization={currentOrganization}
+        organizations={organizations}
+        user={user}
+      />
       <SidebarInset>
         <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
           <SidebarTrigger />

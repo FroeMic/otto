@@ -72,6 +72,7 @@ export const memberships = pgTable(
   "memberships",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    externalId: varchar("external_id", { length: 255 }),
     organizationId: uuid("organization_id")
       .references(() => organizations.id, { onDelete: "cascade" })
       .notNull(),
@@ -79,15 +80,29 @@ export const memberships = pgTable(
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     role: varchar("role", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).default("active").notNull(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => ({
+    externalIdUniqueIdx: uniqueIndex("memberships_external_id_idx").on(
+      table.externalId,
+    ),
     organizationIdx: index("memberships_organization_id_idx").on(
       table.organizationId,
     ),
     userIdx: index("memberships_user_id_idx").on(table.userId),
+    userOrganizationUniqueIdx: uniqueIndex(
+      "memberships_user_id_organization_id_idx",
+    ).on(table.userId, table.organizationId),
   }),
 );
 
