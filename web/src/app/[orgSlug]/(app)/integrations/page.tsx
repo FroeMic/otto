@@ -33,6 +33,7 @@ export const dynamic = "force-dynamic";
  */
 const knownIntegrations: SurfaceEntry[] = [
   ...listWorkspaceManagedIntegrationDefinitions().map((definition) => ({
+    categoryLabel: definition.categoryLabel,
     description: definition.catalogDescription,
     enabled: false,
     id: `known:managed:${definition.key}`,
@@ -45,6 +46,7 @@ const knownIntegrations: SurfaceEntry[] = [
     uiGroup: "integrations" as const,
   })),
   {
+    categoryLabel: "Messaging",
     description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
     enabled: false,
     id: "known:channel:slack",
@@ -57,6 +59,7 @@ const knownIntegrations: SurfaceEntry[] = [
     uiGroup: "integrations",
   },
   {
+    categoryLabel: "Messaging",
     description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
     enabled: false,
     id: "known:channel:whatsapp",
@@ -95,6 +98,10 @@ export default async function IntegrationsPage({
     liveSurfacesByKey.set(surface.key, {
       availability: surface.availability,
       capabilitySummary: computeCapabilitySummary(surface.agentCapabilities),
+      categoryLabel:
+        surface.key === "slack" || surface.key === "whatsapp"
+          ? "Messaging"
+          : "Product Management",
       description: surface.description,
       enabled: surface.config.enabled,
       id: surface.id,
