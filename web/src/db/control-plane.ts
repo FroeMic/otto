@@ -17,6 +17,7 @@ import {
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
+  integrationLinearInstallations,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
@@ -134,6 +135,7 @@ import {
 } from "@/tools/whatsapp/policy";
 
 const SLACK_PROVIDER_KEY = "slack";
+const LINEAR_PROVIDER_KEY = "linear";
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
@@ -643,6 +645,18 @@ export type TenantManagedIntegrationSummary = {
   lastErrorAt: Date | null;
   providerKey: string;
   status: string;
+};
+
+export type TenantManagedIntegrationConnectContext = {
+  existingConnectionId: string | null;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantStatus: string;
+  userEmail: string;
+  userId: string;
 };
 
 export type WorkspaceMemberDirectoryEntry = {
@@ -4415,6 +4429,177 @@ export async function getTenantManagedIntegrationSummary(input: {
   return integration ?? null;
 }
 
+export async function getTenantManagedIntegrationConnectContext(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationConnectContext | null> {
+  const db = getDb();
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const [row] = await db
+    .select({
+      existingConnectionId: integrationLinearInstallations.nangoConnectionId,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantStatus: tenants.status,
+      userEmail: users.email,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .leftJoin(
+      tenantIntegrations,
+      and(
+        eq(tenantIntegrations.tenantId, tenants.id),
+        eq(tenantIntegrations.providerKey, normalizedProviderKey),
+      ),
+    )
+    .leftJoin(
+      integrationLinearInstallations,
+      eq(
+        integrationLinearInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  if (normalizedProviderKey !== LINEAR_PROVIDER_KEY) {
+    throw new Error(
+      `Managed integration ${input.providerKey} does not support connect sessions yet.`,
+    );
+  }
+
+  return row;
+}
+
+export async function completeLinearNangoConnection(input: {
+  connectionId: string;
+  connectedByUserExternalId: string | null;
+  nangoIntegrationId: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+    const [connectedByUser] = input.connectedByUserExternalId
+      ? await tx
+          .select({
+            id: users.id,
+          })
+          .from(users)
+          .where(eq(users.externalId, input.connectedByUserExternalId))
+          .limit(1)
+      : [];
+
+    await upsertLinearIntegrationForTenant(tx, {
+      connectedByUserId: connectedByUser?.id ?? null,
+      connectionId: input.connectionId,
+      nangoIntegrationId: input.nangoIntegrationId,
+      now,
+      tenantId,
+    });
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+  });
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
+export async function recordLinearNangoRefreshFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear refresh failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
 export async function executeRuntimeIntegrationForTenant(input: {
   integrationKey: string;
   params: Record<string, unknown>;
@@ -7235,6 +7420,96 @@ async function upsertSlackIntegrationForTenant(
   return tenantIntegrationId;
 }
 
+async function upsertLinearIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    connectedByUserId: string | null;
+    connectionId: string;
+    nangoIntegrationId: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: LINEAR_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  const [existingInstallation] = await tx
+    .select({
+      id: integrationLinearInstallations.id,
+    })
+    .from(integrationLinearInstallations)
+    .where(
+      eq(
+        integrationLinearInstallations.tenantIntegrationId,
+        tenantIntegrationId,
+      ),
+    )
+    .limit(1);
+
+  if (existingInstallation) {
+    await tx
+      .update(integrationLinearInstallations)
+      .set({
+        connectedAt: input.now,
+        connectedByUserId: input.connectedByUserId,
+        nangoConnectionId: input.connectionId,
+        nangoIntegrationId: input.nangoIntegrationId,
+        updatedAt: input.now,
+      })
+      .where(eq(integrationLinearInstallations.id, existingInstallation.id));
+  } else {
+    await tx.insert(integrationLinearInstallations).values({
+      connectedAt: input.now,
+      connectedByUserId: input.connectedByUserId,
+      nangoConnectionId: input.connectionId,
+      nangoIntegrationId: input.nangoIntegrationId,
+      tenantIntegrationId,
+    });
+  }
+
+  return tenantIntegrationId;
+}
+
 async function upsertWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
@@ -7317,6 +7592,53 @@ async function recordSlackIntegrationError(
       lastError: input.error,
       lastErrorAt: input.now,
       providerKey: SLACK_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function recordLinearIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: LINEAR_PROVIDER_KEY,
       status: "error",
       tenantId: input.tenantId,
     });

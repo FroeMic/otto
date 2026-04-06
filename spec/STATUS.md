@@ -337,10 +337,14 @@
   - operator apply paths now ensure the current desired-state snapshot exists before enqueueing runtime apply, so newly enabled managed integrations can land in tenant `openclaw.json` without a separate manual recompilation step
   - `bun run tenant:runtime:recompile-desired-state -- --orgslug <org-slug>` is now available as an explicit operator helper when desired-state freshness needs to be checked without applying
   - the plugin metadata now declares the current `demo_linear` tool contract explicitly, fixing a runtime bug where `otto-integrations` could load but expose zero tools on OpenClaw `2026.4.5`
-- The next `TODO_17_managed_integrations_architecture.md` increment is now in progress on `codex/todo-17-linear-shell`:
-  - a shared managed integration catalog is being introduced so the workspace UI and runtime manifest code can read provider metadata from the same registry
-  - the workspace integrations index is being extended with a first Linear card
-  - a dedicated Linear integration page is being added with disconnected, disabled, connected, and attention-needed states plus a placeholder connect action ahead of OAuth
+- The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
+  - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
+  - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
+  - hosted Nango now backs the first real Linear connect and reconnect flow from the workspace page
+  - Nango auth webhooks now persist canonical Linear connection state in `tenant_integrations` plus the new `integration_linear_installations` table
+  - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
+  - the runtime integration manifest now includes `linear` only after connection succeeds
+  - runtime `linear` execution is still a placeholder stub until the first live `search_issues` capability lands
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
