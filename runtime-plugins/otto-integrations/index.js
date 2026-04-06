@@ -19,7 +19,7 @@ export default definePluginEntry({
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     console.info(
-      "[otto-integrations] register staticTools=list_integrations,get_integration,get_integration_status,execute_integration_function",
+      "[otto-integrations] register staticTools=list_integrations,list_integrations_catalog,get_integration,get_integration_status,manage_integration_connection,execute_integration_function",
     );
 
     api.registerTool(
@@ -34,6 +34,23 @@ export default definePluginEntry({
         },
         async execute() {
           return buildToolResult(await listIntegrations(api));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "list_integrations_catalog",
+        description:
+          "List the full Otto-managed integration catalog, including integrations that are supported but not installed in this runtime yet.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        async execute() {
+          return buildToolResult(await listIntegrationsCatalog(api));
         },
       },
       { optional: true },
@@ -84,6 +101,33 @@ export default definePluginEntry({
           return buildToolResult(
             await getIntegrationStatus(api, params.integrationKey),
           );
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "manage_integration_connection",
+        description:
+          "Get the right workspace URL and recommended next action to connect, reconnect, or review an Otto-managed integration.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            action: {
+              type: "string",
+              enum: ["connect", "open_workspace", "reconnect"],
+            },
+            integrationKey: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["integrationKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await manageIntegrationConnection(api, params));
         },
       },
       { optional: true },
@@ -153,6 +197,26 @@ async function listIntegrations(api) {
   return response.data;
 }
 
+async function listIntegrationsCatalog(api) {
+  const response = await requestControlPlane(api, {
+    method: "GET",
+    path: "/api/internal/runtime/integrations/catalog",
+  });
+
+  if (!response.ok) {
+    console.warn(
+      `[otto-integrations] catalog failed code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
+    return response;
+  }
+
+  console.info(
+    `[otto-integrations] catalog succeeded count=${Array.isArray(response.data?.integrations) ? response.data.integrations.length : 0}`,
+  );
+
+  return response.data;
+}
+
 async function getIntegration(api, integrationKey) {
   const response = await requestControlPlane(api, {
     method: "GET",
@@ -185,6 +249,29 @@ async function getIntegrationStatus(api, integrationKey) {
     label: detail.integration.label,
     status: detail.integration.status,
   };
+}
+
+async function manageIntegrationConnection(api, params) {
+  const integrationKey = normalizeString(params.integrationKey);
+  const action = normalizeString(params.action);
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: `${buildIntegrationDetailPath(integrationKey)}/connection`,
+    body: action ? { action } : {},
+  });
+
+  if (!response.ok) {
+    console.warn(
+      `[otto-integrations] manage-connection failed integration=${integrationKey} action=${action || "auto"} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
+    return response;
+  }
+
+  console.info(
+    `[otto-integrations] manage-connection succeeded integration=${integrationKey} action=${response.data?.connectionAction?.selectedAction ?? action || "auto"}`,
+  );
+
+  return response.data;
 }
 
 async function executeIntegrationFunction(api, params) {

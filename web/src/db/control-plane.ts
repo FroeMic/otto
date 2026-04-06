@@ -4413,7 +4413,120 @@ export type RuntimeTenantIntegration = RuntimeIntegrationManifestEntry & {
   };
 };
 
+async function listRuntimeIntegrationStatusRowsForTenantTx(
+  tx: DbTransaction,
+  input: {
+    providerKeys: string[];
+    tenantId: string;
+  },
+) {
+  if (input.providerKeys.length === 0) {
+    return [];
+  }
+
+  return tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      connectionStatus: integrationOauthConnections.status,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      integrationStatus: tenantIntegrations.status,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      integrationOauthConnections,
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(tenantIntegrations.providerKey, input.providerKeys),
+      ),
+    );
+}
+
+function buildRuntimeTenantIntegrations(input: {
+  definitions: RuntimeIntegrationManifestEntry[];
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+  }>;
+}) {
+  const statusByProviderKey = new Map<
+    string,
+    {
+      connectedAt: Date | null;
+      connectionStatus: string | null;
+      disconnectedAt: Date | null;
+      integrationStatus: string | null;
+    }
+  >();
+
+  for (const row of input.rows) {
+    const existing = statusByProviderKey.get(row.providerKey);
+
+    if (!existing) {
+      statusByProviderKey.set(row.providerKey, row);
+      continue;
+    }
+
+    if (!existing.connectionStatus && row.connectionStatus) {
+      statusByProviderKey.set(row.providerKey, row);
+    }
+  }
+
+  return input.definitions.map((definition) => {
+    const row = statusByProviderKey.get(definition.key) ?? null;
+    const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
+    const integrationStatus = row?.integrationStatus ?? null;
+    const connectionStatus = row?.connectionStatus ?? null;
+
+    return {
+      ...definition,
+      status: {
+        connected,
+        connectionStatus,
+        enabled: connected,
+        integrationStatus,
+        needsAttention:
+          integrationStatus === "needs_attention" ||
+          connectionStatus === "needs_attention",
+      },
+    };
+  });
+}
+
 export async function listRuntimeIntegrationsForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const installedKeys = rows.map((row) => row.providerKey).sort();
+    const definitions = buildRuntimeIntegrationManifestForKeys(installedKeys);
+
+    if (definitions.length === 0) {
+      return [];
+    }
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function listRuntimeIntegrationCatalogForTenant(input: {
   tenantId: string;
 }): Promise<RuntimeTenantIntegration[]> {
   const db = getDb();
@@ -4421,75 +4534,14 @@ export async function listRuntimeIntegrationsForTenant(input: {
   return db.transaction(async (tx) => {
     const supportedKeys = listSupportedRuntimeIntegrationKeys();
     const definitions = buildRuntimeIntegrationManifestForKeys(supportedKeys);
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: supportedKeys,
+      tenantId: input.tenantId,
+    });
 
-    if (supportedKeys.length === 0) {
-      return [];
-    }
-
-    const rows = await tx
-      .select({
-        connectedAt: tenantIntegrations.connectedAt,
-        connectionStatus: integrationOauthConnections.status,
-        disconnectedAt: tenantIntegrations.disconnectedAt,
-        integrationStatus: tenantIntegrations.status,
-        providerKey: tenantIntegrations.providerKey,
-      })
-      .from(tenantIntegrations)
-      .leftJoin(
-        integrationOauthConnections,
-        eq(
-          integrationOauthConnections.tenantIntegrationId,
-          tenantIntegrations.id,
-        ),
-      )
-      .where(
-        and(
-          eq(tenantIntegrations.tenantId, input.tenantId),
-          inArray(tenantIntegrations.providerKey, supportedKeys),
-        ),
-      );
-
-    const statusByProviderKey = new Map<
-      string,
-      {
-        connectedAt: Date | null;
-        connectionStatus: string | null;
-        disconnectedAt: Date | null;
-        integrationStatus: string | null;
-      }
-    >();
-
-    for (const row of rows) {
-      const existing = statusByProviderKey.get(row.providerKey);
-
-      if (!existing) {
-        statusByProviderKey.set(row.providerKey, row);
-        continue;
-      }
-
-      if (!existing.connectionStatus && row.connectionStatus) {
-        statusByProviderKey.set(row.providerKey, row);
-      }
-    }
-
-    return definitions.map((definition) => {
-      const row = statusByProviderKey.get(definition.key) ?? null;
-      const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
-      const integrationStatus = row?.integrationStatus ?? null;
-      const connectionStatus = row?.connectionStatus ?? null;
-
-      return {
-        ...definition,
-        status: {
-          connected,
-          connectionStatus,
-          enabled: connected,
-          integrationStatus,
-          needsAttention:
-            integrationStatus === "needs_attention" ||
-            connectionStatus === "needs_attention",
-        },
-      };
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
     });
   });
 }
@@ -4499,7 +4551,7 @@ export async function getRuntimeIntegrationForTenant(input: {
   tenantId: string;
 }): Promise<RuntimeTenantIntegration | null> {
   const integrationKey = input.integrationKey.trim().toLowerCase();
-  const integrations = await listRuntimeIntegrationsForTenant({
+  const integrations = await listRuntimeIntegrationCatalogForTenant({
     tenantId: input.tenantId,
   });
 
@@ -4507,6 +4559,117 @@ export async function getRuntimeIntegrationForTenant(input: {
     integrations.find((integration) => integration.key === integrationKey) ??
     null
   );
+}
+
+export type RuntimeIntegrationConnectionAction = {
+  availableActions: string[];
+  connectUrl: string | null;
+  integrationKey: string;
+  label: string;
+  message: string;
+  recommendedAction: string;
+  requiresUserAction: boolean;
+  selectedAction: string;
+  status: RuntimeTenantIntegration["status"];
+  workspaceUrl: string | null;
+};
+
+export async function getRuntimeIntegrationConnectionActionForTenant(input: {
+  action?: string | null;
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationConnectionAction | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  const db = getDb();
+  const [tenantContext] = await db
+    .select({
+      organizationSlug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  if (!tenantContext) {
+    throw new Error(`Tenant ${input.tenantId} is not available.`);
+  }
+
+  const baseUrl = getControlPlaneBaseUrl();
+  const workspaceUrl = baseUrl
+    ? `${baseUrl}/${encodeURIComponent(tenantContext.organizationSlug)}/integrations/${encodeURIComponent(integration.key)}`
+    : null;
+
+  let connectUrl: string | null = null;
+  let recommendedAction = "none";
+  let message = `${integration.label} is available.`;
+
+  switch (integration.key) {
+    case "linear": {
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Linear needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Linear is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it.";
+      }
+      break;
+    }
+    case "demo-linear": {
+      recommendedAction = "none";
+      message =
+        "Demo Linear is built in for testing and does not require a workspace connection.";
+      break;
+    }
+    default: {
+      recommendedAction = "open_workspace";
+      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
+      break;
+    }
+  }
+
+  const requestedAction = (input.action ?? "").trim().toLowerCase();
+  const availableActions = [
+    workspaceUrl ? "open_workspace" : null,
+    connectUrl ? "connect" : null,
+    connectUrl ? "reconnect" : null,
+  ].filter((action): action is string => Boolean(action));
+  const selectedAction =
+    requestedAction && availableActions.includes(requestedAction)
+      ? requestedAction
+      : recommendedAction;
+
+  return {
+    availableActions,
+    connectUrl,
+    integrationKey: integration.key,
+    label: integration.label,
+    message,
+    recommendedAction,
+    requiresUserAction:
+      selectedAction === "connect" || selectedAction === "reconnect",
+    selectedAction,
+    status: integration.status,
+    workspaceUrl,
+  };
 }
 
 export async function getTenantManagedIntegrationSummary(input: {
