@@ -72,7 +72,7 @@
     - Stripe customer and current subscription state are mirrored into Otto billing tables
     - `invoice.paid` now creates idempotent recurring monthly credit grants in Otto's ledger
     - a workspace-visible settings billing page now shows plan, status, renewal, invoice history, and auto-top-off settings
-    - included-credit expiry is not enforced yet; `credit_grants.expires_at` is stored but there is no expiry job yet
+    - workspace credits currently roll over; `credit_grants.expires_at` is still stored but no expiry job or enforced expiry policy exists yet
   - the first auto-top-off execution slice now exists on top of Stripe billing:
     - workspace billing preferences persist auto-top-off enabled state, minimum balance, selected fixed pack, and a billing cycle spend cap
     - the worker now enqueues and executes idempotent auto-top-off Stripe charges when balance falls below the configured threshold
