@@ -42,10 +42,6 @@ export async function loadOrganizationRouteContext(
     redirect(getOrganizationHomePath(organizations[0]));
   }
 
-  if (!isOrganizationReady(currentOrganization)) {
-    redirect(getPendingAccessPath(currentOrganization.slug));
-  }
-
   return {
     currentOrganization,
     organizations,
@@ -57,4 +53,16 @@ export async function loadOrganizationRouteContext(
         [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
     },
   };
+}
+
+export async function loadReadyOrganizationRouteContext(
+  orgSlug: string,
+): Promise<OrganizationRouteContext> {
+  const context = await loadOrganizationRouteContext(orgSlug);
+
+  if (!isOrganizationReady(context.currentOrganization)) {
+    redirect(getPendingAccessPath(context.currentOrganization.slug));
+  }
+
+  return context;
 }

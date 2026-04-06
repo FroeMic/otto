@@ -1,4 +1,4 @@
-import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { loadReadyOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { OrganizationShell } from "@/components/organization-shell";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function WorkspaceShellLayout({
 }) {
   const { orgSlug } = await params;
   const { currentOrganization, organizations, user } =
-    await loadOrganizationRouteContext(orgSlug);
+    await loadReadyOrganizationRouteContext(orgSlug);
 
   return (
     <OrganizationShell

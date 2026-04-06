@@ -1,4 +1,4 @@
-import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
+import { loadReadyOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { SettingsShell } from "@/app/[orgSlug]/settings/_components/settings-shell";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function SettingsLayout({
 }) {
   const { orgSlug } = await params;
   const { currentOrganization, organizations, user } =
-    await loadOrganizationRouteContext(orgSlug);
+    await loadReadyOrganizationRouteContext(orgSlug);
 
   return (
     <SettingsShell
