@@ -6,7 +6,6 @@ import {
   DotsThree,
   UsersThree,
 } from "@phosphor-icons/react/ssr";
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { SyncNotification } from "@/components/sync-notification";
@@ -28,7 +27,6 @@ export function SlackActionsMenu({
   reconnectUrl: string | null;
   canReconnect: boolean;
 }) {
-  const router = useRouter();
   const [syncJobId, setSyncJobId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
 
@@ -91,7 +89,9 @@ export function SlackActionsMenu({
         <DropdownMenuContent align="end">
           {canReconnect && reconnectUrl ? (
             <>
-              <DropdownMenuItem onClick={() => router.push(reconnectUrl)}>
+              <DropdownMenuItem
+                onClick={() => window.location.assign(reconnectUrl)}
+              >
                 <ArrowsClockwise className="size-4" />
                 Reconnect Slack
               </DropdownMenuItem>
