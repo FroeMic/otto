@@ -7,6 +7,7 @@ import type {
 } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
+import { listWorkspaceManagedIntegrationDefinitions } from "@/lib/managed-integrations/catalog";
 import { SLACK_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/slack-config";
 import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
 import { isOrganizationUnlocked } from "@/lib/workspace";
@@ -31,6 +32,18 @@ export const dynamic = "force-dynamic";
  * even when the tenant has not connected them yet.
  */
 const knownIntegrations: SurfaceEntry[] = [
+  ...listWorkspaceManagedIntegrationDefinitions().map((definition) => ({
+    description: definition.catalogDescription,
+    enabled: false,
+    id: `known:managed:${definition.key}`,
+    installState: "uninstalled" as const,
+    key: definition.key,
+    kind: "managed",
+    label: definition.label,
+    settingsUrl: null,
+    surfaceType: "integration" as const,
+    uiGroup: "integrations" as const,
+  })),
   {
     description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
     enabled: false,

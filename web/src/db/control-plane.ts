@@ -636,6 +636,15 @@ export type PlatformTenantTarget = {
   tenantStatus: string;
 };
 
+export type TenantManagedIntegrationSummary = {
+  connectedAt: Date | null;
+  disconnectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  providerKey: string;
+  status: string;
+};
+
 export type WorkspaceMemberDirectoryEntry = {
   avatarUrl: string | null;
   canManageRole: boolean;
@@ -4336,6 +4345,45 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
 
     return buildRuntimeIntegrationManifestForKeys(providerKeys);
   });
+}
+
+export async function getTenantManagedIntegrationSummary(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationSummary | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      providerKey: tenantIntegrations.providerKey,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(
+          tenantIntegrations.providerKey,
+          input.providerKey.trim().toLowerCase(),
+        ),
+      ),
+    )
+    .limit(1);
+
+  return integration ?? null;
 }
 
 export async function executeRuntimeIntegrationForTenant(input: {
