@@ -19,7 +19,7 @@ Replace env-driven tenant runtime image selection with a control-plane-managed r
 - `TODO_04_runtime_packaging.md`
 - `TODO_05_config_apply_and_reconciliation.md`
 - `TODO_09_ui_app_shell_and_onboarding_rebuild.md`
-- `TODO_12_runtime_dashboard_access.md`
+- `DONE_12_runtime_dashboard_access.md`
 
 ## Implementation notes
 

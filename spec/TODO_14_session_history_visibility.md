@@ -25,7 +25,7 @@ Out of scope for this slice:
 - `TODO_05_config_apply_and_reconciliation.md`
 - `TODO_07_operations_and_observability.md`
 - `TODO_09_ui_app_shell_and_onboarding_rebuild.md`
-- `TODO_12_runtime_dashboard_access.md`
+- `DONE_12_runtime_dashboard_access.md`
 
 ## Decision summary
 
