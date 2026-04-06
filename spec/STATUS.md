@@ -164,6 +164,7 @@
   - `/platform` now has its own protected shell and `/platform/organizations` page
   - `/platform/organizations` uses a reusable TanStack-based data table component with search, sorting, and row actions
   - platform admins can queue `apply_tenant_config`, trigger runtime image pull/restart, and run a one-click `Pull new image and apply config` action directly from the organizations table
+  - entering platform administration from a workspace now carries that workspace slug so `Back to Otto` returns to the originating workspace instead of defaulting to the first available workspace
 - The platform organizations area now also has a dedicated per-organization detail page on `codex/platform-organization-detail`:
   - `/platform/organizations/[orgSlug]` shows workspace/runtime summary cards, operator actions, gateway access, recent apply history, latest apply diagnostics, recent jobs, and latest job events
   - the platform organizations table now links directly into that detail route from the organization name cell

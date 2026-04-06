@@ -15,6 +15,7 @@ import {
 } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getPlatformOrganizationsHref } from "@/app/platform/_lib/source-workspace";
 import { NavUser } from "@/components/nav-user";
 import {
   DropdownMenu,
@@ -215,7 +216,13 @@ export function AppSidebar({
               {user.isPlatformAdmin ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<Link href="/platform/organizations" />}
+                    render={
+                      <Link
+                        href={getPlatformOrganizationsHref(
+                          currentOrganization.slug,
+                        )}
+                      />
+                    }
                   >
                     <BuildingOffice />
                     <span>Platform Administration</span>

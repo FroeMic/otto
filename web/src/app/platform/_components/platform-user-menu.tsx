@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 
+import { usePlatformSourceWorkspaceSlug } from "@/app/platform/_lib/source-workspace";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -42,6 +43,7 @@ export function PlatformUserMenu({
   user,
 }: PlatformUserMenuProps) {
   const { isMobile } = useSidebar();
+  const sourceWorkspaceSlug = usePlatformSourceWorkspaceSlug(organizations);
   const fallback = user.name
     .split(" ")
     .filter(Boolean)
@@ -49,7 +51,6 @@ export function PlatformUserMenu({
     .map((value) => value[0])
     .join("")
     .toUpperCase();
-  const firstWorkspace = organizations[0] ?? null;
 
   return (
     <SidebarMenu>
@@ -88,12 +89,12 @@ export function PlatformUserMenu({
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            {firstWorkspace ? (
+            {sourceWorkspaceSlug ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem
-                    render={<Link href={`/${firstWorkspace.slug}`} />}
+                    render={<Link href={`/${sourceWorkspaceSlug}`} />}
                   >
                     <ArrowSquareLeft />
                     Open workspace
