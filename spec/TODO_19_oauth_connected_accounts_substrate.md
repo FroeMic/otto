@@ -238,6 +238,7 @@ The first shipping slice for this spec should:
 7. persist requested and granted scopes plus actor type for Linear
 8. enqueue desired-state recompilation and runtime apply after successful Linear connect or reconnect
 9. add the first worker-side refresh job for expiring OAuth connections
+10. add a shared managed-integration disconnect route that clears stored credentials, records a disconnect event, and removes the integration from runtime projection
 
 ## Implementation Notes
 
