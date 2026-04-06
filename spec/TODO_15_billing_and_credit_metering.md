@@ -124,21 +124,21 @@ Catalog rules:
 Policy decisions:
 
 - subscriptions renew monthly
-- included credits expire at the end of the current billing period
+- included monthly credits roll over for now
 - billing anchors to the first day of the calendar month in the workspace timezone when Stripe supports the desired anchor directly; otherwise anchor in UTC and keep Otto policy text calendar-month based
 - signup mid-month uses Stripe proration to the next month boundary rather than an Otto-side custom invoice flow
 - upgrades take effect immediately with Stripe-managed proration
 - downgrades take effect at the next renewal boundary to avoid clawing back already-granted included credits
-- no rollover for included monthly credits in v1
+- do not enforce grant expiry in the current implementation; keep `credit_grants.expires_at` as future-facing bookkeeping only
 
 Top-up policy:
 
 - support fixed manual top-up packs in v1
 - implement top-ups as one-time Stripe Checkout purchases, not subscription quantity changes
-- paid top-up credits should expire after `12 months` by default so the product does not feel punitive
+- paid top-up credits are still intended to expire after `12 months`, but that policy is not enforced in the current implementation
 - include metadata on each top-up price for `credits_granted`, `plan_family=top_up`, and `expiry_policy`
 - top-up packs do not change the renewal date or subscription tier
-- top-up credits are burned after included monthly credits are exhausted so included credits still expire cleanly at period end
+- top-up credits are burned after included monthly credits are exhausted
 
 Overage policy:
 
@@ -830,9 +830,9 @@ Exit check:
 Current implementation notes:
 
 - recurring Stripe invoice payments now create positive Otto credit grants:
-  - `invoice.paid` creates an idempotent `credit_grants` row keyed by the Stripe invoice id
-  - each successful new grant also creates a positive ledger entry in `credit_ledger_entries`
-  - included monthly credits currently expire logically via `credit_grants.expires_at`, but no expiry job has been implemented yet to burn those expired balances back out of the ledger
+- `invoice.paid` creates an idempotent `credit_grants` row keyed by the Stripe invoice id
+- each successful new grant also creates a positive ledger entry in `credit_ledger_entries`
+- `credit_grants.expires_at` is still stored for future policy work, but no expiry job is implemented and workspace credits currently roll over
 - top-up grants are still out of scope in the current code slice
 - the current page shows derived balance plus recent grants and ledger activity from Otto data only
 
