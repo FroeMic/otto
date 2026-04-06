@@ -12,10 +12,15 @@ export async function GET(request: Request) {
       tenantId,
     });
 
+    console.info(
+      `[runtime-integrations] manifest tenant=${tenantId} count=${integrations.length} keys=${integrations.map((integration) => integration.key).join(",") || "none"}`,
+    );
+
     return json({
       integrations,
     });
   } catch (error) {
+    console.error("[runtime-integrations] manifest failed", error);
     return handleRuntimeRouteError(error);
   }
 }
