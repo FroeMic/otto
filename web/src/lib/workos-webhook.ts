@@ -7,6 +7,13 @@ import {
   syncOrganizationProjectionFromWorkOS,
 } from "@/db/control-plane";
 import { getEnv } from "@/lib/env";
+import { getWorkOS } from "@/lib/workos";
+
+type WorkOSWebhookEvent = {
+  data: Record<string, unknown>;
+  event: string;
+  id?: string;
+};
 
 function getWebhookSignatureHeader(headers: Headers) {
   return (
@@ -63,6 +70,35 @@ function verifyWorkOSWebhookSignature(input: {
   }
 }
 
+async function verifyWorkOSWebhookWithSdk(input: {
+  rawPayload: string;
+  secret: string;
+  sigHeader: string;
+}) {
+  const workos = getWorkOS();
+  const payload = JSON.parse(input.rawPayload) as Record<string, unknown>;
+
+  return (await workos.webhooks.constructEvent({
+    payload,
+    secret: input.secret,
+    sigHeader: input.sigHeader,
+  })) as WorkOSWebhookEvent;
+}
+
+function parseVerifiedWorkOSWebhook(rawPayload: string) {
+  return JSON.parse(rawPayload) as WorkOSWebhookEvent;
+}
+
+function getVerificationErrorMessage(result: PromiseSettledResult<unknown>) {
+  if (result.status === "fulfilled") {
+    return null;
+  }
+
+  return result.reason instanceof Error
+    ? result.reason.message
+    : "Unknown verification error";
+}
+
 export async function handleWorkOSWebhookRequest(request: Request) {
   const secret = getEnv().WORKOS_WEBHOOK_SECRET;
 
@@ -85,16 +121,52 @@ export async function handleWorkOSWebhookRequest(request: Request) {
   const rawPayload = await request.text();
 
   try {
-    verifyWorkOSWebhookSignature({
-      rawPayload,
-      secret,
-      sigHeader,
+    const [sdkVerification, manualVerification] = await Promise.allSettled([
+      verifyWorkOSWebhookWithSdk({
+        rawPayload,
+        secret,
+        sigHeader,
+      }),
+      Promise.resolve().then(() => {
+        verifyWorkOSWebhookSignature({
+          rawPayload,
+          secret,
+          sigHeader,
+        });
+
+        return parseVerifiedWorkOSWebhook(rawPayload);
+      }),
+    ]);
+
+    console.info("[workos] webhook verification results", {
+      manual: {
+        error: getVerificationErrorMessage(manualVerification),
+        ok: manualVerification.status === "fulfilled",
+      },
+      payloadLength: rawPayload.length,
+      sdk: {
+        error: getVerificationErrorMessage(sdkVerification),
+        ok: sdkVerification.status === "fulfilled",
+      },
+      signatureHeaderPrefix: sigHeader.slice(0, 32),
     });
 
-    const event = JSON.parse(rawPayload) as {
-      data: Record<string, unknown>;
-      event: string;
-    };
+    if (
+      sdkVerification.status !== "fulfilled" &&
+      manualVerification.status !== "fulfilled"
+    ) {
+      throw new Error(
+        [
+          `SDK verification failed: ${getVerificationErrorMessage(sdkVerification)}`,
+          `Manual verification failed: ${getVerificationErrorMessage(manualVerification)}`,
+        ].join(" | "),
+      );
+    }
+
+    const event =
+      sdkVerification.status === "fulfilled"
+        ? sdkVerification.value
+        : manualVerification.value;
 
     switch (event.event) {
       case "organization_membership.created":
