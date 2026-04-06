@@ -113,6 +113,7 @@
   - normal config applies now restart the existing runtime container without pulling a new image first
   - apply file projection now batches atomic SFTP writes in one session and skips rewriting unchanged runtime files
   - gateway health verification now uses a fast-start backoff instead of a fixed 15-second polling interval
+  - the in-repo job queue now reclaims stale `running` jobs after a timeout so worker restarts do not strand apply or provisioning work forever
   - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
 - The first managed-bootstrap-files slice is now implemented:
   - `tenant_managed_config_versions` and `tenant_managed_file_versions` now store canonical managed bootstrap files in the control plane
