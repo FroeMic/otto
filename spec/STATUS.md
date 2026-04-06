@@ -314,6 +314,12 @@
   - `tenant_runtime_config_entries` now also stores `install_state`, and `tenant_runtime_config_mutations` now records user/agent/system lifecycle and config mutations
   - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
+- Managed integrations architecture planning is now captured in `TODO_17_managed_integrations_architecture.md`:
+  - managed outbound integrations should start with hosted Nango
+  - runtime execution should move through a dedicated `integration-gateway` container
+  - the runtime should expose one tool per integration via a new `otto-integrations` plugin
+  - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
+  - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
