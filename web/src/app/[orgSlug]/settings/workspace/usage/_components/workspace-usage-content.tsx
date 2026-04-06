@@ -437,7 +437,7 @@ export function WorkspaceUsageContent({
       </div>
 
       {/* Usage over time chart — single column */}
-      <SettingsCard>
+      <SettingsCard className="divide-y-0">
         <div className="px-5 pt-5 pb-1">
           <div className="text-sm font-medium">Usage over time</div>
         </div>
