@@ -983,6 +983,256 @@ export const creditLedgerEntries = pgTable(
   }),
 );
 
+export const billingCustomers = pgTable(
+  "billing_customers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 })
+      .notNull()
+      .unique(),
+    defaultCurrency: varchar("default_currency", { length: 16 })
+      .default("usd")
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationUniqueIdx: uniqueIndex(
+      "billing_customers_organization_id_idx",
+    ).on(table.organizationId),
+  }),
+);
+
+export const billingSubscriptions = pgTable(
+  "billing_subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).notNull(),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 })
+      .notNull()
+      .unique(),
+    stripePriceId: varchar("stripe_price_id", { length: 255 }),
+    planKey: varchar("plan_key", { length: 64 }),
+    status: varchar("status", { length: 64 }).notNull(),
+    currentPeriodStart: timestamp("current_period_start", {
+      withTimezone: true,
+    }),
+    currentPeriodEnd: timestamp("current_period_end", {
+      withTimezone: true,
+    }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+    trialEnd: timestamp("trial_end", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationUniqueIdx: uniqueIndex(
+      "billing_subscriptions_organization_id_idx",
+    ).on(table.organizationId),
+    organizationStatusIdx: index(
+      "billing_subscriptions_organization_id_status_idx",
+    ).on(table.organizationId, table.status),
+  }),
+);
+
+export const billingCheckoutSessions = pgTable(
+  "billing_checkout_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    stripeCheckoutSessionId: varchar("stripe_checkout_session_id", {
+      length: 255,
+    })
+      .notNull()
+      .unique(),
+    mode: varchar("mode", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    planKey: varchar("plan_key", { length: 64 }),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+    checkoutUrl: text("checkout_url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationCreatedAtIdx: index(
+      "billing_checkout_sessions_organization_id_created_at_idx",
+    ).on(table.organizationId, table.createdAt),
+  }),
+);
+
+export const billingWebhookEvents = pgTable(
+  "billing_webhook_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    stripeEventId: varchar("stripe_event_id", { length: 255 })
+      .notNull()
+      .unique(),
+    eventType: varchar("event_type", { length: 128 }).notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("billing_webhook_events_created_at_idx").on(
+      table.createdAt,
+    ),
+  }),
+);
+
+export const billingPreferences = pgTable(
+  "billing_preferences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    autoTopOffEnabled: boolean("auto_top_off_enabled").default(false).notNull(),
+    minimumBalanceCredits: integer("minimum_balance_credits")
+      .default(2_000)
+      .notNull(),
+    topOffAmountCents: integer("top_off_amount_cents").default(2_000).notNull(),
+    monthlySpendLimitCents: integer("monthly_spend_limit_cents")
+      .default(20_000)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationUniqueIdx: uniqueIndex(
+      "billing_preferences_organization_id_idx",
+    ).on(table.organizationId),
+  }),
+);
+
+export const billingAutoTopOffRuns = pgTable(
+  "billing_auto_top_off_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
+    status: varchar("status", { length: 64 }).notNull(),
+    triggerBalanceCreditsMilli: bigint("trigger_balance_credits_milli", {
+      mode: "number",
+    }).notNull(),
+    topOffAmountCents: integer("top_off_amount_cents").notNull(),
+    creditsGrantedMilli: bigint("credits_granted_milli", {
+      mode: "number",
+    }).notNull(),
+    monthlySpendLimitCents: integer("monthly_spend_limit_cents").notNull(),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).notNull(),
+    stripePriceId: varchar("stripe_price_id", { length: 255 }),
+    stripePriceLookupKey: varchar("stripe_price_lookup_key", { length: 64 }),
+    stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }),
+    stripeInvoiceItemId: varchar("stripe_invoice_item_id", { length: 255 }),
+    stripeIdempotencyKey: varchar("stripe_idempotency_key", {
+      length: 255,
+    })
+      .notNull()
+      .unique(),
+    failureReason: text("failure_reason"),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationCreatedAtIdx: index(
+      "billing_auto_top_off_runs_organization_id_created_at_idx",
+    ).on(table.organizationId, table.createdAt),
+    organizationStatusIdx: index(
+      "billing_auto_top_off_runs_organization_id_status_idx",
+    ).on(table.organizationId, table.status),
+    tenantCreatedAtIdx: index(
+      "billing_auto_top_off_runs_tenant_id_created_at_idx",
+    ).on(table.tenantId, table.createdAt),
+    stripeInvoiceUniqueIdx: uniqueIndex(
+      "billing_auto_top_off_runs_stripe_invoice_id_idx",
+    ).on(table.stripeInvoiceId),
+  }),
+);
+
+export const creditGrants = pgTable(
+  "credit_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
+    sourceType: varchar("source_type", { length: 64 }).notNull(),
+    sourceExternalId: varchar("source_external_id", { length: 255 }).notNull(),
+    planKey: varchar("plan_key", { length: 64 }),
+    creditsGrantedMilli: bigint("credits_granted_milli", {
+      mode: "number",
+    }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    ledgerEntryId: uuid("ledger_entry_id").references(
+      () => creditLedgerEntries.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    sourceUniqueIdx: uniqueIndex(
+      "credit_grants_source_type_external_id_idx",
+    ).on(table.sourceType, table.sourceExternalId),
+    organizationGrantedAtIdx: index(
+      "credit_grants_organization_id_granted_at_idx",
+    ).on(table.organizationId, table.grantedAt),
+    tenantGrantedAtIdx: index("credit_grants_tenant_id_granted_at_idx").on(
+      table.tenantId,
+      table.grantedAt,
+    ),
+    ledgerEntryUniqueIdx: uniqueIndex("credit_grants_ledger_entry_id_idx").on(
+      table.ledgerEntryId,
+    ),
+  }),
+);
+
 export const providerUsageSettlements = pgTable(
   "provider_usage_settlements",
   {

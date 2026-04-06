@@ -1,6 +1,6 @@
 {
-  "id": "a8f7cff9-6b9e-48bd-b4d2-a4efd384f2aa",
-  "prevId": "d471cc56-60dc-47e9-9501-adee48c00746",
+  "id": "e702d428-9789-4c29-b501-ee37eb5ff3d1",
+  "prevId": "a8f7cff9-6b9e-48bd-b4d2-a4efd384f2aa",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -217,6 +217,104 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.billing_preferences": {
+      "name": "billing_preferences",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "auto_top_off_enabled": {
+          "name": "auto_top_off_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "minimum_balance_credits": {
+          "name": "minimum_balance_credits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2000
+        },
+        "top_off_amount_cents": {
+          "name": "top_off_amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2000
+        },
+        "monthly_spend_limit_cents": {
+          "name": "monthly_spend_limit_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 20000
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "billing_preferences_organization_id_idx": {
+          "name": "billing_preferences_organization_id_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "billing_preferences_organization_id_organizations_id_fk": {
+          "name": "billing_preferences_organization_id_organizations_id_fk",
+          "tableFrom": "billing_preferences",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

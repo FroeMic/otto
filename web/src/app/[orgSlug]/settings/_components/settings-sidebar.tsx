@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   BuildingOffice,
   CaretUpDown,
+  ChartBar,
+  CreditCard,
   Gear,
   User,
 } from "@phosphor-icons/react/ssr";
@@ -69,6 +71,18 @@ const SETTINGS_NAV_ITEMS = {
       icon: <User />,
       match: "section",
       title: "Members",
+    },
+    {
+      href: (orgSlug: string) => `/${orgSlug}/settings/workspace/usage`,
+      icon: <ChartBar />,
+      match: "section",
+      title: "Usage",
+    },
+    {
+      href: (orgSlug: string) => `/${orgSlug}/settings/workspace/billing`,
+      icon: <CreditCard />,
+      match: "section",
+      title: "Billing",
     },
   ],
 } as const;

@@ -261,216 +261,139 @@ function dateFromValue(value: unknown) {
 }
 
 export async function getTenantProviderUsageOverview(input: {
-  hours?: number;
+  from: Date;
   tenantId: string;
+  to: Date;
 }) {
   const db = getDb();
-  const lookbackHours = input.hours ?? 24;
-  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
-  const bucketHourExpression = sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`;
+  const rangeMs = input.to.getTime() - input.from.getTime();
+  const useHourlyGranularity = rangeMs <= 48 * 60 * 60 * 1000;
+  const bucketTruncExpression = useHourlyGranularity
+    ? sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`
+    : sql<Date>`date_trunc('day', ${providerUsageBuckets.bucketStartAt})`;
   const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`;
   const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`;
   const creditsBurnedMilliExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.creditsBurnedMilli}, 0)), 0)`;
+  const providerCostMicrosExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.providerCostMicros}, 0)), 0)`;
 
-  const [
-    summaryRows,
-    hourlyRows,
-    usageTypeRows,
-    modelRows,
-    recentBucketRows,
-    syncStateRows,
-  ] = await Promise.all([
-    db
-      .select({
-        activeApiKeys: sql`count(distinct nullif(${providerUsageBuckets.externalApiKeyId}, ''))`,
-        activeModels: sql`count(distinct nullif(${providerUsageBuckets.model}, ''))`,
-        latestBucketEndAt: sql<Date | null>`max(${providerUsageBuckets.bucketEndAt})`,
-        totalCreditsBurnedMilli: creditsBurnedMilliExpression,
-        totalInputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
-        totalOutputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
-        totalRequests: requestCountExpression,
-      })
-      .from(providerUsageBuckets)
-      .leftJoin(
-        providerUsageSettlements,
-        eq(
-          providerUsageSettlements.providerUsageBucketId,
-          providerUsageBuckets.id,
+  const rangeFilter = and(
+    eq(providerUsageBuckets.tenantId, input.tenantId),
+    gte(providerUsageBuckets.bucketStartAt, input.from),
+    lte(providerUsageBuckets.bucketStartAt, input.to),
+  );
+
+  const settlementJoin = eq(
+    providerUsageSettlements.providerUsageBucketId,
+    providerUsageBuckets.id,
+  );
+
+  const [summaryRows, timeSeriesRows, usageTypeRows, modelRows] =
+    await Promise.all([
+      db
+        .select({
+          activeApiKeys: sql`count(distinct nullif(${providerUsageBuckets.externalApiKeyId}, ''))`,
+          activeModels: sql`count(distinct nullif(${providerUsageBuckets.model}, ''))`,
+          totalCreditsBurnedMilli: creditsBurnedMilliExpression,
+          totalProviderCostMicros: providerCostMicrosExpression,
+          totalInputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+          totalOutputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+          totalRequests: requestCountExpression,
+        })
+        .from(providerUsageBuckets)
+        .leftJoin(providerUsageSettlements, settlementJoin)
+        .where(rangeFilter),
+      db
+        .select({
+          bucketTime: bucketTruncExpression,
+          creditsBurnedMilli: creditsBurnedMilliExpression,
+          providerCostMicros: providerCostMicrosExpression,
+          inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+          outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+          inputCachedTokens: sql`coalesce(sum(${providerUsageBuckets.inputCachedTokens}), 0)`,
+          inputTextTokens: sql`coalesce(sum(${providerUsageBuckets.inputTextTokens}), 0)`,
+          outputTextTokens: sql`coalesce(sum(${providerUsageBuckets.outputTextTokens}), 0)`,
+          inputAudioTokens: sql`coalesce(sum(${providerUsageBuckets.inputAudioTokens}), 0)`,
+          outputAudioTokens: sql`coalesce(sum(${providerUsageBuckets.outputAudioTokens}), 0)`,
+          inputImageTokens: sql`coalesce(sum(${providerUsageBuckets.inputImageTokens}), 0)`,
+          requestCount: requestCountExpression,
+        })
+        .from(providerUsageBuckets)
+        .leftJoin(providerUsageSettlements, settlementJoin)
+        .where(rangeFilter)
+        .groupBy(bucketTruncExpression)
+        .orderBy(asc(bucketTruncExpression)),
+      db
+        .select({
+          creditsBurnedMilli: creditsBurnedMilliExpression,
+          providerCostMicros: providerCostMicrosExpression,
+          requestCount: requestCountExpression,
+          totalTokens: totalTokensExpression,
+          usageType: providerUsageBuckets.usageType,
+        })
+        .from(providerUsageBuckets)
+        .leftJoin(providerUsageSettlements, settlementJoin)
+        .where(rangeFilter)
+        .groupBy(providerUsageBuckets.usageType)
+        .orderBy(
+          desc(totalTokensExpression),
+          asc(providerUsageBuckets.usageType),
         ),
-      )
-      .where(
-        and(
-          eq(providerUsageBuckets.tenantId, input.tenantId),
-          gte(providerUsageBuckets.bucketStartAt, since),
-        ),
-      ),
-    db
-      .select({
-        bucketHour: bucketHourExpression,
-        creditsBurnedMilli: creditsBurnedMilliExpression,
-        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
-        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
-        requestCount: requestCountExpression,
-      })
-      .from(providerUsageBuckets)
-      .leftJoin(
-        providerUsageSettlements,
-        eq(
-          providerUsageSettlements.providerUsageBucketId,
-          providerUsageBuckets.id,
-        ),
-      )
-      .where(
-        and(
-          eq(providerUsageBuckets.tenantId, input.tenantId),
-          gte(providerUsageBuckets.bucketStartAt, since),
-        ),
-      )
-      .groupBy(bucketHourExpression)
-      .orderBy(asc(bucketHourExpression)),
-    db
-      .select({
-        creditsBurnedMilli: creditsBurnedMilliExpression,
-        requestCount: requestCountExpression,
-        totalTokens: totalTokensExpression,
-        usageType: providerUsageBuckets.usageType,
-      })
-      .from(providerUsageBuckets)
-      .leftJoin(
-        providerUsageSettlements,
-        eq(
-          providerUsageSettlements.providerUsageBucketId,
-          providerUsageBuckets.id,
-        ),
-      )
-      .where(
-        and(
-          eq(providerUsageBuckets.tenantId, input.tenantId),
-          gte(providerUsageBuckets.bucketStartAt, since),
-        ),
-      )
-      .groupBy(providerUsageBuckets.usageType)
-      .orderBy(
-        desc(totalTokensExpression),
-        asc(providerUsageBuckets.usageType),
-      ),
-    db
-      .select({
-        creditsBurnedMilli: creditsBurnedMilliExpression,
-        inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
-        model: providerUsageBuckets.model,
-        outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
-        requestCount: requestCountExpression,
-        totalTokens: totalTokensExpression,
-        usageType: providerUsageBuckets.usageType,
-      })
-      .from(providerUsageBuckets)
-      .leftJoin(
-        providerUsageSettlements,
-        eq(
-          providerUsageSettlements.providerUsageBucketId,
-          providerUsageBuckets.id,
-        ),
-      )
-      .where(
-        and(
-          eq(providerUsageBuckets.tenantId, input.tenantId),
-          gte(providerUsageBuckets.bucketStartAt, since),
-          ne(providerUsageBuckets.model, ""),
-        ),
-      )
-      .groupBy(providerUsageBuckets.usageType, providerUsageBuckets.model)
-      .orderBy(desc(totalTokensExpression), desc(requestCountExpression))
-      .limit(8),
-    db
-      .select({
-        bucketEndAt: providerUsageBuckets.bucketEndAt,
-        bucketStartAt: providerUsageBuckets.bucketStartAt,
-        creditsBurnedMilli: providerUsageSettlements.creditsBurnedMilli,
-        externalApiKeyId: providerUsageBuckets.externalApiKeyId,
-        inputTokens: providerUsageBuckets.inputTokens,
-        itemCount: providerUsageBuckets.itemCount,
-        model: providerUsageBuckets.model,
-        outputTokens: providerUsageBuckets.outputTokens,
-        settlementStatus: providerUsageSettlements.settlementStatus,
-        usageType: providerUsageBuckets.usageType,
-      })
-      .from(providerUsageBuckets)
-      .leftJoin(
-        providerUsageSettlements,
-        eq(
-          providerUsageSettlements.providerUsageBucketId,
-          providerUsageBuckets.id,
-        ),
-      )
-      .where(eq(providerUsageBuckets.tenantId, input.tenantId))
-      .orderBy(desc(providerUsageBuckets.bucketStartAt))
-      .limit(20),
-    db
-      .select({
-        consecutiveFailures: providerUsageSyncStates.consecutiveFailures,
-        lastAttemptedAt: providerUsageSyncStates.lastAttemptedAt,
-        lastError: providerUsageSyncStates.lastError,
-        lastErrorAt: providerUsageSyncStates.lastErrorAt,
-        lastRowCount: providerUsageSyncStates.lastRowCount,
-        lastSuccessfulEndAt: providerUsageSyncStates.lastSuccessfulEndAt,
-        usageType: providerUsageSyncStates.usageType,
-      })
-      .from(providerUsageSyncStates)
-      .where(eq(providerUsageSyncStates.tenantId, input.tenantId))
-      .orderBy(asc(providerUsageSyncStates.usageType)),
-  ]);
+      db
+        .select({
+          creditsBurnedMilli: creditsBurnedMilliExpression,
+          providerCostMicros: providerCostMicrosExpression,
+          inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
+          model: providerUsageBuckets.model,
+          outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
+          requestCount: requestCountExpression,
+          totalTokens: totalTokensExpression,
+          usageType: providerUsageBuckets.usageType,
+        })
+        .from(providerUsageBuckets)
+        .leftJoin(providerUsageSettlements, settlementJoin)
+        .where(and(rangeFilter, ne(providerUsageBuckets.model, "")))
+        .groupBy(providerUsageBuckets.usageType, providerUsageBuckets.model)
+        .orderBy(desc(totalTokensExpression), desc(requestCountExpression))
+        .limit(8),
+    ]);
 
   const summary = summaryRows[0] ?? {
     activeApiKeys: 0,
     activeModels: 0,
-    latestBucketEndAt: null,
     totalCreditsBurnedMilli: 0,
+    totalProviderCostMicros: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalRequests: 0,
   };
 
   return {
-    hourlyBuckets: hourlyRows.map((row) => ({
-      bucketHour: dateFromValue(row.bucketHour) ?? new Date(0),
-      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
-      inputTokens: numberFromValue(row.inputTokens),
-      outputTokens: numberFromValue(row.outputTokens),
-      requestCount: numberFromValue(row.requestCount),
-    })),
-    recentBuckets: recentBucketRows.map((row) => ({
-      bucketEndAt: dateFromValue(row.bucketEndAt) ?? new Date(0),
-      bucketStartAt: dateFromValue(row.bucketStartAt) ?? new Date(0),
-      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
-      externalApiKeyId: row.externalApiKeyId,
-      inputTokens: numberFromValue(row.inputTokens),
-      itemCount: numberFromValue(row.itemCount),
-      model: row.model,
-      outputTokens: numberFromValue(row.outputTokens),
-      settlementStatus: row.settlementStatus,
-      usageType: row.usageType,
-    })),
     summary: {
       activeApiKeys: numberFromValue(summary.activeApiKeys),
       activeModels: numberFromValue(summary.activeModels),
-      latestBucketEndAt: dateFromValue(summary.latestBucketEndAt),
       totalCreditsBurnedMilli: numberFromValue(summary.totalCreditsBurnedMilli),
+      totalProviderCostMicros: numberFromValue(summary.totalProviderCostMicros),
       totalInputTokens: numberFromValue(summary.totalInputTokens),
       totalOutputTokens: numberFromValue(summary.totalOutputTokens),
       totalRequests: numberFromValue(summary.totalRequests),
     },
-    syncStates: syncStateRows.map((row) => ({
-      consecutiveFailures: row.consecutiveFailures,
-      lastAttemptedAt: dateFromValue(row.lastAttemptedAt),
-      lastError: row.lastError,
-      lastErrorAt: dateFromValue(row.lastErrorAt),
-      lastRowCount: row.lastRowCount,
-      lastSuccessfulEndAt: dateFromValue(row.lastSuccessfulEndAt),
-      usageType: row.usageType,
+    timeSeries: timeSeriesRows.map((row) => ({
+      bucketTime: (dateFromValue(row.bucketTime) ?? new Date(0)).toISOString(),
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
+      providerCostMicros: numberFromValue(row.providerCostMicros),
+      inputTokens: numberFromValue(row.inputTokens),
+      outputTokens: numberFromValue(row.outputTokens),
+      inputCachedTokens: numberFromValue(row.inputCachedTokens),
+      inputTextTokens: numberFromValue(row.inputTextTokens),
+      outputTextTokens: numberFromValue(row.outputTextTokens),
+      inputAudioTokens: numberFromValue(row.inputAudioTokens),
+      outputAudioTokens: numberFromValue(row.outputAudioTokens),
+      inputImageTokens: numberFromValue(row.inputImageTokens),
+      requestCount: numberFromValue(row.requestCount),
     })),
     usageByModel: modelRows.map((row) => ({
       creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
+      providerCostMicros: numberFromValue(row.providerCostMicros),
       inputTokens: numberFromValue(row.inputTokens),
       model: row.model,
       outputTokens: numberFromValue(row.outputTokens),
@@ -480,6 +403,7 @@ export async function getTenantProviderUsageOverview(input: {
     })),
     usageByType: usageTypeRows.map((row) => ({
       creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
+      providerCostMicros: numberFromValue(row.providerCostMicros),
       requestCount: numberFromValue(row.requestCount),
       totalTokens: numberFromValue(row.totalTokens),
       usageType: row.usageType,

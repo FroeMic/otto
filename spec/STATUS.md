@@ -61,6 +61,33 @@
     - each provider bucket is settled once into either `priced`, `no_charge`, or `unsupported`
     - priced buckets create append-only debit entries in Otto's new credit ledger
     - the platform `Usage` tab now shows implied credits burned and settlement status per bucket/model
+  - the first balance and enforcement slice now exists on top of that ledger:
+    - platform admins can issue manual positive credit grants to a workspace
+    - the platform `Usage` tab now shows current credit balance alongside granted and debited totals
+    - the runtime OpenAI proxy now rejects new upstream requests when the workspace ledger balance is `<= 0`
+    - this is a balance gate, not a reservation system, so some settlement lag still exists until reservation-based enforcement is added
+  - the first Stripe billing slice now also exists:
+    - hosted Stripe Checkout can start a workspace subscription for `Basic`, `Plus`, `Pro`, or `Max`
+    - the Stripe billing portal can open for workspaces that already have a Stripe customer
+    - Stripe customer and current subscription state are mirrored into Otto billing tables
+    - `invoice.paid` now creates idempotent recurring monthly credit grants in Otto's ledger
+    - a workspace-visible settings billing page now shows plan, status, renewal, invoice history, and auto-top-off settings
+    - included-credit expiry is not enforced yet; `credit_grants.expires_at` is stored but there is no expiry job yet
+  - the first auto-top-off execution slice now exists on top of Stripe billing:
+    - workspace billing preferences persist auto-top-off enabled state, minimum balance, selected fixed pack, and a billing cycle spend cap
+    - the worker now enqueues and executes idempotent auto-top-off Stripe charges when balance falls below the configured threshold
+    - successful subscription payments now sync a reusable Stripe default payment method onto the workspace customer/subscription so later auto-top-off charges can run off-session
+    - the billing page now warns clearly when auto-top-off is enabled but Stripe still has no reusable default payment method for the workspace
+    - the worker now fails those auto-top-off attempts early with the same actionable payment-method message instead of a generic invoice-collection failure
+    - auto-top-off uses one-time Stripe prices resolved by lookup key:
+      - `top_up_20`
+      - `top_up_50`
+      - `top_up_100`
+      - `top_up_200`
+    - billed spend is measured from paid Stripe invoices within the active billing cycle, using the subscription period with a first-of-month fallback
+    - the billing cycle spend cap includes tax and is checked against a previewed next Stripe top-up invoice before Otto attempts the charge
+    - successful top-up invoices now create positive top-up credit grants in Otto's ledger through the same grant path as other funded credits
+    - manual top-up checkout is still not implemented yet
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
 - The first onboarding-flow slice is now implemented:
@@ -239,7 +266,16 @@
   - the instruction editor now uses matching left-aligned cards for system and workspace instructions, with smaller monospace text and simplified labels
 - The platform organization detail surface now exists under `/platform/organizations/[orgSlug]` with focused operator tabs for Overview, Access, Jobs, Events, and Logs.
 - The platform organization detail surface now also includes a `Usage` tab for raw provider usage inspection directly from Otto's stored ingestion data.
-- The next billing step after this slice should be Stripe-backed credit grants and balance reads, not daily provider cost reconciliation.
+- The workspace billing/settings surface is now split more cleanly:
+  - `Billing` is now subscription-focused and no longer mixes in recent grants or recent usage activity
+  - `Usage` now exists as a dedicated workspace settings page for credit analytics
+  - `billing/plans` now exists as the workspace-owned comparison surface for `Basic`, `Plus`, `Pro`, and `Max`
+  - usage defaults to the current billing cycle and falls back to the first day of the current month when no subscription exists yet
+  - plan changes remain Stripe-portal-managed in v1
+  - workspace billing preferences are now persisted for auto-top-off enabled state, minimum balance, fixed pack amount, and monthly spend limit
+  - the workspace billing page now shows recent Stripe invoice history when a billing customer exists
+  - automatic top-up charging is still deferred; this slice only persists the settings and exposes invoice visibility
+- The next workspace billing step after this slice should be auto-top-off execution plus manual top-up checkout, not another billing IA refactor.
 - Platform access details now live on the operator surface instead of only the workspace-facing Agent page:
   - the organization access tab shows the server IP, direct SSH commands, SSH tunnel command, dashboard localhost URL, and the current gateway token
   - the operator activity tabs now expose recent jobs, events, and config/image diagnostics from persisted DB state

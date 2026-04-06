@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type * as React from "react";
 
@@ -28,16 +29,54 @@ type SettingsShellProps = {
   };
 };
 
-function useSettingsBreadcrumb(orgSlug: string, orgName: string) {
+type BreadcrumbSegment = {
+  href: string | null;
+  label: string;
+};
+
+function useSettingsBreadcrumbs(
+  orgSlug: string,
+  orgName: string,
+): BreadcrumbSegment[] {
   const pathname = usePathname();
   const settingsPath = pathname.replace(`/${orgSlug}/settings`, "");
+  const base = `/${orgSlug}/settings`;
 
-  if (settingsPath.startsWith("/user")) return ["Account"];
+  if (settingsPath.startsWith("/user"))
+    return [{ href: `${base}/user`, label: "Account" }];
+
+  if (settingsPath.startsWith("/workspace/usage"))
+    return [
+      { href: `${base}/workspace`, label: orgName },
+      { href: null, label: "Usage" },
+    ];
+
+  if (settingsPath.startsWith("/workspace/billing/plans"))
+    return [
+      { href: `${base}/workspace`, label: orgName },
+      { href: `${base}/workspace/billing`, label: "Billing" },
+      { href: null, label: "Plans" },
+    ];
+
+  if (settingsPath.startsWith("/workspace/billing"))
+    return [
+      { href: `${base}/workspace`, label: orgName },
+      { href: null, label: "Billing" },
+    ];
+
   if (settingsPath.startsWith("/workspace/members"))
-    return [orgName, "Members"];
-  if (settingsPath.startsWith("/workspace")) return [orgName, "General"];
+    return [
+      { href: `${base}/workspace`, label: orgName },
+      { href: null, label: "Members" },
+    ];
 
-  return ["Settings"];
+  if (settingsPath.startsWith("/workspace"))
+    return [
+      { href: `${base}/workspace`, label: orgName },
+      { href: null, label: "General" },
+    ];
+
+  return [{ href: null, label: "Settings" }];
 }
 
 export function SettingsShell({
@@ -46,7 +85,7 @@ export function SettingsShell({
   organizations,
   user,
 }: SettingsShellProps) {
-  const breadcrumb = useSettingsBreadcrumb(
+  const breadcrumbs = useSettingsBreadcrumbs(
     currentOrganization.slug,
     currentOrganization.name,
   );
@@ -66,13 +105,27 @@ export function SettingsShell({
             className="data-vertical:h-4 data-vertical:self-auto"
           />
           <div className="min-w-0 text-sm">
-            <span className="font-medium">Settings</span>
-            {breadcrumb.map((segment, i) => (
-              <span key={breadcrumb.slice(0, i + 1).join("/")}>
+            <Link
+              className="font-medium hover:underline"
+              href={`/${currentOrganization.slug}/settings/workspace`}
+            >
+              Settings
+            </Link>
+            {breadcrumbs.map((segment) => (
+              <span key={segment.label}>
                 <span className="mx-2 text-muted-foreground">/</span>
-                <span className="truncate text-muted-foreground">
-                  {segment}
-                </span>
+                {segment.href ? (
+                  <Link
+                    className="truncate text-muted-foreground hover:text-foreground hover:underline"
+                    href={segment.href}
+                  >
+                    {segment.label}
+                  </Link>
+                ) : (
+                  <span className="truncate text-muted-foreground">
+                    {segment.label}
+                  </span>
+                )}
               </span>
             ))}
           </div>
