@@ -69,10 +69,22 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 }
 
 export async function runWorkerIteration(): Promise<number> {
-  const syncedUsageTargets = await runOpenAiUsageIngestionCycle();
-  const settledUsageBuckets = await runCreditBurndownSettlementCycle();
-  const queuedAutoTopOffJobs = await runAutoTopOffEnqueueCycle();
-  const refreshedOauthConnections = await runOAuthConnectionRefreshCycle();
+  const syncedUsageTargets = await runMaintenanceStep(
+    "OpenAI usage ingestion",
+    runOpenAiUsageIngestionCycle,
+  );
+  const settledUsageBuckets = await runMaintenanceStep(
+    "credit burndown settlement",
+    runCreditBurndownSettlementCycle,
+  );
+  const queuedAutoTopOffJobs = await runMaintenanceStep(
+    "billing auto-top-off enqueue",
+    runAutoTopOffEnqueueCycle,
+  );
+  const refreshedOauthConnections = await runMaintenanceStep(
+    "OAuth connection refresh",
+    runOAuthConnectionRefreshCycle,
+  );
   const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
 
   if (jobs.length === 0) {
@@ -100,4 +112,20 @@ export async function runWorkerIteration(): Promise<number> {
     queuedAutoTopOffJobs +
     refreshedOauthConnections
   );
+}
+
+async function runMaintenanceStep(
+  label: string,
+  runStep: () => Promise<number>,
+) {
+  try {
+    return await runStep();
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message.length > 0
+        ? error.message
+        : "Unknown worker maintenance error";
+    console.error(`[worker] ${label} failed: ${message}`);
+    return 0;
+  }
 }

@@ -58,10 +58,18 @@ export class OpenAiUsageCollector implements ProviderUsageCollector {
         method: "GET",
       },
     );
-    const body = (await response.json()) as unknown;
+    const responseText = await response.text();
+    const { body, parseMode } = parseOpenAiResponseBody(responseText);
 
     if (!response.ok) {
-      throw new Error(buildOpenAiErrorMessage(body, response.status));
+      throw new Error(
+        buildOpenAiErrorMessage({
+          body,
+          contentType: response.headers.get("content-type"),
+          parseMode,
+          status: response.status,
+        }),
+      );
     }
 
     const pageRecord = getRecord(body, "OpenAI usage page");
@@ -202,7 +210,14 @@ function getNullableString(value: unknown) {
   return value;
 }
 
-function buildOpenAiErrorMessage(body: unknown, status: number) {
+function buildOpenAiErrorMessage(input: {
+  body: unknown;
+  contentType: string | null;
+  parseMode: "empty" | "json" | "text";
+  status: number;
+}) {
+  const { body, contentType, parseMode, status } = input;
+
   if (body && typeof body === "object" && "error" in body) {
     const error = (body as { error?: unknown }).error;
 
@@ -210,10 +225,73 @@ function buildOpenAiErrorMessage(body: unknown, status: number) {
       const message = (error as { message?: unknown }).message;
 
       if (typeof message === "string" && message.length > 0) {
-        return `OpenAI admin API request failed (${status}): ${message}`;
+        return `OpenAI admin API request failed (${status}): ${truncateForLog(message)}`;
       }
     }
   }
 
+  if (typeof body === "string" && body.trim().length > 0) {
+    if (looksLikeHtml(body, contentType)) {
+      const title = getHtmlTitle(body);
+
+      if (title) {
+        return `OpenAI admin API request failed (${status}): ${truncateForLog(title)}`;
+      }
+
+      return `OpenAI admin API request failed (${status}): HTML upstream error page`;
+    }
+
+    return `OpenAI admin API request failed (${status}): ${truncateForLog(body.trim())}`;
+  }
+
+  if (parseMode === "empty") {
+    return `OpenAI admin API request failed (${status}): empty response body`;
+  }
+
   return `OpenAI admin API request failed (${status})`;
+}
+
+function parseOpenAiResponseBody(responseText: string): {
+  body: unknown;
+  parseMode: "empty" | "json" | "text";
+} {
+  if (responseText.length === 0) {
+    return {
+      body: null,
+      parseMode: "empty",
+    };
+  }
+
+  try {
+    return {
+      body: JSON.parse(responseText) as unknown,
+      parseMode: "json",
+    };
+  } catch {
+    return {
+      body: responseText,
+      parseMode: "text",
+    };
+  }
+}
+
+function looksLikeHtml(body: string, contentType: string | null) {
+  if (contentType?.toLowerCase().includes("text/html")) {
+    return true;
+  }
+
+  return /^\s*<!doctype html/i.test(body) || /^\s*<html/i.test(body);
+}
+
+function getHtmlTitle(body: string) {
+  const match = body.match(/<title>([^<]+)<\/title>/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function truncateForLog(value: string, maxLength = 240) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1)}…`;
 }
