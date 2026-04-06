@@ -36,7 +36,9 @@ export async function enqueueJob(job: ControlPlaneJobPayload): Promise<string> {
 export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
   const db = getDb();
   const staleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
-  const staleRunningCutoff = new Date(Date.now() - staleTimeoutMs);
+  const staleRunningCutoffIso = new Date(
+    Date.now() - staleTimeoutMs,
+  ).toISOString();
   const claimedJobs = await db.execute<{
     attempt: number;
     id: string;
@@ -55,7 +57,7 @@ export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
         and ${jobRuns.availableAt} <= now()
       ) or (
         ${jobRuns.status} = ${JOB_STATUSES.running}
-        and ${jobRuns.startedAt} <= ${staleRunningCutoff}
+        and ${jobRuns.startedAt} <= ${staleRunningCutoffIso}
       )
       order by
         case
