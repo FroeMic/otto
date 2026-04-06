@@ -1,26 +1,8 @@
-const DEMO_LINEAR_TOOL_PARAMETERS_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    operation: {
-      type: "string",
-      const: "search_issues",
-      description: "The demo Linear operation to execute.",
-    },
-    query: {
-      type: "string",
-      minLength: 1,
-      description: "Free-text issue search query.",
-    },
-    limit: {
-      type: "integer",
-      minimum: 1,
-      maximum: 10,
-      description: "Maximum number of demo issues to return.",
-    },
-  },
-  required: ["operation", "query"],
-} as const;
+import {
+  getManagedIntegrationDefinition,
+  listRuntimeManagedIntegrationDefinitions,
+  type ManagedIntegrationOperation,
+} from "@/lib/managed-integrations/catalog";
 
 const DEMO_LINEAR_ISSUES = [
   {
@@ -49,11 +31,7 @@ const DEMO_LINEAR_ISSUES = [
   },
 ] as const;
 
-export type RuntimeIntegrationManifestOperation = {
-  description: string;
-  key: string;
-  label: string;
-};
+export type RuntimeIntegrationManifestOperation = ManagedIntegrationOperation;
 
 export type RuntimeIntegrationManifestEntry = {
   description: string;
@@ -65,31 +43,10 @@ export type RuntimeIntegrationManifestEntry = {
   toolName: string;
 };
 
-type RuntimeIntegrationRegistryEntry = RuntimeIntegrationManifestEntry;
-
-const registry: Record<string, RuntimeIntegrationRegistryEntry> = {
-  "demo-linear": {
-    description:
-      "Synthetic managed integration used to prove Otto's first integration manifest and tool-registration path.",
-    key: "demo-linear",
-    label: "Demo Linear",
-    operations: [
-      {
-        description:
-          "Search a fixed synthetic issue dataset through Otto's managed integration execution path.",
-        key: "search_issues",
-        label: "Search Issues",
-      },
-    ],
-    parametersSchema: DEMO_LINEAR_TOOL_PARAMETERS_SCHEMA,
-    toolDescription:
-      "Search demo Linear issues through Otto's managed integration manifest and execution path.",
-    toolName: "demo_linear",
-  },
-};
-
 export function listSupportedRuntimeIntegrationKeys() {
-  return Object.keys(registry).sort();
+  return listRuntimeManagedIntegrationDefinitions().map(
+    (definition) => definition.key,
+  );
 }
 
 export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
@@ -103,14 +60,26 @@ export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
       continue;
     }
 
-    const entry = registry[key];
+    const definition = getManagedIntegrationDefinition(key);
 
-    if (!entry) {
+    if (!definition?.runtimeTool) {
       continue;
     }
 
     seen.add(key);
-    manifest.push(cloneEntry(entry));
+    manifest.push({
+      description: definition.description,
+      key: definition.key,
+      label: definition.label,
+      operations: definition.runtimeTool.operations.map((operation) => ({
+        ...operation,
+      })),
+      parametersSchema: JSON.parse(
+        JSON.stringify(definition.runtimeTool.parametersSchema),
+      ),
+      toolDescription: definition.runtimeTool.toolDescription,
+      toolName: definition.runtimeTool.toolName,
+    });
   }
 
   manifest.sort((left, right) => left.key.localeCompare(right.key));
@@ -164,14 +133,6 @@ function executeDemoLinear(params: Record<string, unknown>) {
     query,
     source: "stub",
     totalMatched: items.length,
-  };
-}
-
-function cloneEntry(entry: RuntimeIntegrationRegistryEntry) {
-  return {
-    ...entry,
-    operations: entry.operations.map((operation) => ({ ...operation })),
-    parametersSchema: JSON.parse(JSON.stringify(entry.parametersSchema)),
   };
 }
 

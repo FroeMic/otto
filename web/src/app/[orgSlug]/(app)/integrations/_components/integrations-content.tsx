@@ -33,6 +33,7 @@ type IntegrationsContentProps = {
 };
 
 const brandIconMap: Record<string, string> = {
+  linear: "/integrations/linear.svg",
   slack: "/integrations/slack.svg",
   whatsapp: "/integrations/whatsapp.png",
   "web-search": "/integrations/web-search.svg",
