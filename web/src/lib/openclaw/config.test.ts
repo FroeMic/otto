@@ -93,6 +93,42 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.channels.slack.execApprovals, {
       enabled: false,
     });
+    assert.deepEqual(renderedConfig.channels.slack.channels, {
+      C123: {
+        enabled: true,
+        requireMention: true,
+      },
+    });
+  });
+
+  it("renders member-of-channels Slack access with enabled wildcard entries", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: ["slack"],
+      prompts: {},
+      slack: {
+        ackReactionEnabled: false,
+        allowedChannelIds: [],
+        allowedUserIds: ["U123"],
+        answerInThreads: false,
+        channelAccessMode: "member_of_channels",
+        enabled: true,
+        mode: "socket",
+        requireMentionInChannels: false,
+      },
+      tenantId: "tenant_123",
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.channels.slack.channels, {
+      "*": {
+        enabled: true,
+        requireMention: false,
+      },
+    });
   });
 
   it("renders Brave web search config into OpenClaw tools", () => {

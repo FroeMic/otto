@@ -230,7 +230,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           slack.channelAccessMode === "member_of_channels"
             ? {
                 "*": {
-                  allow: true,
+                  enabled: true,
                   requireMention: slack.requireMentionInChannels,
                 },
               }
@@ -238,7 +238,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                 slack.allowedChannelIds.map((channelId) => [
                   channelId,
                   {
-                    allow: true,
+                    enabled: true,
                     requireMention: slack.requireMentionInChannels,
                   },
                 ]),
