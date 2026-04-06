@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
 import {
@@ -5,7 +7,6 @@ import {
   syncOrganizationProjectionFromWorkOS,
 } from "@/db/control-plane";
 import { getEnv } from "@/lib/env";
-import { getWorkOS } from "@/lib/workos";
 
 function getWebhookSignatureHeader(headers: Headers) {
   return (
@@ -13,6 +14,53 @@ function getWebhookSignatureHeader(headers: Headers) {
     headers.get("x-workos-signature") ??
     headers.get("webhook-signature")
   );
+}
+
+function verifyWorkOSWebhookSignature(input: {
+  rawPayload: string;
+  secret: string;
+  sigHeader: string;
+  toleranceMs?: number;
+}) {
+  const toleranceMs = input.toleranceMs ?? 3 * 60 * 1000;
+  const headerParts = new Map(
+    input.sigHeader.split(",").map((part) => {
+      const [key, value] = part.trim().split("=", 2);
+      return [key, value];
+    }),
+  );
+  const timestamp = headerParts.get("t");
+  const signature = headerParts.get("v1");
+
+  if (!timestamp || !signature) {
+    throw new Error("Signature or timestamp missing");
+  }
+
+  const timestampMs = Number.parseInt(timestamp, 10);
+
+  if (!Number.isFinite(timestampMs)) {
+    throw new Error("Invalid WorkOS signature timestamp");
+  }
+
+  if (timestampMs < Date.now() - toleranceMs) {
+    throw new Error("Timestamp outside the tolerance zone");
+  }
+
+  const expectedSignature = createHmac("sha256", input.secret)
+    .update(`${timestamp}.${input.rawPayload}`)
+    .digest("hex");
+
+  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+  const actualBuffer = Buffer.from(signature, "utf8");
+
+  if (
+    expectedBuffer.length !== actualBuffer.length ||
+    !timingSafeEqual(expectedBuffer, actualBuffer)
+  ) {
+    throw new Error(
+      "Signature hash does not match the expected signature hash for payload",
+    );
+  }
 }
 
 export async function handleWorkOSWebhookRequest(request: Request) {
@@ -37,24 +85,39 @@ export async function handleWorkOSWebhookRequest(request: Request) {
   const rawPayload = await request.text();
 
   try {
-    const workos = getWorkOS();
-    const payload = JSON.parse(rawPayload) as Record<string, unknown>;
-    const event = await workos.webhooks.constructEvent({
-      payload,
+    verifyWorkOSWebhookSignature({
+      rawPayload,
       secret,
       sigHeader,
     });
+
+    const event = JSON.parse(rawPayload) as {
+      data: Record<string, unknown>;
+      event: string;
+    };
 
     switch (event.event) {
       case "organization_membership.created":
       case "organization_membership.deleted":
       case "organization_membership.updated":
-        await reconcileWorkspaceMembershipProjectionForUser(event.data.userId);
+        if (typeof event.data.userId === "string") {
+          await reconcileWorkspaceMembershipProjectionForUser(
+            event.data.userId,
+          );
+        }
         break;
       case "organization.updated":
-        await syncOrganizationProjectionFromWorkOS({
-          organization: event.data,
-        });
+        if (
+          typeof event.data.id === "string" &&
+          typeof event.data.name === "string"
+        ) {
+          await syncOrganizationProjectionFromWorkOS({
+            organization: {
+              id: event.data.id,
+              name: event.data.name,
+            },
+          });
+        }
         break;
       default:
         break;
