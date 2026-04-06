@@ -14,6 +14,10 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import {
+  markIntegrationOauthSessionConsumedTx,
+  upsertOauthConnectionForTenantIntegrationTx,
+} from "@/db/oauth";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
@@ -52,6 +56,7 @@ import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
+import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
   buildManagedBootstrapFileContent,
   buildManagedBootstrapSystemContent,
@@ -648,12 +653,13 @@ export type TenantManagedIntegrationSummary = {
 };
 
 export type TenantManagedIntegrationConnectContext = {
-  existingConnectionId: string | null;
+  integrationStatus: string | null;
   organizationId: string;
   organizationName: string;
   organizationSlug: string;
   serverStatus: string | null;
   tenantId: string;
+  tenantIntegrationId: string | null;
   tenantStatus: string;
   userEmail: string;
   userId: string;
@@ -4438,12 +4444,13 @@ export async function getTenantManagedIntegrationConnectContext(input: {
   const normalizedProviderKey = input.providerKey.trim().toLowerCase();
   const [row] = await db
     .select({
-      existingConnectionId: integrationLinearInstallations.nangoConnectionId,
+      integrationStatus: tenantIntegrations.status,
       organizationId: organizations.id,
       organizationName: organizations.name,
       organizationSlug: organizations.slug,
       serverStatus: tenantServers.status,
       tenantId: tenants.id,
+      tenantIntegrationId: tenantIntegrations.id,
       tenantStatus: tenants.status,
       userEmail: users.email,
       userId: users.id,
@@ -4458,13 +4465,6 @@ export async function getTenantManagedIntegrationConnectContext(input: {
       and(
         eq(tenantIntegrations.tenantId, tenants.id),
         eq(tenantIntegrations.providerKey, normalizedProviderKey),
-      ),
-    )
-    .leftJoin(
-      integrationLinearInstallations,
-      eq(
-        integrationLinearInstallations.tenantIntegrationId,
-        tenantIntegrations.id,
       ),
     )
     .where(
@@ -4490,11 +4490,16 @@ export async function getTenantManagedIntegrationConnectContext(input: {
   return row;
 }
 
-export async function completeLinearNangoConnection(input: {
-  connectionId: string;
-  connectedByUserExternalId: string | null;
-  nangoIntegrationId: string;
+export async function completeLinearOauthConnection(input: {
+  actorType: string | null;
+  connectedByUserId: string;
+  externalAccountId?: string | null;
+  externalAccountLabel?: string | null;
+  mode: "connect" | "reconnect";
   organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
 }) {
   const db = getDb();
   const now = new Date();
@@ -4529,23 +4534,33 @@ export async function completeLinearNangoConnection(input: {
     shouldEnqueueApply =
       authorizedTenant.tenantStatus === "ready" &&
       authorizedTenant.serverStatus === "ready";
-    const [connectedByUser] = input.connectedByUserExternalId
-      ? await tx
-          .select({
-            id: users.id,
-          })
-          .from(users)
-          .where(eq(users.externalId, input.connectedByUserExternalId))
-          .limit(1)
-      : [];
-
-    await upsertLinearIntegrationForTenant(tx, {
-      connectedByUserId: connectedByUser?.id ?? null,
-      connectionId: input.connectionId,
-      nangoIntegrationId: input.nangoIntegrationId,
+    const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
+      connectedByUserId: input.connectedByUserId,
+      linearWorkspaceId:
+        input.externalAccountId ??
+        input.tokenResult.identity?.externalAccountId ??
+        null,
+      linearWorkspaceName:
+        input.externalAccountLabel ??
+        input.tokenResult.identity?.externalAccountLabel ??
+        null,
       now,
       tenantId,
     });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.externalAccountId ?? null,
+      externalAccountLabel: input.externalAccountLabel ?? null,
+      now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
 
     desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
@@ -4568,7 +4583,7 @@ export async function completeLinearNangoConnection(input: {
   };
 }
 
-export async function recordLinearNangoRefreshFailure(input: {
+export async function recordLinearOauthFailure(input: {
   error: string;
   organizationId: string;
 }) {
@@ -7424,8 +7439,8 @@ async function upsertLinearIntegrationForTenant(
   tx: DbTransaction,
   input: {
     connectedByUserId: string | null;
-    connectionId: string;
-    nangoIntegrationId: string;
+    linearWorkspaceId: string | null;
+    linearWorkspaceName: string | null;
     now: Date;
     tenantId: string;
   },
@@ -7492,8 +7507,10 @@ async function upsertLinearIntegrationForTenant(
       .set({
         connectedAt: input.now,
         connectedByUserId: input.connectedByUserId,
-        nangoConnectionId: input.connectionId,
-        nangoIntegrationId: input.nangoIntegrationId,
+        linearWorkspaceId: input.linearWorkspaceId,
+        linearWorkspaceName: input.linearWorkspaceName,
+        nangoConnectionId: null,
+        nangoIntegrationId: null,
         updatedAt: input.now,
       })
       .where(eq(integrationLinearInstallations.id, existingInstallation.id));
@@ -7501,8 +7518,8 @@ async function upsertLinearIntegrationForTenant(
     await tx.insert(integrationLinearInstallations).values({
       connectedAt: input.now,
       connectedByUserId: input.connectedByUserId,
-      nangoConnectionId: input.connectionId,
-      nangoIntegrationId: input.nangoIntegrationId,
+      linearWorkspaceId: input.linearWorkspaceId,
+      linearWorkspaceName: input.linearWorkspaceName,
       tenantIntegrationId,
     });
   }

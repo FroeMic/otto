@@ -43,7 +43,7 @@ type Props = {
   agentCapabilities: AgentCapability[];
   canConnect: boolean;
   connectActionLabel: string;
-  connectSessionUrl: string;
+  connectUrl: string;
   iconSrc: string | null;
   orgSlug: string;
   pageDescription: string;
@@ -157,7 +157,7 @@ export function LinearIntegrationPanel(props: Props) {
     agentCapabilities,
     canConnect,
     connectActionLabel,
-    connectSessionUrl,
+    connectUrl,
     iconSrc,
     orgSlug,
     pageDescription,
@@ -169,6 +169,7 @@ export function LinearIntegrationPanel(props: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+  const transientConnectError = searchParams.get("linear_error");
   const currentTab: "capabilities" | "status" | "configuration" =
     tabParam === "status" || tabParam === "configuration"
       ? tabParam
@@ -178,7 +179,7 @@ export function LinearIntegrationPanel(props: Props) {
     [agentCapabilities],
   );
   const statusAlert = getStatusAlert({
-    error: summary?.lastError ?? null,
+    error: transientConnectError ?? summary?.lastError ?? null,
     state: uiState,
   });
 
@@ -346,7 +347,7 @@ export function LinearIntegrationPanel(props: Props) {
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <LinearConnectButton
-                      connectSessionUrl={connectSessionUrl}
+                      connectUrl={connectUrl}
                       disabled={!canConnect}
                       label={connectActionLabel}
                     />
