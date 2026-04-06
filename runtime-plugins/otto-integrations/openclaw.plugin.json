@@ -2,6 +2,9 @@
   "id": "otto-integrations",
   "name": "Otto Integrations",
   "description": "Otto-managed integration tools backed by the workspace app.",
+  "contracts": {
+    "tools": ["demo_linear"]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
