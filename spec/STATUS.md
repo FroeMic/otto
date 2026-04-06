@@ -354,6 +354,7 @@
   - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist
   - Linear now uses Otto-owned OAuth state, encrypted credentials, and callback handling instead of the active hosted Nango path
   - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
+  - a shared `/api/integrations/[orgSlug]/[providerKey]/disconnect` route now exists, with provider-specific teardown clearing stored credentials and removing runtime projection for Linear
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`

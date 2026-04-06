@@ -7,7 +7,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { LinearConnectButton } from "@/app/[orgSlug]/(app)/integrations/linear/_components/linear-connect-button";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
@@ -152,6 +153,14 @@ function getConfigurationSummary(state: LinearIntegrationUiState) {
   return "Connect Linear to choose workspace defaults for issue search, project context, and issue creation.";
 }
 
+async function readJson(response: Response) {
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function LinearIntegrationPanel(props: Props) {
   const {
     agentCapabilities,
@@ -168,6 +177,9 @@ export function LinearIntegrationPanel(props: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
   const transientConnectError = searchParams.get("linear_error");
   const currentTab: "capabilities" | "status" | "configuration" =
@@ -196,6 +208,56 @@ export function LinearIntegrationPanel(props: Props) {
       );
     }
   }, [pathname, router, searchParams, tabParam]);
+
+  async function postJson(url: string, body: Record<string, unknown>) {
+    const response = await fetch(url, {
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    const data = await readJson(response);
+
+    if (!response.ok) {
+      throw new Error(
+        typeof data?.message === "string" ? data.message : "Request failed",
+      );
+    }
+
+    return data;
+  }
+
+  async function runAction(action: () => Promise<void>) {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await action();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Linear request failed",
+      );
+    }
+  }
+
+  function handleDisconnect() {
+    if (
+      !window.confirm(
+        "Disconnect Linear from this workspace? Otto will stop using it until you reconnect.",
+      )
+    ) {
+      return;
+    }
+
+    startTransition(() => {
+      void runAction(async () => {
+        await postJson(`/api/integrations/${orgSlug}/linear/disconnect`, {});
+        setSuccessMessage("Linear has been disconnected.");
+        router.refresh();
+      });
+    });
+  }
 
   function setTopLevelTab(value: "capabilities" | "status" | "configuration") {
     router.replace(
@@ -233,6 +295,20 @@ export function LinearIntegrationPanel(props: Props) {
         <Alert variant={statusAlert.variant}>
           <AlertTitle>{statusAlert.title}</AlertTitle>
           <AlertDescription>{statusAlert.description}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {successMessage ? (
+        <Alert>
+          <AlertTitle>Update complete</AlertTitle>
+          <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {errorMessage ? (
+        <Alert variant="destructive">
+          <AlertTitle>Update failed</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -348,10 +424,29 @@ export function LinearIntegrationPanel(props: Props) {
                     </SettingsRowLabel>
                     <LinearConnectButton
                       connectUrl={connectUrl}
-                      disabled={!canConnect}
+                      disabled={!canConnect || isPending}
                       label={connectActionLabel}
                     />
                   </SettingsRow>
+                  {uiState === "connected" || uiState === "needs_attention" ? (
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Disconnect Linear</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Remove the current Linear connection from this
+                          workspace.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <Button
+                        disabled={isPending}
+                        onClick={handleDisconnect}
+                        type="button"
+                        variant="outline"
+                      >
+                        Disconnect
+                      </Button>
+                    </SettingsRow>
+                  ) : null}
                 </SettingsCard>
               </SettingsSection>
             </div>

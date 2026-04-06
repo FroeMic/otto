@@ -15,6 +15,7 @@ import {
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
 import {
+  appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
   upsertOauthConnectionForTenantIntegrationTx,
 } from "@/db/oauth";
@@ -25,6 +26,8 @@ import {
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
+  integrationOauthConnections,
+  integrationOauthCredentials,
   integrationSlackInstallations,
   integrationWhatsAppInstallations,
   integrationWhatsAppLinkSessions,
@@ -4583,6 +4586,21 @@ export async function completeLinearOauthConnection(input: {
   };
 }
 
+export async function disconnectTenantManagedIntegration(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}) {
+  const providerKey = input.providerKey.trim().toLowerCase();
+
+  switch (providerKey) {
+    case LINEAR_PROVIDER_KEY:
+      return disconnectTenantLinearIntegration(input);
+    default:
+      throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
+  }
+}
+
 export async function recordLinearOauthFailure(input: {
   error: string;
   organizationId: string;
@@ -5312,6 +5330,129 @@ export async function enableTenantWhatsAppIntegration(input: {
       tenantId: result.tenantId,
     }),
   };
+}
+
+async function disconnectTenantLinearIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration) {
+      throw new Error("Linear is not connected in this workspace.");
+    }
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: LINEAR_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function disableTenantWhatsAppIntegration(input: {
