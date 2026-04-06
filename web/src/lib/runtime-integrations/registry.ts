@@ -93,11 +93,15 @@ export function executeRuntimeIntegrationStub(input: {
 }) {
   const integrationKey = normalizeKey(input.integrationKey);
 
-  if (integrationKey !== "demo-linear") {
-    throw new Error(`Unsupported managed integration: ${input.integrationKey}`);
+  if (integrationKey === "demo-linear") {
+    return executeDemoLinear(input.params);
   }
 
-  return executeDemoLinear(input.params);
+  if (integrationKey === "linear") {
+    return executeLinearPlaceholder(input.params);
+  }
+
+  throw new Error(`Unsupported managed integration: ${input.integrationKey}`);
 }
 
 function executeDemoLinear(params: Record<string, unknown>) {
@@ -133,6 +137,39 @@ function executeDemoLinear(params: Record<string, unknown>) {
     query,
     source: "stub",
     totalMatched: items.length,
+  };
+}
+
+function executeLinearPlaceholder(params: Record<string, unknown>) {
+  if (params.operation !== "search_issues") {
+    throw new Error("linear only supports the search_issues operation.");
+  }
+
+  const query =
+    typeof params.query === "string" ? params.query.trim().toLowerCase() : "";
+
+  if (!query) {
+    throw new Error("linear search_issues requires a non-empty query.");
+  }
+
+  const limit =
+    typeof params.limit === "number" &&
+    Number.isInteger(params.limit) &&
+    params.limit >= 1 &&
+    params.limit <= 25
+      ? params.limit
+      : 10;
+
+  return {
+    integrationKey: "linear",
+    items: [],
+    limit,
+    message:
+      "Linear is connected. Search results will be available after the first live capability ships.",
+    operation: "search_issues",
+    query,
+    source: "stub",
+    totalMatched: 0,
   };
 }
 

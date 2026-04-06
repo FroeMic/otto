@@ -24,6 +24,30 @@ const DEMO_LINEAR_TOOL_PARAMETERS_SCHEMA = {
   required: ["operation", "query"],
 } as const;
 
+const LINEAR_TOOL_PARAMETERS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    operation: {
+      type: "string",
+      const: "search_issues",
+      description: "The Linear operation to execute.",
+    },
+    query: {
+      type: "string",
+      minLength: 1,
+      description: "Free-text issue search query.",
+    },
+    limit: {
+      type: "integer",
+      minimum: 1,
+      maximum: 25,
+      description: "Maximum number of issues to return.",
+    },
+  },
+  required: ["operation", "query"],
+} as const;
+
 export type ManagedIntegrationOperation = {
   description: string;
   key: string;
@@ -131,7 +155,20 @@ const managedIntegrationDefinitions: Record<
     label: "Linear",
     pageDescription:
       "Connect Linear so Otto can search issue work, summarize status, and help draft follow-up actions for your team.",
-    runtimeTool: null,
+    runtimeTool: {
+      operations: [
+        {
+          description:
+            "Search issues across Linear projects, teams, assignees, and states.",
+          key: "search_issues",
+          label: "Search issues",
+        },
+      ],
+      parametersSchema: LINEAR_TOOL_PARAMETERS_SCHEMA,
+      toolDescription:
+        "Search Linear issues through Otto's managed integration runtime surface.",
+      toolName: "linear",
+    },
     showInWorkspaceCatalog: true,
   },
 };

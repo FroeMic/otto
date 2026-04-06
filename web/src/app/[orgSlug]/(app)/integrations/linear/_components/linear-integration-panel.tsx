@@ -9,6 +9,7 @@ import {
 } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
+import { LinearConnectButton } from "@/app/[orgSlug]/(app)/integrations/linear/_components/linear-connect-button";
 import {
   SettingsCard,
   SettingsPage,
@@ -22,7 +23,6 @@ import {
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
@@ -41,6 +41,9 @@ type LinearIntegrationSummary = {
 
 type Props = {
   agentCapabilities: AgentCapability[];
+  canConnect: boolean;
+  connectActionLabel: string;
+  connectSessionUrl: string;
   iconSrc: string | null;
   orgSlug: string;
   pageDescription: string;
@@ -152,6 +155,9 @@ function getConfigurationSummary(state: LinearIntegrationUiState) {
 export function LinearIntegrationPanel(props: Props) {
   const {
     agentCapabilities,
+    canConnect,
+    connectActionLabel,
+    connectSessionUrl,
     iconSrc,
     orgSlug,
     pageDescription,
@@ -339,9 +345,11 @@ export function LinearIntegrationPanel(props: Props) {
                         follow-up work.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
-                    <Button disabled type="button">
-                      Connect Linear
-                    </Button>
+                    <LinearConnectButton
+                      connectSessionUrl={connectSessionUrl}
+                      disabled={!canConnect}
+                      label={connectActionLabel}
+                    />
                   </SettingsRow>
                 </SettingsCard>
               </SettingsSection>

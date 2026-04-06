@@ -234,6 +234,39 @@ export const integrationSlackInstallations = pgTable(
   }),
 );
 
+export const integrationLinearInstallations = pgTable(
+  "integration_linear_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    nangoConnectionId: varchar("nango_connection_id", { length: 255 })
+      .notNull()
+      .unique(),
+    nangoIntegrationId: varchar("nango_integration_id", {
+      length: 255,
+    }).notNull(),
+    linearWorkspaceId: varchar("linear_workspace_id", { length: 255 }),
+    linearWorkspaceName: text("linear_workspace_name"),
+    connectedByUserId: uuid("connected_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "integration_linear_installations_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
 export const integrationWhatsAppInstallations = pgTable(
   "integration_whatsapp_installations",
   {

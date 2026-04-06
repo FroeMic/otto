@@ -45,6 +45,8 @@ docker compose up -d
    - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
+   - to enable the Linear connect flow, set `NANGO_SECRET_KEY`, `NANGO_WEBHOOK_SECRET`, and `NANGO_LINEAR_INTEGRATION_ID`
+   - point the Linear auth webhook at `http://localhost:3000/webhooks/nango` for local development
    - to enable hosted billing, set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`
    - create four recurring monthly Stripe prices in USD for `Basic`, `Plus`, `Pro`, and `Max`
    - set the Stripe price `lookup_key` values exactly to `basic_monthly`, `plus_monthly`, `pro_monthly`, and `max_monthly`

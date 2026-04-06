@@ -96,6 +96,10 @@ const envSchema = z.object({
     .optional(),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_TOKEN: z.string().optional(),
+  NANGO_API_BASE_URL: z.url().default("https://api.nango.dev"),
+  NANGO_LINEAR_INTEGRATION_ID: z.string().optional(),
+  NANGO_SECRET_KEY: z.string().optional(),
+  NANGO_WEBHOOK_SECRET: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
@@ -218,6 +222,34 @@ export function getSlackOAuthConfig() {
 export function hasSlackOAuthConfig() {
   try {
     getSlackOAuthConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getNangoConfig() {
+  const env = getEnv();
+
+  if (
+    !env.NANGO_SECRET_KEY ||
+    !env.NANGO_WEBHOOK_SECRET ||
+    !env.NANGO_LINEAR_INTEGRATION_ID
+  ) {
+    throw new Error("Nango is not fully configured");
+  }
+
+  return {
+    apiBaseUrl: env.NANGO_API_BASE_URL,
+    linearIntegrationId: env.NANGO_LINEAR_INTEGRATION_ID,
+    secretKey: env.NANGO_SECRET_KEY,
+    webhookSecret: env.NANGO_WEBHOOK_SECRET,
+  };
+}
+
+export function hasNangoConfig() {
+  try {
+    getNangoConfig();
     return true;
   } catch {
     return false;

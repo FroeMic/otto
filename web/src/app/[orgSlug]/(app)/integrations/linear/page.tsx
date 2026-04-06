@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
 import { LinearIntegrationPanel } from "@/app/[orgSlug]/(app)/integrations/linear/_components/linear-integration-panel";
 import { getTenantManagedIntegrationSummary } from "@/db/control-plane";
+import { hasNangoConfig } from "@/lib/env";
 import { getManagedIntegrationDefinition } from "@/lib/managed-integrations/catalog";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
@@ -52,6 +53,14 @@ function getStatusLabel(state: LinearIntegrationUiState) {
   }
 }
 
+function getConnectActionLabel(state: LinearIntegrationUiState) {
+  if (state === "connected" || state === "needs_attention") {
+    return "Reconnect Linear";
+  }
+
+  return "Connect Linear";
+}
+
 export default async function LinearIntegrationPage({
   params,
 }: {
@@ -86,6 +95,9 @@ export default async function LinearIntegrationPage({
   return (
     <LinearIntegrationPanel
       agentCapabilities={definition.agentCapabilities}
+      canConnect={hasNangoConfig()}
+      connectActionLabel={getConnectActionLabel(uiState)}
+      connectSessionUrl={`/api/integrations/${orgSlug}/linear/connect-session`}
       iconSrc={definition.iconSrc}
       orgSlug={orgSlug}
       pageDescription={definition.pageDescription}
