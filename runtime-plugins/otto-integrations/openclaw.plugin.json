@@ -1,0 +1,22 @@
+{
+  "id": "otto-integrations",
+  "name": "Otto Integrations",
+  "description": "Otto-managed integration tools backed by the workspace app.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000
+      },
+      "manifest": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
