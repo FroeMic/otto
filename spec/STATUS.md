@@ -321,6 +321,11 @@
   - the runtime should expose one tool per integration via a new `otto-integrations` plugin
   - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
+- Managed skills planning is now captured in `TODO_18_managed_skills.md`:
+  - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
+  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
+  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
+  - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
