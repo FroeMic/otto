@@ -26,6 +26,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  getUsagePresetDefinitions,
+  getUsagePresetRanges,
+  type UsageDatePresetDefinition,
+  type UsageRangePresetKey,
+} from "@/lib/usage-date-ranges";
 import { cn } from "@/lib/utils";
 
 type UsageOverview = {
@@ -72,16 +78,6 @@ type WorkspaceUsageContentProps = {
   previousCycleStartIso: string | null;
 };
 
-type RangePresetKey =
-  | "current_cycle"
-  | "last_24h"
-  | "last_30d"
-  | "last_7d"
-  | "previous_cycle"
-  | "this_month"
-  | "today"
-  | "custom";
-
 const creditsChartConfig = {
   creditsBurned: {
     color: "var(--chart-1)",
@@ -100,13 +96,6 @@ function formatCompact(value: number, locale: string) {
     maximumFractionDigits: value >= 10_000 ? 0 : 1,
     notation: "compact",
   }).format(value);
-}
-
-function startOfMonth(date: Date) {
-  const next = new Date(date);
-  next.setDate(1);
-  next.setHours(0, 0, 0, 0);
-  return next;
 }
 
 // --- Time bucket helpers ---
@@ -195,14 +184,6 @@ function createRange(from: Date, to: Date): DateRange {
   return { from, to };
 }
 
-// Presets are built dynamically because some depend on billing cycle dates
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 export function WorkspaceUsageContent({
   autoReloadEnabled,
   currentBalanceCreditsMilli,
@@ -219,72 +200,43 @@ export function WorkspaceUsageContent({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] =
-    React.useState<RangePresetKey>("current_cycle");
+    React.useState<UsageRangePresetKey>("current_cycle");
   const [dateRange, setDateRange] = React.useState<DateRange>(() =>
     createRange(new Date(initialRange.from), new Date(initialRange.to)),
   );
   const hasMountedRef = React.useRef(false);
 
-  // For current cycle chart: show full cycle range (start to end), data only up to now
   const currentCycleEnd = currentCycleEndIso
     ? new Date(currentCycleEndIso)
-    : new Date();
-
-  const hasPreviousCycle = Boolean(
-    previousCycleStartIso && previousCycleEndIso,
-  );
+    : null;
+  const currentCycleStart = new Date(currentCycleStartIso);
+  const previousCycleStart = previousCycleStartIso
+    ? new Date(previousCycleStartIso)
+    : null;
+  const previousCycleEnd = previousCycleEndIso
+    ? new Date(previousCycleEndIso)
+    : null;
+  const hasPreviousCycle = Boolean(previousCycleStart && previousCycleEnd);
 
   const presetList = React.useMemo(() => {
-    const items: Array<{
-      key: Exclude<RangePresetKey, "custom">;
-      label: string;
-    }> = [{ key: "current_cycle", label: "Current billing cycle" }];
-    if (hasPreviousCycle) {
-      items.push({ key: "previous_cycle", label: "Previous billing cycle" });
-    }
-    items.push(
-      { key: "today", label: "Today" },
-      { key: "last_24h", label: "Last 24 hours" },
-      { key: "last_7d", label: "Last 7 days" },
-      { key: "last_30d", label: "Last 30 days" },
-      { key: "this_month", label: "This month" },
-    );
-    return items;
+    return getUsagePresetDefinitions({
+      hasBillingCycle: true,
+      hasPreviousBillingCycle: hasPreviousCycle,
+    });
   }, [hasPreviousCycle]);
 
   const presetRanges = React.useMemo(() => {
-    const ranges: Record<string, DateRange> = {
-      current_cycle: createRange(
-        new Date(currentCycleStartIso),
-        currentCycleEnd,
-      ),
-      last_24h: createRange(
-        new Date(Date.now() - 24 * 60 * 60 * 1000),
-        new Date(),
-      ),
-      last_30d: createRange(
-        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        new Date(),
-      ),
-      last_7d: createRange(
-        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        new Date(),
-      ),
-      this_month: createRange(startOfMonth(new Date()), new Date()),
-      today: createRange(startOfToday(), new Date()),
-    };
-    if (previousCycleStartIso && previousCycleEndIso) {
-      ranges.previous_cycle = createRange(
-        new Date(previousCycleStartIso),
-        new Date(previousCycleEndIso),
-      );
-    }
-    return ranges;
+    return getUsagePresetRanges({
+      currentCycleEnd,
+      currentCycleStart,
+      previousCycleEnd,
+      previousCycleStart,
+    });
   }, [
-    currentCycleStartIso,
     currentCycleEnd,
-    previousCycleStartIso,
-    previousCycleEndIso,
+    currentCycleStart,
+    previousCycleEnd,
+    previousCycleStart,
   ]);
 
   React.useEffect(() => {
@@ -373,7 +325,10 @@ export function WorkspaceUsageContent({
           }}
           onPresetSelect={(key) => {
             setSelectedPreset(key);
-            setDateRange(presetRanges[key]);
+            const nextRange = presetRanges[key];
+            if (nextRange) {
+              setDateRange(nextRange);
+            }
           }}
           presets={presetList}
           selectedPreset={selectedPreset}
@@ -521,9 +476,9 @@ function DateRangeDropdown({
   activeLabel: string;
   customRange: DateRange | undefined;
   onCustomRangeChange: (range: DateRange | undefined) => void;
-  onPresetSelect: (key: Exclude<RangePresetKey, "custom">) => void;
-  presets: Array<{ key: Exclude<RangePresetKey, "custom">; label: string }>;
-  selectedPreset: RangePresetKey;
+  onPresetSelect: (key: Exclude<UsageRangePresetKey, "custom">) => void;
+  presets: UsageDatePresetDefinition[];
+  selectedPreset: UsageRangePresetKey;
 }) {
   const [open, setOpen] = React.useState(false);
   const [showCalendar, setShowCalendar] = React.useState(false);

@@ -6,8 +6,10 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { getWorkspaceBillingOverview } from "@/db/billing";
 import { getTenantCreditBalanceSummary } from "@/db/credit-ledger";
 import { formatCreditsFromMilli } from "@/lib/billing/openai-credit-pricing";
+import { getPreviousBillingCycleRange } from "@/lib/usage-date-ranges";
 
 export default async function PlatformOrganizationUsagePage({
   params,
@@ -54,6 +56,14 @@ export default async function PlatformOrganizationUsagePage({
   const creditBalance = await getTenantCreditBalanceSummary({
     tenantId: tenant.id,
   });
+  const billingOverview = await getWorkspaceBillingOverview({
+    organizationId: organization.id,
+  });
+  const previousCycleRange = getPreviousBillingCycleRange({
+    currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
+    currentPeriodStart:
+      billingOverview.subscription?.currentPeriodStart ?? null,
+  });
 
   return (
     <PlatformUsageContent
@@ -68,8 +78,16 @@ export default async function PlatformOrganizationUsagePage({
           creditBalance.totalGrantedCreditsMilli,
         ),
       }}
+      currentCycleEndIso={
+        billingOverview.subscription?.currentPeriodEnd?.toISOString() ?? null
+      }
+      currentCycleStartIso={
+        billingOverview.subscription?.currentPeriodStart?.toISOString() ?? null
+      }
       locale={organization.locale}
       orgSlug={orgSlug}
+      previousCycleEndIso={previousCycleRange?.to.toISOString() ?? null}
+      previousCycleStartIso={previousCycleRange?.from.toISOString() ?? null}
       timezone={organization.timezone}
     />
   );
