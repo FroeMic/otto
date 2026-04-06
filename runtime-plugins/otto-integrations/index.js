@@ -24,13 +24,19 @@ export default definePluginEntry({
     },
   },
   register(api) {
-    const manifest = resolveManifest(api);
+    const rawManifest = Array.isArray(api?.config?.manifest)
+      ? api.config.manifest
+      : [];
+    const manifest = resolveManifestEntries(rawManifest);
 
     console.info(
-      `[otto-integrations] register manifestCount=${manifest.length} tools=${manifest.map((integration) => integration.toolName).join(",") || "none"}`,
+      `[otto-integrations] register configManifest=${Array.isArray(api?.config?.manifest)} rawCount=${rawManifest.length} validCount=${manifest.length} invalidCount=${rawManifest.length - manifest.length} tools=${manifest.map((integration) => integration.toolName).join(",") || "none"}`,
     );
 
     for (const integration of manifest) {
+      console.info(
+        `[otto-integrations] register tool=${integration.toolName} integration=${integration.key}`,
+      );
       api.registerTool(
         {
           name: integration.toolName,
@@ -94,6 +100,10 @@ function resolveManifest(api) {
     ? api.config.manifest
     : [];
 
+  return resolveManifestEntries(manifest);
+}
+
+function resolveManifestEntries(manifest) {
   return manifest
     .filter((entry) => isManifestEntry(entry))
     .sort((left, right) => left.key.localeCompare(right.key));
