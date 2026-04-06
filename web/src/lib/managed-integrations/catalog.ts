@@ -39,6 +39,7 @@ export type ManagedIntegrationRuntimeTool = {
 
 export type ManagedIntegrationDefinition = {
   agentCapabilities: AgentCapability[];
+  categoryLabel: string;
   catalogDescription: string;
   description: string;
   iconSrc: string | null;
@@ -63,6 +64,7 @@ const managedIntegrationDefinitions: Record<
         label: "Search Issues",
       }),
     ],
+    categoryLabel: "Product Management",
     catalogDescription:
       "Synthetic managed integration used to prove Otto's first integration manifest and tool-registration path.",
     description:
@@ -119,15 +121,16 @@ const managedIntegrationDefinitions: Record<
         label: "Update issues",
       }),
     ],
+    categoryLabel: "Product Management",
     catalogDescription:
-      "Connect Linear so Otto can search issue work, summarize status, and prepare follow-up actions.",
+      "Connect Linear so Otto can search issue work, summarize status, and help draft follow-up actions.",
     description:
       "Workspace-managed Linear connection for issue search, issue context, and follow-up actions.",
     iconSrc: "/integrations/linear.svg",
     key: "linear",
     label: "Linear",
     pageDescription:
-      "Connect Linear so Otto can search issue work, summarize status, and prepare follow-up actions without exposing provider secrets to the tenant runtime.",
+      "Connect Linear so Otto can search issue work, summarize status, and help draft follow-up actions for your team.",
     runtimeTool: null,
     showInWorkspaceCatalog: true,
   },
