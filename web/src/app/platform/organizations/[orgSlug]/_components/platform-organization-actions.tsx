@@ -36,10 +36,15 @@ type PlatformOrganizationActionsProps = {
   runtimeReady: boolean;
 };
 
-type OrganizationAction = "apply" | "provision-openai-key" | "refresh-image";
+type OrganizationAction =
+  | "apply"
+  | "deploy-runtime"
+  | "provision-openai-key"
+  | "refresh-image";
 
 const ACTION_LABELS: Record<OrganizationAction, string> = {
   apply: "Applying Config",
+  "deploy-runtime": "Pulling Image and Applying Config",
   "provision-openai-key": "Provisioning OpenAI API Key",
   "refresh-image": "Pulling and Restarting Image",
 };
@@ -64,9 +69,11 @@ export function PlatformOrganizationActions({
     const endpoint =
       action === "apply"
         ? `/api/platform/organizations/${orgSlug}/apply`
-        : action === "provision-openai-key"
-          ? `/api/platform/organizations/${orgSlug}/provision-openai-key`
-          : `/api/platform/organizations/${orgSlug}/refresh-image`;
+        : action === "deploy-runtime"
+          ? `/api/platform/organizations/${orgSlug}/deploy-runtime`
+          : action === "provision-openai-key"
+            ? `/api/platform/organizations/${orgSlug}/provision-openai-key`
+            : `/api/platform/organizations/${orgSlug}/refresh-image`;
 
     try {
       const response = await fetch(endpoint, { method: "POST" });
@@ -251,6 +258,13 @@ export function PlatformOrganizationActions({
             onClick={() => setIsGrantDialogOpen(true)}
           >
             Grant credits
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            disabled={!hasTenant || !runtimeReady || syncJobId !== null}
+            onClick={() => runAction("deploy-runtime")}
+          >
+            Pull new image and apply config
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"

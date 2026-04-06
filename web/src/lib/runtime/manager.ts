@@ -37,8 +37,8 @@ export type WhatsAppLinkStatus = {
   lastError: string | null;
 };
 
-const GATEWAY_HEALTH_POLL_INTERVAL_MS = 15_000;
-const GATEWAY_HEALTH_MAX_ATTEMPTS = 20;
+const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000;
+const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000;
 const RUNTIME_START_HELPER_PATH =
   "/app/otto-helpers/start-runtime-with-watchers.mjs";
 const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
@@ -94,11 +94,10 @@ export class RuntimeManager {
   }
 
   async restartGatewayContainer(connection: SshConnection): Promise<void> {
-    await this.execChecked(
-      connection,
-      buildShellCommand(["docker restart openclaw-gateway >/dev/null"]),
-      { timeoutMs: 60_000 },
-    );
+    await this.restartGatewayWithResult(connection, {
+      pullImage: false,
+      strategy: "restart-container",
+    });
     await this.checkGatewayHealth(connection);
   }
 
@@ -110,6 +109,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
+      pullImageFirst?: boolean;
       slackBotToken?: string | null;
       tenantId: string;
     },
@@ -131,7 +131,11 @@ export class RuntimeManager {
       openClawConfig: input.openClawConfig,
     });
 
-    const restart = await this.restartGatewayWithResult(connection);
+    const restart = await this.restartGatewayWithResult(connection, {
+      pullImage: input.pullImageFirst ?? false,
+      strategy:
+        input.pullImageFirst === true ? "recreate" : "restart-container",
+    });
     const verify = await this.checkGatewayHealthWithResult(connection);
 
     return {
@@ -230,7 +234,6 @@ export class RuntimeManager {
     },
   ) {
     const commands = [
-      "chown -R openclaw:openclaw /opt/openclaw",
       "test -s /opt/openclaw/home/openclaw.json",
       "test -s /opt/openclaw/home/.env",
       "test -s /opt/openclaw/home/workspace/AGENTS.md",
@@ -265,62 +268,77 @@ export class RuntimeManager {
     await this.execChecked(connection, buildShellCommand(commands));
   }
 
-  async restartGatewayWithResult(connection: SshConnection) {
-    const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  async restartGatewayWithResult(
+    connection: SshConnection,
+    input: {
+      pullImage?: boolean;
+      strategy?: "recreate" | "restart-container";
+    } = {},
+  ) {
+    if (input.strategy === "restart-container") {
+      return await this.execChecked(
+        connection,
+        buildShellCommand(["docker restart openclaw-gateway >/dev/null"]),
+        { timeoutMs: 60_000 },
+      );
+    }
 
-    return await this.execChecked(
-      connection,
-      buildShellCommand([
-        `docker pull ${shellQuoteForShell(image)}`,
+    const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
+    const commands = [
+      ...(input.pullImage === false
+        ? []
+        : [`docker pull ${shellQuoteForShell(image)}`]),
+      [
+        "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+        "docker rm -f openclaw-gateway >/dev/null;",
+        "fi",
+      ].join(" "),
+      [
+        "for attempt in $(seq 1 20); do",
+        "if ! docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+        "break;",
+        "fi;",
+        "sleep 1;",
+        "done",
+      ].join(" "),
+      [
+        "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
+        "echo 'openclaw-gateway container still exists after removal attempt' >&2;",
+        "exit 1;",
+        "fi",
+      ].join(" "),
+      [
+        "docker run -d",
+        "--name openclaw-gateway",
+        "--restart unless-stopped",
+        `-p 127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}:${OPENCLAW_GATEWAY_CONTAINER_PORT}`,
+        "--user 1000:1001",
+        "--env-file /opt/openclaw/home/.env",
+        "-v /opt/openclaw/home:/home/node/.openclaw",
+        shellQuoteForShell(image),
         [
-          "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
-          "docker rm -f openclaw-gateway >/dev/null;",
-          "fi",
+          "node",
+          shellQuoteForShell(RUNTIME_START_HELPER_PATH),
+          "--port",
+          shellQuoteForShell(String(OPENCLAW_GATEWAY_CONTAINER_PORT)),
         ].join(" "),
-        [
-          "for attempt in $(seq 1 20); do",
-          "if ! docker container inspect openclaw-gateway >/dev/null 2>&1; then",
-          "break;",
-          "fi;",
-          "sleep 1;",
-          "done",
-        ].join(" "),
-        [
-          "if docker container inspect openclaw-gateway >/dev/null 2>&1; then",
-          "echo 'openclaw-gateway container still exists after removal attempt' >&2;",
-          "exit 1;",
-          "fi",
-        ].join(" "),
-        [
-          "docker run -d",
-          "--name openclaw-gateway",
-          "--restart unless-stopped",
-          `-p 127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}:${OPENCLAW_GATEWAY_CONTAINER_PORT}`,
-          "--user 1000:1001",
-          "--env-file /opt/openclaw/home/.env",
-          "-v /opt/openclaw/home:/home/node/.openclaw",
-          shellQuoteForShell(image),
-          [
-            "node",
-            shellQuoteForShell(RUNTIME_START_HELPER_PATH),
-            "--port",
-            shellQuoteForShell(String(OPENCLAW_GATEWAY_CONTAINER_PORT)),
-          ].join(" "),
-        ].join(" "),
-      ]),
-      { timeoutMs: 300_000 },
-    );
+      ].join(" "),
+    ];
+
+    return await this.execChecked(connection, buildShellCommand(commands), {
+      timeoutMs: 300_000,
+    });
   }
 
   async applyTenantFiles(connection: SshConnection, files: RuntimeFile[]) {
-    for (const file of files) {
-      await this.sshClient.writeFileAtomic(
-        connection,
-        file.path,
-        file.contents,
-        file.mode,
-      );
-    }
+    await this.sshClient.writeFilesAtomic(
+      connection,
+      files.map((file) => ({
+        contents: file.contents,
+        mode: file.mode,
+        targetPath: file.path,
+      })),
+    );
   }
 
   async normalizeTenantRuntimeFilePermissions(
@@ -376,7 +394,9 @@ export class RuntimeManager {
 
   async checkGatewayHealthWithResult(connection: SshConnection) {
     try {
-      for (let attempt = 1; attempt <= GATEWAY_HEALTH_MAX_ATTEMPTS; attempt++) {
+      const deadline = Date.now() + GATEWAY_HEALTH_MAX_DURATION_MS;
+
+      for (let attempt = 1; ; attempt += 1) {
         const result = await this.sshClient.exec(
           connection,
           buildShellCommand([
@@ -393,16 +413,22 @@ export class RuntimeManager {
         const status = await this.getGatewayStatusSummary(connection);
 
         console.info(
-          `[worker] gateway health check attempt ${attempt}/${GATEWAY_HEALTH_MAX_ATTEMPTS}: waiting for ${connection.host}:${OPENCLAW_GATEWAY_HOST_PORT} (container ${status})`,
+          `[worker] gateway health check attempt ${attempt}: waiting for ${connection.host}:${OPENCLAW_GATEWAY_HOST_PORT} (container ${status})`,
         );
 
-        if (attempt < GATEWAY_HEALTH_MAX_ATTEMPTS) {
-          await sleep(GATEWAY_HEALTH_POLL_INTERVAL_MS);
+        const remainingMs = deadline - Date.now();
+
+        if (remainingMs <= 0) {
+          break;
         }
+
+        await sleep(
+          Math.min(getGatewayHealthPollDelayMs(attempt), remainingMs),
+        );
       }
 
       throw new Error(
-        `Gateway health check did not succeed after ${GATEWAY_HEALTH_MAX_ATTEMPTS} attempts over ${Math.round((GATEWAY_HEALTH_MAX_ATTEMPTS * GATEWAY_HEALTH_POLL_INTERVAL_MS) / 1000)}s`,
+        `Gateway health check did not succeed within ${Math.round(GATEWAY_HEALTH_MAX_DURATION_MS / 1000)}s`,
       );
     } catch (error) {
       const diagnostics = await this.getGatewayDiagnostics(connection);
@@ -698,6 +724,22 @@ function shellQuote(value: string) {
 
 function shellQuoteForShell(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function getGatewayHealthPollDelayMs(attempt: number) {
+  if (attempt <= 1) {
+    return 1_000;
+  }
+
+  if (attempt === 2) {
+    return 2_000;
+  }
+
+  if (attempt === 3) {
+    return 3_000;
+  }
+
+  return GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS;
 }
 
 async function buildRuntimeEnvFile(input: {

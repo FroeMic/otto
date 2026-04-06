@@ -139,6 +139,7 @@ export default async function SlackIntegrationPage({
     latestApplyRun?.status === "loading_desired_state" ||
     latestApplyRun?.status === "rendering_files" ||
     latestApplyRun?.status === "writing_files" ||
+    latestApplyRun?.status === "pulling_runtime_image" ||
     latestApplyRun?.status === "restarting_runtime" ||
     latestApplyRun?.status === "verifying_runtime";
   const canReconnectSlack =

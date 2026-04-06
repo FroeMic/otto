@@ -23,6 +23,12 @@ export type SshExecOptions = {
   timeoutMs?: number;
 };
 
+type AtomicRemoteFile = {
+  contents: string;
+  mode?: number;
+  targetPath: string;
+};
+
 export class SshClient {
   async exec(
     connection: SshConnection,
@@ -125,23 +131,64 @@ export class SshClient {
     contents: string,
     mode = 0o600,
   ): Promise<void> {
+    await this.writeFilesAtomic(connection, [
+      {
+        contents,
+        mode,
+        targetPath,
+      },
+    ]);
+  }
+
+  async writeFilesAtomic(
+    connection: SshConnection,
+    files: AtomicRemoteFile[],
+  ): Promise<void> {
+    if (files.length === 0) {
+      return;
+    }
+
     const client = new SftpClient("otto-write-file");
-    const remoteDirectory = path.posix.dirname(targetPath);
-    const tempPath = `${targetPath}.tmp-${Date.now()}`;
+    const pendingWrites: Array<{
+      mode: number;
+      targetPath: string;
+      tempPath: string;
+    }> = [];
 
     try {
       await client.connect(await buildConnectConfig(connection));
 
-      await client.mkdir(remoteDirectory, true);
-      await client.put(Buffer.from(contents, "utf8"), tempPath);
+      for (const [index, file] of files.entries()) {
+        const remoteDirectory = path.posix.dirname(file.targetPath);
+        const mode = file.mode ?? 0o600;
+        const nextContents = Buffer.from(file.contents, "utf8");
+        const tempPath = `${file.targetPath}.tmp-${Date.now()}-${index}`;
+
+        await client.mkdir(remoteDirectory, true);
+        await client.put(nextContents, tempPath);
+        pendingWrites.push({
+          mode,
+          targetPath: file.targetPath,
+          tempPath,
+        });
+      }
     } finally {
       await safeEnd(client);
+    }
+
+    if (pendingWrites.length === 0) {
+      return;
     }
 
     await this.exec(
       connection,
       `bash -lc ${shellQuote(
-        `chmod ${formatFileMode(mode)} ${shellEscape(tempPath)} && mv -f ${shellEscape(tempPath)} ${shellEscape(targetPath)}`,
+        pendingWrites
+          .flatMap((write) => [
+            `chmod ${formatFileMode(write.mode)} ${shellEscape(write.tempPath)}`,
+            `mv -f ${shellEscape(write.tempPath)} ${shellEscape(write.targetPath)}`,
+          ])
+          .join(" && "),
       )}`,
     );
   }

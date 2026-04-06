@@ -13,6 +13,7 @@
     "tenant:openai:provision": "bun src/scripts/provision-openai-tenant.ts",
     "tenant:runtime": "bun src/scripts/tenant-runtime.ts",
     "tenant:runtime:apply": "bun src/scripts/tenant-runtime.ts apply",
+    "tenant:runtime:deploy": "bun src/scripts/tenant-runtime.ts deploy",
     "tenant:runtime:recompile-desired-state": "bun src/scripts/tenant-runtime.ts recompile-desired-state",
     "tenant:runtime:refresh-image": "bun src/scripts/tenant-runtime.ts refresh-image",
     "verify:runtime-surface": "bun src/scripts/verify-runtime-surface.ts",

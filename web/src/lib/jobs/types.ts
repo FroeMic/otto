@@ -42,6 +42,7 @@ export const APPLY_STEPS = {
   loadingDesiredState: "loading_desired_state",
   renderingFiles: "rendering_files",
   writingFiles: "writing_files",
+  pullingRuntimeImage: "pulling_runtime_image",
   restartingRuntime: "restarting_runtime",
   verifyingRuntime: "verifying_runtime",
   succeeded: "succeeded",
@@ -65,6 +66,7 @@ export type ProvisionTenantOpenAiKeyPayload = {
 export type ApplyTenantConfigPayload = {
   tenantId: string;
   desiredStateVersion: number;
+  pullImageFirst?: boolean;
   step?: ApplyStep;
 };
 

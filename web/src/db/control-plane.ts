@@ -3949,6 +3949,35 @@ export async function triggerPlatformOrganizationApply(input: {
   };
 }
 
+export async function triggerPlatformOrganizationDeployRuntime(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    pullImageFirst: true,
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
 export async function triggerPlatformOrganizationProvisionOpenAiKey(input: {
   orgSlug: string;
   userExternalId: string;
@@ -6855,6 +6884,7 @@ export async function getTenantByTenantToken(tenantToken: string) {
 
 export async function enqueueTenantConfigApply(input: {
   desiredStateVersion: number;
+  pullImageFirst?: boolean;
   tenantId: string;
 }) {
   const db = getDb();
@@ -6862,6 +6892,7 @@ export async function enqueueTenantConfigApply(input: {
     jobType: JOB_TYPES.applyTenantConfig,
     payload: {
       desiredStateVersion: input.desiredStateVersion,
+      ...(input.pullImageFirst === true ? { pullImageFirst: true } : {}),
       tenantId: input.tenantId,
     },
   });
