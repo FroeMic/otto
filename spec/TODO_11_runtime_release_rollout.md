@@ -58,6 +58,10 @@ Replace env-driven tenant runtime image selection with a control-plane-managed r
 - For v1, place release activation and rollout controls on the authenticated Agent status / deployment view so runtime operations live next to gateway access and recent deployment activity.
 - The workspace settings area may link users toward the Agent deployment surface, but should not own the rollout action itself.
 - Gate that control with an explicit operator allowlist such as `CONTROL_PLANE_OPERATOR_EMAILS`.
+- Until the DB-backed runtime release model lands, keep the existing platform operator surfaces consistent:
+  - `/platform/organizations`
+  - `/platform/organizations/[orgSlug]`
+  - both should expose separate actions for config-only apply, image-only refresh, and one-click image pull plus config apply
 
 ## Exit criteria
 

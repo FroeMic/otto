@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   enqueueTenantConfigApply,
-  getLatestTenantDesiredState,
+  ensureCurrentTenantDesiredStateVersion,
 } from "@/db/control-plane";
 import {
   jobEvents,
@@ -24,7 +24,7 @@ const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_TIMEOUT_MS = 15 * 60_000;
 const runtimeManager = new RuntimeManager();
 
-type Command = "apply" | "refresh-image";
+type Command = "apply" | "deploy" | "refresh-image" | "recompile-desired-state";
 
 type TenantTarget = {
   ipv4: string | null;
@@ -55,7 +55,13 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0] as Command | undefined;
 
-  if (!command || (command !== "apply" && command !== "refresh-image")) {
+  if (
+    !command ||
+    (command !== "apply" &&
+      command !== "deploy" &&
+      command !== "refresh-image" &&
+      command !== "recompile-desired-state")
+  ) {
     printUsage();
     process.exit(1);
   }
@@ -70,7 +76,21 @@ async function main() {
   }
 
   if (command === "apply") {
-    await runApply(tenant, options);
+    await runApply(tenant, options, {
+      pullImageFirst: false,
+    });
+    return;
+  }
+
+  if (command === "deploy") {
+    await runApply(tenant, options, {
+      pullImageFirst: true,
+    });
+    return;
+  }
+
+  if (command === "recompile-desired-state") {
+    await runRecompileDesiredState(tenant);
     return;
   }
 
@@ -84,30 +104,40 @@ async function runApply(
     timeoutMs: number;
     wait: boolean;
   },
+  input: {
+    pullImageFirst: boolean;
+  },
 ) {
   const runtimeConnection = await getTenantRuntimeConnection(
     tenant.tenantId,
     "tenant runtime apply script",
   );
-  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
+    ...(input.pullImageFirst ? { pullImageFirst: true } : {}),
     tenantId: tenant.tenantId,
   });
 
   console.info(
     JSON.stringify(
       {
-        action: "apply",
+        action: input.pullImageFirst ? "deploy" : "apply",
         host: runtimeConnection.host,
         image: getEnv().RUNTIME_OPENCLAW_IMAGE,
         jobId,
-        note: "apply_tenant_config already pulls RUNTIME_OPENCLAW_IMAGE before recreating the runtime container",
+        note: input.pullImageFirst
+          ? "apply_tenant_config will pull the configured runtime image before recreating the runtime container"
+          : "apply_tenant_config will restart the existing runtime container without pulling a new image",
         targetMode: tenant.targetMode,
         targetRef: tenant.targetRef,
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
+        desiredStateChanged: desiredState.changed,
         desiredStateVersion: desiredState.version,
+        pullImageFirst: input.pullImageFirst,
       },
       null,
       2,
@@ -124,7 +154,7 @@ async function runApply(
   console.info(
     JSON.stringify(
       {
-        action: "apply",
+        action: input.pullImageFirst ? "deploy" : "apply",
         events,
         result,
       },
@@ -164,6 +194,28 @@ async function runRefreshImage(tenant: TenantTarget) {
         tenantName: tenant.tenantName,
         verifyStderr: verify.stderr,
         verifyStdout: verify.stdout,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+async function runRecompileDesiredState(tenant: TenantTarget) {
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+
+  console.info(
+    JSON.stringify(
+      {
+        action: "recompile-desired-state",
+        desiredStateChanged: desiredState.changed,
+        desiredStateVersion: desiredState.version,
+        targetMode: tenant.targetMode,
+        targetRef: tenant.targetRef,
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
       },
       null,
       2,
@@ -234,6 +286,7 @@ async function waitForApplyRun(
       applyRun.status === "loading_desired_state" ||
       applyRun.status === "rendering_files" ||
       applyRun.status === "writing_files" ||
+      applyRun.status === "pulling_runtime_image" ||
       applyRun.status === "restarting_runtime" ||
       applyRun.status === "verifying_runtime"
     ) {
@@ -359,10 +412,14 @@ function parseOptions(args: string[]) {
 function printUsage() {
   console.error(`Usage:
   bun src/scripts/tenant-runtime.ts apply --orgslug <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts deploy --orgslug <org-slug> [--no-wait] [--poll-ms <ms>] [--timeout-ms <ms>]
+  bun src/scripts/tenant-runtime.ts recompile-desired-state --orgslug <org-slug>
   bun src/scripts/tenant-runtime.ts refresh-image --orgslug <org-slug>
 
 Examples:
   bun run tenant:runtime:apply -- --orgslug my-org
+  bun run tenant:runtime:deploy -- --orgslug my-org
+  bun run tenant:runtime:recompile-desired-state -- --orgslug my-org
   bun run tenant:runtime:refresh-image -- --orgslug my-org
   bun run tenant:runtime:apply -- --orgslug my-org --no-wait
 `);

@@ -15,6 +15,11 @@ const envSchema = z.object({
   HETZNER_DEFAULT_SERVER_TYPE: z.string().default("cpx21"),
   HETZNER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HETZNER_SSH_KEY_NAMES: z.string().default(""),
+  INTEGRATION_GATEWAY_INTERNAL_URL: z
+    .string()
+    .url()
+    .default("http://127.0.0.1:3001"),
+  INTEGRATION_GATEWAY_PORT: z.coerce.number().int().positive().default(3001),
   RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
   RUNTIME_OPENCLAW_IMAGE: z
@@ -59,6 +64,15 @@ const envSchema = z.object({
     .positive()
     .optional(),
   RUNTIME_XAI_API_KEY: z.string().optional(),
+  LINEAR_CLIENT_ID: z.string().optional(),
+  LINEAR_CLIENT_SECRET: z.string().optional(),
+  LINEAR_OAUTH_ACTOR: z.enum(["app", "user"]).default("app"),
+  LINEAR_OAUTH_SCOPES: z
+    .string()
+    .default(
+      "read,write,issues:create,comments:create,timeSchedule:write,app:mentionable,app:assignable,customer:read,customer:write,initiative:read,initiative:write",
+    ),
+  LINEAR_REDIRECT_URI: z.string().url().optional(),
   SLACK_BOT_SCOPES: z
     .string()
     .default(
@@ -105,6 +119,11 @@ const envSchema = z.object({
   WORKOS_WEBHOOK_SECRET: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
+  WORKER_STALE_JOB_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
 });
 
@@ -219,6 +238,37 @@ export function getSlackOAuthConfig() {
 export function hasSlackOAuthConfig() {
   try {
     getSlackOAuthConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getLinearOAuthConfig() {
+  const env = getEnv();
+
+  if (
+    !env.LINEAR_CLIENT_ID ||
+    !env.LINEAR_CLIENT_SECRET ||
+    !env.LINEAR_REDIRECT_URI
+  ) {
+    throw new Error("Linear OAuth is not fully configured");
+  }
+
+  return {
+    actor: env.LINEAR_OAUTH_ACTOR,
+    clientId: env.LINEAR_CLIENT_ID,
+    clientSecret: env.LINEAR_CLIENT_SECRET,
+    redirectUri: env.LINEAR_REDIRECT_URI,
+    scopes: env.LINEAR_OAUTH_SCOPES.split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean),
+  };
+}
+
+export function hasLinearOAuthConfig() {
+  try {
+    getLinearOAuthConfig();
     return true;
   } catch {
     return false;

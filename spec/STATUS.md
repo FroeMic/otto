@@ -40,7 +40,8 @@
   - tenant runtime `.env` no longer receives `OPENAI_API_KEY`
   - OpenAI key rotation now updates Otto DB state only and no longer reapplies or verifies tenant runtime env
 - The first raw OpenAI usage-ingestion foundation now exists:
-  - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
+  - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
+  - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
   - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
     - `completions`
     - `embeddings`
@@ -110,6 +111,10 @@
   - `OPENCLAW_GATEWAY_TOKEN` remains the OpenClaw gateway auth secret, while `TENANT_TOKEN` is the runtime-to-control-plane auth credential for Otto-owned internal APIs and plugins
   - `tenant_apply_runs` now record queued, running, succeeded, and failed apply attempts per desired-state version
   - the worker now handles `apply_tenant_config` by writing runtime files atomically, restarting the tenant runtime, and verifying health
+  - normal config applies now restart the existing runtime container without pulling a new image first
+  - apply file projection now batches atomic SFTP writes in one session and skips rewriting unchanged runtime files
+  - gateway health verification now uses a fast-start backoff instead of a fixed 15-second polling interval
+  - the in-repo job queue now reclaims stale `running` jobs after a timeout so worker restarts do not strand apply or provisioning work forever
   - Slack reconnect on an already-ready tenant now queues a runtime apply and the Slack integration page shows queued, applying, and failed runtime update states
 - The first managed-bootstrap-files slice is now implemented:
   - `tenant_managed_config_versions` and `tenant_managed_file_versions` now store canonical managed bootstrap files in the control plane
@@ -160,7 +165,8 @@
   - workspace sidebars now expose `Platform Administration` below the Slack link for flagged users
   - `/platform` now has its own protected shell and `/platform/organizations` page
   - `/platform/organizations` uses a reusable TanStack-based data table component with search, sorting, and row actions
-  - platform admins can queue `apply_tenant_config` and trigger runtime image pull/restart directly from the organizations table
+  - platform admins can queue `apply_tenant_config`, trigger runtime image pull/restart, and run a one-click `Pull new image and apply config` action directly from the organizations table
+  - entering platform administration from a workspace now carries that workspace slug so `Back to Otto` returns to the originating workspace instead of defaulting to the first available workspace
 - The platform organizations area now also has a dedicated per-organization detail page on `codex/platform-organization-detail`:
   - `/platform/organizations/[orgSlug]` shows workspace/runtime summary cards, operator actions, gateway access, recent apply history, latest apply diagnostics, recent jobs, and latest job events
   - the platform organizations table now links directly into that detail route from the organization name cell
@@ -172,8 +178,10 @@
     - `/platform/organizations/[orgSlug]/logs`
   - the new activity view now combines jobs and events into one filtered surface with polling
   - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
+  - the per-organization actions menu now also exposes the one-click `Pull new image and apply config` path
   - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
   - the platform organizations table and overview now inspect the ready tenant server over SSH and show the observed `openclaw-gateway` image separately from the configured target image
+  - the Otto runtime image now sets `OPENCLAW_NO_RESPAWN=1` plus a persistent `NODE_COMPILE_CACHE` under the mounted runtime home so OpenClaw cold starts avoid the extra respawn hop and can reuse Node compile artifacts across config-only restarts and container recreation
 - OpenClaw cron integration findings are now captured in `TODO_13_scheduled_tasks_visibility.md`:
   - OpenClaw already exposes stable typed `cron.list`, `cron.runs`, and related `cron.*` Gateway methods we can use for runtime read/reconcile flows
   - cron run history already carries `sessionKey`, so task-run rows can deep-link to synced session detail views
@@ -217,9 +225,19 @@
   - the first provider entry should be `openai-proxy`, with embeddings and speech/TTS following distinct OpenClaw extension seams
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
+- The stale Nango Linear path is no longer part of the active integration stack:
+  - Linear now uses the first-party OAuth substrate and direct Linear OAuth env/config only
+  - Nango-specific env/docs/helpers are being removed
+  - Linear-specific installation state should not live in a provider-specific table; the design direction is generic `tenant_integrations` plus shared OAuth state by default
+- The `otto-integrations` runtime contract is being made more self-describing for agents:
+  - discovery is now a first-class metatool concern instead of an optional follow-up
+  - integration responses should carry execution guides and example calls alongside parameter schemas
+  - the runtime plugin should explicitly teach the discovery -> inspect -> connect -> execute workflow so agents do not have to infer it
+  - discovery hit payloads should stay compact and rank-oriented; full schemas and execution metadata belong on `get_integration`
+  - the temporary synthetic `demo-linear` provider has been removed so the runtime catalog only advertises real integrations
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
-  - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose
+  - run `web`, `integration-gateway`, `worker`, `postgres`, and `caddy` via Docker Compose
   - keep the web UI public over HTTPS but keep operator SSH access private over Tailscale only
   - expose a `/healthz` route for container and reverse-proxy readiness checks
 - WorkOS auth configuration is now moving to explicit server-side runtime settings:
@@ -316,20 +334,61 @@
   - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
 - Managed integrations architecture planning is now captured in `TODO_17_managed_integrations_architecture.md`:
-  - managed outbound integrations should start with hosted Nango
-  - runtime execution should move through a dedicated `integration-gateway` container
-  - the runtime should expose one tool per integration via a new `otto-integrations` plugin
-  - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
+  - managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations
+  - runtime execution now has a dedicated `integration-gateway` container boundary, while discovery and status reads still live in `web`
+  - the runtime should expose a fixed `otto-integrations` metatool plugin backed by control-plane discovery
+  - prompt-cache stability should come from static runtime tool contracts, with tenant-specific state carried in discovery responses instead of per-tenant dynamic tool registration
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
 - The first shared Slack ingress slice is now in code:
   - public control-plane endpoints now exist at `/api/integrations/slack/events`, `/api/integrations/slack/commands`, and `/api/integrations/slack/interactivity`
   - inbound Slack payloads are now routed by `team_id`, logged to `slack_ingress_deliveries`, and forwarded into the tenant runtime's native OpenClaw Slack HTTP handler
   - tenant Slack projection now renders OpenClaw in HTTP mode instead of Socket Mode, and tenant runtime env projection no longer depends on `SLACK_APP_TOKEN`
   - the current forwarding hop still uses the existing runtime connection path to reach the loopback-only tenant gateway, so the next hardening step is about transport and lifecycle robustness rather than basic routing capability
-- The first `TODO_17_managed_integrations_architecture.md` increment is now in progress on `codex/todo-17-increment-1`:
-  - a synthetic managed integration manifest is being wired through the control plane for one demo provider
-  - a new `otto-integrations` runtime plugin is being added so Otto can register one tool per enabled managed integration
-  - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
+- Managed skills planning is now captured in `TODO_18_managed_skills.md`:
+  - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
+  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
+  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
+  - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
+- OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
+  - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
+  - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
+  - the in-repo worker should handle refresh, retry, reconnect, and durable failure state before any hosted auth broker becomes the default
+- The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
+  - a real managed integration path now flows through the control plane for Linear, and the temporary synthetic demo provider has been removed
+  - the `otto-integrations` runtime plugin now exposes a static metatool surface instead of dynamic one-tool-per-integration registration
+  - runtime discovery and detail remain in `web`, but execute now routes through the dedicated `integration-gateway` service
+  - the tenant runtime now discovers integration metadata from runtime-authenticated control-plane routes instead of from a projected per-tenant manifest in `openclaw.json`
+  - `openclaw plugins inspect otto-integrations` now reliably shows the static tool contract in every runtime because registration no longer depends on tenant config being loaded into the plugin
+  - the current metatool set is `find_integration_functions`, `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
+  - `manage_integration_connection` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
+- The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
+  - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
+  - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
+  - Increment 4 is now complete for Linear: Otto-owned OAuth connect, reconnect, disconnect, durable connection state, and shared refresh handling are all in place for the first provider
+  - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
+  - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
+  - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
+  - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
+  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits` rows recorded for success and failure
+- The next managed-integrations refactor slice is now in progress on `main`:
+  - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
+  - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
+  - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
+  - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations2/[integrationKey]`, and the legacy `/integrations` page no longer carries a separate Linear implementation
+  - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
+  - runtime operation validation now runs in the framework before provider execution using the advertised operation schema plus provider-specific normalization
+  - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
+- The metatool direction is now the preferred managed-integrations architecture:
+  - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
+  - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability
+- The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now implemented on `main`:
+  - generic OAuth sessions, connections, credentials, and events now have dedicated Postgres tables
+  - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist
+  - Linear now uses Otto-owned OAuth state, encrypted credentials, and callback handling instead of the active hosted Nango path
+  - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
+  - a shared `/api/integrations/[orgSlug]/[providerKey]/disconnect` route now exists, with provider-specific teardown clearing stored credentials and removing runtime projection for Linear
+  - no further OAuth substrate expansion is recommended ahead of the next provider; add only the provider-specific pieces and the shared deltas that provider proves necessary
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
@@ -350,6 +409,7 @@
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
+  - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:refresh-image -- <org-slug>` forces a ready tenant runtime to pull `RUNTIME_OPENCLAW_IMAGE` and recreate `openclaw-gateway` without requiring UI-driven config changes
 - The workspace members page now uses WorkOS organization roles dynamically instead of a fixed access display:
   - invite dialogs accept multiple comma/newline-separated emails plus an explicit WorkOS role
@@ -401,6 +461,7 @@
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
+  - worker startup should tolerate transient OpenAI usage-endpoint failures so queued jobs like tenant apply can still run while provider metering retries later
   - next, add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
   - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
   - then add Otto credit grants, ledger entries, and derived balances from Stripe events

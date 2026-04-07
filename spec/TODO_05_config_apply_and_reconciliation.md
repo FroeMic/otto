@@ -80,13 +80,15 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - render any managed bootstrap files that should be projected onto the runtime
   - upload files atomically
   - optionally run a validation step
-  - restart the gateway
+  - prefer a config-only container restart for normal applies
+  - reserve image pull plus recreate for explicit image-refresh or deploy actions
   - record outputs and final status on the apply run
 - Recommended apply job step states:
   - `queued`
   - `loading_desired_state`
   - `rendering_files`
   - `writing_files`
+  - `pulling_runtime_image`
   - `restarting_runtime`
   - `verifying_runtime`
   - `succeeded`
@@ -106,6 +108,8 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - the host has an `openclaw` user and runtime directories under `/home/openclaw`
   - the gateway listens on all container interfaces so Docker port publishing works, while the host publish can stay bound to `127.0.0.1` unless external ingress is intentionally enabled
   - the control plane applies tenant runtime state over SSH
+  - normal config apply should not pull the runtime image again when the image is unchanged
+  - the Otto runtime image should set `OPENCLAW_NO_RESPAWN=1` and a persistent `NODE_COMPILE_CACHE` path inside the mounted runtime home so config-only restarts do not pay avoidable OpenClaw startup overhead
   - control-plane-managed bootstrap files such as `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` are projected into the OpenClaw workspace root at the exact paths the runtime expects
   - the control plane authenticates with one deploy key pair managed by env, not an operator laptop key
 - Security constraints:

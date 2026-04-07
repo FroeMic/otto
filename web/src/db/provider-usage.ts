@@ -82,6 +82,40 @@ export async function getProviderUsageSyncState(input: {
   return syncState ?? null;
 }
 
+export async function getOpenAiUsageSyncTargetByProviderAccountId(input: {
+  providerAccountId: string;
+  usageType: ProviderUsageType;
+}) {
+  const db = getDb();
+  const [target] = await db
+    .select({
+      externalProjectId: providerAccounts.externalProjectId,
+      lastSuccessfulEndAt: providerUsageSyncStates.lastSuccessfulEndAt,
+      pollIntervalSeconds: providerUsageSyncStates.pollIntervalSeconds,
+      providerAccountId: providerAccounts.id,
+      status: providerAccounts.status,
+      tenantId: providerAccounts.tenantId,
+    })
+    .from(providerAccounts)
+    .leftJoin(
+      providerUsageSyncStates,
+      and(
+        eq(providerUsageSyncStates.providerAccountId, providerAccounts.id),
+        eq(providerUsageSyncStates.usageType, input.usageType),
+      ),
+    )
+    .where(
+      and(
+        eq(providerAccounts.id, input.providerAccountId),
+        eq(providerAccounts.providerKey, OPENAI_PROVIDER_KEY),
+        isNull(providerAccounts.revokedAt),
+      ),
+    )
+    .limit(1);
+
+  return target ?? null;
+}
+
 export async function beginProviderUsageSyncAttempt(input: {
   pollIntervalSeconds: number;
   providerAccountId: string;

@@ -6,6 +6,7 @@
 
 - Next.js request-response UI and API work
 - WorkOS authentication and tenant management
+- integration-gateway execution proxy for managed integrations
 - durable job state stored in Postgres
 - a dedicated worker process for provisioning and later runtime apply flows
 
@@ -38,6 +39,7 @@ docker compose up -d
    - set one of `RUNTIME_DEPLOY_PRIVATE_KEY`, `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`, or rely on a loaded local SSH agent
    - optionally override `RUNTIME_OPENCLAW_IMAGE` if you need a non-default OpenClaw runtime image
    - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
+   - the Otto custom runtime image also sets `OPENCLAW_NO_RESPAWN=1` and a persistent `NODE_COMPILE_CACHE` inside the mounted runtime home to reduce OpenClaw restart overhead
    - to preconfigure the default OpenAI model, optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
    - to let the control plane provision the initial tenant-specific OpenAI project and service-account key during runtime bootstrap, set `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
    - to test Slack OAuth onboarding, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and `SLACK_REDIRECT_URI`
@@ -45,6 +47,7 @@ docker compose up -d
    - Slack directory sync now also expects `users:read`, `channels:read`, and `groups:read` in the app scopes so the control plane can cache workspace members and channels
    - set `RUNTIME_SLACK_APP_TOKEN` for the shared app-level Socket Mode token
    - tenant Slack bot tokens now come from the Slack OAuth onboarding flow and are no longer read from control-plane env
+   - to enable the Linear connect flow, set `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`, and `LINEAR_REDIRECT_URI`
    - to enable hosted billing, set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`
    - create four recurring monthly Stripe prices in USD for `Basic`, `Plus`, `Pro`, and `Max`
    - set the Stripe price `lookup_key` values exactly to `basic_monthly`, `plus_monthly`, `pro_monthly`, and `max_monthly`
@@ -92,6 +95,12 @@ Run the worker:
 bun run worker
 ```
 
+Run the integration gateway:
+
+```bash
+bun run integration-gateway
+```
+
 From the repo root, run both together:
 
 ```bash
@@ -110,8 +119,14 @@ Queue a tenant runtime apply against the latest desired state for an org:
 bun run tenant:runtime:apply -- --orgslug <org-slug>
 ```
 
-This uses the normal `apply_tenant_config` worker path, which already pulls the
-configured `RUNTIME_OPENCLAW_IMAGE` before recreating the runtime container.
+This uses the normal `apply_tenant_config` worker path and performs a
+config-only restart of the existing runtime container.
+
+Pull the configured image and apply the latest desired state in one step:
+
+```bash
+bun run tenant:runtime:deploy -- --orgslug <org-slug>
+```
 
 Force a ready tenant to pull `RUNTIME_OPENCLAW_IMAGE` and recreate the runtime
 container without changing config:
@@ -136,6 +151,7 @@ bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 - the control plane can provision Hetzner tenant servers through the worker
 - runtime bootstrap and config apply now execute over SSH
 - production deployment artifacts now exist for one public control-plane VPS with local Postgres and a dedicated worker
+- managed integration execution now also runs through a dedicated integration-gateway service in the production stack
 - Stripe billing currently expects:
   - recurring monthly plan price lookup keys: `basic_monthly`, `plus_monthly`, `pro_monthly`, `max_monthly`
   - one-time auto-top-off price lookup keys: `top_up_20`, `top_up_50`, `top_up_100`, `top_up_200`
@@ -170,6 +186,7 @@ The production layout is:
 
 - `caddy` terminates public HTTPS for `CONTROL_PLANE_DOMAIN`
 - `web` serves the Next.js control plane on the internal Docker network
+- `integration-gateway` handles managed integration execution on the internal Docker network
 - `worker` runs the durable job loop as a separate container
 - `postgres` stores control-plane state on a persistent Docker volume
 - `postgres` is also bound to `127.0.0.1:5433` on the host for operator access over SSH / Tailscale

@@ -14,12 +14,19 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import {
+  appendIntegrationOauthEventTx,
+  markIntegrationOauthSessionConsumedTx,
+  upsertOauthConnectionForTenantIntegrationTx,
+} from "@/db/oauth";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
+  integrationOauthConnections,
+  integrationOauthCredentials,
   integrationSlackInstallations,
   integrationWhatsAppInstallations,
   integrationWhatsAppLinkSessions,
@@ -45,13 +52,24 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildRuntimeIntegrationManifestForKeys,
+  buildRuntimeIntegrationResponse,
+  findIntegrationFunctionMatches,
+  getIntegrationDefinition,
+  listRuntimeIntegrationDefinitions,
+  listSupportedRuntimeIntegrationKeys,
+  type RuntimeIntegrationFunctionMatch,
+  type RuntimeIntegrationManifestEntry,
+} from "@/integrations/framework";
+import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
 } from "@/lib/crypto";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { JOB_TYPES } from "@/lib/jobs/types";
+import { JOB_STATUSES, JOB_TYPES } from "@/lib/jobs/types";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
+import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
   buildManagedBootstrapFileContent,
   buildManagedBootstrapSystemContent,
@@ -61,12 +79,6 @@ import {
 } from "@/lib/openclaw/managed-config";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
-import {
-  buildRuntimeIntegrationManifestForKeys,
-  executeRuntimeIntegrationStub,
-  listSupportedRuntimeIntegrationKeys,
-  type RuntimeIntegrationManifestEntry,
-} from "@/lib/runtime-integrations/registry";
 import {
   fetchSlackMessagingDirectory,
   joinSlackChannel,
@@ -135,6 +147,7 @@ import {
 } from "@/tools/whatsapp/policy";
 
 const SLACK_PROVIDER_KEY = "slack";
+const LINEAR_PROVIDER_KEY = "linear";
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
@@ -637,6 +650,28 @@ export type PlatformTenantTarget = {
   tenantId: string;
   tenantName: string;
   tenantStatus: string;
+};
+
+export type TenantManagedIntegrationSummary = {
+  connectedAt: Date | null;
+  disconnectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  providerKey: string;
+  status: string;
+};
+
+export type TenantManagedIntegrationConnectContext = {
+  integrationStatus: string | null;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantIntegrationId: string | null;
+  tenantStatus: string;
+  userEmail: string;
+  userId: string;
 };
 
 export type WorkspaceMemberDirectoryEntry = {
@@ -2305,8 +2340,11 @@ function buildLatestJobSummary(
   }
 
   const payload = parseRecord(job.payloadJson);
-  const step = typeof payload.step === "string" ? payload.step : null;
   const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse();
+  const step =
+    typeof payload.step === "string"
+      ? payload.step
+      : deriveJobStepFromEvents(events);
 
   return {
     attempt: job.attempt,
@@ -2366,7 +2404,8 @@ function buildPlatformJobEventHistoryEntry(event: {
   payloadJson: unknown;
 }) {
   const payload = parseRecord(event.payloadJson);
-  const step = typeof payload.step === "string" ? payload.step : null;
+  const step =
+    typeof payload.step === "string" ? payload.step : event.eventType;
 
   return {
     createdAt: event.createdAt,
@@ -2385,6 +2424,32 @@ function parseRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function deriveJobStepFromEvents(
+  events: Array<{
+    createdAt: Date;
+    eventType: string;
+    message: string;
+  }>,
+) {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const eventType = events[index]?.eventType;
+
+    if (!eventType || isGenericJobEventType(eventType)) {
+      continue;
+    }
+
+    return eventType;
+  }
+
+  return null;
+}
+
+function isGenericJobEventType(eventType: string) {
+  return (
+    eventType === JOB_STATUSES.queued || eventType === JOB_STATUSES.running
+  );
 }
 
 function buildPlatformJobResult(value: unknown) {
@@ -3934,13 +3999,45 @@ export async function triggerPlatformOrganizationApply(input: {
     throw new Error("Organization tenant not found");
   }
 
-  const desiredState = await getLatestTenantDesiredState(tenant.tenantId);
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     tenantId: tenant.tenantId,
   });
 
   return {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationDeployRuntime(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    pullImageFirst: true,
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    desiredStateChanged: desiredState.changed,
     desiredStateVersion: desiredState.version,
     jobId,
     queued: true,
@@ -4338,29 +4435,560 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
-export async function executeRuntimeIntegrationForTenant(input: {
-  integrationKey: string;
-  params: Record<string, unknown>;
-  tenantId: string;
+export type RuntimeTenantIntegration =
+  import("@/integrations/framework").RuntimeIntegrationResponse;
+
+async function listRuntimeIntegrationStatusRowsForTenantTx(
+  tx: DbTransaction,
+  input: {
+    providerKeys: string[];
+    tenantId: string;
+  },
+) {
+  if (input.providerKeys.length === 0) {
+    return [];
+  }
+
+  return tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      connectionStatus: integrationOauthConnections.status,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      integrationStatus: tenantIntegrations.status,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      integrationOauthConnections,
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(tenantIntegrations.providerKey, input.providerKeys),
+      ),
+    );
+}
+
+function buildRuntimeTenantIntegrations(input: {
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+  }>;
 }) {
+  const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
+
+  return definitionsWithStatus.map(({ definition, status }) =>
+    buildRuntimeIntegrationResponse({
+      definition,
+      status,
+    }),
+  );
+}
+
+function buildRuntimeDefinitionsWithStatus(input: {
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+  }>;
+}) {
+  const statusByProviderKey = new Map<
+    string,
+    {
+      connectedAt: Date | null;
+      connectionStatus: string | null;
+      disconnectedAt: Date | null;
+      integrationStatus: string | null;
+    }
+  >();
+
+  for (const row of input.rows) {
+    const existing = statusByProviderKey.get(row.providerKey);
+
+    if (!existing) {
+      statusByProviderKey.set(row.providerKey, row);
+      continue;
+    }
+
+    if (!existing.connectionStatus && row.connectionStatus) {
+      statusByProviderKey.set(row.providerKey, row);
+    }
+  }
+
+  return input.definitions.map((definition) => {
+    const row = statusByProviderKey.get(definition.key) ?? null;
+    const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
+    const integrationStatus = row?.integrationStatus ?? null;
+    const connectionStatus = row?.connectionStatus ?? null;
+
+    return {
+      definition,
+      status: {
+        connected,
+        connectionStatus,
+        enabled: connected,
+        integrationStatus,
+        needsAttention:
+          integrationStatus === "needs_attention" ||
+          connectionStatus === "needs_attention",
+      },
+    };
+  });
+}
+
+export async function listRuntimeIntegrationsForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
   const db = getDb();
 
   return db.transaction(async (tx) => {
-    const providerKeys =
-      await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
-        tenantId: input.tenantId,
-      });
-    const integrationKey = input.integrationKey.trim().toLowerCase();
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const installedKeys = rows.map((row) => row.providerKey).sort();
+    const definitions = installedKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeTool: NonNullable<
+            NonNullable<typeof definition>["runtimeTool"]
+          >;
+        } => Boolean(definition?.runtimeTool),
+      );
 
-    if (!providerKeys.includes(integrationKey)) {
+    if (definitions.length === 0) {
+      return [];
+    }
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function listRuntimeIntegrationCatalogForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const supportedKeys = listSupportedRuntimeIntegrationKeys();
+    const definitions = supportedKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeTool: NonNullable<
+            NonNullable<typeof definition>["runtimeTool"]
+          >;
+        } => Boolean(definition?.runtimeTool),
+      );
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: supportedKeys,
+      tenantId: input.tenantId,
+    });
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function getRuntimeIntegrationForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrations = await listRuntimeIntegrationCatalogForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return (
+    integrations.find((integration) => integration.key === integrationKey) ??
+    null
+  );
+}
+
+export async function findRuntimeIntegrationFunctionsForTenant(input: {
+  query: string;
+  tenantId: string;
+}): Promise<{ matches: RuntimeIntegrationFunctionMatch[]; query: string }> {
+  const db = getDb();
+  const normalizedQuery = input.query.trim();
+
+  if (!normalizedQuery) {
+    return {
+      matches: [],
+      query: normalizedQuery,
+    };
+  }
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const definitionsWithStatus = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+
+    return {
+      matches: findIntegrationFunctionMatches({
+        definitions: definitionsWithStatus.map(({ definition, status }) => ({
+          ...definition,
+          status,
+        })),
+        query: normalizedQuery,
+      }),
+      query: normalizedQuery,
+    };
+  });
+}
+
+export type RuntimeIntegrationConnectionAction = {
+  availableActions: string[];
+  connectUrl: string | null;
+  integrationKey: string;
+  label: string;
+  message: string;
+  recommendedAction: string;
+  requiresUserAction: boolean;
+  selectedAction: string;
+  status: RuntimeTenantIntegration["status"];
+  workspaceUrl: string | null;
+};
+
+export async function getRuntimeIntegrationConnectionActionForTenant(input: {
+  action?: string | null;
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationConnectionAction | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  const db = getDb();
+  const [tenantContext] = await db
+    .select({
+      organizationSlug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  if (!tenantContext) {
+    throw new Error(`Tenant ${input.tenantId} is not available.`);
+  }
+
+  const baseUrl = getControlPlaneBaseUrl();
+  const workspaceUrl = baseUrl
+    ? `${baseUrl}/${encodeURIComponent(tenantContext.organizationSlug)}/integrations/${encodeURIComponent(integration.key)}`
+    : null;
+
+  let connectUrl: string | null = null;
+  let recommendedAction = "none";
+  let message = `${integration.label} is available.`;
+
+  switch (integration.key) {
+    case "linear": {
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Linear needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Linear is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it.";
+      }
+      break;
+    }
+    default: {
+      recommendedAction = "open_workspace";
+      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
+      break;
+    }
+  }
+
+  const requestedAction = (input.action ?? "").trim().toLowerCase();
+  const availableActions = [
+    workspaceUrl ? "open_workspace" : null,
+    connectUrl ? "connect" : null,
+    connectUrl ? "reconnect" : null,
+  ].filter((action): action is string => Boolean(action));
+  const selectedAction =
+    requestedAction && availableActions.includes(requestedAction)
+      ? requestedAction
+      : recommendedAction;
+
+  return {
+    availableActions,
+    connectUrl,
+    integrationKey: integration.key,
+    label: integration.label,
+    message,
+    recommendedAction,
+    requiresUserAction:
+      selectedAction === "connect" || selectedAction === "reconnect",
+    selectedAction,
+    status: integration.status,
+    workspaceUrl,
+  };
+}
+
+export async function getTenantManagedIntegrationSummary(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationSummary | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      providerKey: tenantIntegrations.providerKey,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(
+          tenantIntegrations.providerKey,
+          input.providerKey.trim().toLowerCase(),
+        ),
+      ),
+    )
+    .limit(1);
+
+  return integration ?? null;
+}
+
+export async function getTenantManagedIntegrationConnectContext(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationConnectContext | null> {
+  const db = getDb();
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const [row] = await db
+    .select({
+      integrationStatus: tenantIntegrations.status,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantIntegrationId: tenantIntegrations.id,
+      tenantStatus: tenants.status,
+      userEmail: users.email,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .leftJoin(
+      tenantIntegrations,
+      and(
+        eq(tenantIntegrations.tenantId, tenants.id),
+        eq(tenantIntegrations.providerKey, normalizedProviderKey),
+      ),
+    )
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  if (normalizedProviderKey !== LINEAR_PROVIDER_KEY) {
+    throw new Error(
+      `Managed integration ${input.providerKey} does not support connect sessions yet.`,
+    );
+  }
+
+  return row;
+}
+
+export async function completeLinearOauthConnection(input: {
+  actorType: string | null;
+  externalAccountId?: string | null;
+  externalAccountLabel?: string | null;
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
       throw new Error(
-        `Managed integration ${input.integrationKey} is not enabled for this tenant.`,
+        "The Linear connection could not be matched to a workspace.",
       );
     }
 
-    return executeRuntimeIntegrationStub({
-      integrationKey,
-      params: input.params,
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+    const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
+      now,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.externalAccountId ?? null,
+      externalAccountLabel: input.externalAccountLabel ?? null,
+      now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+  });
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
+export async function disconnectTenantManagedIntegration(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}) {
+  const providerKey = input.providerKey.trim().toLowerCase();
+
+  switch (providerKey) {
+    case LINEAR_PROVIDER_KEY:
+      return disconnectTenantLinearIntegration(input);
+    default:
+      throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
+  }
+}
+
+export async function recordLinearOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear refresh failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
     });
   });
 }
@@ -5035,6 +5663,129 @@ export async function enableTenantWhatsAppIntegration(input: {
       tenantId: result.tenantId,
     }),
   };
+}
+
+async function disconnectTenantLinearIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration) {
+      throw new Error("Linear is not connected in this workspace.");
+    }
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: LINEAR_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function disableTenantWhatsAppIntegration(input: {
@@ -6855,6 +7606,7 @@ export async function getTenantByTenantToken(tenantToken: string) {
 
 export async function enqueueTenantConfigApply(input: {
   desiredStateVersion: number;
+  pullImageFirst?: boolean;
   tenantId: string;
 }) {
   const db = getDb();
@@ -6862,6 +7614,7 @@ export async function enqueueTenantConfigApply(input: {
     jobType: JOB_TYPES.applyTenantConfig,
     payload: {
       desiredStateVersion: input.desiredStateVersion,
+      ...(input.pullImageFirst === true ? { pullImageFirst: true } : {}),
       tenantId: input.tenantId,
     },
   });
@@ -6874,6 +7627,18 @@ export async function enqueueTenantConfigApply(input: {
   });
 
   return jobId;
+}
+
+export async function ensureCurrentTenantDesiredStateVersion(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) =>
+    ensureCurrentTenantDesiredStateVersionTx(tx, {
+      tenantId: input.tenantId,
+    }),
+  );
 }
 
 async function upsertMessagingWorkspace(
@@ -7144,6 +7909,59 @@ async function upsertSlackIntegrationForTenant(
   return tenantIntegrationId;
 }
 
+async function upsertLinearIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: LINEAR_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  return tenantIntegrationId;
+}
+
 async function upsertWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
@@ -7245,6 +8063,53 @@ async function recordSlackIntegrationError(
     .where(eq(tenantIntegrations.id, existingIntegration.id));
 }
 
+async function recordLinearIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
 async function createNextDesiredStateVersion(
   tx: DbTransaction,
   input: {
@@ -7276,6 +8141,55 @@ async function createNextDesiredStateVersion(
     });
 
   return createdDesiredState;
+}
+
+async function ensureCurrentTenantDesiredStateVersionTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [latestDesiredState] = await tx
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, input.tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+
+  if (
+    latestDesiredState &&
+    JSON.stringify(latestDesiredState.configJson) === JSON.stringify(configJson)
+  ) {
+    return {
+      changed: false,
+      configJson: latestDesiredState.configJson,
+      version: latestDesiredState.version,
+    };
+  }
+
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const [createdDesiredState] = await tx
+    .insert(tenantDesiredStates)
+    .values({
+      configJson,
+      tenantId: input.tenantId,
+      version: nextVersion,
+    })
+    .returning({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    });
+
+  return {
+    changed: true,
+    configJson: createdDesiredState.configJson,
+    version: createdDesiredState.version,
+  };
 }
 
 async function compileTenantDesiredStateConfig(

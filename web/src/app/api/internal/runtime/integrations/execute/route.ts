@@ -1,76 +1,61 @@
-import { executeRuntimeIntegrationForTenant } from "@/db/control-plane";
-import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
+import { getEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
+function copyHeaderIfPresent(
+  headers: Headers,
+  name: string,
+  value: string | null,
+) {
+  if (value) {
+    headers.set(name, value);
+  }
+}
+
 export async function POST(request: Request) {
+  const upstreamUrl = `${getEnv().INTEGRATION_GATEWAY_INTERNAL_URL}/api/internal/runtime/integrations/execute`;
+  const requestBody = await request.text();
+
   try {
-    const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const body = await request.json();
-    const integrationKey =
-      typeof body?.integrationKey === "string" ? body.integrationKey : "";
-    const params =
-      body?.params &&
-      typeof body.params === "object" &&
-      !Array.isArray(body.params)
-        ? (body.params as Record<string, unknown>)
-        : null;
+    const upstreamHeaders = new Headers();
+    copyHeaderIfPresent(
+      upstreamHeaders,
+      "authorization",
+      request.headers.get("authorization"),
+    );
+    copyHeaderIfPresent(
+      upstreamHeaders,
+      "content-type",
+      request.headers.get("content-type"),
+    );
 
-    if (!integrationKey.trim()) {
-      throw new Error("integrationKey is required.");
-    }
-
-    if (!params) {
-      throw new Error("params must be an object.");
-    }
-
-    const result = await executeRuntimeIntegrationForTenant({
-      integrationKey,
-      params,
-      tenantId,
+    const upstreamResponse = await fetch(upstreamUrl, {
+      body: requestBody,
+      headers: upstreamHeaders,
+      method: "POST",
     });
 
-    return json(result);
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
-
-function handleRouteError(error: unknown) {
-  if (error instanceof Error) {
-    if (
-      error.message === "Missing runtime bearer token" ||
-      error.message === "Invalid runtime bearer token"
-    ) {
-      return json(
-        {
-          error: error.message,
-        },
-        401,
-      );
-    }
-
-    return json(
-      {
-        error: error.message,
+    return new Response(upstreamResponse.body, {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type":
+          upstreamResponse.headers.get("content-type") ?? "application/json",
       },
-      400,
+      status: upstreamResponse.status,
+    });
+  } catch (error) {
+    console.error("[runtime-integrations] execute gateway proxy failed", error);
+
+    return Response.json(
+      {
+        error: "Integration gateway unavailable",
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+        status: 502,
+      },
     );
   }
-
-  return json(
-    {
-      error: "Managed integration execution failed",
-    },
-    500,
-  );
-}
-
-function json(body: unknown, status = 200) {
-  return Response.json(body, {
-    headers: {
-      "Cache-Control": "no-store",
-    },
-    status,
-  });
 }

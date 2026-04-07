@@ -4,7 +4,6 @@ import {
 } from "@/lib/date-time";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
-import { buildRuntimeIntegrationManifestForKeys } from "@/lib/runtime-integrations/registry";
 import {
   getDefaultSlackRuntimeConfig,
   parseSlackRuntimeConfig,
@@ -503,20 +502,12 @@ export function buildOpenClawTenantConfig(input: {
     controlPlaneBaseUrl,
     primaryModel,
   });
-  const managedIntegrationManifest = buildRuntimeIntegrationManifestForKeys(
-    Array.isArray(config.integrations)
-      ? config.integrations.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [],
-  );
 
   if (hasSlackBotToken && !env.SLACK_SIGNING_SECRET) {
     throw new Error(
       "SLACK_SIGNING_SECRET is required to render Slack in HTTP mode for tenant runtimes.",
     );
   }
-
   return {
     ...(audio ? { audio } : {}),
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
@@ -547,17 +538,10 @@ export function buildOpenClawTenantConfig(input: {
               id: "otto-runtime-config",
               timeoutMs: 15_000,
             },
-            ...(managedIntegrationManifest.length > 0
-              ? [
-                  {
-                    config: {
-                      manifest: managedIntegrationManifest,
-                    },
-                    id: "otto-integrations",
-                    timeoutMs: 15_000,
-                  },
-                ]
-              : []),
+            {
+              id: "otto-integrations",
+              timeoutMs: 15_000,
+            },
             {
               id: "otto-session-reporter",
               timeoutMs: 15_000,

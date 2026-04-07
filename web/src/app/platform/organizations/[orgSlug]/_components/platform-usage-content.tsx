@@ -36,6 +36,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  getUsagePresetDefinitions,
+  getUsagePresetRanges,
+  type UsageDatePresetDefinition,
+  type UsageDateRange,
+  type UsageRangePresetKey,
+} from "@/lib/usage-date-ranges";
 import { cn } from "@/lib/utils";
 
 // --- Types ---
@@ -103,79 +110,6 @@ const ALL_USAGE_TYPES = [
   "code_interpreter_sessions",
   "vector_stores",
 ] as const;
-
-// --- Date range presets ---
-
-type DatePreset = {
-  from: () => Date;
-  label: string;
-  to: () => Date;
-};
-
-const DATE_PRESETS: DatePreset[] = [
-  { from: () => startOfDay(new Date()), label: "Today", to: () => new Date() },
-  {
-    from: () => startOfWeek(new Date()),
-    label: "This week",
-    to: () => new Date(),
-  },
-  {
-    from: () => startOfMonth(new Date()),
-    label: "This month",
-    to: () => new Date(),
-  },
-  {
-    from: () => startOfYear(new Date()),
-    label: "This year",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 24 * 60 * 60 * 1000),
-    label: "Last 24h",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    label: "Last 7d",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    label: "Last 30d",
-    to: () => new Date(),
-  },
-  {
-    from: () => new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-    label: "Last 365d",
-    to: () => new Date(),
-  },
-];
-
-const DEFAULT_PRESET_INDEX = 5; // Last 7d
-
-function startOfDay(d: Date) {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function startOfWeek(d: Date) {
-  const r = new Date(d);
-  r.setDate(r.getDate() - r.getDay());
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function startOfMonth(d: Date) {
-  const r = new Date(d);
-  r.setDate(1);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function startOfYear(d: Date) {
-  return new Date(d.getFullYear(), 0, 1);
-}
 
 // --- Formatters ---
 
@@ -325,37 +259,87 @@ const requestsChartConfig = {
 
 type PlatformUsageContentProps = {
   creditBalance: CreditBalance;
+  currentCycleEndIso: string | null;
+  currentCycleStartIso: string | null;
   locale: string;
   orgSlug: string;
+  previousCycleEndIso: string | null;
+  previousCycleStartIso: string | null;
   timezone: string;
 };
 
 export function PlatformUsageContent({
   creditBalance,
+  currentCycleEndIso,
+  currentCycleStartIso,
   locale,
   orgSlug,
+  previousCycleEndIso,
+  previousCycleStartIso,
   timezone,
 }: PlatformUsageContentProps) {
-  const [activePreset, setActivePreset] = React.useState<number | null>(
-    DEFAULT_PRESET_INDEX,
-  );
+  const [activePreset, setActivePreset] = React.useState<Exclude<
+    UsageRangePresetKey,
+    "custom"
+  > | null>(currentCycleStartIso ? "current_cycle" : "this_month");
   const [customRange, setCustomRange] = React.useState<DateRange | undefined>();
   const [data, setData] = React.useState<UsageOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [spendModality, setSpendModality] =
     React.useState<SpendModality>("all");
+  const currentCycleStart = currentCycleStartIso
+    ? new Date(currentCycleStartIso)
+    : null;
+  const currentCycleEnd = currentCycleEndIso
+    ? new Date(currentCycleEndIso)
+    : null;
+  const previousCycleStart = previousCycleStartIso
+    ? new Date(previousCycleStartIso)
+    : null;
+  const previousCycleEnd = previousCycleEndIso
+    ? new Date(previousCycleEndIso)
+    : null;
+  const presets = React.useMemo(
+    () =>
+      getUsagePresetDefinitions({
+        hasBillingCycle: Boolean(currentCycleStart),
+        hasPreviousBillingCycle: Boolean(
+          previousCycleStart && previousCycleEnd,
+        ),
+      }),
+    [currentCycleStart, previousCycleEnd, previousCycleStart],
+  );
+  const presetRanges = React.useMemo(
+    () =>
+      getUsagePresetRanges({
+        currentCycleEnd,
+        currentCycleStart,
+        previousCycleEnd,
+        previousCycleStart,
+      }),
+    [currentCycleEnd, currentCycleStart, previousCycleEnd, previousCycleStart],
+  );
 
-  const dateRange = React.useMemo(() => {
+  const dateRange = React.useMemo<UsageDateRange>(() => {
     if (activePreset !== null) {
-      const preset = DATE_PRESETS[activePreset];
-      return { from: preset.from(), to: preset.to() };
+      const presetRange = presetRanges[activePreset];
+      if (presetRange) {
+        return presetRange;
+      }
     }
     if (customRange?.from && customRange?.to) {
       return { from: customRange.from, to: customRange.to };
     }
-    const preset = DATE_PRESETS[DEFAULT_PRESET_INDEX];
-    return { from: preset.from(), to: preset.to() };
-  }, [activePreset, customRange]);
+    const fallbackRange =
+      presetRanges[currentCycleStart ? "current_cycle" : "this_month"] ??
+      presetRanges.this_month;
+
+    if (!fallbackRange) {
+      throw new Error("Missing default platform usage date range.");
+    }
+
+    return fallbackRange;
+  }, [activePreset, currentCycleStart, customRange, presetRanges]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -430,10 +414,11 @@ export function PlatformUsageContent({
             setActivePreset(null);
           }
         }}
-        onPresetSelect={(index) => {
-          setActivePreset(index);
+        onPresetSelect={(key) => {
+          setActivePreset(key);
           setCustomRange(undefined);
         }}
+        presets={presets}
       />
 
       {/* Summary stat cards */}
@@ -725,18 +710,21 @@ function DateRangeDropdown({
   customRange,
   onCustomRangeChange,
   onPresetSelect,
+  presets,
 }: {
-  activePreset: number | null;
+  activePreset: Exclude<UsageRangePresetKey, "custom"> | null;
   customRange: DateRange | undefined;
   onCustomRangeChange: (range: DateRange | undefined) => void;
-  onPresetSelect: (index: number) => void;
+  onPresetSelect: (key: Exclude<UsageRangePresetKey, "custom">) => void;
+  presets: UsageDatePresetDefinition[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [showCalendar, setShowCalendar] = React.useState(false);
 
   const activeLabel =
     activePreset !== null
-      ? DATE_PRESETS[activePreset].label
+      ? (presets.find((preset) => preset.key === activePreset)?.label ??
+        "Select range")
       : customRange?.from && customRange?.to
         ? `${format(customRange.from, "MMM d, yyyy")} – ${format(customRange.to, "MMM d, yyyy")}`
         : "Select range";
@@ -772,17 +760,17 @@ function DateRangeDropdown({
           </div>
         ) : (
           <div className="flex flex-col py-1">
-            {DATE_PRESETS.map((preset, index) => (
+            {presets.map((preset) => (
               <button
-                key={preset.label}
+                key={preset.key}
                 className={cn(
                   "px-4 py-1.5 text-left text-sm transition-colors hover:bg-muted",
-                  activePreset === index
+                  activePreset === preset.key
                     ? "font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
                 onClick={() => {
-                  onPresetSelect(index);
+                  onPresetSelect(preset.key);
                   setOpen(false);
                 }}
                 type="button"

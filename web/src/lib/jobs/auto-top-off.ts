@@ -31,12 +31,14 @@ import {
   enqueueJob,
   markJobFailed,
   markJobSucceeded,
+  requeueJob,
 } from "./queue";
 import {
   type ClaimedJob,
   type ExecuteBillingAutoTopOffPayload,
   JOB_STATUSES,
   JOB_TYPES,
+  type ScheduleBillingAutoTopOffEnqueuePayload,
 } from "./types";
 
 const AUTO_TOP_OFF_SCAN_INTERVAL_MS = 30_000;
@@ -51,8 +53,6 @@ const AUTO_TOP_OFF_EVENTS = {
   skipped: "auto_top_off_skipped",
   succeeded: "auto_top_off_succeeded",
 } as const;
-
-let nextAutoTopOffScanAt = 0;
 
 async function getBillingCycleSpendGuard(input: {
   currentPeriodEnd: Date | null;
@@ -91,15 +91,52 @@ async function getBillingCycleSpendGuard(input: {
   };
 }
 
-export async function runAutoTopOffEnqueueCycle() {
-  const now = Date.now();
-
-  if (now < nextAutoTopOffScanAt) {
-    return 0;
+export async function processScheduleBillingAutoTopOffEnqueueJob(
+  job: ClaimedJob,
+) {
+  if (job.jobType !== JOB_TYPES.scheduleBillingAutoTopOffEnqueue) {
+    throw new Error(
+      `Unsupported job type for auto-top-off scheduler: ${job.jobType}`,
+    );
   }
 
-  nextAutoTopOffScanAt = now + AUTO_TOP_OFF_SCAN_INTERVAL_MS;
+  const payload = parseScheduleBillingAutoTopOffEnqueuePayload(job.payload);
 
+  try {
+    const queuedCount = await enqueueEligibleAutoTopOffJobs();
+
+    await appendJobEvent(
+      job.id,
+      "auto_top_off_scheduler_succeeded",
+      `Queued ${queuedCount} auto-top-off jobs`,
+      {
+        queuedCount,
+      },
+    );
+    await requeueJob(
+      job.id,
+      payload,
+      new Date(Date.now() + AUTO_TOP_OFF_SCAN_INTERVAL_MS),
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Auto-top-off scheduler failed.";
+
+    await appendJobEvent(
+      job.id,
+      "auto_top_off_scheduler_failed",
+      `Auto-top-off scheduler failed: ${message}`,
+    );
+    await markJobFailed(
+      job.id,
+      message,
+      new Date(Date.now() + AUTO_TOP_OFF_SCAN_INTERVAL_MS),
+    );
+  }
+}
+
+async function enqueueEligibleAutoTopOffJobs() {
+  const now = Date.now();
   const targets = await listBillingAutoTopOffExecutionTargets();
   let queuedCount = 0;
 
@@ -551,4 +588,10 @@ function parseExecuteBillingAutoTopOffPayload(
     organizationId,
     tenantId,
   };
+}
+
+function parseScheduleBillingAutoTopOffEnqueuePayload(
+  payload: Record<string, unknown>,
+): ScheduleBillingAutoTopOffEnqueuePayload {
+  return payload as ScheduleBillingAutoTopOffEnqueuePayload;
 }

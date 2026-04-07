@@ -31,7 +31,7 @@ type PlatformOrganizationsTableProps = {
   organizations: PlatformOrganization[];
 };
 
-type OrganizationAction = "apply" | "refresh-image";
+type OrganizationAction = "apply" | "deploy-runtime" | "refresh-image";
 
 type StatusTone = {
   dotClassName: string;
@@ -233,7 +233,9 @@ function OrganizationActionsCell({
       const endpoint =
         action === "apply"
           ? `/api/platform/organizations/${organization.slug}/apply`
-          : `/api/platform/organizations/${organization.slug}/refresh-image`;
+          : action === "deploy-runtime"
+            ? `/api/platform/organizations/${organization.slug}/deploy-runtime`
+            : `/api/platform/organizations/${organization.slug}/refresh-image`;
 
       try {
         const response = await fetch(endpoint, {
@@ -253,7 +255,9 @@ function OrganizationActionsCell({
         toast.success(
           action === "apply"
             ? "Queued runtime apply."
-            : "Queued runtime image refresh.",
+            : action === "deploy-runtime"
+              ? "Queued runtime deploy."
+              : "Queued runtime image refresh.",
         );
         router.refresh();
       } catch (error) {
@@ -284,6 +288,12 @@ function OrganizationActionsCell({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={!runtimeReady || pendingAction}
+          onClick={() => runAction("deploy-runtime")}
+        >
+          Pull new image and apply config
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!runtimeReady || pendingAction}
           onClick={() => runAction("apply")}

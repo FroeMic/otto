@@ -9,35 +9,38 @@ import {
 
 describe("runtime integration registry", () => {
   it("lists supported integration keys deterministically", () => {
-    assert.deepEqual(listSupportedRuntimeIntegrationKeys(), ["demo-linear"]);
+    assert.deepEqual(listSupportedRuntimeIntegrationKeys(), ["linear"]);
   });
 
   it("builds a sorted manifest for supported keys only", () => {
     const manifest = buildRuntimeIntegrationManifestForKeys([
+      "linear",
       "unknown",
-      "demo-linear",
-      "demo-linear",
     ]);
 
     assert.equal(manifest.length, 1);
-    assert.equal(manifest[0]?.key, "demo-linear");
-    assert.equal(manifest[0]?.toolName, "demo_linear");
+    assert.equal(manifest[0]?.key, "linear");
+    assert.equal(manifest[0]?.toolName, "linear");
     assert.equal(manifest[0]?.operations[0]?.key, "search_issues");
   });
 
-  it("executes the stubbed demo-linear search", () => {
-    const result = executeRuntimeIntegrationStub({
-      integrationKey: "demo-linear",
+  it("returns a placeholder response for connected linear search", async () => {
+    const result = (await executeRuntimeIntegrationStub({
+      integrationKey: "linear",
       params: {
         operation: "search_issues",
-        query: "plugin",
+        query: "bug",
       },
-    });
+    })) as {
+      integrationKey: string;
+      operation: string;
+      source: string;
+      totalMatched: number;
+    };
 
-    assert.equal(result.integrationKey, "demo-linear");
+    assert.equal(result.integrationKey, "linear");
     assert.equal(result.operation, "search_issues");
     assert.equal(result.source, "stub");
-    assert.ok(result.items.length >= 1);
-    assert.match(result.items[0]?.title ?? "", /plugin/i);
+    assert.equal(result.totalMatched, 0);
   });
 });

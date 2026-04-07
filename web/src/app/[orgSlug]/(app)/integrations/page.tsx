@@ -27,11 +27,12 @@ function computeCapabilitySummary(
 export const dynamic = "force-dynamic";
 
 /**
- * Static registry of known integrations that should always appear,
- * even when the tenant has not connected them yet.
+ * Legacy integration page entries that still live on the runtime-config-backed
+ * surface until they move onto the registry-driven integrations2 shape.
  */
 const knownIntegrations: SurfaceEntry[] = [
   {
+    categoryLabel: "Messaging",
     description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
     enabled: false,
     id: "known:channel:slack",
@@ -44,6 +45,7 @@ const knownIntegrations: SurfaceEntry[] = [
     uiGroup: "integrations",
   },
   {
+    categoryLabel: "Messaging",
     description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
     enabled: false,
     id: "known:channel:whatsapp",
@@ -82,6 +84,10 @@ export default async function IntegrationsPage({
     liveSurfacesByKey.set(surface.key, {
       availability: surface.availability,
       capabilitySummary: computeCapabilitySummary(surface.agentCapabilities),
+      categoryLabel:
+        surface.key === "slack" || surface.key === "whatsapp"
+          ? "Messaging"
+          : "Product Management",
       description: surface.description,
       enabled: surface.config.enabled,
       id: surface.id,
