@@ -25,6 +25,11 @@ describe("runtime integration registry", () => {
       manifest[0]?.commandGroups.map((group) => group.groupKey),
       ["workspace", "issue"],
     );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")
+        ?.commandCount,
+      13,
+    );
   });
 
   it("returns a placeholder response for connected linear issue search", async () => {

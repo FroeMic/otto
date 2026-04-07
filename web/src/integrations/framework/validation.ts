@@ -90,6 +90,66 @@ export function validateCommandArguments(
         }
         break;
       }
+      case "boolean": {
+        if (typeof value !== "boolean") {
+          throw new Error(
+            `${command.commandKey} requires ${key} to be a boolean.`,
+          );
+        }
+        break;
+      }
+      case "array": {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `${command.commandKey} requires ${key} to be an array.`,
+          );
+        }
+
+        if (
+          typeof propertySchema.minItems === "number" &&
+          value.length < propertySchema.minItems
+        ) {
+          throw new Error(
+            `${command.commandKey} requires ${key} to contain at least ${propertySchema.minItems} items.`,
+          );
+        }
+
+        if (
+          typeof propertySchema.maxItems === "number" &&
+          value.length > propertySchema.maxItems
+        ) {
+          throw new Error(
+            `${command.commandKey} requires ${key} to contain no more than ${propertySchema.maxItems} items.`,
+          );
+        }
+
+        const itemSchema =
+          propertySchema.items &&
+          typeof propertySchema.items === "object" &&
+          !Array.isArray(propertySchema.items)
+            ? (propertySchema.items as Record<string, unknown>)
+            : null;
+
+        if (itemSchema?.type === "string") {
+          for (const entry of value) {
+            if (typeof entry !== "string") {
+              throw new Error(
+                `${command.commandKey} requires every ${key} item to be a string.`,
+              );
+            }
+
+            if (
+              typeof itemSchema.minLength === "number" &&
+              entry.length < itemSchema.minLength
+            ) {
+              throw new Error(
+                `${command.commandKey} requires every ${key} item to be at least ${itemSchema.minLength} characters.`,
+              );
+            }
+          }
+        }
+        break;
+      }
       case "object": {
         if (typeof value !== "object" || Array.isArray(value)) {
           throw new Error(

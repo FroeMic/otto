@@ -372,8 +372,9 @@
   - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
-  - runtime Linear now exposes grouped commands such as `workspace.get_viewer`, `workspace.list_teams`, `workspace.list_users`, `workspace.list_workflow_states`, `issue.search`, `issue.get`, and `issue.list`
+  - runtime Linear now exposes grouped commands such as `workspace.get_viewer`, `workspace.list_teams`, `workspace.list_users`, `workspace.list_workflow_states`, `issue.search`, `issue.get`, `issue.list`, `issue.create`, `issue.update`, `issue.archive`, `issue.batch_update`, `issue.list_comments`, `issue.list_attachments`, `issue.list_documents`, `issue.list_relations`, `issue.add_label`, and `issue.remove_label`
   - `issue.search` performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - the full planned `issue.*` slice is now implemented end to end, including reads, writes, nested issue resources, and label mutations
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
   - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits.command_key` rows recorded for success and failure
 - The next managed-integrations refactor slice is now in progress on `main`:
@@ -385,6 +386,8 @@
   - runtime command validation now runs in the framework before provider execution using the advertised command schema plus provider-specific normalization
   - runtime integration summary and detail responses are now built from framework-native command/group DTOs instead of the older flat function shapes
   - progressive discovery is now the preferred pattern: semantic command search returns compact hits, `get_integration` stays summary-only, and `get_integration_details` loads one command group or one command schema on demand
+  - `TODO_17` now includes an object-first Linear coverage tracker so future command work can be implemented and checked off object by object instead of expanding ad hoc
+  - the next recommended Linear slice is to finish the workspace foundation with `workspace.get_organization` and `workspace.list_project_statuses`, then move into the adjacent `comment.*` and `project.*` slices
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability
