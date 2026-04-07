@@ -1,7 +1,7 @@
 export type {
+  IntegrationCommandDefinition as ManagedIntegrationCommand,
   IntegrationDefinition as ManagedIntegrationDefinition,
-  IntegrationOperationDefinition as ManagedIntegrationOperation,
-  IntegrationRuntimeToolDefinition as ManagedIntegrationRuntimeTool,
+  IntegrationRuntimeSurfaceDefinition as ManagedIntegrationRuntimeSurface,
 } from "@/integrations/framework";
 export {
   getIntegrationDefinition as getManagedIntegrationDefinition,

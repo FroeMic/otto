@@ -41,8 +41,8 @@ export function listRuntimeIntegrationDefinitions() {
     (
       definition,
     ): definition is IntegrationDefinition & {
-      runtimeTool: NonNullable<IntegrationDefinition["runtimeTool"]>;
-    } => definition.runtimeTool !== null,
+      runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
+    } => definition.runtimeSurface !== null,
   );
 }
 

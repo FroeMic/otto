@@ -1,4 +1,4 @@
-export { executeRegisteredIntegrationFunction } from "./execute";
+export { executeRegisteredIntegrationCommand } from "./execute";
 export { buildRuntimeIntegrationManifestForKeys } from "./manifest";
 export {
   getIntegrationDefinition,
@@ -10,24 +10,35 @@ export {
 } from "./registry";
 export {
   buildIntegrationOverviewEntry,
-  buildRuntimeIntegrationFunctionMatch,
-  buildRuntimeIntegrationResponse,
+  buildRuntimeIntegrationCommandMatch,
+  buildRuntimeIntegrationDetailsResponse,
+  buildRuntimeIntegrationSummaryResponse,
 } from "./runtime-response";
-export { findIntegrationFunctionMatches } from "./search";
+export { collectCommands, findIntegrationCommandMatches } from "./search";
 export type {
+  IntegrationCommandDefinition,
+  IntegrationCommandExecute,
+  IntegrationCommandGroupDefinition,
+  IntegrationCommandInputMode,
+  IntegrationCommandResultMode,
+  IntegrationCommandValidate,
   IntegrationDefinition,
   IntegrationExecutionContext,
   IntegrationOauthBinding,
-  IntegrationOperationDefinition,
   IntegrationOverviewEntry,
   IntegrationOverviewItemProps,
   IntegrationPageProps,
-  IntegrationRuntimeToolDefinition,
-  RuntimeIntegrationFunctionMatch,
+  IntegrationRuntimeCommandDefinition,
+  IntegrationRuntimeCommandGroupDefinition,
+  IntegrationRuntimeSurfaceDefinition,
+  RuntimeIntegrationCommandDetails,
+  RuntimeIntegrationCommandGroupDetails,
+  RuntimeIntegrationCommandGroupSummary,
+  RuntimeIntegrationCommandMatch,
+  RuntimeIntegrationCommandSummary,
+  RuntimeIntegrationDetailsResponse,
   RuntimeIntegrationManifestEntry,
-  RuntimeIntegrationOperationExecutionGuide,
-  RuntimeIntegrationOperationResponse,
-  RuntimeIntegrationResponse,
   RuntimeIntegrationStatus,
+  RuntimeIntegrationSummaryResponse,
   RuntimeIntegrationUsageGuide,
 } from "./types";

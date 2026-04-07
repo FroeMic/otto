@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { findRuntimeIntegrationFunctionsForTenant } from "@/db/control-plane";
+import {
+  findRuntimeIntegrationCommandsForTenant,
+  listRuntimeIntegrationCatalogForTenant,
+  listRuntimeIntegrationsForTenant,
+} from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +14,19 @@ export async function POST(request: Request) {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
     const body = await request.json();
     const query = typeof body?.query === "string" ? body.query : "";
+    const scope =
+      body?.scope === "all" ||
+      body?.scope === "available" ||
+      body?.scope === "installed"
+        ? body.scope
+        : "installed";
+    const limit =
+      typeof body?.limit === "number" &&
+      Number.isInteger(body.limit) &&
+      body.limit >= 1 &&
+      body.limit <= 50
+        ? body.limit
+        : 10;
 
     if (!query.trim()) {
       return json(
@@ -21,16 +38,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await findRuntimeIntegrationFunctionsForTenant({
+    const result = await findRuntimeIntegrationCommandsForTenant({
       query,
       tenantId,
     });
-
-    console.info(
-      `[runtime-integrations] find tenant=${tenantId} query=${JSON.stringify(query)} matches=${result.matches.length}`,
+    const allowedKeys = new Set(
+      (scope === "available" || scope === "all"
+        ? await listRuntimeIntegrationCatalogForTenant({ tenantId })
+        : await listRuntimeIntegrationsForTenant({ tenantId })
+      ).map((integration) => integration.key),
+    );
+    const matches = result.matches.filter((match) =>
+      allowedKeys.has(match.integrationKey),
     );
 
-    return json(result);
+    console.info(
+      `[runtime-integrations] find tenant=${tenantId} scope=${scope} query=${JSON.stringify(query)} matches=${matches.length}`,
+    );
+
+    return json({
+      matches: matches.slice(0, limit),
+      query: result.query,
+      scope,
+    });
   } catch (error) {
     console.error("[runtime-integrations] find failed", error);
     return handleRuntimeRouteError(error);

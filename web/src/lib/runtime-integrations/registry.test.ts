@@ -21,26 +21,27 @@ describe("runtime integration registry", () => {
     assert.equal(manifest.length, 1);
     assert.equal(manifest[0]?.key, "linear");
     assert.equal(manifest[0]?.toolName, "linear");
-    assert.equal(manifest[0]?.operations[0]?.key, "search_issues");
+    assert.deepEqual(
+      manifest[0]?.commandGroups.map((group) => group.groupKey),
+      ["workspace", "issue"],
+    );
   });
 
-  it("returns a placeholder response for connected linear search", async () => {
+  it("returns a placeholder response for connected linear issue search", async () => {
     const result = (await executeRuntimeIntegrationStub({
-      integrationKey: "linear",
-      params: {
-        operation: "search_issues",
+      arguments: {
         query: "bug",
       },
+      commandKey: "issue.search",
+      integrationKey: "linear",
     })) as {
+      commandKey: string;
       integrationKey: string;
-      operation: string;
       source: string;
-      totalMatched: number;
     };
 
     assert.equal(result.integrationKey, "linear");
-    assert.equal(result.operation, "search_issues");
+    assert.equal(result.commandKey, "issue.search");
     assert.equal(result.source, "stub");
-    assert.equal(result.totalMatched, 0);
   });
 });

@@ -1,9 +1,9 @@
-import { getRuntimeIntegrationForTenant } from "@/db/control-plane";
+import { getRuntimeIntegrationDetailsForTenant } from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export async function POST(
   request: Request,
   context: { params: Promise<{ integrationKey: string }> },
 ) {
@@ -13,39 +13,58 @@ export async function GET(
   try {
     const auth = await authenticateTenantRuntimeRequest(request);
     tenantId = auth.tenantId;
-    const params = await context.params;
+    const routeParams = await context.params;
     integrationKey =
-      typeof params.integrationKey === "string" ? params.integrationKey : "";
+      typeof routeParams.integrationKey === "string"
+        ? routeParams.integrationKey
+        : "";
 
     if (!integrationKey.trim()) {
       throw new Error("integrationKey is required.");
     }
 
-    const integration = await getRuntimeIntegrationForTenant({
+    const body = await request.json();
+    const detailType =
+      body?.detailType === "command" || body?.detailType === "command_group"
+        ? body.detailType
+        : null;
+    const detailKey = typeof body?.detailKey === "string" ? body.detailKey : "";
+
+    if (!detailType) {
+      throw new Error("detailType must be command or command_group.");
+    }
+
+    if (!detailKey.trim()) {
+      throw new Error("detailKey is required.");
+    }
+
+    const details = await getRuntimeIntegrationDetailsForTenant({
+      detailKey,
+      detailType,
       integrationKey,
       tenantId,
     });
 
-    if (!integration) {
+    if (!details) {
       return json(
         {
           code: "not_found",
-          message: `Managed integration ${integrationKey} is not available in this runtime.`,
+          message: `${detailType} ${detailKey} is not available on integration ${integrationKey}.`,
         },
         404,
       );
     }
 
     console.info(
-      `[runtime-integrations] get-summary tenant=${tenantId} integration=${integration.key} enabled=${integration.status.enabled} connected=${integration.status.connected}`,
+      `[runtime-integrations] get-details tenant=${tenantId} integration=${integrationKey} detailType=${detailType} detailKey=${detailKey}`,
     );
 
     return json({
-      integration,
+      details,
     });
   } catch (error) {
     console.error(
-      `[runtime-integrations] get tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} failed`,
+      `[runtime-integrations] get-details tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} failed`,
       error,
     );
     return handleRouteError(error);

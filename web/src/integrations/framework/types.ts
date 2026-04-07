@@ -4,42 +4,67 @@ import type { ConnectedOauthAccessRecord } from "@/db/oauth";
 import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 import type { AgentCapability } from "@/tools/types";
 
-export type IntegrationOperationDefinition = {
+export type IntegrationCommandInputMode =
+  | "file_ref"
+  | "json"
+  | "json_and_file_ref";
+
+export type IntegrationCommandResultMode = "download_url" | "file_ref" | "json";
+
+export type IntegrationCommandDefinition = {
+  argumentsSchema: Record<string, unknown>;
+  commandKey: string;
+  commandPath: string[];
   description: string;
   exampleArguments?: Record<string, unknown>;
+  inputMode: IntegrationCommandInputMode;
   intentKeywords?: string[];
-  key: string;
   label: string;
-  parametersSchema: Record<string, unknown>;
+  resultMode: IntegrationCommandResultMode;
   usageNotes?: string[];
 };
 
-export type IntegrationOperationExecute = (input: {
+export type IntegrationCommandExecute = (input: {
+  arguments: Record<string, unknown>;
   context: IntegrationExecutionContext;
-  params: Record<string, unknown>;
 }) => Promise<unknown>;
 
-export type IntegrationOperationValidate = (
-  params: Record<string, unknown>,
+export type IntegrationCommandValidate = (
+  arguments_: Record<string, unknown>,
 ) => Record<string, unknown>;
 
-export type IntegrationRuntimeOperationDefinition =
-  IntegrationOperationDefinition & {
-    execute: IntegrationOperationExecute;
-    validate?: IntegrationOperationValidate;
+export type IntegrationRuntimeCommandDefinition =
+  IntegrationCommandDefinition & {
+    execute: IntegrationCommandExecute;
+    validate?: IntegrationCommandValidate;
   };
 
-export type IntegrationRuntimeToolDefinition = {
-  operations: IntegrationRuntimeOperationDefinition[];
+export type IntegrationCommandGroupDefinition = {
+  childGroups?: IntegrationRuntimeCommandGroupDefinition[];
+  commands?: IntegrationRuntimeCommandDefinition[];
+  description: string;
+  groupKey: string;
+  groupPath: string[];
+  intentKeywords?: string[];
+  label: string;
+};
+
+export type IntegrationRuntimeCommandGroupDefinition =
+  IntegrationCommandGroupDefinition;
+
+export type IntegrationRuntimeSurfaceDefinition = {
+  commandGroups: IntegrationRuntimeCommandGroupDefinition[];
+  rootCommands: IntegrationRuntimeCommandDefinition[];
   toolDescription: string;
   toolName: string;
 };
 
 export type RuntimeIntegrationManifestEntry = {
+  commandGroups: RuntimeIntegrationCommandGroupSummary[];
   description: string;
   key: string;
   label: string;
-  operations: IntegrationOperationDefinition[];
+  rootCommands: RuntimeIntegrationCommandSummary[];
   toolDescription: string;
   toolName: string;
 };
@@ -52,52 +77,84 @@ export type RuntimeIntegrationStatus = {
   needsAttention: boolean;
 };
 
-export type RuntimeIntegrationResponse = {
+export type RuntimeIntegrationUsageGuide = {
+  connectionToolName: "manage_integration";
+  detailToolName: "get_integration_details";
+  discoveryToolName: "find_integration_commands";
+  executeToolName: "execute_integration_command";
+  inventoryToolName: "list_integrations";
+  recommendedWorkflow: string[];
+};
+
+export type RuntimeIntegrationCommandSummary = {
+  commandKey: string;
+  commandPath: string[];
+  label: string;
+};
+
+export type RuntimeIntegrationCommandGroupSummary = {
+  commandCount: number;
+  groupKey: string;
+  groupPath: string[];
+  label: string;
+};
+
+export type RuntimeIntegrationSummaryResponse = {
+  available: boolean;
+  commandGroups: RuntimeIntegrationCommandGroupSummary[];
   description: string;
+  installed: boolean;
   key: string;
   label: string;
-  operations: RuntimeIntegrationOperationResponse[];
+  rootCommands: RuntimeIntegrationCommandSummary[];
   status: RuntimeIntegrationStatus;
   toolDescription: string;
   toolName: string;
   usageGuide: RuntimeIntegrationUsageGuide;
 };
 
-export type RuntimeIntegrationUsageGuide = {
-  argumentsField: "arguments";
-  connectionToolName: "manage_integration_connection";
-  detailToolName: "get_integration";
-  discoveryToolName: "find_integration_functions";
-  executeToolName: "execute_integration_function";
-  recommendedWorkflow: string[];
-};
-
-export type RuntimeIntegrationOperationExecutionGuide = {
-  argumentsField: "arguments";
+export type RuntimeIntegrationCommandDetails = {
+  argumentsSchema: Record<string, unknown>;
+  commandKey: string;
+  commandPath: string[];
+  description: string;
+  exampleArguments: Record<string, unknown>;
   exampleCall: {
     arguments: Record<string, unknown>;
-    functionKey: string;
+    commandKey: string;
     integrationKey: string;
   };
-  functionKey: string;
-  integrationKey: string;
-  toolName: "execute_integration_function";
-};
-
-export type RuntimeIntegrationOperationResponse = {
-  description: string;
-  executionGuide: RuntimeIntegrationOperationExecutionGuide;
-  key: string;
+  inputMode: IntegrationCommandInputMode;
   label: string;
-  parametersSchema: Record<string, unknown>;
+  resultMode: IntegrationCommandResultMode;
   usageNotes: string[];
 };
 
-export type RuntimeIntegrationFunctionMatch = {
+export type RuntimeIntegrationCommandGroupDetails = {
+  childGroups: RuntimeIntegrationCommandGroupSummary[];
+  commands: RuntimeIntegrationCommandSummary[];
+  description: string;
+  groupKey: string;
+  groupPath: string[];
+  label: string;
+};
+
+export type RuntimeIntegrationDetailsResponse = {
+  command?: RuntimeIntegrationCommandDetails;
+  detailType: "command" | "command_group";
+  group?: RuntimeIntegrationCommandGroupDetails;
+  integration: Pick<
+    RuntimeIntegrationSummaryResponse,
+    "description" | "key" | "label" | "status" | "usageGuide"
+  >;
+};
+
+export type RuntimeIntegrationCommandMatch = {
+  commandGroupPath: string[];
+  commandKey: string;
+  commandLabel: string;
   connected: boolean;
   exampleArguments: Record<string, unknown>;
-  functionKey: string;
-  functionLabel: string;
   integrationKey: string;
   integrationLabel: string;
   needsAttention: boolean;
@@ -147,7 +204,7 @@ export type IntegrationDefinition = {
   label: string;
   oauth?: IntegrationOauthBinding;
   pageDescription: string;
-  runtimeTool: IntegrationRuntimeToolDefinition | null;
+  runtimeSurface: IntegrationRuntimeSurfaceDefinition | null;
   settingsPath: (orgSlug: string) => string;
   showInWorkspaceCatalog: boolean;
   ui?: {

@@ -10,12 +10,11 @@ test("otto-integrations declares the static metatool contracts", async () => {
   const plugin = JSON.parse(raw);
 
   assert.deepEqual(plugin.contracts?.tools, [
-    "find_integration_functions",
+    "find_integration_commands",
     "list_integrations",
-    "list_integrations_catalog",
     "get_integration",
-    "get_integration_status",
-    "manage_integration_connection",
-    "execute_integration_function",
+    "get_integration_details",
+    "manage_integration",
+    "execute_integration_command",
   ]);
 });

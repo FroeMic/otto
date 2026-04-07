@@ -51,10 +51,11 @@ describe("searchLinearIssues", () => {
       query: "oauth",
     });
 
+    assert.equal(result.commandKey, "issue.search");
     assert.equal(result.integrationKey, "linear");
     assert.equal(result.source, "linear");
     assert.equal(result.totalMatched, 1);
-    assert.equal(result.items[0]?.id, "ENG-123");
+    assert.equal(result.items[0]?.identifier, "ENG-123");
     assert.equal(result.items[0]?.project, "Core");
     assert.equal(result.items[0]?.state, "In Progress");
     assert.match(requestBody, /searchIssues/);

@@ -288,6 +288,13 @@
       "when": 1775567280840,
       "tag": "0040_blue_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1775570400000,
+      "tag": "0041_command_key_audits",
+      "breakpoints": true
     }
   ]
 }
