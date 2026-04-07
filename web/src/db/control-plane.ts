@@ -7974,8 +7974,6 @@ async function upsertLinearIntegrationForTenant(
         connectedByUserId: input.connectedByUserId,
         linearWorkspaceId: input.linearWorkspaceId,
         linearWorkspaceName: input.linearWorkspaceName,
-        nangoConnectionId: null,
-        nangoIntegrationId: null,
         updatedAt: input.now,
       })
       .where(eq(integrationLinearInstallations.id, existingInstallation.id));

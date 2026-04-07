@@ -335,7 +335,7 @@ export function LinearIntegrationPanel(props: Props) {
                         ? "What Otto can do in Linear."
                         : "How Otto can react when Linear is connected."}
                   </SettingsSectionDescription>
-                  <SettingsCard className="rounded-2xl">
+                  <SettingsCard>
                     {capabilities.map((capability) => (
                       <SettingsRow key={capability.key}>
                         <SettingsRowLabel>
@@ -363,7 +363,7 @@ export function LinearIntegrationPanel(props: Props) {
                 <SettingsSectionDescription>
                   See the current Linear connection for this workspace.
                 </SettingsSectionDescription>
-                <SettingsCard className="rounded-2xl">
+                <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
                       <SettingsRowTitle>Status</SettingsRowTitle>
@@ -414,7 +414,7 @@ export function LinearIntegrationPanel(props: Props) {
                 <SettingsSectionDescription>
                   Manage the Linear connection for this workspace.
                 </SettingsSectionDescription>
-                <SettingsCard className="rounded-2xl">
+                <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
                       <SettingsRowTitle>Connect Linear</SettingsRowTitle>
@@ -462,7 +462,7 @@ export function LinearIntegrationPanel(props: Props) {
                 <SettingsSectionDescription>
                   {getConfigurationSummary(uiState)}
                 </SettingsSectionDescription>
-                <SettingsCard className="rounded-2xl">
+                <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
                       <SettingsRowTitle>Default team</SettingsRowTitle>

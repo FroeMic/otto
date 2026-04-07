@@ -185,7 +185,6 @@ tenant_integrations
 
 linear_installations
 - tenant_integration_id
-- nango_connection_id
 - linear_workspace_id
 - linear_workspace_name
 - scope_csv

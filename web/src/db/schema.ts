@@ -241,10 +241,6 @@ export const integrationLinearInstallations = pgTable(
     tenantIntegrationId: uuid("tenant_integration_id")
       .references(() => tenantIntegrations.id, { onDelete: "cascade" })
       .notNull(),
-    nangoConnectionId: varchar("nango_connection_id", { length: 255 }).unique(),
-    nangoIntegrationId: varchar("nango_integration_id", {
-      length: 255,
-    }),
     linearWorkspaceId: varchar("linear_workspace_id", { length: 255 }),
     linearWorkspaceName: text("linear_workspace_name"),
     connectedByUserId: uuid("connected_by_user_id").references(() => users.id, {

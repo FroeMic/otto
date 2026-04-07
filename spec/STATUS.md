@@ -225,6 +225,9 @@
   - the first provider entry should be `openai-proxy`, with embeddings and speech/TTS following distinct OpenClaw extension seams
 - The plan now assumes `ssh2` on the Node.js server side for SSH exec and SFTP, with a shared validated env contract for deploy keys and SSH defaults.
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
+- The stale Nango Linear path is no longer part of the active integration stack:
+  - Linear now uses the first-party OAuth substrate and direct Linear OAuth env/config only
+  - Nango-specific env/docs/helpers are being removed, and Linear installation state should no longer carry Nango-named fields in the active schema
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
   - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose
