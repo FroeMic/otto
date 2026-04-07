@@ -218,6 +218,10 @@ Concrete direction:
 - `linear` should not need its own installation table by default.
 - `slack` and `whatsapp` can keep provider-specific tables where they back real directory caches, link sessions, or other query-heavy state.
 - New integrations should normally add code registry entries, not tables.
+- Discovery should be first-class in the runtime plugin contract:
+  - agents should be able to search for the best integration function from user intent before guessing an integration/function pair
+  - integration detail responses should include exact execution guides and example calls, not only raw parameter schemas
+  - the plugin-level metatool contract should explicitly teach the discovery -> inspect -> connect -> execute workflow
 
 ## UI-Initiated Connect Flow
 

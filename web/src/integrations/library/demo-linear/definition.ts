@@ -77,9 +77,17 @@ export const demoLinearIntegrationDefinition: IntegrationDefinition = {
       {
         description:
           "Search a fixed synthetic issue dataset through Otto's managed integration execution path.",
+        exampleArguments: {
+          limit: 5,
+          query: "oauth",
+        },
+        intentKeywords: ["demo", "issues", "synthetic", "test"],
         key: "search_issues",
         label: "Search Issues",
         parametersSchema: DEMO_LINEAR_TOOL_PARAMETERS_SCHEMA,
+        usageNotes: [
+          "This is a synthetic dataset for testing the managed integration workflow.",
+        ],
         validate: (params) => {
           const query =
             typeof params.query === "string"

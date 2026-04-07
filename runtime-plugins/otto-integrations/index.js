@@ -15,11 +15,35 @@ const PLUGIN_CONFIG_SCHEMA = {
 export default definePluginEntry({
   id: "otto-integrations",
   name: "Otto Integrations",
-  description: "Managed integration tools backed by the workspace app.",
+  description:
+    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_functions when you know the user's goal but not the exact function, use get_integration to inspect operations and parameter schemas, use manage_integration_connection when an integration needs attention, then execute with execute_integration_function using integrationKey, functionKey, and arguments.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     console.info(
-      "[otto-integrations] register staticTools=list_integrations,list_integrations_catalog,get_integration,get_integration_status,manage_integration_connection,execute_integration_function",
+      "[otto-integrations] register staticTools=find_integration_functions,list_integrations,list_integrations_catalog,get_integration,get_integration_status,manage_integration_connection,execute_integration_function",
+    );
+
+    api.registerTool(
+      {
+        name: "find_integration_functions",
+        description:
+          "Find the best Otto-managed integration function for a user request. Use this first when you know the user's goal but not the exact integration or function key. The result includes connection state, parameter schema, usage notes, and an exact execute_integration_function example call.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            query: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["query"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await findIntegrationFunctions(api, params));
+        },
+      },
+      { optional: true },
     );
 
     api.registerTool(
@@ -60,7 +84,7 @@ export default definePluginEntry({
       {
         name: "get_integration",
         description:
-          "Read one Otto-managed integration, including its available functions, parameter schema, and current connection state.",
+          "Read one Otto-managed integration, including its available functions, parameter schema, execution guides, usage notes, and current connection state. Use this before executing unfamiliar functions.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -110,7 +134,7 @@ export default definePluginEntry({
       {
         name: "manage_integration_connection",
         description:
-          "Get the right workspace URL and recommended next action to connect, reconnect, or review an Otto-managed integration.",
+          "Get the right workspace URL and recommended next action to connect, reconnect, or review an Otto-managed integration. Use this when an integration response says needsAttention=true or connected=false.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -137,7 +161,7 @@ export default definePluginEntry({
       {
         name: "execute_integration_function",
         description:
-          "Execute one function on an Otto-managed integration through the workspace app.",
+          "Execute one function on an Otto-managed integration through the workspace app. Use functionKey values returned by get_integration or find_integration_functions. Pass operation-specific inputs in arguments. Example: {\"integrationKey\":\"linear\",\"functionKey\":\"search_issues\",\"arguments\":{\"query\":\"credit\",\"limit\":5}}",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -153,6 +177,10 @@ export default definePluginEntry({
             integrationKey: {
               type: "string",
               minLength: 1,
+            },
+            params: {
+              type: "object",
+              additionalProperties: true,
             },
           },
           required: ["functionKey", "integrationKey"],
@@ -192,6 +220,30 @@ async function listIntegrations(api) {
 
   console.info(
     `[otto-integrations] list succeeded count=${Array.isArray(response.data?.integrations) ? response.data.integrations.length : 0}`,
+  );
+
+  return response.data;
+}
+
+async function findIntegrationFunctions(api, params) {
+  const query = normalizeString(params.query);
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/integrations/find",
+    body: {
+      query,
+    },
+  });
+
+  if (!response.ok) {
+    console.warn(
+      `[otto-integrations] find failed query=${JSON.stringify(query)} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
+    return response;
+  }
+
+  console.info(
+    `[otto-integrations] find succeeded query=${JSON.stringify(query)} matches=${Array.isArray(response.data?.matches) ? response.data.matches.length : 0}`,
   );
 
   return response.data;
@@ -285,6 +337,10 @@ async function executeIntegrationFunction(api, params) {
     typeof params.arguments === "object" &&
     !Array.isArray(params.arguments)
       ? params.arguments
+      : params.params &&
+          typeof params.params === "object" &&
+          !Array.isArray(params.params)
+        ? params.params
       : {};
 
   const response = await requestControlPlane(api, {

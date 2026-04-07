@@ -10,8 +10,10 @@ export {
 } from "./registry";
 export {
   buildIntegrationOverviewEntry,
+  buildRuntimeIntegrationFunctionMatch,
   buildRuntimeIntegrationResponse,
 } from "./runtime-response";
+export { findIntegrationFunctionMatches } from "./search";
 export type {
   IntegrationDefinition,
   IntegrationExecutionContext,
@@ -21,7 +23,11 @@ export type {
   IntegrationOverviewItemProps,
   IntegrationPageProps,
   IntegrationRuntimeToolDefinition,
+  RuntimeIntegrationFunctionMatch,
   RuntimeIntegrationManifestEntry,
+  RuntimeIntegrationOperationExecutionGuide,
+  RuntimeIntegrationOperationResponse,
   RuntimeIntegrationResponse,
   RuntimeIntegrationStatus,
+  RuntimeIntegrationUsageGuide,
 } from "./types";

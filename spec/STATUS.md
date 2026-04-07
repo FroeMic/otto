@@ -229,6 +229,10 @@
   - Linear now uses the first-party OAuth substrate and direct Linear OAuth env/config only
   - Nango-specific env/docs/helpers are being removed
   - Linear-specific installation state should not live in a provider-specific table; the design direction is generic `tenant_integrations` plus shared OAuth state by default
+- The `otto-integrations` runtime contract is being made more self-describing for agents:
+  - discovery is now a first-class metatool concern instead of an optional follow-up
+  - integration responses should carry execution guides and example calls alongside parameter schemas
+  - the runtime plugin should explicitly teach the discovery -> inspect -> connect -> execute workflow so agents do not have to infer it
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
   - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose

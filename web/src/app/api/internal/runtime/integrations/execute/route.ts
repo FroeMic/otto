@@ -65,12 +65,7 @@ function handleRouteError(error: unknown) {
       );
     }
 
-    return json(
-      {
-        error: error.message,
-      },
-      400,
-    );
+    return json(buildExecutionErrorResponse(error.message), 400);
   }
 
   return json(
@@ -79,6 +74,39 @@ function handleRouteError(error: unknown) {
     },
     500,
   );
+}
+
+function buildExecutionErrorResponse(message: string) {
+  if (message.includes("needs attention. Reconnect")) {
+    const integrationLabel = message.split(" needs attention")[0]?.trim();
+    const integrationKey = integrationLabel?.toLowerCase();
+
+    return {
+      error: message,
+      nextAction: integrationKey
+        ? {
+            integrationKey,
+            recommendedAction: "reconnect",
+            toolName: "manage_integration_connection",
+          }
+        : null,
+    };
+  }
+
+  if (
+    message.includes("requires the") ||
+    message.includes("does not accept the") ||
+    message.includes("requires query to be at least")
+  ) {
+    return {
+      error: message,
+      hint: "Call find_integration_functions or get_integration before retrying, then use the operation parametersSchema and executionGuide.",
+    };
+  }
+
+  return {
+    error: message,
+  };
 }
 
 function json(body: unknown, status = 200) {

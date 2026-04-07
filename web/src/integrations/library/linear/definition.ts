@@ -77,9 +77,33 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       {
         description:
           "Search issues across Linear projects, teams, assignees, and states.",
+        exampleArguments: {
+          limit: 5,
+          query: "credit",
+        },
+        intentKeywords: [
+          "linear",
+          "issue",
+          "issues",
+          "ticket",
+          "tickets",
+          "bug",
+          "bugs",
+          "project",
+          "projects",
+          "backlog",
+          "roadmap",
+          "credit",
+          "credits",
+        ],
         key: "search_issues",
         label: "Search issues",
         parametersSchema: LINEAR_TOOL_PARAMETERS_SCHEMA,
+        usageNotes: [
+          "Use free-text issue search queries such as issue IDs, topics, project names, or owner names.",
+          "A query with no results is valid and returns an empty items array.",
+          "Example query: credit",
+        ],
         validate: (params) => {
           const query =
             typeof params.query === "string" ? params.query.trim() : "";
