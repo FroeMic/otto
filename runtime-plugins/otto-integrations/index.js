@@ -267,8 +267,11 @@ async function manageIntegrationConnection(api, params) {
     return response;
   }
 
+  const selectedAction =
+    response.data?.connectionAction?.selectedAction || action || "auto";
+
   console.info(
-    `[otto-integrations] manage-connection succeeded integration=${integrationKey} action=${response.data?.connectionAction?.selectedAction ?? action || "auto"}`,
+    `[otto-integrations] manage-connection succeeded integration=${integrationKey} action=${selectedAction}`,
   );
 
   return response.data;
