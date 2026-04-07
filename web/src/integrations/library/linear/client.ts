@@ -83,7 +83,20 @@ const ATTACHMENT_FIELDS = `
   subtitle
   url
   sourceType
+  archivedAt
+  bodyData
   createdAt
+  creator {
+    ${USER_FIELDS}
+  }
+  issue {
+    ${ISSUE_REFERENCE_FIELDS}
+  }
+  metadata
+  originalIssue {
+    ${ISSUE_REFERENCE_FIELDS}
+  }
+  source
   updatedAt
 `;
 
@@ -542,8 +555,15 @@ export type LinearCommentNode = {
 };
 
 export type LinearAttachmentNode = {
+  archivedAt?: string | null;
+  bodyData?: string | null;
   createdAt?: string | null;
+  creator?: LinearUserNode | null;
   id?: string | null;
+  issue?: LinearIssueReferenceNode | null;
+  metadata?: Record<string, unknown> | null;
+  originalIssue?: LinearIssueReferenceNode | null;
+  source?: Record<string, unknown> | null;
   sourceType?: string | null;
   subtitle?: string | null;
   title?: string | null;
@@ -1080,6 +1100,63 @@ export function mapLinearComment(comment: LinearCommentNode) {
   };
 }
 
+export function mapLinearAttachment(attachment: LinearAttachmentNode) {
+  return {
+    archivedAt: attachment.archivedAt ?? null,
+    bodyData: attachment.bodyData?.trim() || null,
+    createdAt: attachment.createdAt ?? null,
+    creator:
+      attachment.creator?.name?.trim() ||
+      attachment.creator?.displayName?.trim() ||
+      null,
+    creatorEmail: attachment.creator?.email?.trim() || null,
+    creatorId: attachment.creator?.id?.trim() || null,
+    id: attachment.id?.trim() || null,
+    issue: mapLinearIssueReference(attachment.issue ?? null),
+    issueId: attachment.issue?.id?.trim() || null,
+    metadata: attachment.metadata ?? null,
+    originalIssue: mapLinearIssueReference(attachment.originalIssue ?? null),
+    originalIssueId: attachment.originalIssue?.id?.trim() || null,
+    source: attachment.source ?? null,
+    sourceType: attachment.sourceType?.trim() || null,
+    subtitle: attachment.subtitle?.trim() || null,
+    title: attachment.title?.trim() || "Untitled attachment",
+    updatedAt: attachment.updatedAt ?? null,
+    url: attachment.url ?? null,
+  };
+}
+
+export function buildLinearAttachmentCommandResult(input: {
+  attachment: LinearAttachmentNode | null | undefined;
+  commandKey: string;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    attachment: input.attachment ? mapLinearAttachment(input.attachment) : null,
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearAttachmentCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearAttachmentNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearAttachment),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
 export function buildLinearCommentCommandResult(input: {
   commandKey: string;
   comment: LinearCommentNode | null | undefined;
@@ -1285,18 +1362,6 @@ export function buildLinearUserTeamMembershipCollectionCommandResult(input: {
     source: "linear",
     totalMatched: input.items.length,
     user: mapLinearUser(input.user),
-  };
-}
-
-export function mapLinearAttachment(attachment: LinearAttachmentNode) {
-  return {
-    createdAt: attachment.createdAt ?? null,
-    id: attachment.id?.trim() || null,
-    sourceType: attachment.sourceType?.trim() || null,
-    subtitle: attachment.subtitle?.trim() || null,
-    title: attachment.title?.trim() || "Untitled attachment",
-    updatedAt: attachment.updatedAt ?? null,
-    url: attachment.url ?? null,
   };
 }
 

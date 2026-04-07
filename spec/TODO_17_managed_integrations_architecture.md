@@ -772,13 +772,20 @@ Tracker:
     - verify `user.list_team_memberships` against a user who belongs to multiple teams and confirm owner flags map correctly
 
 - `attachment`
-  - `[ ]` `attachment.list`
-  - `[ ]` `attachment.get`
-  - `[ ]` `attachment.list_for_url`
-  - `[ ]` `attachment.upload_file`
-  - `[ ]` `attachment.create`
-  - `[ ]` `attachment.create_from_uploaded_file`
-  - `[ ]` `attachment.update`
+  - `[x]` `attachment.list`
+  - `[x]` `attachment.get`
+  - `[x]` `attachment.list_for_url`
+  - `[x]` `attachment.upload_file`
+  - `[x]` `attachment.create`
+  - `[x]` `attachment.create_from_uploaded_file`
+  - `[x]` `attachment.update`
+  - Later testing plan:
+    - verify `attachment.list` against a workspace with a mix of rich external links and uploaded assets
+    - verify `attachment.get` on one attachment linked to an issue and one moved attachment with `originalIssue` populated
+    - verify `attachment.list_for_url` returns all issue links for the same external URL
+    - verify `attachment.upload_file` returns usable signed upload metadata, then complete the signed upload and follow with `attachment.create_from_uploaded_file`
+    - verify `attachment.create` against both a fresh external URL and a repeated URL to confirm Linear updates the existing attachment record
+    - verify `attachment.update` for title, subtitle, icon, and metadata changes on an existing attachment
 
 - `document`
   - `[x]` `document.list`

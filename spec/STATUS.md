@@ -411,7 +411,8 @@
   - the full `customer_tier.*` slice is now implemented end to end, including list/get/create/update/delete
   - the full `customer.*` slice is now implemented end to end, including list/get/create/update plus `customer.list_needs`
   - the full `customer_need.*` slice is now implemented end to end, including list/get/create/update/archive/unarchive/delete plus attachment-derived creation
-  - the next recommended Linear slice is now whatever remains outside the customer family, with `attachment.*` still explicitly last
+  - the full `attachment.*` slice is now implemented end to end, including workspace attachment reads, URL lookup, attachment create/update, uploaded-asset attachment creation, and signed upload preparation via `attachment.upload_file`
+  - the next recommended Linear slice is now `team.*`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

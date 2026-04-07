@@ -1,6 +1,12 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
-
+import { executeLinearAttachmentCreate } from "./commands/attachment/create";
+import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
+import { executeLinearAttachmentGet } from "./commands/attachment/get";
+import { executeLinearAttachmentList } from "./commands/attachment/list";
+import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
+import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
+import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
@@ -260,6 +266,12 @@ const DOCUMENT_ID_ARGUMENT_SCHEMA = {
   description: "Linear document id.",
 } as const;
 
+const ATTACHMENT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear attachment id.",
+} as const;
+
 const DOCUMENT_TITLE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
@@ -369,6 +381,20 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Read attachments and uploaded asset links in the connected Linear workspace.",
+      direction: "read",
+      key: "attachment.read",
+      label: "Read attachments",
+    }),
+    buildCapability({
+      description:
+        "Create and later update attachment links or uploaded asset references in the connected Linear workspace.",
+      direction: "tool",
+      key: "attachment.write",
+      label: "Write attachments",
+    }),
+    buildCapability({
+      description:
         "Read and inspect comments across issue threads in the connected Linear workspace.",
       direction: "read",
       key: "comment.read",
@@ -460,6 +486,545 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the file to upload.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded file.",
+                },
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's upload request.",
+                },
+                size: {
+                  type: "integer",
+                  minimum: 1,
+                  description: "File size in bytes.",
+                },
+              },
+              required: ["contentType", "filename", "size"],
+            },
+            commandKey: "attachment.upload_file",
+            commandPath: ["attachment", "upload_file"],
+            description:
+              "Request signed upload instructions for a file that will later be attached in Linear.",
+            exampleArguments: {
+              contentType: "application/pdf",
+              filename: "credits.pdf",
+              size: 12345,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "upload file",
+              "attachment upload",
+              "signed upload",
+              "asset upload",
+            ],
+            label: "Upload file",
+            resultMode: "json",
+            usageNotes: [
+              "This does not upload the bytes itself. It returns Linear's signed upload URL and headers.",
+              "Upload the bytes to uploadFile.uploadUrl first, then call attachment.create_from_uploaded_file with uploadFile.assetUrl.",
+            ],
+            validate: (argumentsObject) => ({
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+            }),
+            execute: executeLinearAttachmentUploadFile,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: ATTACHMENT_ID_ARGUMENT_SCHEMA,
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional replacement icon URL to display with the attachment.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional replacement metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated attachment title shown in Linear.",
+                },
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "attachment.update",
+            commandPath: ["attachment", "update"],
+            description: "Update one existing Linear attachment.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+              title: "Updated attachment title",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "update attachment",
+              "rename file link",
+              "edit attachment",
+            ],
+            label: "Update attachment",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides attachmentId.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : null,
+            }),
+            execute: executeLinearAttachmentUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                assetUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Uploaded Linear asset URL returned by attachment.upload_file.",
+                },
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Linear issue id or identifier to attach the uploaded asset to.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+              },
+              required: ["assetUrl", "issueId", "title"],
+            },
+            commandKey: "attachment.create_from_uploaded_file",
+            commandPath: ["attachment", "create_from_uploaded_file"],
+            description:
+              "Create a Linear attachment record from an uploaded Linear asset URL.",
+            exampleArguments: {
+              assetUrl: "https://uploads.linear.app/assets/credits.pdf",
+              issueId: "INT-6",
+              title: "Credits PDF",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "uploaded file",
+              "asset url",
+              "attach uploaded file",
+            ],
+            label: "Create attachment from uploaded file",
+            resultMode: "json",
+            usageNotes: [
+              "Use this after attachment.upload_file and after the bytes have been uploaded to the returned signed URL.",
+            ],
+            validate: (argumentsObject) => ({
+              assetUrl:
+                typeof argumentsObject.assetUrl === "string"
+                  ? argumentsObject.assetUrl.trim()
+                  : "",
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : "",
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentCreateFromUploadedFile,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Linear issue id or identifier to attach the link to.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+                url: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Attachment URL. Reusing a URL updates the existing attachment in Linear.",
+                },
+              },
+              required: ["issueId", "title", "url"],
+            },
+            commandKey: "attachment.create",
+            commandPath: ["attachment", "create"],
+            description: "Create a new Linear attachment link on one issue.",
+            exampleArguments: {
+              issueId: "INT-6",
+              title: "AWS Credits",
+              url: "https://example.com/aws-credits",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attach link",
+              "add file link",
+              "asset link",
+            ],
+            label: "Create attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to attach an external URL or previously uploaded asset URL to a Linear issue.",
+              "Linear treats the attachment URL as a unique identifier, so reusing the same URL updates the existing record.",
+            ],
+            validate: (argumentsObject) => ({
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : "",
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+              url:
+                typeof argumentsObject.url === "string"
+                  ? argumentsObject.url.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                url: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment URL to look up in Linear.",
+                },
+              },
+              required: ["url"],
+            },
+            commandKey: "attachment.list_for_url",
+            commandPath: ["attachment", "list_for_url"],
+            description:
+              "List Linear attachments associated with one exact attachment URL.",
+            exampleArguments: {
+              limit: 10,
+              url: "https://example.com/aws-credits",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attachments for url",
+              "linked url",
+              "lookup attachment",
+            ],
+            label: "List attachments for URL",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you know the original attachment URL and want to see whether Linear already linked it to one or more issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              url:
+                typeof argumentsObject.url === "string"
+                  ? argumentsObject.url.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentListForUrl,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: ATTACHMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "attachment.get",
+            commandPath: ["attachment", "get"],
+            description:
+              "Read one Linear attachment by attachment id and return normalized attachment context.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "attachment", "file", "link", "asset"],
+            label: "Get attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use ids returned by attachment.list or issue.list_attachments before reading one attachment in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "attachment.list",
+            commandPath: ["attachment", "list"],
+            description:
+              "List recently updated attachments from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attachments",
+              "files",
+              "links",
+              "assets",
+            ],
+            label: "List attachments",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse recent attachment records before reading one in detail or linking uploaded assets to issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearAttachmentList,
+          },
+        ],
+        description:
+          "Attachment metadata and uploaded asset reads for the connected Linear workspace.",
+        groupKey: "attachment",
+        groupPath: ["attachment"],
+        intentKeywords: [
+          "linear",
+          "attachment",
+          "attachments",
+          "files",
+          "links",
+          "assets",
+        ],
+        label: "Attachments",
+      },
       {
         commands: [
           {
