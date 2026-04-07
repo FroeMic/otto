@@ -2,12 +2,13 @@ import {
   normalizeOptionalInteger,
   normalizeOptionalString,
   normalizeOptionalStringArray,
+  pruneGraphqlInput,
 } from "../../client";
 
 export function buildLinearDocumentCreateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     color: normalizeOptionalString(argumentsObject.color),
     content: normalizeOptionalString(argumentsObject.content),
     cycleId: normalizeOptionalString(argumentsObject.cycleId),
@@ -26,13 +27,13 @@ export function buildLinearDocumentCreateInput(
       typeof argumentsObject.title === "string"
         ? argumentsObject.title.trim()
         : "",
-  };
+  });
 }
 
 export function buildLinearDocumentUpdateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     color: normalizeOptionalString(argumentsObject.color),
     content: normalizeOptionalString(argumentsObject.content),
     cycleId: normalizeOptionalString(argumentsObject.cycleId),
@@ -53,5 +54,5 @@ export function buildLinearDocumentUpdateInput(
       typeof argumentsObject.trashed === "boolean"
         ? argumentsObject.trashed
         : null,
-  };
+  });
 }

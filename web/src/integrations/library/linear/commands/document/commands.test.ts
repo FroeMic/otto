@@ -276,17 +276,8 @@ describe("linear document commands", () => {
 
     assert.match(payload.query, /documentCreate/);
     assert.deepEqual(payload.variables.input, {
-      color: null,
       content: "# Credits workflow",
-      cycleId: null,
-      icon: null,
-      initiativeId: null,
-      issueId: null,
-      lastAppliedTemplateId: null,
       projectId: "project-1",
-      resourceFolderId: null,
-      sortOrder: null,
-      subscriberIds: null,
       teamId: "team-1",
       title: "Credits workflow doc",
     });
@@ -352,21 +343,8 @@ describe("linear document commands", () => {
     assert.match(payload.query, /documentUpdate/);
     assert.equal(payload.variables.id, "document-1");
     assert.deepEqual(payload.variables.input, {
-      color: null,
       content: "Updated content",
-      cycleId: null,
-      hiddenAt: null,
-      icon: null,
-      initiativeId: null,
-      issueId: null,
-      lastAppliedTemplateId: null,
-      projectId: null,
-      resourceFolderId: null,
-      sortOrder: null,
-      subscriberIds: null,
-      teamId: null,
       title: "Updated doc",
-      trashed: null,
     });
     assert.equal(result.commandKey, "document.update");
     assert.equal(result.document?.title, "Updated doc");

@@ -2,12 +2,13 @@ import {
   normalizeOptionalInteger,
   normalizeOptionalString,
   normalizeOptionalStringArray,
+  pruneGraphqlInput,
 } from "../../client";
 
 export function buildLinearCustomerCreateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     domains: normalizeOptionalStringArray(argumentsObject.domains) ?? [],
     externalIds:
       normalizeOptionalStringArray(argumentsObject.externalIds) ?? [],
@@ -23,13 +24,13 @@ export function buildLinearCustomerCreateInput(
     slackChannelId: normalizeOptionalString(argumentsObject.slackChannelId),
     statusId: normalizeOptionalString(argumentsObject.statusId),
     tierId: normalizeOptionalString(argumentsObject.tierId),
-  };
+  });
 }
 
 export function buildLinearCustomerUpdateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     domains: normalizeOptionalStringArray(argumentsObject.domains),
     externalIds: normalizeOptionalStringArray(argumentsObject.externalIds),
     logoUrl: normalizeOptionalString(argumentsObject.logoUrl),
@@ -41,5 +42,5 @@ export function buildLinearCustomerUpdateInput(
     slackChannelId: normalizeOptionalString(argumentsObject.slackChannelId),
     statusId: normalizeOptionalString(argumentsObject.statusId),
     tierId: normalizeOptionalString(argumentsObject.tierId),
-  };
+  });
 }

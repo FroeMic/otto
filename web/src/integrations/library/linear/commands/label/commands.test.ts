@@ -178,12 +178,9 @@ describe("linear label commands", () => {
 
     assert.match(payload.query, /issueLabelCreate/);
     assert.deepEqual(payload.variables.input, {
-      color: null,
+      color: "#4F46E5",
       description: "Customer-facing issue",
-      isGroup: null,
       name: "Customer",
-      parentId: null,
-      retiredAt: null,
       teamId: "team-1",
     });
     assert.equal(payload.variables.replaceTeamLabels, true);

@@ -1,9 +1,9 @@
-import { normalizeOptionalString } from "../../client";
+import { normalizeOptionalString, pruneGraphqlInput } from "../../client";
 
 export function buildLinearProjectMilestoneCreateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     description: normalizeOptionalString(argumentsObject.description),
     name:
       typeof argumentsObject.name === "string"
@@ -19,13 +19,13 @@ export function buildLinearProjectMilestoneCreateInput(
         ? argumentsObject.sortOrder
         : null,
     targetDate: normalizeOptionalString(argumentsObject.targetDate),
-  };
+  });
 }
 
 export function buildLinearProjectMilestoneUpdateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     description: normalizeOptionalString(argumentsObject.description),
     name: normalizeOptionalString(argumentsObject.name),
     projectId: normalizeOptionalString(argumentsObject.projectId),
@@ -35,13 +35,13 @@ export function buildLinearProjectMilestoneUpdateInput(
         ? argumentsObject.sortOrder
         : null,
     targetDate: normalizeOptionalString(argumentsObject.targetDate),
-  };
+  });
 }
 
 export function buildLinearProjectMilestoneMoveInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     addIssueTeamToProject:
       typeof argumentsObject.addIssueTeamToProject === "boolean"
         ? argumentsObject.addIssueTeamToProject
@@ -51,5 +51,5 @@ export function buildLinearProjectMilestoneMoveInput(
       typeof argumentsObject.projectId === "string"
         ? argumentsObject.projectId.trim()
         : "",
-  };
+  });
 }

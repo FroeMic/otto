@@ -186,15 +186,10 @@ describe("linear customer need commands", () => {
     };
 
     assert.deepEqual(payload.variables.input, {
-      attachmentId: null,
-      attachmentUrl: null,
       body: "Need better billing exports",
-      commentId: null,
-      customerExternalId: null,
       customerId: "customer-1",
       issueId: "INT-15",
       priority: 1,
-      projectId: null,
     });
     assert.equal(result.commandKey, "customer_need.create");
     assert.equal(result.need?.id, "need-1");
@@ -313,13 +308,8 @@ describe("linear customer need commands", () => {
     assert.equal(payload.variables.clearAttachment, true);
     assert.deepEqual(payload.variables.input, {
       applyPriorityToRelatedNeeds: true,
-      attachmentUrl: null,
       body: "Need better billing exports soon",
-      customerExternalId: null,
-      customerId: null,
-      issueId: null,
       priority: 1,
-      projectId: null,
     });
     assert.equal(result.commandKey, "customer_need.update");
     assert.equal(result.need?.body, "Need better billing exports soon");

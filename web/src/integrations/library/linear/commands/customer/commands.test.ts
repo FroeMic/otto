@@ -234,13 +234,10 @@ describe("linear customer commands", () => {
     assert.deepEqual(payload.variables.input, {
       domains: ["example.com"],
       externalIds: ["crm-1"],
-      logoUrl: null,
-      mainSourceId: null,
       name: "Example Corp",
       ownerId: "user-1",
       revenue: 500000,
       size: 120,
-      slackChannelId: null,
       statusId: "customer-status-1",
       tierId: "customer-tier-1",
     });
@@ -297,17 +294,7 @@ describe("linear customer commands", () => {
 
     assert.equal(payload.variables.id, "customer-1");
     assert.deepEqual(payload.variables.input, {
-      domains: null,
-      externalIds: null,
-      logoUrl: null,
-      mainSourceId: null,
       name: "Example Corp Updated",
-      ownerId: null,
-      revenue: null,
-      size: null,
-      slackChannelId: null,
-      statusId: null,
-      tierId: null,
     });
     assert.equal(result.commandKey, "customer.update");
     assert.equal(result.customer?.name, "Example Corp Updated");
