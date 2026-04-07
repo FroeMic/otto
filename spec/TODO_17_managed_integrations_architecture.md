@@ -741,7 +741,7 @@ Tracker:
 - `cycle`
   - `[x]` `cycle.list`
   - `[x]` `cycle.get`
-  - `[ ]` `cycle.create`
+  - `[x]` `cycle.create`
   - `[ ]` `cycle.update`
   - `[ ]` `cycle.archive`
   - `[ ]` `cycle.list_issues`
@@ -853,7 +853,6 @@ Tracker:
 Immediate next recommended slice:
 
 - move to the next adjacent object slices:
-  - `cycle.create`
   - `cycle.update`
   - `cycle.archive`
   - `cycle.list_issues`

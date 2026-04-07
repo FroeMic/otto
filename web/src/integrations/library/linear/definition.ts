@@ -6,6 +6,7 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import { executeLinearCycleCreate } from "./commands/cycle/create";
 import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
@@ -162,6 +163,12 @@ const CYCLE_ID_ARGUMENT_SCHEMA = {
   description: "Linear cycle id.",
 } as const;
 
+const DATETIME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "ISO-8601 datetime string.",
+} as const;
+
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
@@ -215,6 +222,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Create and later update or archive cycles in the connected Linear workspace.",
+      direction: "tool",
+      key: "cycle.write",
+      label: "Write cycles",
+    }),
+    buildCapability({
+      description:
         "Create, update, archive, and post project updates in the connected Linear workspace.",
       direction: "tool",
       key: "project.write",
@@ -238,6 +252,85 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                completedAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional completion datetime when creating a completed cycle.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional cycle description.",
+                },
+                endsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Cycle end datetime.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional custom cycle name.",
+                },
+                startsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Cycle start datetime.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear team id for the cycle.",
+                },
+              },
+              required: ["teamId", "startsAt", "endsAt"],
+            },
+            commandKey: "cycle.create",
+            commandPath: ["cycle", "create"],
+            description: "Create a new Linear cycle.",
+            exampleArguments: {
+              endsAt: "2026-04-14T00:00:00.000Z",
+              startsAt: "2026-04-07T00:00:00.000Z",
+              teamId: "team-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "create", "sprint"],
+            label: "Create cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_teams first if you need the canonical team id before creating the cycle.",
+            ],
+            validate: (argumentsObject) => ({
+              completedAt:
+                typeof argumentsObject.completedAt === "string"
+                  ? argumentsObject.completedAt.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              endsAt:
+                typeof argumentsObject.endsAt === "string"
+                  ? argumentsObject.endsAt.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              startsAt:
+                typeof argumentsObject.startsAt === "string"
+                  ? argumentsObject.startsAt.trim()
+                  : "",
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleCreate,
+          },
           {
             argumentsSchema: {
               type: "object",
