@@ -27,7 +27,7 @@ export default definePluginEntry({
       {
         name: "find_integration_functions",
         description:
-          "Find the best Otto-managed integration function for a user request. Use this first when you know the user's goal but not the exact integration or function key. The result includes connection state, parameter schema, usage notes, and an exact execute_integration_function example call.",
+          "Find the best Otto-managed integration function for a user request. Use this first when you know the user's goal but not the exact integration or function key. The result is a compact ranked candidate list with integration/function keys, connection state, a match reason, and example arguments. Use get_integration on the chosen integration to inspect the full parametersSchema, executionGuide, and usageNotes before execution.",
         parameters: {
           type: "object",
           additionalProperties: false,

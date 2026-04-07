@@ -95,18 +95,13 @@ export type RuntimeIntegrationOperationResponse = {
 
 export type RuntimeIntegrationFunctionMatch = {
   connected: boolean;
-  description: string;
-  executionGuide: RuntimeIntegrationOperationExecutionGuide;
+  exampleArguments: Record<string, unknown>;
   functionKey: string;
   functionLabel: string;
   integrationKey: string;
   integrationLabel: string;
   needsAttention: boolean;
-  parametersSchema: Record<string, unknown>;
   reason: string;
-  score: number;
-  status: RuntimeIntegrationStatus;
-  usageNotes: string[];
 };
 
 export type IntegrationExecutionContext = {

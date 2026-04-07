@@ -233,6 +233,8 @@
   - discovery is now a first-class metatool concern instead of an optional follow-up
   - integration responses should carry execution guides and example calls alongside parameter schemas
   - the runtime plugin should explicitly teach the discovery -> inspect -> connect -> execute workflow so agents do not have to infer it
+  - discovery hit payloads should stay compact and rank-oriented; full schemas and execution metadata belong on `get_integration`
+  - the temporary synthetic `demo-linear` provider has been removed so the runtime catalog only advertises real integrations
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
   - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose

@@ -112,25 +112,16 @@ export function buildRuntimeIntegrationFunctionMatch(input: {
   };
   operation: IntegrationRuntimeOperationDefinition;
   reason: string;
-  score: number;
   status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationFunctionMatch {
   return {
     connected: input.status.connected,
-    description: input.operation.description,
-    executionGuide: buildExecutionGuide({
-      integrationKey: input.definition.key,
-      operation: input.operation,
-    }),
+    exampleArguments: input.operation.exampleArguments ?? {},
     functionKey: input.operation.key,
     functionLabel: input.operation.label,
     integrationKey: input.definition.key,
     integrationLabel: input.definition.label,
     needsAttention: input.status.needsAttention,
-    parametersSchema: input.operation.parametersSchema,
     reason: input.reason,
-    score: input.score,
-    status: input.status,
-    usageNotes: input.operation.usageNotes ?? [],
   };
 }

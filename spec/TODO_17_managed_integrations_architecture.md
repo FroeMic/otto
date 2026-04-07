@@ -696,23 +696,23 @@ Implement this as narrow vertical slices that produce a usable end-to-end outcom
 
 Each increment should be shippable to a dev environment, easy to validate manually, and small enough to keep regressions local.
 
-### Increment 1: Static metatool plugin with one fake integration
+### Increment 1: Static metatool plugin with one real integration
 
-Build the smallest end-to-end capability injection path without OAuth, Nango, or provider traffic.
+Build the smallest end-to-end capability injection path with a narrow real provider slice instead of a synthetic placeholder.
 
 Scope:
 
-- add a minimal control-plane integration registry path for one synthetic provider such as `demo-linear`
+- add a minimal control-plane integration registry path for one real provider such as `linear`
 - add tenant-scoped internal routes for installed integrations, catalog integrations, and one-integration detail in deterministic order
 - add the first `otto-integrations` runtime plugin
 - register a fixed metatool set from the plugin contract
-- keep execution stubbed with fixed responses
+- keep the first executable surface intentionally narrow, such as `search_issues`
 
 Why this comes first:
 
 - it proves the runtime plugin contract
 - it proves control-plane-backed discovery without poisoning tenant config
-- it proves prompt-cache stability mechanics before real provider work
+- it proves prompt-cache stability mechanics without needing a synthetic provider that later has to be removed
 
 Acceptance criteria:
 
@@ -720,7 +720,7 @@ Acceptance criteria:
 - `list_integrations` returns only integrations installed for the tenant
 - `list_integrations_catalog` returns the full supported set in deterministic order
 - `get_integration` returns function metadata and schemas for one integration
-- invoking `execute_integration_function` reaches the control plane and returns a stubbed result
+- invoking `execute_integration_function` reaches the control plane and returns a real result for the narrow shipped operation
 
 ### Increment 2: Stable execution path through `integration-gateway`
 
