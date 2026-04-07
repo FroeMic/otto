@@ -865,14 +865,20 @@ Tracker:
     - verify customer list_needs against a customer with multiple linked needs across issues and projects
 
 - `customer_need`
-  - `[ ]` `customer_need.list`
-  - `[ ]` `customer_need.get`
-  - `[ ]` `customer_need.create`
-  - `[ ]` `customer_need.create_from_attachment`
-  - `[ ]` `customer_need.update`
-  - `[ ]` `customer_need.archive`
-  - `[ ]` `customer_need.unarchive`
-  - `[ ]` `customer_need.delete`
+  - `[x]` `customer_need.list`
+  - `[x]` `customer_need.get`
+  - `[x]` `customer_need.create`
+  - `[x]` `customer_need.create_from_attachment`
+  - `[x]` `customer_need.update`
+  - `[x]` `customer_need.archive`
+  - `[x]` `customer_need.unarchive`
+  - `[x]` `customer_need.delete`
+  - Later testing plan:
+    - verify customer-need list/get against a workspace with active and archived customer needs
+    - verify customer-need create/update for customer, issue, project, and attachment linkage plus priority propagation
+    - verify customer-need create_from_attachment against a real existing Linear attachment
+    - verify customer-need archive/unarchive transitions and confirm archived needs only appear when explicitly requested
+    - verify customer-need delete with both `keepAttachment=true` and `keepAttachment=false`
 
 - `customer_status`
   - `[x]` `customer_status.list`

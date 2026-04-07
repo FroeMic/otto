@@ -20,6 +20,16 @@ import {
   executeLinearCustomerUpdate,
 } from "./commands/customer/commands";
 import {
+  executeLinearCustomerNeedArchive,
+  executeLinearCustomerNeedCreate,
+  executeLinearCustomerNeedCreateFromAttachment,
+  executeLinearCustomerNeedDelete,
+  executeLinearCustomerNeedGet,
+  executeLinearCustomerNeedList,
+  executeLinearCustomerNeedUnarchive,
+  executeLinearCustomerNeedUpdate,
+} from "./commands/customer-need/commands";
+import {
   executeLinearCustomerStatusCreate,
   executeLinearCustomerStatusDelete,
   executeLinearCustomerStatusGet,
@@ -316,6 +326,12 @@ const CUSTOMER_ID_ARGUMENT_SCHEMA = {
   description: "Linear customer id.",
 } as const;
 
+const CUSTOMER_NEED_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer need id.",
+} as const;
+
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
@@ -421,6 +437,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       key: "customer.write",
       label: "Write customers",
     }),
+    buildCapability({
+      description:
+        "Create, update, archive, and delete customer needs in the connected Linear workspace.",
+      direction: "tool",
+      key: "customer_need.write",
+      label: "Write customer needs",
+    }),
   ],
   categoryLabel: "Product Management",
   catalogDescription:
@@ -437,6 +460,421 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                includeArchived: {
+                  type: "boolean",
+                  description: "Whether archived customer needs should be included.",
+                },
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_need.list",
+            commandPath: ["customer_need", "list"],
+            description:
+              "List customer needs from the connected Linear workspace.",
+            exampleArguments: {
+              includeArchived: false,
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer need",
+              "customer needs",
+              "feedback",
+            ],
+            label: "List customer needs",
+            resultMode: "json",
+            usageNotes: [
+              "Use includeArchived=true when you need to inspect resolved or archived customer needs too.",
+            ],
+            validate: (argumentsObject) => ({
+              includeArchived:
+                typeof argumentsObject.includeArchived === "boolean"
+                  ? argumentsObject.includeArchived
+                  : false,
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerNeedList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.get",
+            commandPath: ["customer_need", "get"],
+            description: "Read one Linear customer need by id.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "get feedback"],
+            label: "Get customer need",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear attachment id linked to the need.",
+                },
+                attachmentUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional attachment URL linked to the need.",
+                },
+                body: {
+                  type: "string",
+                  description: "Optional markdown body for the need.",
+                },
+                commentId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear comment id linked to the need.",
+                },
+                customerExternalId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer external id.",
+                },
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                issueId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional issue identifier or id linked to the need.",
+                },
+                priority: {
+                  type: "number",
+                  description:
+                    "Optional importance level where 0 = not important and 1 = important.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_need.create",
+            commandPath: ["customer_need", "create"],
+            description: "Create a new Linear customer need.",
+            exampleArguments: {
+              body: "Need better billing exports",
+              customerId: "customer-id",
+              issueId: "INT-15",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "create", "feedback"],
+            label: "Create customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Provide customerId, customerExternalId, issueId, projectId, or attachment linkage so the need is attached to real customer context.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : null,
+              attachmentUrl:
+                typeof argumentsObject.attachmentUrl === "string"
+                  ? argumentsObject.attachmentUrl.trim()
+                  : null,
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : null,
+              commentId:
+                typeof argumentsObject.commentId === "string"
+                  ? argumentsObject.commentId.trim()
+                  : null,
+              customerExternalId:
+                typeof argumentsObject.customerExternalId === "string"
+                  ? argumentsObject.customerExternalId.trim()
+                  : null,
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isFinite(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerNeedCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear attachment id used to create the need.",
+                },
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "customer_need.create_from_attachment",
+            commandPath: ["customer_need", "create_from_attachment"],
+            description: "Create a new Linear customer need from one attachment.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer need",
+              "attachment",
+              "feedback link",
+            ],
+            label: "Create customer need from attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when the customer need already has a canonical attachment in Linear and should be derived from it.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedCreateFromAttachment,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                applyPriorityToRelatedNeeds: {
+                  type: "boolean",
+                  description:
+                    "Whether to update the priority of related needs on the same customer issue or project.",
+                },
+                attachmentUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional attachment URL linked to the need.",
+                },
+                body: {
+                  type: "string",
+                  description: "Optional markdown body for the need.",
+                },
+                clearAttachment: {
+                  type: "boolean",
+                  description:
+                    "Whether to clear any existing attachment association.",
+                },
+                customerExternalId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer external id.",
+                },
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                issueId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional issue identifier or id linked to the need.",
+                },
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+                priority: {
+                  type: "number",
+                  description:
+                    "Optional importance level where 0 = not important and 1 = important.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.update",
+            commandPath: ["customer_need", "update"],
+            description: "Update an existing Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+              priority: 1,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "update", "feedback"],
+            label: "Update customer need",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides needId.",
+            ],
+            validate: (argumentsObject) => ({
+              applyPriorityToRelatedNeeds:
+                typeof argumentsObject.applyPriorityToRelatedNeeds === "boolean"
+                  ? argumentsObject.applyPriorityToRelatedNeeds
+                  : null,
+              attachmentUrl:
+                typeof argumentsObject.attachmentUrl === "string"
+                  ? argumentsObject.attachmentUrl.trim()
+                  : null,
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : null,
+              clearAttachment:
+                typeof argumentsObject.clearAttachment === "boolean"
+                  ? argumentsObject.clearAttachment
+                  : null,
+              customerExternalId:
+                typeof argumentsObject.customerExternalId === "string"
+                  ? argumentsObject.customerExternalId.trim()
+                  : null,
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isFinite(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerNeedUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.archive",
+            commandPath: ["customer_need", "archive"],
+            description: "Archive one Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "archive", "resolve"],
+            label: "Archive customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Archive a customer need when it should leave the active customer-need backlog.",
+            ],
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.unarchive",
+            commandPath: ["customer_need", "unarchive"],
+            description: "Unarchive one Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "restore", "unarchive"],
+            label: "Unarchive customer need",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedUnarchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                keepAttachment: {
+                  type: "boolean",
+                  description:
+                    "Whether the linked attachment should be kept when deleting the need.",
+                },
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.delete",
+            commandPath: ["customer_need", "delete"],
+            description: "Delete one Linear customer need.",
+            exampleArguments: {
+              keepAttachment: true,
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "delete", "remove"],
+            label: "Delete customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Use keepAttachment=true when the attachment should survive after the need is deleted.",
+            ],
+            validate: (argumentsObject) => ({
+              keepAttachment:
+                typeof argumentsObject.keepAttachment === "boolean"
+                  ? argumentsObject.keepAttachment
+                  : null,
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedDelete,
+          },
+        ],
+        description:
+          "Customer-need reads and writes for product feedback and demand tracking in Linear.",
+        groupKey: "customer_need",
+        groupPath: ["customer_need"],
+        intentKeywords: ["linear", "customer need", "needs", "feedback"],
+        label: "Customer Needs",
+      },
       {
         commands: [
           {
