@@ -74,6 +74,8 @@ Keep implementation aligned with the control-plane plan and preserve state acros
 - Update `spec/STATUS.md` if the next recommended step, architecture decision, or blockers change.
 - Audit new UI copy, prompt text, and tool descriptions for the terminology split above before finishing.
 - Prefer small, reviewable increments that satisfy one spec at a time.
+- Prefer focused commits that land one complete sub-package or command slice at a time.
+- For object-by-object integration work, finish one command end to end, verify it, commit it, and only then move to the next command.
 - Do not add env vars, config contracts, or service scaffolding until there is a code path in the current increment that uses them.
 - Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
