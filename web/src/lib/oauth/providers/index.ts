@@ -1,9 +1,9 @@
-import { linearOAuthProvider } from "./linear";
+import { listIntegrationOauthProviders } from "@/integrations/framework";
 import type { OAuthProviderDefinition } from "./types";
 
-const providers = new Map<string, OAuthProviderDefinition>([
-  [linearOAuthProvider.key, linearOAuthProvider],
-]);
+const providers = new Map<string, OAuthProviderDefinition>(
+  listIntegrationOauthProviders().map((provider) => [provider.key, provider]),
+);
 
 export function getOAuthProviderDefinition(providerKey: string) {
   return providers.get(providerKey.trim().toLowerCase()) ?? null;

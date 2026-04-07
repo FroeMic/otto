@@ -16,9 +16,7 @@ import {
 } from "@/db/credit-ledger";
 import {
   appendIntegrationOauthEventTx,
-  getConnectedOauthAccessForTenantIntegration,
   markIntegrationOauthSessionConsumedTx,
-  recordOauthConnectionAttention,
   upsertOauthConnectionForTenantIntegrationTx,
 } from "@/db/oauth";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
@@ -54,15 +52,22 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildRuntimeIntegrationManifestForKeys,
+  buildRuntimeIntegrationResponse,
+  executeRegisteredIntegrationFunction,
+  getIntegrationDefinition,
+  type listRuntimeIntegrationDefinitions,
+  listSupportedRuntimeIntegrationKeys,
+  type RuntimeIntegrationManifestEntry,
+} from "@/integrations/framework";
+import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
 } from "@/lib/crypto";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_STATUSES, JOB_TYPES } from "@/lib/jobs/types";
-import { searchLinearIssues } from "@/lib/managed-integrations/linear";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
-import { getOAuthProviderDefinition } from "@/lib/oauth/providers";
 import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
   buildManagedBootstrapFileContent,
@@ -73,12 +78,6 @@ import {
 } from "@/lib/openclaw/managed-config";
 import { getTenantRuntimeConnection } from "@/lib/runtime/connection";
 import { RuntimeManager } from "@/lib/runtime/manager";
-import {
-  buildRuntimeIntegrationManifestForKeys,
-  executeRuntimeIntegrationStub,
-  listSupportedRuntimeIntegrationKeys,
-  type RuntimeIntegrationManifestEntry,
-} from "@/lib/runtime-integrations/registry";
 import {
   fetchSlackMessagingDirectory,
   joinSlackChannel,
@@ -4433,15 +4432,8 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
-export type RuntimeTenantIntegration = RuntimeIntegrationManifestEntry & {
-  status: {
-    connected: boolean;
-    connectionStatus: string | null;
-    enabled: boolean;
-    integrationStatus: string | null;
-    needsAttention: boolean;
-  };
-};
+export type RuntimeTenantIntegration =
+  import("@/integrations/framework").RuntimeIntegrationResponse;
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
   tx: DbTransaction,
@@ -4479,7 +4471,7 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
 }
 
 function buildRuntimeTenantIntegrations(input: {
-  definitions: RuntimeIntegrationManifestEntry[];
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
   rows: Array<{
     connectedAt: Date | null;
     connectionStatus: string | null;
@@ -4517,8 +4509,8 @@ function buildRuntimeTenantIntegrations(input: {
     const integrationStatus = row?.integrationStatus ?? null;
     const connectionStatus = row?.connectionStatus ?? null;
 
-    return {
-      ...definition,
+    return buildRuntimeIntegrationResponse({
+      definition,
       status: {
         connected,
         connectionStatus,
@@ -4528,7 +4520,7 @@ function buildRuntimeTenantIntegrations(input: {
           integrationStatus === "needs_attention" ||
           connectionStatus === "needs_attention",
       },
-    };
+    });
   });
 }
 
@@ -4543,7 +4535,17 @@ export async function listRuntimeIntegrationsForTenant(input: {
       tenantId: input.tenantId,
     });
     const installedKeys = rows.map((row) => row.providerKey).sort();
-    const definitions = buildRuntimeIntegrationManifestForKeys(installedKeys);
+    const definitions = installedKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeTool: NonNullable<
+            NonNullable<typeof definition>["runtimeTool"]
+          >;
+        } => Boolean(definition?.runtimeTool),
+      );
 
     if (definitions.length === 0) {
       return [];
@@ -4563,7 +4565,17 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
 
   return db.transaction(async (tx) => {
     const supportedKeys = listSupportedRuntimeIntegrationKeys();
-    const definitions = buildRuntimeIntegrationManifestForKeys(supportedKeys);
+    const definitions = supportedKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeTool: NonNullable<
+            NonNullable<typeof definition>["runtimeTool"]
+          >;
+        } => Boolean(definition?.runtimeTool),
+      );
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: supportedKeys,
       tenantId: input.tenantId,
@@ -4943,6 +4955,14 @@ export async function executeRuntimeIntegrationForTenant(input: {
 }) {
   const db = getDb();
   const integrationKey = input.integrationKey.trim().toLowerCase();
+  const definition = getIntegrationDefinition(integrationKey);
+
+  if (!definition?.runtimeTool) {
+    throw new Error(
+      `Managed integration ${input.integrationKey} is not registered.`,
+    );
+  }
+
   const runtimeContext = await db.transaction(async (tx) => {
     const providerKeys =
       await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
@@ -4955,7 +4975,7 @@ export async function executeRuntimeIntegrationForTenant(input: {
       );
     }
 
-    if (integrationKey === LINEAR_PROVIDER_KEY) {
+    if (definition.oauth) {
       const [integration] = await tx
         .select({
           id: tenantIntegrations.id,
@@ -4964,13 +4984,15 @@ export async function executeRuntimeIntegrationForTenant(input: {
         .where(
           and(
             eq(tenantIntegrations.tenantId, input.tenantId),
-            eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+            eq(tenantIntegrations.providerKey, integrationKey),
           ),
         )
         .limit(1);
 
       if (!integration) {
-        throw new Error("Linear is not connected in this workspace.");
+        throw new Error(
+          `${definition.label} is not connected in this workspace.`,
+        );
       }
 
       return {
@@ -4985,19 +5007,10 @@ export async function executeRuntimeIntegrationForTenant(input: {
     };
   });
 
-  if (
-    runtimeContext.integrationKey === LINEAR_PROVIDER_KEY &&
-    runtimeContext.tenantIntegrationId
-  ) {
-    return executeLinearRuntimeIntegration({
-      params: input.params,
-      tenantIntegrationId: runtimeContext.tenantIntegrationId,
-    });
-  }
-
-  return executeRuntimeIntegrationStub({
+  return executeRegisteredIntegrationFunction({
     integrationKey: runtimeContext.integrationKey,
     params: input.params,
+    tenantIntegrationId: runtimeContext.tenantIntegrationId,
   });
 }
 
@@ -8155,78 +8168,6 @@ async function recordLinearIntegrationError(
       updatedAt: input.now,
     })
     .where(eq(tenantIntegrations.id, existingIntegration.id));
-}
-
-async function executeLinearRuntimeIntegration(input: {
-  params: Record<string, unknown>;
-  tenantIntegrationId: string;
-}) {
-  const connection = await getConnectedOauthAccessForTenantIntegration({
-    providerKey: LINEAR_PROVIDER_KEY,
-    tenantIntegrationId: input.tenantIntegrationId,
-  });
-
-  if (!connection || connection.status !== "connected") {
-    console.warn(
-      `[runtime-integrations] linear unavailable tenantIntegration=${input.tenantIntegrationId} connectionStatus=${connection?.status ?? "missing"} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"}`,
-    );
-    throw new Error(
-      "Linear needs attention. Reconnect Linear in your workspace.",
-    );
-  }
-
-  try {
-    if (input.params.operation !== "search_issues") {
-      throw new Error("linear only supports the search_issues operation.");
-    }
-
-    const result = await searchLinearIssues({
-      accessToken: connection.accessToken,
-      limit:
-        typeof input.params.limit === "number" ? input.params.limit : undefined,
-      query: typeof input.params.query === "string" ? input.params.query : "",
-    });
-
-    console.info(
-      `[runtime-integrations] linear search tenantIntegration=${input.tenantIntegrationId} operation=search_issues query=${JSON.stringify(result.query)} totalMatched=${result.totalMatched}`,
-    );
-
-    return result;
-  } catch (error) {
-    const provider = getOAuthProviderDefinition(LINEAR_PROVIDER_KEY);
-    const errorMessage = getUnknownErrorMessage(error);
-    const classifiedKind = provider?.classifyError(error) ?? "transient";
-
-    if (classifiedKind === "reauthorize") {
-      console.warn(
-        `[runtime-integrations] linear request needs reauthorize tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} error=${errorMessage}`,
-      );
-      await recordOauthConnectionAttention({
-        connectionId: connection.connectionId,
-        errorMessage,
-        eventType: "request_failed_reauthorize",
-        providerKey: LINEAR_PROVIDER_KEY,
-        tenantIntegrationId: connection.tenantIntegrationId,
-      });
-
-      throw new Error(
-        "Linear needs attention. Reconnect Linear in your workspace.",
-      );
-    }
-
-    console.error(
-      `[runtime-integrations] linear request failed tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} kind=${classifiedKind} error=${errorMessage}`,
-    );
-    throw error;
-  }
-}
-
-function getUnknownErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "The provider request failed.";
 }
 
 async function createNextDesiredStateVersion(
