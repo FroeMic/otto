@@ -781,11 +781,17 @@ Tracker:
   - `[ ]` `attachment.update`
 
 - `document`
-  - `[ ]` `document.list`
-  - `[ ]` `document.get`
-  - `[ ]` `document.search`
-  - `[ ]` `document.create`
-  - `[ ]` `document.update`
+  - `[x]` `document.list`
+  - `[x]` `document.get`
+  - `[x]` `document.search`
+  - `[x]` `document.create`
+  - `[x]` `document.update`
+  - Later testing plan:
+    - verify `document.list` against a workspace with both project-linked and issue-linked documents
+    - verify `document.get` on a document that has creator, updatedBy, project, issue, and team associations populated
+    - verify `document.search` returns relevant matches for title-only and content-only terms
+    - verify `document.create` with only `title`, then again with project/team linkage and markdown content
+    - verify `document.update` for title/content edits plus toggling `trashed` and changing linked project or issue context
 
 - `label`
   - `[ ]` `label.list_issue_labels`

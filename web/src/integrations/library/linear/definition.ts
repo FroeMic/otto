@@ -12,6 +12,11 @@ import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
+import { executeLinearDocumentCreate } from "./commands/document/create";
+import { executeLinearDocumentGet } from "./commands/document/get";
+import { executeLinearDocumentList } from "./commands/document/list";
+import { executeLinearDocumentSearch } from "./commands/document/search";
+import { executeLinearDocumentUpdate } from "./commands/document/update";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -175,6 +180,24 @@ const USER_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear user id.",
+} as const;
+
+const DOCUMENT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear document id.",
+} as const;
+
+const DOCUMENT_TITLE_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Document title.",
+} as const;
+
+const DOCUMENT_QUERY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Free-text document search query.",
 } as const;
 
 const DATETIME_ARGUMENT_SCHEMA = {
@@ -975,6 +998,374 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["user"],
         intentKeywords: ["linear", "user", "people", "members", "assignee"],
         label: "Users",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "document.list",
+            commandPath: ["document", "list"],
+            description:
+              "List recently updated documents from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "documents",
+              "docs",
+              "knowledge",
+            ],
+            label: "List documents",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse recent documents before reading or updating one in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearDocumentList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.get",
+            commandPath: ["document", "get"],
+            description:
+              "Read one Linear document by document id and return normalized document context.",
+            exampleArguments: {
+              documentId: "document-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "document", "doc", "read document"],
+            label: "Get document",
+            resultMode: "json",
+            usageNotes: [
+              "Use document ids returned by document.list or project.list_documents before reading one document in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 25,
+                },
+                query: DOCUMENT_QUERY_ARGUMENT_SCHEMA,
+              },
+              required: ["query"],
+            },
+            commandKey: "document.search",
+            commandPath: ["document", "search"],
+            description:
+              "Search documents across the connected Linear workspace.",
+            exampleArguments: {
+              limit: 5,
+              query: "credit",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "docs",
+              "search",
+              "knowledge",
+              "spec",
+            ],
+            label: "Search documents",
+            resultMode: "json",
+            usageNotes: [
+              "Use free-text search terms that should match document titles or document content.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+              query:
+                typeof argumentsObject.query === "string"
+                  ? argumentsObject.query.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentSearch,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Document body in markdown.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                initiativeId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                lastAppliedTemplateId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                resourceFolderId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional document sort order.",
+                },
+                subscriberIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional list of Linear user ids subscribed to the document.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional owning Linear team id.",
+                },
+                title: DOCUMENT_TITLE_ARGUMENT_SCHEMA,
+              },
+              required: ["title"],
+            },
+            commandKey: "document.create",
+            commandPath: ["document", "create"],
+            description:
+              "Create a new Linear document.",
+            exampleArguments: {
+              projectId: "project-id",
+              title: "Credits workflow doc",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "document", "create doc", "new document"],
+            label: "Create document",
+            resultMode: "json",
+            usageNotes: [
+              "Attach the document to a project, issue, team, initiative, or cycle when you want it anchored to work in Linear.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              lastAppliedTemplateId:
+                typeof argumentsObject.lastAppliedTemplateId === "string"
+                  ? argumentsObject.lastAppliedTemplateId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              resourceFolderId:
+                typeof argumentsObject.resourceFolderId === "string"
+                  ? argumentsObject.resourceFolderId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isInteger(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              subscriberIds:
+                Array.isArray(argumentsObject.subscriberIds)
+                  ? argumentsObject.subscriberIds
+                  : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated document body in markdown.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+                hiddenAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional timestamp to hide the document.",
+                },
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                initiativeId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                lastAppliedTemplateId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                resourceFolderId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional updated document sort order.",
+                },
+                subscriberIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional updated list of Linear user ids subscribed to the document.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated owning Linear team id.",
+                },
+                title: DOCUMENT_TITLE_ARGUMENT_SCHEMA,
+                trashed: {
+                  type: "boolean",
+                  description: "Whether the document should be marked trashed.",
+                },
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.update",
+            commandPath: ["document", "update"],
+            description:
+              "Update one Linear document.",
+            exampleArguments: {
+              documentId: "document-id",
+              title: "Updated credits workflow doc",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "document", "update doc", "edit document"],
+            label: "Update document",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides documentId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : null,
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+              hiddenAt:
+                typeof argumentsObject.hiddenAt === "string"
+                  ? argumentsObject.hiddenAt.trim()
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              lastAppliedTemplateId:
+                typeof argumentsObject.lastAppliedTemplateId === "string"
+                  ? argumentsObject.lastAppliedTemplateId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              resourceFolderId:
+                typeof argumentsObject.resourceFolderId === "string"
+                  ? argumentsObject.resourceFolderId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isInteger(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              subscriberIds:
+                Array.isArray(argumentsObject.subscriberIds)
+                  ? argumentsObject.subscriberIds
+                  : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : null,
+              trashed:
+                typeof argumentsObject.trashed === "boolean"
+                  ? argumentsObject.trashed
+                  : null,
+            }),
+            execute: executeLinearDocumentUpdate,
+          },
+        ],
+        description: "Document reads and writes for the connected Linear workspace.",
+        groupKey: "document",
+        groupPath: ["document"],
+        intentKeywords: ["linear", "document", "documents", "docs", "knowledge"],
+        label: "Documents",
       },
       {
         commands: [

@@ -94,6 +94,37 @@ const DOCUMENT_FIELDS = `
   url
   createdAt
   updatedAt
+  color
+  icon
+  content
+  summary
+  sortOrder
+  trashed
+  creator {
+    ${USER_FIELDS}
+  }
+  updatedBy {
+    ${USER_FIELDS}
+  }
+  issue {
+    ${ISSUE_REFERENCE_FIELDS}
+  }
+  project {
+    id
+    name
+  }
+  team {
+    ${TEAM_REFERENCE_FIELDS}
+  }
+  initiative {
+    id
+    name
+  }
+  cycle {
+    id
+    name
+    number
+  }
 `;
 
 const ISSUE_RELATION_FIELDS = `
@@ -377,11 +408,34 @@ export type LinearAttachmentNode = {
 };
 
 export type LinearDocumentNode = {
+  color?: string | null;
+  content?: string | null;
   createdAt?: string | null;
+  creator?: LinearUserNode | null;
+  cycle?: {
+    id?: string | null;
+    name?: string | null;
+    number?: number | null;
+  } | null;
   id?: string | null;
+  icon?: string | null;
+  initiative?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  issue?: LinearIssueReferenceNode | null;
+  project?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  sortOrder?: number | null;
   slugId?: string | null;
+  summary?: string | null;
+  team?: LinearTeamReferenceNode | null;
   title?: string | null;
+  trashed?: boolean | null;
   updatedAt?: string | null;
+  updatedBy?: LinearUserNode | null;
   url?: string | null;
 };
 
@@ -765,6 +819,37 @@ export function buildLinearCommentCollectionCommandResult(input: {
   };
 }
 
+export function buildLinearDocumentCommandResult(input: {
+  commandKey: string;
+  document: LinearDocumentNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    document: input.document ? mapLinearDocument(input.document) : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearDocumentCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearDocumentNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearDocument),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
 export function buildLinearUserCommandResult(input: {
   commandKey: string;
   lastSyncId?: number | null;
@@ -844,11 +929,43 @@ export function mapLinearAttachment(attachment: LinearAttachmentNode) {
 
 export function mapLinearDocument(document: LinearDocumentNode) {
   return {
+    color: document.color?.trim() || null,
+    content: document.content?.trim() || null,
     createdAt: document.createdAt ?? null,
+    creator: document.creator?.name?.trim() || document.creator?.displayName?.trim() || null,
+    creatorEmail: document.creator?.email?.trim() || null,
+    creatorId: document.creator?.id?.trim() || null,
+    cycleId: document.cycle?.id?.trim() || null,
+    cycleName:
+      document.cycle?.name?.trim() ||
+      (typeof document.cycle?.number === "number"
+        ? `Cycle ${document.cycle.number}`
+        : null),
     id: document.id?.trim() || null,
+    icon: document.icon?.trim() || null,
+    initiativeId: document.initiative?.id?.trim() || null,
+    initiativeName: document.initiative?.name?.trim() || null,
+    issue: mapLinearIssueReference(document.issue ?? null),
+    issueId: document.issue?.id?.trim() || null,
+    projectId: document.project?.id?.trim() || null,
+    projectName: document.project?.name?.trim() || null,
+    sortOrder:
+      typeof document.sortOrder === "number" &&
+      Number.isFinite(document.sortOrder)
+        ? document.sortOrder
+        : 0,
     slugId: document.slugId?.trim() || null,
+    summary: document.summary?.trim() || null,
+    team: mapLinearTeamReference(document.team ?? null),
     title: document.title?.trim() || "Untitled document",
+    trashed: document.trashed ?? false,
     updatedAt: document.updatedAt ?? null,
+    updatedBy:
+      document.updatedBy?.name?.trim() ||
+      document.updatedBy?.displayName?.trim() ||
+      null,
+    updatedByEmail: document.updatedBy?.email?.trim() || null,
+    updatedById: document.updatedBy?.id?.trim() || null,
     url: document.url ?? null,
   };
 }
