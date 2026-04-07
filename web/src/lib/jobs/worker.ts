@@ -155,14 +155,18 @@ export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
       try {
         await processClaimedJob(job);
       } catch (error) {
-        console.error(`[worker] job ${job.id} failed`, error);
+        console.error(
+          `[worker] job ${job.id} failed: ${getErrorMessage(error)}`,
+        );
       }
     }),
   );
 
   for (const result of results) {
     if (result.status === "rejected") {
-      console.error(`[worker] ${lane} lane execution failed`, result.reason);
+      console.error(
+        `[worker] ${lane} lane execution failed: ${getErrorMessage(result.reason)}`,
+      );
     }
   }
 
@@ -174,4 +178,12 @@ function getLaneConcurrency(lane: JobLane) {
     1,
     Math.min(getEnv().WORKER_BATCH_SIZE, WORKER_LANE_CONCURRENCY[lane]),
   );
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "Unknown worker error";
 }
