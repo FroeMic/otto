@@ -1076,3 +1076,20 @@ export function buildLinearCycleCommandResult(input: {
     success: input.success ?? true,
   };
 }
+
+export function buildLinearCycleChildCollectionCommandResult<T>(input: {
+  commandKey: string;
+  cycle: LinearCycleNode;
+  items: T[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    cycle: mapLinearCycle(input.cycle),
+    integrationKey: "linear",
+    items: input.items,
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
