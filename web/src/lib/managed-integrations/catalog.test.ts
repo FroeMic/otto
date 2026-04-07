@@ -16,12 +16,12 @@ describe("managed integration catalog", () => {
     assert.deepEqual(keys, ["linear"]);
   });
 
-  it("includes runtime-manifest-backed entries for demo-linear and linear", () => {
+  it("includes runtime-manifest-backed entries for linear", () => {
     const keys = listRuntimeManagedIntegrationDefinitions().map(
       (definition) => definition.key,
     );
 
-    assert.deepEqual(keys, ["demo-linear", "linear"]);
+    assert.deepEqual(keys, ["linear"]);
   });
 
   it("returns Linear metadata for the dedicated integration page", () => {

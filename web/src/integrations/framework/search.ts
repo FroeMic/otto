@@ -69,7 +69,6 @@ export function findIntegrationFunctionMatches(input: {
         definition: match.definition,
         operation: match.operation,
         reason: match.reason,
-        score: match.score,
         status: match.definition.status,
       }),
     );

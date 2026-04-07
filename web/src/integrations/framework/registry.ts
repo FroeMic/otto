@@ -1,13 +1,9 @@
-import { demoLinearIntegrationDefinition } from "@/integrations/library/demo-linear/definition";
 import { linearIntegrationDefinition } from "@/integrations/library/linear/definition";
 import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 
 import type { IntegrationDefinition } from "./types";
 
-const registry = [
-  demoLinearIntegrationDefinition,
-  linearIntegrationDefinition,
-] as const satisfies readonly IntegrationDefinition[];
+const registry = [linearIntegrationDefinition] as const satisfies readonly IntegrationDefinition[];
 
 const integrationKeys = new Set<string>();
 

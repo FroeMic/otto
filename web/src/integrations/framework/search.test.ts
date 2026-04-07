@@ -7,7 +7,7 @@ import {
 } from "@/integrations/framework";
 
 describe("integration function discovery", () => {
-  it("recommends linear search for issue-related requests and returns an example call", () => {
+  it("recommends linear search for issue-related requests and returns compact example arguments", () => {
     const definitions = listRuntimeIntegrationDefinitions().map(
       (definition) => ({
         ...definition,
@@ -29,13 +29,8 @@ describe("integration function discovery", () => {
     assert.ok(matches.length >= 1);
     assert.equal(matches[0]?.integrationKey, "linear");
     assert.equal(matches[0]?.functionKey, "search_issues");
-    assert.equal(
-      matches[0]?.executionGuide.exampleCall.arguments.query,
-      "credit",
-    );
-    assert.equal(
-      matches[0]?.executionGuide.toolName,
-      "execute_integration_function",
-    );
+    assert.equal(matches[0]?.exampleArguments.query, "credit");
+    assert.equal(matches[0]?.connected, true);
+    assert.equal(matches[0]?.needsAttention, false);
   });
 });

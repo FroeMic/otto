@@ -4734,12 +4734,6 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       }
       break;
     }
-    case "demo-linear": {
-      recommendedAction = "none";
-      message =
-        "Demo Linear is built in for testing and does not require a workspace connection.";
-      break;
-    }
     default: {
       recommendedAction = "open_workspace";
       message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
