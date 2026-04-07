@@ -6,6 +6,7 @@ import { executeLinearAttachmentCreate } from "./create";
 import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
 import { executeLinearAttachmentListForUrl } from "./list-for-url";
+import { executeLinearAttachmentUpdate } from "./update";
 
 function buildAttachmentNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -339,5 +340,71 @@ describe("linear attachment commands", () => {
       result.attachment?.url,
       "https://uploads.linear.app/assets/credits.pdf",
     );
+  });
+
+  it("updates attachments with a curated input shape", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        variables: {
+          id: string;
+          input: {
+            metadata: { foo: string };
+            subtitle: string;
+            title: string;
+          };
+        };
+      };
+
+      assert.equal(body.variables.id, "attachment-1");
+      assert.deepEqual(body.variables.input, {
+        metadata: { foo: "baz" },
+        subtitle: "Updated subtitle",
+        title: "Updated attachment title",
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            attachmentUpdate: {
+              attachment: buildAttachmentNode({
+                metadata: { foo: "baz" },
+                subtitle: "Updated subtitle",
+                title: "Updated attachment title",
+              }),
+              lastSyncId: 44,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentUpdate({
+      arguments: {
+        attachmentId: "attachment-1",
+        metadata: { foo: "baz" },
+        subtitle: "Updated subtitle",
+        title: "Updated attachment title",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      attachment: { title: string; subtitle: string | null } | null;
+      commandKey: string;
+      lastSyncId: number | null;
+    };
+
+    assert.equal(result.commandKey, "attachment.update");
+    assert.equal(result.lastSyncId, 44);
+    assert.equal(result.attachment?.title, "Updated attachment title");
+    assert.equal(result.attachment?.subtitle, "Updated subtitle");
   });
 });

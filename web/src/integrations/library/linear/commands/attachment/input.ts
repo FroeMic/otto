@@ -48,3 +48,20 @@ export function buildLinearAttachmentCreateFromUploadedFileInput(
 
   return input;
 }
+
+export function buildLinearAttachmentUpdateInput(
+  argumentsObject: Record<string, unknown>,
+) {
+  const input = pruneGraphqlInput({
+    iconUrl: normalizeOptionalString(argumentsObject.iconUrl),
+    metadata: normalizeOptionalObject(argumentsObject.metadata),
+    subtitle: normalizeOptionalString(argumentsObject.subtitle),
+    title: normalizeOptionalString(argumentsObject.title),
+  });
+
+  if (Object.keys(input).length === 0) {
+    throw new Error("attachment.update requires at least one field to update.");
+  }
+
+  return input;
+}

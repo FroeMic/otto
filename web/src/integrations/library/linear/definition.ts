@@ -6,6 +6,7 @@ import { executeLinearAttachmentCreate } from "./commands/attachment/create";
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
+import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
@@ -487,6 +488,77 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: ATTACHMENT_ID_ARGUMENT_SCHEMA,
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional replacement icon URL to display with the attachment.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description: "Optional replacement metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated attachment title shown in Linear.",
+                },
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "attachment.update",
+            commandPath: ["attachment", "update"],
+            description: "Update one existing Linear attachment.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+              title: "Updated attachment title",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "update attachment",
+              "rename file link",
+              "edit attachment",
+            ],
+            label: "Update attachment",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides attachmentId.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : null,
+            }),
+            execute: executeLinearAttachmentUpdate,
+          },
           {
             argumentsSchema: {
               type: "object",
