@@ -349,17 +349,17 @@
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
   - the in-repo worker should handle refresh, retry, reconnect, and durable failure state before any hosted auth broker becomes the default
 - The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
-  - a synthetic managed integration path now flows through the control plane for one demo provider
+  - a real managed integration path now flows through the control plane for Linear, and the temporary synthetic demo provider has been removed
   - the `otto-integrations` runtime plugin now exposes a static metatool surface instead of dynamic one-tool-per-integration registration
   - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
   - the tenant runtime now discovers integration metadata from runtime-authenticated control-plane routes instead of from a projected per-tenant manifest in `openclaw.json`
   - `openclaw plugins inspect otto-integrations` now reliably shows the static tool contract in every runtime because registration no longer depends on tenant config being loaded into the plugin
-  - the current metatool set is `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
+  - the current metatool set is `find_integration_functions`, `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
   - `manage_integration_connection` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
   - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
-  - the first Linear connect and reconnect flow shipped on top of hosted Nango, but that path is now being replaced by `TODO_19_oauth_connected_accounts_substrate.md`
+  - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
   - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
