@@ -1,12 +1,12 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
-
-import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
 import { executeLinearAttachmentCreate } from "./commands/attachment/create";
+import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
 import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
+import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
@@ -493,16 +493,102 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               type: "object",
               additionalProperties: false,
               properties: {
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the file to upload.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded file.",
+                },
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's upload request.",
+                },
+                size: {
+                  type: "integer",
+                  minimum: 1,
+                  description: "File size in bytes.",
+                },
+              },
+              required: ["contentType", "filename", "size"],
+            },
+            commandKey: "attachment.upload_file",
+            commandPath: ["attachment", "upload_file"],
+            description:
+              "Request signed upload instructions for a file that will later be attached in Linear.",
+            exampleArguments: {
+              contentType: "application/pdf",
+              filename: "credits.pdf",
+              size: 12345,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "upload file",
+              "attachment upload",
+              "signed upload",
+              "asset upload",
+            ],
+            label: "Upload file",
+            resultMode: "json",
+            usageNotes: [
+              "This does not upload the bytes itself. It returns Linear's signed upload URL and headers.",
+              "Upload the bytes to uploadFile.uploadUrl first, then call attachment.create_from_uploaded_file with uploadFile.assetUrl.",
+            ],
+            validate: (argumentsObject) => ({
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+            }),
+            execute: executeLinearAttachmentUploadFile,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
                 attachmentId: ATTACHMENT_ID_ARGUMENT_SCHEMA,
                 iconUrl: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional replacement icon URL to display with the attachment.",
+                  description:
+                    "Optional replacement icon URL to display with the attachment.",
                 },
                 metadata: {
                   type: "object",
                   additionalProperties: true,
-                  description: "Optional replacement metadata object stored on the attachment.",
+                  description:
+                    "Optional replacement metadata object stored on the attachment.",
                 },
                 subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 title: {
@@ -567,37 +653,44 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 assetUrl: {
                   type: "string",
                   minLength: 1,
-                  description: "Uploaded Linear asset URL returned by attachment.upload_file.",
+                  description:
+                    "Uploaded Linear asset URL returned by attachment.upload_file.",
                 },
                 commentBody: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional markdown comment body linked to the attachment.",
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
                 },
                 createAsUser: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
                 },
                 groupBySource: {
                   type: "boolean",
-                  description: "Whether matching source attachments should be grouped together in Linear.",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
                 },
                 iconUrl: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional icon URL to display with the attachment.",
+                  description:
+                    "Optional icon URL to display with the attachment.",
                 },
                 id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 issueId: {
                   type: "string",
                   minLength: 1,
-                  description: "Linear issue id or identifier to attach the uploaded asset to.",
+                  description:
+                    "Linear issue id or identifier to attach the uploaded asset to.",
                 },
                 metadata: {
                   type: "object",
                   additionalProperties: true,
-                  description: "Optional metadata object stored on the attachment.",
+                  description:
+                    "Optional metadata object stored on the attachment.",
                 },
                 subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 title: {
@@ -684,32 +777,38 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 commentBody: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional markdown comment body linked to the attachment.",
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
                 },
                 createAsUser: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
                 },
                 groupBySource: {
                   type: "boolean",
-                  description: "Whether matching source attachments should be grouped together in Linear.",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
                 },
                 iconUrl: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional icon URL to display with the attachment.",
+                  description:
+                    "Optional icon URL to display with the attachment.",
                 },
                 id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 issueId: {
                   type: "string",
                   minLength: 1,
-                  description: "Linear issue id or identifier to attach the link to.",
+                  description:
+                    "Linear issue id or identifier to attach the link to.",
                 },
                 metadata: {
                   type: "object",
                   additionalProperties: true,
-                  description: "Optional metadata object stored on the attachment.",
+                  description:
+                    "Optional metadata object stored on the attachment.",
                 },
                 subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 title: {
@@ -720,7 +819,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 url: {
                   type: "string",
                   minLength: 1,
-                  description: "Attachment URL. Reusing a URL updates the existing attachment in Linear.",
+                  description:
+                    "Attachment URL. Reusing a URL updates the existing attachment in Linear.",
                 },
               },
               required: ["issueId", "title", "url"],
@@ -858,13 +958,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               attachmentId: "attachment-id",
             },
             inputMode: "json",
-            intentKeywords: [
-              "linear",
-              "attachment",
-              "file",
-              "link",
-              "asset",
-            ],
+            intentKeywords: ["linear", "attachment", "file", "link", "asset"],
             label: "Get attachment",
             resultMode: "json",
             usageNotes: [
