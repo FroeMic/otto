@@ -356,7 +356,12 @@
   - provisioning and config-apply now read those exact versions and project managed skill text files into `workspace/skills/<skill-key>/` on the tenant runtime
   - runtime projection now maintains a `managed-skills-manifest.json` file so removed managed files are pruned safely while unknown local `state/` contents remain untouched
   - focused tests now cover managed-skill manifest normalization and prune safety
-  - the next recommended slice is Increment 3: ship the minimal workspace Skills UI on top of the new projection foundation
+- The third `TODO_18_managed_skills.md` increment is now implemented on `main` for the current text-first slice:
+  - the workspace now exposes `/[orgSlug]/skills` as a real managed-skills list instead of a placeholder card
+  - `/[orgSlug]/skills/[skillKey]` now provides a detail view with URL-backed `Files` and `Status` tabs, package-file browsing, dependency badges, and status visibility modeled on the newer integration detail pages
+  - users can now create a first skill from `SKILL.md` in the workspace and then edit managed UTF-8 text files there, with each save creating a new skill version and reusing the desired-state/apply pipeline
+  - binary managed-file persistence is still deferred, so the current viewer surfaces non-text metadata but does not yet represent a fully general binary package flow
+  - the next recommended slice is Increment 4: add Otto-facing runtime-authenticated managed-skill CRUD on top of the now-live workspace surface
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
