@@ -677,16 +677,16 @@ Tracker:
   - `[x]` `issue.list`
   - `[x]` `issue.get`
   - `[x]` `issue.search`
-  - `[ ]` `issue.create`
-  - `[ ]` `issue.update`
-  - `[ ]` `issue.archive`
-  - `[ ]` `issue.batch_update`
-  - `[ ]` `issue.list_comments`
-  - `[ ]` `issue.list_attachments`
-  - `[ ]` `issue.list_documents`
-  - `[ ]` `issue.list_relations`
-  - `[ ]` `issue.add_label`
-  - `[ ]` `issue.remove_label`
+  - `[x]` `issue.create`
+  - `[x]` `issue.update`
+  - `[x]` `issue.archive`
+  - `[x]` `issue.batch_update`
+  - `[x]` `issue.list_comments`
+  - `[x]` `issue.list_attachments`
+  - `[x]` `issue.list_documents`
+  - `[x]` `issue.list_relations`
+  - `[x]` `issue.add_label`
+  - `[x]` `issue.remove_label`
 
 - `comment`
   - `[ ]` `comment.list`
@@ -824,13 +824,15 @@ Tracker:
 Immediate next recommended slice:
 
 - finish the `workspace` foundation with `workspace.get_organization` and `workspace.list_project_statuses`
-- then move to the `issue` write and relationship slice:
-  - `issue.create`
-  - `issue.update`
-  - `issue.archive`
-  - `issue.batch_update`
-  - `issue.list_comments`
-  - `issue.list_attachments`
+- then move to the next adjacent object slices:
+  - `comment.list`
+  - `comment.get`
+  - `comment.create`
+  - `comment.update`
+  - `comment.delete`
+  - `project.list`
+  - `project.get`
+  - `project.search`
 
 ## Slack Example
 

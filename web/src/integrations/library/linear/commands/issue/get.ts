@@ -1,21 +1,9 @@
 import type { IntegrationCommandExecute } from "@/integrations/framework";
 
 import {
-  executeLinearGraphql,
-  getLinearIssueFields,
-  type LinearIssueNode,
-  mapLinearIssue,
+  buildLinearIssueCommandResult,
+  findLinearIssueByIdentifierOrId,
 } from "../../client";
-
-const GET_ISSUE_BY_SEARCH_QUERY = `
-  query OttoLinearIssueGet($term: String!) {
-    searchIssues(term: $term, first: 10) {
-      nodes {
-        ${getLinearIssueFields()}
-      }
-    }
-  }
-`;
 
 export const executeLinearIssueGet: IntegrationCommandExecute = async ({
   arguments: args,
@@ -32,36 +20,21 @@ export const executeLinearIssueGet: IntegrationCommandExecute = async ({
     throw new Error("linear issue.get requires identifierOrId.");
   }
 
-  const data = await executeLinearGraphql<{
-    searchIssues?: {
-      nodes?: LinearIssueNode[] | null;
-    } | null;
-  }>({
+  const issue = await findLinearIssueByIdentifierOrId({
     accessToken: context.auth.accessToken,
-    query: GET_ISSUE_BY_SEARCH_QUERY,
-    variables: {
-      term: identifierOrId,
-    },
+    identifierOrId,
   });
 
-  const normalizedLookup = identifierOrId.toLowerCase();
-  const exactMatch =
-    (data.searchIssues?.nodes ?? []).find((issue) => {
-      const id = issue.id?.trim().toLowerCase();
-      const identifier = issue.identifier?.trim().toLowerCase();
-
-      return id === normalizedLookup || identifier === normalizedLookup;
-    }) ?? (data.searchIssues?.nodes ?? [])[0];
-
-  if (!exactMatch) {
+  if (!issue) {
     throw new Error(`Linear could not find issue ${identifierOrId}.`);
   }
 
   return {
+    ...buildLinearIssueCommandResult({
+      commandKey: "issue.get",
+      issue,
+    }),
     commandKey: "issue.get",
-    integrationKey: "linear",
-    issue: mapLinearIssue(exactMatch),
     lookup: identifierOrId,
-    source: "linear",
   };
 };
