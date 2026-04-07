@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { LinearGraphqlError } from "@/integrations/library/linear/client";
 import { searchLinearIssues } from "@/lib/managed-integrations/linear";
 
 describe("searchLinearIssues", () => {
@@ -86,6 +87,32 @@ describe("searchLinearIssues", () => {
           query: "oauth",
         }),
       /Invalid token/,
+    );
+  });
+
+  it("captures raw provider response details for debugging", async () => {
+    globalThis.fetch = (async () =>
+      new Response("<html>gateway timeout</html>", {
+        headers: {
+          "Content-Type": "text/html",
+        },
+        status: 504,
+      })) as typeof fetch;
+
+    await assert.rejects(
+      () =>
+        searchLinearIssues({
+          accessToken: "token",
+          query: "oauth",
+        }),
+      (error) => {
+        assert.ok(error instanceof LinearGraphqlError);
+        assert.equal(error.status, 504);
+        assert.equal(error.operationName, "OttoLinearIssueSearch");
+        assert.match(error.rawResponseSnippet ?? "", /gateway timeout/);
+        assert.match(error.variableSummary ?? "", /"term":"oauth"/);
+        return true;
+      },
     );
   });
 });

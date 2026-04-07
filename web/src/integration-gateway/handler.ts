@@ -10,6 +10,16 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function clipForLog(value: string, max = 1000) {
+  const trimmed = value.trim();
+
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, max)}…`;
+}
+
 function buildExecutionErrorResponse(message: string) {
   if (message.includes("needs attention. Reconnect")) {
     const integrationLabel = message.split(" needs attention")[0]?.trim();
@@ -73,24 +83,45 @@ async function handleExecuteRequest(request: Request) {
   let tenantId: string | null = null;
   let integrationKey = "";
   let commandKey = "unknown";
+  let rawBodyText = "";
 
   try {
     const auth = await authenticateTenantRuntimeRequest(request);
     tenantId = auth.tenantId;
 
-    const body = await request.json();
+    rawBodyText = await request.text();
+    let parsedBody: unknown;
+
+    try {
+      parsedBody = JSON.parse(rawBodyText);
+    } catch {
+      console.error(
+        `[integration-gateway] execute tenant=${tenantId ?? "unknown"} integration=unknown command=unknown invalid-json body=${clipForLog(rawBodyText)}`,
+      );
+      throw new Error("Failed to parse JSON");
+    }
+
+    const body =
+      parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody)
+        ? (parsedBody as Record<string, unknown>)
+        : null;
+
+    if (!body) {
+      throw new Error("Execute request body must be a JSON object.");
+    }
+
     integrationKey =
-      typeof body?.integrationKey === "string" ? body.integrationKey : "";
+      typeof body.integrationKey === "string" ? body.integrationKey : "";
     const providedCommandKey =
-      typeof body?.commandKey === "string" ? body.commandKey : "";
+      typeof body.commandKey === "string" ? body.commandKey : "";
     const argumentsObject =
-      body?.arguments &&
+      body.arguments &&
       typeof body.arguments === "object" &&
       !Array.isArray(body.arguments)
         ? (body.arguments as Record<string, unknown>)
         : null;
     const commandPath =
-      Array.isArray(body?.commandPath) &&
+      Array.isArray(body.commandPath) &&
       body.commandPath.every((entry: unknown) => typeof entry === "string")
         ? (body.commandPath as string[])
         : null;

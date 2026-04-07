@@ -108,20 +108,55 @@ const SEARCH_ISSUE_BY_LOOKUP_QUERY = `
 
 export class LinearGraphqlError extends Error {
   code?: string;
+  operationName?: string;
+  rawResponseSnippet?: string;
   status?: number;
+  variableSummary?: string;
 
   constructor(
     message: string,
     options?: {
       code?: string;
+      operationName?: string;
+      rawResponseSnippet?: string;
       status?: number;
+      variableSummary?: string;
     },
   ) {
     super(message);
     this.name = "LinearGraphqlError";
     this.code = options?.code;
+    this.operationName = options?.operationName;
+    this.rawResponseSnippet = options?.rawResponseSnippet;
     this.status = options?.status;
+    this.variableSummary = options?.variableSummary;
   }
+}
+
+function clipForLog(value: string, max = 1000) {
+  const trimmed = value.trim();
+
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, max)}…`;
+}
+
+function summarizeVariables(variables: Record<string, unknown>) {
+  try {
+    return clipForLog(JSON.stringify(variables), 500);
+  } catch {
+    return "[unserializable variables]";
+  }
+}
+
+function extractOperationName(query: string) {
+  const match = query.match(
+    /\b(query|mutation|subscription)\s+([A-Za-z0-9_]+)/,
+  );
+
+  return match?.[2] ?? "anonymous";
 }
 
 export type LinearUserNode = {
@@ -209,10 +244,12 @@ export async function executeLinearGraphql<T>(input: {
   query: string;
   variables?: Record<string, unknown>;
 }): Promise<T> {
+  const variables = input.variables ?? {};
+  const operationName = extractOperationName(input.query);
   const response = await fetch(LINEAR_GRAPHQL_URL, {
     body: JSON.stringify({
       query: input.query,
-      variables: input.variables ?? {},
+      variables,
     }),
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
@@ -221,7 +258,8 @@ export async function executeLinearGraphql<T>(input: {
     method: "POST",
   });
 
-  const payload = (await response.json()) as {
+  const rawResponseText = await response.text();
+  let payload: {
     data?: T | null;
     errors?: Array<{
       extensions?: {
@@ -230,14 +268,42 @@ export async function executeLinearGraphql<T>(input: {
       message?: string;
     }>;
   };
+
+  try {
+    payload = JSON.parse(rawResponseText) as typeof payload;
+  } catch {
+    const rawResponseSnippet = clipForLog(rawResponseText);
+
+    console.error(
+      `[linear] non-json response operation=${operationName} status=${response.status} variables=${summarizeVariables(variables)} response=${rawResponseSnippet}`,
+    );
+
+    throw new LinearGraphqlError("Linear returned a non-JSON response.", {
+      operationName,
+      rawResponseSnippet,
+      status: response.status,
+      variableSummary: summarizeVariables(variables),
+    });
+  }
+
   const firstError = payload.errors?.find((error) => Boolean(error.message));
 
   if (!response.ok || firstError || !payload.data) {
+    const rawResponseSnippet = clipForLog(rawResponseText);
+    const variableSummary = summarizeVariables(variables);
+
+    console.error(
+      `[linear] graphql request failed operation=${operationName} status=${response.status} code=${firstError?.extensions?.code ?? "none"} message=${firstError?.message ?? "missing data"} variables=${variableSummary} response=${rawResponseSnippet}`,
+    );
+
     throw new LinearGraphqlError(
       firstError?.message ?? "Linear request failed.",
       {
         code: firstError?.extensions?.code,
+        operationName,
+        rawResponseSnippet,
         status: response.status,
+        variableSummary,
       },
     );
   }
