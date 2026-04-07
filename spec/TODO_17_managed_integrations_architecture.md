@@ -634,12 +634,41 @@ Rules:
 Current shipped Linear commands:
 
 - `workspace.get_viewer`
+- `workspace.get_organization`
 - `workspace.list_teams`
 - `workspace.list_users`
 - `workspace.list_workflow_states`
-- `issue.search`
-- `issue.get`
+- `workspace.list_project_statuses`
 - `issue.list`
+- `issue.get`
+- `issue.search`
+- `issue.create`
+- `issue.update`
+- `issue.archive`
+- `issue.batch_update`
+- `issue.list_comments`
+- `issue.list_attachments`
+- `issue.list_documents`
+- `issue.list_relations`
+- `issue.add_label`
+- `issue.remove_label`
+- `comment.list`
+- `comment.get`
+- `comment.create`
+- `comment.update`
+- `comment.delete`
+- `project.list`
+- `project.get`
+- `project.search`
+- `project.create`
+- `project.update`
+- `project.archive`
+- `project.list_issues`
+- `project.list_updates`
+- `project.create_update`
+- `project.list_documents`
+- `project.list_milestones`
+- `project.list_labels`
 
 Recommended implementation order:
 
@@ -696,18 +725,18 @@ Tracker:
   - `[x]` `comment.delete`
 
 - `project`
-  - `[ ]` `project.list`
-  - `[ ]` `project.get`
-  - `[ ]` `project.search`
-  - `[ ]` `project.create`
-  - `[ ]` `project.update`
-  - `[ ]` `project.archive`
-  - `[ ]` `project.list_issues`
-  - `[ ]` `project.list_updates`
-  - `[ ]` `project.create_update`
-  - `[ ]` `project.list_documents`
-  - `[ ]` `project.list_milestones`
-  - `[ ]` `project.list_labels`
+  - `[x]` `project.list`
+  - `[x]` `project.get`
+  - `[x]` `project.search`
+  - `[x]` `project.create`
+  - `[x]` `project.update`
+  - `[x]` `project.archive`
+  - `[x]` `project.list_issues`
+  - `[x]` `project.list_updates`
+  - `[x]` `project.create_update`
+  - `[x]` `project.list_documents`
+  - `[x]` `project.list_milestones`
+  - `[x]` `project.list_labels`
 
 - `cycle`
   - `[ ]` `cycle.list`
@@ -824,9 +853,12 @@ Tracker:
 Immediate next recommended slice:
 
 - move to the next adjacent object slices:
-  - `project.list`
-  - `project.get`
-  - `project.search`
+  - `cycle.list`
+  - `cycle.get`
+  - `cycle.create`
+  - `cycle.update`
+  - `cycle.archive`
+  - `cycle.list_issues`
 
 ## Slack Example
 

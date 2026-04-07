@@ -399,7 +399,8 @@
   - `TODO_17` now includes an object-first Linear coverage tracker so future command work can be implemented and checked off object by object instead of expanding ad hoc
   - the Linear workspace foundation is now complete through `workspace.get_organization` and `workspace.list_project_statuses`
   - the `comment.*` slice is now implemented end to end for issue-thread comments
-  - the next recommended Linear slice is the adjacent `project.*` coverage
+  - the full `project.*` slice is now implemented end to end, including project reads, writes, nested issue/document/milestone/label reads, and authored project updates
+  - the next recommended Linear slice is `cycle.*`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability
