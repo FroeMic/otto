@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildManagedSkillMarkdown,
   classifyManagedSkillFile,
   listKnownManagedSkillDependencyIntegrationKeys,
   normalizeManagedSkillKey,
+  parseManagedSkillMarkdown,
   parseManagedSkillSkillFile,
   validateManagedSkillPackage,
 } from "@/lib/managed-skills/package";
@@ -31,6 +33,22 @@ metadata:
   assert.equal(parsed.name, "linear-triage");
   assert.equal(parsed.description, "Triage bugs with our team rules.");
   assert.deepEqual(parsed.metadata.dependsOn.integrations, ["linear", "slack"]);
+});
+
+test("managed skill markdown helpers round-trip structured metadata and body", () => {
+  const content = buildManagedSkillMarkdown({
+    description: "Triage bugs with our team rules.",
+    integrationKeys: ["slack", "linear", "linear"],
+    name: "linear-triage",
+    skillBody: "\n# Linear Triage\n\nFollow the workflow.\n",
+  });
+
+  const parsed = parseManagedSkillMarkdown(content);
+
+  assert.equal(parsed.name, "linear-triage");
+  assert.equal(parsed.description, "Triage bugs with our team rules.");
+  assert.deepEqual(parsed.integrationKeys, ["linear", "slack"]);
+  assert.equal(parsed.skillBody, "# Linear Triage\n\nFollow the workflow.");
 });
 
 test("classifyManagedSkillFile distinguishes managed, binary, and local state paths", () => {

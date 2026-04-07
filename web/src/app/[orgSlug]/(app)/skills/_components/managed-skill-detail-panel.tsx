@@ -24,9 +24,25 @@ import { useSetBreadcrumbs } from "@/components/breadcrumb-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  buildManagedSkillMarkdown,
+  MANAGED_SKILL_ENTRY_FILE_PATH,
+  parseManagedSkillMarkdown,
+} from "@/lib/managed-skills/markdown";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -57,6 +73,7 @@ type Props = {
     updatedAt: string;
     version: number;
   };
+  knownIntegrationKeys: string[];
   orgSlug: string;
   updateAction: (formData: FormData) => Promise<void>;
 };
@@ -132,8 +149,14 @@ const lockedTextareaClassName = [
   "disabled:cursor-default disabled:opacity-100 disabled:border-border disabled:bg-muted/20 disabled:text-foreground",
 ].join(" ");
 
+const compactReadOnlyTextareaClassName = [
+  "min-h-24 rounded-xl border-border bg-muted/40 text-sm leading-6",
+  "disabled:cursor-default disabled:opacity-100 disabled:border-border disabled:bg-muted/20 disabled:text-foreground",
+].join(" ");
+
 export function ManagedSkillDetailPanel({
   detail,
+  knownIntegrationKeys,
   orgSlug,
   updateAction,
 }: Props) {
@@ -145,6 +168,11 @@ export function ManagedSkillDetailPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [skillDescriptionDraft, setSkillDescriptionDraft] = useState("");
+  const [skillIntegrationKeysDraft, setSkillIntegrationKeysDraft] = useState<
+    string[]
+  >([]);
+  const [skillInstructionsDraft, setSkillInstructionsDraft] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
   const fileParam = searchParams.get("file");
@@ -154,6 +182,23 @@ export function ManagedSkillDetailPanel({
     detail.files.find((file) => file.path === fileParam) ??
     detail.files[0] ??
     null;
+  const selectedSkillDocument =
+    selectedFile?.path === MANAGED_SKILL_ENTRY_FILE_PATH &&
+    selectedFile.storageEncoding === "utf8_text" &&
+    selectedFile.contentText
+      ? (() => {
+          try {
+            return parseManagedSkillMarkdown(selectedFile.contentText);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+  const isStructuredSkillEntry =
+    selectedFile?.path === MANAGED_SKILL_ENTRY_FILE_PATH &&
+    selectedFile.editability === "editable" &&
+    selectedFile.storageEncoding === "utf8_text" &&
+    selectedSkillDocument !== null;
 
   useEffect(() => {
     setBreadcrumbs([
@@ -202,10 +247,13 @@ export function ManagedSkillDetailPanel({
 
   useEffect(() => {
     setDraftValue(selectedFile?.contentText ?? "");
+    setSkillDescriptionDraft(selectedSkillDocument?.description ?? "");
+    setSkillIntegrationKeysDraft(selectedSkillDocument?.integrationKeys ?? []);
+    setSkillInstructionsDraft(selectedSkillDocument?.skillBody ?? "");
     setErrorMessage(null);
     setIsEditing(false);
     setSuccessMessage(null);
-  }, [selectedFile]);
+  }, [selectedFile, selectedSkillDocument]);
 
   function handleTabChange(nextTab: string) {
     router.replace(
@@ -231,9 +279,27 @@ export function ManagedSkillDetailPanel({
 
   function handleCancelEdit() {
     setDraftValue(selectedFile?.contentText ?? "");
+    setSkillDescriptionDraft(selectedSkillDocument?.description ?? "");
+    setSkillIntegrationKeysDraft(selectedSkillDocument?.integrationKeys ?? []);
+    setSkillInstructionsDraft(selectedSkillDocument?.skillBody ?? "");
     setErrorMessage(null);
     setIsEditing(false);
     setSuccessMessage(null);
+  }
+
+  function handleIntegrationToggle(
+    integrationKey: string,
+    checked: boolean | "indeterminate",
+  ) {
+    setSkillIntegrationKeysDraft((current) => {
+      if (checked === true) {
+        return [...new Set([...current, integrationKey])].sort((left, right) =>
+          left.localeCompare(right),
+        );
+      }
+
+      return current.filter((entry) => entry !== integrationKey);
+    });
   }
 
   function handleSave() {
@@ -241,8 +307,16 @@ export function ManagedSkillDetailPanel({
       return;
     }
 
+    const nextContentText = isStructuredSkillEntry
+      ? buildManagedSkillMarkdown({
+          description: skillDescriptionDraft,
+          integrationKeys: skillIntegrationKeysDraft,
+          name: selectedSkillDocument.name,
+          skillBody: skillInstructionsDraft,
+        })
+      : draftValue;
     const formData = new FormData();
-    formData.set("contentText", draftValue);
+    formData.set("contentText", nextContentText);
     formData.set("expectedVersion", String(detail.version));
     formData.set("orgSlug", orgSlug);
     formData.set("relativePath", selectedFile.path);
@@ -399,8 +473,14 @@ export function ManagedSkillDetailPanel({
                                 <Button
                                   disabled={
                                     isPending ||
-                                    draftValue ===
-                                      (selectedFile.contentText ?? "")
+                                    nextContentTextValue({
+                                      draftValue,
+                                      selectedFile,
+                                      selectedSkillDocument,
+                                      skillDescriptionDraft,
+                                      skillInstructionsDraft,
+                                      skillIntegrationKeysDraft,
+                                    }) === (selectedFile.contentText ?? "")
                                   }
                                   onClick={handleSave}
                                   type="button"
@@ -423,7 +503,155 @@ export function ManagedSkillDetailPanel({
                     </SettingsCard>
 
                     {selectedFile.storageEncoding === "utf8_text" ? (
-                      isEditing ? (
+                      isStructuredSkillEntry ? (
+                        <SettingsCard className="divide-y-0 px-5 py-5">
+                          <div className="flex flex-col gap-6">
+                            <FieldGroup>
+                              <Field>
+                                <FieldLabel htmlFor="skill-detail-key">
+                                  Skill key
+                                </FieldLabel>
+                                <FieldContent>
+                                  <Input
+                                    disabled
+                                    id="skill-detail-key"
+                                    value={detail.skillKey}
+                                  />
+                                  <FieldDescription>
+                                    Stable package path for this skill.
+                                  </FieldDescription>
+                                </FieldContent>
+                              </Field>
+
+                              <Field>
+                                <FieldLabel htmlFor="skill-detail-description">
+                                  Description
+                                </FieldLabel>
+                                <FieldContent>
+                                  {isEditing ? (
+                                    <Textarea
+                                      className="min-h-24"
+                                      id="skill-detail-description"
+                                      onChange={(event) =>
+                                        setSkillDescriptionDraft(
+                                          event.target.value,
+                                        )
+                                      }
+                                      value={skillDescriptionDraft}
+                                    />
+                                  ) : (
+                                    <Textarea
+                                      className={
+                                        compactReadOnlyTextareaClassName
+                                      }
+                                      disabled
+                                      id="skill-detail-description"
+                                      value={skillDescriptionDraft}
+                                    />
+                                  )}
+                                  <FieldDescription>
+                                    Short guidance for when Otto should use this
+                                    skill.
+                                  </FieldDescription>
+                                </FieldContent>
+                              </Field>
+                            </FieldGroup>
+
+                            <FieldSet>
+                              <FieldLegend>
+                                Integration dependencies
+                              </FieldLegend>
+                              <FieldDescription>
+                                Optional prerequisites Otto should expect before
+                                using this skill.
+                              </FieldDescription>
+                              {isEditing ? (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  {knownIntegrationKeys.map(
+                                    (integrationKey) => {
+                                      const checked =
+                                        skillIntegrationKeysDraft.includes(
+                                          integrationKey,
+                                        );
+
+                                      return (
+                                        <Field
+                                          key={integrationKey}
+                                          orientation="horizontal"
+                                        >
+                                          <Checkbox
+                                            checked={checked}
+                                            id={`skill-detail-dependency-${integrationKey}`}
+                                            onCheckedChange={(nextChecked) =>
+                                              handleIntegrationToggle(
+                                                integrationKey,
+                                                nextChecked,
+                                              )
+                                            }
+                                          />
+                                          <FieldLabel
+                                            htmlFor={`skill-detail-dependency-${integrationKey}`}
+                                          >
+                                            {integrationKey}
+                                          </FieldLabel>
+                                        </Field>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              ) : skillIntegrationKeysDraft.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {skillIntegrationKeysDraft.map(
+                                    (integrationKey) => (
+                                      <Badge
+                                        key={integrationKey}
+                                        variant="outline"
+                                      >
+                                        {integrationKey}
+                                      </Badge>
+                                    ),
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  No integration prerequisites declared.
+                                </p>
+                              )}
+                            </FieldSet>
+
+                            <Field>
+                              <FieldLabel htmlFor="skill-detail-body">
+                                Skill instructions
+                              </FieldLabel>
+                              <FieldContent>
+                                {isEditing ? (
+                                  <Textarea
+                                    className={lockedTextareaClassName}
+                                    id="skill-detail-body"
+                                    onChange={(event) =>
+                                      setSkillInstructionsDraft(
+                                        event.target.value,
+                                      )
+                                    }
+                                    value={skillInstructionsDraft}
+                                  />
+                                ) : (
+                                  <Textarea
+                                    className={lockedTextareaClassName}
+                                    disabled
+                                    id="skill-detail-body"
+                                    value={skillInstructionsDraft}
+                                  />
+                                )}
+                                <FieldDescription>
+                                  Main markdown body stored below the generated
+                                  metadata header.
+                                </FieldDescription>
+                              </FieldContent>
+                            </Field>
+                          </div>
+                        </SettingsCard>
+                      ) : isEditing ? (
                         <Textarea
                           className={lockedTextareaClassName}
                           onChange={(event) =>
@@ -557,4 +785,29 @@ export function ManagedSkillDetailPanel({
       </Tabs>
     </SettingsPage>
   );
+}
+
+function nextContentTextValue(input: {
+  draftValue: string;
+  selectedFile: Props["detail"]["files"][number];
+  selectedSkillDocument: ReturnType<typeof parseManagedSkillMarkdown> | null;
+  skillDescriptionDraft: string;
+  skillInstructionsDraft: string;
+  skillIntegrationKeysDraft: string[];
+}) {
+  if (
+    input.selectedFile.path === MANAGED_SKILL_ENTRY_FILE_PATH &&
+    input.selectedFile.editability === "editable" &&
+    input.selectedFile.storageEncoding === "utf8_text" &&
+    input.selectedSkillDocument
+  ) {
+    return buildManagedSkillMarkdown({
+      description: input.skillDescriptionDraft,
+      integrationKeys: input.skillIntegrationKeysDraft,
+      name: input.selectedSkillDocument.name,
+      skillBody: input.skillInstructionsDraft,
+    });
+  }
+
+  return input.draftValue;
 }

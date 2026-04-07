@@ -48,6 +48,13 @@ export type ManagedSkillPackageValidationResult = {
   skillKey: string;
 };
 
+export type ManagedSkillMarkdownDocument = {
+  description: string;
+  integrationKeys: string[];
+  name: string;
+  skillBody: string;
+};
+
 type ParsedFrontmatter = {
   description: string;
   metadata: {
@@ -276,6 +283,52 @@ export function parseManagedSkillSkillFile(
     },
     name,
   };
+}
+
+export function parseManagedSkillMarkdown(
+  contentText: string,
+): ManagedSkillMarkdownDocument {
+  const parsedSkill = parseManagedSkillSkillFile(contentText);
+  const { body } = extractManagedSkillFrontmatter(contentText);
+
+  return {
+    description: parsedSkill.description,
+    integrationKeys: parsedSkill.metadata.dependsOn.integrations,
+    name: parsedSkill.name,
+    skillBody: body.trim(),
+  };
+}
+
+export function buildManagedSkillMarkdown(input: {
+  description: string;
+  integrationKeys: string[];
+  name: string;
+  skillBody: string;
+}) {
+  const normalizedIntegrationKeys = [...new Set(input.integrationKeys)]
+    .map((integrationKey) => integrationKey.trim().toLowerCase())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const lines = [
+    "---",
+    `name: ${input.name.trim()}`,
+    `description: ${input.description.trim()}`,
+    "metadata:",
+    "  dependsOn:",
+    "    integrations:",
+  ];
+
+  if (normalizedIntegrationKeys.length === 0) {
+    lines.push("      []");
+  } else {
+    for (const integrationKey of normalizedIntegrationKeys) {
+      lines.push(`      - ${integrationKey}`);
+    }
+  }
+
+  lines.push("---", "", input.skillBody.trim(), "");
+
+  return `${lines.join("\n")}`;
 }
 
 function createTextChecksum(contentText: string) {

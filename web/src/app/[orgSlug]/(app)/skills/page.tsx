@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/empty";
 import { createTenantManagedSkill } from "@/db/control-plane";
 import { listTenantManagedSkillsForTenant } from "@/db/managed-skills";
+import { buildManagedSkillMarkdown } from "@/lib/managed-skills/markdown";
 import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
@@ -47,11 +48,11 @@ async function createManagedSkillAction(formData: FormData) {
     throw new Error("Managed skill creation is missing required fields");
   }
 
-  const skillContent = buildSkillMarkdown({
+  const skillContent = buildManagedSkillMarkdown({
     description,
     integrationKeys,
+    name: skillKey,
     skillBody,
-    skillKey,
   });
   const createdSkill = await createTenantManagedSkill({
     orgSlug,
@@ -92,34 +93,6 @@ function formatSourceLabel(sourceType: string) {
   return sourceType === "integration_contribution"
     ? "Integration starter"
     : "Workspace managed";
-}
-
-function buildSkillMarkdown(input: {
-  description: string;
-  integrationKeys: string[];
-  skillBody: string;
-  skillKey: string;
-}) {
-  const lines = [
-    "---",
-    `name: ${input.skillKey.trim()}`,
-    `description: ${input.description.trim()}`,
-    "metadata:",
-    "  dependsOn:",
-    "    integrations:",
-  ];
-
-  if (input.integrationKeys.length === 0) {
-    lines.push("      []");
-  } else {
-    for (const integrationKey of input.integrationKeys) {
-      lines.push(`      - ${integrationKey}`);
-    }
-  }
-
-  lines.push("---", "", input.skillBody.trim(), "");
-
-  return `${lines.join("\n")}`;
 }
 
 export default async function SkillsPage({
