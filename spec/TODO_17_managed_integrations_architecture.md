@@ -219,7 +219,7 @@ Concrete direction:
 - `slack` and `whatsapp` can keep provider-specific tables where they back real directory caches, link sessions, or other query-heavy state.
 - New integrations should normally add code registry entries, not tables.
 - Discovery should be first-class in the runtime plugin contract:
-  - agents should be able to search for the best integration function from user intent before guessing an integration/function pair
+  - agents should be able to search for the best integration command from user intent before guessing an integration/command pair
   - integration detail responses should include exact execution guides and example calls, not only raw parameter schemas
   - the plugin-level metatool contract should explicitly teach the discovery -> inspect -> connect -> execute workflow
 
@@ -889,11 +889,11 @@ Acceptance criteria:
 
 ### Increment 8: First Linear write capability
 
-After the settings model exists, add one write operation that benefits from those defaults.
+After the settings model exists, add one write command that benefits from those defaults.
 
 Scope:
 
-- implement `linear.create_issue`
+- implement `linear.issue.create`
 - enforce settings and policy at `integration-gateway`
 - audit the mutation path
 
