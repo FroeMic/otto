@@ -13,7 +13,10 @@ describe("runtime integration registry", () => {
   });
 
   it("builds a sorted manifest for supported keys only", () => {
-    const manifest = buildRuntimeIntegrationManifestForKeys(["linear", "unknown"]);
+    const manifest = buildRuntimeIntegrationManifestForKeys([
+      "linear",
+      "unknown",
+    ]);
 
     assert.equal(manifest.length, 1);
     assert.equal(manifest[0]?.key, "linear");

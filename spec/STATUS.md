@@ -368,7 +368,7 @@
   - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
   - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
   - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
-  - the old Linear route now renders the provider-owned page from the integration bundle, and `/integrations2/[integrationKey]` can now render provider-owned detail pages directly from the registry
+  - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations2/[integrationKey]`, and the legacy `/integrations` page no longer carries a separate Linear implementation
   - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
   - runtime operation validation now runs in the framework before provider execution using the advertised operation schema plus provider-specific normalization
   - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
