@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { executeLinearAttachmentCreate } from "./create";
 import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
 import { executeLinearAttachmentListForUrl } from "./list-for-url";
@@ -196,5 +197,78 @@ describe("linear attachment commands", () => {
     assert.equal(result.commandKey, "attachment.list_for_url");
     assert.equal(result.lookup, "https://example.com/aws-credits");
     assert.equal(result.totalMatched, 1);
+  });
+
+  it("creates attachments with a curated input shape", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        variables: {
+          input: {
+            commentBody: string;
+            groupBySource: boolean;
+            issueId: string;
+            metadata: { foo: string };
+            subtitle: string;
+            title: string;
+            url: string;
+          };
+        };
+      };
+
+      assert.deepEqual(body.variables.input, {
+        commentBody: "Please review this deal link.",
+        groupBySource: true,
+        issueId: "INT-6",
+        metadata: { foo: "bar" },
+        subtitle: "YC deal link",
+        title: "AWS Credits",
+        url: "https://example.com/aws-credits",
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            attachmentCreate: {
+              attachment: buildAttachmentNode(),
+              lastSyncId: 42,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentCreate({
+      arguments: {
+        commentBody: "Please review this deal link.",
+        groupBySource: true,
+        issueId: "INT-6",
+        metadata: { foo: "bar" },
+        subtitle: "YC deal link",
+        title: "AWS Credits",
+        url: "https://example.com/aws-credits",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      attachment: { id: string | null; issueId: string | null } | null;
+      commandKey: string;
+      lastSyncId: number | null;
+      success: boolean;
+    };
+
+    assert.equal(result.commandKey, "attachment.create");
+    assert.equal(result.lastSyncId, 42);
+    assert.equal(result.success, true);
+    assert.equal(result.attachment?.id, "attachment-1");
+    assert.equal(result.attachment?.issueId, "issue-1");
   });
 });

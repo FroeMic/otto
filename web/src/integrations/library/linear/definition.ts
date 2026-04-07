@@ -1,6 +1,7 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
 
+import { executeLinearAttachmentCreate } from "./commands/attachment/create";
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
@@ -385,6 +386,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Create and later update attachment links or uploaded asset references in the connected Linear workspace.",
+      direction: "tool",
+      key: "attachment.write",
+      label: "Write attachments",
+    }),
+    buildCapability({
+      description:
         "Read and inspect comments across issue threads in the connected Linear workspace.",
       direction: "read",
       key: "comment.read",
@@ -478,6 +486,123 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional markdown comment body linked to the attachment.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description: "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear issue id or identifier to attach the link to.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description: "Optional metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+                url: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment URL. Reusing a URL updates the existing attachment in Linear.",
+                },
+              },
+              required: ["issueId", "title", "url"],
+            },
+            commandKey: "attachment.create",
+            commandPath: ["attachment", "create"],
+            description: "Create a new Linear attachment link on one issue.",
+            exampleArguments: {
+              issueId: "INT-6",
+              title: "AWS Credits",
+              url: "https://example.com/aws-credits",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attach link",
+              "add file link",
+              "asset link",
+            ],
+            label: "Create attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to attach an external URL or previously uploaded asset URL to a Linear issue.",
+              "Linear treats the attachment URL as a unique identifier, so reusing the same URL updates the existing record.",
+            ],
+            validate: (argumentsObject) => ({
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : "",
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+              url:
+                typeof argumentsObject.url === "string"
+                  ? argumentsObject.url.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentCreate,
+          },
           {
             argumentsSchema: {
               type: "object",
