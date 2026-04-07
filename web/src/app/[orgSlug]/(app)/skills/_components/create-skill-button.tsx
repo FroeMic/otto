@@ -120,121 +120,133 @@ export function CreateSkillButton({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Create skill</DialogTitle>
-            <DialogDescription>
-              Start with the key skill metadata here. Otto will store it in
-              `SKILL.md`, but the frontmatter stays out of the workspace form.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-hidden p-0">
+          <div className="flex max-h-[calc(100vh-2rem)] flex-col">
+            <DialogHeader className="px-6 pt-6">
+              <DialogTitle>Create skill</DialogTitle>
+              <DialogDescription>
+                Start with the key skill metadata here. Otto will store it in
+                `SKILL.md`, but the frontmatter stays out of the workspace form.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="flex flex-col gap-6">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="skill-key">Skill key</FieldLabel>
-                <FieldContent>
-                  <Input
-                    id="skill-key"
-                    onChange={(event) => setSkillKey(event.target.value)}
-                    placeholder="linear-triage"
-                    value={skillKey}
-                  />
-                  <FieldDescription>
-                    Stable slug used for the package path and runtime
-                    projection.
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="skill-description">Description</FieldLabel>
-                <FieldContent>
-                  <Textarea
-                    className="min-h-24"
-                    id="skill-description"
-                    onChange={(event) => setDescription(event.target.value)}
-                    value={description}
-                  />
-                  <FieldDescription>
-                    Short guidance for when Otto should reach for this skill.
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            </FieldGroup>
-
-            <FieldSet>
-              <FieldLegend>Integration dependencies</FieldLegend>
-              <FieldDescription>
-                Optional prerequisites Otto should expect before using this
-                skill.
-              </FieldDescription>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {knownIntegrationKeys.map((integrationKey) => {
-                  const checked =
-                    selectedIntegrationKeys.includes(integrationKey);
-
-                  return (
-                    <Field key={integrationKey} orientation="horizontal">
-                      <Checkbox
-                        checked={checked}
-                        id={`skill-dependency-${integrationKey}`}
-                        onCheckedChange={(nextChecked) =>
-                          handleIntegrationToggle(integrationKey, nextChecked)
-                        }
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+              <div className="flex flex-col gap-6">
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="skill-key">Skill key</FieldLabel>
+                    <FieldContent>
+                      <Input
+                        id="skill-key"
+                        onChange={(event) => setSkillKey(event.target.value)}
+                        placeholder="linear-triage"
+                        value={skillKey}
                       />
-                      <FieldLabel
-                        htmlFor={`skill-dependency-${integrationKey}`}
-                      >
-                        {integrationKey}
-                      </FieldLabel>
-                    </Field>
-                  );
-                })}
+                      <FieldDescription>
+                        Stable slug used for the package path and runtime
+                        projection.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="skill-description">
+                      Description
+                    </FieldLabel>
+                    <FieldContent>
+                      <Textarea
+                        className="min-h-24"
+                        id="skill-description"
+                        onChange={(event) => setDescription(event.target.value)}
+                        value={description}
+                      />
+                      <FieldDescription>
+                        Short guidance for when Otto should reach for this
+                        skill.
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                </FieldGroup>
+
+                <FieldSet>
+                  <FieldLegend>Integration dependencies</FieldLegend>
+                  <FieldDescription>
+                    Optional prerequisites Otto should expect before using this
+                    skill.
+                  </FieldDescription>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {knownIntegrationKeys.map((integrationKey) => {
+                      const checked =
+                        selectedIntegrationKeys.includes(integrationKey);
+
+                      return (
+                        <Field key={integrationKey} orientation="horizontal">
+                          <Checkbox
+                            checked={checked}
+                            id={`skill-dependency-${integrationKey}`}
+                            onCheckedChange={(nextChecked) =>
+                              handleIntegrationToggle(
+                                integrationKey,
+                                nextChecked,
+                              )
+                            }
+                          />
+                          <FieldLabel
+                            htmlFor={`skill-dependency-${integrationKey}`}
+                          >
+                            {integrationKey}
+                          </FieldLabel>
+                        </Field>
+                      );
+                    })}
+                  </div>
+                </FieldSet>
+
+                <Field>
+                  <FieldLabel htmlFor="skill-body">
+                    Skill instructions
+                  </FieldLabel>
+                  <FieldContent>
+                    <Textarea
+                      className="min-h-[20rem] rounded-xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs"
+                      id="skill-body"
+                      onChange={(event) => setSkillBody(event.target.value)}
+                      value={skillBody}
+                    />
+                    <FieldDescription>
+                      Main markdown body written below the generated metadata
+                      header.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+                {errorMessage ? (
+                  <p className="text-sm text-destructive">{errorMessage}</p>
+                ) : null}
               </div>
-            </FieldSet>
+            </div>
 
-            <Field>
-              <FieldLabel htmlFor="skill-body">Skill instructions</FieldLabel>
-              <FieldContent>
-                <Textarea
-                  className="min-h-[20rem] rounded-xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs"
-                  id="skill-body"
-                  onChange={(event) => setSkillBody(event.target.value)}
-                  value={skillBody}
-                />
-                <FieldDescription>
-                  Main markdown body written below the generated metadata
-                  header.
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-            {errorMessage ? (
-              <p className="text-sm text-destructive">{errorMessage}</p>
-            ) : null}
+            <DialogFooter className="border-t px-6 py-4">
+              <Button
+                onClick={() => handleOpenChange(false)}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  isPending ||
+                  !description.trim() ||
+                  !skillBody.trim() ||
+                  !skillKey.trim()
+                }
+                onClick={handleCreate}
+                type="button"
+              >
+                Create skill
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter>
-            <Button
-              onClick={() => handleOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={
-                isPending ||
-                !description.trim() ||
-                !skillBody.trim() ||
-                !skillKey.trim()
-              }
-              onClick={handleCreate}
-              type="button"
-            >
-              Create skill
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
