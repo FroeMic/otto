@@ -59,6 +59,15 @@ const envSchema = z.object({
     .positive()
     .optional(),
   RUNTIME_XAI_API_KEY: z.string().optional(),
+  LINEAR_CLIENT_ID: z.string().optional(),
+  LINEAR_CLIENT_SECRET: z.string().optional(),
+  LINEAR_OAUTH_ACTOR: z.enum(["app", "user"]).default("app"),
+  LINEAR_OAUTH_SCOPES: z
+    .string()
+    .default(
+      "read,write,issues:create,comments:create,timeSchedule:write,app:mentionable,app:assignable,customer:read,customer:write,initiative:read,initiative:write",
+    ),
+  LINEAR_REDIRECT_URI: z.string().url().optional(),
   SLACK_BOT_SCOPES: z
     .string()
     .default(
@@ -96,6 +105,10 @@ const envSchema = z.object({
     .optional(),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_TOKEN: z.string().optional(),
+  NANGO_API_BASE_URL: z.url().default("https://api.nango.dev"),
+  NANGO_LINEAR_INTEGRATION_ID: z.string().optional(),
+  NANGO_SECRET_KEY: z.string().optional(),
+  NANGO_WEBHOOK_SECRET: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
@@ -104,6 +117,11 @@ const envSchema = z.object({
   WORKOS_WEBHOOK_SECRET: z.string().optional(),
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(5),
+  WORKER_STALE_JOB_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
 });
 
@@ -218,6 +236,65 @@ export function getSlackOAuthConfig() {
 export function hasSlackOAuthConfig() {
   try {
     getSlackOAuthConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getLinearOAuthConfig() {
+  const env = getEnv();
+
+  if (
+    !env.LINEAR_CLIENT_ID ||
+    !env.LINEAR_CLIENT_SECRET ||
+    !env.LINEAR_REDIRECT_URI
+  ) {
+    throw new Error("Linear OAuth is not fully configured");
+  }
+
+  return {
+    actor: env.LINEAR_OAUTH_ACTOR,
+    clientId: env.LINEAR_CLIENT_ID,
+    clientSecret: env.LINEAR_CLIENT_SECRET,
+    redirectUri: env.LINEAR_REDIRECT_URI,
+    scopes: env.LINEAR_OAUTH_SCOPES.split(",")
+      .map((scope) => scope.trim())
+      .filter(Boolean),
+  };
+}
+
+export function hasLinearOAuthConfig() {
+  try {
+    getLinearOAuthConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getNangoConfig() {
+  const env = getEnv();
+
+  if (
+    !env.NANGO_SECRET_KEY ||
+    !env.NANGO_WEBHOOK_SECRET ||
+    !env.NANGO_LINEAR_INTEGRATION_ID
+  ) {
+    throw new Error("Nango is not fully configured");
+  }
+
+  return {
+    apiBaseUrl: env.NANGO_API_BASE_URL,
+    linearIntegrationId: env.NANGO_LINEAR_INTEGRATION_ID,
+    secretKey: env.NANGO_SECRET_KEY,
+    webhookSecret: env.NANGO_WEBHOOK_SECRET,
+  };
+}
+
+export function hasNangoConfig() {
+  try {
+    getNangoConfig();
     return true;
   } catch {
     return false;

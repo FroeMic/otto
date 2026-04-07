@@ -279,7 +279,6 @@ async function scheduleOpenAiUsageSyncJobs() {
       if (!dueTarget.externalProjectId) {
         continue;
       }
-
       const jobPayload: SyncOpenAiUsageTargetPayload = {
         providerAccountId: dueTarget.providerAccountId,
         usageType: usageConfig.usageType,

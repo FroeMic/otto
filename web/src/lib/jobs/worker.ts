@@ -15,6 +15,10 @@ import {
   type JobLane,
 } from "./lanes";
 import {
+  processRefreshOauthConnectionJob,
+  processScheduleOauthConnectionRefreshJob,
+} from "./oauth-refresh";
+import {
   processScheduleOpenAiUsageSyncJob,
   processSyncOpenAiUsageTargetJob,
 } from "./openai-usage";
@@ -52,6 +56,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
+      return;
+    case JOB_TYPES.scheduleOauthConnectionRefresh:
+      await processScheduleOauthConnectionRefreshJob(job);
+      return;
+    case JOB_TYPES.refreshOauthConnection:
+      await processRefreshOauthConnectionJob(job);
       return;
     case JOB_TYPES.scheduleOpenAiUsageSync:
       await processScheduleOpenAiUsageSyncJob(job);

@@ -234,6 +234,201 @@ export const integrationSlackInstallations = pgTable(
   }),
 );
 
+export const integrationLinearInstallations = pgTable(
+  "integration_linear_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    nangoConnectionId: varchar("nango_connection_id", { length: 255 }).unique(),
+    nangoIntegrationId: varchar("nango_integration_id", {
+      length: 255,
+    }),
+    linearWorkspaceId: varchar("linear_workspace_id", { length: 255 }),
+    linearWorkspaceName: text("linear_workspace_name"),
+    connectedByUserId: uuid("connected_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "integration_linear_installations_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
+export const integrationOauthSessions = pgTable(
+  "integration_oauth_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantIntegrationId: uuid("tenant_integration_id").references(
+      () => tenantIntegrations.id,
+      { onDelete: "cascade" },
+    ),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    mode: varchar("mode", { length: 32 }).notNull(),
+    stateNonce: varchar("state_nonce", { length: 255 }).notNull(),
+    pkceCodeVerifier: text("pkce_code_verifier"),
+    requestedScopesCsv: text("requested_scopes_csv"),
+    authorizeParamsJson: jsonb("authorize_params_json")
+      .$type<Record<string, string>>()
+      .default({})
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    providerStatusIdx: index("integration_oauth_sessions_provider_id_idx").on(
+      table.providerKey,
+      table.id,
+    ),
+    tenantIdx: index("integration_oauth_sessions_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    userIdx: index("integration_oauth_sessions_user_id_idx").on(table.userId),
+  }),
+);
+
+export const integrationOauthConnections = pgTable(
+  "integration_oauth_connections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    externalAccountId: varchar("external_account_id", { length: 255 }),
+    externalAccountLabel: text("external_account_label"),
+    authMode: varchar("auth_mode", { length: 64 }).notNull(),
+    actorType: varchar("actor_type", { length: 32 }),
+    status: varchar("status", { length: 64 }).notNull(),
+    requestedScopesCsv: text("requested_scopes_csv"),
+    grantedScopesCsv: text("granted_scopes_csv"),
+    credentialsExpiresAt: timestamp("credentials_expires_at", {
+      withTimezone: true,
+    }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+      withTimezone: true,
+    }),
+    lastRefreshStartedAt: timestamp("last_refresh_started_at", {
+      withTimezone: true,
+    }),
+    lastRefreshSucceededAt: timestamp("last_refresh_succeeded_at", {
+      withTimezone: true,
+    }),
+    lastRefreshFailedAt: timestamp("last_refresh_failed_at", {
+      withTimezone: true,
+    }),
+    refreshAttemptCount: integer("refresh_attempt_count").default(0).notNull(),
+    refreshRetryAfter: timestamp("refresh_retry_after", { withTimezone: true }),
+    tokenVersion: integer("token_version").default(1).notNull(),
+    lastError: text("last_error"),
+    lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "integration_oauth_connections_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+    providerStatusIdx: index(
+      "integration_oauth_connections_provider_status_idx",
+    ).on(table.providerKey, table.status),
+  }),
+);
+
+export const integrationOauthCredentials = pgTable(
+  "integration_oauth_credentials",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id")
+      .references(() => integrationOauthConnections.id, { onDelete: "cascade" })
+      .notNull(),
+    accessTokenCiphertext: text("access_token_ciphertext").notNull(),
+    refreshTokenCiphertext: text("refresh_token_ciphertext"),
+    idTokenCiphertext: text("id_token_ciphertext"),
+    tokenType: varchar("token_type", { length: 64 }),
+    rawTokenResponseJson: jsonb("raw_token_response_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    connectionUniqueIdx: uniqueIndex(
+      "integration_oauth_credentials_connection_id_idx",
+    ).on(table.connectionId),
+  }),
+);
+
+export const integrationOauthEvents = pgTable(
+  "integration_oauth_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    connectionId: uuid("connection_id").references(
+      () => integrationOauthConnections.id,
+      { onDelete: "cascade" },
+    ),
+    tenantIntegrationId: uuid("tenant_integration_id").references(
+      () => tenantIntegrations.id,
+      { onDelete: "cascade" },
+    ),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    eventType: varchar("event_type", { length: 64 }).notNull(),
+    statusBefore: varchar("status_before", { length: 64 }),
+    statusAfter: varchar("status_after", { length: 64 }),
+    detailsJson: jsonb("details_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    connectionIdx: index("integration_oauth_events_connection_id_idx").on(
+      table.connectionId,
+    ),
+    tenantIntegrationIdx: index(
+      "integration_oauth_events_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
 export const integrationWhatsAppInstallations = pgTable(
   "integration_whatsapp_installations",
   {

@@ -14,12 +14,22 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import {
+  appendIntegrationOauthEventTx,
+  getConnectedOauthAccessForTenantIntegration,
+  markIntegrationOauthSessionConsumedTx,
+  recordOauthConnectionAttention,
+  upsertOauthConnectionForTenantIntegrationTx,
+} from "@/db/oauth";
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
+  integrationLinearInstallations,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
+  integrationOauthConnections,
+  integrationOauthCredentials,
   integrationSlackInstallations,
   integrationWhatsAppInstallations,
   integrationWhatsAppLinkSessions,
@@ -50,7 +60,10 @@ import {
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { JOB_TYPES } from "@/lib/jobs/types";
+import { searchLinearIssues } from "@/lib/managed-integrations/linear";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
+import { getOAuthProviderDefinition } from "@/lib/oauth/providers";
+import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
   buildManagedBootstrapFileContent,
   buildManagedBootstrapSystemContent,
@@ -134,6 +147,7 @@ import {
 } from "@/tools/whatsapp/policy";
 
 const SLACK_PROVIDER_KEY = "slack";
+const LINEAR_PROVIDER_KEY = "linear";
 const WHATSAPP_PROVIDER_KEY = "whatsapp";
 const SLACK_BOT_TOKEN_SECRET_TYPE = "slack_bot_token";
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
@@ -643,6 +657,19 @@ export type TenantManagedIntegrationSummary = {
   lastErrorAt: Date | null;
   providerKey: string;
   status: string;
+};
+
+export type TenantManagedIntegrationConnectContext = {
+  integrationStatus: string | null;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantIntegrationId: string | null;
+  tenantStatus: string;
+  userEmail: string;
+  userId: string;
 };
 
 export type WorkspaceMemberDirectoryEntry = {
@@ -4376,6 +4403,275 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
+export type RuntimeTenantIntegration = RuntimeIntegrationManifestEntry & {
+  status: {
+    connected: boolean;
+    connectionStatus: string | null;
+    enabled: boolean;
+    integrationStatus: string | null;
+    needsAttention: boolean;
+  };
+};
+
+async function listRuntimeIntegrationStatusRowsForTenantTx(
+  tx: DbTransaction,
+  input: {
+    providerKeys: string[];
+    tenantId: string;
+  },
+) {
+  if (input.providerKeys.length === 0) {
+    return [];
+  }
+
+  return tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      connectionStatus: integrationOauthConnections.status,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      integrationStatus: tenantIntegrations.status,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      integrationOauthConnections,
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(tenantIntegrations.providerKey, input.providerKeys),
+      ),
+    );
+}
+
+function buildRuntimeTenantIntegrations(input: {
+  definitions: RuntimeIntegrationManifestEntry[];
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+  }>;
+}) {
+  const statusByProviderKey = new Map<
+    string,
+    {
+      connectedAt: Date | null;
+      connectionStatus: string | null;
+      disconnectedAt: Date | null;
+      integrationStatus: string | null;
+    }
+  >();
+
+  for (const row of input.rows) {
+    const existing = statusByProviderKey.get(row.providerKey);
+
+    if (!existing) {
+      statusByProviderKey.set(row.providerKey, row);
+      continue;
+    }
+
+    if (!existing.connectionStatus && row.connectionStatus) {
+      statusByProviderKey.set(row.providerKey, row);
+    }
+  }
+
+  return input.definitions.map((definition) => {
+    const row = statusByProviderKey.get(definition.key) ?? null;
+    const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
+    const integrationStatus = row?.integrationStatus ?? null;
+    const connectionStatus = row?.connectionStatus ?? null;
+
+    return {
+      ...definition,
+      status: {
+        connected,
+        connectionStatus,
+        enabled: connected,
+        integrationStatus,
+        needsAttention:
+          integrationStatus === "needs_attention" ||
+          connectionStatus === "needs_attention",
+      },
+    };
+  });
+}
+
+export async function listRuntimeIntegrationsForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const installedKeys = rows.map((row) => row.providerKey).sort();
+    const definitions = buildRuntimeIntegrationManifestForKeys(installedKeys);
+
+    if (definitions.length === 0) {
+      return [];
+    }
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function listRuntimeIntegrationCatalogForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const supportedKeys = listSupportedRuntimeIntegrationKeys();
+    const definitions = buildRuntimeIntegrationManifestForKeys(supportedKeys);
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: supportedKeys,
+      tenantId: input.tenantId,
+    });
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function getRuntimeIntegrationForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrations = await listRuntimeIntegrationCatalogForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return (
+    integrations.find((integration) => integration.key === integrationKey) ??
+    null
+  );
+}
+
+export type RuntimeIntegrationConnectionAction = {
+  availableActions: string[];
+  connectUrl: string | null;
+  integrationKey: string;
+  label: string;
+  message: string;
+  recommendedAction: string;
+  requiresUserAction: boolean;
+  selectedAction: string;
+  status: RuntimeTenantIntegration["status"];
+  workspaceUrl: string | null;
+};
+
+export async function getRuntimeIntegrationConnectionActionForTenant(input: {
+  action?: string | null;
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationConnectionAction | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  const db = getDb();
+  const [tenantContext] = await db
+    .select({
+      organizationSlug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  if (!tenantContext) {
+    throw new Error(`Tenant ${input.tenantId} is not available.`);
+  }
+
+  const baseUrl = getControlPlaneBaseUrl();
+  const workspaceUrl = baseUrl
+    ? `${baseUrl}/${encodeURIComponent(tenantContext.organizationSlug)}/integrations/${encodeURIComponent(integration.key)}`
+    : null;
+
+  let connectUrl: string | null = null;
+  let recommendedAction = "none";
+  let message = `${integration.label} is available.`;
+
+  switch (integration.key) {
+    case "linear": {
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Linear needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Linear is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it.";
+      }
+      break;
+    }
+    case "demo-linear": {
+      recommendedAction = "none";
+      message =
+        "Demo Linear is built in for testing and does not require a workspace connection.";
+      break;
+    }
+    default: {
+      recommendedAction = "open_workspace";
+      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
+      break;
+    }
+  }
+
+  const requestedAction = (input.action ?? "").trim().toLowerCase();
+  const availableActions = [
+    workspaceUrl ? "open_workspace" : null,
+    connectUrl ? "connect" : null,
+    connectUrl ? "reconnect" : null,
+  ].filter((action): action is string => Boolean(action));
+  const selectedAction =
+    requestedAction && availableActions.includes(requestedAction)
+      ? requestedAction
+      : recommendedAction;
+
+  return {
+    availableActions,
+    connectUrl,
+    integrationKey: integration.key,
+    label: integration.label,
+    message,
+    recommendedAction,
+    requiresUserAction:
+      selectedAction === "connect" || selectedAction === "reconnect",
+    selectedAction,
+    status: integration.status,
+    workspaceUrl,
+  };
+}
+
 export async function getTenantManagedIntegrationSummary(input: {
   orgSlug: string;
   providerKey: string;
@@ -4415,19 +4711,213 @@ export async function getTenantManagedIntegrationSummary(input: {
   return integration ?? null;
 }
 
+export async function getTenantManagedIntegrationConnectContext(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationConnectContext | null> {
+  const db = getDb();
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const [row] = await db
+    .select({
+      integrationStatus: tenantIntegrations.status,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantIntegrationId: tenantIntegrations.id,
+      tenantStatus: tenants.status,
+      userEmail: users.email,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .leftJoin(
+      tenantIntegrations,
+      and(
+        eq(tenantIntegrations.tenantId, tenants.id),
+        eq(tenantIntegrations.providerKey, normalizedProviderKey),
+      ),
+    )
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  if (normalizedProviderKey !== LINEAR_PROVIDER_KEY) {
+    throw new Error(
+      `Managed integration ${input.providerKey} does not support connect sessions yet.`,
+    );
+  }
+
+  return row;
+}
+
+export async function completeLinearOauthConnection(input: {
+  actorType: string | null;
+  connectedByUserId: string;
+  externalAccountId?: string | null;
+  externalAccountLabel?: string | null;
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+    const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
+      connectedByUserId: input.connectedByUserId,
+      linearWorkspaceId:
+        input.externalAccountId ??
+        input.tokenResult.identity?.externalAccountId ??
+        null,
+      linearWorkspaceName:
+        input.externalAccountLabel ??
+        input.tokenResult.identity?.externalAccountLabel ??
+        null,
+      now,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.externalAccountId ?? null,
+      externalAccountLabel: input.externalAccountLabel ?? null,
+      now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+  });
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
+export async function disconnectTenantManagedIntegration(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}) {
+  const providerKey = input.providerKey.trim().toLowerCase();
+
+  switch (providerKey) {
+    case LINEAR_PROVIDER_KEY:
+      return disconnectTenantLinearIntegration(input);
+    default:
+      throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
+  }
+}
+
+export async function recordLinearOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear refresh failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
 export async function executeRuntimeIntegrationForTenant(input: {
   integrationKey: string;
   params: Record<string, unknown>;
   tenantId: string;
 }) {
   const db = getDb();
-
-  return db.transaction(async (tx) => {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const runtimeContext = await db.transaction(async (tx) => {
     const providerKeys =
       await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
         tenantId: input.tenantId,
       });
-    const integrationKey = input.integrationKey.trim().toLowerCase();
 
     if (!providerKeys.includes(integrationKey)) {
       throw new Error(
@@ -4435,10 +4925,49 @@ export async function executeRuntimeIntegrationForTenant(input: {
       );
     }
 
-    return executeRuntimeIntegrationStub({
+    if (integrationKey === LINEAR_PROVIDER_KEY) {
+      const [integration] = await tx
+        .select({
+          id: tenantIntegrations.id,
+        })
+        .from(tenantIntegrations)
+        .where(
+          and(
+            eq(tenantIntegrations.tenantId, input.tenantId),
+            eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+          ),
+        )
+        .limit(1);
+
+      if (!integration) {
+        throw new Error("Linear is not connected in this workspace.");
+      }
+
+      return {
+        integrationKey,
+        tenantIntegrationId: integration.id,
+      };
+    }
+
+    return {
       integrationKey,
+      tenantIntegrationId: null,
+    };
+  });
+
+  if (
+    runtimeContext.integrationKey === LINEAR_PROVIDER_KEY &&
+    runtimeContext.tenantIntegrationId
+  ) {
+    return executeLinearRuntimeIntegration({
       params: input.params,
+      tenantIntegrationId: runtimeContext.tenantIntegrationId,
     });
+  }
+
+  return executeRuntimeIntegrationStub({
+    integrationKey: runtimeContext.integrationKey,
+    params: input.params,
   });
 }
 
@@ -5112,6 +5641,129 @@ export async function enableTenantWhatsAppIntegration(input: {
       tenantId: result.tenantId,
     }),
   };
+}
+
+async function disconnectTenantLinearIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration) {
+      throw new Error("Linear is not connected in this workspace.");
+    }
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: LINEAR_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
 }
 
 export async function disableTenantWhatsAppIntegration(input: {
@@ -7235,6 +7887,98 @@ async function upsertSlackIntegrationForTenant(
   return tenantIntegrationId;
 }
 
+async function upsertLinearIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    connectedByUserId: string | null;
+    linearWorkspaceId: string | null;
+    linearWorkspaceName: string | null;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: LINEAR_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  const [existingInstallation] = await tx
+    .select({
+      id: integrationLinearInstallations.id,
+    })
+    .from(integrationLinearInstallations)
+    .where(
+      eq(
+        integrationLinearInstallations.tenantIntegrationId,
+        tenantIntegrationId,
+      ),
+    )
+    .limit(1);
+
+  if (existingInstallation) {
+    await tx
+      .update(integrationLinearInstallations)
+      .set({
+        connectedAt: input.now,
+        connectedByUserId: input.connectedByUserId,
+        linearWorkspaceId: input.linearWorkspaceId,
+        linearWorkspaceName: input.linearWorkspaceName,
+        nangoConnectionId: null,
+        nangoIntegrationId: null,
+        updatedAt: input.now,
+      })
+      .where(eq(integrationLinearInstallations.id, existingInstallation.id));
+  } else {
+    await tx.insert(integrationLinearInstallations).values({
+      connectedAt: input.now,
+      connectedByUserId: input.connectedByUserId,
+      linearWorkspaceId: input.linearWorkspaceId,
+      linearWorkspaceName: input.linearWorkspaceName,
+      tenantIntegrationId,
+    });
+  }
+
+  return tenantIntegrationId;
+}
+
 async function upsertWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
@@ -7334,6 +8078,125 @@ async function recordSlackIntegrationError(
       updatedAt: input.now,
     })
     .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function recordLinearIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function executeLinearRuntimeIntegration(input: {
+  params: Record<string, unknown>;
+  tenantIntegrationId: string;
+}) {
+  const connection = await getConnectedOauthAccessForTenantIntegration({
+    providerKey: LINEAR_PROVIDER_KEY,
+    tenantIntegrationId: input.tenantIntegrationId,
+  });
+
+  if (!connection || connection.status !== "connected") {
+    console.warn(
+      `[runtime-integrations] linear unavailable tenantIntegration=${input.tenantIntegrationId} connectionStatus=${connection?.status ?? "missing"} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"}`,
+    );
+    throw new Error(
+      "Linear needs attention. Reconnect Linear in your workspace.",
+    );
+  }
+
+  try {
+    if (input.params.operation !== "search_issues") {
+      throw new Error("linear only supports the search_issues operation.");
+    }
+
+    const result = await searchLinearIssues({
+      accessToken: connection.accessToken,
+      limit:
+        typeof input.params.limit === "number" ? input.params.limit : undefined,
+      query: typeof input.params.query === "string" ? input.params.query : "",
+    });
+
+    console.info(
+      `[runtime-integrations] linear search tenantIntegration=${input.tenantIntegrationId} operation=search_issues query=${JSON.stringify(result.query)} totalMatched=${result.totalMatched}`,
+    );
+
+    return result;
+  } catch (error) {
+    const provider = getOAuthProviderDefinition(LINEAR_PROVIDER_KEY);
+    const errorMessage = getUnknownErrorMessage(error);
+    const classifiedKind = provider?.classifyError(error) ?? "transient";
+
+    if (classifiedKind === "reauthorize") {
+      console.warn(
+        `[runtime-integrations] linear request needs reauthorize tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} error=${errorMessage}`,
+      );
+      await recordOauthConnectionAttention({
+        connectionId: connection.connectionId,
+        errorMessage,
+        eventType: "request_failed_reauthorize",
+        providerKey: LINEAR_PROVIDER_KEY,
+        tenantIntegrationId: connection.tenantIntegrationId,
+      });
+
+      throw new Error(
+        "Linear needs attention. Reconnect Linear in your workspace.",
+      );
+    }
+
+    console.error(
+      `[runtime-integrations] linear request failed tenantIntegration=${input.tenantIntegrationId} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} kind=${classifiedKind} error=${errorMessage}`,
+    );
+    throw error;
+  }
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "The provider request failed.";
 }
 
 async function createNextDesiredStateVersion(

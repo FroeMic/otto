@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { jobEvents, jobRuns } from "@/db/schema";
+import { getEnv } from "@/lib/env";
 
 import {
   getJobTypesForLane,
@@ -68,7 +69,6 @@ export async function claimAvailableJobsForLane(input: {
 
 export async function listQueuedOrRunningJobsByType(jobType: string) {
   const db = getDb();
-
   const jobs = await db
     .select({
       id: jobRuns.id,
@@ -105,125 +105,206 @@ async function claimJobs(input: {
   }
 
   const db = getDb();
-  const laneJobTypesSql = input.jobTypes
-    ? sql.join(
-        input.jobTypes.map((jobType) => sql`${jobType}`),
-        sql`, `,
-      )
-    : null;
-  const tenantMutexJobTypes = getTenantMutexJobTypes();
+  const staleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
+  const staleRunningCutoffIso = new Date(
+    Date.now() - staleTimeoutMs,
+  ).toISOString();
+  const laneJobTypesSql =
+    input.jobTypes && input.jobTypes.length > 0
+      ? sql.join(
+          input.jobTypes.map((jobType) => sql`${jobType}`),
+          sql`, `,
+        )
+      : null;
+  const laneJobTypesFilterSql = laneJobTypesSql
+    ? sql`and ${jobRuns.jobType} in (${laneJobTypesSql})`
+    : sql``;
   const tenantMutexJobTypesSql = sql.join(
-    tenantMutexJobTypes.map((jobType) => sql`${jobType}`),
+    getTenantMutexJobTypes().map((jobType) => sql`${jobType}`),
     sql`, `,
   );
-  const claimedJobs = await db.execute<{
-    attempt: number;
-    id: string;
-    jobType: string;
-    payload: Record<string, unknown>;
-    tenantId: string | null;
-  }>(
-    input.useTenantMutex
-      ? sql`
-          with running_tenants as (
-            select distinct ${jobRuns.tenantId} as tenant_id
-            from ${jobRuns}
-            where ${jobRuns.status} = ${JOB_STATUSES.running}
-              and ${jobRuns.tenantId} is not null
-              and ${jobRuns.jobType} in (${tenantMutexJobTypesSql})
-          ),
-          candidates as (
-            select
-              ${jobRuns.id} as id,
-              ${jobRuns.availableAt} as available_at,
-              ${jobRuns.createdAt} as created_at,
-              row_number() over (
-                partition by case
-                  when ${jobRuns.tenantId} is null then ${jobRuns.id}::text
-                  else ${jobRuns.tenantId}::text
-                end
-                order by ${jobRuns.availableAt} asc, ${jobRuns.createdAt} asc
-              ) as tenant_rank
-            from ${jobRuns}
-            where ${jobRuns.status} = ${JOB_STATUSES.queued}
-              and ${jobRuns.availableAt} <= now()
-              and ${jobRuns.jobType} in (${laneJobTypesSql})
-              and (
-                ${jobRuns.tenantId} is null
-                or ${jobRuns.tenantId} not in (
-                  select tenant_id from running_tenants
-                )
-              )
-            order by ${jobRuns.availableAt} asc, ${jobRuns.createdAt} asc
-            for update skip locked
-          ),
-          claimed as (
-            select id
-            from candidates
-            where tenant_rank = 1
-            order by available_at asc, created_at asc
-            limit ${input.limit}
-          )
-          update ${jobRuns}
-          set
-            status = ${JOB_STATUSES.running},
-            attempt = ${jobRuns.attempt} + 1,
-            started_at = now(),
-            updated_at = now(),
-            error = null
-          where ${jobRuns.id} in (select id from claimed)
-          returning
+
+  const claimedJobs = input.useTenantMutex
+    ? await db.execute<{
+        attempt: number;
+        id: string;
+        jobType: string;
+        payload: Record<string, unknown>;
+        previousStatus: string;
+        tenantId: string | null;
+      }>(sql`
+        with running_tenants as (
+          select distinct ${jobRuns.tenantId} as tenant_id
+          from ${jobRuns}
+          where ${jobRuns.status} = ${JOB_STATUSES.running}
+            and ${jobRuns.tenantId} is not null
+            and ${jobRuns.jobType} in (${tenantMutexJobTypesSql})
+            and (
+              ${jobRuns.startedAt} is null
+              or ${jobRuns.startedAt} > ${staleRunningCutoffIso}
+            )
+        ),
+        claimable as (
+          select
             ${jobRuns.id} as id,
-            ${jobRuns.jobType} as "jobType",
-            ${jobRuns.tenantId} as "tenantId",
-            ${jobRuns.attempt} as attempt,
-            ${jobRuns.payloadJson} as payload
-        `
-      : sql`
-          with claimed as (
-            select ${jobRuns.id}
-            from ${jobRuns}
-            where ${jobRuns.status} = ${JOB_STATUSES.queued}
+            ${jobRuns.status} as previous_status,
+            ${jobRuns.availableAt} as available_at,
+            ${jobRuns.startedAt} as started_at,
+            ${jobRuns.createdAt} as created_at,
+            row_number() over (
+              partition by case
+                when ${jobRuns.tenantId} is null then ${jobRuns.id}::text
+                else ${jobRuns.tenantId}::text
+              end
+              order by
+                case
+                  when ${jobRuns.status} = ${JOB_STATUSES.queued} then 0
+                  else 1
+                end asc,
+                ${jobRuns.availableAt} asc,
+                ${jobRuns.startedAt} asc,
+                ${jobRuns.createdAt} asc
+            ) as tenant_rank
+          from ${jobRuns}
+          where (
+            (
+              ${jobRuns.status} = ${JOB_STATUSES.queued}
               and ${jobRuns.availableAt} <= now()
-              ${laneJobTypesSql ? sql`and ${jobRuns.jobType} in (${laneJobTypesSql})` : sql``}
-            order by ${jobRuns.availableAt} asc, ${jobRuns.createdAt} asc
-            limit ${input.limit}
-            for update skip locked
+            ) or (
+              ${jobRuns.status} = ${JOB_STATUSES.running}
+              and ${jobRuns.startedAt} <= ${staleRunningCutoffIso}
+            )
           )
-          update ${jobRuns}
-          set
-            status = ${JOB_STATUSES.running},
-            attempt = ${jobRuns.attempt} + 1,
-            started_at = now(),
-            updated_at = now(),
-            error = null
-          where ${jobRuns.id} in (select id from claimed)
-          returning
+          ${laneJobTypesFilterSql}
+          and (
+            ${jobRuns.tenantId} is null
+            or ${jobRuns.status} = ${JOB_STATUSES.running}
+            or ${jobRuns.tenantId} not in (
+              select tenant_id from running_tenants
+            )
+          )
+          order by
+            case
+              when ${jobRuns.status} = ${JOB_STATUSES.queued} then 0
+              else 1
+            end asc,
+            ${jobRuns.availableAt} asc,
+            ${jobRuns.startedAt} asc,
+            ${jobRuns.createdAt} asc
+          for update skip locked
+        ),
+        claimed as (
+          select id, previous_status
+          from claimable
+          where tenant_rank = 1
+          order by
+            case
+              when previous_status = ${JOB_STATUSES.queued} then 0
+              else 1
+            end asc,
+            available_at asc,
+            started_at asc,
+            created_at asc
+          limit ${input.limit}
+        )
+        update ${jobRuns}
+        set
+          status = ${JOB_STATUSES.running},
+          attempt = ${jobRuns.attempt} + 1,
+          started_at = now(),
+          updated_at = now(),
+          finished_at = null,
+          error = null
+        from claimed
+        where ${jobRuns.id} = claimed.id
+        returning
+          ${jobRuns.id} as id,
+          ${jobRuns.jobType} as "jobType",
+          ${jobRuns.tenantId} as "tenantId",
+          ${jobRuns.attempt} as attempt,
+          ${jobRuns.payloadJson} as payload,
+          claimed.previous_status as "previousStatus"
+      `)
+    : await db.execute<{
+        attempt: number;
+        id: string;
+        jobType: string;
+        payload: Record<string, unknown>;
+        previousStatus: string;
+        tenantId: string | null;
+      }>(sql`
+        with claimable as (
+          select
             ${jobRuns.id} as id,
-            ${jobRuns.jobType} as "jobType",
-            ${jobRuns.tenantId} as "tenantId",
-            ${jobRuns.attempt} as attempt,
-            ${jobRuns.payloadJson} as payload
-        `,
-  );
+            ${jobRuns.status} as previous_status
+          from ${jobRuns}
+          where (
+            (
+              ${jobRuns.status} = ${JOB_STATUSES.queued}
+              and ${jobRuns.availableAt} <= now()
+            ) or (
+              ${jobRuns.status} = ${JOB_STATUSES.running}
+              and ${jobRuns.startedAt} <= ${staleRunningCutoffIso}
+            )
+          )
+          ${laneJobTypesFilterSql}
+          order by
+            case
+              when ${jobRuns.status} = ${JOB_STATUSES.queued} then 0
+              else 1
+            end asc,
+            ${jobRuns.availableAt} asc,
+            ${jobRuns.startedAt} asc,
+            ${jobRuns.createdAt} asc
+          limit ${input.limit}
+          for update skip locked
+        )
+        update ${jobRuns}
+        set
+          status = ${JOB_STATUSES.running},
+          attempt = ${jobRuns.attempt} + 1,
+          started_at = now(),
+          updated_at = now(),
+          finished_at = null,
+          error = null
+        from claimable
+        where ${jobRuns.id} = claimable.id
+        returning
+          ${jobRuns.id} as id,
+          ${jobRuns.jobType} as "jobType",
+          ${jobRuns.tenantId} as "tenantId",
+          ${jobRuns.attempt} as attempt,
+          ${jobRuns.payloadJson} as payload,
+          claimable.previous_status as "previousStatus"
+      `);
 
   const jobs = claimedJobs.map((job) => ({
     attempt: job.attempt,
     id: job.id,
     jobType: job.jobType as ClaimedJob["jobType"],
     payload: parsePayload(job.payload),
+    previousStatus: job.previousStatus,
     tenantId: job.tenantId,
   }));
 
   await Promise.all(
     jobs.map((job) =>
-      appendJobEvent(job.id, JOB_STATUSES.running, "Job claimed by worker", {
-        attempt: job.attempt,
-      }),
+      appendJobEvent(
+        job.id,
+        JOB_STATUSES.running,
+        job.previousStatus === JOB_STATUSES.running
+          ? "Job reclaimed after stale worker timeout"
+          : "Job claimed by worker",
+        {
+          attempt: job.attempt,
+          previousStatus: job.previousStatus,
+          staleTimeoutMs,
+        },
+      ),
     ),
   );
 
-  return jobs;
+  return jobs.map(({ previousStatus: _previousStatus, ...job }) => job);
 }
 
 export async function markJobSucceeded(

@@ -10,10 +10,11 @@ The key decisions are:
 - The `control plane` is the authority for integration state, credentials, policy, audit, and capability metadata.
 - The `workspace` is where users connect and manage integrations.
 - The tenant OpenClaw runtime consumes integrations through an Otto-owned runtime plugin surface.
-- Managed outbound integrations will start with `hosted Nango`.
+- Managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations, with hosted auth brokers remaining optional fallback infrastructure.
 - Execution and proxying will run in its own `integration-gateway` container, separate from `web` and `worker`.
-- Runtime injection will use `one tool per integration`, not one tool per operation and not one generic integration dispatcher.
-- Tool registration must be deterministic per tenant so prompt caching stays stable while the tenant's integration set is unchanged.
+- Runtime injection should use a fixed `otto-integrations` metatool plugin, not one dynamic top-level tool per integration.
+- The metatool surface should include installed-integration listing, catalog listing, integration detail/status reads, execution, and connection-management primitives.
+- Tool registration should remain static and image-backed so prompt caching stays stable while tenant integration state changes behind the discovery layer.
 - `Slack` remains control-plane-native for transport and ingress, but over time its runtime-facing surface should move into the same integration plugin family.
 
 At a product level:
@@ -82,8 +83,8 @@ The high-level topology should be:
                       |                          |
                       |                          v
               +-------+--------+        +--------------------+
-              | worker         |        | hosted Nango       |
-              | retries/syncs  |        | OAuth/refresh/proxy|
+              | worker         |        | Otto OAuth         |
+              | retries/syncs  |        | sessions + refresh |
               +----------------+        +---------+----------+
                                                   |
                                                   v
@@ -92,7 +93,7 @@ The high-level topology should be:
                                            +-------------+
 ```
 
-The important principle is that the `control plane` remains the authority. Nango is an implementation dependency for managed outbound integrations, not the system of record.
+The important principle is that the `control plane` remains the authority. Hosted auth brokers may be used selectively, but they are implementation dependencies rather than the system of record.
 
 ## Detailed Model
 
@@ -128,25 +129,26 @@ These are workspace-visible connections to third-party applications that Otto do
 
 ## Framework Recommendation
 
-Managed outbound integrations should start with `hosted Nango`.
+Managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations.
 
-Why Nango is the recommendation:
+Why this is now the recommendation:
 
-- It solves OAuth, token refresh, and request proxying.
-- It fits a model where the control plane remains the authority.
-- It does not force Otto to give up capability definitions or settings ownership.
-- It can later be self-hosted if it becomes core infrastructure.
+- Otto already needs its own integration authority, runtime manifest generation, policy enforcement, and provider-specific capability layer.
+- High-value integrations such as Linear need provider-specific auth behavior like `actor=app` that may not fit hosted broker defaults cleanly.
+- Postgres plus the in-repo worker is enough to own session state, token refresh, reconnect semantics, and audit history for the first-party integration set.
+- This keeps the integration product model and the auth lifecycle under one control-plane authority.
 
 Use this position in the spec:
 
-- Managed outbound integrations use hosted Nango initially for OAuth, token refresh, and provider request proxying.
-- The control plane remains the authority for integration state, settings, capability metadata, and policy.
-- Nango is not the system of record.
+- first-party managed outbound integrations should use the OAuth connected-accounts substrate described in `TODO_19_oauth_connected_accounts_substrate.md`
+- the control plane remains the authority for integration state, settings, capability metadata, and policy
+- hosted services remain acceptable fallback infrastructure for long-tail connectors if breadth later becomes more important than control
 
 Alternatives:
 
 - `Pipedream Connect` is acceptable if speed to broad catalog coverage becomes more important than architectural control.
 - `Composio` is useful for chat-first connect experiences, but it is not the preferred substrate for managed Otto's workspace-owned lifecycle.
+- `hosted Nango` remains an acceptable fallback for connectors whose auth shape fits it cleanly, but it is no longer the default recommendation.
 
 ## Data Model
 
@@ -158,8 +160,8 @@ Core records should include:
   This remains the canonical tenant and workspace connection state.
 - provider-specific installation tables
   Example: `linear_installations`.
-- `integration_secrets`
-  Used only when Otto stores credentials directly. For Nango-backed flows, store broker references instead of raw provider tokens.
+- `integration_oauth_connections`, `integration_oauth_credentials`, `integration_oauth_sessions`, and `integration_oauth_events`
+  The shared OAuth connected-accounts substrate for first-party managed integrations.
 - `integration_capability_definitions`
   Canonical capability metadata per provider.
 - `tenant_integration_capability_states`
@@ -226,11 +228,11 @@ The generic lifecycle is shared, but the product UI is provider-specific.
 2. UI loads integration status from the control plane
 3. User clicks Connect Linear
 4. web creates a signed connect session
-5. Browser is redirected to hosted Nango or provider consent flow
+5. Browser is redirected to the provider consent flow
 6. OAuth completes
 7. web or worker records the connected installation
 8. Control plane marks the integration connected and enabled
-9. Runtime capability manifest now includes Linear
+9. Runtime integration discovery and status now reflect Linear as connected
 ```
 
 ## Agent-Initiated Connect Flow
@@ -270,25 +272,37 @@ Long-term direction:
 
 ## How Capabilities Register With The Runtime
 
-Because we are choosing `one tool per integration`, the plugin will dynamically register one top-level tool for each enabled integration for the tenant.
+A fixed metatool surface should be registered statically by the runtime plugin. Tenant-specific integration state should come from control-plane discovery at execution time, not from a projected manifest in `openclaw.json`.
 
-Examples:
+Suggested near-term metatools:
 
-- `linear`
-- `github`
-- `notion`
+- `list_integrations`
+  Installed integrations for the current tenant.
+- `list_integrations_catalog`
+  All integrations Otto knows how to offer, including not-yet-installed ones.
+- `get_integration`
+  Full metadata, functions, schema, and current state for one integration.
+- `get_integration_status`
+  Small status-only read for one integration.
+- `execute_integration_function`
+  Execute one integration function through Otto.
+- `manage_integration_connection`
+  Initiate connect, reconnect, disconnect, or account-selection flows.
 
-Each integration tool exposes a set of operations and their input schemas.
+Near-term v1 behavior:
+
+- `manage_integration_connection` may initially return workspace URLs, connect URLs, and a recommended next action instead of performing every lifecycle mutation directly from the runtime.
+- That still satisfies the product goal as long as Otto can move the user into the real workspace-owned connect or reconnect flow without guessing URLs.
 
 Registration flow:
 
 ```text
 1. Tenant runtime starts
-2. otto-integrations plugin authenticates to the control plane
-3. Plugin fetches the tenant integration manifest
-4. Manifest includes enabled integrations and capability schemas
-5. Plugin registers one tool per integration
-6. The model sees those tools in the active runtime tool list
+2. otto-integrations plugin registers a fixed metatool set from its static plugin contract
+3. The model sees those metatools in the active runtime tool list
+4. When the model needs integration context, the plugin authenticates to the control plane
+5. The control plane returns installed integrations, catalog entries, and per-integration detail/status dynamically
+6. The plugin executes integration functions through Otto's runtime execution path
 ```
 
 Conceptually:
@@ -297,24 +311,46 @@ Conceptually:
 GET /api/internal/runtime/integrations
 
 Response:
-- integrations sorted deterministically
-- each integration includes:
+- installed integrations sorted deterministically
+- each installed integration includes:
   - key
   - label
   - status
-  - operations
-  - input schemas
-  - safe settings metadata
+  - function summaries
+  - capability hints
+  - recommended next action
 ```
 
-For Linear, the plugin would register a tool named `linear`. That tool would expose operations like:
+```text
+GET /api/internal/runtime/integrations/catalog
+
+Response:
+- all supported integrations sorted deterministically
+- each entry includes:
+  - key
+  - label
+  - current install/connect state for this tenant
+  - short capability summary
+```
+
+```text
+GET /api/internal/runtime/integrations/:key
+
+Response:
+- one integration
+- full function list
+- input schema
+- current status
+- account / connection guidance
+```
+
+For Linear, `get_integration("linear")` would return function metadata such as:
 
 - `search_issues`
 - `get_issue`
 - `create_issue`
 - `add_comment`
-
-The model learns the input shape from the runtime tool schema, not from prompt prose alone. The integration tool definition must therefore include operation-specific JSON schemas and examples.
+The model learns the input shape by calling the metatools, not by receiving tenant-specific top-level runtime tools.
 
 ## Prompt Caching Requirements
 
@@ -325,17 +361,18 @@ OpenClaw includes active tool names in the prompt-sensitive path and explicitly 
 Therefore this is a hard requirement:
 
 - We do not need cross-tenant prompt-cache sharing.
-- We do need per-tenant prompt-cache stability.
-- If the tenant's effective integration state is unchanged, the set of integration tools, their order, their names, and their schemas must remain byte-stable across runs.
-- If the tenant changes integrations or settings in a way that changes the tool surface, a single cache bust is acceptable. The new tool surface must then stabilize again.
+- We do need a stable runtime tool registry.
+- The set of metatools, their order, their names, and their schemas must remain byte-stable across runs.
+- Dynamic integration state should live in tool responses and lightweight runtime hints, not in dynamically registered tool definitions.
+- If we project installed-integration hints into prompts or managed files, those hints must be deterministically ordered and rendered canonically.
 
 Implementation rules:
 
-- sort integrations by stable key before tool registration
-- sort operation definitions by stable key
+- keep the metatool registry static
+- sort integrations and functions by stable key in control-plane responses
 - render schemas canonically and deterministically
 - never rely on database insertion order or async completion order
-- keep descriptions and examples stable unless the effective integration state changed
+- keep prompt hints stable unless the effective integration state changed
 
 ## Execution Path
 
@@ -344,17 +381,17 @@ The runtime never calls provider APIs directly for managed integrations.
 Instead:
 
 ```text
-runtime tool -> integration-gateway -> Nango/provider -> normalized result
+runtime metatool -> integration-gateway -> Otto OAuth credentials -> provider -> normalized result
 ```
 
 Detailed flow:
 
 ```text
-1. The model calls the `linear` tool
-2. The otto-integrations plugin sends the request to integration-gateway
+1. The model calls `execute_integration_function`
+2. The otto-integrations plugin sends the request to integration-gateway with integration key and function key
 3. integration-gateway validates tenant, integration, operation, and policy
-4. integration-gateway resolves the Nango connection
-5. integration-gateway executes the request through Nango
+4. integration-gateway resolves the Otto-managed connected account
+5. integration-gateway executes the request through the provider API
 6. integration-gateway emits audit events
 7. integration-gateway returns normalized output
 8. Plugin returns the result to the model
@@ -404,7 +441,7 @@ Why:
 Linear lifecycle:
 
 ```text
-workspace connect -> hosted Nango -> control plane state -> runtime tool `linear`
+workspace connect -> provider consent -> Otto OAuth state -> runtime metatools discover and execute Linear
 ```
 
 Suggested Linear capabilities:
@@ -519,30 +556,31 @@ Implement this as narrow vertical slices that produce a usable end-to-end outcom
 
 Each increment should be shippable to a dev environment, easy to validate manually, and small enough to keep regressions local.
 
-### Increment 1: Tenant-scoped integration manifest with one fake integration
+### Increment 1: Static metatool plugin with one fake integration
 
 Build the smallest end-to-end capability injection path without OAuth, Nango, or provider traffic.
 
 Scope:
 
 - add a minimal control-plane integration registry path for one synthetic provider such as `demo-linear`
-- add a tenant-scoped internal manifest endpoint that returns enabled integrations in deterministic order
+- add tenant-scoped internal routes for installed integrations, catalog integrations, and one-integration detail in deterministic order
 - add the first `otto-integrations` runtime plugin
-- register one tool per integration from the manifest
+- register a fixed metatool set from the plugin contract
 - keep execution stubbed with fixed responses
 
 Why this comes first:
 
 - it proves the runtime plugin contract
-- it proves one-tool-per-integration registration
+- it proves control-plane-backed discovery without poisoning tenant config
 - it proves prompt-cache stability mechanics before real provider work
 
 Acceptance criteria:
 
-- a tenant with the synthetic integration enabled sees a corresponding runtime tool
-- a tenant without it does not
-- repeated runs for the same unchanged tenant produce the same tool names and ordering
-- invoking the tool reaches the control plane and returns a stubbed result
+- the runtime always exposes the same metatools
+- `list_integrations` returns only integrations installed for the tenant
+- `list_integrations_catalog` returns the full supported set in deterministic order
+- `get_integration` returns function metadata and schemas for one integration
+- invoking `execute_integration_function` reaches the control plane and returns a stubbed result
 
 ### Increment 2: Stable execution path through `integration-gateway`
 
@@ -591,29 +629,29 @@ Acceptance criteria:
 - the page renders provider-specific copy and capability summary
 - the page reads state from the same registry used by runtime capability injection
 
-### Increment 4: Hosted Nango connect flow for Linear
+### Increment 4: First-party OAuth connect flow for Linear
 
 Add the first real managed outbound integration connection path.
 
 Scope:
 
-- wire hosted Nango for Linear OAuth
+- wire Otto-owned OAuth for Linear
 - create signed connect intents in `web`
 - persist the canonical Linear connection state in the control plane
-- store the Nango connection id in a provider-specific installation record
+- store the canonical OAuth connection plus provider-specific Linear installation metadata
 - update the workspace UI after successful connect
 
 Why this is a good first real integration step:
 
 - Linear is outbound-only in v1
-- it exercises hosted Nango without webhook complexity
-- it proves the control plane remains the authority while Nango handles auth
+- it validates the shared OAuth connected-accounts substrate on a high-value first-party integration
+- it proves the control plane remains the authority for auth state as well as integration state
 
 Acceptance criteria:
 
 - a user can connect Linear from the workspace UI
-- the control plane stores canonical connection state and the Nango reference
-- the runtime manifest includes `linear` only after connection succeeds
+- the control plane stores canonical connection state, encrypted credentials, and Linear installation metadata
+- runtime discovery and status surfaces reflect the new Linear state after connection succeeds
 - reconnecting updates the existing tenant integration instead of creating duplicates
 
 ### Increment 5: First real Linear read capability
@@ -623,7 +661,7 @@ Ship one useful, low-risk capability end to end.
 Scope:
 
 - implement `linear.search_issues`
-- add provider adapter logic in `integration-gateway` that calls Linear via hosted Nango
+- add provider adapter logic in `integration-gateway` that calls Linear through Otto-owned OAuth credentials
 - normalize response payloads for the runtime
 - keep the tool schema and ordering deterministic
 
@@ -635,8 +673,8 @@ Why this should be isolated:
 
 Acceptance criteria:
 
-- the `linear` runtime tool can execute `search_issues`
-- requests flow runtime -> integration-gateway -> Nango -> Linear
+- `execute_integration_function` can execute `linear.search_issues`
+- requests flow runtime -> integration-gateway -> Otto OAuth credentials -> Linear
 - results come back normalized and usable by the model
 - failed auth produces a clear `attention needed` path instead of opaque provider errors
 
@@ -659,7 +697,7 @@ Acceptance criteria:
 
 - Otto can detect a missing Linear connection
 - Otto can return a workspace connect link for the tenant
-- after the user completes connect, the runtime manifest refresh makes Linear available
+- after the user completes connect, the runtime status/detail responses reflect the updated Linear state without changing the static tool registry
 
 ### Increment 7: Safe Linear settings with validation
 
@@ -780,10 +818,10 @@ Acceptance criteria:
 
 If implementation begins immediately, the recommended first four increments are:
 
-1. Increment 1: tenant-scoped manifest plus synthetic integration
+1. Increment 1: static metatool plugin plus synthetic integration
 2. Increment 2: real `integration-gateway` execution boundary
 3. Increment 3: workspace-visible Linear shell
-4. Increment 4: hosted Nango connect flow for Linear
+4. Increment 4: first-party OAuth connect flow for Linear
 
 That sequence gives a real vertical line quickly without prematurely committing to a broad schema or webhook buildout.
 

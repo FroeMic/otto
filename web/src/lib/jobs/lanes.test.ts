@@ -14,6 +14,10 @@ import { JOB_TYPES } from "./types";
 test("maps job types into the expected resource lanes", () => {
   assert.equal(getJobLane(JOB_TYPES.applyTenantConfig), JOB_LANES.runtime);
   assert.equal(
+    getJobLane(JOB_TYPES.refreshOauthConnection),
+    JOB_LANES.integrations,
+  );
+  assert.equal(
     getJobLane(JOB_TYPES.reconcileTenantScheduledTasks),
     JOB_LANES.integrations,
   );
@@ -39,6 +43,7 @@ test("exposes recurring scheduler jobs and lane job type lists", () => {
   assert.deepEqual(
     new Set(getRecurringSchedulerJobTypes()),
     new Set([
+      JOB_TYPES.scheduleOauthConnectionRefresh,
       JOB_TYPES.scheduleOpenAiUsageSync,
       JOB_TYPES.scheduleCreditSettlement,
       JOB_TYPES.scheduleBillingAutoTopOffEnqueue,

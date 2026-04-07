@@ -5,6 +5,8 @@ export const JOB_TYPES = {
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
+  scheduleOauthConnectionRefresh: "schedule_oauth_connection_refresh",
+  refreshOauthConnection: "refresh_oauth_connection",
   scheduleOpenAiUsageSync: "schedule_openai_usage_sync",
   syncOpenAiUsageTarget: "sync_openai_usage_target",
   scheduleCreditSettlement: "schedule_credit_settlement",
@@ -81,6 +83,13 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type ScheduleOauthConnectionRefreshPayload = Record<string, never>;
+
+export type RefreshOauthConnectionPayload = {
+  connectionId: string;
+  tenantId: string;
+};
+
 export type ScheduleOpenAiUsageSyncPayload = Record<string, never>;
 
 export type SyncOpenAiUsageTargetPayload = {
@@ -143,6 +152,14 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;
       payload: RefreshRuntimeImagePayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.scheduleOauthConnectionRefresh;
+      payload: ScheduleOauthConnectionRefreshPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.refreshOauthConnection;
+      payload: RefreshOauthConnectionPayload;
     }
   | {
       jobType: typeof JOB_TYPES.scheduleOpenAiUsageSync;
