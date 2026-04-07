@@ -667,8 +667,8 @@ Tracker:
   - `[x]` `workspace.list_teams`
   - `[x]` `workspace.list_users`
   - `[x]` `workspace.list_workflow_states`
-  - `[ ]` `workspace.get_organization`
-  - `[ ]` `workspace.list_project_statuses`
+  - `[x]` `workspace.get_organization`
+  - `[x]` `workspace.list_project_statuses`
   - `[ ]` `workspace.search_issues`
   - `[ ]` `workspace.search_projects`
   - `[ ]` `workspace.search_documents`
@@ -823,8 +823,7 @@ Tracker:
 
 Immediate next recommended slice:
 
-- finish the `workspace` foundation with `workspace.get_organization` and `workspace.list_project_statuses`
-- then move to the next adjacent object slices:
+- move to the next adjacent object slices:
   - `comment.list`
   - `comment.get`
   - `comment.create`

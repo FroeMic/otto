@@ -14,7 +14,9 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
+import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
 import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams";
 import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
@@ -78,7 +80,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
       description:
-        "Read the current workspace user, teams, users, and workflow states from Linear.",
+        "Read the current workspace user, organization, teams, users, workflow states, and project statuses from Linear.",
       direction: "read",
       key: "workspace.read",
       label: "Read workspace metadata",
@@ -134,6 +136,32 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               "Use this to confirm which Linear account the workspace is connected with.",
             ],
             execute: executeLinearWorkspaceGetViewer,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {},
+            },
+            commandKey: "workspace.get_organization",
+            commandPath: ["workspace", "get_organization"],
+            description:
+              "Read organization-level metadata for the connected Linear workspace.",
+            exampleArguments: {},
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "organization",
+              "workspace",
+              "org",
+              "settings",
+            ],
+            label: "Get organization",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need organization-level context such as the workspace url key or project-status count.",
+            ],
+            execute: executeLinearWorkspaceGetOrganization,
           },
           {
             argumentsSchema: {
@@ -243,6 +271,43 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : 50,
             }),
             execute: executeLinearWorkspaceListWorkflowStates,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "workspace.list_project_statuses",
+            commandPath: ["workspace", "list_project_statuses"],
+            description:
+              "List project statuses across the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project",
+              "statuses",
+              "project status",
+              "roadmap",
+            ],
+            label: "List project statuses",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the canonical project lifecycle states before reading or updating projects.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearWorkspaceListProjectStatuses,
           },
         ],
         description:
