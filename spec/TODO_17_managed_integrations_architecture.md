@@ -274,6 +274,68 @@ Long-term direction:
 
 A fixed metatool surface should be registered statically by the runtime plugin. Tenant-specific integration state should come from control-plane discovery at execution time, not from a projected manifest in `openclaw.json`.
 
+The implementation should now use an explicit internal integration framework under `web/src/integrations/`, with a strict split between framework code and provider code:
+
+- `web/src/integrations/framework`
+  Registry, manifest generation, execution dispatch, OAuth resolution hooks, and shared types.
+- `web/src/integrations/library/<provider>`
+  Provider-owned metadata, OAuth binding, runtime operations, normalization, and UI bindings.
+
+For example:
+
+```text
+web/src/integrations/
+  framework/
+    registry.ts
+    manifest.ts
+    execute.ts
+    types.ts
+  library/
+    linear/
+      definition.ts
+      oauth/
+        provider.ts
+      runtime/
+        execute.ts
+        operations/
+          search-issues.ts
+```
+
+This is an internal framework approach, not just a loose helper library.
+
+The framework owns:
+
+- one canonical integration registry
+- one execution contract
+- one way to advertise schemas and capabilities back to Otto
+- one place to integrate with the OAuth substrate
+
+Each provider module plugs into that framework by exporting one canonical definition object.
+
+Conceptually:
+
+```text
+IntegrationDefinition
+- key
+- label
+- category metadata
+- workspace visibility metadata
+- agent capability metadata
+- runtime operations and schemas
+- optional OAuth binding
+- provider execute handler
+```
+
+The registry should be the single source of truth for:
+
+- workspace catalog visibility
+- runtime manifest generation
+- per-integration detail and status responses
+- provider OAuth registration
+- execution dispatch
+
+This replaces the older split where catalog metadata, runtime manifest metadata, and OAuth provider registration lived in separate parallel registries.
+
 Suggested near-term metatools:
 
 - `list_integrations`
@@ -301,8 +363,22 @@ Registration flow:
 2. otto-integrations plugin registers a fixed metatool set from its static plugin contract
 3. The model sees those metatools in the active runtime tool list
 4. When the model needs integration context, the plugin authenticates to the control plane
-5. The control plane returns installed integrations, catalog entries, and per-integration detail/status dynamically
-6. The plugin executes integration functions through Otto's runtime execution path
+5. The control plane reads from the canonical integration registry plus tenant state
+6. The control plane returns installed integrations, catalog entries, and per-integration detail/status dynamically
+7. The plugin executes integration functions through Otto's runtime execution path
+```
+
+Control-plane structure:
+
+```text
+agent
+  -> execute_integration_function("linear", "search_issues", args)
+  -> otto-integrations metatool
+  -> control-plane execute route
+  -> integrations/framework/registry.ts resolves "linear"
+  -> integrations/framework/execute.ts resolves auth + dispatches operation
+  -> integrations/library/linear/runtime/... calls Linear
+  -> normalized result returns to Otto
 ```
 
 Conceptually:
@@ -350,7 +426,63 @@ For Linear, `get_integration("linear")` would return function metadata such as:
 - `get_issue`
 - `create_issue`
 - `add_comment`
+- `update_issue_state`
+
 The model learns the input shape by calling the metatools, not by receiving tenant-specific top-level runtime tools.
+
+The important schema rule is:
+
+- static metatool schemas are advertised directly by the runtime plugin
+- provider operation schemas are advertised dynamically in metatool responses such as `get_integration("linear")`
+- Otto should never receive one dynamic top-level runtime tool per provider operation
+
+So the schema flow should be:
+
+```text
+runtime startup
+  -> static metatools registered
+  -> model sees those schemas
+
+model needs Linear details
+  -> get_integration("linear")
+  -> response includes operation list + parameter schema
+  -> model calls execute_integration_function(...)
+```
+
+This keeps prompt caching stable while still letting Otto discover the exact provider-specific input shape at runtime.
+
+## OAuth Substrate Integration
+
+The integration framework should treat OAuth as a shared substrate, not something each provider re-invents inside each operation handler.
+
+Provider definitions may declare an OAuth binding:
+
+```text
+integration registry entry
+  -> says "linear uses oauth provider linear"
+  -> framework resolves current tenant connection + token
+  -> provider runtime handler receives authenticated context
+```
+
+The execution layering should be:
+
+```text
+framework
+  -> looks up provider definition
+  -> checks whether OAuth is required
+  -> resolves connected account from the shared substrate
+  -> passes authenticated context into provider execution
+
+provider module
+  -> never queries OAuth tables directly during normal execution
+  -> receives auth context and calls the provider API
+```
+
+That means:
+
+- `TODO_19` remains the owner of OAuth session state, token storage, refresh, reconnect, and durable failure state
+- `TODO_17` remains the owner of integration registration, schema advertising, discovery, and execution dispatch
+- provider modules should consume OAuth through framework context instead of reaching deep into the DB layer directly
 
 ## Prompt Caching Requirements
 

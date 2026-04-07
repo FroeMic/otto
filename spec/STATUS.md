@@ -352,6 +352,14 @@
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
   - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
+- The next managed-integrations refactor slice is now in progress on `main`:
+  - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
+  - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
+  - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
+  - the old Linear route now renders the provider-owned page from the integration bundle, and `/integrations2/[integrationKey]` can now render provider-owned detail pages directly from the registry
+  - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
+  - runtime operation validation now runs in the framework before provider execution using the advertised operation schema plus provider-specific normalization
+  - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the next recommended slice is to add lightweight runtime hints for installed integrations and then expand connection management beyond connect/reconnect guidance into disconnect and account selection
