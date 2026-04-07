@@ -38,6 +38,7 @@ import { executeLinearProjectListUpdates } from "./commands/project/list-updates
 import { executeLinearProjectSearch } from "./commands/project/search";
 import { executeLinearProjectUpdate } from "./commands/project/update";
 import { executeLinearUserGet } from "./commands/user/get";
+import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues";
 import { executeLinearUserList } from "./commands/user/list";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
@@ -833,6 +834,50 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : 25,
             }),
             execute: executeLinearUserList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.list_assigned_issues",
+            commandPath: ["user", "list_assigned_issues"],
+            description:
+              "List issues currently assigned to one Linear user.",
+            exampleArguments: {
+              limit: 25,
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "assignee",
+              "assigned issues",
+              "owned issues",
+            ],
+            label: "List assigned issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the current issue workload for one Linear user.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserListAssignedIssues,
           },
         ],
         description: "User profile reads for the connected Linear workspace.",

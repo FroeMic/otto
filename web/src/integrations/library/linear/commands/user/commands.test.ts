@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearUserGet } from "./get";
+import { executeLinearUserListAssignedIssues } from "./list-assigned-issues";
 import { executeLinearUserList } from "./list";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
@@ -20,6 +21,36 @@ function buildUserNode(overrides: Record<string, unknown> = {}) {
     statusEmoji: "🚧",
     statusLabel: "Heads down",
     statusUntilAt: "2026-04-08T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function buildIssueNode(overrides: Record<string, unknown> = {}) {
+  return {
+    assignee: buildUserNode(),
+    createdAt: "2026-04-07T10:00:00.000Z",
+    description: "Issue description",
+    id: "issue-1",
+    identifier: "INT-15",
+    labelIds: ["label-1"],
+    priority: 2,
+    project: {
+      id: "project-1",
+      name: "Credits workflow",
+    },
+    state: {
+      id: "state-1",
+      name: "Backlog",
+      type: "unstarted",
+    },
+    team: {
+      id: "team-1",
+      key: "INT",
+      name: "Integration",
+    },
+    title: "Hello World",
+    updatedAt: "2026-04-07T12:00:00.000Z",
+    url: "https://linear.app/otto/issue/INT-15/hello-world",
     ...overrides,
   };
 }
@@ -150,5 +181,71 @@ describe("linear user commands", () => {
     assert.equal(result.items[0]?.id, "user-1");
     assert.equal(result.items[0]?.name, "Sam Example");
     assert.equal(result.items[1]?.name, "Pat");
+  });
+
+  it("lists assigned issues for one user", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            user: {
+              ...buildUserNode(),
+              assignedIssues: {
+                nodes: [buildIssueNode()],
+              },
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearUserListAssignedIssues({
+      arguments: {
+        limit: 10,
+        userId: "user-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      items: Array<{
+        identifier: string | null;
+      }>;
+      limit: number;
+      lookup: string;
+      totalMatched: number;
+      user: {
+        id: string | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+        limit: number;
+      };
+    };
+
+    assert.match(payload.query, /assignedIssues\(first: \$limit, orderBy: updatedAt\)/);
+    assert.equal(payload.variables.id, "user-1");
+    assert.equal(payload.variables.limit, 10);
+    assert.equal(result.commandKey, "user.list_assigned_issues");
+    assert.equal(result.lookup, "user-1");
+    assert.equal(result.limit, 10);
+    assert.equal(result.totalMatched, 1);
+    assert.equal(result.items[0]?.identifier, "INT-15");
+    assert.equal(result.user?.id, "user-1");
   });
 });
