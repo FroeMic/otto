@@ -377,6 +377,8 @@
   - runtime command validation now runs in the framework before provider execution using the advertised command schema plus provider-specific normalization
   - runtime integration summary and detail responses are now built from framework-native command/group DTOs instead of the older flat function shapes
   - progressive discovery is now the preferred pattern: semantic command search returns compact hits, `get_integration` stays summary-only, and `get_integration_details` loads one command group or one command schema on demand
+  - `TODO_17` now includes an object-first Linear coverage tracker so future command work can be implemented and checked off object by object instead of expanding ad hoc
+  - the next recommended Linear slice is to finish the workspace foundation with `workspace.get_organization` and `workspace.list_project_statuses`, then move into the issue write and relationship slice
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

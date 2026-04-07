@@ -618,6 +618,220 @@ Suggested integration-linked skill:
 - which project to use
 - how to write issue titles
 
+### Linear Coverage Tracker
+
+Build Linear object first, not schema first.
+
+Rules:
+
+- keep `linear` as one integration
+- keep one shared execution surface
+- organize commands by object group such as `workspace`, `issue`, or `project`
+- prefer curated business objects over full GraphQL parity
+- isolate file upload under `attachment.*`
+- defer raw binary download until there is a concrete agent use case
+
+Current shipped Linear commands:
+
+- `workspace.get_viewer`
+- `workspace.list_teams`
+- `workspace.list_users`
+- `workspace.list_workflow_states`
+- `issue.search`
+- `issue.get`
+- `issue.list`
+
+Recommended implementation order:
+
+1. `workspace`
+2. `issue`
+3. `comment`
+4. `project`
+5. `cycle`
+6. `team`
+7. `attachment`
+8. `document`
+9. `label`
+10. `project_milestone`
+11. `project_status`
+12. `initiative`
+13. `customer`
+14. `customer_need`
+15. `customer_status`
+16. `customer_tier`
+
+Tracker:
+
+- `workspace`
+  - `[x]` `workspace.get_viewer`
+  - `[x]` `workspace.list_teams`
+  - `[x]` `workspace.list_users`
+  - `[x]` `workspace.list_workflow_states`
+  - `[ ]` `workspace.get_organization`
+  - `[ ]` `workspace.list_project_statuses`
+  - `[ ]` `workspace.search_issues`
+  - `[ ]` `workspace.search_projects`
+  - `[ ]` `workspace.search_documents`
+
+- `issue`
+  - `[x]` `issue.list`
+  - `[x]` `issue.get`
+  - `[x]` `issue.search`
+  - `[ ]` `issue.create`
+  - `[ ]` `issue.update`
+  - `[ ]` `issue.archive`
+  - `[ ]` `issue.batch_update`
+  - `[ ]` `issue.list_comments`
+  - `[ ]` `issue.list_attachments`
+  - `[ ]` `issue.list_documents`
+  - `[ ]` `issue.list_relations`
+  - `[ ]` `issue.add_label`
+  - `[ ]` `issue.remove_label`
+
+- `comment`
+  - `[ ]` `comment.list`
+  - `[ ]` `comment.get`
+  - `[ ]` `comment.create`
+  - `[ ]` `comment.update`
+  - `[ ]` `comment.delete`
+
+- `project`
+  - `[ ]` `project.list`
+  - `[ ]` `project.get`
+  - `[ ]` `project.search`
+  - `[ ]` `project.create`
+  - `[ ]` `project.update`
+  - `[ ]` `project.archive`
+  - `[ ]` `project.list_issues`
+  - `[ ]` `project.list_updates`
+  - `[ ]` `project.create_update`
+  - `[ ]` `project.list_documents`
+  - `[ ]` `project.list_milestones`
+  - `[ ]` `project.list_labels`
+
+- `cycle`
+  - `[ ]` `cycle.list`
+  - `[ ]` `cycle.get`
+  - `[ ]` `cycle.create`
+  - `[ ]` `cycle.update`
+  - `[ ]` `cycle.archive`
+  - `[ ]` `cycle.list_issues`
+
+- `team`
+  - `[ ]` `team.list`
+  - `[ ]` `team.get`
+  - `[ ]` `team.create`
+  - `[ ]` `team.update`
+  - `[ ]` `team.list_cycles`
+  - `[ ]` `team.list_workflow_states`
+  - `[ ]` `team.list_labels`
+  - `[ ]` `team.list_projects`
+  - `[ ]` `team.list_issues`
+
+- `user`
+  - `[ ]` `user.get`
+  - `[ ]` `user.list`
+  - `[ ]` `user.list_assigned_issues`
+  - `[ ]` `user.list_created_issues`
+  - `[ ]` `user.list_team_memberships`
+
+- `attachment`
+  - `[ ]` `attachment.list`
+  - `[ ]` `attachment.get`
+  - `[ ]` `attachment.list_for_url`
+  - `[ ]` `attachment.upload_file`
+  - `[ ]` `attachment.create`
+  - `[ ]` `attachment.create_from_uploaded_file`
+  - `[ ]` `attachment.update`
+
+- `document`
+  - `[ ]` `document.list`
+  - `[ ]` `document.get`
+  - `[ ]` `document.search`
+  - `[ ]` `document.create`
+  - `[ ]` `document.update`
+
+- `label`
+  - `[ ]` `label.list_issue_labels`
+  - `[ ]` `label.get_issue_label`
+  - `[ ]` `label.create_issue_label`
+  - `[ ]` `label.update_issue_label`
+  - `[ ]` `label.delete_issue_label`
+  - `[ ]` `label.restore_issue_label`
+  - `[ ]` `label.retire_issue_label`
+  - `[ ]` `label.list_project_labels`
+  - `[ ]` `label.get_project_label`
+  - `[ ]` `label.create_project_label`
+  - `[ ]` `label.update_project_label`
+  - `[ ]` `label.delete_project_label`
+  - `[ ]` `label.restore_project_label`
+  - `[ ]` `label.retire_project_label`
+
+- `project_milestone`
+  - `[ ]` `project_milestone.list`
+  - `[ ]` `project_milestone.get`
+  - `[ ]` `project_milestone.create`
+  - `[ ]` `project_milestone.update`
+  - `[ ]` `project_milestone.delete`
+  - `[ ]` `project_milestone.move`
+
+- `project_status`
+  - `[ ]` `project_status.list`
+  - `[ ]` `project_status.get`
+  - `[ ]` `project_status.create`
+  - `[ ]` `project_status.update`
+
+- `initiative`
+  - `[ ]` `initiative.list`
+  - `[ ]` `initiative.get`
+  - `[ ]` `initiative.create`
+  - `[ ]` `initiative.update`
+  - `[ ]` `initiative.archive`
+  - `[ ]` `initiative.list_projects`
+  - `[ ]` `initiative.list_updates`
+
+- `customer`
+  - `[ ]` `customer.list`
+  - `[ ]` `customer.get`
+  - `[ ]` `customer.create`
+  - `[ ]` `customer.update`
+  - `[ ]` `customer.list_needs`
+
+- `customer_need`
+  - `[ ]` `customer_need.list`
+  - `[ ]` `customer_need.get`
+  - `[ ]` `customer_need.create`
+  - `[ ]` `customer_need.create_from_attachment`
+  - `[ ]` `customer_need.update`
+  - `[ ]` `customer_need.archive`
+  - `[ ]` `customer_need.unarchive`
+  - `[ ]` `customer_need.delete`
+
+- `customer_status`
+  - `[ ]` `customer_status.list`
+  - `[ ]` `customer_status.get`
+  - `[ ]` `customer_status.create`
+  - `[ ]` `customer_status.update`
+  - `[ ]` `customer_status.delete`
+
+- `customer_tier`
+  - `[ ]` `customer_tier.list`
+  - `[ ]` `customer_tier.get`
+  - `[ ]` `customer_tier.create`
+  - `[ ]` `customer_tier.update`
+  - `[ ]` `customer_tier.delete`
+
+Immediate next recommended slice:
+
+- finish the `workspace` foundation with `workspace.get_organization` and `workspace.list_project_statuses`
+- then move to the `issue` write and relationship slice:
+  - `issue.create`
+  - `issue.update`
+  - `issue.archive`
+  - `issue.batch_update`
+  - `issue.list_comments`
+  - `issue.list_attachments`
+
 ## Slack Example
 
 Slack is different.
