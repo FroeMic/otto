@@ -176,6 +176,26 @@ const PROJECT_MILESTONE_FIELDS = `
   }
 `;
 
+const CYCLE_FIELDS = `
+  id
+  name
+  number
+  description
+  startsAt
+  endsAt
+  createdAt
+  completedAt
+  progress
+  isActive
+  isFuture
+  isPast
+  team {
+    id
+    key
+    name
+  }
+`;
+
 const GET_ISSUE_BY_ID_QUERY = `
   query OttoLinearIssueById($id: String!) {
     issue(id: $id) {
@@ -407,6 +427,26 @@ export type LinearProjectMilestoneNode = {
   updatedAt?: string | null;
 };
 
+export type LinearCycleNode = {
+  completedAt?: string | null;
+  createdAt?: string | null;
+  description?: string | null;
+  endsAt?: string | null;
+  id?: string | null;
+  isActive?: boolean | null;
+  isFuture?: boolean | null;
+  isPast?: boolean | null;
+  name?: string | null;
+  number?: number | null;
+  progress?: number | null;
+  startsAt?: string | null;
+  team?: {
+    id?: string | null;
+    key?: string | null;
+    name?: string | null;
+  } | null;
+};
+
 export async function executeLinearGraphql<T>(input: {
   accessToken: string;
   query: string;
@@ -517,6 +557,10 @@ export function getLinearProjectUpdateFields() {
 
 export function getLinearProjectMilestoneFields() {
   return PROJECT_MILESTONE_FIELDS;
+}
+
+export function getLinearCycleFields() {
+  return CYCLE_FIELDS;
 }
 
 export function mapLinearIssueReference(
@@ -737,6 +781,36 @@ export function mapLinearProjectMilestone(
     status: milestone.status?.trim() || null,
     targetDate: milestone.targetDate ?? null,
     updatedAt: milestone.updatedAt ?? null,
+  };
+}
+
+export function mapLinearCycle(cycle: LinearCycleNode) {
+  const cycleName = cycle.name?.trim();
+  const cycleNumber =
+    typeof cycle.number === "number" && Number.isFinite(cycle.number)
+      ? cycle.number
+      : null;
+
+  return {
+    completedAt: cycle.completedAt ?? null,
+    createdAt: cycle.createdAt ?? null,
+    description: cycle.description?.trim() || null,
+    endsAt: cycle.endsAt ?? null,
+    id: cycle.id?.trim() || null,
+    isActive: cycle.isActive ?? false,
+    isFuture: cycle.isFuture ?? false,
+    isPast: cycle.isPast ?? false,
+    name:
+      cycleName ||
+      (cycleNumber !== null ? `Cycle ${cycleNumber}` : "Untitled cycle"),
+    number: cycleNumber,
+    progress:
+      typeof cycle.progress === "number" && Number.isFinite(cycle.progress)
+        ? cycle.progress
+        : 0,
+    startsAt: cycle.startsAt ?? null,
+    team: cycle.team?.key?.trim() || cycle.team?.name?.trim() || null,
+    teamId: cycle.team?.id?.trim() || null,
   };
 }
 
@@ -967,6 +1041,21 @@ export function buildLinearProjectChildCollectionCommandResult<T>(input: {
     items: input.items,
     limit: input.limit,
     project: mapLinearProject(input.project),
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCycleCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCycleNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearCycle),
+    limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
   };

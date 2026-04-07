@@ -6,6 +6,7 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -200,6 +201,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Read cycles and sprint metadata in the connected Linear workspace.",
+      direction: "read",
+      key: "cycle.read",
+      label: "Read cycles",
+    }),
+    buildCapability({
+      description:
         "Create, update, archive, and post project updates in the connected Linear workspace.",
       direction: "tool",
       key: "project.write",
@@ -221,6 +229,49 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 50,
+                },
+              },
+            },
+            commandKey: "cycle.list",
+            commandPath: ["cycle", "list"],
+            description:
+              "List recently updated cycles from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "cycles", "sprint", "sprints"],
+            label: "List cycles",
+            resultMode: "json",
+            usageNotes: [
+              "This returns a recent slice of cycles and is useful for browsing current or recent sprint windows.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCycleList,
+          },
+        ],
+        description: "Cycle reads for the connected Linear workspace.",
+        groupKey: "cycle",
+        groupPath: ["cycle"],
+        intentKeywords: ["linear", "cycle", "cycles", "sprint"],
+        label: "Cycles",
+      },
       {
         commands: [
           {
