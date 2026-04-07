@@ -38,6 +38,7 @@ import { executeLinearProjectListUpdates } from "./commands/project/list-updates
 import { executeLinearProjectSearch } from "./commands/project/search";
 import { executeLinearProjectUpdate } from "./commands/project/update";
 import { executeLinearUserGet } from "./commands/user/get";
+import { executeLinearUserList } from "./commands/user/list";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
 import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
@@ -794,6 +795,44 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearUserGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "user.list",
+            commandPath: ["user", "list"],
+            description:
+              "List users visible in the connected Linear workspace with normalized profile fields.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "users",
+              "people",
+              "members",
+              "assignees",
+            ],
+            label: "List users",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need canonical Linear user ids before reading one user or filtering work by person.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearUserList,
           },
         ],
         description: "User profile reads for the connected Linear workspace.",

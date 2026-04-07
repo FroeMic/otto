@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearUserGet } from "./get";
+import { executeLinearUserList } from "./list";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -84,5 +85,70 @@ describe("linear user commands", () => {
     assert.equal(result.user?.email, "sam@example.com");
     assert.equal(result.user?.name, "Sam Example");
     assert.equal(result.user?.statusLabel, "Heads down");
+  });
+
+  it("lists users with normalized people fields", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            users: {
+              nodes: [
+                buildUserNode(),
+                buildUserNode({
+                  displayName: "Pat",
+                  email: "pat@example.com",
+                  id: "user-2",
+                  name: "",
+                }),
+              ],
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearUserList({
+      arguments: {
+        limit: 5,
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      items: Array<{
+        id: string | null;
+        name: string;
+      } | null>;
+      limit: number;
+      totalMatched: number;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        limit: number;
+      };
+    };
+
+    assert.match(payload.query, /query OttoLinearUserList/);
+    assert.equal(payload.variables.limit, 5);
+    assert.equal(result.commandKey, "user.list");
+    assert.equal(result.limit, 5);
+    assert.equal(result.totalMatched, 2);
+    assert.equal(result.items[0]?.id, "user-1");
+    assert.equal(result.items[0]?.name, "Sam Example");
+    assert.equal(result.items[1]?.name, "Pat");
   });
 });
