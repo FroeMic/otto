@@ -54,9 +54,11 @@ import {
   buildRuntimeIntegrationManifestForKeys,
   buildRuntimeIntegrationResponse,
   executeRegisteredIntegrationFunction,
+  findIntegrationFunctionMatches,
   getIntegrationDefinition,
-  type listRuntimeIntegrationDefinitions,
+  listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
+  type RuntimeIntegrationFunctionMatch,
   type RuntimeIntegrationManifestEntry,
 } from "@/integrations/framework";
 import {
@@ -4479,6 +4481,26 @@ function buildRuntimeTenantIntegrations(input: {
     providerKey: string;
   }>;
 }) {
+  const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
+
+  return definitionsWithStatus.map(({ definition, status }) =>
+    buildRuntimeIntegrationResponse({
+      definition,
+      status,
+    }),
+  );
+}
+
+function buildRuntimeDefinitionsWithStatus(input: {
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+  }>;
+}) {
   const statusByProviderKey = new Map<
     string,
     {
@@ -4508,7 +4530,7 @@ function buildRuntimeTenantIntegrations(input: {
     const integrationStatus = row?.integrationStatus ?? null;
     const connectionStatus = row?.connectionStatus ?? null;
 
-    return buildRuntimeIntegrationResponse({
+    return {
       definition,
       status: {
         connected,
@@ -4519,7 +4541,7 @@ function buildRuntimeTenantIntegrations(input: {
           integrationStatus === "needs_attention" ||
           connectionStatus === "needs_attention",
       },
-    });
+    };
   });
 }
 
@@ -4600,6 +4622,44 @@ export async function getRuntimeIntegrationForTenant(input: {
     integrations.find((integration) => integration.key === integrationKey) ??
     null
   );
+}
+
+export async function findRuntimeIntegrationFunctionsForTenant(input: {
+  query: string;
+  tenantId: string;
+}): Promise<{ matches: RuntimeIntegrationFunctionMatch[]; query: string }> {
+  const db = getDb();
+  const normalizedQuery = input.query.trim();
+
+  if (!normalizedQuery) {
+    return {
+      matches: [],
+      query: normalizedQuery,
+    };
+  }
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const definitionsWithStatus = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+
+    return {
+      matches: findIntegrationFunctionMatches({
+        definitions: definitionsWithStatus.map(({ definition, status }) => ({
+          ...definition,
+          status,
+        })),
+        query: normalizedQuery,
+      }),
+      query: normalizedQuery,
+    };
+  });
 }
 
 export type RuntimeIntegrationConnectionAction = {

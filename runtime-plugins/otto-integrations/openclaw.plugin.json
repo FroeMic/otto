@@ -4,6 +4,7 @@
   "description": "Otto-managed integration tools backed by the workspace app.",
   "contracts": {
     "tools": [
+      "find_integration_functions",
       "list_integrations",
       "list_integrations_catalog",
       "get_integration",

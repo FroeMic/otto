@@ -6,9 +6,12 @@ import type { AgentCapability } from "@/tools/types";
 
 export type IntegrationOperationDefinition = {
   description: string;
+  exampleArguments?: Record<string, unknown>;
+  intentKeywords?: string[];
   key: string;
   label: string;
   parametersSchema: Record<string, unknown>;
+  usageNotes?: string[];
 };
 
 export type IntegrationOperationExecute = (input: {
@@ -53,10 +56,57 @@ export type RuntimeIntegrationResponse = {
   description: string;
   key: string;
   label: string;
-  operations: IntegrationOperationDefinition[];
+  operations: RuntimeIntegrationOperationResponse[];
   status: RuntimeIntegrationStatus;
   toolDescription: string;
   toolName: string;
+  usageGuide: RuntimeIntegrationUsageGuide;
+};
+
+export type RuntimeIntegrationUsageGuide = {
+  argumentsField: "arguments";
+  connectionToolName: "manage_integration_connection";
+  detailToolName: "get_integration";
+  discoveryToolName: "find_integration_functions";
+  executeToolName: "execute_integration_function";
+  recommendedWorkflow: string[];
+};
+
+export type RuntimeIntegrationOperationExecutionGuide = {
+  argumentsField: "arguments";
+  exampleCall: {
+    arguments: Record<string, unknown>;
+    functionKey: string;
+    integrationKey: string;
+  };
+  functionKey: string;
+  integrationKey: string;
+  toolName: "execute_integration_function";
+};
+
+export type RuntimeIntegrationOperationResponse = {
+  description: string;
+  executionGuide: RuntimeIntegrationOperationExecutionGuide;
+  key: string;
+  label: string;
+  parametersSchema: Record<string, unknown>;
+  usageNotes: string[];
+};
+
+export type RuntimeIntegrationFunctionMatch = {
+  connected: boolean;
+  description: string;
+  executionGuide: RuntimeIntegrationOperationExecutionGuide;
+  functionKey: string;
+  functionLabel: string;
+  integrationKey: string;
+  integrationLabel: string;
+  needsAttention: boolean;
+  parametersSchema: Record<string, unknown>;
+  reason: string;
+  score: number;
+  status: RuntimeIntegrationStatus;
+  usageNotes: string[];
 };
 
 export type IntegrationExecutionContext = {
