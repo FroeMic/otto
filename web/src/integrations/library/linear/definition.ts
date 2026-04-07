@@ -6,6 +6,12 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import { executeLinearCycleArchive } from "./commands/cycle/archive";
+import { executeLinearCycleCreate } from "./commands/cycle/create";
+import { executeLinearCycleGet } from "./commands/cycle/get";
+import { executeLinearCycleList } from "./commands/cycle/list";
+import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
+import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -154,6 +160,18 @@ const PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA = {
   description: "Project update health state.",
 } as const;
 
+const CYCLE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear cycle id.",
+} as const;
+
+const DATETIME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "ISO-8601 datetime string.",
+} as const;
+
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
@@ -200,6 +218,20 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Read cycles and sprint metadata in the connected Linear workspace.",
+      direction: "read",
+      key: "cycle.read",
+      label: "Read cycles",
+    }),
+    buildCapability({
+      description:
+        "Create and later update or archive cycles in the connected Linear workspace.",
+      direction: "tool",
+      key: "cycle.write",
+      label: "Write cycles",
+    }),
+    buildCapability({
+      description:
         "Create, update, archive, and post project updates in the connected Linear workspace.",
       direction: "tool",
       key: "project.write",
@@ -221,6 +253,299 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                completedAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional completion datetime when creating a completed cycle.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional cycle description.",
+                },
+                endsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Cycle end datetime.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional custom cycle name.",
+                },
+                startsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Cycle start datetime.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear team id for the cycle.",
+                },
+              },
+              required: ["teamId", "startsAt", "endsAt"],
+            },
+            commandKey: "cycle.create",
+            commandPath: ["cycle", "create"],
+            description: "Create a new Linear cycle.",
+            exampleArguments: {
+              endsAt: "2026-04-14T00:00:00.000Z",
+              startsAt: "2026-04-07T00:00:00.000Z",
+              teamId: "team-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "create", "sprint"],
+            label: "Create cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_teams first if you need the canonical team id before creating the cycle.",
+            ],
+            validate: (argumentsObject) => ({
+              completedAt:
+                typeof argumentsObject.completedAt === "string"
+                  ? argumentsObject.completedAt.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              endsAt:
+                typeof argumentsObject.endsAt === "string"
+                  ? argumentsObject.endsAt.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              startsAt:
+                typeof argumentsObject.startsAt === "string"
+                  ? argumentsObject.startsAt.trim()
+                  : "",
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                completedAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional cycle completion datetime.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated cycle description.",
+                },
+                endsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional updated cycle end datetime.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated custom cycle name.",
+                },
+                startsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional updated cycle start datetime.",
+                },
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.update",
+            commandPath: ["cycle", "update"],
+            description: "Update an existing Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+              description: "Updated cycle description",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "update", "edit", "sprint"],
+            label: "Update cycle",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides cycleId.",
+            ],
+            validate: (argumentsObject) => ({
+              completedAt:
+                typeof argumentsObject.completedAt === "string"
+                  ? argumentsObject.completedAt.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              endsAt:
+                typeof argumentsObject.endsAt === "string"
+                  ? argumentsObject.endsAt.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              startsAt:
+                typeof argumentsObject.startsAt === "string"
+                  ? argumentsObject.startsAt.trim()
+                  : null,
+            }),
+            execute: executeLinearCycleUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.archive",
+            commandPath: ["cycle", "archive"],
+            description: "Archive one Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "archive", "close", "sprint"],
+            label: "Archive cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when the cycle should be archived in Linear.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.list_issues",
+            commandPath: ["cycle", "list_issues"],
+            description: "List issues attached to one Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "issues", "sprint issues"],
+            label: "List cycle issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to expand a cycle into the underlying issue work scheduled inside that sprint.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearCycleListIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.get",
+            commandPath: ["cycle", "get"],
+            description:
+              "Read one Linear cycle by cycle id and return normalized cycle context.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "sprint", "get cycle"],
+            label: "Get cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use cycle ids returned by cycle.list before reading one cycle in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 50,
+                },
+              },
+            },
+            commandKey: "cycle.list",
+            commandPath: ["cycle", "list"],
+            description:
+              "List recently updated cycles from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "cycles", "sprint", "sprints"],
+            label: "List cycles",
+            resultMode: "json",
+            usageNotes: [
+              "This returns a recent slice of cycles and is useful for browsing current or recent sprint windows.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCycleList,
+          },
+        ],
+        description: "Cycle reads for the connected Linear workspace.",
+        groupKey: "cycle",
+        groupPath: ["cycle"],
+        intentKeywords: ["linear", "cycle", "cycles", "sprint"],
+        label: "Cycles",
+      },
       {
         commands: [
           {
