@@ -1,6 +1,7 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
 
+import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
@@ -260,6 +261,12 @@ const DOCUMENT_ID_ARGUMENT_SCHEMA = {
   description: "Linear document id.",
 } as const;
 
+const ATTACHMENT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear attachment id.",
+} as const;
+
 const DOCUMENT_TITLE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
@@ -369,6 +376,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Read attachments and uploaded asset links in the connected Linear workspace.",
+      direction: "read",
+      key: "attachment.read",
+      label: "Read attachments",
+    }),
+    buildCapability({
+      description:
         "Read and inspect comments across issue threads in the connected Linear workspace.",
       direction: "read",
       key: "comment.read",
@@ -460,6 +474,61 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "attachment.list",
+            commandPath: ["attachment", "list"],
+            description:
+              "List recently updated attachments from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attachments",
+              "files",
+              "links",
+              "assets",
+            ],
+            label: "List attachments",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse recent attachment records before reading one in detail or linking uploaded assets to issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearAttachmentList,
+          },
+        ],
+        description:
+          "Attachment metadata and uploaded asset reads for the connected Linear workspace.",
+        groupKey: "attachment",
+        groupPath: ["attachment"],
+        intentKeywords: [
+          "linear",
+          "attachment",
+          "attachments",
+          "files",
+          "links",
+          "assets",
+        ],
+        label: "Attachments",
+      },
       {
         commands: [
           {

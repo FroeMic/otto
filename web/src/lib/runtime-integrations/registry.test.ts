@@ -24,6 +24,7 @@ describe("runtime integration registry", () => {
     assert.deepEqual(
       manifest[0]?.commandGroups.map((group) => group.groupKey),
       [
+        "attachment",
         "customer_need",
         "customer",
         "customer_tier",
@@ -40,6 +41,11 @@ describe("runtime integration registry", () => {
         "project",
         "comment",
       ],
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "attachment")
+        ?.commandCount,
+      1,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "workspace")
