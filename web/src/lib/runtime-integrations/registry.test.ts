@@ -23,7 +23,7 @@ describe("runtime integration registry", () => {
     assert.equal(manifest[0]?.toolName, "linear");
     assert.deepEqual(
       manifest[0]?.commandGroups.map((group) => group.groupKey),
-      ["customer_status", "initiative", "cycle", "workspace", "user", "document", "label", "project_milestone", "project_status", "issue", "project", "comment"],
+      ["customer_tier", "customer_status", "initiative", "cycle", "workspace", "user", "document", "label", "project_milestone", "project_status", "issue", "project", "comment"],
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "workspace")
@@ -62,6 +62,12 @@ describe("runtime integration registry", () => {
         (group) => group.groupKey === "project_status",
       )?.commandCount,
       4,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_tier",
+      )?.commandCount,
+      5,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "initiative")

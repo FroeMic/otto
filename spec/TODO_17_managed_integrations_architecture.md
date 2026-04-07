@@ -882,11 +882,15 @@ Tracker:
     - verify customer-status delete succeeds only after the status is no longer referenced by active customers
 
 - `customer_tier`
-  - `[ ]` `customer_tier.list`
-  - `[ ]` `customer_tier.get`
-  - `[ ]` `customer_tier.create`
-  - `[ ]` `customer_tier.update`
-  - `[ ]` `customer_tier.delete`
+  - `[x]` `customer_tier.list`
+  - `[x]` `customer_tier.get`
+  - `[x]` `customer_tier.create`
+  - `[x]` `customer_tier.update`
+  - `[x]` `customer_tier.delete`
+  - Later testing plan:
+    - verify customer-tier list/get against a workspace with multiple account tiers
+    - verify customer-tier create/update for color, displayName, and position changes
+    - verify customer-tier delete succeeds only after the tier is no longer referenced by active customers
 
 Immediate next recommended slice:
 

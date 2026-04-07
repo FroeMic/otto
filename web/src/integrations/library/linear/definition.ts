@@ -19,6 +19,13 @@ import {
   executeLinearCustomerStatusList,
   executeLinearCustomerStatusUpdate,
 } from "./commands/customer-status/commands";
+import {
+  executeLinearCustomerTierCreate,
+  executeLinearCustomerTierDelete,
+  executeLinearCustomerTierGet,
+  executeLinearCustomerTierList,
+  executeLinearCustomerTierUpdate,
+} from "./commands/customer-tier/commands";
 import { executeLinearDocumentCreate } from "./commands/document/create";
 import { executeLinearDocumentGet } from "./commands/document/get";
 import { executeLinearDocumentList } from "./commands/document/list";
@@ -290,6 +297,12 @@ const CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA = {
   description: "Linear customer status id.",
 } as const;
 
+const CUSTOMER_TIER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer tier id.",
+} as const;
+
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
@@ -397,6 +410,252 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_tier.list",
+            commandPath: ["customer_tier", "list"],
+            description:
+              "List customer tiers from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer tier",
+              "customer tiers",
+              "account tier",
+            ],
+            label: "List customer tiers",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.create or customer.update when you need a canonical tier id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerTierList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.get",
+            commandPath: ["customer_tier", "get"],
+            description: "Read one Linear customer tier by id.",
+            exampleArguments: {
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "get customer tier"],
+            label: "Get customer tier",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer tier color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer tier description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer tier name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer tier ladder.",
+                },
+              },
+              required: ["color"],
+            },
+            commandKey: "customer_tier.create",
+            commandPath: ["customer_tier", "create"],
+            description: "Create a new Linear customer tier.",
+            exampleArguments: {
+              color: "#16A34A",
+              displayName: "Strategic",
+              name: "strategic",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "create", "account tier"],
+            label: "Create customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "Create tiers before assigning them to customers if your workspace account ladder is still being set up.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+            }),
+            execute: executeLinearCustomerTierCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer tier color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer tier description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer tier name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer tier ladder.",
+                },
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.update",
+            commandPath: ["customer_tier", "update"],
+            description: "Update an existing Linear customer tier.",
+            exampleArguments: {
+              displayName: "Key",
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "update", "edit"],
+            label: "Update customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides tierId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.delete",
+            commandPath: ["customer_tier", "delete"],
+            description: "Delete one Linear customer tier.",
+            exampleArguments: {
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "delete", "remove"],
+            label: "Delete customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "Only delete tiers that are no longer referenced by active customers.",
+            ],
+            validate: (argumentsObject) => ({
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierDelete,
+          },
+        ],
+        description:
+          "Customer-tier reads and writes for the workspace customer segmentation model.",
+        groupKey: "customer_tier",
+        groupPath: ["customer_tier"],
+        intentKeywords: ["linear", "customer tier", "account tier"],
+        label: "Customer Tiers",
+      },
       {
         commands: [
           {
