@@ -12,7 +12,10 @@ The key decisions are:
 - `state/` is the reserved directory for local runtime state created by the agent or tools.
 - Skills may declare dependencies on integrations, but they do not create tools and they do not own integration setup.
 - Managed skill files are stored canonically in the control plane and projected into the tenant runtime.
-- Users and Otto should both be able to view and edit managed skill files through workspace-managed APIs.
+- Users and Otto should both be able to view managed skill packages through workspace-managed APIs.
+- `SKILL.md` and other UTF-8 managed text files in the package should be editable through an explicit managed editing flow.
+- Non-text managed files should be visible and downloadable, but not editable in `v1`.
+- `state/` should be visible, previewable when text-like, downloadable, and read-only in `v1`.
 - OpenClaw should discover these skills natively from `workspace/skills` without Otto-specific changes to the upstream skill loader.
 
 At a product level:
@@ -21,7 +24,7 @@ At a product level:
 - `Capabilities` are the agent-callable operations those integrations expose.
 - `Skills` are managed instruction packages that teach Otto how to use those capabilities well.
 
-This spec builds on `TODO_17_managed_integrations_architecture.md`. It does not replace the integration architecture; it adds the managed instructional layer that sits beside it.
+This spec does not replace the integration architecture; it adds the managed instructional layer that sits beside it.
 
 ## Goal And Purpose
 
@@ -106,48 +109,25 @@ Otto DB source of truth
 
 ## Relationship To TODO 17
 
-`TODO_17_managed_integrations_architecture.md` remains the source of truth for:
+The important boundary is simple:
 
-- integration setup
-- OAuth and provider auth
-- runtime tool injection
-- provider execution
-- control-plane authority for integration state
+- an `integration` provides capabilities the agent can call
+- a `skill` provides instructions for how to use those capabilities well
 
-This spec adds:
-
-- the managed skill package model
-- dependency declaration for skills
-- skill projection into the runtime filesystem
-- skill CRUD and editing surfaces
-- workspace UI for browsing and editing skills
-
-The important boundary is:
-
-- an `integration` provides the runtime capability surface
-- a `skill` provides the instruction package that tells Otto how to use that capability surface
-
-Skills do not create tools. Skills do not own setup flows. Skills do not replace `otto-integrations`.
+Skills do not create tools. Skills do not own setup flows. Skills do not replace the managed integration runtime surface.
 
 ## Framework Recommendation
 
-This spec should inherit the framework recommendation from `TODO_17`, not create a second framework strategy.
+This spec should not introduce a second runtime or projection model.
 
-Managed outbound integrations should still start with `hosted Nango`.
+Managed skills should reuse the same control-plane-owned mutation, versioning, and projection approach already used for managed instruction files:
 
-Why that remains the recommendation:
+- canonical rows in Postgres
+- explicit validation on write
+- desired-state versioning and projection
+- runtime-authenticated read and patch tools for the managed subset
 
-- It solves OAuth, token refresh, and request proxying.
-- It fits a model where the control plane remains the authority.
-- It leaves Otto in control of capability definitions, settings, and policy.
-- It provides the cleanest substrate for integration-linked skill packages that depend on a stable integration model.
-
-Alternatives remain:
-
-- `Pipedream Connect` if catalog breadth becomes more important than control.
-- `Composio` for chat-first connect experiences, but not as the preferred substrate for Otto's managed workspace-owned lifecycle.
-
-This matters for this spec only because some skills will declare integration prerequisites and some integration installations may add associated skill packages into the repository's `skills/` directory.
+This matters because some skills will declare integration prerequisites and some integrations may later contribute starter skill packages. Those contributions should create normal managed skill records that project into `workspace/skills/<skill-key>/`. They should not write ad hoc files into a separate repository-level skills directory.
 
 ## Key Examples
 
@@ -169,7 +149,7 @@ That skill may declare:
 }
 ```
 
-When the Linear integration is installed, Otto may add one or more associated skill packages into the repository's `skills/` directory. Those packages remain normal managed skills. They do not become the integration mechanism itself.
+When the Linear integration is installed, Otto may add one or more associated managed skill packages under `workspace/skills/`. Those packages remain normal managed skills. They do not become the integration mechanism itself.
 
 The result is:
 
@@ -208,12 +188,11 @@ The integration still owns the runtime capability surface. The skill only owns t
 
 This section is included only because skills depend on it.
 
-Per `TODO_17`, integrations should reach the runtime through:
+Integrations should reach the runtime through the fixed managed integration plugin surface:
 
 ```text
 workspace integration state
-  -> otto-integrations manifest
-  -> one tool per integration in runtime
+  -> static otto-integrations metatools plus control-plane discovery
   -> execution through integration-gateway
 ```
 
@@ -272,6 +251,8 @@ The rules should be:
 - `state/` is reserved for local runtime state created by the agent or tools.
 - `state/` is optional, but if it exists, Otto treats it as local mutable state rather than managed source of truth.
 - All other files and folders are optional managed package content.
+- Managed UTF-8 text files are editable through the workspace and runtime-authenticated managed-skills surfaces.
+- Non-text managed files are viewable as metadata and downloadable, but not editable in `v1`.
 - Otto should not require fixed subfolder names such as `references/`, `scripts/`, `examples/`, or `assets/`.
 - Skills may still include those folders by convention when useful.
 
@@ -374,6 +355,8 @@ tenant_skill_files
 - tenant_skill_id
 - relative_path
 - file_kind          // managed | state
+- content_type
+- content_encoding   // utf8_text | binary
 - content_sha256
 - last_seen_at
 - updated_at
@@ -390,8 +373,9 @@ tenant_skill_file_versions
 
 Implementation direction:
 
-- managed files should keep text versions in Postgres
-- `state/` files do not need full version history in v1
+- managed UTF-8 text files should keep text versions in Postgres
+- non-text managed files may start as metadata plus blob-backed download storage without editable versions
+- `state/` files do not need full version history in `v1`
 - `state/` can start as metadata plus on-demand reads/downloads
 
 ## Projection Model
@@ -451,7 +435,7 @@ The workspace-facing operations should include:
 - update skill metadata
 - list skill files
 - read managed skill file
-- patch managed skill file
+- patch editable managed skill file
 - enable or disable skill
 - list `state/` files
 - read or download `state/` files
@@ -468,6 +452,7 @@ The agent should be able to:
 - inspect a skill's structured metadata
 - create a new managed skill
 - edit managed skill files
+- only edit files the control plane classifies as editable managed text files
 - detect whether a skill's declared prerequisites are satisfied
 - use the skill's `state/` directory as the designated location for local skill runtime state
 
@@ -476,6 +461,7 @@ The agent should not be able to:
 - provision integrations through the skills surface
 - bypass integration setup or policy
 - write arbitrary hidden projected files outside the skill package
+- edit binary managed files through the managed-skills surface
 - treat local `state/` files as managed source of truth
 
 If a skill depends on an integration that is unavailable, the skill should show a status like `Missing prerequisite`. The actual setup flow remains in `TODO_17`.
@@ -528,7 +514,7 @@ In the skill tree:
 
 - show `state/`
 - label it as `Local state`
-- treat it as read-only in v1
+- treat it as read-only in `v1`
 
 For file behavior:
 
@@ -577,6 +563,8 @@ The recommended workspace structure is:
   work/
   inbox/
 ```
+
+These rules are operationally important for managed skills, but they should not block the first managed-skills vertical slices.
 
 The important rule is:
 
@@ -667,9 +655,11 @@ The control plane should validate:
 - valid `SKILL.md`
 - valid `name` and `description`
 - valid `metadata.dependsOn.integrations` shape
+- dependency keys that resolve to known integration keys
 - valid relative paths within the skill package
 - no path traversal or symlink escape through managed writes
 - `state/` reserved for local runtime state
+- editable writes only to managed UTF-8 text files
 
 Suggested skill status values:
 
@@ -690,14 +680,121 @@ This spec should not:
 - turn local `state/` files into managed source of truth
 - define a generic host-level filesystem browser
 
-## Suggested Delivery Order
+## Vertical Increments
 
-1. Add the managed skill data model and internal API shape.
-2. Add projection into `workspace/skills/`.
-3. Add a minimal workspace `Skills` UI with list, detail, tree, and editing for `SKILL.md`.
-4. Add agent-managed skill CRUD through a runtime plugin surface.
-5. Add `state/` visibility and download support.
-6. Add integration-linked skill package contribution on top of `TODO_17`.
+### Increment 1: Managed skill package model and validation
+
+Scope:
+
+- add the managed skill schema and canonical package model
+- validate `SKILL.md`, dependency metadata, path rules, and reserved `state/`
+- classify managed files as editable UTF-8 text versus download-only non-text
+
+Acceptance criteria:
+
+- a managed skill can be created with a stable `skill_key` and required `SKILL.md`
+- dependency metadata is validated against known integration keys
+- invalid paths and writes into `state/` are rejected
+- the control plane can classify package files into editable text, download-only managed files, and local `state/`
+
+Parallel note:
+
+- safe to implement in parallel with the separate integrations-surface workstream because it depends only on stable integration keys, not on that UI
+
+### Increment 2: Projection into `workspace/skills/`
+
+Scope:
+
+- project managed skills into `workspace/skills/<skill-key>/`
+- preserve unknown local files under `state/`
+- make re-projection idempotent and safe for managed-file deletes
+
+Acceptance criteria:
+
+- managed skill packages project into the runtime-visible workspace path
+- removed managed files are safely deleted from the projected package
+- unknown `state/` contents are never overwritten or removed
+- reapplying the same package is idempotent
+
+Parallel note:
+
+- safe to implement in parallel with the separate integrations-surface workstream
+
+### Increment 3: Minimal workspace Skills UI
+
+Scope:
+
+- add a dedicated `Skills` section in the workspace
+- show list, detail, package tree, dependency badges, and status
+- add viewer support for the whole package
+- allow explicit editing for `SKILL.md` and other editable managed text files
+
+Acceptance criteria:
+
+- users can browse managed skills in a dedicated workspace section
+- the package tree clearly distinguishes editable managed files, download-only managed files, and local `state/`
+- users can edit `SKILL.md` and other editable managed text files through an explicit edit action
+- non-text files are viewable as metadata and downloadable
+
+Parallel note:
+
+- safe to implement in parallel with the separate integrations-surface workstream because it is its own workspace surface
+
+### Increment 4: Runtime-authenticated managed-skill CRUD surface
+
+Scope:
+
+- add runtime-authenticated list/read/patch tools for managed skills
+- reuse the managed bootstrap-file mutation/version/apply pipeline
+- restrict patch operations to editable managed text files
+
+Acceptance criteria:
+
+- Otto can list managed skills and inspect package files through runtime-authenticated APIs
+- Otto can patch `SKILL.md` and other editable managed text files with version checks
+- Otto cannot patch `state/` files or non-text managed files through the managed-skills surface
+
+Parallel note:
+
+- safe to implement in parallel with the separate integrations-surface workstream
+
+### Increment 5: Read-only `state/` visibility
+
+Scope:
+
+- list `state/` files
+- preview text-like `state/` files
+- allow download for text and binary local state
+
+Acceptance criteria:
+
+- `state/` appears in the package tree as local read-only state
+- text-like state files can be previewed
+- binary state files can be downloaded
+- the workspace and runtime-authenticated surfaces never edit local state
+
+### Increment 6: Integration-linked starter skills
+
+Scope:
+
+- allow integrations to contribute starter managed skill packages
+- derive prerequisite status from current workspace integration state
+- keep contributed packages as normal managed skills after creation
+
+Acceptance criteria:
+
+- an integration can contribute a starter managed skill package under `workspace/skills/`
+- prerequisite status is derived automatically from current workspace state
+- contributed skills behave like normal managed skills after creation
+
+## Status Checklist
+
+- [ ] Increment 1: managed skill package model and validation
+- [ ] Increment 2: projection into `workspace/skills/`
+- [ ] Increment 3: minimal workspace Skills UI
+- [ ] Increment 4: runtime-authenticated managed-skill CRUD surface
+- [ ] Increment 5: read-only `state/` visibility
+- [ ] Increment 6: integration-linked starter skills
 
 ## Recommendation
 

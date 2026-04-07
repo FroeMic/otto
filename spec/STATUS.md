@@ -341,9 +341,11 @@
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
 - Managed skills planning is now captured in `TODO_18_managed_skills.md`:
   - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
-  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
-  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
-  - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
+  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state and should stay read-only from workspace-managed APIs in `v1`
+  - `SKILL.md` and other managed UTF-8 text files should be editable through an explicit managed editing flow, while non-text package files should be visible and downloadable but not editable in `v1`
+  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain outside the skills surface
+  - the workspace should expose a dedicated `Skills` area with a package viewer and explicit editing for editable managed text files, while the general file browser remains a lower-level filesystem surface
+  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, read-only `state/` visibility, then integration-linked starter skills
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
