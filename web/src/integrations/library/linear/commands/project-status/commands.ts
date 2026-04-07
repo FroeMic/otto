@@ -85,37 +85,39 @@ export const executeLinearProjectStatusList: IntegrationCommandExecute =
     });
   };
 
-export const executeLinearProjectStatusGet: IntegrationCommandExecute =
-  async ({ arguments: args, context }) => {
-    if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
-    }
+export const executeLinearProjectStatusGet: IntegrationCommandExecute = async ({
+  arguments: args,
+  context,
+}) => {
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
 
-    const statusId =
-      typeof args.statusId === "string" ? args.statusId.trim() : "";
+  const statusId =
+    typeof args.statusId === "string" ? args.statusId.trim() : "";
 
-    if (!statusId) {
-      throw new Error("linear project_status.get requires statusId.");
-    }
+  if (!statusId) {
+    throw new Error("linear project_status.get requires statusId.");
+  }
 
-    const data = await executeLinearGraphql<{
-      projectStatus?: LinearProjectStatusNode | null;
-    }>({
-      accessToken: context.auth.accessToken,
-      query: GET_PROJECT_STATUS_QUERY,
-      variables: {
-        id: statusId,
-      },
-    });
+  const data = await executeLinearGraphql<{
+    projectStatus?: LinearProjectStatusNode | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: GET_PROJECT_STATUS_QUERY,
+    variables: {
+      id: statusId,
+    },
+  });
 
-    return {
-      ...buildLinearProjectStatusCommandResult({
-        commandKey: "project_status.get",
-        status: data.projectStatus,
-      }),
-      lookup: statusId,
-    };
+  return {
+    ...buildLinearProjectStatusCommandResult({
+      commandKey: "project_status.get",
+      status: data.projectStatus,
+    }),
+    lookup: statusId,
   };
+};
 
 export const executeLinearProjectStatusCreate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {

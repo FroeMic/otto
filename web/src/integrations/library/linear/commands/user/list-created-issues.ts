@@ -42,11 +42,13 @@ export const executeLinearUserListCreatedIssues: IntegrationCommandExecute =
     });
 
     const data = await executeLinearGraphql<{
-      user?: (LinearUserNode & {
-        createdIssues?: {
-          nodes?: LinearIssueNode[] | null;
-        } | null;
-      }) | null;
+      user?:
+        | (LinearUserNode & {
+            createdIssues?: {
+              nodes?: LinearIssueNode[] | null;
+            } | null;
+          })
+        | null;
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_CREATED_ISSUES_QUERY,

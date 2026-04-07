@@ -11,9 +11,7 @@ export function buildLinearCustomerNeedCreateInput(
     attachmentId: normalizeOptionalString(argumentsObject.attachmentId),
     attachmentUrl: normalizeOptionalString(argumentsObject.attachmentUrl),
     body:
-      typeof argumentsObject.body === "string"
-        ? argumentsObject.body
-        : null,
+      typeof argumentsObject.body === "string" ? argumentsObject.body : null,
     commentId: normalizeOptionalString(argumentsObject.commentId),
     customerExternalId: normalizeOptionalString(
       argumentsObject.customerExternalId,
@@ -46,9 +44,7 @@ export function buildLinearCustomerNeedUpdateInput(
         : null,
     attachmentUrl: normalizeOptionalString(argumentsObject.attachmentUrl),
     body:
-      typeof argumentsObject.body === "string"
-        ? argumentsObject.body
-        : null,
+      typeof argumentsObject.body === "string" ? argumentsObject.body : null,
     customerExternalId: normalizeOptionalString(
       argumentsObject.customerExternalId,
     ),

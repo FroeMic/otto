@@ -66,62 +66,66 @@ const DELETE_CUSTOMER_TIER_MUTATION = `
   }
 `;
 
-export const executeLinearCustomerTierList: IntegrationCommandExecute =
-  async ({ arguments: args, context }) => {
-    if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
-    }
+export const executeLinearCustomerTierList: IntegrationCommandExecute = async ({
+  arguments: args,
+  context,
+}) => {
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
 
-    const limit = normalizeLimit({
-      defaultLimit: 25,
-      max: 100,
-      value: args.limit,
-    });
-    const data = await executeLinearGraphql<{
-      customerTiers?: {
-        nodes?: LinearCustomerTierNode[] | null;
-      } | null;
-    }>({
-      accessToken: context.auth.accessToken,
-      query: LIST_CUSTOMER_TIERS_QUERY,
-      variables: { limit },
-    });
+  const limit = normalizeLimit({
+    defaultLimit: 25,
+    max: 100,
+    value: args.limit,
+  });
+  const data = await executeLinearGraphql<{
+    customerTiers?: {
+      nodes?: LinearCustomerTierNode[] | null;
+    } | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: LIST_CUSTOMER_TIERS_QUERY,
+    variables: { limit },
+  });
 
-    return buildLinearCustomerTierCollectionCommandResult({
-      commandKey: "customer_tier.list",
-      items: data.customerTiers?.nodes ?? [],
-      limit,
-    });
+  return buildLinearCustomerTierCollectionCommandResult({
+    commandKey: "customer_tier.list",
+    items: data.customerTiers?.nodes ?? [],
+    limit,
+  });
+};
+
+export const executeLinearCustomerTierGet: IntegrationCommandExecute = async ({
+  arguments: args,
+  context,
+}) => {
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
+
+  const tierId = typeof args.tierId === "string" ? args.tierId.trim() : "";
+
+  if (!tierId) {
+    throw new Error("linear customer_tier.get requires tierId.");
+  }
+
+  const data = await executeLinearGraphql<{
+    customerTier?: LinearCustomerTierNode | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: GET_CUSTOMER_TIER_QUERY,
+    variables: { id: tierId },
+  });
+
+  return {
+    ...buildLinearCustomerTierCommandResult({
+      commandKey: "customer_tier.get",
+      tier: data.customerTier,
+    }),
+    lookup: tierId,
   };
-
-export const executeLinearCustomerTierGet: IntegrationCommandExecute =
-  async ({ arguments: args, context }) => {
-    if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
-    }
-
-    const tierId = typeof args.tierId === "string" ? args.tierId.trim() : "";
-
-    if (!tierId) {
-      throw new Error("linear customer_tier.get requires tierId.");
-    }
-
-    const data = await executeLinearGraphql<{
-      customerTier?: LinearCustomerTierNode | null;
-    }>({
-      accessToken: context.auth.accessToken,
-      query: GET_CUSTOMER_TIER_QUERY,
-      variables: { id: tierId },
-    });
-
-    return {
-      ...buildLinearCustomerTierCommandResult({
-        commandKey: "customer_tier.get",
-        tier: data.customerTier,
-      }),
-      lookup: tierId,
-    };
-  };
+};
 
 export const executeLinearCustomerTierCreate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {

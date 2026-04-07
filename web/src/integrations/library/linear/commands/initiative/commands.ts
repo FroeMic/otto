@@ -194,36 +194,36 @@ export const executeLinearInitiativeUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
-    if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
-    }
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
 
-    const initiativeId =
-      typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+  const initiativeId =
+    typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
 
-    if (!initiativeId) {
-      throw new Error("linear initiative.update requires initiativeId.");
-    }
+  if (!initiativeId) {
+    throw new Error("linear initiative.update requires initiativeId.");
+  }
 
-    const input = buildLinearInitiativeUpdateInput(args);
-    const data = await executeLinearGraphql<{
-      initiativeUpdate?: {
-        initiative?: LinearInitiativeNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
-    }>({
-      accessToken: context.auth.accessToken,
-      query: UPDATE_INITIATIVE_MUTATION,
-      variables: { id: initiativeId, input },
-    });
+  const input = buildLinearInitiativeUpdateInput(args);
+  const data = await executeLinearGraphql<{
+    initiativeUpdate?: {
+      initiative?: LinearInitiativeNode | null;
+      lastSyncId?: number | null;
+      success?: boolean | null;
+    } | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: UPDATE_INITIATIVE_MUTATION,
+    variables: { id: initiativeId, input },
+  });
 
-    return buildLinearInitiativeCommandResult({
-      commandKey: "initiative.update",
-      initiative: data.initiativeUpdate?.initiative,
-      lastSyncId: data.initiativeUpdate?.lastSyncId,
-      success: data.initiativeUpdate?.success,
-    });
+  return buildLinearInitiativeCommandResult({
+    commandKey: "initiative.update",
+    initiative: data.initiativeUpdate?.initiative,
+    lastSyncId: data.initiativeUpdate?.lastSyncId,
+    success: data.initiativeUpdate?.success,
+  });
 };
 
 export const executeLinearInitiativeArchive: IntegrationCommandExecute =
@@ -278,11 +278,13 @@ export const executeLinearInitiativeListProjects: IntegrationCommandExecute =
       value: args.limit,
     });
     const data = await executeLinearGraphql<{
-      initiative?: (LinearInitiativeNode & {
-        projects?: {
-          nodes?: LinearProjectNode[] | null;
-        } | null;
-      }) | null;
+      initiative?:
+        | (LinearInitiativeNode & {
+            projects?: {
+              nodes?: LinearProjectNode[] | null;
+            } | null;
+          })
+        | null;
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_INITIATIVE_PROJECTS_QUERY,
@@ -290,7 +292,9 @@ export const executeLinearInitiativeListProjects: IntegrationCommandExecute =
     });
 
     if (!data.initiative) {
-      throw new Error("Linear returned no initiative for initiative.list_projects.");
+      throw new Error(
+        "Linear returned no initiative for initiative.list_projects.",
+      );
     }
 
     return {
@@ -326,11 +330,13 @@ export const executeLinearInitiativeListUpdates: IntegrationCommandExecute =
       value: args.limit,
     });
     const data = await executeLinearGraphql<{
-      initiative?: (LinearInitiativeNode & {
-        initiativeUpdates?: {
-          nodes?: LinearInitiativeUpdateNode[] | null;
-        } | null;
-      }) | null;
+      initiative?:
+        | (LinearInitiativeNode & {
+            initiativeUpdates?: {
+              nodes?: LinearInitiativeUpdateNode[] | null;
+            } | null;
+          })
+        | null;
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_INITIATIVE_UPDATES_QUERY,
@@ -338,7 +344,9 @@ export const executeLinearInitiativeListUpdates: IntegrationCommandExecute =
     });
 
     if (!data.initiative) {
-      throw new Error("Linear returned no initiative for initiative.list_updates.");
+      throw new Error(
+        "Linear returned no initiative for initiative.list_updates.",
+      );
     }
 
     return {

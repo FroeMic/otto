@@ -52,11 +52,13 @@ export const executeLinearUserListTeamMemberships: IntegrationCommandExecute =
     });
 
     const data = await executeLinearGraphql<{
-      user?: (LinearUserNode & {
-        teamMemberships?: {
-          nodes?: LinearTeamMembershipNode[] | null;
-        } | null;
-      }) | null;
+      user?:
+        | (LinearUserNode & {
+            teamMemberships?: {
+              nodes?: LinearTeamMembershipNode[] | null;
+            } | null;
+          })
+        | null;
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_TEAM_MEMBERSHIPS_QUERY,

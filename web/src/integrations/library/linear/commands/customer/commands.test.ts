@@ -170,7 +170,10 @@ describe("linear customer commands", () => {
       },
     })) as {
       commandKey: string;
-      customer: { id: string | null; status: { id: string | null } | null } | null;
+      customer: {
+        id: string | null;
+        status: { id: string | null } | null;
+      } | null;
       lookup: string;
     };
 

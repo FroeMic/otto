@@ -113,7 +113,10 @@ describe("linear label commands", () => {
       variables: { limit: number };
     };
 
-    assert.match(payload.query, /issueLabels\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /issueLabels\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.limit, 10);
     assert.equal(result.commandKey, "label.list_issue_labels");
     assert.equal(result.totalMatched, 1);

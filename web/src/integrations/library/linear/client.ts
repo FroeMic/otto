@@ -1017,9 +1017,7 @@ export function mapLinearTeamReference(team: LinearTeamReferenceNode | null) {
   };
 }
 
-export function mapLinearTeamMembership(
-  membership: LinearTeamMembershipNode,
-) {
+export function mapLinearTeamMembership(membership: LinearTeamMembershipNode) {
   return {
     createdAt: membership.createdAt ?? null,
     id: membership.id?.trim() || null,
@@ -1038,7 +1036,9 @@ export function mapLinearTeamMembership(
 export function mapLinearIssue(issue: LinearIssueNode) {
   return {
     assignee:
-      issue.assignee?.name?.trim() || issue.assignee?.displayName?.trim() || null,
+      issue.assignee?.name?.trim() ||
+      issue.assignee?.displayName?.trim() ||
+      null,
     assigneeEmail: issue.assignee?.email?.trim() || null,
     createdAt: issue.createdAt ?? null,
     description: issue.description?.trim() || null,
@@ -1305,7 +1305,10 @@ export function mapLinearDocument(document: LinearDocumentNode) {
     color: document.color?.trim() || null,
     content: document.content?.trim() || null,
     createdAt: document.createdAt ?? null,
-    creator: document.creator?.name?.trim() || document.creator?.displayName?.trim() || null,
+    creator:
+      document.creator?.name?.trim() ||
+      document.creator?.displayName?.trim() ||
+      null,
     creatorEmail: document.creator?.email?.trim() || null,
     creatorId: document.creator?.id?.trim() || null,
     cycleId: document.cycle?.id?.trim() || null,
@@ -1358,7 +1361,8 @@ export function mapLinearIssueLabel(label: LinearIssueLabelNode) {
   return {
     color: label.color?.trim() || null,
     createdAt: label.createdAt ?? null,
-    creator: label.creator?.name?.trim() || label.creator?.displayName?.trim() || null,
+    creator:
+      label.creator?.name?.trim() || label.creator?.displayName?.trim() || null,
     creatorEmail: label.creator?.email?.trim() || null,
     creatorId: label.creator?.id?.trim() || null,
     description: label.description?.trim() || null,
@@ -1453,8 +1457,7 @@ export function mapLinearProjectUpdate(update: LinearProjectUpdateNode) {
     slugId: update.slugId?.trim() || null,
     updatedAt: update.updatedAt ?? null,
     url: update.url ?? null,
-    user:
-      update.user?.name?.trim() || update.user?.displayName?.trim() || null,
+    user: update.user?.name?.trim() || update.user?.displayName?.trim() || null,
     userEmail: update.user?.email?.trim() || null,
     userId: update.user?.id?.trim() || null,
   };
@@ -1568,7 +1571,9 @@ export function mapLinearInitiativeUpdate(
   };
 }
 
-export function mapLinearCustomerStatus(status: LinearCustomerStatusNode | null) {
+export function mapLinearCustomerStatus(
+  status: LinearCustomerStatusNode | null,
+) {
   if (!status) {
     return null;
   }
@@ -1618,7 +1623,9 @@ export function mapLinearCustomer(customer: LinearCustomerNode) {
     mainSourceId: customer.mainSourceId?.trim() || null,
     name: customer.name?.trim() || "Untitled customer",
     owner:
-      customer.owner?.name?.trim() || customer.owner?.displayName?.trim() || null,
+      customer.owner?.name?.trim() ||
+      customer.owner?.displayName?.trim() ||
+      null,
     ownerEmail: customer.owner?.email?.trim() || null,
     ownerId: customer.owner?.id?.trim() || null,
     revenue:
@@ -1904,7 +1911,9 @@ export function buildLinearProjectMilestoneCommandResult(input: {
     commandKey: input.commandKey,
     integrationKey: "linear",
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
-    milestone: input.milestone ? mapLinearProjectMilestone(input.milestone) : null,
+    milestone: input.milestone
+      ? mapLinearProjectMilestone(input.milestone)
+      : null,
     source: "linear",
     success: input.success ?? true,
   };

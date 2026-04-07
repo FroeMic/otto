@@ -196,47 +196,47 @@ export const executeLinearCustomerUpdate: IntegrationCommandExecute = async ({
   });
 };
 
-export const executeLinearCustomerListNeeds: IntegrationCommandExecute = async ({
-  arguments: args,
-  context,
-}) => {
-  if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
-  }
+export const executeLinearCustomerListNeeds: IntegrationCommandExecute =
+  async ({ arguments: args, context }) => {
+    if (!context.auth) {
+      throw new Error("Linear requires an authenticated execution context.");
+    }
 
-  const customerId =
-    typeof args.customerId === "string" ? args.customerId.trim() : "";
+    const customerId =
+      typeof args.customerId === "string" ? args.customerId.trim() : "";
 
-  if (!customerId) {
-    throw new Error("linear customer.list_needs requires customerId.");
-  }
+    if (!customerId) {
+      throw new Error("linear customer.list_needs requires customerId.");
+    }
 
-  const limit = normalizeLimit({
-    defaultLimit: 25,
-    max: 100,
-    value: args.limit,
-  });
-  const data = await executeLinearGraphql<{
-    customer?: (LinearCustomerNode & {
-      needs?: LinearCustomerNeedNode[] | null;
-    }) | null;
-  }>({
-    accessToken: context.auth.accessToken,
-    query: LIST_CUSTOMER_NEEDS_QUERY,
-    variables: { id: customerId },
-  });
+    const limit = normalizeLimit({
+      defaultLimit: 25,
+      max: 100,
+      value: args.limit,
+    });
+    const data = await executeLinearGraphql<{
+      customer?:
+        | (LinearCustomerNode & {
+            needs?: LinearCustomerNeedNode[] | null;
+          })
+        | null;
+    }>({
+      accessToken: context.auth.accessToken,
+      query: LIST_CUSTOMER_NEEDS_QUERY,
+      variables: { id: customerId },
+    });
 
-  if (!data.customer) {
-    throw new Error("Linear returned no customer for customer.list_needs.");
-  }
+    if (!data.customer) {
+      throw new Error("Linear returned no customer for customer.list_needs.");
+    }
 
-  return {
-    ...buildLinearCustomerNeedChildCollectionCommandResult({
-      commandKey: "customer.list_needs",
-      customer: data.customer,
-      items: (data.customer.needs ?? []).slice(0, limit),
-      limit,
-    }),
-    lookup: customerId,
+    return {
+      ...buildLinearCustomerNeedChildCollectionCommandResult({
+        commandKey: "customer.list_needs",
+        customer: data.customer,
+        items: (data.customer.needs ?? []).slice(0, limit),
+        limit,
+      }),
+      lookup: customerId,
+    };
   };
-};

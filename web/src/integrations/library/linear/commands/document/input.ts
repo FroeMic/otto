@@ -4,7 +4,9 @@ import {
   normalizeOptionalStringArray,
 } from "../../client";
 
-export function buildLinearDocumentCreateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearDocumentCreateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     content: normalizeOptionalString(argumentsObject.content),
@@ -27,7 +29,9 @@ export function buildLinearDocumentCreateInput(argumentsObject: Record<string, u
   };
 }
 
-export function buildLinearDocumentUpdateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearDocumentUpdateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     content: normalizeOptionalString(argumentsObject.content),

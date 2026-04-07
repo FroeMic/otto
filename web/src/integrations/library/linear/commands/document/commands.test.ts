@@ -113,7 +113,10 @@ describe("linear document commands", () => {
       variables: { limit: number };
     };
 
-    assert.match(payload.query, /documents\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /documents\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.limit, 5);
     assert.equal(result.commandKey, "document.list");
     assert.equal(result.limit, 5);
@@ -209,7 +212,10 @@ describe("linear document commands", () => {
       variables: { limit: number; term: string };
     };
 
-    assert.match(payload.query, /searchDocuments\(first: \$limit, term: \$term\)/);
+    assert.match(
+      payload.query,
+      /searchDocuments\(first: \$limit, term: \$term\)/,
+    );
     assert.equal(payload.variables.limit, 3);
     assert.equal(payload.variables.term, "credit");
     assert.equal(result.commandKey, "document.search");

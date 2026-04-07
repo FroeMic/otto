@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearUserGet } from "./get";
+import { executeLinearUserList } from "./list";
 import { executeLinearUserListAssignedIssues } from "./list-assigned-issues";
 import { executeLinearUserListCreatedIssues } from "./list-created-issues";
-import { executeLinearUserList } from "./list";
 import { executeLinearUserListTeamMemberships } from "./list-team-memberships";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
@@ -240,7 +240,10 @@ describe("linear user commands", () => {
       };
     };
 
-    assert.match(payload.query, /assignedIssues\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /assignedIssues\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.id, "user-1");
     assert.equal(payload.variables.limit, 10);
     assert.equal(result.commandKey, "user.list_assigned_issues");
@@ -312,7 +315,10 @@ describe("linear user commands", () => {
       };
     };
 
-    assert.match(payload.query, /createdIssues\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /createdIssues\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.id, "user-1");
     assert.equal(payload.variables.limit, 7);
     assert.equal(result.commandKey, "user.list_created_issues");
@@ -397,7 +403,10 @@ describe("linear user commands", () => {
       };
     };
 
-    assert.match(payload.query, /teamMemberships\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /teamMemberships\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.id, "user-1");
     assert.equal(payload.variables.limit, 8);
     assert.equal(result.commandKey, "user.list_team_memberships");

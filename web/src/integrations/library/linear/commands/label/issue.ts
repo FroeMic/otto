@@ -170,7 +170,9 @@ export const executeLinearLabelCreateIssueLabel: IntegrationCommandExecute =
 
     const input = buildLinearIssueLabelCreateInput(args);
     const replaceTeamLabels =
-      typeof args.replaceTeamLabels === "boolean" ? args.replaceTeamLabels : null;
+      typeof args.replaceTeamLabels === "boolean"
+        ? args.replaceTeamLabels
+        : null;
     const data = await executeLinearGraphql<{
       issueLabelCreate?: {
         issueLabel?: LinearIssueLabelNode | null;
@@ -208,7 +210,9 @@ export const executeLinearLabelUpdateIssueLabel: IntegrationCommandExecute =
 
     const input = buildLinearIssueLabelUpdateInput(args);
     const replaceTeamLabels =
-      typeof args.replaceTeamLabels === "boolean" ? args.replaceTeamLabels : null;
+      typeof args.replaceTeamLabels === "boolean"
+        ? args.replaceTeamLabels
+        : null;
     const data = await executeLinearGraphql<{
       issueLabelUpdate?: {
         issueLabel?: LinearIssueLabelNode | null;

@@ -3,7 +3,9 @@ import {
   normalizeOptionalString,
 } from "../../client";
 
-export function buildLinearIssueLabelCreateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearIssueLabelCreateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     description: normalizeOptionalString(argumentsObject.description),
@@ -18,7 +20,9 @@ export function buildLinearIssueLabelCreateInput(argumentsObject: Record<string,
   };
 }
 
-export function buildLinearIssueLabelUpdateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearIssueLabelUpdateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     description: normalizeOptionalString(argumentsObject.description),
@@ -29,7 +33,9 @@ export function buildLinearIssueLabelUpdateInput(argumentsObject: Record<string,
   };
 }
 
-export function buildLinearProjectLabelCreateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearProjectLabelCreateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     description: normalizeOptionalString(argumentsObject.description),
@@ -43,7 +49,9 @@ export function buildLinearProjectLabelCreateInput(argumentsObject: Record<strin
   };
 }
 
-export function buildLinearProjectLabelUpdateInput(argumentsObject: Record<string, unknown>) {
+export function buildLinearProjectLabelUpdateInput(
+  argumentsObject: Record<string, unknown>,
+) {
   return {
     color: normalizeOptionalString(argumentsObject.color),
     description: normalizeOptionalString(argumentsObject.description),

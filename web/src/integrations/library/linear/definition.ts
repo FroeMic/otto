@@ -6,12 +6,6 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
-import { executeLinearCycleArchive } from "./commands/cycle/archive";
-import { executeLinearCycleCreate } from "./commands/cycle/create";
-import { executeLinearCycleGet } from "./commands/cycle/get";
-import { executeLinearCycleList } from "./commands/cycle/list";
-import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
-import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import {
   executeLinearCustomerCreate,
   executeLinearCustomerGet,
@@ -43,11 +37,26 @@ import {
   executeLinearCustomerTierList,
   executeLinearCustomerTierUpdate,
 } from "./commands/customer-tier/commands";
+import { executeLinearCycleArchive } from "./commands/cycle/archive";
+import { executeLinearCycleCreate } from "./commands/cycle/create";
+import { executeLinearCycleGet } from "./commands/cycle/get";
+import { executeLinearCycleList } from "./commands/cycle/list";
+import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
+import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearDocumentCreate } from "./commands/document/create";
 import { executeLinearDocumentGet } from "./commands/document/get";
 import { executeLinearDocumentList } from "./commands/document/list";
 import { executeLinearDocumentSearch } from "./commands/document/search";
 import { executeLinearDocumentUpdate } from "./commands/document/update";
+import {
+  executeLinearInitiativeArchive,
+  executeLinearInitiativeCreate,
+  executeLinearInitiativeGet,
+  executeLinearInitiativeList,
+  executeLinearInitiativeListProjects,
+  executeLinearInitiativeListUpdates,
+  executeLinearInitiativeUpdate,
+} from "./commands/initiative/commands";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -61,15 +70,6 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
-import {
-  executeLinearInitiativeArchive,
-  executeLinearInitiativeCreate,
-  executeLinearInitiativeGet,
-  executeLinearInitiativeList,
-  executeLinearInitiativeListProjects,
-  executeLinearInitiativeListUpdates,
-  executeLinearInitiativeUpdate,
-} from "./commands/initiative/commands";
 import {
   executeLinearLabelCreateIssueLabel,
   executeLinearLabelDeleteIssueLabel,
@@ -88,6 +88,18 @@ import {
   executeLinearLabelRetireProjectLabel,
   executeLinearLabelUpdateProjectLabel,
 } from "./commands/label/project";
+import { executeLinearProjectArchive } from "./commands/project/archive";
+import { executeLinearProjectCreate } from "./commands/project/create";
+import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
+import { executeLinearProjectGet } from "./commands/project/get";
+import { executeLinearProjectList } from "./commands/project/list";
+import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
+import { executeLinearProjectListIssues } from "./commands/project/list-issues";
+import { executeLinearProjectListLabels } from "./commands/project/list-labels";
+import { executeLinearProjectListMilestones } from "./commands/project/list-milestones";
+import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
+import { executeLinearProjectSearch } from "./commands/project/search";
+import { executeLinearProjectUpdate } from "./commands/project/update";
 import {
   executeLinearProjectMilestoneCreate,
   executeLinearProjectMilestoneDelete,
@@ -102,22 +114,10 @@ import {
   executeLinearProjectStatusList,
   executeLinearProjectStatusUpdate,
 } from "./commands/project-status/commands";
-import { executeLinearProjectArchive } from "./commands/project/archive";
-import { executeLinearProjectCreate } from "./commands/project/create";
-import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
-import { executeLinearProjectGet } from "./commands/project/get";
-import { executeLinearProjectList } from "./commands/project/list";
-import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
-import { executeLinearProjectListIssues } from "./commands/project/list-issues";
-import { executeLinearProjectListLabels } from "./commands/project/list-labels";
-import { executeLinearProjectListMilestones } from "./commands/project/list-milestones";
-import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
-import { executeLinearProjectSearch } from "./commands/project/search";
-import { executeLinearProjectUpdate } from "./commands/project/update";
 import { executeLinearUserGet } from "./commands/user/get";
+import { executeLinearUserList } from "./commands/user/list";
 import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues";
 import { executeLinearUserListCreatedIssues } from "./commands/user/list-created-issues";
-import { executeLinearUserList } from "./commands/user/list";
 import { executeLinearUserListTeamMemberships } from "./commands/user/list-team-memberships";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
@@ -469,7 +469,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               properties: {
                 includeArchived: {
                   type: "boolean",
-                  description: "Whether archived customer needs should be included.",
+                  description:
+                    "Whether archived customer needs should be included.",
                 },
                 limit: LIMIT_ARGUMENT_SCHEMA,
               },
@@ -541,7 +542,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               properties: {
                 attachmentId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Linear attachment id linked to the need.",
+                  description:
+                    "Optional Linear attachment id linked to the need.",
                 },
                 attachmentUrl: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
@@ -644,7 +646,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "customer_need.create_from_attachment",
             commandPath: ["customer_need", "create_from_attachment"],
-            description: "Create a new Linear customer need from one attachment.",
+            description:
+              "Create a new Linear customer need from one attachment.",
             exampleArguments: {
               attachmentId: "attachment-id",
             },
@@ -887,18 +890,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "customer.list",
             commandPath: ["customer", "list"],
-            description:
-              "List customers from the connected Linear workspace.",
+            description: "List customers from the connected Linear workspace.",
             exampleArguments: {
               limit: 10,
             },
             inputMode: "json",
-            intentKeywords: [
-              "linear",
-              "customer",
-              "customers",
-              "accounts",
-            ],
+            intentKeywords: ["linear", "customer", "customers", "accounts"],
             label: "List customers",
             resultMode: "json",
             usageNotes: [
@@ -967,7 +964,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 mainSourceId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional main source id. Must be one of externalIds.",
+                  description:
+                    "Optional main source id. Must be one of externalIds.",
                 },
                 name: {
                   type: "string",
@@ -976,11 +974,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 ownerId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Linear user id for the customer owner.",
+                  description:
+                    "Optional Linear user id for the customer owner.",
                 },
                 revenue: {
                   type: "integer",
-                  description: "Optional annual revenue generated by the customer.",
+                  description:
+                    "Optional annual revenue generated by the customer.",
                 },
                 size: {
                   type: "integer",
@@ -988,7 +988,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 slackChannelId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Slack channel id used to interact with the customer.",
+                  description:
+                    "Optional Slack channel id used to interact with the customer.",
                 },
                 statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
                 tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
@@ -1086,7 +1087,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 mainSourceId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional main source id. Must be one of externalIds.",
+                  description:
+                    "Optional main source id. Must be one of externalIds.",
                 },
                 name: {
                   type: "string",
@@ -1095,11 +1097,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 ownerId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Linear user id for the customer owner.",
+                  description:
+                    "Optional Linear user id for the customer owner.",
                 },
                 revenue: {
                   type: "integer",
-                  description: "Optional annual revenue generated by the customer.",
+                  description:
+                    "Optional annual revenue generated by the customer.",
                 },
                 size: {
                   type: "integer",
@@ -1107,7 +1111,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 slackChannelId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Slack channel id used to interact with the customer.",
+                  description:
+                    "Optional Slack channel id used to interact with the customer.",
                 },
                 statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
                 tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
@@ -1329,7 +1334,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               name: "strategic",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "customer tier", "create", "account tier"],
+            intentKeywords: [
+              "linear",
+              "customer tier",
+              "create",
+              "account tier",
+            ],
             label: "Create customer tier",
             resultMode: "json",
             usageNotes: [
@@ -1525,7 +1535,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               statusId: "customer-status-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "customer status", "get customer status"],
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "get customer status",
+            ],
             label: "Get customer status",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -1575,7 +1589,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               name: "active",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "customer status", "create", "customer flow"],
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "create",
+              "customer flow",
+            ],
             label: "Create customer status",
             resultMode: "json",
             usageNotes: [
@@ -1613,7 +1632,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               properties: {
                 color: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional customer status color as a HEX string.",
+                  description:
+                    "Optional customer status color as a HEX string.",
                 },
                 description: {
                   type: "string",
@@ -1744,7 +1764,9 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             ],
             label: "List initiatives",
             resultMode: "json",
-            usageNotes: ["This returns a recent initiative slice, not semantic search."],
+            usageNotes: [
+              "This returns a recent initiative slice, not semantic search.",
+            ],
             validate: (argumentsObject) => ({
               limit:
                 typeof argumentsObject.limit === "number" &&
@@ -1811,7 +1833,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 ownerId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Linear user id for the initiative owner.",
+                  description:
+                    "Optional Linear user id for the initiative owner.",
                 },
                 sortOrder: {
                   type: "number",
@@ -1820,7 +1843,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
                 targetDate: {
                   ...DATE_ARGUMENT_SCHEMA,
-                  description: "Optional initiative target date in YYYY-MM-DD format.",
+                  description:
+                    "Optional initiative target date in YYYY-MM-DD format.",
                 },
                 targetDateResolution: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
@@ -1838,7 +1862,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               targetDate: "2026-06-30",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "initiative", "create", "new initiative"],
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "create",
+              "new initiative",
+            ],
             label: "Create initiative",
             resultMode: "json",
             usageNotes: [
@@ -1918,7 +1947,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 ownerId: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
-                  description: "Optional Linear user id for the initiative owner.",
+                  description:
+                    "Optional Linear user id for the initiative owner.",
                 },
                 sortOrder: {
                   type: "number",
@@ -1927,7 +1957,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
                 targetDate: {
                   ...DATE_ARGUMENT_SCHEMA,
-                  description: "Optional initiative target date in YYYY-MM-DD format.",
+                  description:
+                    "Optional initiative target date in YYYY-MM-DD format.",
                 },
                 targetDateResolution: {
                   ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
@@ -1935,7 +1966,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 trashed: {
                   type: "boolean",
-                  description: "Whether the initiative should be marked as trashed.",
+                  description:
+                    "Whether the initiative should be marked as trashed.",
                 },
               },
               required: ["initiativeId"],
@@ -1948,7 +1980,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               status: "Completed",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "initiative", "update", "edit initiative"],
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "update",
+              "edit initiative",
+            ],
             label: "Update initiative",
             resultMode: "json",
             usageNotes: [
@@ -2023,10 +2060,17 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               initiativeId: "initiative-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "initiative", "archive", "close initiative"],
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "archive",
+              "close initiative",
+            ],
             label: "Archive initiative",
             resultMode: "json",
-            usageNotes: ["Use this when the initiative should leave the active roadmap."],
+            usageNotes: [
+              "Use this when the initiative should leave the active roadmap.",
+            ],
             validate: (argumentsObject) => ({
               initiativeId:
                 typeof argumentsObject.initiativeId === "string"
@@ -2090,7 +2134,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               limit: 25,
             },
             inputMode: "json",
-            intentKeywords: ["linear", "initiative", "updates", "status update"],
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "updates",
+              "status update",
+            ],
             label: "List initiative updates",
             resultMode: "json",
             usageNotes: [
@@ -2702,8 +2751,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "user.list_assigned_issues",
             commandPath: ["user", "list_assigned_issues"],
-            description:
-              "List issues currently assigned to one Linear user.",
+            description: "List issues currently assigned to one Linear user.",
             exampleArguments: {
               limit: 25,
               userId: "user-id",
@@ -2746,8 +2794,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "user.list_created_issues",
             commandPath: ["user", "list_created_issues"],
-            description:
-              "List issues created by one Linear user.",
+            description: "List issues created by one Linear user.",
             exampleArguments: {
               limit: 25,
               userId: "user-id",
@@ -2790,8 +2837,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "user.list_team_memberships",
             commandPath: ["user", "list_team_memberships"],
-            description:
-              "List team memberships for one Linear user.",
+            description: "List team memberships for one Linear user.",
             exampleArguments: {
               limit: 25,
               userId: "user-id",
@@ -2975,7 +3021,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                     type: "string",
                     minLength: 1,
                   },
-                  description: "Optional list of Linear user ids subscribed to the document.",
+                  description:
+                    "Optional list of Linear user ids subscribed to the document.",
                 },
                 teamId: {
                   type: "string",
@@ -2988,14 +3035,18 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "document.create",
             commandPath: ["document", "create"],
-            description:
-              "Create a new Linear document.",
+            description: "Create a new Linear document.",
             exampleArguments: {
               projectId: "project-id",
               title: "Credits workflow doc",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "document", "create doc", "new document"],
+            intentKeywords: [
+              "linear",
+              "document",
+              "create doc",
+              "new document",
+            ],
             label: "Create document",
             resultMode: "json",
             usageNotes: [
@@ -3043,10 +3094,9 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 Number.isInteger(argumentsObject.sortOrder)
                   ? argumentsObject.sortOrder
                   : null,
-              subscriberIds:
-                Array.isArray(argumentsObject.subscriberIds)
-                  ? argumentsObject.subscriberIds
-                  : null,
+              subscriberIds: Array.isArray(argumentsObject.subscriberIds)
+                ? argumentsObject.subscriberIds
+                : null,
               teamId:
                 typeof argumentsObject.teamId === "string"
                   ? argumentsObject.teamId.trim()
@@ -3091,7 +3141,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                     type: "string",
                     minLength: 1,
                   },
-                  description: "Optional updated list of Linear user ids subscribed to the document.",
+                  description:
+                    "Optional updated list of Linear user ids subscribed to the document.",
                 },
                 teamId: {
                   type: "string",
@@ -3108,14 +3159,18 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "document.update",
             commandPath: ["document", "update"],
-            description:
-              "Update one Linear document.",
+            description: "Update one Linear document.",
             exampleArguments: {
               documentId: "document-id",
               title: "Updated credits workflow doc",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "document", "update doc", "edit document"],
+            intentKeywords: [
+              "linear",
+              "document",
+              "update doc",
+              "edit document",
+            ],
             label: "Update document",
             resultMode: "json",
             usageNotes: [
@@ -3171,10 +3226,9 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 Number.isInteger(argumentsObject.sortOrder)
                   ? argumentsObject.sortOrder
                   : null,
-              subscriberIds:
-                Array.isArray(argumentsObject.subscriberIds)
-                  ? argumentsObject.subscriberIds
-                  : null,
+              subscriberIds: Array.isArray(argumentsObject.subscriberIds)
+                ? argumentsObject.subscriberIds
+                : null,
               teamId:
                 typeof argumentsObject.teamId === "string"
                   ? argumentsObject.teamId.trim()
@@ -3191,10 +3245,17 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             execute: executeLinearDocumentUpdate,
           },
         ],
-        description: "Document reads and writes for the connected Linear workspace.",
+        description:
+          "Document reads and writes for the connected Linear workspace.",
         groupKey: "document",
         groupPath: ["document"],
-        intentKeywords: ["linear", "document", "documents", "docs", "knowledge"],
+        intentKeywords: [
+          "linear",
+          "document",
+          "documents",
+          "docs",
+          "knowledge",
+        ],
         label: "Documents",
       },
       {
@@ -3274,13 +3335,15 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 replaceTeamLabels: {
                   type: "boolean",
-                  description: "Whether matching team labels should be replaced by this workspace label.",
+                  description:
+                    "Whether matching team labels should be replaced by this workspace label.",
                 },
                 retiredAt: DATETIME_ARGUMENT_SCHEMA,
                 teamId: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional team id for a team-scoped issue label.",
+                  description:
+                    "Optional team id for a team-scoped issue label.",
                 },
               },
               required: ["name"],
@@ -3351,7 +3414,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 replaceTeamLabels: {
                   type: "boolean",
-                  description: "Whether matching team labels should be replaced by this updated workspace label.",
+                  description:
+                    "Whether matching team labels should be replaced by this updated workspace label.",
                 },
                 retiredAt: DATETIME_ARGUMENT_SCHEMA,
               },
@@ -3365,7 +3429,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               name: "Customer-visible",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "update issue label", "edit issue label"],
+            intentKeywords: [
+              "linear",
+              "update issue label",
+              "edit issue label",
+            ],
             label: "Update issue label",
             resultMode: "json",
             usageNotes: [
@@ -3423,7 +3491,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "issue-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "delete issue label", "remove issue label"],
+            intentKeywords: [
+              "linear",
+              "delete issue label",
+              "remove issue label",
+            ],
             label: "Delete issue label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3450,7 +3522,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "issue-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "restore issue label", "unarchive issue label"],
+            intentKeywords: [
+              "linear",
+              "restore issue label",
+              "unarchive issue label",
+            ],
             label: "Restore issue label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3477,7 +3553,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "issue-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "retire issue label", "deprecate issue label"],
+            intentKeywords: [
+              "linear",
+              "retire issue label",
+              "deprecate issue label",
+            ],
             label: "Retire issue label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3498,12 +3578,18 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "label.list_project_labels",
             commandPath: ["label", "list_project_labels"],
-            description: "List project labels in the connected Linear workspace.",
+            description:
+              "List project labels in the connected Linear workspace.",
             exampleArguments: {
               limit: 25,
             },
             inputMode: "json",
-            intentKeywords: ["linear", "project labels", "roadmap labels", "taxonomy"],
+            intentKeywords: [
+              "linear",
+              "project labels",
+              "roadmap labels",
+              "taxonomy",
+            ],
             label: "List project labels",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3566,7 +3652,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               name: "Roadmap",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "create project label", "new project label"],
+            intentKeywords: [
+              "linear",
+              "create project label",
+              "new project label",
+            ],
             label: "Create project label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3623,7 +3713,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               name: "Roadmap critical",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "update project label", "edit project label"],
+            intentKeywords: [
+              "linear",
+              "update project label",
+              "edit project label",
+            ],
             label: "Update project label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3674,7 +3768,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "project-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "delete project label", "remove project label"],
+            intentKeywords: [
+              "linear",
+              "delete project label",
+              "remove project label",
+            ],
             label: "Delete project label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3701,7 +3799,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "project-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "restore project label", "unarchive project label"],
+            intentKeywords: [
+              "linear",
+              "restore project label",
+              "unarchive project label",
+            ],
             label: "Restore project label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3728,7 +3830,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               labelId: "project-label-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "retire project label", "deprecate project label"],
+            intentKeywords: [
+              "linear",
+              "retire project label",
+              "deprecate project label",
+            ],
             label: "Retire project label",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3758,12 +3864,18 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "project_milestone.list",
             commandPath: ["project_milestone", "list"],
-            description: "List project milestones in the connected Linear workspace.",
+            description:
+              "List project milestones in the connected Linear workspace.",
             exampleArguments: {
               limit: 25,
             },
             inputMode: "json",
-            intentKeywords: ["linear", "project milestone", "milestones", "roadmap"],
+            intentKeywords: [
+              "linear",
+              "project milestone",
+              "milestones",
+              "roadmap",
+            ],
             label: "List project milestones",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3791,7 +3903,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               milestoneId: "milestone-id",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "project milestone", "milestone details"],
+            intentKeywords: [
+              "linear",
+              "project milestone",
+              "milestone details",
+            ],
             label: "Get project milestone",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -3816,7 +3932,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 projectId: PROJECT_ID_ARGUMENT_SCHEMA,
                 sortOrder: {
                   type: "integer",
-                  description: "Optional milestone sort order within the project.",
+                  description:
+                    "Optional milestone sort order within the project.",
                 },
                 targetDate: DATE_ARGUMENT_SCHEMA,
               },
@@ -3954,13 +4071,15 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               properties: {
                 addIssueTeamToProject: {
                   type: "boolean",
-                  description: "Whether issue teams should be added to the destination project when required.",
+                  description:
+                    "Whether issue teams should be added to the destination project when required.",
                 },
                 milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
                 newIssueTeamId: {
                   type: "string",
                   minLength: 1,
-                  description: "Optional team id to move attached issues onto when resolving team mismatches.",
+                  description:
+                    "Optional team id to move attached issues onto when resolving team mismatches.",
                 },
                 projectId: PROJECT_ID_ARGUMENT_SCHEMA,
               },
@@ -4001,7 +4120,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             execute: executeLinearProjectMilestoneMove,
           },
         ],
-        description: "Project milestone reads and writes for planning milestones.",
+        description:
+          "Project milestone reads and writes for planning milestones.",
         groupKey: "project_milestone",
         groupPath: ["project_milestone"],
         intentKeywords: ["linear", "milestone", "project milestone", "roadmap"],
@@ -4019,12 +4139,18 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             },
             commandKey: "project_status.list",
             commandPath: ["project_status", "list"],
-            description: "List project statuses in the connected Linear workspace.",
+            description:
+              "List project statuses in the connected Linear workspace.",
             exampleArguments: {
               limit: 25,
             },
             inputMode: "json",
-            intentKeywords: ["linear", "project statuses", "project flow", "roadmap"],
+            intentKeywords: [
+              "linear",
+              "project statuses",
+              "project flow",
+              "roadmap",
+            ],
             label: "List project statuses",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -4076,7 +4202,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 indefinite: {
                   type: "boolean",
-                  description: "Whether the project can remain in this status indefinitely.",
+                  description:
+                    "Whether the project can remain in this status indefinitely.",
                 },
                 name: {
                   type: "string",
@@ -4085,7 +4212,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 position: {
                   type: "integer",
-                  description: "Status position within the workspace project flow.",
+                  description:
+                    "Status position within the workspace project flow.",
                 },
                 type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
               },
@@ -4101,7 +4229,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               type: "started",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "create project status", "roadmap status"],
+            intentKeywords: [
+              "linear",
+              "create project status",
+              "roadmap status",
+            ],
             label: "Create project status",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -4142,7 +4274,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 indefinite: {
                   type: "boolean",
-                  description: "Whether the project can remain in this status indefinitely.",
+                  description:
+                    "Whether the project can remain in this status indefinitely.",
                 },
                 name: {
                   type: "string",
@@ -4151,7 +4284,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 },
                 position: {
                   type: "integer",
-                  description: "Updated status position within the workspace project flow.",
+                  description:
+                    "Updated status position within the workspace project flow.",
                 },
                 statusId: PROJECT_STATUS_ID_ARGUMENT_SCHEMA,
                 type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
@@ -4166,7 +4300,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               type: "paused",
             },
             inputMode: "json",
-            intentKeywords: ["linear", "update project status", "edit project status"],
+            intentKeywords: [
+              "linear",
+              "update project status",
+              "edit project status",
+            ],
             label: "Update project status",
             resultMode: "json",
             validate: (argumentsObject) => ({
@@ -4203,10 +4341,16 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             execute: executeLinearProjectStatusUpdate,
           },
         ],
-        description: "Project-status reads and writes for the workspace project flow.",
+        description:
+          "Project-status reads and writes for the workspace project flow.",
         groupKey: "project_status",
         groupPath: ["project_status"],
-        intentKeywords: ["linear", "project status", "project flow", "roadmap status"],
+        intentKeywords: [
+          "linear",
+          "project status",
+          "project flow",
+          "roadmap status",
+        ],
         label: "Project Statuses",
       },
       {

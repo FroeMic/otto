@@ -154,7 +154,10 @@ describe("linear initiative commands", () => {
       variables: { limit: number };
     };
 
-    assert.match(payload.query, /initiatives\(first: \$limit, orderBy: updatedAt\)/);
+    assert.match(
+      payload.query,
+      /initiatives\(first: \$limit, orderBy: updatedAt\)/,
+    );
     assert.equal(payload.variables.limit, 6);
     assert.equal(result.commandKey, "initiative.list");
     assert.equal(result.limit, 6);
