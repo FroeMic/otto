@@ -816,18 +816,27 @@ Tracker:
     - verify project-label create/update/delete/restore/retire against at least one active project label and one archived/retired label
 
 - `project_milestone`
-  - `[ ]` `project_milestone.list`
-  - `[ ]` `project_milestone.get`
-  - `[ ]` `project_milestone.create`
-  - `[ ]` `project_milestone.update`
-  - `[ ]` `project_milestone.delete`
-  - `[ ]` `project_milestone.move`
+  - `[x]` `project_milestone.list`
+  - `[x]` `project_milestone.get`
+  - `[x]` `project_milestone.create`
+  - `[x]` `project_milestone.update`
+  - `[x]` `project_milestone.delete`
+  - `[x]` `project_milestone.move`
+  - Later testing plan:
+    - verify milestone list/get against a project with multiple milestones in different statuses
+    - verify milestone create/update for description, target date, and sort-order changes
+    - verify milestone delete returns the deleted milestone id and removes it from subsequent list calls
+    - verify milestone move across projects, including one case that requires `addIssueTeamToProject` or `newIssueTeamId`
 
 - `project_status`
-  - `[ ]` `project_status.list`
-  - `[ ]` `project_status.get`
-  - `[ ]` `project_status.create`
-  - `[ ]` `project_status.update`
+  - `[x]` `project_status.list`
+  - `[x]` `project_status.get`
+  - `[x]` `project_status.create`
+  - `[x]` `project_status.update`
+  - Later testing plan:
+    - verify status list/get against a workspace with custom project statuses beyond the defaults
+    - verify status create with each relevant `ProjectStatusType` used in the workspace flow
+    - verify status update for color, position, and `indefinite` transitions
 
 - `initiative`
   - `[ ]` `initiative.list`

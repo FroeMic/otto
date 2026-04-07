@@ -1503,6 +1503,68 @@ export function buildLinearProjectChildCollectionCommandResult<T>(input: {
   };
 }
 
+export function buildLinearProjectMilestoneCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  milestone: LinearProjectMilestoneNode | null | undefined;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    milestone: input.milestone ? mapLinearProjectMilestone(input.milestone) : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearProjectMilestoneCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearProjectMilestoneNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearProjectMilestone),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearProjectStatusCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  status: LinearProjectStatusNode | null | undefined;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    status: mapLinearProjectStatus(input.status ?? null),
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearProjectStatusCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearProjectStatusNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map((status) => mapLinearProjectStatus(status)),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
 export function buildLinearCycleCollectionCommandResult(input: {
   commandKey: string;
   items: LinearCycleNode[];

@@ -48,6 +48,20 @@ import {
   executeLinearLabelRetireProjectLabel,
   executeLinearLabelUpdateProjectLabel,
 } from "./commands/label/project";
+import {
+  executeLinearProjectMilestoneCreate,
+  executeLinearProjectMilestoneDelete,
+  executeLinearProjectMilestoneGet,
+  executeLinearProjectMilestoneList,
+  executeLinearProjectMilestoneMove,
+  executeLinearProjectMilestoneUpdate,
+} from "./commands/project-milestone/commands";
+import {
+  executeLinearProjectStatusCreate,
+  executeLinearProjectStatusGet,
+  executeLinearProjectStatusList,
+  executeLinearProjectStatusUpdate,
+} from "./commands/project-status/commands";
 import { executeLinearProjectArchive } from "./commands/project/archive";
 import { executeLinearProjectCreate } from "./commands/project/create";
 import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
@@ -228,6 +242,24 @@ const LABEL_NAME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Label name.",
+} as const;
+
+const MILESTONE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear project milestone id.",
+} as const;
+
+const PROJECT_STATUS_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear project status id.",
+} as const;
+
+const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
+  description: "Linear project status type.",
 } as const;
 
 const DATETIME_ARGUMENT_SCHEMA = {
@@ -1945,6 +1977,469 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["label"],
         intentKeywords: ["linear", "labels", "taxonomy", "categorization"],
         label: "Labels",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "project_milestone.list",
+            commandPath: ["project_milestone", "list"],
+            description: "List project milestones in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project milestone", "milestones", "roadmap"],
+            label: "List project milestones",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearProjectMilestoneList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.get",
+            commandPath: ["project_milestone", "get"],
+            description: "Read one project milestone by id.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project milestone", "milestone details"],
+            label: "Get project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Project milestone name.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional milestone sort order within the project.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+              },
+              required: ["name", "projectId"],
+            },
+            commandKey: "project_milestone.create",
+            commandPath: ["project_milestone", "create"],
+            description: "Create a new project milestone.",
+            exampleArguments: {
+              name: "GA",
+              projectId: "project-id",
+              targetDate: "2026-05-01",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create milestone", "roadmap milestone"],
+            label: "Create project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectMilestoneCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated milestone name.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional updated milestone sort order.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.update",
+            commandPath: ["project_milestone", "update"],
+            description: "Update one project milestone.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+              targetDate: "2026-05-15",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "update milestone", "edit milestone"],
+            label: "Update project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectMilestoneUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.delete",
+            commandPath: ["project_milestone", "delete"],
+            description: "Delete one project milestone.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "delete milestone", "remove milestone"],
+            label: "Delete project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                addIssueTeamToProject: {
+                  type: "boolean",
+                  description: "Whether issue teams should be added to the destination project when required.",
+                },
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+                newIssueTeamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional team id to move attached issues onto when resolving team mismatches.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId", "projectId"],
+            },
+            commandKey: "project_milestone.move",
+            commandPath: ["project_milestone", "move"],
+            description: "Move a project milestone to another project.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "move milestone", "rehome milestone"],
+            label: "Move project milestone",
+            resultMode: "json",
+            usageNotes: [
+              "Use addIssueTeamToProject or newIssueTeamId when the destination project needs help reconciling issue-team constraints.",
+            ],
+            validate: (argumentsObject) => ({
+              addIssueTeamToProject:
+                typeof argumentsObject.addIssueTeamToProject === "boolean"
+                  ? argumentsObject.addIssueTeamToProject
+                  : null,
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+              newIssueTeamId:
+                typeof argumentsObject.newIssueTeamId === "string"
+                  ? argumentsObject.newIssueTeamId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneMove,
+          },
+        ],
+        description: "Project milestone reads and writes for planning milestones.",
+        groupKey: "project_milestone",
+        groupPath: ["project_milestone"],
+        intentKeywords: ["linear", "milestone", "project milestone", "roadmap"],
+        label: "Project Milestones",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "project_status.list",
+            commandPath: ["project_status", "list"],
+            description: "List project statuses in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project statuses", "project flow", "roadmap"],
+            label: "List project statuses",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearProjectStatusList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: PROJECT_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "project_status.get",
+            commandPath: ["project_status", "get"],
+            description: "Read one project status by id.",
+            exampleArguments: {
+              statusId: "project-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project status", "status details"],
+            label: "Get project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectStatusGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Status color as a HEX string.",
+                },
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                indefinite: {
+                  type: "boolean",
+                  description: "Whether the project can remain in this status indefinitely.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Project status name.",
+                },
+                position: {
+                  type: "integer",
+                  description: "Status position within the workspace project flow.",
+                },
+                type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
+              },
+              required: ["name", "color", "position", "type"],
+            },
+            commandKey: "project_status.create",
+            commandPath: ["project_status", "create"],
+            description: "Create a new project status.",
+            exampleArguments: {
+              color: "#4F46E5",
+              name: "Started",
+              position: 2,
+              type: "started",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create project status", "roadmap status"],
+            label: "Create project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              indefinite:
+                typeof argumentsObject.indefinite === "boolean"
+                  ? argumentsObject.indefinite
+                  : false,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : 0,
+              type:
+                typeof argumentsObject.type === "string"
+                  ? argumentsObject.type.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectStatusCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                indefinite: {
+                  type: "boolean",
+                  description: "Whether the project can remain in this status indefinitely.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated project status name.",
+                },
+                position: {
+                  type: "integer",
+                  description: "Updated status position within the workspace project flow.",
+                },
+                statusId: PROJECT_STATUS_ID_ARGUMENT_SCHEMA,
+                type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "project_status.update",
+            commandPath: ["project_status", "update"],
+            description: "Update one project status.",
+            exampleArguments: {
+              statusId: "project-status-id",
+              type: "paused",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "update project status", "edit project status"],
+            label: "Update project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              indefinite:
+                typeof argumentsObject.indefinite === "boolean"
+                  ? argumentsObject.indefinite
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+              type:
+                typeof argumentsObject.type === "string"
+                  ? argumentsObject.type.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectStatusUpdate,
+          },
+        ],
+        description: "Project-status reads and writes for the workspace project flow.",
+        groupKey: "project_status",
+        groupPath: ["project_status"],
+        intentKeywords: ["linear", "project status", "project flow", "roadmap status"],
+        label: "Project Statuses",
       },
       {
         commands: [
