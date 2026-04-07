@@ -123,6 +123,7 @@ async function claimJobs(input: {
     getTenantMutexJobTypes().map((jobType) => sql`${jobType}`),
     sql`, `,
   );
+  const tenantMutexCandidateLimit = Math.max(input.limit * 8, input.limit);
 
   const claimedJobs = input.useTenantMutex
     ? await db.execute<{
@@ -144,27 +145,14 @@ async function claimJobs(input: {
               or ${jobRuns.startedAt} > ${staleRunningCutoffIso}
             )
         ),
-        claimable as (
+        locked_candidates as (
           select
             ${jobRuns.id} as id,
             ${jobRuns.status} as previous_status,
+            ${jobRuns.tenantId} as tenant_id,
             ${jobRuns.availableAt} as available_at,
             ${jobRuns.startedAt} as started_at,
-            ${jobRuns.createdAt} as created_at,
-            row_number() over (
-              partition by case
-                when ${jobRuns.tenantId} is null then ${jobRuns.id}::text
-                else ${jobRuns.tenantId}::text
-              end
-              order by
-                case
-                  when ${jobRuns.status} = ${JOB_STATUSES.queued} then 0
-                  else 1
-                end asc,
-                ${jobRuns.availableAt} asc,
-                ${jobRuns.startedAt} asc,
-                ${jobRuns.createdAt} asc
-            ) as tenant_rank
+            ${jobRuns.createdAt} as created_at
           from ${jobRuns}
           where (
             (
@@ -191,7 +179,31 @@ async function claimJobs(input: {
             ${jobRuns.availableAt} asc,
             ${jobRuns.startedAt} asc,
             ${jobRuns.createdAt} asc
+          limit ${tenantMutexCandidateLimit}
           for update skip locked
+        ),
+        claimable as (
+          select
+            id,
+            previous_status,
+            available_at,
+            started_at,
+            created_at,
+            row_number() over (
+              partition by case
+                when tenant_id is null then id::text
+                else tenant_id::text
+              end
+              order by
+                case
+                  when previous_status = ${JOB_STATUSES.queued} then 0
+                  else 1
+                end asc,
+                available_at asc,
+                started_at asc,
+                created_at asc
+            ) as tenant_rank
+          from locked_candidates
         ),
         claimed as (
           select id, previous_status
