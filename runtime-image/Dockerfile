@@ -24,4 +24,7 @@ RUN find /app/extensions/otto-managed-config -type d -exec chmod 755 {} + \
  && find /app/otto-helpers -type d -exec chmod 755 {} + \
  && find /app/otto-helpers -type f -exec chmod 755 {} +
 
+ENV OPENCLAW_NO_RESPAWN=1
+ENV NODE_COMPILE_CACHE=/home/node/.openclaw/.cache/node-compile
+
 USER node
