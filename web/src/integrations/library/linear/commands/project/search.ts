@@ -16,7 +16,8 @@ const SEARCH_PROJECTS_QUERY = `
       filter: {
         or: [
           { name: { containsIgnoreCase: $query } }
-          { description: { containsIgnoreCase: $query } }
+          { slugId: { containsIgnoreCase: $query } }
+          { searchableContent: { contains: $query } }
         ]
       }
     ) {

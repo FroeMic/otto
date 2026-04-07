@@ -20,7 +20,7 @@ const LIST_COMMENTS_QUERY = `
 `;
 
 const LIST_COMMENTS_FOR_ISSUE_QUERY = `
-  query OttoLinearCommentListForIssue($issueId: String!, $limit: Int!) {
+  query OttoLinearCommentListForIssue($issueId: ID!, $limit: Int!) {
     comments(
       first: $limit
       orderBy: updatedAt
