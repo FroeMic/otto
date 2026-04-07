@@ -51,6 +51,9 @@ const COMMENT_FIELDS = `
   parentId
   quotedText
   resolvedAt
+  issue {
+    ${ISSUE_REFERENCE_FIELDS}
+  }
   user {
     ${USER_FIELDS}
   }
@@ -202,6 +205,7 @@ export type LinearCommentNode = {
   body?: string | null;
   createdAt?: string | null;
   id?: string | null;
+  issue?: LinearIssueReferenceNode | null;
   issueId?: string | null;
   parentId?: string | null;
   quotedText?: string | null;
@@ -375,6 +379,7 @@ export function mapLinearComment(comment: LinearCommentNode) {
     body: comment.body?.trim() || "",
     createdAt: comment.createdAt ?? null,
     id: comment.id?.trim() || null,
+    issue: mapLinearIssueReference(comment.issue ?? null),
     issueId: comment.issueId?.trim() || null,
     parentId: comment.parentId?.trim() || null,
     quotedText: comment.quotedText?.trim() || null,
@@ -384,6 +389,37 @@ export function mapLinearComment(comment: LinearCommentNode) {
     user: comment.user?.name?.trim() || null,
     userEmail: comment.user?.email?.trim() || null,
     userId: comment.user?.id?.trim() || null,
+  };
+}
+
+export function buildLinearCommentCommandResult(input: {
+  commandKey: string;
+  comment: LinearCommentNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    comment: input.comment ? mapLinearComment(input.comment) : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearCommentCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCommentNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearComment),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
   };
 }
 

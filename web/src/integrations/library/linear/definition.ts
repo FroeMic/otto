@@ -1,6 +1,11 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
 
+import { executeLinearCommentCreate } from "./commands/comment/create";
+import { executeLinearCommentDelete } from "./commands/comment/delete";
+import { executeLinearCommentGet } from "./commands/comment/get";
+import { executeLinearCommentList } from "./commands/comment/list";
+import { executeLinearCommentUpdate } from "./commands/comment/update";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -76,6 +81,18 @@ const PRIORITY_ARGUMENT_SCHEMA = {
     "Issue priority where 0 = none, 1 = urgent, 2 = high, 3 = medium, 4 = low.",
 } as const;
 
+const COMMENT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear comment id.",
+} as const;
+
+const COMMENT_BODY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Comment body in markdown.",
+} as const;
+
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
@@ -98,6 +115,20 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       direction: "tool",
       key: "issue.write",
       label: "Write issues",
+    }),
+    buildCapability({
+      description:
+        "Read and inspect comments across issue threads in the connected Linear workspace.",
+      direction: "read",
+      key: "comment.read",
+      label: "Read comments",
+    }),
+    buildCapability({
+      description:
+        "Create, update, and delete issue-thread comments in the connected Linear workspace.",
+      direction: "tool",
+      key: "comment.write",
+      label: "Write comments",
     }),
   ],
   categoryLabel: "Product Management",
@@ -1093,10 +1124,257 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         intentKeywords: ["linear", "issue", "issues", "tickets"],
         label: "Issues",
       },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                issueIdentifierOrId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional issue identifier like ENG-123 or Linear issue id to scope comments to one issue.",
+                },
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "comment.list",
+            commandPath: ["comment", "list"],
+            description:
+              "List recent comments, optionally scoped to a specific issue thread.",
+            exampleArguments: {
+              issueIdentifierOrId: "INT-6",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "comment",
+              "comments",
+              "thread",
+              "discussion",
+            ],
+            label: "List comments",
+            resultMode: "json",
+            usageNotes: [
+              "Use issueIdentifierOrId when you want the thread for one issue instead of a global recent comment slice.",
+            ],
+            validate: (argumentsObject) => ({
+              issueIdentifierOrId:
+                typeof argumentsObject.issueIdentifierOrId === "string"
+                  ? argumentsObject.issueIdentifierOrId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearCommentList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentId: COMMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["commentId"],
+            },
+            commandKey: "comment.get",
+            commandPath: ["comment", "get"],
+            description: "Read one Linear comment by comment id.",
+            exampleArguments: {
+              commentId: "comment-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "comment",
+              "thread",
+              "get comment",
+              "read comment",
+            ],
+            label: "Get comment",
+            resultMode: "json",
+            usageNotes: [
+              "Use comment ids returned by comment.list or issue.list_comments.",
+            ],
+            validate: (argumentsObject) => ({
+              commentId:
+                typeof argumentsObject.commentId === "string"
+                  ? argumentsObject.commentId.trim()
+                  : "",
+            }),
+            execute: executeLinearCommentGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                body: COMMENT_BODY_ARGUMENT_SCHEMA,
+                doNotSubscribeToIssue: {
+                  type: "boolean",
+                  description:
+                    "Prevent auto-subscribing the actor to the issue thread.",
+                },
+                issueIdentifierOrId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Issue identifier like ENG-123 or a Linear issue id.",
+                },
+                parentCommentId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional parent comment id for nested replies.",
+                },
+                quotedText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional quoted text for inline comments or context snippets.",
+                },
+              },
+              required: ["issueIdentifierOrId", "body"],
+            },
+            commandKey: "comment.create",
+            commandPath: ["comment", "create"],
+            description: "Create a new comment on a Linear issue thread.",
+            exampleArguments: {
+              body: "Hello from Otto",
+              issueIdentifierOrId: "INT-6",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "comment", "reply", "thread", "message"],
+            label: "Create comment",
+            resultMode: "json",
+            usageNotes: [
+              "This creates issue-thread comments only; use issueIdentifierOrId from issue.get or issue.search results when possible.",
+            ],
+            validate: (argumentsObject) => ({
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body.trim()
+                  : "",
+              doNotSubscribeToIssue:
+                typeof argumentsObject.doNotSubscribeToIssue === "boolean"
+                  ? argumentsObject.doNotSubscribeToIssue
+                  : null,
+              issueIdentifierOrId:
+                typeof argumentsObject.issueIdentifierOrId === "string"
+                  ? argumentsObject.issueIdentifierOrId.trim()
+                  : "",
+              parentCommentId:
+                typeof argumentsObject.parentCommentId === "string"
+                  ? argumentsObject.parentCommentId.trim()
+                  : null,
+              quotedText:
+                typeof argumentsObject.quotedText === "string"
+                  ? argumentsObject.quotedText.trim()
+                  : null,
+            }),
+            execute: executeLinearCommentCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                body: COMMENT_BODY_ARGUMENT_SCHEMA,
+                commentId: COMMENT_ID_ARGUMENT_SCHEMA,
+                doNotSubscribeToIssue: {
+                  type: "boolean",
+                  description:
+                    "Prevent auto-subscribing the actor to the issue thread.",
+                },
+                quotedText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional quoted text for inline comments or context snippets.",
+                },
+              },
+              required: ["commentId"],
+            },
+            commandKey: "comment.update",
+            commandPath: ["comment", "update"],
+            description: "Update an existing Linear comment.",
+            exampleArguments: {
+              body: "Updated by Otto",
+              commentId: "comment-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "comment", "update", "edit", "reply"],
+            label: "Update comment",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides commentId.",
+            ],
+            validate: (argumentsObject) => ({
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body.trim()
+                  : null,
+              commentId:
+                typeof argumentsObject.commentId === "string"
+                  ? argumentsObject.commentId.trim()
+                  : "",
+              doNotSubscribeToIssue:
+                typeof argumentsObject.doNotSubscribeToIssue === "boolean"
+                  ? argumentsObject.doNotSubscribeToIssue
+                  : null,
+              quotedText:
+                typeof argumentsObject.quotedText === "string"
+                  ? argumentsObject.quotedText.trim()
+                  : null,
+            }),
+            execute: executeLinearCommentUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentId: COMMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["commentId"],
+            },
+            commandKey: "comment.delete",
+            commandPath: ["comment", "delete"],
+            description: "Delete a Linear comment by comment id.",
+            exampleArguments: {
+              commentId: "comment-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "comment", "delete", "remove"],
+            label: "Delete comment",
+            resultMode: "json",
+            usageNotes: [
+              "Use comment ids returned by comment.list or comment.get.",
+            ],
+            validate: (argumentsObject) => ({
+              commentId:
+                typeof argumentsObject.commentId === "string"
+                  ? argumentsObject.commentId.trim()
+                  : "",
+            }),
+            execute: executeLinearCommentDelete,
+          },
+        ],
+        description:
+          "Issue-thread comment reads and writes for the connected Linear workspace.",
+        groupKey: "comment",
+        groupPath: ["comment"],
+        intentKeywords: ["linear", "comment", "comments", "thread"],
+        label: "Comments",
+      },
     ],
     rootCommands: [],
     toolDescription:
-      "Read Linear workspace metadata and issue context through Otto's managed integration runtime surface.",
+      "Read Linear workspace metadata plus issue and comment context through Otto's managed integration runtime surface.",
     toolName: "linear",
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations2/linear`,
