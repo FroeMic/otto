@@ -252,16 +252,11 @@ describe("linear initiative commands", () => {
     };
 
     assert.deepEqual(payload.variables.input, {
-      color: null,
-      content: null,
       description: "Expand the credits workflow",
-      icon: null,
       name: "Credits expansion",
       ownerId: "user-2",
-      sortOrder: null,
       status: "Active",
       targetDate: "2026-06-30",
-      targetDateResolution: null,
     });
     assert.equal(result.commandKey, "initiative.create");
     assert.equal(result.initiative?.name, "Credits expansion");
@@ -316,17 +311,7 @@ describe("linear initiative commands", () => {
 
     assert.equal(payload.variables.id, "initiative-1");
     assert.deepEqual(payload.variables.input, {
-      color: null,
-      content: null,
       description: "Updated credits initiative",
-      icon: null,
-      name: null,
-      ownerId: null,
-      sortOrder: null,
-      status: null,
-      targetDate: null,
-      targetDateResolution: null,
-      trashed: null,
     });
     assert.equal(result.commandKey, "initiative.update");
     assert.equal(result.initiative?.description, "Updated credits initiative");

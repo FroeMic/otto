@@ -1,4 +1,4 @@
-import { normalizeOptionalString } from "../../client";
+import { normalizeOptionalString, pruneGraphqlInput } from "../../client";
 
 function normalizeOptionalPriority(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -7,7 +7,7 @@ function normalizeOptionalPriority(value: unknown) {
 export function buildLinearCustomerNeedCreateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     attachmentId: normalizeOptionalString(argumentsObject.attachmentId),
     attachmentUrl: normalizeOptionalString(argumentsObject.attachmentUrl),
     body:
@@ -20,24 +20,24 @@ export function buildLinearCustomerNeedCreateInput(
     issueId: normalizeOptionalString(argumentsObject.issueId),
     priority: normalizeOptionalPriority(argumentsObject.priority),
     projectId: normalizeOptionalString(argumentsObject.projectId),
-  };
+  });
 }
 
 export function buildLinearCustomerNeedCreateFromAttachmentInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     attachmentId:
       typeof argumentsObject.attachmentId === "string"
         ? argumentsObject.attachmentId.trim()
         : "",
-  };
+  });
 }
 
 export function buildLinearCustomerNeedUpdateInput(
   argumentsObject: Record<string, unknown>,
 ) {
-  return {
+  return pruneGraphqlInput({
     applyPriorityToRelatedNeeds:
       typeof argumentsObject.applyPriorityToRelatedNeeds === "boolean"
         ? argumentsObject.applyPriorityToRelatedNeeds
@@ -52,5 +52,5 @@ export function buildLinearCustomerNeedUpdateInput(
     issueId: normalizeOptionalString(argumentsObject.issueId),
     priority: normalizeOptionalPriority(argumentsObject.priority),
     projectId: normalizeOptionalString(argumentsObject.projectId),
-  };
+  });
 }

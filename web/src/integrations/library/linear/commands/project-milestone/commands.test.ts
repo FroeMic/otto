@@ -79,10 +79,8 @@ describe("linear project milestone commands", () => {
     };
 
     assert.deepEqual(payload.variables.input, {
-      description: null,
       name: "GA",
       projectId: "project-1",
-      sortOrder: null,
       targetDate: "2026-05-01",
     });
     assert.equal(result.commandKey, "project_milestone.create");
@@ -157,7 +155,6 @@ describe("linear project milestone commands", () => {
     assert.equal(payload.variables.id, "milestone-1");
     assert.deepEqual(payload.variables.input, {
       addIssueTeamToProject: true,
-      newIssueTeamId: null,
       projectId: "project-2",
     });
     assert.equal(result.commandKey, "project_milestone.move");
