@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ManagedSkillDetailPanel } from "@/app/[orgSlug]/(app)/skills/_components/managed-skill-detail-panel";
 import { updateTenantManagedSkillTextFile } from "@/db/control-plane";
 import { getLatestTenantManagedSkillDetailForTenant } from "@/db/managed-skills";
+import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
 
 async function updateManagedSkillAction(formData: FormData) {
   "use server";
@@ -44,6 +45,7 @@ export async function ManagedSkillPanel({
   skillKey: string;
   tenantId: string;
 }) {
+  const knownIntegrationKeys = listKnownManagedSkillDependencyIntegrationKeys();
   const detail = await getLatestTenantManagedSkillDetailForTenant({
     skillKey,
     tenantId,
@@ -59,6 +61,7 @@ export async function ManagedSkillPanel({
         ...detail,
         updatedAt: detail.updatedAt.toISOString(),
       }}
+      knownIntegrationKeys={knownIntegrationKeys}
       orgSlug={orgSlug}
       updateAction={updateManagedSkillAction}
     />
