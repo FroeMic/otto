@@ -37,6 +37,7 @@ import { executeLinearProjectListMilestones } from "./commands/project/list-mile
 import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
 import { executeLinearProjectSearch } from "./commands/project/search";
 import { executeLinearProjectUpdate } from "./commands/project/update";
+import { executeLinearUserGet } from "./commands/user/get";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
 import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
@@ -164,6 +165,12 @@ const CYCLE_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear cycle id.",
+} as const;
+
+const USER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear user id.",
 } as const;
 
 const DATETIME_ARGUMENT_SCHEMA = {
@@ -747,6 +754,53 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["workspace"],
         intentKeywords: ["linear", "workspace", "metadata", "teams", "users"],
         label: "Workspace",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.get",
+            commandPath: ["user", "get"],
+            description:
+              "Read one Linear user by user id and return normalized user context.",
+            exampleArguments: {
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "person",
+              "member",
+              "profile",
+              "assignee",
+            ],
+            label: "Get user",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_users first if you need a canonical Linear user id.",
+            ],
+            validate: (argumentsObject) => ({
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserGet,
+          },
+        ],
+        description: "User profile reads for the connected Linear workspace.",
+        groupKey: "user",
+        groupPath: ["user"],
+        intentKeywords: ["linear", "user", "people", "members", "assignee"],
+        label: "Users",
       },
       {
         commands: [

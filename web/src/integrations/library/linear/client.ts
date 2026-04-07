@@ -4,12 +4,30 @@ const USER_FIELDS = `
   id
   name
   email
+  displayName
+  active
+  admin
+  guest
+  owner
+  isAssignable
+  isMentionable
+  lastSeen
+  statusEmoji
+  statusLabel
+  statusUntilAt
 `;
 
 const ISSUE_REFERENCE_FIELDS = `
   id
   identifier
   title
+`;
+
+const TEAM_REFERENCE_FIELDS = `
+  id
+  key
+  name
+  displayName
 `;
 
 const ISSUE_FIELDS = `
@@ -268,9 +286,37 @@ function extractOperationName(query: string) {
 }
 
 export type LinearUserNode = {
+  active?: boolean | null;
+  admin?: boolean | null;
+  displayName?: string | null;
   email?: string | null;
+  guest?: boolean | null;
   id?: string | null;
+  isAssignable?: boolean | null;
+  isMentionable?: boolean | null;
+  lastSeen?: string | null;
   name?: string | null;
+  owner?: boolean | null;
+  statusEmoji?: string | null;
+  statusLabel?: string | null;
+  statusUntilAt?: string | null;
+};
+
+export type LinearTeamReferenceNode = {
+  displayName?: string | null;
+  id?: string | null;
+  key?: string | null;
+  name?: string | null;
+};
+
+export type LinearTeamMembershipNode = {
+  createdAt?: string | null;
+  id?: string | null;
+  owner?: boolean | null;
+  sortOrder?: number | null;
+  team?: LinearTeamReferenceNode | null;
+  updatedAt?: string | null;
+  user?: LinearUserNode | null;
 };
 
 export type LinearIssueReferenceNode = {
@@ -523,6 +569,14 @@ export function getLinearIssueFields() {
   return ISSUE_FIELDS;
 }
 
+export function getLinearUserFields() {
+  return USER_FIELDS;
+}
+
+export function getLinearTeamReferenceFields() {
+  return TEAM_REFERENCE_FIELDS;
+}
+
 export function getLinearCommentFields() {
   return COMMENT_FIELDS;
 }
@@ -577,9 +631,68 @@ export function mapLinearIssueReference(
   };
 }
 
+export function mapLinearUser(user: LinearUserNode | null) {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    active: user.active ?? false,
+    admin: user.admin ?? false,
+    displayName: user.displayName?.trim() || null,
+    email: user.email?.trim() || null,
+    guest: user.guest ?? false,
+    id: user.id?.trim() || null,
+    isAssignable: user.isAssignable ?? false,
+    isMentionable: user.isMentionable ?? false,
+    lastSeen: user.lastSeen ?? null,
+    name:
+      user.name?.trim() ||
+      user.displayName?.trim() ||
+      user.email?.trim() ||
+      "Unknown user",
+    owner: user.owner ?? false,
+    statusEmoji: user.statusEmoji?.trim() || null,
+    statusLabel: user.statusLabel?.trim() || null,
+    statusUntilAt: user.statusUntilAt ?? null,
+  };
+}
+
+export function mapLinearTeamReference(team: LinearTeamReferenceNode | null) {
+  if (!team) {
+    return null;
+  }
+
+  return {
+    displayName: team.displayName?.trim() || null,
+    id: team.id?.trim() || null,
+    key: team.key?.trim() || null,
+    name: team.name?.trim() || team.displayName?.trim() || null,
+  };
+}
+
+export function mapLinearTeamMembership(
+  membership: LinearTeamMembershipNode,
+) {
+  return {
+    createdAt: membership.createdAt ?? null,
+    id: membership.id?.trim() || null,
+    owner: membership.owner ?? false,
+    sortOrder:
+      typeof membership.sortOrder === "number" &&
+      Number.isFinite(membership.sortOrder)
+        ? membership.sortOrder
+        : 0,
+    team: mapLinearTeamReference(membership.team ?? null),
+    updatedAt: membership.updatedAt ?? null,
+    user: mapLinearUser(membership.user ?? null),
+  };
+}
+
 export function mapLinearIssue(issue: LinearIssueNode) {
   return {
-    assignee: issue.assignee?.name?.trim() || null,
+    assignee:
+      issue.assignee?.name?.trim() || issue.assignee?.displayName?.trim() || null,
     assigneeEmail: issue.assignee?.email?.trim() || null,
     createdAt: issue.createdAt ?? null,
     description: issue.description?.trim() || null,
@@ -614,7 +727,8 @@ export function mapLinearComment(comment: LinearCommentNode) {
     resolvedAt: comment.resolvedAt ?? null,
     updatedAt: comment.updatedAt ?? null,
     url: comment.url ?? null,
-    user: comment.user?.name?.trim() || null,
+    user:
+      comment.user?.name?.trim() || comment.user?.displayName?.trim() || null,
     userEmail: comment.user?.email?.trim() || null,
     userId: comment.user?.id?.trim() || null,
   };
@@ -648,6 +762,71 @@ export function buildLinearCommentCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearUserCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+  user: LinearUserNode | null | undefined;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+    user: mapLinearUser(input.user ?? null),
+  };
+}
+
+export function buildLinearUserCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearUserNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map((user) => mapLinearUser(user)),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearUserIssueCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearIssueNode[];
+  limit: number;
+  user: LinearUserNode;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearIssue),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+    user: mapLinearUser(input.user),
+  };
+}
+
+export function buildLinearUserTeamMembershipCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearTeamMembershipNode[];
+  limit: number;
+  user: LinearUserNode;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearTeamMembership),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+    user: mapLinearUser(input.user),
   };
 }
 
@@ -722,7 +901,8 @@ export function mapLinearProject(project: LinearProjectNode) {
     icon: project.icon?.trim() || null,
     id: project.id?.trim() || null,
     labelIds: normalizeStringArray(project.labelIds),
-    lead: project.lead?.name?.trim() || null,
+    lead:
+      project.lead?.name?.trim() || project.lead?.displayName?.trim() || null,
     leadEmail: project.lead?.email?.trim() || null,
     leadId: project.lead?.id?.trim() || null,
     name: project.name?.trim() || "Untitled project",
@@ -757,7 +937,8 @@ export function mapLinearProjectUpdate(update: LinearProjectUpdateNode) {
     slugId: update.slugId?.trim() || null,
     updatedAt: update.updatedAt ?? null,
     url: update.url ?? null,
-    user: update.user?.name?.trim() || null,
+    user:
+      update.user?.name?.trim() || update.user?.displayName?.trim() || null,
     userEmail: update.user?.email?.trim() || null,
     userId: update.user?.id?.trim() || null,
   };
