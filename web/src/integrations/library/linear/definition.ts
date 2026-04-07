@@ -30,6 +30,24 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import {
+  executeLinearLabelCreateIssueLabel,
+  executeLinearLabelDeleteIssueLabel,
+  executeLinearLabelGetIssueLabel,
+  executeLinearLabelListIssueLabels,
+  executeLinearLabelRestoreIssueLabel,
+  executeLinearLabelRetireIssueLabel,
+  executeLinearLabelUpdateIssueLabel,
+} from "./commands/label/issue";
+import {
+  executeLinearLabelCreateProjectLabel,
+  executeLinearLabelDeleteProjectLabel,
+  executeLinearLabelGetProjectLabel,
+  executeLinearLabelListProjectLabels,
+  executeLinearLabelRestoreProjectLabel,
+  executeLinearLabelRetireProjectLabel,
+  executeLinearLabelUpdateProjectLabel,
+} from "./commands/label/project";
 import { executeLinearProjectArchive } from "./commands/project/archive";
 import { executeLinearProjectCreate } from "./commands/project/create";
 import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
@@ -198,6 +216,18 @@ const DOCUMENT_QUERY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Free-text document search query.",
+} as const;
+
+const LABEL_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear label id.",
+} as const;
+
+const LABEL_NAME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Label name.",
 } as const;
 
 const DATETIME_ARGUMENT_SCHEMA = {
@@ -1366,6 +1396,555 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["document"],
         intentKeywords: ["linear", "document", "documents", "docs", "knowledge"],
         label: "Documents",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "label.list_issue_labels",
+            commandPath: ["label", "list_issue_labels"],
+            description: "List issue labels in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "labels", "issue labels", "taxonomy"],
+            label: "List issue labels",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse issue taxonomy before applying or changing issue labels.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearLabelListIssueLabels,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.get_issue_label",
+            commandPath: ["label", "get_issue_label"],
+            description: "Read one issue label by id.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "issue label", "label details"],
+            label: "Get issue label",
+            resultMode: "json",
+            usageNotes: [
+              "Use ids returned by label.list_issue_labels before reading one label in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelGetIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                replaceTeamLabels: {
+                  type: "boolean",
+                  description: "Whether matching team labels should be replaced by this workspace label.",
+                },
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional team id for a team-scoped issue label.",
+                },
+              },
+              required: ["name"],
+            },
+            commandKey: "label.create_issue_label",
+            commandPath: ["label", "create_issue_label"],
+            description: "Create a new issue label.",
+            exampleArguments: {
+              name: "Customer",
+              teamId: "team-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create issue label", "new issue label"],
+            label: "Create issue label",
+            resultMode: "json",
+            usageNotes: [
+              "Omit teamId to create a workspace-level issue label instead of a team-specific one.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              replaceTeamLabels:
+                typeof argumentsObject.replaceTeamLabels === "boolean"
+                  ? argumentsObject.replaceTeamLabels
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelCreateIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                replaceTeamLabels: {
+                  type: "boolean",
+                  description: "Whether matching team labels should be replaced by this updated workspace label.",
+                },
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.update_issue_label",
+            commandPath: ["label", "update_issue_label"],
+            description: "Update one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+              name: "Customer-visible",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "update issue label", "edit issue label"],
+            label: "Update issue label",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides labelId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              replaceTeamLabels:
+                typeof argumentsObject.replaceTeamLabels === "boolean"
+                  ? argumentsObject.replaceTeamLabels
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelUpdateIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.delete_issue_label",
+            commandPath: ["label", "delete_issue_label"],
+            description: "Delete one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "delete issue label", "remove issue label"],
+            label: "Delete issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelDeleteIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.restore_issue_label",
+            commandPath: ["label", "restore_issue_label"],
+            description: "Restore one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "restore issue label", "unarchive issue label"],
+            label: "Restore issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRestoreIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.retire_issue_label",
+            commandPath: ["label", "retire_issue_label"],
+            description: "Retire one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "retire issue label", "deprecate issue label"],
+            label: "Retire issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRetireIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "label.list_project_labels",
+            commandPath: ["label", "list_project_labels"],
+            description: "List project labels in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project labels", "roadmap labels", "taxonomy"],
+            label: "List project labels",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearLabelListProjectLabels,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.get_project_label",
+            commandPath: ["label", "get_project_label"],
+            description: "Read one project label by id.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project label", "label details"],
+            label: "Get project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelGetProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["name"],
+            },
+            commandKey: "label.create_project_label",
+            commandPath: ["label", "create_project_label"],
+            description: "Create a new project label.",
+            exampleArguments: {
+              name: "Roadmap",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create project label", "new project label"],
+            label: "Create project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelCreateProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.update_project_label",
+            commandPath: ["label", "update_project_label"],
+            description: "Update one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+              name: "Roadmap critical",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "update project label", "edit project label"],
+            label: "Update project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelUpdateProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.delete_project_label",
+            commandPath: ["label", "delete_project_label"],
+            description: "Delete one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "delete project label", "remove project label"],
+            label: "Delete project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelDeleteProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.restore_project_label",
+            commandPath: ["label", "restore_project_label"],
+            description: "Restore one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "restore project label", "unarchive project label"],
+            label: "Restore project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRestoreProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.retire_project_label",
+            commandPath: ["label", "retire_project_label"],
+            description: "Retire one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "retire project label", "deprecate project label"],
+            label: "Retire project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRetireProjectLabel,
+          },
+        ],
+        description: "Issue-label and project-label taxonomy reads and writes.",
+        groupKey: "label",
+        groupPath: ["label"],
+        intentKeywords: ["linear", "labels", "taxonomy", "categorization"],
+        label: "Labels",
       },
       {
         commands: [

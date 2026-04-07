@@ -140,6 +140,28 @@ const ISSUE_RELATION_FIELDS = `
   }
 `;
 
+const ISSUE_LABEL_FIELDS = `
+  id
+  name
+  color
+  description
+  isGroup
+  createdAt
+  updatedAt
+  lastAppliedAt
+  retiredAt
+  parent {
+    id
+    name
+  }
+  creator {
+    ${USER_FIELDS}
+  }
+  team {
+    ${TEAM_REFERENCE_FIELDS}
+  }
+`;
+
 const PROJECT_STATUS_FIELDS = `
   id
   name
@@ -155,10 +177,15 @@ const PROJECT_LABEL_FIELDS = `
   description
   isGroup
   createdAt
+  updatedAt
   lastAppliedAt
+  retiredAt
   parent {
     id
     name
+  }
+  creator {
+    ${USER_FIELDS}
   }
 `;
 
@@ -448,6 +475,24 @@ export type LinearIssueRelationNode = {
   updatedAt?: string | null;
 };
 
+export type LinearIssueLabelNode = {
+  color?: string | null;
+  createdAt?: string | null;
+  creator?: LinearUserNode | null;
+  description?: string | null;
+  id?: string | null;
+  isGroup?: boolean | null;
+  lastAppliedAt?: string | null;
+  name?: string | null;
+  parent?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  retiredAt?: string | null;
+  team?: LinearTeamReferenceNode | null;
+  updatedAt?: string | null;
+};
+
 export type LinearProjectStatusNode = {
   color?: string | null;
   description?: string | null;
@@ -459,6 +504,7 @@ export type LinearProjectStatusNode = {
 export type LinearProjectLabelNode = {
   color?: string | null;
   createdAt?: string | null;
+  creator?: LinearUserNode | null;
   description?: string | null;
   id?: string | null;
   isGroup?: boolean | null;
@@ -468,6 +514,8 @@ export type LinearProjectLabelNode = {
     id?: string | null;
     name?: string | null;
   } | null;
+  retiredAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type LinearProjectNode = {
@@ -645,6 +693,10 @@ export function getLinearDocumentFields() {
 
 export function getLinearIssueRelationFields() {
   return ISSUE_RELATION_FIELDS;
+}
+
+export function getLinearIssueLabelFields() {
+  return ISSUE_LABEL_FIELDS;
 }
 
 export function getLinearProjectFields() {
@@ -850,6 +902,87 @@ export function buildLinearDocumentCollectionCommandResult(input: {
   };
 }
 
+export function buildLinearIssueLabelCommandResult(input: {
+  commandKey: string;
+  issueLabel: LinearIssueLabelNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    issueLabel: input.issueLabel ? mapLinearIssueLabel(input.issueLabel) : null,
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearIssueLabelCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearIssueLabelNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearIssueLabel),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearProjectLabelCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  projectLabel: LinearProjectLabelNode | null | undefined;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    projectLabel: input.projectLabel
+      ? mapLinearProjectLabel(input.projectLabel)
+      : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearProjectLabelCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearProjectLabelNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearProjectLabel),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearDeleteCommandResult(input: {
+  commandKey: string;
+  entityId: string | null | undefined;
+  entityKey: string;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    [`deleted${input.entityKey}`]: input.entityId?.trim() || null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
 export function buildLinearUserCommandResult(input: {
   commandKey: string;
   lastSyncId?: number | null;
@@ -981,6 +1114,26 @@ export function mapLinearIssueRelation(relation: LinearIssueRelationNode) {
   };
 }
 
+export function mapLinearIssueLabel(label: LinearIssueLabelNode) {
+  return {
+    color: label.color?.trim() || null,
+    createdAt: label.createdAt ?? null,
+    creator: label.creator?.name?.trim() || label.creator?.displayName?.trim() || null,
+    creatorEmail: label.creator?.email?.trim() || null,
+    creatorId: label.creator?.id?.trim() || null,
+    description: label.description?.trim() || null,
+    id: label.id?.trim() || null,
+    isGroup: label.isGroup ?? false,
+    lastAppliedAt: label.lastAppliedAt ?? null,
+    name: label.name?.trim() || "Untitled label",
+    parentId: label.parent?.id?.trim() || null,
+    parentName: label.parent?.name?.trim() || null,
+    retiredAt: label.retiredAt ?? null,
+    team: mapLinearTeamReference(label.team ?? null),
+    updatedAt: label.updatedAt ?? null,
+  };
+}
+
 export function mapLinearProjectStatus(status: LinearProjectStatusNode | null) {
   if (!status) {
     return null;
@@ -999,6 +1152,10 @@ export function mapLinearProjectLabel(label: LinearProjectLabelNode) {
   return {
     color: label.color?.trim() || null,
     createdAt: label.createdAt ?? null,
+    creator:
+      label.creator?.name?.trim() || label.creator?.displayName?.trim() || null,
+    creatorEmail: label.creator?.email?.trim() || null,
+    creatorId: label.creator?.id?.trim() || null,
     description: label.description?.trim() || null,
     id: label.id?.trim() || null,
     isGroup: label.isGroup ?? false,
@@ -1006,6 +1163,8 @@ export function mapLinearProjectLabel(label: LinearProjectLabelNode) {
     name: label.name?.trim() || "Untitled label",
     parentId: label.parent?.id?.trim() || null,
     parentName: label.parent?.name?.trim() || null,
+    retiredAt: label.retiredAt ?? null,
+    updatedAt: label.updatedAt ?? null,
   };
 }
 

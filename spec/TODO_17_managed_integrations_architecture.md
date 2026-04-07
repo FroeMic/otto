@@ -794,20 +794,26 @@ Tracker:
     - verify `document.update` for title/content edits plus toggling `trashed` and changing linked project or issue context
 
 - `label`
-  - `[ ]` `label.list_issue_labels`
-  - `[ ]` `label.get_issue_label`
-  - `[ ]` `label.create_issue_label`
-  - `[ ]` `label.update_issue_label`
-  - `[ ]` `label.delete_issue_label`
-  - `[ ]` `label.restore_issue_label`
-  - `[ ]` `label.retire_issue_label`
-  - `[ ]` `label.list_project_labels`
-  - `[ ]` `label.get_project_label`
-  - `[ ]` `label.create_project_label`
-  - `[ ]` `label.update_project_label`
-  - `[ ]` `label.delete_project_label`
-  - `[ ]` `label.restore_project_label`
-  - `[ ]` `label.retire_project_label`
+  - `[x]` `label.list_issue_labels`
+  - `[x]` `label.get_issue_label`
+  - `[x]` `label.create_issue_label`
+  - `[x]` `label.update_issue_label`
+  - `[x]` `label.delete_issue_label`
+  - `[x]` `label.restore_issue_label`
+  - `[x]` `label.retire_issue_label`
+  - `[x]` `label.list_project_labels`
+  - `[x]` `label.get_project_label`
+  - `[x]` `label.create_project_label`
+  - `[x]` `label.update_project_label`
+  - `[x]` `label.delete_project_label`
+  - `[x]` `label.restore_project_label`
+  - `[x]` `label.retire_project_label`
+  - Later testing plan:
+    - verify issue-label list/get on both workspace-level and team-level issue labels
+    - verify issue-label create/update with `replaceTeamLabels=true` against a workspace that already has matching team labels
+    - verify issue-label delete/restore/retire transitions and confirm the returned label state changes as expected
+    - verify project-label list/get against a workspace with grouped project labels
+    - verify project-label create/update/delete/restore/retire against at least one active project label and one archived/retired label
 
 - `project_milestone`
   - `[ ]` `project_milestone.list`
