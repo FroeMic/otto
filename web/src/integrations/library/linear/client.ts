@@ -91,6 +91,91 @@ const ISSUE_RELATION_FIELDS = `
   }
 `;
 
+const PROJECT_STATUS_FIELDS = `
+  id
+  name
+  type
+  color
+  description
+`;
+
+const PROJECT_LABEL_FIELDS = `
+  id
+  name
+  color
+  description
+  isGroup
+  createdAt
+  lastAppliedAt
+  parent {
+    id
+    name
+  }
+`;
+
+const PROJECT_FIELDS = `
+  id
+  name
+  description
+  content
+  color
+  icon
+  priority
+  url
+  slugId
+  startDate
+  targetDate
+  createdAt
+  updatedAt
+  labelIds
+  lead {
+    ${USER_FIELDS}
+  }
+  status {
+    ${PROJECT_STATUS_FIELDS}
+  }
+  teams(first: 50) {
+    nodes {
+      id
+      key
+      name
+    }
+  }
+`;
+
+const PROJECT_UPDATE_FIELDS = `
+  id
+  body
+  health
+  isDiffHidden
+  slugId
+  url
+  createdAt
+  updatedAt
+  project {
+    id
+    name
+  }
+  user {
+    ${USER_FIELDS}
+  }
+`;
+
+const PROJECT_MILESTONE_FIELDS = `
+  id
+  name
+  description
+  progress
+  status
+  targetDate
+  createdAt
+  updatedAt
+  project {
+    id
+    name
+  }
+`;
+
 const GET_ISSUE_BY_ID_QUERY = `
   query OttoLinearIssueById($id: String!) {
     issue(id: $id) {
@@ -243,6 +328,85 @@ export type LinearIssueRelationNode = {
   updatedAt?: string | null;
 };
 
+export type LinearProjectStatusNode = {
+  color?: string | null;
+  description?: string | null;
+  id?: string | null;
+  name?: string | null;
+  type?: string | null;
+};
+
+export type LinearProjectLabelNode = {
+  color?: string | null;
+  createdAt?: string | null;
+  description?: string | null;
+  id?: string | null;
+  isGroup?: boolean | null;
+  lastAppliedAt?: string | null;
+  name?: string | null;
+  parent?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+};
+
+export type LinearProjectNode = {
+  color?: string | null;
+  content?: string | null;
+  createdAt?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  id?: string | null;
+  labelIds?: string[] | null;
+  lead?: LinearUserNode | null;
+  name?: string | null;
+  priority?: number | null;
+  slugId?: string | null;
+  startDate?: string | null;
+  status?: LinearProjectStatusNode | null;
+  targetDate?: string | null;
+  teams?: {
+    nodes?: Array<{
+      id?: string | null;
+      key?: string | null;
+      name?: string | null;
+    }> | null;
+  } | null;
+  updatedAt?: string | null;
+  url?: string | null;
+};
+
+export type LinearProjectUpdateNode = {
+  body?: string | null;
+  createdAt?: string | null;
+  health?: string | null;
+  id?: string | null;
+  isDiffHidden?: boolean | null;
+  project?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  slugId?: string | null;
+  updatedAt?: string | null;
+  url?: string | null;
+  user?: LinearUserNode | null;
+};
+
+export type LinearProjectMilestoneNode = {
+  createdAt?: string | null;
+  description?: string | null;
+  id?: string | null;
+  name?: string | null;
+  progress?: number | null;
+  project?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  status?: string | null;
+  targetDate?: string | null;
+  updatedAt?: string | null;
+};
+
 export async function executeLinearGraphql<T>(input: {
   accessToken: string;
   query: string;
@@ -333,6 +497,26 @@ export function getLinearDocumentFields() {
 
 export function getLinearIssueRelationFields() {
   return ISSUE_RELATION_FIELDS;
+}
+
+export function getLinearProjectFields() {
+  return PROJECT_FIELDS;
+}
+
+export function getLinearProjectStatusFields() {
+  return PROJECT_STATUS_FIELDS;
+}
+
+export function getLinearProjectLabelFields() {
+  return PROJECT_LABEL_FIELDS;
+}
+
+export function getLinearProjectUpdateFields() {
+  return PROJECT_UPDATE_FIELDS;
+}
+
+export function getLinearProjectMilestoneFields() {
+  return PROJECT_MILESTONE_FIELDS;
 }
 
 export function mapLinearIssueReference(
@@ -454,6 +638,105 @@ export function mapLinearIssueRelation(relation: LinearIssueRelationNode) {
     relatedIssue: mapLinearIssueReference(relation.relatedIssue ?? null),
     type: relation.type?.trim() || null,
     updatedAt: relation.updatedAt ?? null,
+  };
+}
+
+export function mapLinearProjectStatus(status: LinearProjectStatusNode | null) {
+  if (!status) {
+    return null;
+  }
+
+  return {
+    color: status.color?.trim() || null,
+    description: status.description?.trim() || null,
+    id: status.id?.trim() || null,
+    name: status.name?.trim() || null,
+    type: status.type?.trim() || null,
+  };
+}
+
+export function mapLinearProjectLabel(label: LinearProjectLabelNode) {
+  return {
+    color: label.color?.trim() || null,
+    createdAt: label.createdAt ?? null,
+    description: label.description?.trim() || null,
+    id: label.id?.trim() || null,
+    isGroup: label.isGroup ?? false,
+    lastAppliedAt: label.lastAppliedAt ?? null,
+    name: label.name?.trim() || "Untitled label",
+    parentId: label.parent?.id?.trim() || null,
+    parentName: label.parent?.name?.trim() || null,
+  };
+}
+
+export function mapLinearProject(project: LinearProjectNode) {
+  return {
+    color: project.color?.trim() || null,
+    content: project.content?.trim() || null,
+    createdAt: project.createdAt ?? null,
+    description: project.description?.trim() || null,
+    icon: project.icon?.trim() || null,
+    id: project.id?.trim() || null,
+    labelIds: normalizeStringArray(project.labelIds),
+    lead: project.lead?.name?.trim() || null,
+    leadEmail: project.lead?.email?.trim() || null,
+    leadId: project.lead?.id?.trim() || null,
+    name: project.name?.trim() || "Untitled project",
+    priority:
+      typeof project.priority === "number" && Number.isFinite(project.priority)
+        ? project.priority
+        : 0,
+    slugId: project.slugId?.trim() || null,
+    startDate: project.startDate ?? null,
+    status: mapLinearProjectStatus(project.status ?? null),
+    targetDate: project.targetDate ?? null,
+    teamIds: (project.teams?.nodes ?? [])
+      .map((team) => team.id?.trim() || null)
+      .filter((value): value is string => Boolean(value)),
+    teams: (project.teams?.nodes ?? [])
+      .map((team) => team.key?.trim() || team.name?.trim() || "")
+      .filter(Boolean),
+    updatedAt: project.updatedAt ?? null,
+    url: project.url ?? null,
+  };
+}
+
+export function mapLinearProjectUpdate(update: LinearProjectUpdateNode) {
+  return {
+    body: update.body?.trim() || "",
+    createdAt: update.createdAt ?? null,
+    health: update.health?.trim() || null,
+    id: update.id?.trim() || null,
+    isDiffHidden: update.isDiffHidden ?? false,
+    projectId: update.project?.id?.trim() || null,
+    projectName: update.project?.name?.trim() || null,
+    slugId: update.slugId?.trim() || null,
+    updatedAt: update.updatedAt ?? null,
+    url: update.url ?? null,
+    user: update.user?.name?.trim() || null,
+    userEmail: update.user?.email?.trim() || null,
+    userId: update.user?.id?.trim() || null,
+  };
+}
+
+export function mapLinearProjectMilestone(
+  milestone: LinearProjectMilestoneNode,
+) {
+  return {
+    createdAt: milestone.createdAt ?? null,
+    description: milestone.description?.trim() || null,
+    id: milestone.id?.trim() || null,
+    name: milestone.name?.trim() || "Untitled milestone",
+    progress:
+      typeof milestone.progress === "number" &&
+      Number.isFinite(milestone.progress)
+        ? milestone.progress
+        : 0,
+    projectId: milestone.project?.id?.trim() || null,
+    projectName: milestone.project?.name?.trim() || null,
+    status: milestone.status?.trim() || null,
+    targetDate: milestone.targetDate ?? null,
+    updatedAt: milestone.updatedAt ?? null,
   };
 }
 
@@ -636,6 +919,54 @@ export function buildLinearIssueCollectionCommandResult<T>(input: {
     issue: mapLinearIssue(input.issue),
     items: input.items,
     limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearProjectCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  project: LinearProjectNode | null | undefined;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    project: input.project ? mapLinearProject(input.project) : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearProjectCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearProjectNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearProject),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearProjectChildCollectionCommandResult<T>(input: {
+  commandKey: string;
+  items: T[];
+  limit: number;
+  project: LinearProjectNode;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items,
+    limit: input.limit,
+    project: mapLinearProject(input.project),
     source: "linear",
     totalMatched: input.items.length,
   };

@@ -19,6 +19,18 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import { executeLinearProjectArchive } from "./commands/project/archive";
+import { executeLinearProjectCreate } from "./commands/project/create";
+import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
+import { executeLinearProjectGet } from "./commands/project/get";
+import { executeLinearProjectList } from "./commands/project/list";
+import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
+import { executeLinearProjectListIssues } from "./commands/project/list-issues";
+import { executeLinearProjectListLabels } from "./commands/project/list-labels";
+import { executeLinearProjectListMilestones } from "./commands/project/list-milestones";
+import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
+import { executeLinearProjectSearch } from "./commands/project/search";
+import { executeLinearProjectUpdate } from "./commands/project/update";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
 import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
@@ -93,6 +105,55 @@ const COMMENT_BODY_ARGUMENT_SCHEMA = {
   description: "Comment body in markdown.",
 } as const;
 
+const PROJECT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear project id.",
+} as const;
+
+const PROJECT_NAME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Project name.",
+} as const;
+
+const PROJECT_QUERY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Free-text project search query.",
+} as const;
+
+const TEAM_IDS_ARGUMENT_SCHEMA = {
+  type: "array",
+  minItems: 1,
+  items: {
+    type: "string",
+    minLength: 1,
+  },
+  description: "List of Linear team ids associated with the project.",
+} as const;
+
+const MEMBER_IDS_ARGUMENT_SCHEMA = {
+  type: "array",
+  items: {
+    type: "string",
+    minLength: 1,
+  },
+  description: "Optional list of Linear user ids for project members.",
+} as const;
+
+const DATE_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Timeless date in YYYY-MM-DD format.",
+} as const;
+
+const PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["onTrack", "atRisk", "offTrack"],
+  description: "Project update health state.",
+} as const;
+
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
@@ -130,12 +191,26 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       key: "comment.write",
       label: "Write comments",
     }),
+    buildCapability({
+      description:
+        "Read projects, milestones, updates, documents, labels, and related issue work in the connected Linear workspace.",
+      direction: "read",
+      key: "project.read",
+      label: "Read projects",
+    }),
+    buildCapability({
+      description:
+        "Create, update, archive, and post project updates in the connected Linear workspace.",
+      direction: "tool",
+      key: "project.write",
+      label: "Write projects",
+    }),
   ],
   categoryLabel: "Product Management",
   catalogDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue work, and create or update issue context when needed.",
+    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear context when needed.",
   description:
-    "Workspace-managed Linear connection for workspace metadata plus issue reads and writes.",
+    "Workspace-managed Linear connection for workspace metadata plus issue, comment, and project reads and writes.",
   iconSrc: "/integrations/linear.svg",
   key: "linear",
   label: "Linear",
@@ -143,7 +218,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     provider: linearOAuthProvider,
   },
   pageDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue work, and create or update issues for your team.",
+    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
       {
@@ -1131,6 +1206,642 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               type: "object",
               additionalProperties: false,
               properties: {
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.get",
+            commandPath: ["project", "get"],
+            description:
+              "Read one Linear project by project id and return normalized project context.",
+            exampleArguments: {
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "roadmap", "get project"],
+            label: "Get project",
+            resultMode: "json",
+            usageNotes: [
+              "Use project ids returned by project.list or project.search.",
+            ],
+            validate: (argumentsObject) => ({
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 50,
+                },
+              },
+            },
+            commandKey: "project.list",
+            commandPath: ["project", "list"],
+            description:
+              "List recently updated projects from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "projects", "roadmap", "list projects"],
+            label: "List projects",
+            resultMode: "json",
+            usageNotes: [
+              "This returns a recent slice of projects, not a semantic search.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearProjectList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 25,
+                  description: "Maximum number of matching projects to return.",
+                },
+                query: PROJECT_QUERY_ARGUMENT_SCHEMA,
+              },
+              required: ["query"],
+            },
+            commandKey: "project.search",
+            commandPath: ["project", "search"],
+            description:
+              "Search projects across names and descriptions in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 5,
+              query: "credits",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project",
+              "projects",
+              "roadmap",
+              "initiative",
+              "search",
+            ],
+            label: "Search projects",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you know the topic but not the exact project id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+              query:
+                typeof argumentsObject.query === "string"
+                  ? argumentsObject.query.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectSearch,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional project color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional markdown project overview content.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional project description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional project icon emoji.",
+                },
+                labelIds: LABEL_IDS_ARGUMENT_SCHEMA,
+                leadId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the project lead.",
+                },
+                memberIds: MEMBER_IDS_ARGUMENT_SCHEMA,
+                name: PROJECT_NAME_ARGUMENT_SCHEMA,
+                priority: PRIORITY_ARGUMENT_SCHEMA,
+                startDate: DATE_ARGUMENT_SCHEMA,
+                statusId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear project status id.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+              },
+              required: ["name", "teamIds"],
+            },
+            commandKey: "project.create",
+            commandPath: ["project", "create"],
+            description: "Create a new Linear project.",
+            exampleArguments: {
+              name: "Credits workflow",
+              teamIds: ["team-id"],
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "create", "roadmap"],
+            label: "Create project",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_teams first if you need canonical team ids before creating the project.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              labelIds: Array.isArray(argumentsObject.labelIds)
+                ? argumentsObject.labelIds
+                : undefined,
+              leadId:
+                typeof argumentsObject.leadId === "string"
+                  ? argumentsObject.leadId.trim()
+                  : null,
+              memberIds: Array.isArray(argumentsObject.memberIds)
+                ? argumentsObject.memberIds
+                : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isInteger(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              startDate:
+                typeof argumentsObject.startDate === "string"
+                  ? argumentsObject.startDate.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                : [],
+            }),
+            execute: executeLinearProjectCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional project color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional markdown project overview content.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional project description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional project icon emoji.",
+                },
+                labelIds: LABEL_IDS_ARGUMENT_SCHEMA,
+                leadId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the project lead.",
+                },
+                memberIds: MEMBER_IDS_ARGUMENT_SCHEMA,
+                name: PROJECT_NAME_ARGUMENT_SCHEMA,
+                priority: PRIORITY_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                startDate: DATE_ARGUMENT_SCHEMA,
+                statusId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear project status id.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+                trashed: {
+                  type: "boolean",
+                  description:
+                    "Whether the project should be marked as trashed.",
+                },
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.update",
+            commandPath: ["project", "update"],
+            description: "Update an existing Linear project.",
+            exampleArguments: {
+              name: "Credits workflow and billing",
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "update", "edit", "roadmap"],
+            label: "Update project",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides projectId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              labelIds: Array.isArray(argumentsObject.labelIds)
+                ? argumentsObject.labelIds
+                : undefined,
+              leadId:
+                typeof argumentsObject.leadId === "string"
+                  ? argumentsObject.leadId.trim()
+                  : null,
+              memberIds: Array.isArray(argumentsObject.memberIds)
+                ? argumentsObject.memberIds
+                : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isInteger(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+              startDate:
+                typeof argumentsObject.startDate === "string"
+                  ? argumentsObject.startDate.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                : undefined,
+              trashed:
+                typeof argumentsObject.trashed === "boolean"
+                  ? argumentsObject.trashed
+                  : null,
+            }),
+            execute: executeLinearProjectUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                trash: {
+                  type: "boolean",
+                  description:
+                    "Whether the archived project should also be trashed.",
+                },
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.archive",
+            commandPath: ["project", "archive"],
+            description: "Archive one Linear project.",
+            exampleArguments: {
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "archive", "close", "remove"],
+            label: "Archive project",
+            resultMode: "json",
+            usageNotes: [
+              "Use trash=true only when you want the project archived and moved to trash.",
+            ],
+            validate: (argumentsObject) => ({
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+              trash:
+                typeof argumentsObject.trash === "boolean"
+                  ? argumentsObject.trash
+                  : false,
+            }),
+            execute: executeLinearProjectArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.list_issues",
+            commandPath: ["project", "list_issues"],
+            description: "List issues attached to one Linear project.",
+            exampleArguments: {
+              limit: 25,
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "issues", "roadmap"],
+            label: "List project issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to expand a project into the underlying issue work.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectListIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.list_updates",
+            commandPath: ["project", "list_updates"],
+            description: "List posted updates for one Linear project.",
+            exampleArguments: {
+              limit: 25,
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "updates", "status report"],
+            label: "List project updates",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to inspect project status updates and authored progress reports.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectListUpdates,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                body: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional markdown project update body.",
+                },
+                health: PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA,
+                isDiffHidden: {
+                  type: "boolean",
+                  description:
+                    "Whether the project update diff should be hidden.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.create_update",
+            commandPath: ["project", "create_update"],
+            description: "Create a new update for a Linear project.",
+            exampleArguments: {
+              body: "Credits workflow is on track for this week.",
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project",
+              "update",
+              "status report",
+              "progress update",
+            ],
+            label: "Create project update",
+            resultMode: "json",
+            usageNotes: [
+              "Provide at least one of body, health, or isDiffHidden along with the project id.",
+            ],
+            validate: (argumentsObject) => ({
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body.trim()
+                  : null,
+              health:
+                typeof argumentsObject.health === "string"
+                  ? argumentsObject.health.trim()
+                  : null,
+              isDiffHidden:
+                typeof argumentsObject.isDiffHidden === "boolean"
+                  ? argumentsObject.isDiffHidden
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectCreateUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.list_documents",
+            commandPath: ["project", "list_documents"],
+            description: "List documents attached to one Linear project.",
+            exampleArguments: {
+              limit: 25,
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "documents", "docs", "specs"],
+            label: "List project documents",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to inspect project-level docs and planning artifacts.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectListDocuments,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.list_milestones",
+            commandPath: ["project", "list_milestones"],
+            description: "List milestones for one Linear project.",
+            exampleArguments: {
+              limit: 25,
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "milestones", "deadlines"],
+            label: "List project milestones",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when a project is organized around milestones or target dates.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectListMilestones,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.list_labels",
+            commandPath: ["project", "list_labels"],
+            description: "List labels attached to one Linear project.",
+            exampleArguments: {
+              limit: 25,
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project", "labels", "taxonomy", "tags"],
+            label: "List project labels",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to inspect project taxonomy without loading the full project label catalog.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectListLabels,
+          },
+        ],
+        description:
+          "Project reads and writes for the connected Linear workspace.",
+        groupKey: "project",
+        groupPath: ["project"],
+        intentKeywords: ["linear", "project", "projects", "roadmap"],
+        label: "Projects",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
                 issueIdentifierOrId: {
                   type: "string",
                   minLength: 1,
@@ -1374,7 +2085,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     ],
     rootCommands: [],
     toolDescription:
-      "Read Linear workspace metadata plus issue and comment context through Otto's managed integration runtime surface.",
+      "Read Linear workspace metadata plus issue, comment, and project context through Otto's managed integration runtime surface.",
     toolName: "linear",
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations2/linear`,
