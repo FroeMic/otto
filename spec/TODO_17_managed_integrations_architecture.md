@@ -743,7 +743,7 @@ Tracker:
   - `[x]` `cycle.get`
   - `[x]` `cycle.create`
   - `[x]` `cycle.update`
-  - `[ ]` `cycle.archive`
+  - `[x]` `cycle.archive`
   - `[ ]` `cycle.list_issues`
 
 - `team`
@@ -853,7 +853,6 @@ Tracker:
 Immediate next recommended slice:
 
 - move to the next adjacent object slices:
-  - `cycle.archive`
   - `cycle.list_issues`
 
 ## Slack Example

@@ -6,6 +6,7 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import { executeLinearCycleArchive } from "./commands/cycle/archive";
 import { executeLinearCycleCreate } from "./commands/cycle/create";
 import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
@@ -404,6 +405,36 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : null,
             }),
             execute: executeLinearCycleUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.archive",
+            commandPath: ["cycle", "archive"],
+            description: "Archive one Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "archive", "close", "sprint"],
+            label: "Archive cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when the cycle should be archived in Linear.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleArchive,
           },
           {
             argumentsSchema: {

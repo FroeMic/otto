@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { executeLinearCycleArchive } from "./archive";
 import { executeLinearCycleCreate } from "./create";
 import { executeLinearCycleGet } from "./get";
 import { executeLinearCycleList } from "./list";
@@ -274,6 +275,64 @@ describe("linear cycle commands", () => {
     assert.equal(result.lookup, "cycle-1");
     assert.equal(result.cycle?.description, "Updated sprint for credits work");
     assert.equal(result.lastSyncId, 44);
+    assert.equal(result.success, true);
+  });
+
+  it("archives cycles by cycle id", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            cycleArchive: {
+              entity: buildCycleNode(),
+              lastSyncId: 45,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCycleArchive({
+      arguments: {
+        cycleId: "cycle-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      cycle: {
+        id: string | null;
+      } | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /cycleArchive/);
+    assert.equal(payload.variables.id, "cycle-1");
+    assert.equal(result.commandKey, "cycle.archive");
+    assert.equal(result.lookup, "cycle-1");
+    assert.equal(result.cycle?.id, "cycle-1");
+    assert.equal(result.lastSyncId, 45);
     assert.equal(result.success, true);
   });
 });
