@@ -684,6 +684,12 @@ This spec should not:
 
 ### Increment 1: Managed skill package model and validation
 
+Status:
+
+- done on `main`
+- the first slice includes schema, validation, dependency-key checks, and managed file classification
+- binary managed-file persistence remains intentionally deferred; the first create path is text-first
+
 Scope:
 
 - add the managed skill schema and canonical package model
@@ -789,7 +795,7 @@ Acceptance criteria:
 
 ## Status Checklist
 
-- [ ] Increment 1: managed skill package model and validation
+- [x] Increment 1: managed skill package model and validation
 - [ ] Increment 2: projection into `workspace/skills/`
 - [ ] Increment 3: minimal workspace Skills UI
 - [ ] Increment 4: runtime-authenticated managed-skill CRUD surface

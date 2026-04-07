@@ -295,6 +295,13 @@
       "when": 1775570400000,
       "tag": "0041_command_key_audits",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1775572548000,
+      "tag": "0042_managed_skills_increment_1",
+      "breakpoints": true
     }
   ]
 }

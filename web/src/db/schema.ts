@@ -800,6 +800,127 @@ export const tenantManagedFileVersions = pgTable(
   }),
 );
 
+export const tenantSkills = pgTable(
+  "tenant_skills",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    skillKey: varchar("skill_key", { length: 128 }).notNull(),
+    displayName: text("display_name").notNull(),
+    description: text("description").notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    sourceType: varchar("source_type", { length: 64 }).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    dependsOnJson: jsonb("depends_on_json"),
+    createdByType: varchar("created_by_type", { length: 64 }).notNull(),
+    createdByExternalId: varchar("created_by_external_id", { length: 255 }),
+    updatedByType: varchar("updated_by_type", { length: 64 }).notNull(),
+    updatedByExternalId: varchar("updated_by_external_id", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_skills_tenant_id_idx").on(table.tenantId),
+    tenantSkillKeyUniqueIdx: uniqueIndex(
+      "tenant_skills_tenant_id_skill_key_idx",
+    ).on(table.tenantId, table.skillKey),
+  }),
+);
+
+export const tenantSkillVersions = pgTable(
+  "tenant_skill_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantSkillId: uuid("tenant_skill_id")
+      .references(() => tenantSkills.id, { onDelete: "cascade" })
+      .notNull(),
+    version: integer("version").notNull(),
+    summary: text("summary"),
+    createdByType: varchar("created_by_type", { length: 64 }).notNull(),
+    createdByExternalId: varchar("created_by_external_id", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    skillIdx: index("tenant_skill_versions_skill_id_idx").on(
+      table.tenantSkillId,
+    ),
+    skillVersionUniqueIdx: uniqueIndex(
+      "tenant_skill_versions_skill_id_version_idx",
+    ).on(table.tenantSkillId, table.version),
+  }),
+);
+
+export const tenantSkillFiles = pgTable(
+  "tenant_skill_files",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantSkillId: uuid("tenant_skill_id")
+      .references(() => tenantSkills.id, { onDelete: "cascade" })
+      .notNull(),
+    relativePath: varchar("relative_path", { length: 512 }).notNull(),
+    fileKind: varchar("file_kind", { length: 32 }).notNull(),
+    contentType: varchar("content_type", { length: 255 }),
+    contentEncoding: varchar("content_encoding", { length: 32 }).notNull(),
+    contentSha256: varchar("content_sha256", { length: 64 }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    skillIdx: index("tenant_skill_files_skill_id_idx").on(table.tenantSkillId),
+    skillPathUniqueIdx: uniqueIndex(
+      "tenant_skill_files_skill_id_relative_path_idx",
+    ).on(table.tenantSkillId, table.relativePath),
+  }),
+);
+
+export const tenantSkillFileVersions = pgTable(
+  "tenant_skill_file_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantSkillFileId: uuid("tenant_skill_file_id")
+      .references(() => tenantSkillFiles.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantSkillVersionId: uuid("tenant_skill_version_id")
+      .references(() => tenantSkillVersions.id, { onDelete: "cascade" })
+      .notNull(),
+    version: integer("version").notNull(),
+    contentText: text("content_text").notNull(),
+    contentSha256: varchar("content_sha256", { length: 64 }).notNull(),
+    createdByType: varchar("created_by_type", { length: 64 }).notNull(),
+    createdByExternalId: varchar("created_by_external_id", { length: 255 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    skillFileIdx: index("tenant_skill_file_versions_file_id_idx").on(
+      table.tenantSkillFileId,
+    ),
+    skillVersionIdx: index(
+      "tenant_skill_file_versions_skill_version_id_idx",
+    ).on(table.tenantSkillVersionId),
+    skillFileVersionUniqueIdx: uniqueIndex(
+      "tenant_skill_file_versions_file_id_version_idx",
+    ).on(table.tenantSkillFileId, table.version),
+  }),
+);
+
 export const tenantScheduledTasks = pgTable(
   "tenant_scheduled_tasks",
   {
