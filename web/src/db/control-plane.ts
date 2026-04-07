@@ -66,7 +66,7 @@ import {
 } from "@/lib/crypto";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { JOB_TYPES } from "@/lib/jobs/types";
+import { JOB_STATUSES, JOB_TYPES } from "@/lib/jobs/types";
 import { getStaleDirectoryIds } from "@/lib/messaging-directory";
 import type { OAuthTokenExchangeResult } from "@/lib/oauth/providers/types";
 import {
@@ -2337,8 +2337,11 @@ function buildLatestJobSummary(
   }
 
   const payload = parseRecord(job.payloadJson);
-  const step = typeof payload.step === "string" ? payload.step : null;
   const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse();
+  const step =
+    typeof payload.step === "string"
+      ? payload.step
+      : deriveJobStepFromEvents(events);
 
   return {
     attempt: job.attempt,
@@ -2398,7 +2401,8 @@ function buildPlatformJobEventHistoryEntry(event: {
   payloadJson: unknown;
 }) {
   const payload = parseRecord(event.payloadJson);
-  const step = typeof payload.step === "string" ? payload.step : null;
+  const step =
+    typeof payload.step === "string" ? payload.step : event.eventType;
 
   return {
     createdAt: event.createdAt,
@@ -2417,6 +2421,32 @@ function parseRecord(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function deriveJobStepFromEvents(
+  events: Array<{
+    createdAt: Date;
+    eventType: string;
+    message: string;
+  }>,
+) {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const eventType = events[index]?.eventType;
+
+    if (!eventType || isGenericJobEventType(eventType)) {
+      continue;
+    }
+
+    return eventType;
+  }
+
+  return null;
+}
+
+function isGenericJobEventType(eventType: string) {
+  return (
+    eventType === JOB_STATUSES.queued || eventType === JOB_STATUSES.running
+  );
 }
 
 function buildPlatformJobResult(value: unknown) {
