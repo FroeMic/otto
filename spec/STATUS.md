@@ -400,8 +400,8 @@
   - the Linear workspace foundation is now complete through `workspace.get_organization` and `workspace.list_project_statuses`
   - the `comment.*` slice is now implemented end to end for issue-thread comments
   - the full `project.*` slice is now implemented end to end, including project reads, writes, nested issue/document/milestone/label reads, and authored project updates
-  - the `cycle.*` slice is now started with `cycle.list`
-  - the next recommended Linear commands are `cycle.get`, `cycle.create`, `cycle.update`, `cycle.archive`, and `cycle.list_issues`
+  - the `cycle.*` slice is now started with `cycle.list` and `cycle.get`
+  - the next recommended Linear commands are `cycle.create`, `cycle.update`, `cycle.archive`, and `cycle.list_issues`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

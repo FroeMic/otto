@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { executeLinearCycleGet } from "./get";
 import { executeLinearCycleList } from "./list";
 
 function buildCycleNode(overrides: Record<string, unknown> = {}) {
@@ -89,5 +90,57 @@ describe("linear cycle commands", () => {
     assert.equal(result.items[0]?.team, "INT");
     assert.equal(result.items[0]?.isActive, true);
     assert.equal(result.totalMatched, 1);
+  });
+
+  it("gets one cycle by id", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            cycle: buildCycleNode(),
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCycleGet({
+      arguments: {
+        cycleId: "cycle-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      cycle: {
+        id: string | null;
+        name: string;
+      } | null;
+      lookup: string;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /cycle\(id: \$id\)/);
+    assert.equal(payload.variables.id, "cycle-1");
+    assert.equal(result.commandKey, "cycle.get");
+    assert.equal(result.lookup, "cycle-1");
+    assert.equal(result.cycle?.id, "cycle-1");
+    assert.equal(result.cycle?.name, "Cycle 42");
   });
 });

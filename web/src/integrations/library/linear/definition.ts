@@ -6,6 +6,7 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
@@ -155,6 +156,12 @@ const PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA = {
   description: "Project update health state.",
 } as const;
 
+const CYCLE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear cycle id.",
+} as const;
+
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
     buildCapability({
@@ -231,6 +238,37 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.get",
+            commandPath: ["cycle", "get"],
+            description:
+              "Read one Linear cycle by cycle id and return normalized cycle context.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "sprint", "get cycle"],
+            label: "Get cycle",
+            resultMode: "json",
+            usageNotes: [
+              "Use cycle ids returned by cycle.list before reading one cycle in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+            }),
+            execute: executeLinearCycleGet,
+          },
           {
             argumentsSchema: {
               type: "object",

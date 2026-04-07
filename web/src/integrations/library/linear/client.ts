@@ -1060,3 +1060,19 @@ export function buildLinearCycleCollectionCommandResult(input: {
     totalMatched: input.items.length,
   };
 }
+
+export function buildLinearCycleCommandResult(input: {
+  commandKey: string;
+  cycle: LinearCycleNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    cycle: input.cycle ? mapLinearCycle(input.cycle) : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
