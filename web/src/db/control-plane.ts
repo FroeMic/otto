@@ -14,6 +14,7 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import { listLatestTenantManagedSkillVersionMapTx } from "@/db/managed-skills";
 import {
   appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
@@ -8355,6 +8356,12 @@ async function compileTenantDesiredStateConfig(
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
   });
+  const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(
+    tx,
+    {
+      tenantId,
+    },
+  );
   const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
     tx
       .select({
@@ -8401,6 +8408,9 @@ async function compileTenantDesiredStateConfig(
     integrations: [],
     locale: workspace?.locale ?? "en-US",
     managedConfigVersion: managedConfig.version,
+    managedSkills: {
+      versions: managedSkillVersionMap,
+    },
     media: {},
     prompts: {},
     timeFormat: workspace?.timeFormatPreference ?? "auto",
@@ -9561,6 +9571,38 @@ export function getManagedConfigVersionFromConfigJson(configJson: unknown) {
   }
 
   return managedConfigVersion;
+}
+
+export function getManagedSkillVersionMapFromConfigJson(configJson: unknown) {
+  const config = parseRecord(configJson);
+  const managedSkills =
+    config.managedSkills &&
+    typeof config.managedSkills === "object" &&
+    !Array.isArray(config.managedSkills)
+      ? (config.managedSkills as Record<string, unknown>)
+      : null;
+  const versions =
+    managedSkills?.versions &&
+    typeof managedSkills.versions === "object" &&
+    !Array.isArray(managedSkills.versions)
+      ? (managedSkills.versions as Record<string, unknown>)
+      : null;
+
+  if (!versions) {
+    return null;
+  }
+
+  const parsedVersions: Record<string, number> = {};
+
+  for (const [skillKey, value] of Object.entries(versions)) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      continue;
+    }
+
+    parsedVersions[skillKey] = value;
+  }
+
+  return parsedVersions;
 }
 
 function createManagedFileChecksum(input: {

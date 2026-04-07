@@ -5,12 +5,17 @@ import {
   ensureTenantRuntimeTenantToken,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
+  getManagedSkillVersionMapFromConfigJson,
   getTenantDesiredStateByVersion,
   getTenantManagedConfigByVersion,
   getTenantRuntimeGatewayToken,
   getTenantSlackBotToken,
   storeTenantRuntimeGatewayToken,
 } from "@/db/control-plane";
+import {
+  listLatestTenantManagedSkillVersionMapForTenant,
+  listProjectedManagedSkillFilesForTenant,
+} from "@/db/managed-skills";
 import {
   integrationWhatsAppInstallations,
   tenantApplyRuns,
@@ -153,6 +158,15 @@ export async function processApplyTenantConfigJob(
           version: managedConfigVersion,
         })
       : await getLatestTenantManagedConfig(payload.tenantId);
+    const managedSkillVersionMap =
+      getManagedSkillVersionMapFromConfigJson(desiredState.configJson) ??
+      (await listLatestTenantManagedSkillVersionMapForTenant({
+        tenantId: payload.tenantId,
+      }));
+    const managedSkillFiles = await listProjectedManagedSkillFilesForTenant({
+      tenantId: payload.tenantId,
+      versionMap: managedSkillVersionMap,
+    });
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.writingFiles,
@@ -177,11 +191,19 @@ export async function processApplyTenantConfigJob(
         contents: file.renderedContent,
         filename: file.path,
       })),
+      managedSkillFiles: managedSkillFiles.map((file) => ({
+        contents: file.contents,
+        filename: file.relativePath,
+      })),
       openClawConfig,
       slackBotToken,
       tenantId: payload.tenantId,
     });
     await runtimeManager.verifyTenantConfigFiles(runtimeConnection, {
+      managedSkillFiles: managedSkillFiles.map((file) => ({
+        contents: file.contents,
+        filename: file.relativePath,
+      })),
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       openClawConfig,
     });

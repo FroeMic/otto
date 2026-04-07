@@ -709,6 +709,13 @@ Parallel note:
 
 ### Increment 2: Projection into `workspace/skills/`
 
+Status:
+
+- done on `main`
+- desired-state compilation now snapshots exact managed skill versions instead of projecting only the latest mutable rows at apply time
+- provisioning and apply now project managed skill packages into `workspace/skills/<skill-key>/` through the existing runtime file writer
+- managed skill re-projection now uses a runtime manifest so removed managed files are pruned safely without touching unknown local `state/` contents
+
 Scope:
 
 - project managed skills into `workspace/skills/<skill-key>/`
@@ -796,7 +803,7 @@ Acceptance criteria:
 ## Status Checklist
 
 - [x] Increment 1: managed skill package model and validation
-- [ ] Increment 2: projection into `workspace/skills/`
+- [x] Increment 2: projection into `workspace/skills/`
 - [ ] Increment 3: minimal workspace Skills UI
 - [ ] Increment 4: runtime-authenticated managed-skill CRUD surface
 - [ ] Increment 5: read-only `state/` visibility
