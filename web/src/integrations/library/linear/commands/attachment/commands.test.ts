@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
 
 function buildAttachmentNode(overrides: Record<string, unknown> = {}) {
@@ -102,5 +103,51 @@ describe("linear attachment commands", () => {
     assert.equal(result.items[0]?.title, "AWS Credits");
     assert.equal(result.items[0]?.creator, "Sam Example");
     assert.equal(result.items[0]?.issue?.identifier, "INT-6");
+  });
+
+  it("gets one attachment by id", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        variables: { id: string };
+      };
+
+      assert.equal(body.variables.id, "attachment-1");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            attachment: buildAttachmentNode(),
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentGet({
+      arguments: {
+        attachmentId: "attachment-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      attachment: {
+        id: string | null;
+        issue: { identifier: string | null } | null;
+      } | null;
+      commandKey: string;
+      lookup: string;
+    };
+
+    assert.equal(result.commandKey, "attachment.get");
+    assert.equal(result.lookup, "attachment-1");
+    assert.equal(result.attachment?.id, "attachment-1");
+    assert.equal(result.attachment?.issue?.identifier, "INT-6");
   });
 });

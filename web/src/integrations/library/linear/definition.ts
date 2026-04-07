@@ -1,6 +1,7 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
 
+import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
@@ -476,6 +477,43 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: ATTACHMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "attachment.get",
+            commandPath: ["attachment", "get"],
+            description:
+              "Read one Linear attachment by attachment id and return normalized attachment context.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "file",
+              "link",
+              "asset",
+            ],
+            label: "Get attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use ids returned by attachment.list or issue.list_attachments before reading one attachment in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentGet,
+          },
           {
             argumentsSchema: {
               type: "object",
