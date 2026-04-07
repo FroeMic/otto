@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearUserGet } from "./get";
 import { executeLinearUserListAssignedIssues } from "./list-assigned-issues";
+import { executeLinearUserListCreatedIssues } from "./list-created-issues";
 import { executeLinearUserList } from "./list";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
@@ -246,6 +247,78 @@ describe("linear user commands", () => {
     assert.equal(result.limit, 10);
     assert.equal(result.totalMatched, 1);
     assert.equal(result.items[0]?.identifier, "INT-15");
+    assert.equal(result.user?.id, "user-1");
+  });
+
+  it("lists created issues for one user", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            user: {
+              ...buildUserNode(),
+              createdIssues: {
+                nodes: [
+                  buildIssueNode({
+                    id: "issue-2",
+                    identifier: "INT-16",
+                    title: "Created issue",
+                  }),
+                ],
+              },
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearUserListCreatedIssues({
+      arguments: {
+        limit: 7,
+        userId: "user-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      items: Array<{
+        identifier: string | null;
+      }>;
+      limit: number;
+      lookup: string;
+      totalMatched: number;
+      user: {
+        id: string | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+        limit: number;
+      };
+    };
+
+    assert.match(payload.query, /createdIssues\(first: \$limit, orderBy: updatedAt\)/);
+    assert.equal(payload.variables.id, "user-1");
+    assert.equal(payload.variables.limit, 7);
+    assert.equal(result.commandKey, "user.list_created_issues");
+    assert.equal(result.lookup, "user-1");
+    assert.equal(result.limit, 7);
+    assert.equal(result.totalMatched, 1);
+    assert.equal(result.items[0]?.identifier, "INT-16");
     assert.equal(result.user?.id, "user-1");
   });
 });
