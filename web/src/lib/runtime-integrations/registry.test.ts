@@ -31,14 +31,19 @@ describe("runtime integration registry", () => {
     assert.equal(manifest[0]?.operations[0]?.key, "search_issues");
   });
 
-  it("executes the stubbed demo-linear search", () => {
-    const result = executeRuntimeIntegrationStub({
+  it("executes the stubbed demo-linear search", async () => {
+    const result = (await executeRuntimeIntegrationStub({
       integrationKey: "demo-linear",
       params: {
         operation: "search_issues",
         query: "plugin",
       },
-    });
+    })) as {
+      integrationKey: string;
+      items: Array<{ title?: string }>;
+      operation: string;
+      source: string;
+    };
 
     assert.equal(result.integrationKey, "demo-linear");
     assert.equal(result.operation, "search_issues");
@@ -47,14 +52,19 @@ describe("runtime integration registry", () => {
     assert.match(result.items[0]?.title ?? "", /plugin/i);
   });
 
-  it("returns a placeholder response for connected linear search", () => {
-    const result = executeRuntimeIntegrationStub({
+  it("returns a placeholder response for connected linear search", async () => {
+    const result = (await executeRuntimeIntegrationStub({
       integrationKey: "linear",
       params: {
         operation: "search_issues",
         query: "bug",
       },
-    });
+    })) as {
+      integrationKey: string;
+      operation: string;
+      source: string;
+      totalMatched: number;
+    };
 
     assert.equal(result.integrationKey, "linear");
     assert.equal(result.operation, "search_issues");

@@ -18,7 +18,8 @@ describe("searchLinearIssues", () => {
       return new Response(
         JSON.stringify({
           data: {
-            issues: {
+            searchIssues: {
+              totalCount: 1,
               nodes: [
                 {
                   assignee: { name: "Sam" },
@@ -56,7 +57,7 @@ describe("searchLinearIssues", () => {
     assert.equal(result.items[0]?.id, "ENG-123");
     assert.equal(result.items[0]?.project, "Core");
     assert.equal(result.items[0]?.state, "In Progress");
-    assert.match(requestBody, /containsIgnoreCase/);
+    assert.match(requestBody, /searchIssues/);
   });
 
   it("surfaces provider errors", async () => {
