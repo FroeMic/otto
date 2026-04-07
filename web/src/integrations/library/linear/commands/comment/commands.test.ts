@@ -95,6 +95,85 @@ describe("linear comment commands", () => {
     assert.equal(result.items[0]?.issue?.identifier, "INT-6");
   });
 
+  it("lists comments scoped to one issue by resolving the issue id first", async () => {
+    let callCount = 0;
+    globalThis.fetch = (async (_input, init) => {
+      callCount += 1;
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+
+      if (body.query.includes("searchIssues")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchIssues: {
+                nodes: [
+                  {
+                    id: "issue-uuid-1",
+                    identifier: "INT-6",
+                    title: "Track credits workflow",
+                  },
+                ],
+              },
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      assert.match(body.query, /\$issueId: ID!/);
+      assert.equal(body.variables.issueId, "issue-uuid-1");
+      assert.equal(body.variables.limit, 25);
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            comments: {
+              nodes: [buildCommentNode()],
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCommentList({
+      arguments: {
+        issueIdentifierOrId: "INT-6",
+        limit: 25,
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      issueLookup: string;
+      items: Array<{
+        id: string | null;
+      }>;
+      totalMatched: number;
+    };
+
+    assert.equal(callCount, 2);
+    assert.equal(result.commandKey, "comment.list");
+    assert.equal(result.issueLookup, "INT-6");
+    assert.equal(result.items[0]?.id, "comment-1");
+    assert.equal(result.totalMatched, 1);
+  });
+
   it("creates an issue comment with curated input fields", async () => {
     let requestBody = "";
     globalThis.fetch = (async (_input, init) => {

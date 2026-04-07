@@ -198,7 +198,8 @@ describe("linear project commands", () => {
       };
     };
 
-    assert.match(payload.query, /containsIgnoreCase: \$query/);
+    assert.match(payload.query, /slugId: \{ containsIgnoreCase: \$query \}/);
+    assert.match(payload.query, /searchableContent: \{ contains: \$query \}/);
     assert.equal(payload.variables.limit, 5);
     assert.equal(payload.variables.query, "credit");
     assert.equal(result.commandKey, "project.search");
