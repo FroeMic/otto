@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/empty";
 import { createTenantManagedSkill } from "@/db/control-plane";
 import { listTenantManagedSkillsForTenant } from "@/db/managed-skills";
+import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -33,14 +34,25 @@ async function createManagedSkillAction(formData: FormData) {
   "use server";
 
   const { user } = await withAuth({ ensureSignedIn: true });
+  const description = formData.get("description")?.toString();
+  const integrationKeys = formData
+    .getAll("integrationKeys")
+    .map((value) => value.toString())
+    .filter(Boolean);
   const orgSlug = formData.get("orgSlug")?.toString();
-  const skillContent = formData.get("skillContent")?.toString();
+  const skillBody = formData.get("skillBody")?.toString();
   const skillKey = formData.get("skillKey")?.toString();
 
-  if (!orgSlug || !skillKey || !skillContent) {
+  if (!description || !orgSlug || !skillBody || !skillKey) {
     throw new Error("Managed skill creation is missing required fields");
   }
 
+  const skillContent = buildSkillMarkdown({
+    description,
+    integrationKeys,
+    skillBody,
+    skillKey,
+  });
   const createdSkill = await createTenantManagedSkill({
     orgSlug,
     skillContent,
@@ -82,6 +94,34 @@ function formatSourceLabel(sourceType: string) {
     : "Workspace managed";
 }
 
+function buildSkillMarkdown(input: {
+  description: string;
+  integrationKeys: string[];
+  skillBody: string;
+  skillKey: string;
+}) {
+  const lines = [
+    "---",
+    `name: ${input.skillKey.trim()}`,
+    `description: ${input.description.trim()}`,
+    "metadata:",
+    "  dependsOn:",
+    "    integrations:",
+  ];
+
+  if (input.integrationKeys.length === 0) {
+    lines.push("      []");
+  } else {
+    for (const integrationKey of input.integrationKeys) {
+      lines.push(`      - ${integrationKey}`);
+    }
+  }
+
+  lines.push("---", "", input.skillBody.trim(), "");
+
+  return `${lines.join("\n")}`;
+}
+
 export default async function SkillsPage({
   params,
 }: {
@@ -96,6 +136,7 @@ export default async function SkillsPage({
   }
 
   const primaryAgent = getPrimaryAgent(organization);
+  const knownIntegrationKeys = listKnownManagedSkillDependencyIntegrationKeys();
   const skills = primaryAgent
     ? await listTenantManagedSkillsForTenant({
         tenantId: primaryAgent.id,
@@ -115,6 +156,7 @@ export default async function SkillsPage({
         {primaryAgent ? (
           <CreateSkillButton
             createAction={createManagedSkillAction}
+            knownIntegrationKeys={knownIntegrationKeys}
             orgSlug={organization.slug}
           />
         ) : null}
