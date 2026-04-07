@@ -1,12 +1,13 @@
 import type { IntegrationCommandExecute } from "@/integrations/framework";
 
 import {
-  buildLinearIssueCollectionCommandResult,
+  buildLinearCycleChildCollectionCommandResult,
   executeLinearGraphql,
   getLinearCycleFields,
   getLinearIssueFields,
   type LinearCycleNode,
   type LinearIssueNode,
+  mapLinearIssue,
   normalizeLimit,
 } from "../../client";
 
@@ -64,28 +65,12 @@ export const executeLinearCycleListIssues: IntegrationCommandExecute = async ({
   }
 
   return {
-    ...buildLinearIssueCollectionCommandResult({
+    ...buildLinearCycleChildCollectionCommandResult({
       commandKey: "cycle.list_issues",
-      issue: {
-        id: data.cycle.id,
-        identifier: data.cycle.name ?? data.cycle.id,
-        title: data.cycle.name ?? "Untitled cycle",
-      },
-      items: (data.cycle.issues?.nodes ?? []).map((issue) => issue),
+      cycle: data.cycle,
+      items: (data.cycle.issues?.nodes ?? []).map(mapLinearIssue),
       limit,
     }),
-    cycle: {
-      id: data.cycle.id?.trim() || null,
-      name: data.cycle.name?.trim() || null,
-      number:
-        typeof data.cycle.number === "number" &&
-        Number.isFinite(data.cycle.number)
-          ? data.cycle.number
-          : null,
-      team:
-        data.cycle.team?.key?.trim() || data.cycle.team?.name?.trim() || null,
-      teamId: data.cycle.team?.id?.trim() || null,
-    },
     lookup: cycleId,
   };
 };

@@ -407,6 +407,7 @@ describe("linear cycle commands", () => {
         id: string | null;
         name: string | null;
       };
+      issue?: unknown;
       items: Array<{
         identifier: string | null;
       }>;
@@ -418,6 +419,7 @@ describe("linear cycle commands", () => {
     assert.equal(result.lookup, "cycle-1");
     assert.equal(result.cycle.id, "cycle-1");
     assert.equal(result.cycle.name, "Cycle 42");
+    assert.equal(result.issue, undefined);
     assert.equal(result.items[0]?.identifier, "INT-6");
     assert.equal(result.totalMatched, 1);
   });
