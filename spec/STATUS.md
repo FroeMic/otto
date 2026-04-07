@@ -406,7 +406,8 @@
   - the full `label.*` slice is now implemented end to end across both issue labels and project labels, including create/update/delete/restore/retire flows
   - the full `project_milestone.*` slice is now implemented end to end, including create/update/delete/move flows
   - the full `project_status.*` slice is now implemented end to end, including list/get/create/update
-  - the next recommended in-progress Linear slice is `initiative.*`, followed by the customer-related groups; `attachment.*` remains explicitly last
+  - the full `initiative.*` slice is now implemented end to end, including list/get/create/update/archive plus related project/update reads
+  - the next recommended in-progress Linear slices are the customer-related groups, with `customer_status.*` and `customer_tier.*` preferred before `customer.*`; `attachment.*` remains explicitly last
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

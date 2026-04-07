@@ -839,13 +839,19 @@ Tracker:
     - verify status update for color, position, and `indefinite` transitions
 
 - `initiative`
-  - `[ ]` `initiative.list`
-  - `[ ]` `initiative.get`
-  - `[ ]` `initiative.create`
-  - `[ ]` `initiative.update`
-  - `[ ]` `initiative.archive`
-  - `[ ]` `initiative.list_projects`
-  - `[ ]` `initiative.list_updates`
+  - `[x]` `initiative.list`
+  - `[x]` `initiative.get`
+  - `[x]` `initiative.create`
+  - `[x]` `initiative.update`
+  - `[x]` `initiative.archive`
+  - `[x]` `initiative.list_projects`
+  - `[x]` `initiative.list_updates`
+  - Later testing plan:
+    - verify initiative list/get against a workspace with multiple active and completed initiatives
+    - verify initiative create/update for owner, status, target date, and markdown content changes
+    - verify initiative archive removes the initiative from normal active planning views
+    - verify initiative list_projects against an initiative linked to multiple projects
+    - verify initiative list_updates against an initiative with multiple historical updates and different health states
 
 - `customer`
   - `[ ]` `customer.list`

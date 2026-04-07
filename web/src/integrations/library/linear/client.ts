@@ -272,6 +272,123 @@ const CYCLE_FIELDS = `
   }
 `;
 
+const INITIATIVE_FIELDS = `
+  id
+  name
+  description
+  content
+  color
+  icon
+  status
+  health
+  healthUpdatedAt
+  slugId
+  url
+  targetDate
+  startedAt
+  completedAt
+  trashed
+  createdAt
+  updatedAt
+  owner {
+    ${USER_FIELDS}
+  }
+  creator {
+    ${USER_FIELDS}
+  }
+`;
+
+const INITIATIVE_UPDATE_FIELDS = `
+  id
+  body
+  health
+  isDiffHidden
+  slugId
+  url
+  createdAt
+  updatedAt
+  initiative {
+    id
+    name
+  }
+  user {
+    ${USER_FIELDS}
+  }
+`;
+
+const CUSTOMER_STATUS_FIELDS = `
+  id
+  name
+  displayName
+  color
+  description
+  position
+  updatedAt
+  createdAt
+`;
+
+const CUSTOMER_TIER_FIELDS = `
+  id
+  name
+  displayName
+  color
+  description
+  position
+  updatedAt
+  createdAt
+`;
+
+const CUSTOMER_FIELDS = `
+  id
+  name
+  slugId
+  url
+  createdAt
+  updatedAt
+  domains
+  externalIds
+  logoUrl
+  mainSourceId
+  revenue
+  size
+  slackChannelId
+  owner {
+    ${USER_FIELDS}
+  }
+  status {
+    ${CUSTOMER_STATUS_FIELDS}
+  }
+  tier {
+    ${CUSTOMER_TIER_FIELDS}
+  }
+`;
+
+const CUSTOMER_NEED_FIELDS = `
+  id
+  body
+  createdAt
+  updatedAt
+  priority
+  url
+  customer {
+    id
+    name
+  }
+  issue {
+    ${ISSUE_REFERENCE_FIELDS}
+  }
+  project {
+    id
+    name
+  }
+  attachment {
+    ${ATTACHMENT_FIELDS}
+  }
+  creator {
+    ${USER_FIELDS}
+  }
+`;
+
 const GET_ISSUE_BY_ID_QUERY = `
   query OttoLinearIssueById($id: String!) {
     issue(id: $id) {
@@ -595,6 +712,105 @@ export type LinearCycleNode = {
   } | null;
 };
 
+export type LinearInitiativeNode = {
+  color?: string | null;
+  completedAt?: string | null;
+  content?: string | null;
+  createdAt?: string | null;
+  creator?: LinearUserNode | null;
+  description?: string | null;
+  health?: string | null;
+  healthUpdatedAt?: string | null;
+  icon?: string | null;
+  id?: string | null;
+  name?: string | null;
+  owner?: LinearUserNode | null;
+  slugId?: string | null;
+  startedAt?: string | null;
+  status?: string | null;
+  targetDate?: string | null;
+  trashed?: boolean | null;
+  updatedAt?: string | null;
+  url?: string | null;
+};
+
+export type LinearInitiativeUpdateNode = {
+  body?: string | null;
+  createdAt?: string | null;
+  health?: string | null;
+  id?: string | null;
+  initiative?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  isDiffHidden?: boolean | null;
+  slugId?: string | null;
+  updatedAt?: string | null;
+  url?: string | null;
+  user?: LinearUserNode | null;
+};
+
+export type LinearCustomerStatusNode = {
+  color?: string | null;
+  createdAt?: string | null;
+  description?: string | null;
+  displayName?: string | null;
+  id?: string | null;
+  name?: string | null;
+  position?: number | null;
+  updatedAt?: string | null;
+};
+
+export type LinearCustomerTierNode = {
+  color?: string | null;
+  createdAt?: string | null;
+  description?: string | null;
+  displayName?: string | null;
+  id?: string | null;
+  name?: string | null;
+  position?: number | null;
+  updatedAt?: string | null;
+};
+
+export type LinearCustomerNode = {
+  createdAt?: string | null;
+  domains?: string[] | null;
+  externalIds?: string[] | null;
+  id?: string | null;
+  logoUrl?: string | null;
+  mainSourceId?: string | null;
+  name?: string | null;
+  owner?: LinearUserNode | null;
+  revenue?: number | null;
+  size?: number | null;
+  slackChannelId?: string | null;
+  slugId?: string | null;
+  status?: LinearCustomerStatusNode | null;
+  tier?: LinearCustomerTierNode | null;
+  updatedAt?: string | null;
+  url?: string | null;
+};
+
+export type LinearCustomerNeedNode = {
+  attachment?: LinearAttachmentNode | null;
+  body?: string | null;
+  createdAt?: string | null;
+  creator?: LinearUserNode | null;
+  customer?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  id?: string | null;
+  issue?: LinearIssueReferenceNode | null;
+  priority?: number | null;
+  project?: {
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  updatedAt?: string | null;
+  url?: string | null;
+};
+
 export async function executeLinearGraphql<T>(input: {
   accessToken: string;
   query: string;
@@ -721,6 +937,30 @@ export function getLinearProjectMilestoneFields() {
 
 export function getLinearCycleFields() {
   return CYCLE_FIELDS;
+}
+
+export function getLinearInitiativeFields() {
+  return INITIATIVE_FIELDS;
+}
+
+export function getLinearInitiativeUpdateFields() {
+  return INITIATIVE_UPDATE_FIELDS;
+}
+
+export function getLinearCustomerFields() {
+  return CUSTOMER_FIELDS;
+}
+
+export function getLinearCustomerNeedFields() {
+  return CUSTOMER_NEED_FIELDS;
+}
+
+export function getLinearCustomerStatusFields() {
+  return CUSTOMER_STATUS_FIELDS;
+}
+
+export function getLinearCustomerTierFields() {
+  return CUSTOMER_TIER_FIELDS;
 }
 
 export function mapLinearIssueReference(
@@ -1271,6 +1511,157 @@ export function mapLinearCycle(cycle: LinearCycleNode) {
   };
 }
 
+export function mapLinearInitiative(initiative: LinearInitiativeNode) {
+  return {
+    color: initiative.color?.trim() || null,
+    completedAt: initiative.completedAt ?? null,
+    content: initiative.content?.trim() || null,
+    createdAt: initiative.createdAt ?? null,
+    creator:
+      initiative.creator?.name?.trim() ||
+      initiative.creator?.displayName?.trim() ||
+      null,
+    creatorEmail: initiative.creator?.email?.trim() || null,
+    creatorId: initiative.creator?.id?.trim() || null,
+    description: initiative.description?.trim() || null,
+    health: initiative.health?.trim() || null,
+    healthUpdatedAt: initiative.healthUpdatedAt ?? null,
+    icon: initiative.icon?.trim() || null,
+    id: initiative.id?.trim() || null,
+    name: initiative.name?.trim() || "Untitled initiative",
+    owner:
+      initiative.owner?.name?.trim() ||
+      initiative.owner?.displayName?.trim() ||
+      null,
+    ownerEmail: initiative.owner?.email?.trim() || null,
+    ownerId: initiative.owner?.id?.trim() || null,
+    slugId: initiative.slugId?.trim() || null,
+    startedAt: initiative.startedAt ?? null,
+    status: initiative.status?.trim() || null,
+    targetDate: initiative.targetDate ?? null,
+    trashed: initiative.trashed ?? false,
+    updatedAt: initiative.updatedAt ?? null,
+    url: initiative.url ?? null,
+  };
+}
+
+export function mapLinearInitiativeUpdate(
+  initiativeUpdate: LinearInitiativeUpdateNode,
+) {
+  return {
+    body: initiativeUpdate.body?.trim() || "",
+    createdAt: initiativeUpdate.createdAt ?? null,
+    health: initiativeUpdate.health?.trim() || null,
+    id: initiativeUpdate.id?.trim() || null,
+    initiativeId: initiativeUpdate.initiative?.id?.trim() || null,
+    initiativeName: initiativeUpdate.initiative?.name?.trim() || null,
+    isDiffHidden: initiativeUpdate.isDiffHidden ?? false,
+    slugId: initiativeUpdate.slugId?.trim() || null,
+    updatedAt: initiativeUpdate.updatedAt ?? null,
+    url: initiativeUpdate.url ?? null,
+    user:
+      initiativeUpdate.user?.name?.trim() ||
+      initiativeUpdate.user?.displayName?.trim() ||
+      null,
+    userEmail: initiativeUpdate.user?.email?.trim() || null,
+    userId: initiativeUpdate.user?.id?.trim() || null,
+  };
+}
+
+export function mapLinearCustomerStatus(status: LinearCustomerStatusNode | null) {
+  if (!status) {
+    return null;
+  }
+
+  return {
+    color: status.color?.trim() || null,
+    createdAt: status.createdAt ?? null,
+    description: status.description?.trim() || null,
+    displayName: status.displayName?.trim() || null,
+    id: status.id?.trim() || null,
+    name: status.name?.trim() || null,
+    position:
+      typeof status.position === "number" && Number.isFinite(status.position)
+        ? status.position
+        : 0,
+    updatedAt: status.updatedAt ?? null,
+  };
+}
+
+export function mapLinearCustomerTier(tier: LinearCustomerTierNode | null) {
+  if (!tier) {
+    return null;
+  }
+
+  return {
+    color: tier.color?.trim() || null,
+    createdAt: tier.createdAt ?? null,
+    description: tier.description?.trim() || null,
+    displayName: tier.displayName?.trim() || null,
+    id: tier.id?.trim() || null,
+    name: tier.name?.trim() || null,
+    position:
+      typeof tier.position === "number" && Number.isFinite(tier.position)
+        ? tier.position
+        : 0,
+    updatedAt: tier.updatedAt ?? null,
+  };
+}
+
+export function mapLinearCustomer(customer: LinearCustomerNode) {
+  return {
+    createdAt: customer.createdAt ?? null,
+    domains: normalizeStringArray(customer.domains),
+    externalIds: normalizeStringArray(customer.externalIds),
+    id: customer.id?.trim() || null,
+    logoUrl: customer.logoUrl?.trim() || null,
+    mainSourceId: customer.mainSourceId?.trim() || null,
+    name: customer.name?.trim() || "Untitled customer",
+    owner:
+      customer.owner?.name?.trim() || customer.owner?.displayName?.trim() || null,
+    ownerEmail: customer.owner?.email?.trim() || null,
+    ownerId: customer.owner?.id?.trim() || null,
+    revenue:
+      typeof customer.revenue === "number" && Number.isFinite(customer.revenue)
+        ? customer.revenue
+        : null,
+    size:
+      typeof customer.size === "number" && Number.isFinite(customer.size)
+        ? customer.size
+        : null,
+    slackChannelId: customer.slackChannelId?.trim() || null,
+    slugId: customer.slugId?.trim() || null,
+    status: mapLinearCustomerStatus(customer.status ?? null),
+    tier: mapLinearCustomerTier(customer.tier ?? null),
+    updatedAt: customer.updatedAt ?? null,
+    url: customer.url ?? null,
+  };
+}
+
+export function mapLinearCustomerNeed(need: LinearCustomerNeedNode) {
+  return {
+    attachment: need.attachment ? mapLinearAttachment(need.attachment) : null,
+    body: need.body?.trim() || null,
+    createdAt: need.createdAt ?? null,
+    creator:
+      need.creator?.name?.trim() || need.creator?.displayName?.trim() || null,
+    creatorEmail: need.creator?.email?.trim() || null,
+    creatorId: need.creator?.id?.trim() || null,
+    customerId: need.customer?.id?.trim() || null,
+    customerName: need.customer?.name?.trim() || null,
+    id: need.id?.trim() || null,
+    issue: mapLinearIssueReference(need.issue ?? null),
+    priority:
+      typeof need.priority === "number" && Number.isFinite(need.priority)
+        ? need.priority
+        : 0,
+    projectId: need.project?.id?.trim() || null,
+    projectName: need.project?.name?.trim() || null,
+    updatedAt: need.updatedAt ?? null,
+    url: need.url?.trim() || null,
+  };
+}
+
 export function normalizeLimit(input: {
   defaultLimit?: number;
   max: number;
@@ -1559,6 +1950,198 @@ export function buildLinearProjectStatusCollectionCommandResult(input: {
     commandKey: input.commandKey,
     integrationKey: "linear",
     items: input.items.map((status) => mapLinearProjectStatus(status)),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearInitiativeCommandResult(input: {
+  commandKey: string;
+  initiative: LinearInitiativeNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    initiative: input.initiative ? mapLinearInitiative(input.initiative) : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearInitiativeCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearInitiativeNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearInitiative),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearInitiativeUpdateCollectionCommandResult(input: {
+  commandKey: string;
+  initiative: LinearInitiativeNode;
+  items: LinearInitiativeUpdateNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    initiative: mapLinearInitiative(input.initiative),
+    integrationKey: "linear",
+    items: input.items.map(mapLinearInitiativeUpdate),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCustomerCommandResult(input: {
+  commandKey: string;
+  customer: LinearCustomerNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    customer: input.customer ? mapLinearCustomer(input.customer) : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearCustomerCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCustomerNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearCustomer),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCustomerNeedCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  need: LinearCustomerNeedNode | null | undefined;
+  success?: boolean | null;
+  updatedRelatedNeeds?: LinearCustomerNeedNode[] | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    need: input.need ? mapLinearCustomerNeed(input.need) : null,
+    source: "linear",
+    success: input.success ?? true,
+    updatedRelatedNeeds:
+      input.updatedRelatedNeeds?.map(mapLinearCustomerNeed) ?? [],
+  };
+}
+
+export function buildLinearCustomerNeedCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCustomerNeedNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearCustomerNeed),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCustomerNeedChildCollectionCommandResult(input: {
+  commandKey: string;
+  customer: LinearCustomerNode;
+  items: LinearCustomerNeedNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    customer: mapLinearCustomer(input.customer),
+    integrationKey: "linear",
+    items: input.items.map(mapLinearCustomerNeed),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCustomerStatusCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  status: LinearCustomerStatusNode | null | undefined;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    status: mapLinearCustomerStatus(input.status ?? null),
+    success: input.success ?? true,
+  };
+}
+
+export function buildLinearCustomerStatusCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCustomerStatusNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map((status) => mapLinearCustomerStatus(status)),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearCustomerTierCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+  tier: LinearCustomerTierNode | null | undefined;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+    tier: mapLinearCustomerTier(input.tier ?? null),
+  };
+}
+
+export function buildLinearCustomerTierCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearCustomerTierNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map((tier) => mapLinearCustomerTier(tier)),
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,

@@ -31,6 +31,15 @@ import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
 import {
+  executeLinearInitiativeArchive,
+  executeLinearInitiativeCreate,
+  executeLinearInitiativeGet,
+  executeLinearInitiativeList,
+  executeLinearInitiativeListProjects,
+  executeLinearInitiativeListUpdates,
+  executeLinearInitiativeUpdate,
+} from "./commands/initiative/commands";
+import {
   executeLinearLabelCreateIssueLabel,
   executeLinearLabelDeleteIssueLabel,
   executeLinearLabelGetIssueLabel,
@@ -256,6 +265,18 @@ const PROJECT_STATUS_ID_ARGUMENT_SCHEMA = {
   description: "Linear project status id.",
 } as const;
 
+const INITIATIVE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear initiative id.",
+} as const;
+
+const INITIATIVE_STATUS_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["Planned", "Active", "Completed"],
+  description: "Linear initiative status.",
+} as const;
+
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
@@ -333,12 +354,26 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       key: "project.write",
       label: "Write projects",
     }),
+    buildCapability({
+      description:
+        "Read initiatives and the projects or updates associated with them in the connected Linear workspace.",
+      direction: "read",
+      key: "initiative.read",
+      label: "Read initiatives",
+    }),
+    buildCapability({
+      description:
+        "Create, update, and archive initiatives in the connected Linear workspace.",
+      direction: "tool",
+      key: "initiative.write",
+      label: "Write initiatives",
+    }),
   ],
   categoryLabel: "Product Management",
   catalogDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear context when needed.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear context when needed.",
   description:
-    "Workspace-managed Linear connection for workspace metadata plus issue, comment, and project reads and writes.",
+    "Workspace-managed Linear connection for workspace metadata plus issue, comment, project, and initiative reads and writes.",
   iconSrc: "/integrations/linear.svg",
   key: "linear",
   label: "Linear",
@@ -346,9 +381,409 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     provider: linearOAuthProvider,
   },
   pageDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear records for your team.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "initiative.list",
+            commandPath: ["initiative", "list"],
+            description:
+              "List recently updated initiatives from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "initiatives",
+              "strategy",
+              "roadmap",
+            ],
+            label: "List initiatives",
+            resultMode: "json",
+            usageNotes: ["This returns a recent initiative slice, not semantic search."],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearInitiativeList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.get",
+            commandPath: ["initiative", "get"],
+            description:
+              "Read one Linear initiative by id and return normalized initiative context.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "get initiative"],
+            label: "Get initiative",
+            resultMode: "json",
+            usageNotes: ["Use initiative ids returned by initiative.list."],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional initiative content in markdown.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional initiative description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative icon name.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Initiative name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the initiative owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional initiative sort order.",
+                },
+                status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
+                targetDate: {
+                  ...DATE_ARGUMENT_SCHEMA,
+                  description: "Optional initiative target date in YYYY-MM-DD format.",
+                },
+                targetDateResolution: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear target-date resolution value.",
+                },
+              },
+              required: ["name"],
+            },
+            commandKey: "initiative.create",
+            commandPath: ["initiative", "create"],
+            description: "Create a new Linear initiative.",
+            exampleArguments: {
+              name: "Credits expansion",
+              status: "Active",
+              targetDate: "2026-06-30",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "create", "new initiative"],
+            label: "Create initiative",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_users first if you need a canonical owner id before creating the initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              status:
+                typeof argumentsObject.status === "string"
+                  ? argumentsObject.status.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              targetDateResolution:
+                typeof argumentsObject.targetDateResolution === "string"
+                  ? argumentsObject.targetDateResolution.trim()
+                  : null,
+            }),
+            execute: executeLinearInitiativeCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional initiative content in markdown.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional initiative description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative icon name.",
+                },
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated initiative name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the initiative owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional initiative sort order.",
+                },
+                status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
+                targetDate: {
+                  ...DATE_ARGUMENT_SCHEMA,
+                  description: "Optional initiative target date in YYYY-MM-DD format.",
+                },
+                targetDateResolution: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear target-date resolution value.",
+                },
+                trashed: {
+                  type: "boolean",
+                  description: "Whether the initiative should be marked as trashed.",
+                },
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.update",
+            commandPath: ["initiative", "update"],
+            description: "Update an existing Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              status: "Completed",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "update", "edit initiative"],
+            label: "Update initiative",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides initiativeId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              status:
+                typeof argumentsObject.status === "string"
+                  ? argumentsObject.status.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              targetDateResolution:
+                typeof argumentsObject.targetDateResolution === "string"
+                  ? argumentsObject.targetDateResolution.trim()
+                  : null,
+              trashed:
+                typeof argumentsObject.trashed === "boolean"
+                  ? argumentsObject.trashed
+                  : null,
+            }),
+            execute: executeLinearInitiativeUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.archive",
+            commandPath: ["initiative", "archive"],
+            description: "Archive one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "archive", "close initiative"],
+            label: "Archive initiative",
+            resultMode: "json",
+            usageNotes: ["Use this when the initiative should leave the active roadmap."],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.list_projects",
+            commandPath: ["initiative", "list_projects"],
+            description: "List projects linked to one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "projects", "roadmap"],
+            label: "List initiative projects",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the execution projects tied to one initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearInitiativeListProjects,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.list_updates",
+            commandPath: ["initiative", "list_updates"],
+            description: "List updates posted on one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "updates", "status update"],
+            label: "List initiative updates",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the historical status updates for one initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearInitiativeListUpdates,
+          },
+        ],
+        description:
+          "Initiative reads and writes for roadmap-level planning in the connected Linear workspace.",
+        groupKey: "initiative",
+        groupPath: ["initiative"],
+        intentKeywords: ["linear", "initiative", "initiatives", "roadmap"],
+        label: "Initiatives",
+      },
       {
         commands: [
           {
