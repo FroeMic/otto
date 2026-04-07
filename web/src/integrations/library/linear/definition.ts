@@ -3,6 +3,7 @@ import type { AgentCapabilityDirection } from "@/tools/types";
 
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
+import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
 import { executeLinearCommentCreate } from "./commands/comment/create";
 import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
@@ -477,6 +478,54 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                url: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment URL to look up in Linear.",
+                },
+              },
+              required: ["url"],
+            },
+            commandKey: "attachment.list_for_url",
+            commandPath: ["attachment", "list_for_url"],
+            description:
+              "List Linear attachments associated with one exact attachment URL.",
+            exampleArguments: {
+              limit: 10,
+              url: "https://example.com/aws-credits",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "attachments for url",
+              "linked url",
+              "lookup attachment",
+            ],
+            label: "List attachments for URL",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you know the original attachment URL and want to see whether Linear already linked it to one or more issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              url:
+                typeof argumentsObject.url === "string"
+                  ? argumentsObject.url.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentListForUrl,
+          },
           {
             argumentsSchema: {
               type: "object",

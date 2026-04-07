@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
+import { executeLinearAttachmentListForUrl } from "./list-for-url";
 
 function buildAttachmentNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -149,5 +150,51 @@ describe("linear attachment commands", () => {
     assert.equal(result.lookup, "attachment-1");
     assert.equal(result.attachment?.id, "attachment-1");
     assert.equal(result.attachment?.issue?.identifier, "INT-6");
+  });
+
+  it("lists attachments for one url", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        variables: { limit: number; url: string };
+      };
+
+      assert.equal(body.variables.limit, 3);
+      assert.equal(body.variables.url, "https://example.com/aws-credits");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            attachmentsForURL: {
+              nodes: [buildAttachmentNode()],
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentListForUrl({
+      arguments: {
+        limit: 3,
+        url: "https://example.com/aws-credits",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lookup: string;
+      totalMatched: number;
+    };
+
+    assert.equal(result.commandKey, "attachment.list_for_url");
+    assert.equal(result.lookup, "https://example.com/aws-credits");
+    assert.equal(result.totalMatched, 1);
   });
 });
