@@ -401,7 +401,8 @@
   - the `comment.*` slice is now implemented end to end for issue-thread comments
   - the full `project.*` slice is now implemented end to end, including project reads, writes, nested issue/document/milestone/label reads, and authored project updates
   - the full `cycle.*` slice is now implemented end to end, including cycle reads, writes, archive, and nested issue reads
-  - the next recommended Linear slice is `team.*`
+  - the full `user.*` slice is now implemented end to end, including direct user reads plus assigned-issue, created-issue, and team-membership lookups
+  - the next recommended in-progress Linear slice is `document.*`, followed by `label.*`, `project_milestone.*`, `project_status.*`, `initiative.*`, and the customer-related groups; `attachment.*` remains explicitly last
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

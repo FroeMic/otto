@@ -758,11 +758,18 @@ Tracker:
   - `[ ]` `team.list_issues`
 
 - `user`
-  - `[ ]` `user.get`
-  - `[ ]` `user.list`
-  - `[ ]` `user.list_assigned_issues`
-  - `[ ]` `user.list_created_issues`
-  - `[ ]` `user.list_team_memberships`
+  - `[x]` `user.get`
+  - `[x]` `user.list`
+  - `[x]` `user.list_assigned_issues`
+  - `[x]` `user.list_created_issues`
+  - `[x]` `user.list_team_memberships`
+  - Later testing plan:
+    - use `workspace.list_users` to fetch canonical user ids for live smoke tests
+    - verify `user.get` against one active human user and one app user if available
+    - verify `user.list` includes normalized display-name fallbacks when `name` is blank
+    - verify `user.list_assigned_issues` against a user with active workload and a user with zero assigned issues
+    - verify `user.list_created_issues` against a user who has opened issues recently
+    - verify `user.list_team_memberships` against a user who belongs to multiple teams and confirm owner flags map correctly
 
 - `attachment`
   - `[ ]` `attachment.list`
