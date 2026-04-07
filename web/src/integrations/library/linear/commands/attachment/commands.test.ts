@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-uploaded-file";
 import { executeLinearAttachmentCreate } from "./create";
 import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
@@ -270,5 +271,73 @@ describe("linear attachment commands", () => {
     assert.equal(result.success, true);
     assert.equal(result.attachment?.id, "attachment-1");
     assert.equal(result.attachment?.issueId, "issue-1");
+  });
+
+  it("creates attachments from uploaded file asset urls", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        variables: {
+          input: {
+            issueId: string;
+            subtitle: string;
+            title: string;
+            url: string;
+          };
+        };
+      };
+
+      assert.deepEqual(body.variables.input, {
+        issueId: "INT-6",
+        subtitle: "Uploaded PDF",
+        title: "Credits PDF",
+        url: "https://uploads.linear.app/assets/credits.pdf",
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            attachmentCreate: {
+              attachment: buildAttachmentNode({
+                title: "Credits PDF",
+                url: "https://uploads.linear.app/assets/credits.pdf",
+              }),
+              lastSyncId: 43,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentCreateFromUploadedFile({
+      arguments: {
+        assetUrl: "https://uploads.linear.app/assets/credits.pdf",
+        issueId: "INT-6",
+        subtitle: "Uploaded PDF",
+        title: "Credits PDF",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      attachment: { title: string; url: string | null } | null;
+      commandKey: string;
+      lastSyncId: number | null;
+    };
+
+    assert.equal(result.commandKey, "attachment.create_from_uploaded_file");
+    assert.equal(result.lastSyncId, 43);
+    assert.equal(result.attachment?.title, "Credits PDF");
+    assert.equal(
+      result.attachment?.url,
+      "https://uploads.linear.app/assets/credits.pdf",
+    );
   });
 });

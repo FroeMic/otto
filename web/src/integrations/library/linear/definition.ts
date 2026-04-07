@@ -1,6 +1,7 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
 import type { AgentCapabilityDirection } from "@/tools/types";
 
+import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
 import { executeLinearAttachmentCreate } from "./commands/attachment/create";
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
@@ -486,6 +487,123 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                assetUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Uploaded Linear asset URL returned by attachment.upload_file.",
+                },
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional markdown comment body linked to the attachment.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description: "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear issue id or identifier to attach the uploaded asset to.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description: "Optional metadata object stored on the attachment.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+              },
+              required: ["assetUrl", "issueId", "title"],
+            },
+            commandKey: "attachment.create_from_uploaded_file",
+            commandPath: ["attachment", "create_from_uploaded_file"],
+            description:
+              "Create a Linear attachment record from an uploaded Linear asset URL.",
+            exampleArguments: {
+              assetUrl: "https://uploads.linear.app/assets/credits.pdf",
+              issueId: "INT-6",
+              title: "Credits PDF",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "attachment",
+              "uploaded file",
+              "asset url",
+              "attach uploaded file",
+            ],
+            label: "Create attachment from uploaded file",
+            resultMode: "json",
+            usageNotes: [
+              "Use this after attachment.upload_file and after the bytes have been uploaded to the returned signed URL.",
+            ],
+            validate: (argumentsObject) => ({
+              assetUrl:
+                typeof argumentsObject.assetUrl === "string"
+                  ? argumentsObject.assetUrl.trim()
+                  : "",
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : "",
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+            }),
+            execute: executeLinearAttachmentCreateFromUploadedFile,
+          },
           {
             argumentsSchema: {
               type: "object",

@@ -34,3 +34,17 @@ export function buildLinearAttachmentCreateInput(
 
   return input;
 }
+
+export function buildLinearAttachmentCreateFromUploadedFileInput(
+  argumentsObject: Record<string, unknown>,
+) {
+  const input = buildLinearAttachmentCreateInput({
+    ...argumentsObject,
+    url:
+      typeof argumentsObject.assetUrl === "string"
+        ? argumentsObject.assetUrl
+        : argumentsObject.url,
+  });
+
+  return input;
+}
