@@ -67,6 +67,7 @@ const envSchema = z.object({
   SLACK_CLIENT_ID: z.string().optional(),
   SLACK_CLIENT_SECRET: z.string().optional(),
   SLACK_REDIRECT_URI: z.string().url().optional(),
+  SLACK_SIGNING_SECRET: z.string().optional(),
   RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
     .number()
     .int()

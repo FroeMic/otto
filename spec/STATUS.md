@@ -321,6 +321,11 @@
   - the runtime should expose one tool per integration via a new `otto-integrations` plugin
   - prompt-cache stability only needs to hold per tenant, but tool ordering and schema rendering must stay deterministic while the tenant integration set is unchanged
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
+- The first shared Slack ingress slice is now in code:
+  - public control-plane endpoints now exist at `/api/integrations/slack/events`, `/api/integrations/slack/commands`, and `/api/integrations/slack/interactivity`
+  - inbound Slack payloads are now routed by `team_id`, logged to `slack_ingress_deliveries`, and forwarded into the tenant runtime's native OpenClaw Slack HTTP handler
+  - tenant Slack projection now renders OpenClaw in HTTP mode instead of Socket Mode, and tenant runtime env projection no longer depends on `SLACK_APP_TOKEN`
+  - the current forwarding hop still uses the existing runtime connection path to reach the loopback-only tenant gateway, so the next hardening step is about transport and lifecycle robustness rather than basic routing capability
 - The first `TODO_17_managed_integrations_architecture.md` increment is now in progress on `codex/todo-17-increment-1`:
   - a synthetic managed integration manifest is being wired through the control plane for one demo provider
   - a new `otto-integrations` runtime plugin is being added so Otto can register one tool per enabled managed integration
@@ -407,8 +412,8 @@
   - adding focused tests for WhatsApp schema normalization, destructive-policy detection, desired-state projection, and the new lifecycle routes
   - running the new Drizzle migration in active environments once the implementation is verified locally
 - Then continue `TODO_06_integrations_and_oauth.md` by:
-  - implementing the shared Slack ingress router so one shared Slack app can deliver events, commands, and interactivity to the correct tenant runtime
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
+  - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
   - manually verifying that the control-plane UI and `otto-runtime-config` plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
   - running `npm run verify:runtime-surface -- <org-slug> web search` against a provisioned tenant after Brave env vars are set in the deployed control plane

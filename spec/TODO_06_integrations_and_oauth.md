@@ -339,6 +339,14 @@ Recommended v1 router behavior:
 5. persist a delivery event row
 6. retry or dead-letter failed deliveries
 
+Current first implementation slice:
+
+- the control plane now exposes public Slack ingress endpoints for events, commands, and interactivity
+- the router now extracts `team_id` from the raw Slack payload, looks up the connected tenant integration, and records a `slack_ingress_deliveries` row
+- tenant runtimes are now projected in Slack HTTP mode instead of Socket Mode
+- the current forwarder preserves the raw body plus Slack signature/timestamp headers and relays the request into the tenant runtime's native OpenClaw Slack HTTP handler through the existing runtime connection path
+- this keeps native OpenClaw Slack behavior intact for v1, while leaving room to replace the transport hop later with a more direct control-plane-managed ingress target on the tenant VPS
+
 Compatibility requirement for `DONE_10_voice_note_understanding.md`:
 
 - preserve the Slack attachment metadata and private file URL semantics that OpenClaw expects for media download
@@ -471,7 +479,7 @@ Deliverables:
 - [x] add the first post-Slack integration surface for `channel/whatsapp`
 - [x] add WhatsApp enable, QR-link, and disconnect lifecycle jobs through the worker
 - [x] project WhatsApp runtime policy into desired state and OpenClaw config
-- [ ] implement shared Slack ingress router
+- [x] implement shared Slack ingress router
 - [x] render Slack policy from canonical runtime config into desired state
 - [x] trigger apply after connect or token change
 - [ ] add reconnect and disconnect flows

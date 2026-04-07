@@ -152,8 +152,10 @@ describe("renderOpenClawConfig", () => {
         answerInThreads: true,
         channelAccessMode: "manual_allowlist",
         enabled: true,
-        mode: "socket",
+        mode: "http",
         requireMentionInChannels: true,
+        signingSecret: "test-signing-secret",
+        webhookPath: "/slack/events",
       },
       tenantId: "tenant_123",
       workspacePath: "/home/node/.openclaw/workspace",
@@ -167,6 +169,7 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.channels.slack.execApprovals, {
       enabled: false,
     });
+    assert.equal(renderedConfig.channels.slack.webhookPath, "/slack/events");
     assert.deepEqual(renderedConfig.channels.slack.channels, {
       C123: {
         enabled: true,
@@ -188,8 +191,10 @@ describe("renderOpenClawConfig", () => {
         answerInThreads: false,
         channelAccessMode: "member_of_channels",
         enabled: true,
-        mode: "socket",
+        mode: "http",
         requireMentionInChannels: false,
+        signingSecret: "test-signing-secret",
+        webhookPath: "/slack/events",
       },
       tenantId: "tenant_123",
       workspacePath: "/home/node/.openclaw/workspace",
