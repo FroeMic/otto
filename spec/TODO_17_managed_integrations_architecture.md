@@ -758,11 +758,18 @@ Tracker:
   - `[ ]` `team.list_issues`
 
 - `user`
-  - `[ ]` `user.get`
-  - `[ ]` `user.list`
-  - `[ ]` `user.list_assigned_issues`
-  - `[ ]` `user.list_created_issues`
-  - `[ ]` `user.list_team_memberships`
+  - `[x]` `user.get`
+  - `[x]` `user.list`
+  - `[x]` `user.list_assigned_issues`
+  - `[x]` `user.list_created_issues`
+  - `[x]` `user.list_team_memberships`
+  - Later testing plan:
+    - use `workspace.list_users` to fetch canonical user ids for live smoke tests
+    - verify `user.get` against one active human user and one app user if available
+    - verify `user.list` includes normalized display-name fallbacks when `name` is blank
+    - verify `user.list_assigned_issues` against a user with active workload and a user with zero assigned issues
+    - verify `user.list_created_issues` against a user who has opened issues recently
+    - verify `user.list_team_memberships` against a user who belongs to multiple teams and confirm owner flags map correctly
 
 - `attachment`
   - `[ ]` `attachment.list`
@@ -774,81 +781,126 @@ Tracker:
   - `[ ]` `attachment.update`
 
 - `document`
-  - `[ ]` `document.list`
-  - `[ ]` `document.get`
-  - `[ ]` `document.search`
-  - `[ ]` `document.create`
-  - `[ ]` `document.update`
+  - `[x]` `document.list`
+  - `[x]` `document.get`
+  - `[x]` `document.search`
+  - `[x]` `document.create`
+  - `[x]` `document.update`
+  - Later testing plan:
+    - verify `document.list` against a workspace with both project-linked and issue-linked documents
+    - verify `document.get` on a document that has creator, updatedBy, project, issue, and team associations populated
+    - verify `document.search` returns relevant matches for title-only and content-only terms
+    - verify `document.create` with only `title`, then again with project/team linkage and markdown content
+    - verify `document.update` for title/content edits plus toggling `trashed` and changing linked project or issue context
 
 - `label`
-  - `[ ]` `label.list_issue_labels`
-  - `[ ]` `label.get_issue_label`
-  - `[ ]` `label.create_issue_label`
-  - `[ ]` `label.update_issue_label`
-  - `[ ]` `label.delete_issue_label`
-  - `[ ]` `label.restore_issue_label`
-  - `[ ]` `label.retire_issue_label`
-  - `[ ]` `label.list_project_labels`
-  - `[ ]` `label.get_project_label`
-  - `[ ]` `label.create_project_label`
-  - `[ ]` `label.update_project_label`
-  - `[ ]` `label.delete_project_label`
-  - `[ ]` `label.restore_project_label`
-  - `[ ]` `label.retire_project_label`
+  - `[x]` `label.list_issue_labels`
+  - `[x]` `label.get_issue_label`
+  - `[x]` `label.create_issue_label`
+  - `[x]` `label.update_issue_label`
+  - `[x]` `label.delete_issue_label`
+  - `[x]` `label.restore_issue_label`
+  - `[x]` `label.retire_issue_label`
+  - `[x]` `label.list_project_labels`
+  - `[x]` `label.get_project_label`
+  - `[x]` `label.create_project_label`
+  - `[x]` `label.update_project_label`
+  - `[x]` `label.delete_project_label`
+  - `[x]` `label.restore_project_label`
+  - `[x]` `label.retire_project_label`
+  - Later testing plan:
+    - verify issue-label list/get on both workspace-level and team-level issue labels
+    - verify issue-label create/update with `replaceTeamLabels=true` against a workspace that already has matching team labels
+    - verify issue-label delete/restore/retire transitions and confirm the returned label state changes as expected
+    - verify project-label list/get against a workspace with grouped project labels
+    - verify project-label create/update/delete/restore/retire against at least one active project label and one archived/retired label
 
 - `project_milestone`
-  - `[ ]` `project_milestone.list`
-  - `[ ]` `project_milestone.get`
-  - `[ ]` `project_milestone.create`
-  - `[ ]` `project_milestone.update`
-  - `[ ]` `project_milestone.delete`
-  - `[ ]` `project_milestone.move`
+  - `[x]` `project_milestone.list`
+  - `[x]` `project_milestone.get`
+  - `[x]` `project_milestone.create`
+  - `[x]` `project_milestone.update`
+  - `[x]` `project_milestone.delete`
+  - `[x]` `project_milestone.move`
+  - Later testing plan:
+    - verify milestone list/get against a project with multiple milestones in different statuses
+    - verify milestone create/update for description, target date, and sort-order changes
+    - verify milestone delete returns the deleted milestone id and removes it from subsequent list calls
+    - verify milestone move across projects, including one case that requires `addIssueTeamToProject` or `newIssueTeamId`
 
 - `project_status`
-  - `[ ]` `project_status.list`
-  - `[ ]` `project_status.get`
-  - `[ ]` `project_status.create`
-  - `[ ]` `project_status.update`
+  - `[x]` `project_status.list`
+  - `[x]` `project_status.get`
+  - `[x]` `project_status.create`
+  - `[x]` `project_status.update`
+  - Later testing plan:
+    - verify status list/get against a workspace with custom project statuses beyond the defaults
+    - verify status create with each relevant `ProjectStatusType` used in the workspace flow
+    - verify status update for color, position, and `indefinite` transitions
 
 - `initiative`
-  - `[ ]` `initiative.list`
-  - `[ ]` `initiative.get`
-  - `[ ]` `initiative.create`
-  - `[ ]` `initiative.update`
-  - `[ ]` `initiative.archive`
-  - `[ ]` `initiative.list_projects`
-  - `[ ]` `initiative.list_updates`
+  - `[x]` `initiative.list`
+  - `[x]` `initiative.get`
+  - `[x]` `initiative.create`
+  - `[x]` `initiative.update`
+  - `[x]` `initiative.archive`
+  - `[x]` `initiative.list_projects`
+  - `[x]` `initiative.list_updates`
+  - Later testing plan:
+    - verify initiative list/get against a workspace with multiple active and completed initiatives
+    - verify initiative create/update for owner, status, target date, and markdown content changes
+    - verify initiative archive removes the initiative from normal active planning views
+    - verify initiative list_projects against an initiative linked to multiple projects
+    - verify initiative list_updates against an initiative with multiple historical updates and different health states
 
 - `customer`
-  - `[ ]` `customer.list`
-  - `[ ]` `customer.get`
-  - `[ ]` `customer.create`
-  - `[ ]` `customer.update`
-  - `[ ]` `customer.list_needs`
+  - `[x]` `customer.list`
+  - `[x]` `customer.get`
+  - `[x]` `customer.create`
+  - `[x]` `customer.update`
+  - `[x]` `customer.list_needs`
+  - Later testing plan:
+    - verify customer list/get against a workspace with customers spanning different statuses and tiers
+    - verify customer create/update for domain arrays, external ids, owner, status, tier, revenue, and size changes
+    - verify customer list_needs against a customer with multiple linked needs across issues and projects
 
 - `customer_need`
-  - `[ ]` `customer_need.list`
-  - `[ ]` `customer_need.get`
-  - `[ ]` `customer_need.create`
-  - `[ ]` `customer_need.create_from_attachment`
-  - `[ ]` `customer_need.update`
-  - `[ ]` `customer_need.archive`
-  - `[ ]` `customer_need.unarchive`
-  - `[ ]` `customer_need.delete`
+  - `[x]` `customer_need.list`
+  - `[x]` `customer_need.get`
+  - `[x]` `customer_need.create`
+  - `[x]` `customer_need.create_from_attachment`
+  - `[x]` `customer_need.update`
+  - `[x]` `customer_need.archive`
+  - `[x]` `customer_need.unarchive`
+  - `[x]` `customer_need.delete`
+  - Later testing plan:
+    - verify customer-need list/get against a workspace with active and archived customer needs
+    - verify customer-need create/update for customer, issue, project, and attachment linkage plus priority propagation
+    - verify customer-need create_from_attachment against a real existing Linear attachment
+    - verify customer-need archive/unarchive transitions and confirm archived needs only appear when explicitly requested
+    - verify customer-need delete with both `keepAttachment=true` and `keepAttachment=false`
 
 - `customer_status`
-  - `[ ]` `customer_status.list`
-  - `[ ]` `customer_status.get`
-  - `[ ]` `customer_status.create`
-  - `[ ]` `customer_status.update`
-  - `[ ]` `customer_status.delete`
+  - `[x]` `customer_status.list`
+  - `[x]` `customer_status.get`
+  - `[x]` `customer_status.create`
+  - `[x]` `customer_status.update`
+  - `[x]` `customer_status.delete`
+  - Later testing plan:
+    - verify customer-status list/get against a workspace with multiple custom customer-flow states
+    - verify customer-status create/update for color, displayName, and position changes
+    - verify customer-status delete succeeds only after the status is no longer referenced by active customers
 
 - `customer_tier`
-  - `[ ]` `customer_tier.list`
-  - `[ ]` `customer_tier.get`
-  - `[ ]` `customer_tier.create`
-  - `[ ]` `customer_tier.update`
-  - `[ ]` `customer_tier.delete`
+  - `[x]` `customer_tier.list`
+  - `[x]` `customer_tier.get`
+  - `[x]` `customer_tier.create`
+  - `[x]` `customer_tier.update`
+  - `[x]` `customer_tier.delete`
+  - Later testing plan:
+    - verify customer-tier list/get against a workspace with multiple account tiers
+    - verify customer-tier create/update for color, displayName, and position changes
+    - verify customer-tier delete succeeds only after the tier is no longer referenced by active customers
 
 Immediate next recommended slice:
 

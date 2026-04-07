@@ -401,7 +401,17 @@
   - the `comment.*` slice is now implemented end to end for issue-thread comments
   - the full `project.*` slice is now implemented end to end, including project reads, writes, nested issue/document/milestone/label reads, and authored project updates
   - the full `cycle.*` slice is now implemented end to end, including cycle reads, writes, archive, and nested issue reads
-  - the next recommended Linear slice is `team.*`
+  - the full `user.*` slice is now implemented end to end, including direct user reads plus assigned-issue, created-issue, and team-membership lookups
+  - the full `document.*` slice is now implemented end to end, including document reads, search, create, and update
+  - the full `label.*` slice is now implemented end to end across both issue labels and project labels, including create/update/delete/restore/retire flows
+  - the full `project_milestone.*` slice is now implemented end to end, including create/update/delete/move flows
+  - the full `project_status.*` slice is now implemented end to end, including list/get/create/update
+  - the full `initiative.*` slice is now implemented end to end, including list/get/create/update/archive plus related project/update reads
+  - the full `customer_status.*` slice is now implemented end to end, including list/get/create/update/delete
+  - the full `customer_tier.*` slice is now implemented end to end, including list/get/create/update/delete
+  - the full `customer.*` slice is now implemented end to end, including list/get/create/update plus `customer.list_needs`
+  - the full `customer_need.*` slice is now implemented end to end, including list/get/create/update/archive/unarchive/delete plus attachment-derived creation
+  - the next recommended Linear slice is now whatever remains outside the customer family, with `attachment.*` still explicitly last
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

@@ -23,12 +23,84 @@ describe("runtime integration registry", () => {
     assert.equal(manifest[0]?.toolName, "linear");
     assert.deepEqual(
       manifest[0]?.commandGroups.map((group) => group.groupKey),
-      ["cycle", "workspace", "issue", "project", "comment"],
+      [
+        "customer_need",
+        "customer",
+        "customer_tier",
+        "customer_status",
+        "initiative",
+        "cycle",
+        "workspace",
+        "user",
+        "document",
+        "label",
+        "project_milestone",
+        "project_status",
+        "issue",
+        "project",
+        "comment",
+      ],
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "workspace")
         ?.commandCount,
       6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "user")
+        ?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "document")
+        ?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "label")
+        ?.commandCount,
+      14,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_status",
+      )?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "project_milestone",
+      )?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "project_status",
+      )?.commandCount,
+      4,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_tier",
+      )?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_need",
+      )?.commandCount,
+      8,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "customer")
+        ?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "initiative",
+      )?.commandCount,
+      7,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")

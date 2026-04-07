@@ -6,12 +6,57 @@ import { executeLinearCommentDelete } from "./commands/comment/delete";
 import { executeLinearCommentGet } from "./commands/comment/get";
 import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
+import {
+  executeLinearCustomerCreate,
+  executeLinearCustomerGet,
+  executeLinearCustomerList,
+  executeLinearCustomerListNeeds,
+  executeLinearCustomerUpdate,
+} from "./commands/customer/commands";
+import {
+  executeLinearCustomerNeedArchive,
+  executeLinearCustomerNeedCreate,
+  executeLinearCustomerNeedCreateFromAttachment,
+  executeLinearCustomerNeedDelete,
+  executeLinearCustomerNeedGet,
+  executeLinearCustomerNeedList,
+  executeLinearCustomerNeedUnarchive,
+  executeLinearCustomerNeedUpdate,
+} from "./commands/customer-need/commands";
+import {
+  executeLinearCustomerStatusCreate,
+  executeLinearCustomerStatusDelete,
+  executeLinearCustomerStatusGet,
+  executeLinearCustomerStatusList,
+  executeLinearCustomerStatusUpdate,
+} from "./commands/customer-status/commands";
+import {
+  executeLinearCustomerTierCreate,
+  executeLinearCustomerTierDelete,
+  executeLinearCustomerTierGet,
+  executeLinearCustomerTierList,
+  executeLinearCustomerTierUpdate,
+} from "./commands/customer-tier/commands";
 import { executeLinearCycleArchive } from "./commands/cycle/archive";
 import { executeLinearCycleCreate } from "./commands/cycle/create";
 import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
+import { executeLinearDocumentCreate } from "./commands/document/create";
+import { executeLinearDocumentGet } from "./commands/document/get";
+import { executeLinearDocumentList } from "./commands/document/list";
+import { executeLinearDocumentSearch } from "./commands/document/search";
+import { executeLinearDocumentUpdate } from "./commands/document/update";
+import {
+  executeLinearInitiativeArchive,
+  executeLinearInitiativeCreate,
+  executeLinearInitiativeGet,
+  executeLinearInitiativeList,
+  executeLinearInitiativeListProjects,
+  executeLinearInitiativeListUpdates,
+  executeLinearInitiativeUpdate,
+} from "./commands/initiative/commands";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -25,6 +70,24 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import {
+  executeLinearLabelCreateIssueLabel,
+  executeLinearLabelDeleteIssueLabel,
+  executeLinearLabelGetIssueLabel,
+  executeLinearLabelListIssueLabels,
+  executeLinearLabelRestoreIssueLabel,
+  executeLinearLabelRetireIssueLabel,
+  executeLinearLabelUpdateIssueLabel,
+} from "./commands/label/issue";
+import {
+  executeLinearLabelCreateProjectLabel,
+  executeLinearLabelDeleteProjectLabel,
+  executeLinearLabelGetProjectLabel,
+  executeLinearLabelListProjectLabels,
+  executeLinearLabelRestoreProjectLabel,
+  executeLinearLabelRetireProjectLabel,
+  executeLinearLabelUpdateProjectLabel,
+} from "./commands/label/project";
 import { executeLinearProjectArchive } from "./commands/project/archive";
 import { executeLinearProjectCreate } from "./commands/project/create";
 import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
@@ -37,6 +100,25 @@ import { executeLinearProjectListMilestones } from "./commands/project/list-mile
 import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
 import { executeLinearProjectSearch } from "./commands/project/search";
 import { executeLinearProjectUpdate } from "./commands/project/update";
+import {
+  executeLinearProjectMilestoneCreate,
+  executeLinearProjectMilestoneDelete,
+  executeLinearProjectMilestoneGet,
+  executeLinearProjectMilestoneList,
+  executeLinearProjectMilestoneMove,
+  executeLinearProjectMilestoneUpdate,
+} from "./commands/project-milestone/commands";
+import {
+  executeLinearProjectStatusCreate,
+  executeLinearProjectStatusGet,
+  executeLinearProjectStatusList,
+  executeLinearProjectStatusUpdate,
+} from "./commands/project-status/commands";
+import { executeLinearUserGet } from "./commands/user/get";
+import { executeLinearUserList } from "./commands/user/list";
+import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues";
+import { executeLinearUserListCreatedIssues } from "./commands/user/list-created-issues";
+import { executeLinearUserListTeamMemberships } from "./commands/user/list-team-memberships";
 import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
 import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
 import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
@@ -166,6 +248,96 @@ const CYCLE_ID_ARGUMENT_SCHEMA = {
   description: "Linear cycle id.",
 } as const;
 
+const USER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear user id.",
+} as const;
+
+const DOCUMENT_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear document id.",
+} as const;
+
+const DOCUMENT_TITLE_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Document title.",
+} as const;
+
+const DOCUMENT_QUERY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Free-text document search query.",
+} as const;
+
+const LABEL_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear label id.",
+} as const;
+
+const LABEL_NAME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Label name.",
+} as const;
+
+const MILESTONE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear project milestone id.",
+} as const;
+
+const PROJECT_STATUS_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear project status id.",
+} as const;
+
+const INITIATIVE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear initiative id.",
+} as const;
+
+const INITIATIVE_STATUS_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["Planned", "Active", "Completed"],
+  description: "Linear initiative status.",
+} as const;
+
+const CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer status id.",
+} as const;
+
+const CUSTOMER_TIER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer tier id.",
+} as const;
+
+const CUSTOMER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer id.",
+} as const;
+
+const CUSTOMER_NEED_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer need id.",
+} as const;
+
+const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
+  description: "Linear project status type.",
+} as const;
+
 const DATETIME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
@@ -237,12 +409,47 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       key: "project.write",
       label: "Write projects",
     }),
+    buildCapability({
+      description:
+        "Read initiatives and the projects or updates associated with them in the connected Linear workspace.",
+      direction: "read",
+      key: "initiative.read",
+      label: "Read initiatives",
+    }),
+    buildCapability({
+      description:
+        "Create, update, and archive initiatives in the connected Linear workspace.",
+      direction: "tool",
+      key: "initiative.write",
+      label: "Write initiatives",
+    }),
+    buildCapability({
+      description:
+        "Read customers and customer needs in the connected Linear workspace.",
+      direction: "read",
+      key: "customer.read",
+      label: "Read customers",
+    }),
+    buildCapability({
+      description:
+        "Create and update customers, customer statuses, and customer tiers in the connected Linear workspace.",
+      direction: "tool",
+      key: "customer.write",
+      label: "Write customers",
+    }),
+    buildCapability({
+      description:
+        "Create, update, archive, and delete customer needs in the connected Linear workspace.",
+      direction: "tool",
+      key: "customer_need.write",
+      label: "Write customer needs",
+    }),
   ],
   categoryLabel: "Product Management",
   catalogDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear context when needed.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer context, and create or update Linear records when needed.",
   description:
-    "Workspace-managed Linear connection for workspace metadata plus issue, comment, and project reads and writes.",
+    "Workspace-managed Linear connection for workspace metadata plus issue, comment, project, initiative, and customer reads and writes.",
   iconSrc: "/integrations/linear.svg",
   key: "linear",
   label: "Linear",
@@ -250,9 +457,1715 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     provider: linearOAuthProvider,
   },
   pageDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue and project work, and create or update Linear records for your team.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                includeArchived: {
+                  type: "boolean",
+                  description:
+                    "Whether archived customer needs should be included.",
+                },
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_need.list",
+            commandPath: ["customer_need", "list"],
+            description:
+              "List customer needs from the connected Linear workspace.",
+            exampleArguments: {
+              includeArchived: false,
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer need",
+              "customer needs",
+              "feedback",
+            ],
+            label: "List customer needs",
+            resultMode: "json",
+            usageNotes: [
+              "Use includeArchived=true when you need to inspect resolved or archived customer needs too.",
+            ],
+            validate: (argumentsObject) => ({
+              includeArchived:
+                typeof argumentsObject.includeArchived === "boolean"
+                  ? argumentsObject.includeArchived
+                  : false,
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerNeedList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.get",
+            commandPath: ["customer_need", "get"],
+            description: "Read one Linear customer need by id.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "get feedback"],
+            label: "Get customer need",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Linear attachment id linked to the need.",
+                },
+                attachmentUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional attachment URL linked to the need.",
+                },
+                body: {
+                  type: "string",
+                  description: "Optional markdown body for the need.",
+                },
+                commentId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear comment id linked to the need.",
+                },
+                customerExternalId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer external id.",
+                },
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                issueId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional issue identifier or id linked to the need.",
+                },
+                priority: {
+                  type: "number",
+                  description:
+                    "Optional importance level where 0 = not important and 1 = important.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_need.create",
+            commandPath: ["customer_need", "create"],
+            description: "Create a new Linear customer need.",
+            exampleArguments: {
+              body: "Need better billing exports",
+              customerId: "customer-id",
+              issueId: "INT-15",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "create", "feedback"],
+            label: "Create customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Provide customerId, customerExternalId, issueId, projectId, or attachment linkage so the need is attached to real customer context.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : null,
+              attachmentUrl:
+                typeof argumentsObject.attachmentUrl === "string"
+                  ? argumentsObject.attachmentUrl.trim()
+                  : null,
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : null,
+              commentId:
+                typeof argumentsObject.commentId === "string"
+                  ? argumentsObject.commentId.trim()
+                  : null,
+              customerExternalId:
+                typeof argumentsObject.customerExternalId === "string"
+                  ? argumentsObject.customerExternalId.trim()
+                  : null,
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isFinite(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerNeedCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                attachmentId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Linear attachment id used to create the need.",
+                },
+              },
+              required: ["attachmentId"],
+            },
+            commandKey: "customer_need.create_from_attachment",
+            commandPath: ["customer_need", "create_from_attachment"],
+            description:
+              "Create a new Linear customer need from one attachment.",
+            exampleArguments: {
+              attachmentId: "attachment-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer need",
+              "attachment",
+              "feedback link",
+            ],
+            label: "Create customer need from attachment",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when the customer need already has a canonical attachment in Linear and should be derived from it.",
+            ],
+            validate: (argumentsObject) => ({
+              attachmentId:
+                typeof argumentsObject.attachmentId === "string"
+                  ? argumentsObject.attachmentId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedCreateFromAttachment,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                applyPriorityToRelatedNeeds: {
+                  type: "boolean",
+                  description:
+                    "Whether to update the priority of related needs on the same customer issue or project.",
+                },
+                attachmentUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional attachment URL linked to the need.",
+                },
+                body: {
+                  type: "string",
+                  description: "Optional markdown body for the need.",
+                },
+                clearAttachment: {
+                  type: "boolean",
+                  description:
+                    "Whether to clear any existing attachment association.",
+                },
+                customerExternalId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer external id.",
+                },
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                issueId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional issue identifier or id linked to the need.",
+                },
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+                priority: {
+                  type: "number",
+                  description:
+                    "Optional importance level where 0 = not important and 1 = important.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.update",
+            commandPath: ["customer_need", "update"],
+            description: "Update an existing Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+              priority: 1,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "update", "feedback"],
+            label: "Update customer need",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides needId.",
+            ],
+            validate: (argumentsObject) => ({
+              applyPriorityToRelatedNeeds:
+                typeof argumentsObject.applyPriorityToRelatedNeeds === "boolean"
+                  ? argumentsObject.applyPriorityToRelatedNeeds
+                  : null,
+              attachmentUrl:
+                typeof argumentsObject.attachmentUrl === "string"
+                  ? argumentsObject.attachmentUrl.trim()
+                  : null,
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : null,
+              clearAttachment:
+                typeof argumentsObject.clearAttachment === "boolean"
+                  ? argumentsObject.clearAttachment
+                  : null,
+              customerExternalId:
+                typeof argumentsObject.customerExternalId === "string"
+                  ? argumentsObject.customerExternalId.trim()
+                  : null,
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+              priority:
+                typeof argumentsObject.priority === "number" &&
+                Number.isFinite(argumentsObject.priority)
+                  ? argumentsObject.priority
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerNeedUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.archive",
+            commandPath: ["customer_need", "archive"],
+            description: "Archive one Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "archive", "resolve"],
+            label: "Archive customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Archive a customer need when it should leave the active customer-need backlog.",
+            ],
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.unarchive",
+            commandPath: ["customer_need", "unarchive"],
+            description: "Unarchive one Linear customer need.",
+            exampleArguments: {
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "restore", "unarchive"],
+            label: "Unarchive customer need",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedUnarchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                keepAttachment: {
+                  type: "boolean",
+                  description:
+                    "Whether the linked attachment should be kept when deleting the need.",
+                },
+                needId: CUSTOMER_NEED_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["needId"],
+            },
+            commandKey: "customer_need.delete",
+            commandPath: ["customer_need", "delete"],
+            description: "Delete one Linear customer need.",
+            exampleArguments: {
+              keepAttachment: true,
+              needId: "customer-need-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer need", "delete", "remove"],
+            label: "Delete customer need",
+            resultMode: "json",
+            usageNotes: [
+              "Use keepAttachment=true when the attachment should survive after the need is deleted.",
+            ],
+            validate: (argumentsObject) => ({
+              keepAttachment:
+                typeof argumentsObject.keepAttachment === "boolean"
+                  ? argumentsObject.keepAttachment
+                  : null,
+              needId:
+                typeof argumentsObject.needId === "string"
+                  ? argumentsObject.needId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerNeedDelete,
+          },
+        ],
+        description:
+          "Customer-need reads and writes for product feedback and demand tracking in Linear.",
+        groupKey: "customer_need",
+        groupPath: ["customer_need"],
+        intentKeywords: ["linear", "customer need", "needs", "feedback"],
+        label: "Customer Needs",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer.list",
+            commandPath: ["customer", "list"],
+            description: "List customers from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "customers", "accounts"],
+            label: "List customers",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.get when you need a canonical customer id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.get",
+            commandPath: ["customer", "get"],
+            description: "Read one Linear customer by id.",
+            exampleArguments: {
+              customerId: "customer-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "get customer", "account"],
+            label: "Get customer",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                domains: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer domains.",
+                },
+                externalIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer external ids.",
+                },
+                logoUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer logo URL.",
+                },
+                mainSourceId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional main source id. Must be one of externalIds.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Linear user id for the customer owner.",
+                },
+                revenue: {
+                  type: "integer",
+                  description:
+                    "Optional annual revenue generated by the customer.",
+                },
+                size: {
+                  type: "integer",
+                  description: "Optional approximate customer size.",
+                },
+                slackChannelId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Slack channel id used to interact with the customer.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["name"],
+            },
+            commandKey: "customer.create",
+            commandPath: ["customer", "create"],
+            description: "Create a new Linear customer.",
+            exampleArguments: {
+              name: "Example Corp",
+              statusId: "customer-status-id",
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "create", "account"],
+            label: "Create customer",
+            resultMode: "json",
+            usageNotes: [
+              "Use customer_status.list and customer_tier.list first if you need canonical status or tier ids.",
+            ],
+            validate: (argumentsObject) => ({
+              domains: Array.isArray(argumentsObject.domains)
+                ? argumentsObject.domains
+                : undefined,
+              externalIds: Array.isArray(argumentsObject.externalIds)
+                ? argumentsObject.externalIds
+                : undefined,
+              logoUrl:
+                typeof argumentsObject.logoUrl === "string"
+                  ? argumentsObject.logoUrl.trim()
+                  : null,
+              mainSourceId:
+                typeof argumentsObject.mainSourceId === "string"
+                  ? argumentsObject.mainSourceId.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              revenue:
+                typeof argumentsObject.revenue === "number" &&
+                Number.isInteger(argumentsObject.revenue)
+                  ? argumentsObject.revenue
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+              slackChannelId:
+                typeof argumentsObject.slackChannelId === "string"
+                  ? argumentsObject.slackChannelId.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                domains: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer domains.",
+                },
+                externalIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer external ids.",
+                },
+                logoUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer logo URL.",
+                },
+                mainSourceId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional main source id. Must be one of externalIds.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated customer name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Linear user id for the customer owner.",
+                },
+                revenue: {
+                  type: "integer",
+                  description:
+                    "Optional annual revenue generated by the customer.",
+                },
+                size: {
+                  type: "integer",
+                  description: "Optional approximate customer size.",
+                },
+                slackChannelId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Slack channel id used to interact with the customer.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.update",
+            commandPath: ["customer", "update"],
+            description: "Update an existing Linear customer.",
+            exampleArguments: {
+              customerId: "customer-id",
+              name: "Example Corp Updated",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "update", "edit account"],
+            label: "Update customer",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides customerId.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+              domains: Array.isArray(argumentsObject.domains)
+                ? argumentsObject.domains
+                : undefined,
+              externalIds: Array.isArray(argumentsObject.externalIds)
+                ? argumentsObject.externalIds
+                : undefined,
+              logoUrl:
+                typeof argumentsObject.logoUrl === "string"
+                  ? argumentsObject.logoUrl.trim()
+                  : null,
+              mainSourceId:
+                typeof argumentsObject.mainSourceId === "string"
+                  ? argumentsObject.mainSourceId.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              revenue:
+                typeof argumentsObject.revenue === "number" &&
+                Number.isInteger(argumentsObject.revenue)
+                  ? argumentsObject.revenue
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+              slackChannelId:
+                typeof argumentsObject.slackChannelId === "string"
+                  ? argumentsObject.slackChannelId.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.list_needs",
+            commandPath: ["customer", "list_needs"],
+            description: "List customer needs attached to one Linear customer.",
+            exampleArguments: {
+              customerId: "customer-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "needs", "feedback"],
+            label: "List customer needs",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the customer-specific need backlog before updating associated issues or projects.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearCustomerListNeeds,
+          },
+        ],
+        description:
+          "Customer reads and writes for workspace account context in Linear.",
+        groupKey: "customer",
+        groupPath: ["customer"],
+        intentKeywords: ["linear", "customer", "customers", "accounts"],
+        label: "Customers",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_tier.list",
+            commandPath: ["customer_tier", "list"],
+            description:
+              "List customer tiers from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer tier",
+              "customer tiers",
+              "account tier",
+            ],
+            label: "List customer tiers",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.create or customer.update when you need a canonical tier id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerTierList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.get",
+            commandPath: ["customer_tier", "get"],
+            description: "Read one Linear customer tier by id.",
+            exampleArguments: {
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "get customer tier"],
+            label: "Get customer tier",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer tier color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer tier description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer tier name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer tier ladder.",
+                },
+              },
+              required: ["color"],
+            },
+            commandKey: "customer_tier.create",
+            commandPath: ["customer_tier", "create"],
+            description: "Create a new Linear customer tier.",
+            exampleArguments: {
+              color: "#16A34A",
+              displayName: "Strategic",
+              name: "strategic",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer tier",
+              "create",
+              "account tier",
+            ],
+            label: "Create customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "Create tiers before assigning them to customers if your workspace account ladder is still being set up.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+            }),
+            execute: executeLinearCustomerTierCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer tier color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer tier description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer tier name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer tier ladder.",
+                },
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.update",
+            commandPath: ["customer_tier", "update"],
+            description: "Update an existing Linear customer tier.",
+            exampleArguments: {
+              displayName: "Key",
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "update", "edit"],
+            label: "Update customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides tierId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["tierId"],
+            },
+            commandKey: "customer_tier.delete",
+            commandPath: ["customer_tier", "delete"],
+            description: "Delete one Linear customer tier.",
+            exampleArguments: {
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer tier", "delete", "remove"],
+            label: "Delete customer tier",
+            resultMode: "json",
+            usageNotes: [
+              "Only delete tiers that are no longer referenced by active customers.",
+            ],
+            validate: (argumentsObject) => ({
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerTierDelete,
+          },
+        ],
+        description:
+          "Customer-tier reads and writes for the workspace customer segmentation model.",
+        groupKey: "customer_tier",
+        groupPath: ["customer_tier"],
+        intentKeywords: ["linear", "customer tier", "account tier"],
+        label: "Customer Tiers",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_status.list",
+            commandPath: ["customer_status", "list"],
+            description:
+              "List customer statuses from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "customer statuses",
+              "customer flow",
+            ],
+            label: "List customer statuses",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.create or customer.update when you need a canonical status id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerStatusList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.get",
+            commandPath: ["customer_status", "get"],
+            description: "Read one Linear customer status by id.",
+            exampleArguments: {
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "get customer status",
+            ],
+            label: "Get customer status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer status color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer status description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer status name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer workflow.",
+                },
+              },
+              required: ["color"],
+            },
+            commandKey: "customer_status.create",
+            commandPath: ["customer_status", "create"],
+            description: "Create a new Linear customer status.",
+            exampleArguments: {
+              color: "#4F46E5",
+              displayName: "Active",
+              name: "active",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "create",
+              "customer flow",
+            ],
+            label: "Create customer status",
+            resultMode: "json",
+            usageNotes: [
+              "Create statuses before assigning them to customers if your workspace flow is still being set up.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+            }),
+            execute: executeLinearCustomerStatusCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional customer status color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer status description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer status name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer workflow.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.update",
+            commandPath: ["customer_status", "update"],
+            description: "Update an existing Linear customer status.",
+            exampleArguments: {
+              displayName: "Current",
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "update", "edit"],
+            label: "Update customer status",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides statusId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.delete",
+            commandPath: ["customer_status", "delete"],
+            description: "Delete one Linear customer status.",
+            exampleArguments: {
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "delete", "remove"],
+            label: "Delete customer status",
+            resultMode: "json",
+            usageNotes: [
+              "Only delete statuses that are no longer referenced by active customer workflows.",
+            ],
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusDelete,
+          },
+        ],
+        description:
+          "Customer-status reads and writes for the workspace customer lifecycle.",
+        groupKey: "customer_status",
+        groupPath: ["customer_status"],
+        intentKeywords: ["linear", "customer status", "customer flow"],
+        label: "Customer Statuses",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "initiative.list",
+            commandPath: ["initiative", "list"],
+            description:
+              "List recently updated initiatives from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "initiatives",
+              "strategy",
+              "roadmap",
+            ],
+            label: "List initiatives",
+            resultMode: "json",
+            usageNotes: [
+              "This returns a recent initiative slice, not semantic search.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearInitiativeList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.get",
+            commandPath: ["initiative", "get"],
+            description:
+              "Read one Linear initiative by id and return normalized initiative context.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "get initiative"],
+            label: "Get initiative",
+            resultMode: "json",
+            usageNotes: ["Use initiative ids returned by initiative.list."],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional initiative content in markdown.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional initiative description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative icon name.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Initiative name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Linear user id for the initiative owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional initiative sort order.",
+                },
+                status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
+                targetDate: {
+                  ...DATE_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional initiative target date in YYYY-MM-DD format.",
+                },
+                targetDateResolution: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear target-date resolution value.",
+                },
+              },
+              required: ["name"],
+            },
+            commandKey: "initiative.create",
+            commandPath: ["initiative", "create"],
+            description: "Create a new Linear initiative.",
+            exampleArguments: {
+              name: "Credits expansion",
+              status: "Active",
+              targetDate: "2026-06-30",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "create",
+              "new initiative",
+            ],
+            label: "Create initiative",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_users first if you need a canonical owner id before creating the initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              status:
+                typeof argumentsObject.status === "string"
+                  ? argumentsObject.status.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              targetDateResolution:
+                typeof argumentsObject.targetDateResolution === "string"
+                  ? argumentsObject.targetDateResolution.trim()
+                  : null,
+            }),
+            execute: executeLinearInitiativeCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative color as a HEX string.",
+                },
+                content: {
+                  type: "string",
+                  description: "Optional initiative content in markdown.",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional initiative description.",
+                },
+                icon: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional initiative icon name.",
+                },
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated initiative name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional Linear user id for the initiative owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional initiative sort order.",
+                },
+                status: INITIATIVE_STATUS_ARGUMENT_SCHEMA,
+                targetDate: {
+                  ...DATE_ARGUMENT_SCHEMA,
+                  description:
+                    "Optional initiative target date in YYYY-MM-DD format.",
+                },
+                targetDateResolution: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear target-date resolution value.",
+                },
+                trashed: {
+                  type: "boolean",
+                  description:
+                    "Whether the initiative should be marked as trashed.",
+                },
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.update",
+            commandPath: ["initiative", "update"],
+            description: "Update an existing Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              status: "Completed",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "update",
+              "edit initiative",
+            ],
+            label: "Update initiative",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides initiativeId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              status:
+                typeof argumentsObject.status === "string"
+                  ? argumentsObject.status.trim()
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+              targetDateResolution:
+                typeof argumentsObject.targetDateResolution === "string"
+                  ? argumentsObject.targetDateResolution.trim()
+                  : null,
+              trashed:
+                typeof argumentsObject.trashed === "boolean"
+                  ? argumentsObject.trashed
+                  : null,
+            }),
+            execute: executeLinearInitiativeUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.archive",
+            commandPath: ["initiative", "archive"],
+            description: "Archive one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "archive",
+              "close initiative",
+            ],
+            label: "Archive initiative",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when the initiative should leave the active roadmap.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.list_projects",
+            commandPath: ["initiative", "list_projects"],
+            description: "List projects linked to one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "initiative", "projects", "roadmap"],
+            label: "List initiative projects",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the execution projects tied to one initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearInitiativeListProjects,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.list_updates",
+            commandPath: ["initiative", "list_updates"],
+            description: "List updates posted on one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "updates",
+              "status update",
+            ],
+            label: "List initiative updates",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the historical status updates for one initiative.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearInitiativeListUpdates,
+          },
+        ],
+        description:
+          "Initiative reads and writes for roadmap-level planning in the connected Linear workspace.",
+        groupKey: "initiative",
+        groupPath: ["initiative"],
+        intentKeywords: ["linear", "initiative", "initiatives", "roadmap"],
+        label: "Initiatives",
+      },
       {
         commands: [
           {
@@ -747,6 +2660,1698 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["workspace"],
         intentKeywords: ["linear", "workspace", "metadata", "teams", "users"],
         label: "Workspace",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.get",
+            commandPath: ["user", "get"],
+            description:
+              "Read one Linear user by user id and return normalized user context.",
+            exampleArguments: {
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "person",
+              "member",
+              "profile",
+              "assignee",
+            ],
+            label: "Get user",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_users first if you need a canonical Linear user id.",
+            ],
+            validate: (argumentsObject) => ({
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "user.list",
+            commandPath: ["user", "list"],
+            description:
+              "List users visible in the connected Linear workspace with normalized profile fields.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "users",
+              "people",
+              "members",
+              "assignees",
+            ],
+            label: "List users",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need canonical Linear user ids before reading one user or filtering work by person.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearUserList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.list_assigned_issues",
+            commandPath: ["user", "list_assigned_issues"],
+            description: "List issues currently assigned to one Linear user.",
+            exampleArguments: {
+              limit: 25,
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "assignee",
+              "assigned issues",
+              "owned issues",
+            ],
+            label: "List assigned issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the current issue workload for one Linear user.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserListAssignedIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.list_created_issues",
+            commandPath: ["user", "list_created_issues"],
+            description: "List issues created by one Linear user.",
+            exampleArguments: {
+              limit: 25,
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "creator",
+              "created issues",
+              "opened issues",
+            ],
+            label: "List created issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the issue work originally opened by one Linear user.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserListCreatedIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "user.list_team_memberships",
+            commandPath: ["user", "list_team_memberships"],
+            description: "List team memberships for one Linear user.",
+            exampleArguments: {
+              limit: 25,
+              userId: "user-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "user",
+              "team memberships",
+              "teams",
+              "member of",
+            ],
+            label: "List team memberships",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the team footprint and team-owner state for one Linear user.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearUserListTeamMemberships,
+          },
+        ],
+        description: "User profile reads for the connected Linear workspace.",
+        groupKey: "user",
+        groupPath: ["user"],
+        intentKeywords: ["linear", "user", "people", "members", "assignee"],
+        label: "Users",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "document.list",
+            commandPath: ["document", "list"],
+            description:
+              "List recently updated documents from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "documents",
+              "docs",
+              "knowledge",
+            ],
+            label: "List documents",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse recent documents before reading or updating one in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearDocumentList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.get",
+            commandPath: ["document", "get"],
+            description:
+              "Read one Linear document by document id and return normalized document context.",
+            exampleArguments: {
+              documentId: "document-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "document", "doc", "read document"],
+            label: "Get document",
+            resultMode: "json",
+            usageNotes: [
+              "Use document ids returned by document.list or project.list_documents before reading one document in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 25,
+                },
+                query: DOCUMENT_QUERY_ARGUMENT_SCHEMA,
+              },
+              required: ["query"],
+            },
+            commandKey: "document.search",
+            commandPath: ["document", "search"],
+            description:
+              "Search documents across the connected Linear workspace.",
+            exampleArguments: {
+              limit: 5,
+              query: "credit",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "docs",
+              "search",
+              "knowledge",
+              "spec",
+            ],
+            label: "Search documents",
+            resultMode: "json",
+            usageNotes: [
+              "Use free-text search terms that should match document titles or document content.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+              query:
+                typeof argumentsObject.query === "string"
+                  ? argumentsObject.query.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentSearch,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Document body in markdown.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                initiativeId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                lastAppliedTemplateId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                resourceFolderId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional document sort order.",
+                },
+                subscriberIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description:
+                    "Optional list of Linear user ids subscribed to the document.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional owning Linear team id.",
+                },
+                title: DOCUMENT_TITLE_ARGUMENT_SCHEMA,
+              },
+              required: ["title"],
+            },
+            commandKey: "document.create",
+            commandPath: ["document", "create"],
+            description: "Create a new Linear document.",
+            exampleArguments: {
+              projectId: "project-id",
+              title: "Credits workflow doc",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "create doc",
+              "new document",
+            ],
+            label: "Create document",
+            resultMode: "json",
+            usageNotes: [
+              "Attach the document to a project, issue, team, initiative, or cycle when you want it anchored to work in Linear.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              lastAppliedTemplateId:
+                typeof argumentsObject.lastAppliedTemplateId === "string"
+                  ? argumentsObject.lastAppliedTemplateId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              resourceFolderId:
+                typeof argumentsObject.resourceFolderId === "string"
+                  ? argumentsObject.resourceFolderId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isInteger(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              subscriberIds: Array.isArray(argumentsObject.subscriberIds)
+                ? argumentsObject.subscriberIds
+                : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated document body in markdown.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+                hiddenAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional timestamp to hide the document.",
+                },
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                initiativeId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                lastAppliedTemplateId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                resourceFolderId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional updated document sort order.",
+                },
+                subscriberIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description:
+                    "Optional updated list of Linear user ids subscribed to the document.",
+                },
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated owning Linear team id.",
+                },
+                title: DOCUMENT_TITLE_ARGUMENT_SCHEMA,
+                trashed: {
+                  type: "boolean",
+                  description: "Whether the document should be marked trashed.",
+                },
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.update",
+            commandPath: ["document", "update"],
+            description: "Update one Linear document.",
+            exampleArguments: {
+              documentId: "document-id",
+              title: "Updated credits workflow doc",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "update doc",
+              "edit document",
+            ],
+            label: "Update document",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides documentId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              content:
+                typeof argumentsObject.content === "string"
+                  ? argumentsObject.content.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : null,
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+              hiddenAt:
+                typeof argumentsObject.hiddenAt === "string"
+                  ? argumentsObject.hiddenAt.trim()
+                  : null,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : null,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              lastAppliedTemplateId:
+                typeof argumentsObject.lastAppliedTemplateId === "string"
+                  ? argumentsObject.lastAppliedTemplateId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              resourceFolderId:
+                typeof argumentsObject.resourceFolderId === "string"
+                  ? argumentsObject.resourceFolderId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isInteger(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              subscriberIds: Array.isArray(argumentsObject.subscriberIds)
+                ? argumentsObject.subscriberIds
+                : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : null,
+              trashed:
+                typeof argumentsObject.trashed === "boolean"
+                  ? argumentsObject.trashed
+                  : null,
+            }),
+            execute: executeLinearDocumentUpdate,
+          },
+        ],
+        description:
+          "Document reads and writes for the connected Linear workspace.",
+        groupKey: "document",
+        groupPath: ["document"],
+        intentKeywords: [
+          "linear",
+          "document",
+          "documents",
+          "docs",
+          "knowledge",
+        ],
+        label: "Documents",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "label.list_issue_labels",
+            commandPath: ["label", "list_issue_labels"],
+            description: "List issue labels in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "labels", "issue labels", "taxonomy"],
+            label: "List issue labels",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to browse issue taxonomy before applying or changing issue labels.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearLabelListIssueLabels,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.get_issue_label",
+            commandPath: ["label", "get_issue_label"],
+            description: "Read one issue label by id.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "issue label", "label details"],
+            label: "Get issue label",
+            resultMode: "json",
+            usageNotes: [
+              "Use ids returned by label.list_issue_labels before reading one label in detail.",
+            ],
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelGetIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                replaceTeamLabels: {
+                  type: "boolean",
+                  description:
+                    "Whether matching team labels should be replaced by this workspace label.",
+                },
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+                teamId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional team id for a team-scoped issue label.",
+                },
+              },
+              required: ["name"],
+            },
+            commandKey: "label.create_issue_label",
+            commandPath: ["label", "create_issue_label"],
+            description: "Create a new issue label.",
+            exampleArguments: {
+              name: "Customer",
+              teamId: "team-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create issue label", "new issue label"],
+            label: "Create issue label",
+            resultMode: "json",
+            usageNotes: [
+              "Omit teamId to create a workspace-level issue label instead of a team-specific one.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              replaceTeamLabels:
+                typeof argumentsObject.replaceTeamLabels === "boolean"
+                  ? argumentsObject.replaceTeamLabels
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+              teamId:
+                typeof argumentsObject.teamId === "string"
+                  ? argumentsObject.teamId.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelCreateIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                replaceTeamLabels: {
+                  type: "boolean",
+                  description:
+                    "Whether matching team labels should be replaced by this updated workspace label.",
+                },
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.update_issue_label",
+            commandPath: ["label", "update_issue_label"],
+            description: "Update one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+              name: "Customer-visible",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "update issue label",
+              "edit issue label",
+            ],
+            label: "Update issue label",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides labelId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              replaceTeamLabels:
+                typeof argumentsObject.replaceTeamLabels === "boolean"
+                  ? argumentsObject.replaceTeamLabels
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelUpdateIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.delete_issue_label",
+            commandPath: ["label", "delete_issue_label"],
+            description: "Delete one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "delete issue label",
+              "remove issue label",
+            ],
+            label: "Delete issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelDeleteIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.restore_issue_label",
+            commandPath: ["label", "restore_issue_label"],
+            description: "Restore one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "restore issue label",
+              "unarchive issue label",
+            ],
+            label: "Restore issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRestoreIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.retire_issue_label",
+            commandPath: ["label", "retire_issue_label"],
+            description: "Retire one issue label.",
+            exampleArguments: {
+              labelId: "issue-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "retire issue label",
+              "deprecate issue label",
+            ],
+            label: "Retire issue label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRetireIssueLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "label.list_project_labels",
+            commandPath: ["label", "list_project_labels"],
+            description:
+              "List project labels in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project labels",
+              "roadmap labels",
+              "taxonomy",
+            ],
+            label: "List project labels",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearLabelListProjectLabels,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.get_project_label",
+            commandPath: ["label", "get_project_label"],
+            description: "Read one project label by id.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project label", "label details"],
+            label: "Get project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelGetProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["name"],
+            },
+            commandKey: "label.create_project_label",
+            commandPath: ["label", "create_project_label"],
+            description: "Create a new project label.",
+            exampleArguments: {
+              name: "Roadmap",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "create project label",
+              "new project label",
+            ],
+            label: "Create project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelCreateProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                isGroup: {
+                  type: "boolean",
+                  description: "Whether the label is a group label.",
+                },
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+                name: LABEL_NAME_ARGUMENT_SCHEMA,
+                parentId: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                retiredAt: DATETIME_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.update_project_label",
+            commandPath: ["label", "update_project_label"],
+            description: "Update one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+              name: "Roadmap critical",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "update project label",
+              "edit project label",
+            ],
+            label: "Update project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              isGroup:
+                typeof argumentsObject.isGroup === "boolean"
+                  ? argumentsObject.isGroup
+                  : null,
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              parentId:
+                typeof argumentsObject.parentId === "string"
+                  ? argumentsObject.parentId.trim()
+                  : null,
+              retiredAt:
+                typeof argumentsObject.retiredAt === "string"
+                  ? argumentsObject.retiredAt.trim()
+                  : null,
+            }),
+            execute: executeLinearLabelUpdateProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.delete_project_label",
+            commandPath: ["label", "delete_project_label"],
+            description: "Delete one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "delete project label",
+              "remove project label",
+            ],
+            label: "Delete project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelDeleteProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.restore_project_label",
+            commandPath: ["label", "restore_project_label"],
+            description: "Restore one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "restore project label",
+              "unarchive project label",
+            ],
+            label: "Restore project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRestoreProjectLabel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                labelId: LABEL_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["labelId"],
+            },
+            commandKey: "label.retire_project_label",
+            commandPath: ["label", "retire_project_label"],
+            description: "Retire one project label.",
+            exampleArguments: {
+              labelId: "project-label-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "retire project label",
+              "deprecate project label",
+            ],
+            label: "Retire project label",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              labelId:
+                typeof argumentsObject.labelId === "string"
+                  ? argumentsObject.labelId.trim()
+                  : "",
+            }),
+            execute: executeLinearLabelRetireProjectLabel,
+          },
+        ],
+        description: "Issue-label and project-label taxonomy reads and writes.",
+        groupKey: "label",
+        groupPath: ["label"],
+        intentKeywords: ["linear", "labels", "taxonomy", "categorization"],
+        label: "Labels",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "project_milestone.list",
+            commandPath: ["project_milestone", "list"],
+            description:
+              "List project milestones in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project milestone",
+              "milestones",
+              "roadmap",
+            ],
+            label: "List project milestones",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearProjectMilestoneList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.get",
+            commandPath: ["project_milestone", "get"],
+            description: "Read one project milestone by id.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project milestone",
+              "milestone details",
+            ],
+            label: "Get project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Project milestone name.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description:
+                    "Optional milestone sort order within the project.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+              },
+              required: ["name", "projectId"],
+            },
+            commandKey: "project_milestone.create",
+            commandPath: ["project_milestone", "create"],
+            description: "Create a new project milestone.",
+            exampleArguments: {
+              name: "GA",
+              projectId: "project-id",
+              targetDate: "2026-05-01",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "create milestone", "roadmap milestone"],
+            label: "Create project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectMilestoneCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated milestone name.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+                sortOrder: {
+                  type: "integer",
+                  description: "Optional updated milestone sort order.",
+                },
+                targetDate: DATE_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.update",
+            commandPath: ["project_milestone", "update"],
+            description: "Update one project milestone.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+              targetDate: "2026-05-15",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "update milestone", "edit milestone"],
+            label: "Update project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : null,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : null,
+              targetDate:
+                typeof argumentsObject.targetDate === "string"
+                  ? argumentsObject.targetDate.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectMilestoneUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId"],
+            },
+            commandKey: "project_milestone.delete",
+            commandPath: ["project_milestone", "delete"],
+            description: "Delete one project milestone.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "delete milestone", "remove milestone"],
+            label: "Delete project milestone",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                addIssueTeamToProject: {
+                  type: "boolean",
+                  description:
+                    "Whether issue teams should be added to the destination project when required.",
+                },
+                milestoneId: MILESTONE_ID_ARGUMENT_SCHEMA,
+                newIssueTeamId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional team id to move attached issues onto when resolving team mismatches.",
+                },
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["milestoneId", "projectId"],
+            },
+            commandKey: "project_milestone.move",
+            commandPath: ["project_milestone", "move"],
+            description: "Move a project milestone to another project.",
+            exampleArguments: {
+              milestoneId: "milestone-id",
+              projectId: "project-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "move milestone", "rehome milestone"],
+            label: "Move project milestone",
+            resultMode: "json",
+            usageNotes: [
+              "Use addIssueTeamToProject or newIssueTeamId when the destination project needs help reconciling issue-team constraints.",
+            ],
+            validate: (argumentsObject) => ({
+              addIssueTeamToProject:
+                typeof argumentsObject.addIssueTeamToProject === "boolean"
+                  ? argumentsObject.addIssueTeamToProject
+                  : null,
+              milestoneId:
+                typeof argumentsObject.milestoneId === "string"
+                  ? argumentsObject.milestoneId.trim()
+                  : "",
+              newIssueTeamId:
+                typeof argumentsObject.newIssueTeamId === "string"
+                  ? argumentsObject.newIssueTeamId.trim()
+                  : null,
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectMilestoneMove,
+          },
+        ],
+        description:
+          "Project milestone reads and writes for planning milestones.",
+        groupKey: "project_milestone",
+        groupPath: ["project_milestone"],
+        intentKeywords: ["linear", "milestone", "project milestone", "roadmap"],
+        label: "Project Milestones",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "project_status.list",
+            commandPath: ["project_status", "list"],
+            description:
+              "List project statuses in the connected Linear workspace.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project statuses",
+              "project flow",
+              "roadmap",
+            ],
+            label: "List project statuses",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearProjectStatusList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: PROJECT_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "project_status.get",
+            commandPath: ["project_status", "get"],
+            description: "Read one project status by id.",
+            exampleArguments: {
+              statusId: "project-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "project status", "status details"],
+            label: "Get project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectStatusGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Status color as a HEX string.",
+                },
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                indefinite: {
+                  type: "boolean",
+                  description:
+                    "Whether the project can remain in this status indefinitely.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Project status name.",
+                },
+                position: {
+                  type: "integer",
+                  description:
+                    "Status position within the workspace project flow.",
+                },
+                type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
+              },
+              required: ["name", "color", "position", "type"],
+            },
+            commandKey: "project_status.create",
+            commandPath: ["project_status", "create"],
+            description: "Create a new project status.",
+            exampleArguments: {
+              color: "#4F46E5",
+              name: "Started",
+              position: 2,
+              type: "started",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "create project status",
+              "roadmap status",
+            ],
+            label: "Create project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              indefinite:
+                typeof argumentsObject.indefinite === "boolean"
+                  ? argumentsObject.indefinite
+                  : false,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : 0,
+              type:
+                typeof argumentsObject.type === "string"
+                  ? argumentsObject.type.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectStatusCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                indefinite: {
+                  type: "boolean",
+                  description:
+                    "Whether the project can remain in this status indefinitely.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Updated project status name.",
+                },
+                position: {
+                  type: "integer",
+                  description:
+                    "Updated status position within the workspace project flow.",
+                },
+                statusId: PROJECT_STATUS_ID_ARGUMENT_SCHEMA,
+                type: PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "project_status.update",
+            commandPath: ["project_status", "update"],
+            description: "Update one project status.",
+            exampleArguments: {
+              statusId: "project-status-id",
+              type: "paused",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "update project status",
+              "edit project status",
+            ],
+            label: "Update project status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              indefinite:
+                typeof argumentsObject.indefinite === "boolean"
+                  ? argumentsObject.indefinite
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+              type:
+                typeof argumentsObject.type === "string"
+                  ? argumentsObject.type.trim()
+                  : null,
+            }),
+            execute: executeLinearProjectStatusUpdate,
+          },
+        ],
+        description:
+          "Project-status reads and writes for the workspace project flow.",
+        groupKey: "project_status",
+        groupPath: ["project_status"],
+        intentKeywords: [
+          "linear",
+          "project status",
+          "project flow",
+          "roadmap status",
+        ],
+        label: "Project Statuses",
       },
       {
         commands: [
