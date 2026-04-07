@@ -43,6 +43,7 @@ export type RefreshableOAuthConnection = {
   providerKey: string;
   refreshRetryAfter: Date | null;
   status: string;
+  tenantId: string;
   tenantIntegrationId: string;
 };
 
@@ -438,9 +439,17 @@ export async function listOauthConnectionsNeedingRefresh(input?: {
       providerKey: integrationOauthConnections.providerKey,
       refreshRetryAfter: integrationOauthConnections.refreshRetryAfter,
       status: integrationOauthConnections.status,
+      tenantId: tenantIntegrations.tenantId,
       tenantIntegrationId: integrationOauthConnections.tenantIntegrationId,
     })
     .from(integrationOauthConnections)
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        tenantIntegrations.id,
+        integrationOauthConnections.tenantIntegrationId,
+      ),
+    )
     .innerJoin(
       integrationOauthCredentials,
       eq(
