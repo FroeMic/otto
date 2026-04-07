@@ -78,7 +78,6 @@ export async function GET(
       case "linear":
         await completeLinearOauthConnection({
           actorType: tokenResult.actorType,
-          connectedByUserId: callbackContext.session.userId,
           externalAccountId: tokenResult.identity?.externalAccountId ?? null,
           externalAccountLabel:
             tokenResult.identity?.externalAccountLabel ?? null,

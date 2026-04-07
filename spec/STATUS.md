@@ -227,7 +227,8 @@
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
 - The stale Nango Linear path is no longer part of the active integration stack:
   - Linear now uses the first-party OAuth substrate and direct Linear OAuth env/config only
-  - Nango-specific env/docs/helpers are being removed, and Linear installation state should no longer carry Nango-named fields in the active schema
+  - Nango-specific env/docs/helpers are being removed
+  - Linear-specific installation state should not live in a provider-specific table; the design direction is generic `tenant_integrations` plus shared OAuth state by default
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
   - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose

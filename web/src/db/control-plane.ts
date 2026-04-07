@@ -22,7 +22,6 @@ import {
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
-  integrationLinearInstallations,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
@@ -4780,7 +4779,6 @@ export async function getTenantManagedIntegrationConnectContext(input: {
 
 export async function completeLinearOauthConnection(input: {
   actorType: string | null;
-  connectedByUserId: string;
   externalAccountId?: string | null;
   externalAccountLabel?: string | null;
   mode: "connect" | "reconnect";
@@ -4823,15 +4821,6 @@ export async function completeLinearOauthConnection(input: {
       authorizedTenant.tenantStatus === "ready" &&
       authorizedTenant.serverStatus === "ready";
     const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
-      connectedByUserId: input.connectedByUserId,
-      linearWorkspaceId:
-        input.externalAccountId ??
-        input.tokenResult.identity?.externalAccountId ??
-        null,
-      linearWorkspaceName:
-        input.externalAccountLabel ??
-        input.tokenResult.identity?.externalAccountLabel ??
-        null,
       now,
       tenantId,
     });
@@ -7903,9 +7892,6 @@ async function upsertSlackIntegrationForTenant(
 async function upsertLinearIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    connectedByUserId: string | null;
-    linearWorkspaceId: string | null;
-    linearWorkspaceName: string | null;
     now: Date;
     tenantId: string;
   },
@@ -7951,40 +7937,6 @@ async function upsertLinearIntegrationForTenant(
       });
 
     tenantIntegrationId = createdIntegration.id;
-  }
-
-  const [existingInstallation] = await tx
-    .select({
-      id: integrationLinearInstallations.id,
-    })
-    .from(integrationLinearInstallations)
-    .where(
-      eq(
-        integrationLinearInstallations.tenantIntegrationId,
-        tenantIntegrationId,
-      ),
-    )
-    .limit(1);
-
-  if (existingInstallation) {
-    await tx
-      .update(integrationLinearInstallations)
-      .set({
-        connectedAt: input.now,
-        connectedByUserId: input.connectedByUserId,
-        linearWorkspaceId: input.linearWorkspaceId,
-        linearWorkspaceName: input.linearWorkspaceName,
-        updatedAt: input.now,
-      })
-      .where(eq(integrationLinearInstallations.id, existingInstallation.id));
-  } else {
-    await tx.insert(integrationLinearInstallations).values({
-      connectedAt: input.now,
-      connectedByUserId: input.connectedByUserId,
-      linearWorkspaceId: input.linearWorkspaceId,
-      linearWorkspaceName: input.linearWorkspaceName,
-      tenantIntegrationId,
-    });
   }
 
   return tenantIntegrationId;
