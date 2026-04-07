@@ -689,11 +689,11 @@ Tracker:
   - `[x]` `issue.remove_label`
 
 - `comment`
-  - `[ ]` `comment.list`
-  - `[ ]` `comment.get`
-  - `[ ]` `comment.create`
-  - `[ ]` `comment.update`
-  - `[ ]` `comment.delete`
+  - `[x]` `comment.list`
+  - `[x]` `comment.get`
+  - `[x]` `comment.create`
+  - `[x]` `comment.update`
+  - `[x]` `comment.delete`
 
 - `project`
   - `[ ]` `project.list`
@@ -824,11 +824,6 @@ Tracker:
 Immediate next recommended slice:
 
 - move to the next adjacent object slices:
-  - `comment.list`
-  - `comment.get`
-  - `comment.create`
-  - `comment.update`
-  - `comment.delete`
   - `project.list`
   - `project.get`
   - `project.search`
