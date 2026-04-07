@@ -359,6 +359,7 @@
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
   - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
+  - Increment 4 is now complete for Linear: Otto-owned OAuth connect, reconnect, disconnect, durable connection state, and shared refresh handling are all in place for the first provider
   - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
@@ -375,13 +376,14 @@
   - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
-  - the next recommended slice is to add lightweight runtime hints for installed integrations and then expand connection management beyond connect/reconnect guidance into disconnect and account selection
-- The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now in progress on `codex/oauth-substrate-linear`:
+  - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability
+- The first `TODO_19_oauth_connected_accounts_substrate.md` implementation slice is now implemented on `main`:
   - generic OAuth sessions, connections, credentials, and events now have dedicated Postgres tables
   - a shared provider-definition registry plus shared `/oauth/start/integration/[provider]` and `/oauth/callback/integration/[provider]` routes now exist
   - Linear now uses Otto-owned OAuth state, encrypted credentials, and callback handling instead of the active hosted Nango path
   - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
   - a shared `/api/integrations/[orgSlug]/[providerKey]/disconnect` route now exists, with provider-specific teardown clearing stored credentials and removing runtime projection for Linear
+  - no further OAuth substrate expansion is recommended ahead of the next provider; add only the provider-specific pieces and the shared deltas that provider proves necessary
 - WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`

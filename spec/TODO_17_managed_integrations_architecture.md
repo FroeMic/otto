@@ -780,6 +780,12 @@ Acceptance criteria:
 
 Add the first real managed outbound integration connection path.
 
+Status:
+
+- done on `main` for Linear
+- no additional substrate expansion is recommended until the next provider proves a real gap
+- future rollout should add provider-specific pieces first and only widen the shared OAuth layer when needed
+
 Scope:
 
 - wire Otto-owned OAuth for Linear
