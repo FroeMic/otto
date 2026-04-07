@@ -13,6 +13,7 @@ import {
   listWorkspaceIntegrationDefinitions,
 } from "@/integrations/framework";
 import { isOrganizationUnlocked } from "@/lib/workspace";
+import { Integrations2SearchInput } from "./_components/integrations2-search-input";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,19 @@ function categorize<
 
 export default async function Integrations2Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { orgSlug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const { currentOrganization: organization, user } =
     await loadOrganizationRouteContext(orgSlug);
+  const searchQuery = Array.isArray(resolvedSearchParams.q)
+    ? (resolvedSearchParams.q[0] ?? "")
+    : (resolvedSearchParams.q ?? "");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);
@@ -62,21 +70,38 @@ export default async function Integrations2Page({
     ),
   );
 
-  const entries = definitions.map((definition, index) => {
-    const summary = summaries[index] ?? null;
+  const entries = definitions
+    .map((definition, index) => {
+      const summary = summaries[index] ?? null;
+      const OverviewItem = definition.ui?.overviewItem;
 
-    return {
-      definition,
-      entry: buildIntegrationOverviewEntry({
+      if (!OverviewItem) {
+        return null;
+      }
+
+      const entry = buildIntegrationOverviewEntry({
         connected: Boolean(summary?.connectedAt && !summary?.disconnectedAt),
         definition,
         needsAttention: Boolean(
           summary?.lastError || summary?.status === "error",
         ),
         orgSlug: organization.slug,
-      }),
-    };
-  });
+      });
+
+      if (
+        normalizedQuery &&
+        !entry.label.toLowerCase().includes(normalizedQuery) &&
+        !entry.description.toLowerCase().includes(normalizedQuery)
+      ) {
+        return null;
+      }
+
+      return {
+        definition,
+        entry,
+      };
+    })
+    .filter((item) => item !== null);
 
   const sections = categorize(
     entries.map((item) => ({
@@ -88,37 +113,47 @@ export default async function Integrations2Page({
 
   return (
     <SettingsPage className="mx-0 flex max-w-3xl flex-1 flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Integrations2</h1>
-        <p className="text-sm text-muted-foreground">
-          Registry-backed managed integrations with provider-owned overview and
-          detail UI.
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Integrations
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Connect the tools your team already uses to Otto.
+          </p>
+        </div>
+        <Integrations2SearchInput initialValue={searchQuery} />
+      </div>
+
+      {sections.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No integrations match your search.
         </p>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-8">
+          {sections.map((section) => (
+            <SettingsSection key={section.label}>
+              <SettingsSectionTitle>{section.label}</SettingsSectionTitle>
+              <SettingsSectionDescription>
+                {section.label === "Messaging"
+                  ? "Connect the channels where your team already works with Otto."
+                  : "Connect the product tools Otto can use to plan, summarize, and follow up on work."}
+              </SettingsSectionDescription>
+              <SettingsCard>
+                {section.entries.map(({ definition, entry }) => {
+                  const OverviewItem = definition.ui?.overviewItem;
 
-      <div className="flex flex-col gap-8">
-        {sections.map((section) => (
-          <SettingsSection key={section.label}>
-            <SettingsSectionTitle>{section.label}</SettingsSectionTitle>
-            <SettingsSectionDescription>
-              {section.label === "Messaging"
-                ? "Connect the channels where your team already works with Otto."
-                : "Connect the product tools Otto can use to plan, summarize, and follow up on work."}
-            </SettingsSectionDescription>
-            <SettingsCard className="rounded-2xl">
-              {section.entries.map(({ definition, entry }) => {
-                const OverviewItem = definition.ui?.overviewItem;
+                  if (!OverviewItem) {
+                    return null;
+                  }
 
-                if (!OverviewItem) {
-                  return null;
-                }
-
-                return <OverviewItem key={entry.key} entry={entry} />;
-              })}
-            </SettingsCard>
-          </SettingsSection>
-        ))}
-      </div>
+                  return <OverviewItem key={entry.key} entry={entry} />;
+                })}
+              </SettingsCard>
+            </SettingsSection>
+          ))}
+        </div>
+      )}
     </SettingsPage>
   );
 }

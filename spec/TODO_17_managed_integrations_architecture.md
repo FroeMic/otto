@@ -152,22 +152,22 @@ Alternatives:
 
 ## Data Model
 
-Extend the current integration schema with provider-specific installations, capability definitions, settings, and custom integration manifests.
+Extend the current integration schema with generic tenant integration records, shared OAuth state, optional generic settings/state blobs, and custom integration manifests. Provider-specific tables should be the exception, not the default.
 
 Core records should include:
 
 - `tenant_integrations`
   This remains the canonical tenant and workspace connection state.
-- provider-specific installation tables
-  Example: `linear_installations`.
 - `integration_oauth_connections`, `integration_oauth_credentials`, `integration_oauth_sessions`, and `integration_oauth_events`
   The shared OAuth connected-accounts substrate for first-party managed integrations.
+- `tenant_integration_settings`
+  Tenant-scoped safe and validated configuration.
+- `tenant_integration_state`
+  Optional provider-specific durable state stored generically as JSON, used when provider-specific relational tables are not justified.
 - `integration_capability_definitions`
   Canonical capability metadata per provider.
 - `tenant_integration_capability_states`
   Tenant-level enable, disable, or restrictions on capabilities.
-- `tenant_integration_settings`
-  Tenant-scoped safe and validated configuration.
 - `custom_integrations`
   Registered manifests for runtime-local third-party integrations.
 
@@ -178,18 +178,23 @@ tenant_integrations
 - tenant_id
 - provider_key
 - status
-- install_state
-- enabled
 - connected_at
+- disconnected_at
 - last_error
+- last_error_at
 
-linear_installations
+tenant_integration_settings
 - tenant_integration_id
-- nango_connection_id
-- linear_workspace_id
-- linear_workspace_name
-- scope_csv
-- connected_by_user_id
+- settings_json
+- settings_version
+- updated_by_type
+- last_validation_error
+
+tenant_integration_state
+- tenant_integration_id
+- state_json
+- state_version
+- updated_at
 
 integration_capability_definitions
 - provider_key
@@ -201,19 +206,18 @@ integration_capability_definitions
 - safety_class
 - agent_manageable
 
-tenant_integration_settings
-- tenant_integration_id
-- settings_json
-- settings_version
-- updated_by_type
-- last_validation_error
-
 custom_integrations
 - tenant_integration_id
 - manifest_json
 - execution_mode
 - health_status
 ```
+
+Concrete direction:
+
+- `linear` should not need its own installation table by default.
+- `slack` and `whatsapp` can keep provider-specific tables where they back real directory caches, link sessions, or other query-heavy state.
+- New integrations should normally add code registry entries, not tables.
 
 ## UI-Initiated Connect Flow
 

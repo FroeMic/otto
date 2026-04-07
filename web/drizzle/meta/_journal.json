@@ -267,6 +267,20 @@
       "when": 1775499000000,
       "tag": "0037_odd_oauth_substrate",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1775560768437,
+      "tag": "0038_opposite_beast",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1775561833433,
+      "tag": "0039_deep_the_anarchist",
+      "breakpoints": true
     }
   ]
 }
