@@ -854,11 +854,15 @@ Tracker:
     - verify initiative list_updates against an initiative with multiple historical updates and different health states
 
 - `customer`
-  - `[ ]` `customer.list`
-  - `[ ]` `customer.get`
-  - `[ ]` `customer.create`
-  - `[ ]` `customer.update`
-  - `[ ]` `customer.list_needs`
+  - `[x]` `customer.list`
+  - `[x]` `customer.get`
+  - `[x]` `customer.create`
+  - `[x]` `customer.update`
+  - `[x]` `customer.list_needs`
+  - Later testing plan:
+    - verify customer list/get against a workspace with customers spanning different statuses and tiers
+    - verify customer create/update for domain arrays, external ids, owner, status, tier, revenue, and size changes
+    - verify customer list_needs against a customer with multiple linked needs across issues and projects
 
 - `customer_need`
   - `[ ]` `customer_need.list`

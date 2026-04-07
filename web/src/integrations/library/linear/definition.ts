@@ -13,6 +13,13 @@ import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import {
+  executeLinearCustomerCreate,
+  executeLinearCustomerGet,
+  executeLinearCustomerList,
+  executeLinearCustomerListNeeds,
+  executeLinearCustomerUpdate,
+} from "./commands/customer/commands";
+import {
   executeLinearCustomerStatusCreate,
   executeLinearCustomerStatusDelete,
   executeLinearCustomerStatusGet,
@@ -303,6 +310,12 @@ const CUSTOMER_TIER_ID_ARGUMENT_SCHEMA = {
   description: "Linear customer tier id.",
 } as const;
 
+const CUSTOMER_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer id.",
+} as const;
+
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
@@ -394,12 +407,26 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       key: "initiative.write",
       label: "Write initiatives",
     }),
+    buildCapability({
+      description:
+        "Read customers and customer needs in the connected Linear workspace.",
+      direction: "read",
+      key: "customer.read",
+      label: "Read customers",
+    }),
+    buildCapability({
+      description:
+        "Create and update customers, customer statuses, and customer tiers in the connected Linear workspace.",
+      direction: "tool",
+      key: "customer.write",
+      label: "Write customers",
+    }),
   ],
   categoryLabel: "Product Management",
   catalogDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear context when needed.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer context, and create or update Linear records when needed.",
   description:
-    "Workspace-managed Linear connection for workspace metadata plus issue, comment, project, and initiative reads and writes.",
+    "Workspace-managed Linear connection for workspace metadata plus issue, comment, project, initiative, and customer reads and writes.",
   iconSrc: "/integrations/linear.svg",
   key: "linear",
   label: "Linear",
@@ -407,9 +434,359 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     provider: linearOAuthProvider,
   },
   pageDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear records for your team.",
+    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer.list",
+            commandPath: ["customer", "list"],
+            description:
+              "List customers from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer",
+              "customers",
+              "accounts",
+            ],
+            label: "List customers",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.get when you need a canonical customer id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.get",
+            commandPath: ["customer", "get"],
+            description: "Read one Linear customer by id.",
+            exampleArguments: {
+              customerId: "customer-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "get customer", "account"],
+            label: "Get customer",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                domains: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer domains.",
+                },
+                externalIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer external ids.",
+                },
+                logoUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer logo URL.",
+                },
+                mainSourceId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional main source id. Must be one of externalIds.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the customer owner.",
+                },
+                revenue: {
+                  type: "integer",
+                  description: "Optional annual revenue generated by the customer.",
+                },
+                size: {
+                  type: "integer",
+                  description: "Optional approximate customer size.",
+                },
+                slackChannelId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Slack channel id used to interact with the customer.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["name"],
+            },
+            commandKey: "customer.create",
+            commandPath: ["customer", "create"],
+            description: "Create a new Linear customer.",
+            exampleArguments: {
+              name: "Example Corp",
+              statusId: "customer-status-id",
+              tierId: "customer-tier-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "create", "account"],
+            label: "Create customer",
+            resultMode: "json",
+            usageNotes: [
+              "Use customer_status.list and customer_tier.list first if you need canonical status or tier ids.",
+            ],
+            validate: (argumentsObject) => ({
+              domains: Array.isArray(argumentsObject.domains)
+                ? argumentsObject.domains
+                : undefined,
+              externalIds: Array.isArray(argumentsObject.externalIds)
+                ? argumentsObject.externalIds
+                : undefined,
+              logoUrl:
+                typeof argumentsObject.logoUrl === "string"
+                  ? argumentsObject.logoUrl.trim()
+                  : null,
+              mainSourceId:
+                typeof argumentsObject.mainSourceId === "string"
+                  ? argumentsObject.mainSourceId.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              revenue:
+                typeof argumentsObject.revenue === "number" &&
+                Number.isInteger(argumentsObject.revenue)
+                  ? argumentsObject.revenue
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+              slackChannelId:
+                typeof argumentsObject.slackChannelId === "string"
+                  ? argumentsObject.slackChannelId.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                domains: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer domains.",
+                },
+                externalIds: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  description: "Optional customer external ids.",
+                },
+                logoUrl: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer logo URL.",
+                },
+                mainSourceId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional main source id. Must be one of externalIds.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated customer name.",
+                },
+                ownerId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Linear user id for the customer owner.",
+                },
+                revenue: {
+                  type: "integer",
+                  description: "Optional annual revenue generated by the customer.",
+                },
+                size: {
+                  type: "integer",
+                  description: "Optional approximate customer size.",
+                },
+                slackChannelId: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional Slack channel id used to interact with the customer.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+                tierId: CUSTOMER_TIER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.update",
+            commandPath: ["customer", "update"],
+            description: "Update an existing Linear customer.",
+            exampleArguments: {
+              customerId: "customer-id",
+              name: "Example Corp Updated",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "update", "edit account"],
+            label: "Update customer",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides customerId.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+              domains: Array.isArray(argumentsObject.domains)
+                ? argumentsObject.domains
+                : undefined,
+              externalIds: Array.isArray(argumentsObject.externalIds)
+                ? argumentsObject.externalIds
+                : undefined,
+              logoUrl:
+                typeof argumentsObject.logoUrl === "string"
+                  ? argumentsObject.logoUrl.trim()
+                  : null,
+              mainSourceId:
+                typeof argumentsObject.mainSourceId === "string"
+                  ? argumentsObject.mainSourceId.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              ownerId:
+                typeof argumentsObject.ownerId === "string"
+                  ? argumentsObject.ownerId.trim()
+                  : null,
+              revenue:
+                typeof argumentsObject.revenue === "number" &&
+                Number.isInteger(argumentsObject.revenue)
+                  ? argumentsObject.revenue
+                  : null,
+              size:
+                typeof argumentsObject.size === "number" &&
+                Number.isInteger(argumentsObject.size)
+                  ? argumentsObject.size
+                  : null,
+              slackChannelId:
+                typeof argumentsObject.slackChannelId === "string"
+                  ? argumentsObject.slackChannelId.trim()
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : null,
+              tierId:
+                typeof argumentsObject.tierId === "string"
+                  ? argumentsObject.tierId.trim()
+                  : null,
+            }),
+            execute: executeLinearCustomerUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.list_needs",
+            commandPath: ["customer", "list_needs"],
+            description: "List customer needs attached to one Linear customer.",
+            exampleArguments: {
+              customerId: "customer-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer", "needs", "feedback"],
+            label: "List customer needs",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the customer-specific need backlog before updating associated issues or projects.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearCustomerListNeeds,
+          },
+        ],
+        description:
+          "Customer reads and writes for workspace account context in Linear.",
+        groupKey: "customer",
+        groupPath: ["customer"],
+        intentKeywords: ["linear", "customer", "customers", "accounts"],
+        label: "Customers",
+      },
       {
         commands: [
           {
