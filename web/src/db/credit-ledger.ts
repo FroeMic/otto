@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
@@ -84,6 +84,59 @@ export async function listUnsettledProviderUsageBuckets(input?: {
       asc(providerUsageBuckets.createdAt),
     )
     .limit(limit);
+}
+
+export async function listUnsettledProviderUsageBucketsByIds(input: {
+  bucketIds: string[];
+}) {
+  if (input.bucketIds.length === 0) {
+    return [];
+  }
+
+  const db = getDb();
+
+  return db
+    .select({
+      bucketEndAt: providerUsageBuckets.bucketEndAt,
+      bucketId: providerUsageBuckets.id,
+      bucketStartAt: providerUsageBuckets.bucketStartAt,
+      externalApiKeyId: providerUsageBuckets.externalApiKeyId,
+      inputAudioTokens: providerUsageBuckets.inputAudioTokens,
+      inputCachedTokens: providerUsageBuckets.inputCachedTokens,
+      inputImageTokens: providerUsageBuckets.inputImageTokens,
+      inputTextTokens: providerUsageBuckets.inputTextTokens,
+      inputTokens: providerUsageBuckets.inputTokens,
+      inputUncachedTokens: providerUsageBuckets.inputUncachedTokens,
+      itemCount: providerUsageBuckets.itemCount,
+      model: providerUsageBuckets.model,
+      outputAudioTokens: providerUsageBuckets.outputAudioTokens,
+      outputImageTokens: providerUsageBuckets.outputImageTokens,
+      outputTextTokens: providerUsageBuckets.outputTextTokens,
+      outputTokens: providerUsageBuckets.outputTokens,
+      providerAccountId: providerUsageBuckets.providerAccountId,
+      sessionCount: providerUsageBuckets.sessionCount,
+      tenantId: providerUsageBuckets.tenantId,
+      usageBytes: providerUsageBuckets.usageBytes,
+      usageType: providerUsageBuckets.usageType,
+    })
+    .from(providerUsageBuckets)
+    .leftJoin(
+      providerUsageSettlements,
+      eq(
+        providerUsageSettlements.providerUsageBucketId,
+        providerUsageBuckets.id,
+      ),
+    )
+    .where(
+      and(
+        inArray(providerUsageBuckets.id, input.bucketIds),
+        isNull(providerUsageSettlements.id),
+      ),
+    )
+    .orderBy(
+      asc(providerUsageBuckets.bucketStartAt),
+      asc(providerUsageBuckets.createdAt),
+    );
 }
 
 async function getCreditLedgerEntryIdBySource(input: { sourceId: string }) {

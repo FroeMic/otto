@@ -3,13 +3,29 @@ import { getEnv } from "@/lib/env";
 import { processApplyTenantConfigJob } from "./apply";
 import {
   processExecuteBillingAutoTopOffJob,
-  runAutoTopOffEnqueueCycle,
+  processScheduleBillingAutoTopOffEnqueueJob,
 } from "./auto-top-off";
-import { runCreditBurndownSettlementCycle } from "./credit-burndown";
-import { runOpenAiUsageIngestionCycle } from "./openai-usage";
+import {
+  processScheduleCreditSettlementJob,
+  processSettleCreditUsageChunkJob,
+} from "./credit-burndown";
+import {
+  getRecurringSchedulerJobTypes,
+  JOB_LANES,
+  type JobLane,
+} from "./lanes";
+import {
+  processScheduleOpenAiUsageSyncJob,
+  processSyncOpenAiUsageTargetJob,
+} from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
 import { processProvisionTenantServerJob } from "./provisioning";
-import { claimAvailableJobs, markJobFailed } from "./queue";
+import {
+  claimAvailableJobsForLane,
+  enqueueJob,
+  hasQueuedOrRunningJobOfType,
+  markJobFailed,
+} from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
 import { processSyncTenantSessionsJob } from "./sessions-sync";
@@ -36,6 +52,21 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
+      return;
+    case JOB_TYPES.scheduleOpenAiUsageSync:
+      await processScheduleOpenAiUsageSyncJob(job);
+      return;
+    case JOB_TYPES.syncOpenAiUsageTarget:
+      await processSyncOpenAiUsageTargetJob(job);
+      return;
+    case JOB_TYPES.scheduleCreditSettlement:
+      await processScheduleCreditSettlementJob(job);
+      return;
+    case JOB_TYPES.settleCreditUsageChunk:
+      await processSettleCreditUsageChunkJob(job);
+      return;
+    case JOB_TYPES.scheduleBillingAutoTopOffEnqueue:
+      await processScheduleBillingAutoTopOffEnqueueJob(job);
       return;
     case JOB_TYPES.executeBillingAutoTopOff:
       await processExecuteBillingAutoTopOffJob(job);
@@ -67,54 +98,70 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   }
 }
 
-export async function runWorkerIteration(): Promise<number> {
-  const syncedUsageTargets = await runMaintenanceStep(
-    "OpenAI usage ingestion",
-    runOpenAiUsageIngestionCycle,
-  );
-  const settledUsageBuckets = await runMaintenanceStep(
-    "credit burndown settlement",
-    runCreditBurndownSettlementCycle,
-  );
-  const queuedAutoTopOffJobs = await runMaintenanceStep(
-    "billing auto-top-off enqueue",
-    runAutoTopOffEnqueueCycle,
-  );
-  const jobs = await claimAvailableJobs(getEnv().WORKER_BATCH_SIZE);
+const WORKER_LANE_ORDER: JobLane[] = [
+  JOB_LANES.runtime,
+  JOB_LANES.integrations,
+  JOB_LANES.metering,
+  JOB_LANES.settlement,
+];
+
+const WORKER_LANE_CONCURRENCY: Record<JobLane, number> = {
+  [JOB_LANES.runtime]: 2,
+  [JOB_LANES.integrations]: 2,
+  [JOB_LANES.metering]: 4,
+  [JOB_LANES.settlement]: 2,
+};
+
+export function getWorkerLanes() {
+  return WORKER_LANE_ORDER;
+}
+
+export async function ensureWorkerSchedulerJobsSeeded() {
+  for (const jobType of getRecurringSchedulerJobTypes()) {
+    if (await hasQueuedOrRunningJobOfType(jobType)) {
+      continue;
+    }
+
+    await enqueueJob({
+      jobType,
+      payload: {},
+    });
+    console.info(`[worker] seeded recurring scheduler job ${jobType}`);
+  }
+}
+
+export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
+  const jobs = await claimAvailableJobsForLane({
+    lane,
+    limit: getLaneConcurrency(lane),
+  });
 
   if (jobs.length === 0) {
-    console.info("[worker] no available jobs");
-    return syncedUsageTargets + settledUsageBuckets + queuedAutoTopOffJobs;
+    return 0;
   }
 
-  for (const job of jobs) {
-    try {
-      await processClaimedJob(job);
-    } catch (error) {
-      console.error(`[worker] job ${job.id} failed`, error);
+  const results = await Promise.allSettled(
+    jobs.map(async (job) => {
+      try {
+        await processClaimedJob(job);
+      } catch (error) {
+        console.error(`[worker] job ${job.id} failed`, error);
+      }
+    }),
+  );
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error(`[worker] ${lane} lane execution failed`, result.reason);
     }
   }
 
-  return (
-    jobs.length +
-    syncedUsageTargets +
-    settledUsageBuckets +
-    queuedAutoTopOffJobs
-  );
+  return jobs.length;
 }
 
-async function runMaintenanceStep(
-  label: string,
-  runStep: () => Promise<number>,
-) {
-  try {
-    return await runStep();
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message.length > 0
-        ? error.message
-        : "Unknown worker maintenance error";
-    console.error(`[worker] ${label} failed: ${message}`);
-    return 0;
-  }
+function getLaneConcurrency(lane: JobLane) {
+  return Math.max(
+    1,
+    Math.min(getEnv().WORKER_BATCH_SIZE, WORKER_LANE_CONCURRENCY[lane]),
+  );
 }

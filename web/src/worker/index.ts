@@ -1,5 +1,10 @@
 import { getEnv, getRuntimeSshAuthSource } from "../lib/env";
-import { runWorkerIteration } from "../lib/jobs/worker";
+import type { JobLane } from "../lib/jobs/lanes";
+import {
+  ensureWorkerSchedulerJobsSeeded,
+  getWorkerLanes,
+  runWorkerLaneIteration,
+} from "../lib/jobs/worker";
 
 async function main() {
   const env = getEnv();
@@ -9,17 +14,32 @@ async function main() {
     `[worker] runtime SSH auth source: ${getRuntimeSshAuthSource()}`,
   );
 
-  while (true) {
-    const processedCount = await runWorkerIteration();
+  await ensureWorkerSchedulerJobsSeeded();
 
-    if (processedCount === 0) {
-      await sleep(env.WORKER_POLL_INTERVAL_MS);
-    }
-  }
+  await Promise.all(
+    getWorkerLanes().map((lane) =>
+      runWorkerLaneLoop(lane, env.WORKER_POLL_INTERVAL_MS),
+    ),
+  );
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWorkerLaneLoop(lane: JobLane, pollIntervalMs: number) {
+  while (true) {
+    try {
+      const processedCount = await runWorkerLaneIteration(lane);
+
+      if (processedCount === 0) {
+        await sleep(pollIntervalMs);
+      }
+    } catch (error) {
+      console.error(`[worker] ${lane} lane failed`, error);
+      await sleep(pollIntervalMs);
+    }
+  }
 }
 
 main().catch((error) => {

@@ -40,7 +40,8 @@
   - tenant runtime `.env` no longer receives `OPENAI_API_KEY`
   - OpenAI key rotation now updates Otto DB state only and no longer reapplies or verifies tenant runtime env
 - The first raw OpenAI usage-ingestion foundation now exists:
-  - the worker now polls OpenAI usage directly on a recurring cadence for active tenant projects instead of persisting one metering job row per tick
+  - recurring provider metering and settlement work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
+  - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so provider polling and settlement no longer have to serialize behind tenant runtime jobs
   - compact sync-state rows plus typed minute buckets are now stored in Postgres for the current OpenAI org-usage endpoint set:
     - `completions`
     - `embeddings`
@@ -178,6 +179,7 @@
   - the per-organization actions menu now also exposes the one-click `Pull new image and apply config` path
   - the logs tab now shows persisted config-apply diagnostics plus runtime image refresh restart and health-check output from queued jobs
   - the platform organizations table and overview now inspect the ready tenant server over SSH and show the observed `openclaw-gateway` image separately from the configured target image
+  - the Otto runtime image now sets `OPENCLAW_NO_RESPAWN=1` plus a persistent `NODE_COMPILE_CACHE` under the mounted runtime home so OpenClaw cold starts avoid the extra respawn hop and can reuse Node compile artifacts across config-only restarts and container recreation
 - OpenClaw cron integration findings are now captured in `TODO_13_scheduled_tasks_visibility.md`:
   - OpenClaw already exposes stable typed `cron.list`, `cron.runs`, and related `cron.*` Gateway methods we can use for runtime read/reconcile flows
   - cron run history already carries `sessionKey`, so task-run rows can deep-link to synced session detail views
@@ -413,6 +415,7 @@
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
+  - worker startup should tolerate transient OpenAI usage-endpoint failures so queued jobs like tenant apply can still run while provider metering retries later
   - next, add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
   - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
   - then add Otto credit grants, ledger entries, and derived balances from Stripe events

@@ -1,8 +1,15 @@
+import type { ProviderUsageType } from "@/lib/providers/types";
+
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
+  scheduleOpenAiUsageSync: "schedule_openai_usage_sync",
+  syncOpenAiUsageTarget: "sync_openai_usage_target",
+  scheduleCreditSettlement: "schedule_credit_settlement",
+  settleCreditUsageChunk: "settle_credit_usage_chunk",
+  scheduleBillingAutoTopOffEnqueue: "schedule_billing_auto_top_off_enqueue",
   executeBillingAutoTopOff: "execute_billing_auto_top_off",
   reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
   whatsappLinkSession: "whatsapp_link_session",
@@ -74,6 +81,21 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type ScheduleOpenAiUsageSyncPayload = Record<string, never>;
+
+export type SyncOpenAiUsageTargetPayload = {
+  providerAccountId: string;
+  usageType: ProviderUsageType;
+};
+
+export type ScheduleCreditSettlementPayload = Record<string, never>;
+
+export type SettleCreditUsageChunkPayload = {
+  bucketIds: string[];
+};
+
+export type ScheduleBillingAutoTopOffEnqueuePayload = Record<string, never>;
+
 export type ExecuteBillingAutoTopOffPayload = {
   organizationId: string;
   tenantId: string;
@@ -121,6 +143,26 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;
       payload: RefreshRuntimeImagePayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.scheduleOpenAiUsageSync;
+      payload: ScheduleOpenAiUsageSyncPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.syncOpenAiUsageTarget;
+      payload: SyncOpenAiUsageTargetPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.scheduleCreditSettlement;
+      payload: ScheduleCreditSettlementPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.settleCreditUsageChunk;
+      payload: SettleCreditUsageChunkPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue;
+      payload: ScheduleBillingAutoTopOffEnqueuePayload;
     }
   | {
       jobType: typeof JOB_TYPES.executeBillingAutoTopOff;
