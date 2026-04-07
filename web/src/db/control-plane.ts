@@ -14,7 +14,11 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
-import { listLatestTenantManagedSkillVersionMapTx } from "@/db/managed-skills";
+import {
+  createTenantManagedSkillForTenant,
+  listLatestTenantManagedSkillVersionMapTx,
+  updateTenantManagedSkillTextFileForTenantTx,
+} from "@/db/managed-skills";
 import {
   appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
@@ -4307,6 +4311,122 @@ export async function updateTenantManagedFileSharedContent(input: {
     summary: `Updated ${input.filePath}`,
     tenantId: authorizedTenant.tenantId,
   });
+}
+
+export async function updateTenantManagedSkillTextFile(input: {
+  contentText: string;
+  expectedVersion?: number;
+  orgSlug: string;
+  relativePath: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
+      contentText: input.contentText,
+      createdByExternalId: input.userExternalId,
+      createdByType: "user",
+      expectedVersion: input.expectedVersion,
+      relativePath: input.relativePath,
+      skillKey: input.skillKey,
+      summary: `Updated ${input.skillKey}/${input.relativePath}`,
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!updatedSkill.changed) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentVersion: updatedSkill.currentVersion,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentVersion: updatedSkill.currentVersion,
+      desiredStateVersion,
+      skillKey: updatedSkill.skillKey,
+    };
+  });
+
+  if (result.applyQueued && result.changed && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: authorizedTenant.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function createTenantManagedSkill(input: {
+  orgSlug: string;
+  skillContent: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const createdSkill = await createTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    files: [
+      {
+        contentText: input.skillContent,
+        path: "SKILL.md",
+      },
+    ],
+    skillKey: input.skillKey,
+    sourceType: "user",
+    status: "ready",
+    summary: `Created ${input.skillKey}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: authorizedTenant.tenantId,
+  });
+
+  if (authorizedTenant.isRuntimeReady) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: desiredState.version,
+      tenantId: authorizedTenant.tenantId,
+    });
+  }
+
+  return {
+    applyQueued: authorizedTenant.isRuntimeReady,
+    desiredStateVersion: desiredState.version,
+    skillKey: createdSkill.skillKey,
+    version: createdSkill.version,
+  };
 }
 
 export async function getTenantSlackRuntimeConfig(input: {

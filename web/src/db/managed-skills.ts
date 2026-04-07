@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import {
   listKnownManagedSkillDependencyIntegrationKeys,
+  type ManagedSkillFileEditability,
   type ManagedSkillPackageFileInput,
   type ManagedSkillSourceType,
   type ManagedSkillStatus,
@@ -24,6 +25,30 @@ export type ManagedSkillProjectedFile = {
   contents: string;
   relativePath: string;
   skillKey: string;
+};
+
+export type TenantManagedSkillDetail = {
+  dependencies: {
+    integrations: string[];
+  };
+  description: string;
+  displayName: string;
+  enabled: boolean;
+  files: Array<{
+    contentSha256: string | null;
+    contentText: string | null;
+    contentType: string | null;
+    editability: ManagedSkillFileEditability;
+    path: string;
+    storageEncoding: "binary" | "utf8_text";
+  }>;
+  skillId: string;
+  skillKey: string;
+  sourceType: ManagedSkillSourceType;
+  status: ManagedSkillStatus;
+  summary: string | null;
+  updatedAt: Date;
+  version: number;
 };
 
 export async function createTenantManagedSkillForTenant(input: {
@@ -348,4 +373,309 @@ export async function listProjectedManagedSkillFilesTx(
   }
 
   return projectedFiles;
+}
+
+export async function getLatestTenantManagedSkillDetailForTenant(input: {
+  skillKey: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return await getLatestTenantManagedSkillDetailForTenantTx(db, input);
+}
+
+export async function getLatestTenantManagedSkillDetailForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    skillKey: string;
+    tenantId: string;
+  },
+): Promise<TenantManagedSkillDetail | null> {
+  const [skill] = await tx
+    .select({
+      dependsOnJson: tenantSkills.dependsOnJson,
+      description: tenantSkills.description,
+      displayName: tenantSkills.displayName,
+      enabled: tenantSkills.enabled,
+      skillId: tenantSkills.id,
+      skillKey: tenantSkills.skillKey,
+      sourceType: tenantSkills.sourceType,
+      status: tenantSkills.status,
+      updatedAt: tenantSkills.updatedAt,
+    })
+    .from(tenantSkills)
+    .where(
+      and(
+        eq(tenantSkills.tenantId, input.tenantId),
+        eq(tenantSkills.skillKey, input.skillKey),
+      ),
+    )
+    .limit(1);
+
+  if (!skill) {
+    return null;
+  }
+
+  const [latestVersion] = await tx
+    .select({
+      id: tenantSkillVersions.id,
+      summary: tenantSkillVersions.summary,
+      version: tenantSkillVersions.version,
+    })
+    .from(tenantSkillVersions)
+    .where(eq(tenantSkillVersions.tenantSkillId, skill.skillId))
+    .orderBy(desc(tenantSkillVersions.version))
+    .limit(1);
+
+  if (!latestVersion) {
+    throw new Error(
+      `Managed skill ${input.skillKey} has no stored versions for tenant ${input.tenantId}.`,
+    );
+  }
+
+  const fileRows = await tx
+    .select({
+      contentEncoding: tenantSkillFiles.contentEncoding,
+      contentSha256: tenantSkillFiles.contentSha256,
+      contentText: tenantSkillFileVersions.contentText,
+      contentType: tenantSkillFiles.contentType,
+      relativePath: tenantSkillFiles.relativePath,
+    })
+    .from(tenantSkillFileVersions)
+    .innerJoin(
+      tenantSkillFiles,
+      eq(tenantSkillFiles.id, tenantSkillFileVersions.tenantSkillFileId),
+    )
+    .where(eq(tenantSkillFileVersions.tenantSkillVersionId, latestVersion.id))
+    .orderBy(tenantSkillFiles.relativePath);
+
+  return {
+    dependencies: normalizeManagedSkillDependencies(skill.dependsOnJson),
+    description: skill.description,
+    displayName: skill.displayName,
+    enabled: skill.enabled,
+    files: fileRows.map((file) => ({
+      contentSha256: file.contentSha256,
+      contentText: file.contentText,
+      contentType: file.contentType,
+      editability:
+        file.contentEncoding === "utf8_text" ? "editable" : "download_only",
+      path: file.relativePath,
+      storageEncoding:
+        file.contentEncoding === "utf8_text" ? "utf8_text" : "binary",
+    })),
+    skillId: skill.skillId,
+    skillKey: skill.skillKey,
+    sourceType: normalizeManagedSkillSourceType(skill.sourceType),
+    status: normalizeManagedSkillStatus(skill.status),
+    summary: latestVersion.summary,
+    updatedAt: skill.updatedAt,
+    version: latestVersion.version,
+  };
+}
+
+export async function updateTenantManagedSkillTextFileForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    contentText: string;
+    createdByExternalId?: string | null;
+    createdByType: "runtime" | "system" | "user";
+    expectedVersion?: number;
+    relativePath: string;
+    skillKey: string;
+    summary?: string;
+    tenantId: string;
+  },
+) {
+  const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!detail) {
+    throw new Error(
+      `Managed skill ${input.skillKey} does not exist for this workspace.`,
+    );
+  }
+
+  if (
+    input.expectedVersion !== undefined &&
+    detail.version !== input.expectedVersion
+  ) {
+    throw new Error(
+      `Managed skill version mismatch: expected ${input.expectedVersion}, current ${detail.version}`,
+    );
+  }
+
+  const normalizedPath = input.relativePath.trim().replaceAll("\\", "/");
+  const targetFile = detail.files.find((file) => file.path === normalizedPath);
+
+  if (!targetFile) {
+    throw new Error(
+      `Managed skill file ${normalizedPath} does not exist in ${detail.skillKey}.`,
+    );
+  }
+
+  if (targetFile.storageEncoding !== "utf8_text") {
+    throw new Error(`Managed skill file ${normalizedPath} is not editable.`);
+  }
+
+  if (targetFile.contentText === input.contentText) {
+    return {
+      changed: false,
+      currentVersion: detail.version,
+      skillKey: detail.skillKey,
+    };
+  }
+
+  const nextPackageFiles: ManagedSkillPackageFileInput[] = detail.files.map(
+    (file) => ({
+      contentText:
+        file.path === normalizedPath ? input.contentText : file.contentText,
+      contentType: file.contentType,
+      path: file.path,
+    }),
+  );
+  const validated = validateManagedSkillPackage({
+    files: nextPackageFiles,
+    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+    skillKey: detail.skillKey,
+  });
+  const managedFileRows = await tx
+    .select({
+      contentType: tenantSkillFiles.contentType,
+      fileId: tenantSkillFiles.id,
+      relativePath: tenantSkillFiles.relativePath,
+    })
+    .from(tenantSkillFiles)
+    .where(eq(tenantSkillFiles.tenantSkillId, detail.skillId))
+    .orderBy(tenantSkillFiles.relativePath);
+  const fileIdByPath = new Map(
+    managedFileRows.map((file) => [file.relativePath, file.fileId]),
+  );
+  const [createdVersion] = await tx
+    .insert(tenantSkillVersions)
+    .values({
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      summary: input.summary ?? `Updated ${detail.skillKey}/${normalizedPath}`,
+      tenantSkillId: detail.skillId,
+      version: detail.version + 1,
+    })
+    .returning({
+      id: tenantSkillVersions.id,
+      version: tenantSkillVersions.version,
+    });
+
+  for (const file of validated.files) {
+    const fileId = fileIdByPath.get(file.path);
+
+    if (!fileId) {
+      throw new Error(
+        `Managed skill file metadata is missing for ${detail.skillKey}/${file.path}.`,
+      );
+    }
+
+    await tx
+      .update(tenantSkillFiles)
+      .set({
+        contentEncoding: file.storageEncoding,
+        contentSha256: file.contentSha256,
+        contentType:
+          file.contentType ??
+          (file.storageEncoding === "utf8_text"
+            ? "text/markdown; charset=utf-8"
+            : "application/octet-stream"),
+        updatedAt: new Date(),
+      })
+      .where(eq(tenantSkillFiles.id, fileId));
+
+    if (
+      file.storageEncoding !== "utf8_text" ||
+      typeof file.contentText !== "string"
+    ) {
+      throw new Error(
+        `Managed skill file ${detail.skillKey}/${file.path} cannot be versioned as non-text in the current slice.`,
+      );
+    }
+
+    await tx.insert(tenantSkillFileVersions).values({
+      contentSha256:
+        file.contentSha256 ??
+        (() => {
+          throw new Error(`Missing checksum for managed file ${file.path}`);
+        })(),
+      contentText: file.contentText,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      tenantSkillFileId: fileId,
+      tenantSkillVersionId: createdVersion.id,
+      version: createdVersion.version,
+    });
+  }
+
+  await tx
+    .update(tenantSkills)
+    .set({
+      dependsOnJson: validated.dependencies,
+      description: validated.description,
+      displayName: validated.name,
+      status: "ready",
+      updatedAt: new Date(),
+      updatedByExternalId: input.createdByExternalId ?? null,
+      updatedByType: input.createdByType,
+    })
+    .where(eq(tenantSkills.id, detail.skillId));
+
+  return {
+    changed: true,
+    currentVersion: createdVersion.version,
+    dependencies: validated.dependencies,
+    description: validated.description,
+    displayName: validated.name,
+    skillKey: detail.skillKey,
+  };
+}
+
+function normalizeManagedSkillDependencies(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      integrations: [],
+    };
+  }
+
+  const integrations = Array.isArray(
+    (value as { integrations?: unknown }).integrations,
+  )
+    ? (value as { integrations: unknown[] }).integrations.filter(
+        (entry): entry is string => typeof entry === "string",
+      )
+    : [];
+
+  return {
+    integrations: [...new Set(integrations)].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  };
+}
+
+function normalizeManagedSkillSourceType(
+  value: string,
+): ManagedSkillSourceType {
+  return value === "integration_contribution"
+    ? "integration_contribution"
+    : "user";
+}
+
+function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {
+  switch (value) {
+    case "disabled":
+    case "invalid":
+    case "missing_prerequisite":
+    case "projection_failed":
+    case "ready":
+      return value;
+    default:
+      return "invalid";
+  }
 }

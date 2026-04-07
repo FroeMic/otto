@@ -735,6 +735,13 @@ Parallel note:
 
 ### Increment 3: Minimal workspace Skills UI
 
+Status:
+
+- done on `main` for the current text-first managed-skills slice
+- the workspace now has a dedicated `/skills` list plus `/skills/<skill-key>` detail page with URL-backed tabs modeled on the newer integration surfaces
+- users can create a first skill from `SKILL.md`, inspect package files, and edit managed UTF-8 text files directly from the workspace
+- non-text file metadata is surfaced in the viewer, while true binary download remains coupled to the still-deferred binary managed-file persistence work
+
 Scope:
 
 - add a dedicated `Skills` section in the workspace
@@ -747,7 +754,7 @@ Acceptance criteria:
 - users can browse managed skills in a dedicated workspace section
 - the package tree clearly distinguishes editable managed files, download-only managed files, and local `state/`
 - users can edit `SKILL.md` and other editable managed text files through an explicit edit action
-- non-text files are viewable as metadata and downloadable
+- non-text files are viewable as metadata in the current text-first slice
 
 Parallel note:
 
@@ -804,7 +811,7 @@ Acceptance criteria:
 
 - [x] Increment 1: managed skill package model and validation
 - [x] Increment 2: projection into `workspace/skills/`
-- [ ] Increment 3: minimal workspace Skills UI
+- [x] Increment 3: minimal workspace Skills UI
 - [ ] Increment 4: runtime-authenticated managed-skill CRUD surface
 - [ ] Increment 5: read-only `state/` visibility
 - [ ] Increment 6: integration-linked starter skills
