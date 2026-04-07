@@ -15,6 +15,11 @@ const envSchema = z.object({
   HETZNER_DEFAULT_SERVER_TYPE: z.string().default("cpx21"),
   HETZNER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   HETZNER_SSH_KEY_NAMES: z.string().default(""),
+  INTEGRATION_GATEWAY_INTERNAL_URL: z
+    .string()
+    .url()
+    .default("http://127.0.0.1:3001"),
+  INTEGRATION_GATEWAY_PORT: z.coerce.number().int().positive().default(3001),
   RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
   RUNTIME_OPENCLAW_IMAGE: z

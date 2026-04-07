@@ -237,7 +237,7 @@
   - the temporary synthetic `demo-linear` provider has been removed so the runtime catalog only advertises real integrations
 - The control plane deployment target is now more explicit:
   - self-host one public control-plane VPS on Hetzner
-  - run `web`, `worker`, `postgres`, and `caddy` via Docker Compose
+  - run `web`, `integration-gateway`, `worker`, `postgres`, and `caddy` via Docker Compose
   - keep the web UI public over HTTPS but keep operator SSH access private over Tailscale only
   - expose a `/healthz` route for container and reverse-proxy readiness checks
 - WorkOS auth configuration is now moving to explicit server-side runtime settings:
@@ -335,7 +335,7 @@
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
 - Managed integrations architecture planning is now captured in `TODO_17_managed_integrations_architecture.md`:
   - managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations
-  - runtime execution should move through a dedicated `integration-gateway` container
+  - runtime execution now has a dedicated `integration-gateway` container boundary, while discovery and status reads still live in `web`
   - the runtime should expose a fixed `otto-integrations` metatool plugin backed by control-plane discovery
   - prompt-cache stability should come from static runtime tool contracts, with tenant-specific state carried in discovery responses instead of per-tenant dynamic tool registration
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
@@ -351,7 +351,7 @@
 - The first `TODO_17_managed_integrations_architecture.md` increment is now implemented on `main`:
   - a real managed integration path now flows through the control plane for Linear, and the temporary synthetic demo provider has been removed
   - the `otto-integrations` runtime plugin now exposes a static metatool surface instead of dynamic one-tool-per-integration registration
-  - runtime execution remains stubbed in `web` for this first slice, before the later `integration-gateway` extraction
+  - runtime discovery and detail remain in `web`, but execute now routes through the dedicated `integration-gateway` service
   - the tenant runtime now discovers integration metadata from runtime-authenticated control-plane routes instead of from a projected per-tenant manifest in `openclaw.json`
   - `openclaw plugins inspect otto-integrations` now reliably shows the static tool contract in every runtime because registration no longer depends on tenant config being loaded into the plugin
   - the current metatool set is `find_integration_functions`, `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
@@ -364,6 +364,7 @@
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
   - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
+  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits` rows recorded for success and failure
 - The next managed-integrations refactor slice is now in progress on `main`:
   - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
   - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`

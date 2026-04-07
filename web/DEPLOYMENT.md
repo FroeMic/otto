@@ -3,7 +3,7 @@
 This deploy target assumes one public control-plane VPS on Hetzner:
 
 - public HTTPS for both the marketing site and the workspace app
-- local Docker Compose services for `caddy`, `www`, `web`, `worker`, and `postgres`
+- local Docker Compose services for `caddy`, `www`, `web`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -150,7 +150,7 @@ Verify:
 - `https://<your-landing-domain>/` returns `200`
 - `https://<your-domain>/healthz` returns `200`
 - the apex or landing hostname resolves to the same VPS that runs Caddy
-- the `web` and `worker` containers stay healthy
+- the `web`, `integration-gateway`, and `worker` containers stay healthy
 - the `www` container stays healthy
 - Postgres answers on `127.0.0.1:5433` on the host
 - `LANDING_PAGE_DOMAIN` matches the public marketing hostname

@@ -21,5 +21,9 @@
     X-Frame-Options "DENY"
   }
 
+  handle /api/internal/runtime/integrations/execute* {
+    reverse_proxy integration-gateway:3001
+  }
+
   reverse_proxy web:3000
 }
