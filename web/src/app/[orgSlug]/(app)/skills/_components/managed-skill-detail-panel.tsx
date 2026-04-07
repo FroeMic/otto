@@ -434,8 +434,7 @@ export function ManagedSkillDetailPanel({
                       ) : (
                         <Textarea
                           className={lockedTextareaClassName}
-                          key={selectedFile.path}
-                          defaultValue={selectedFile.contentText ?? ""}
+                          value={selectedFile.contentText ?? ""}
                           disabled
                           readOnly
                         />
