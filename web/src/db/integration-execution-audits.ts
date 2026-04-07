@@ -16,9 +16,9 @@ function normalizeJsonValue(value: unknown): Record<string, unknown> | null {
 }
 
 export async function recordIntegrationExecutionAudit(input: {
+  commandKey: string;
   errorMessage?: string | null;
   integrationKey: string;
-  operationKey: string;
   request: Record<string, unknown>;
   response?: unknown;
   status: "failed" | "succeeded";
@@ -28,9 +28,9 @@ export async function recordIntegrationExecutionAudit(input: {
   const db = getDb();
 
   await db.insert(integrationExecutionAudits).values({
+    commandKey: input.commandKey,
     errorMessage: input.errorMessage ?? null,
     integrationKey: input.integrationKey,
-    operationKey: input.operationKey,
     requestJson: normalizeJsonValue(input.request) ?? {},
     responseJson: normalizeJsonValue(input.response),
     status: input.status,

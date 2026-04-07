@@ -1,10 +1,10 @@
-import type { IntegrationOperationDefinition } from "./types";
+import type { IntegrationCommandDefinition } from "./types";
 
-export function validateOperationParameters(
-  operation: IntegrationOperationDefinition,
-  params: Record<string, unknown>,
+export function validateCommandArguments(
+  command: IntegrationCommandDefinition,
+  argumentsObject: Record<string, unknown>,
 ) {
-  const schema = operation.parametersSchema;
+  const schema = command.argumentsSchema;
   const properties =
     schema.properties &&
     typeof schema.properties === "object" &&
@@ -18,23 +18,23 @@ export function validateOperationParameters(
     : [];
 
   if (schema.additionalProperties === false) {
-    for (const key of Object.keys(params)) {
+    for (const key of Object.keys(argumentsObject)) {
       if (!(key in properties)) {
         throw new Error(
-          `${operation.key} does not accept the ${key} parameter.`,
+          `${command.commandKey} does not accept the ${key} argument.`,
         );
       }
     }
   }
 
   for (const key of required) {
-    if (params[key] === undefined || params[key] === null) {
-      throw new Error(`${operation.key} requires the ${key} parameter.`);
+    if (argumentsObject[key] === undefined || argumentsObject[key] === null) {
+      throw new Error(`${command.commandKey} requires the ${key} argument.`);
     }
   }
 
   for (const [key, propertySchema] of Object.entries(properties)) {
-    const value = params[key];
+    const value = argumentsObject[key];
 
     if (value === undefined || value === null) {
       continue;
@@ -42,14 +42,16 @@ export function validateOperationParameters(
 
     if (propertySchema.const !== undefined && value !== propertySchema.const) {
       throw new Error(
-        `${operation.key} requires ${key}=${JSON.stringify(propertySchema.const)}.`,
+        `${command.commandKey} requires ${key}=${JSON.stringify(propertySchema.const)}.`,
       );
     }
 
     switch (propertySchema.type) {
       case "string": {
         if (typeof value !== "string") {
-          throw new Error(`${operation.key} requires ${key} to be a string.`);
+          throw new Error(
+            `${command.commandKey} requires ${key} to be a string.`,
+          );
         }
 
         if (
@@ -57,14 +59,16 @@ export function validateOperationParameters(
           value.length < propertySchema.minLength
         ) {
           throw new Error(
-            `${operation.key} requires ${key} to be at least ${propertySchema.minLength} characters.`,
+            `${command.commandKey} requires ${key} to be at least ${propertySchema.minLength} characters.`,
           );
         }
         break;
       }
       case "integer": {
         if (typeof value !== "number" || !Number.isInteger(value)) {
-          throw new Error(`${operation.key} requires ${key} to be an integer.`);
+          throw new Error(
+            `${command.commandKey} requires ${key} to be an integer.`,
+          );
         }
 
         if (
@@ -72,7 +76,7 @@ export function validateOperationParameters(
           value < propertySchema.minimum
         ) {
           throw new Error(
-            `${operation.key} requires ${key} to be >= ${propertySchema.minimum}.`,
+            `${command.commandKey} requires ${key} to be >= ${propertySchema.minimum}.`,
           );
         }
 
@@ -81,14 +85,16 @@ export function validateOperationParameters(
           value > propertySchema.maximum
         ) {
           throw new Error(
-            `${operation.key} requires ${key} to be <= ${propertySchema.maximum}.`,
+            `${command.commandKey} requires ${key} to be <= ${propertySchema.maximum}.`,
           );
         }
         break;
       }
       case "object": {
         if (typeof value !== "object" || Array.isArray(value)) {
-          throw new Error(`${operation.key} requires ${key} to be an object.`);
+          throw new Error(
+            `${command.commandKey} requires ${key} to be an object.`,
+          );
         }
         break;
       }

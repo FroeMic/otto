@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { recordIntegrationExecutionAudit } from "@/db/integration-execution-audits";
 import { tenantIntegrations } from "@/db/schema";
 import {
-  executeRegisteredIntegrationFunction,
+  executeRegisteredIntegrationCommand,
   getIntegrationDefinition,
   listSupportedRuntimeIntegrationKeys,
 } from "@/integrations/framework";
@@ -47,23 +47,43 @@ function getErrorMessage(error: unknown) {
   return "Managed integration execution failed";
 }
 
+function resolveCommandKey(input: {
+  commandKey?: string;
+  commandPath?: string[];
+}) {
+  if (input.commandKey?.trim()) {
+    return input.commandKey.trim();
+  }
+
+  if (Array.isArray(input.commandPath) && input.commandPath.length > 0) {
+    return input.commandPath
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .join(".");
+  }
+
+  return "unknown";
+}
+
 export async function executeRuntimeIntegrationInGateway(input: {
+  arguments: Record<string, unknown>;
+  commandKey?: string;
+  commandPath?: string[];
   integrationKey: string;
-  params: Record<string, unknown>;
   tenantId: string;
 }) {
   const integrationKey = input.integrationKey.trim().toLowerCase();
-  const operationKey =
-    typeof input.params.operation === "string"
-      ? input.params.operation
-      : "unknown";
+  const commandKey = resolveCommandKey({
+    commandKey: input.commandKey,
+    commandPath: input.commandPath,
+  });
 
   let tenantIntegrationId: string | null = null;
 
   try {
     const definition = getIntegrationDefinition(integrationKey);
 
-    if (!definition?.runtimeTool) {
+    if (!definition?.runtimeSurface) {
       throw new Error(
         `Managed integration ${input.integrationKey} is not registered.`,
       );
@@ -105,16 +125,22 @@ export async function executeRuntimeIntegrationInGateway(input: {
       tenantIntegrationId = integration.id;
     }
 
-    const result = await executeRegisteredIntegrationFunction({
+    const result = await executeRegisteredIntegrationCommand({
+      arguments: input.arguments,
+      commandKey: input.commandKey,
+      commandPath: input.commandPath,
       integrationKey,
-      params: input.params,
       tenantIntegrationId,
     });
 
     await recordIntegrationExecutionAudit({
+      commandKey,
       integrationKey,
-      operationKey,
-      request: input.params,
+      request: {
+        arguments: input.arguments,
+        ...(input.commandKey ? { commandKey: input.commandKey } : {}),
+        ...(input.commandPath ? { commandPath: input.commandPath } : {}),
+      },
       response: result,
       status: "succeeded",
       tenantId: input.tenantId,
@@ -124,10 +150,14 @@ export async function executeRuntimeIntegrationInGateway(input: {
     return result;
   } catch (error) {
     await recordIntegrationExecutionAudit({
+      commandKey,
       errorMessage: getErrorMessage(error),
       integrationKey,
-      operationKey,
-      request: input.params,
+      request: {
+        arguments: input.arguments,
+        ...(input.commandKey ? { commandKey: input.commandKey } : {}),
+        ...(input.commandPath ? { commandPath: input.commandPath } : {}),
+      },
       status: "failed",
       tenantId: input.tenantId,
       tenantIntegrationId,

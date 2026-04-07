@@ -51,14 +51,19 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationManifestForKeys,
-  buildRuntimeIntegrationResponse,
-  findIntegrationFunctionMatches,
+  buildRuntimeIntegrationSummaryResponse,
+  findIntegrationCommandMatches,
   getIntegrationDefinition,
+  type IntegrationRuntimeCommandDefinition,
+  type IntegrationRuntimeCommandGroupDefinition,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
-  type RuntimeIntegrationFunctionMatch,
+  type RuntimeIntegrationCommandMatch,
+  type RuntimeIntegrationDetailsResponse,
   type RuntimeIntegrationManifestEntry,
+  type RuntimeIntegrationSummaryResponse,
 } from "@/integrations/framework";
 import {
   decryptControlPlaneSecret,
@@ -4432,8 +4437,7 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
-export type RuntimeTenantIntegration =
-  import("@/integrations/framework").RuntimeIntegrationResponse;
+export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
   tx: DbTransaction,
@@ -4472,6 +4476,7 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
 
 function buildRuntimeTenantIntegrations(input: {
   definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  installedProviderKeys?: string[];
   rows: Array<{
     connectedAt: Date | null;
     connectionStatus: string | null;
@@ -4483,8 +4488,12 @@ function buildRuntimeTenantIntegrations(input: {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
 
   return definitionsWithStatus.map(({ definition, status }) =>
-    buildRuntimeIntegrationResponse({
+    buildRuntimeIntegrationSummaryResponse({
+      available: true,
       definition,
+      installed:
+        input.installedProviderKeys?.includes(definition.key) ??
+        status.connected,
       status,
     }),
   );
@@ -4561,10 +4570,10 @@ export async function listRuntimeIntegrationsForTenant(input: {
         (
           definition,
         ): definition is NonNullable<typeof definition> & {
-          runtimeTool: NonNullable<
-            NonNullable<typeof definition>["runtimeTool"]
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
           >;
-        } => Boolean(definition?.runtimeTool),
+        } => Boolean(definition?.runtimeSurface),
       );
 
     if (definitions.length === 0) {
@@ -4573,6 +4582,7 @@ export async function listRuntimeIntegrationsForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
+      installedProviderKeys: installedKeys,
       rows,
     });
   });
@@ -4591,10 +4601,10 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
         (
           definition,
         ): definition is NonNullable<typeof definition> & {
-          runtimeTool: NonNullable<
-            NonNullable<typeof definition>["runtimeTool"]
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
           >;
-        } => Boolean(definition?.runtimeTool),
+        } => Boolean(definition?.runtimeSurface),
       );
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: supportedKeys,
@@ -4603,6 +4613,7 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
+      installedProviderKeys: rows.map((row) => row.providerKey),
       rows,
     });
   });
@@ -4623,10 +4634,158 @@ export async function getRuntimeIntegrationForTenant(input: {
   );
 }
 
-export async function findRuntimeIntegrationFunctionsForTenant(input: {
+function findRuntimeCommandByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  commandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  const normalizedKey = commandKey.trim().toLowerCase();
+
+  for (const command of surface.rootCommands) {
+    if (command.commandKey.toLowerCase() === normalizedKey) {
+      return command;
+    }
+  }
+
+  for (const group of surface.commandGroups) {
+    const command = findRuntimeCommandByKeyInGroup(group, normalizedKey);
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedCommandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  for (const command of group.commands ?? []) {
+    if (command.commandKey.toLowerCase() === normalizedCommandKey) {
+      return command;
+    }
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const command = findRuntimeCommandByKeyInGroup(
+      childGroup,
+      normalizedCommandKey,
+    );
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  groupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  const normalizedKey = groupKey.trim().toLowerCase();
+
+  for (const group of surface.commandGroups) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      group,
+      normalizedKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedGroupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  if (group.groupKey.toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  if (group.groupPath.join(".").toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      childGroup,
+      normalizedGroupKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+export async function getRuntimeIntegrationDetailsForTenant(input: {
+  detailKey: string;
+  detailType: "command" | "command_group";
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationDetailsResponse | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const detailKey = input.detailKey.trim();
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const definition = definitions.find(
+      (entry) => entry.key === integrationKey,
+    );
+
+    if (!definition) {
+      return null;
+    }
+
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [integrationKey],
+      tenantId: input.tenantId,
+    });
+    const [{ status }] = buildRuntimeDefinitionsWithStatus({
+      definitions: [definition],
+      rows,
+    });
+
+    const detail =
+      input.detailType === "command"
+        ? findRuntimeCommandByKey(definition.runtimeSurface, detailKey)
+        : findRuntimeCommandGroupByKey(definition.runtimeSurface, detailKey);
+
+    if (!detail) {
+      return null;
+    }
+
+    return buildRuntimeIntegrationDetailsResponse({
+      definition,
+      detail,
+      detailType: input.detailType,
+      status,
+    });
+  });
+}
+
+export async function findRuntimeIntegrationCommandsForTenant(input: {
   query: string;
   tenantId: string;
-}): Promise<{ matches: RuntimeIntegrationFunctionMatch[]; query: string }> {
+}): Promise<{ matches: RuntimeIntegrationCommandMatch[]; query: string }> {
   const db = getDb();
   const normalizedQuery = input.query.trim();
 
@@ -4649,7 +4808,7 @@ export async function findRuntimeIntegrationFunctionsForTenant(input: {
     });
 
     return {
-      matches: findIntegrationFunctionMatches({
+      matches: findIntegrationCommandMatches({
         definitions: definitionsWithStatus.map(({ definition, status }) => ({
           ...definition,
           status,

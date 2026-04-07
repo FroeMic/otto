@@ -410,7 +410,7 @@ export const integrationExecutionAudits = pgTable(
       { onDelete: "cascade" },
     ),
     integrationKey: varchar("integration_key", { length: 64 }).notNull(),
-    operationKey: varchar("operation_key", { length: 64 }).notNull(),
+    commandKey: varchar("command_key", { length: 128 }).notNull(),
     status: varchar("status", { length: 32 }).notNull(),
     requestJson: jsonb("request_json")
       .$type<Record<string, unknown>>()
@@ -429,9 +429,9 @@ export const integrationExecutionAudits = pgTable(
     tenantIntegrationCreatedAtIdx: index(
       "integration_execution_audits_tenant_integration_id_created_at_idx",
     ).on(table.tenantIntegrationId, table.createdAt),
-    integrationOperationCreatedAtIdx: index(
-      "integration_execution_audits_integration_key_operation_key_created_at_idx",
-    ).on(table.integrationKey, table.operationKey, table.createdAt),
+    integrationCommandCreatedAtIdx: index(
+      "integration_execution_audits_integration_key_command_key_created_at_idx",
+    ).on(table.integrationKey, table.commandKey, table.createdAt),
   }),
 );
 

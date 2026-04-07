@@ -100,13 +100,13 @@ The important principle is that the `control plane` remains the authority. Hoste
 Use the following language consistently:
 
 - `Integration`: a workspace-scoped connection to an external third-party system.
-- `Capability`: a runtime-callable operation exposed by that integration.
+- `Capability`: a runtime-callable command exposed by that integration.
 - `Skill`: text-based business guidance that may depend on one or more integrations.
 
 Examples:
 
 - Linear is an `integration`.
-- `search_issues` and `create_issue` are `capabilities`.
+- `issue.search` and `issue.create` are `capabilities`.
 - "Use team ENG, label customer bugs as `cust-bug`, create issues in project Core" is a `skill`.
 
 Internally, integrations fall into four classes.
@@ -329,7 +329,7 @@ IntegrationDefinition
 - category metadata
 - workspace visibility metadata
 - agent capability metadata
-- runtime operations and schemas
+- runtime command groups, commands, and schemas
 - optional OAuth binding
 - provider execute handler
 ```
@@ -344,24 +344,24 @@ The registry should be the single source of truth for:
 
 This replaces the older split where catalog metadata, runtime manifest metadata, and OAuth provider registration lived in separate parallel registries.
 
-Suggested near-term metatools:
+Suggested metatools:
 
+- `find_integration_commands`
+  Semantic discovery for the best installed or available commands for a user request.
 - `list_integrations`
-  Installed integrations for the current tenant.
-- `list_integrations_catalog`
-  All integrations Otto knows how to offer, including not-yet-installed ones.
+  Deterministic workspace inventory, with `scope=installed` by default and optional `available` / `all`.
 - `get_integration`
-  Full metadata, functions, schema, and current state for one integration.
-- `get_integration_status`
-  Small status-only read for one integration.
-- `execute_integration_function`
-  Execute one integration function through Otto.
-- `manage_integration_connection`
+  Summary-only read for one integration, including top-level command groups and root commands.
+- `get_integration_details`
+  Full detail for one command group or one command, including schema, usage notes, and example calls.
+- `execute_integration_command`
+  Execute one integration command through Otto.
+- `manage_integration`
   Initiate connect, reconnect, disconnect, or account-selection flows.
 
 Near-term v1 behavior:
 
-- `manage_integration_connection` may initially return workspace URLs, connect URLs, and a recommended next action instead of performing every lifecycle mutation directly from the runtime.
+- `manage_integration` may initially return workspace URLs, connect URLs, and a recommended next action instead of performing every lifecycle mutation directly from the runtime.
 - That still satisfies the product goal as long as Otto can move the user into the real workspace-owned connect or reconnect flow without guessing URLs.
 
 Registration flow:
@@ -371,21 +371,22 @@ Registration flow:
 2. otto-integrations plugin registers a fixed metatool set from its static plugin contract
 3. The model sees those metatools in the active runtime tool list
 4. When the model needs integration context, the plugin authenticates to the control plane
-5. The control plane reads from the canonical integration registry plus tenant state
-6. The control plane returns installed integrations, catalog entries, and per-integration detail/status dynamically
-7. The plugin executes integration functions through Otto's runtime execution path
+5. The model uses `find_integration_commands` or `list_integrations` to narrow the target
+6. The control plane reads from the canonical integration registry plus tenant state
+7. The control plane returns summary-only integration reads or one targeted command/group detail dynamically
+8. The plugin executes integration commands through Otto's runtime execution path
 ```
 
 Control-plane structure:
 
 ```text
 agent
-  -> execute_integration_function("linear", "search_issues", args)
+  -> execute_integration_command("linear", "issue.search", args)
   -> otto-integrations metatool
   -> control-plane execute route
   -> integrations/framework/registry.ts resolves "linear"
-  -> integrations/framework/execute.ts resolves auth + dispatches operation
-  -> integrations/library/linear/runtime/... calls Linear
+  -> integrations/framework/execute.ts resolves auth + dispatches command
+  -> integrations/library/linear/commands/... calls Linear
   -> normalized result returns to Otto
 ```
 
@@ -395,26 +396,14 @@ Conceptually:
 GET /api/internal/runtime/integrations
 
 Response:
-- installed integrations sorted deterministically
-- each installed integration includes:
-  - key
-  - label
-  - status
-  - function summaries
-  - capability hints
-  - recommended next action
-```
-
-```text
-GET /api/internal/runtime/integrations/catalog
-
-Response:
-- all supported integrations sorted deterministically
+- integrations sorted deterministically for the requested scope
 - each entry includes:
   - key
   - label
-  - current install/connect state for this tenant
-  - short capability summary
+  - status
+  - installed / available flags
+  - top-level command-group summaries
+  - root-command summaries
 ```
 
 ```text
@@ -422,16 +411,32 @@ GET /api/internal/runtime/integrations/:key
 
 Response:
 - one integration
-- full function list
-- input schema
+- summary only
 - current status
-- account / connection guidance
+- top-level command groups
+- root commands
 ```
 
-For Linear, `get_integration("linear")` would return function metadata such as:
+```text
+POST /api/internal/runtime/integrations/:key/details
 
-- `search_issues`
-- `get_issue`
+Response:
+- one command group or one command
+- full arguments schema when detailType=command
+- usage notes
+- example call
+```
+
+For Linear, `get_integration("linear")` returns top-level groups such as:
+
+- `workspace`
+- `issue`
+
+Then `get_integration_details("linear", "command_group", "issue")` would return commands such as:
+
+- `issue.search`
+- `issue.get`
+- `issue.list`
 - `create_issue`
 - `add_comment`
 - `update_issue_state`
@@ -441,8 +446,8 @@ The model learns the input shape by calling the metatools, not by receiving tena
 The important schema rule is:
 
 - static metatool schemas are advertised directly by the runtime plugin
-- provider operation schemas are advertised dynamically in metatool responses such as `get_integration("linear")`
-- Otto should never receive one dynamic top-level runtime tool per provider operation
+- provider command schemas are advertised dynamically in metatool responses such as `get_integration_details("linear", "command", "issue.search")`
+- Otto should never receive one dynamic top-level runtime tool per provider command
 
 So the schema flow should be:
 
@@ -453,15 +458,17 @@ runtime startup
 
 model needs Linear details
   -> get_integration("linear")
-  -> response includes operation list + parameter schema
-  -> model calls execute_integration_function(...)
+  -> response includes group summaries + root command summaries
+  -> get_integration_details("linear", "command", "issue.search")
+  -> response includes command schema + example call
+  -> model calls execute_integration_command(...)
 ```
 
 This keeps prompt caching stable while still letting Otto discover the exact provider-specific input shape at runtime.
 
 ## OAuth Substrate Integration
 
-The integration framework should treat OAuth as a shared substrate, not something each provider re-invents inside each operation handler.
+The integration framework should treat OAuth as a shared substrate, not something each provider re-invents inside each command handler.
 
 Provider definitions may declare an OAuth binding:
 
@@ -509,7 +516,7 @@ Therefore this is a hard requirement:
 Implementation rules:
 
 - keep the metatool registry static
-- sort integrations and functions by stable key in control-plane responses
+- sort integrations and commands by stable key in control-plane responses
 - render schemas canonically and deterministically
 - never rely on database insertion order or async completion order
 - keep prompt hints stable unless the effective integration state changed
@@ -527,9 +534,9 @@ runtime metatool -> integration-gateway -> Otto OAuth credentials -> provider ->
 Detailed flow:
 
 ```text
-1. The model calls `execute_integration_function`
-2. The otto-integrations plugin sends the request to integration-gateway with integration key and function key
-3. integration-gateway validates tenant, integration, operation, and policy
+1. The model calls `execute_integration_command`
+2. The otto-integrations plugin sends the request to integration-gateway with integration key and command key
+3. integration-gateway validates tenant, integration, command, and policy
 4. integration-gateway resolves the Otto-managed connected account
 5. integration-gateway executes the request through the provider API
 6. integration-gateway emits audit events
@@ -586,13 +593,15 @@ workspace connect -> provider consent -> Otto OAuth state -> runtime metatools d
 
 Suggested Linear capabilities:
 
-- `search_issues`
-- `get_issue`
-- `list_projects`
-- `list_cycles`
-- `create_issue`
-- `add_comment`
-- `update_issue_state`
+- `workspace.get_viewer`
+- `workspace.list_teams`
+- `workspace.list_users`
+- `workspace.list_workflow_states`
+- `issue.search`
+- `issue.get`
+- `issue.list`
+- `issue.create`
+- `comment.create`
 
 Suggested safe settings:
 
@@ -703,10 +712,10 @@ Build the smallest end-to-end capability injection path with a narrow real provi
 Scope:
 
 - add a minimal control-plane integration registry path for one real provider such as `linear`
-- add tenant-scoped internal routes for installed integrations, catalog integrations, and one-integration detail in deterministic order
+- add tenant-scoped internal routes for scoped integration inventory, one-integration summary, and one targeted command/group detail in deterministic order
 - add the first `otto-integrations` runtime plugin
 - register a fixed metatool set from the plugin contract
-- keep the first executable surface intentionally narrow, such as `search_issues`
+- keep the first executable surface intentionally narrow, such as `issue.search`
 
 Why this comes first:
 
@@ -717,10 +726,11 @@ Why this comes first:
 Acceptance criteria:
 
 - the runtime always exposes the same metatools
-- `list_integrations` returns only integrations installed for the tenant
-- `list_integrations_catalog` returns the full supported set in deterministic order
-- `get_integration` returns function metadata and schemas for one integration
-- invoking `execute_integration_function` reaches the control plane and returns a real result for the narrow shipped operation
+- `list_integrations(scope=installed)` returns only integrations installed for the tenant
+- `list_integrations(scope=available)` returns the full supported set in deterministic order
+- `get_integration` returns summary metadata for one integration without dumping every command schema
+- `get_integration_details` returns one command group or one command schema on demand
+- invoking `execute_integration_command` reaches the control plane and returns a real result for the narrow shipped command
 
 ### Increment 2: Stable execution path through `integration-gateway`
 
@@ -807,7 +817,7 @@ Ship one useful, low-risk capability end to end.
 
 Scope:
 
-- implement `linear.search_issues`
+- implement `linear.issue.search`
 - add provider adapter logic in `integration-gateway` that calls Linear through Otto-owned OAuth credentials
 - normalize response payloads for the runtime
 - keep the tool schema and ordering deterministic
@@ -820,7 +830,7 @@ Why this should be isolated:
 
 Acceptance criteria:
 
-- `execute_integration_function` can execute `linear.search_issues`
+- `execute_integration_command` can execute `linear.issue.search`
 - requests flow runtime -> integration-gateway -> Otto OAuth credentials -> Linear
 - results come back normalized and usable by the model
 - failed auth produces a clear `attention needed` path instead of opaque provider errors

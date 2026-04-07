@@ -354,25 +354,28 @@
   - runtime discovery and detail remain in `web`, but execute now routes through the dedicated `integration-gateway` service
   - the tenant runtime now discovers integration metadata from runtime-authenticated control-plane routes instead of from a projected per-tenant manifest in `openclaw.json`
   - `openclaw plugins inspect otto-integrations` now reliably shows the static tool contract in every runtime because registration no longer depends on tenant config being loaded into the plugin
-  - the current metatool set is `find_integration_functions`, `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
-  - `manage_integration_connection` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
+  - the current metatool set is `find_integration_commands`, `list_integrations`, `get_integration`, `get_integration_details`, `manage_integration`, and `execute_integration_command`
+  - `list_integrations` now distinguishes installed vs available inventory through `scope` instead of a separate catalog/status tool pair
+  - `manage_integration` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
   - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
   - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
-  - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - runtime Linear now exposes grouped commands such as `workspace.get_viewer`, `workspace.list_teams`, `workspace.list_users`, `workspace.list_workflow_states`, `issue.search`, `issue.get`, and `issue.list`
+  - `issue.search` performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
-  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits` rows recorded for success and failure
+  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits.command_key` rows recorded for success and failure
 - The next managed-integrations refactor slice is now in progress on `main`:
   - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
   - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
   - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
   - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations2/[integrationKey]`, and the legacy `/integrations` page no longer carries a separate Linear implementation
   - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
-  - runtime operation validation now runs in the framework before provider execution using the advertised operation schema plus provider-specific normalization
-  - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
+  - runtime command validation now runs in the framework before provider execution using the advertised command schema plus provider-specific normalization
+  - runtime integration summary and detail responses are now built from framework-native command/group DTOs instead of the older flat function shapes
+  - progressive discovery is now the preferred pattern: semantic command search returns compact hits, `get_integration` stays summary-only, and `get_integration_details` loads one command group or one command schema on demand
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the next recommended slice is to add lightweight runtime hints for installed integrations and then expand connection management beyond connect/reconnect guidance into disconnect and account selection

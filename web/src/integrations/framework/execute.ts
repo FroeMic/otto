@@ -4,7 +4,8 @@ import {
 } from "@/db/oauth";
 
 import { getIntegrationDefinition } from "./registry";
-import { validateOperationParameters } from "./validation";
+import { collectCommands } from "./search";
+import { validateCommandArguments } from "./validation";
 
 function getUnknownErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -14,34 +15,61 @@ function getUnknownErrorMessage(error: unknown) {
   return "The provider request failed.";
 }
 
-export async function executeRegisteredIntegrationFunction(input: {
+function getCommandKey(input: {
+  commandKey?: string | null;
+  commandPath?: string[] | null;
+}) {
+  const commandKey = input.commandKey?.trim();
+
+  if (commandKey) {
+    return commandKey;
+  }
+
+  if (Array.isArray(input.commandPath) && input.commandPath.length > 0) {
+    const parts = input.commandPath
+      .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+      .filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join(".");
+    }
+  }
+
+  return "";
+}
+
+export async function executeRegisteredIntegrationCommand(input: {
+  arguments: Record<string, unknown>;
+  commandKey?: string | null;
+  commandPath?: string[] | null;
   integrationKey: string;
-  params: Record<string, unknown>;
   tenantIntegrationId: string | null;
 }) {
   const integration = getIntegrationDefinition(input.integrationKey);
-  const operationKey =
-    typeof input.params.operation === "string" ? input.params.operation : "";
+  const commandKey = getCommandKey({
+    commandKey: input.commandKey,
+    commandPath: input.commandPath,
+  });
 
-  if (!integration?.runtimeTool) {
+  if (!integration?.runtimeSurface) {
     throw new Error(`Unsupported managed integration: ${input.integrationKey}`);
   }
 
-  const operation = integration.runtimeTool.operations.find(
-    (entry) => entry.key === operationKey,
+  const command = collectCommands(integration.runtimeSurface).find(
+    (entry) => entry.commandKey === commandKey,
   );
 
-  if (!operation) {
+  if (!command) {
     throw new Error(
-      `${integration.key} does not support the ${operationKey || "requested"} operation.`,
+      `${integration.key} does not support the ${commandKey || "requested"} command.`,
     );
   }
 
-  validateOperationParameters(operation, input.params);
+  validateCommandArguments(command, input.arguments);
 
-  const validatedParams = operation.validate
-    ? operation.validate(input.params)
-    : input.params;
+  const validatedArguments = command.validate
+    ? command.validate(input.arguments)
+    : input.arguments;
 
   let auth = null;
 
@@ -65,12 +93,12 @@ export async function executeRegisteredIntegrationFunction(input: {
   }
 
   try {
-    return await operation.execute({
+    return await command.execute({
+      arguments: validatedArguments,
       context: {
         auth,
         tenantIntegrationId: input.tenantIntegrationId,
       },
-      params: validatedParams,
     });
   } catch (error) {
     if (!integration.oauth || !auth) {
@@ -82,7 +110,7 @@ export async function executeRegisteredIntegrationFunction(input: {
 
     if (classifiedKind === "reauthorize") {
       console.warn(
-        `[runtime-integrations] ${integration.key} request needs reauthorize tenantIntegration=${input.tenantIntegrationId ?? "missing"} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} error=${errorMessage}`,
+        `[runtime-integrations] ${integration.key} request needs reauthorize tenantIntegration=${input.tenantIntegrationId ?? "missing"} command=${commandKey || "unknown"} error=${errorMessage}`,
       );
       await recordOauthConnectionAttention({
         connectionId: auth.connectionId,
@@ -98,7 +126,7 @@ export async function executeRegisteredIntegrationFunction(input: {
     }
 
     console.error(
-      `[runtime-integrations] ${integration.key} request failed tenantIntegration=${input.tenantIntegrationId ?? "missing"} operation=${typeof input.params.operation === "string" ? input.params.operation : "unknown"} kind=${classifiedKind} error=${errorMessage}`,
+      `[runtime-integrations] ${integration.key} request failed tenantIntegration=${input.tenantIntegrationId ?? "missing"} command=${commandKey || "unknown"} kind=${classifiedKind} error=${errorMessage}`,
     );
     throw error;
   }
