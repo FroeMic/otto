@@ -53,7 +53,6 @@ import {
 import {
   buildRuntimeIntegrationManifestForKeys,
   buildRuntimeIntegrationResponse,
-  executeRegisteredIntegrationFunction,
   findIntegrationFunctionMatches,
   getIntegrationDefinition,
   listRuntimeIntegrationDefinitions,
@@ -4988,72 +4987,6 @@ export async function recordLinearOauthFailure(input: {
       now,
       tenantId: authorizedTenant.tenantId,
     });
-  });
-}
-
-export async function executeRuntimeIntegrationForTenant(input: {
-  integrationKey: string;
-  params: Record<string, unknown>;
-  tenantId: string;
-}) {
-  const db = getDb();
-  const integrationKey = input.integrationKey.trim().toLowerCase();
-  const definition = getIntegrationDefinition(integrationKey);
-
-  if (!definition?.runtimeTool) {
-    throw new Error(
-      `Managed integration ${input.integrationKey} is not registered.`,
-    );
-  }
-
-  const runtimeContext = await db.transaction(async (tx) => {
-    const providerKeys =
-      await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
-        tenantId: input.tenantId,
-      });
-
-    if (!providerKeys.includes(integrationKey)) {
-      throw new Error(
-        `Managed integration ${input.integrationKey} is not enabled for this tenant.`,
-      );
-    }
-
-    if (definition.oauth) {
-      const [integration] = await tx
-        .select({
-          id: tenantIntegrations.id,
-        })
-        .from(tenantIntegrations)
-        .where(
-          and(
-            eq(tenantIntegrations.tenantId, input.tenantId),
-            eq(tenantIntegrations.providerKey, integrationKey),
-          ),
-        )
-        .limit(1);
-
-      if (!integration) {
-        throw new Error(
-          `${definition.label} is not connected in this workspace.`,
-        );
-      }
-
-      return {
-        integrationKey,
-        tenantIntegrationId: integration.id,
-      };
-    }
-
-    return {
-      integrationKey,
-      tenantIntegrationId: null,
-    };
-  });
-
-  return executeRegisteredIntegrationFunction({
-    integrationKey: runtimeContext.integrationKey,
-    params: input.params,
-    tenantIntegrationId: runtimeContext.tenantIntegrationId,
   });
 }
 

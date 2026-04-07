@@ -398,6 +398,43 @@ export const integrationOauthEvents = pgTable(
   }),
 );
 
+export const integrationExecutionAudits = pgTable(
+  "integration_execution_audits",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantIntegrationId: uuid("tenant_integration_id").references(
+      () => tenantIntegrations.id,
+      { onDelete: "cascade" },
+    ),
+    integrationKey: varchar("integration_key", { length: 64 }).notNull(),
+    operationKey: varchar("operation_key", { length: 64 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    requestJson: jsonb("request_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    responseJson: jsonb("response_json").$type<Record<string, unknown>>(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantCreatedAtIdx: index(
+      "integration_execution_audits_tenant_id_created_at_idx",
+    ).on(table.tenantId, table.createdAt),
+    tenantIntegrationCreatedAtIdx: index(
+      "integration_execution_audits_tenant_integration_id_created_at_idx",
+    ).on(table.tenantIntegrationId, table.createdAt),
+    integrationOperationCreatedAtIdx: index(
+      "integration_execution_audits_integration_key_operation_key_created_at_idx",
+    ).on(table.integrationKey, table.operationKey, table.createdAt),
+  }),
+);
+
 export const integrationWhatsAppInstallations = pgTable(
   "integration_whatsapp_installations",
   {

@@ -1,119 +1,61 @@
-import { executeRuntimeIntegrationForTenant } from "@/db/control-plane";
-import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
+import { getEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
+function copyHeaderIfPresent(
+  headers: Headers,
+  name: string,
+  value: string | null,
+) {
+  if (value) {
+    headers.set(name, value);
+  }
+}
+
 export async function POST(request: Request) {
-  let tenantId: string | null = null;
-  let integrationKey = "";
-  let operation = "unknown";
+  const upstreamUrl = `${getEnv().INTEGRATION_GATEWAY_INTERNAL_URL}/api/internal/runtime/integrations/execute`;
+  const requestBody = await request.text();
 
   try {
-    const auth = await authenticateTenantRuntimeRequest(request);
-    tenantId = auth.tenantId;
-    const body = await request.json();
-    integrationKey =
-      typeof body?.integrationKey === "string" ? body.integrationKey : "";
-    const params =
-      body?.params &&
-      typeof body.params === "object" &&
-      !Array.isArray(body.params)
-        ? (body.params as Record<string, unknown>)
-        : null;
-    operation =
-      typeof params?.operation === "string" ? params.operation : "unknown";
+    const upstreamHeaders = new Headers();
+    copyHeaderIfPresent(
+      upstreamHeaders,
+      "authorization",
+      request.headers.get("authorization"),
+    );
+    copyHeaderIfPresent(
+      upstreamHeaders,
+      "content-type",
+      request.headers.get("content-type"),
+    );
 
-    if (!integrationKey.trim()) {
-      throw new Error("integrationKey is required.");
-    }
-
-    if (!params) {
-      throw new Error("params must be an object.");
-    }
-
-    const result = await executeRuntimeIntegrationForTenant({
-      integrationKey,
-      params,
-      tenantId,
+    const upstreamResponse = await fetch(upstreamUrl, {
+      body: requestBody,
+      headers: upstreamHeaders,
+      method: "POST",
     });
 
-    console.info(
-      `[runtime-integrations] execute tenant=${tenantId} integration=${integrationKey} operation=${operation} ok=true`,
-    );
-
-    return json(result);
+    return new Response(upstreamResponse.body, {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type":
+          upstreamResponse.headers.get("content-type") ?? "application/json",
+      },
+      status: upstreamResponse.status,
+    });
   } catch (error) {
-    console.error(
-      `[runtime-integrations] execute tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} operation=${operation} failed`,
-      error,
-    );
-    return handleRouteError(error);
-  }
-}
+    console.error("[runtime-integrations] execute gateway proxy failed", error);
 
-function handleRouteError(error: unknown) {
-  if (error instanceof Error) {
-    if (
-      error.message === "Missing runtime bearer token" ||
-      error.message === "Invalid runtime bearer token"
-    ) {
-      return json(
-        {
-          error: error.message,
+    return Response.json(
+      {
+        error: "Integration gateway unavailable",
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
         },
-        401,
-      );
-    }
-
-    return json(buildExecutionErrorResponse(error.message), 400);
+        status: 502,
+      },
+    );
   }
-
-  return json(
-    {
-      error: "Managed integration execution failed",
-    },
-    500,
-  );
-}
-
-function buildExecutionErrorResponse(message: string) {
-  if (message.includes("needs attention. Reconnect")) {
-    const integrationLabel = message.split(" needs attention")[0]?.trim();
-    const integrationKey = integrationLabel?.toLowerCase();
-
-    return {
-      error: message,
-      nextAction: integrationKey
-        ? {
-            integrationKey,
-            recommendedAction: "reconnect",
-            toolName: "manage_integration_connection",
-          }
-        : null,
-    };
-  }
-
-  if (
-    message.includes("requires the") ||
-    message.includes("does not accept the") ||
-    message.includes("requires query to be at least")
-  ) {
-    return {
-      error: message,
-      hint: "Call find_integration_functions or get_integration before retrying, then use the operation parametersSchema and executionGuide.",
-    };
-  }
-
-  return {
-    error: message,
-  };
-}
-
-function json(body: unknown, status = 200) {
-  return Response.json(body, {
-    headers: {
-      "Cache-Control": "no-store",
-    },
-    status,
-  });
 }

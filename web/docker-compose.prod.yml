@@ -5,6 +5,7 @@ x-app-env: &app-env
     - .env
   environment:
     HOSTNAME: 0.0.0.0
+    INTEGRATION_GATEWAY_INTERNAL_URL: http://integration-gateway:3001
     NODE_ENV: production
     PORT: 3000
   image: ${OTTO_IMAGE:-otto-control-plane:local}
@@ -68,6 +69,37 @@ services:
       timeout: 5s
       retries: 5
 
+  integration-gateway:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
+        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
+        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
+    command: ["bun", "src/integration-gateway/server.ts"]
+    environment:
+      HOSTNAME: 0.0.0.0
+      INTEGRATION_GATEWAY_INTERNAL_URL: http://integration-gateway:3001
+      INTEGRATION_GATEWAY_PORT: 3001
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   www:
     environment:
       HOSTNAME: 0.0.0.0
@@ -106,6 +138,8 @@ services:
   caddy:
     image: caddy:2.9-alpine
     depends_on:
+      integration-gateway:
+        condition: service_healthy
       www:
         condition: service_healthy
       web:

@@ -281,6 +281,13 @@
       "when": 1775561833433,
       "tag": "0039_deep_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1775567280840,
+      "tag": "0040_blue_angel",
+      "breakpoints": true
     }
   ]
 }

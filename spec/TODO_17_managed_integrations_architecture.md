@@ -724,14 +724,15 @@ Acceptance criteria:
 
 ### Increment 2: Stable execution path through `integration-gateway`
 
-Replace the stubbed in-process execution path with the real dedicated service boundary, still without real OAuth.
+Extract the runtime execute path into a real dedicated service boundary while leaving discovery and status reads in `web` for now.
 
 Scope:
 
 - add the `integration-gateway` service/container
 - move runtime execution requests from `web` into `integration-gateway`
 - define the runtime-to-gateway request and response contract
-- keep the provider adapter stubbed, but emit audit records through the real path
+- route the existing shipped provider operations through the gateway first
+- emit audit records through the real path
 
 Why this comes next:
 
@@ -743,7 +744,7 @@ Acceptance criteria:
 
 - runtime tool execution goes through `integration-gateway`, not `web`
 - gateway validates tenant and integration identity
-- gateway returns normalized stub responses
+- gateway returns normalized responses for the shipped operations
 - gateway emits audit events or persisted audit rows for each execution
 
 ### Increment 3: Workspace-visible managed integration card for Linear

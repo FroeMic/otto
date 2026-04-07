@@ -6,6 +6,7 @@
 
 - Next.js request-response UI and API work
 - WorkOS authentication and tenant management
+- integration-gateway execution proxy for managed integrations
 - durable job state stored in Postgres
 - a dedicated worker process for provisioning and later runtime apply flows
 
@@ -94,6 +95,12 @@ Run the worker:
 bun run worker
 ```
 
+Run the integration gateway:
+
+```bash
+bun run integration-gateway
+```
+
 From the repo root, run both together:
 
 ```bash
@@ -144,6 +151,7 @@ bun run tenant:runtime:refresh-image -- --orgslug <org-slug>
 - the control plane can provision Hetzner tenant servers through the worker
 - runtime bootstrap and config apply now execute over SSH
 - production deployment artifacts now exist for one public control-plane VPS with local Postgres and a dedicated worker
+- managed integration execution now also runs through a dedicated integration-gateway service in the production stack
 - Stripe billing currently expects:
   - recurring monthly plan price lookup keys: `basic_monthly`, `plus_monthly`, `pro_monthly`, `max_monthly`
   - one-time auto-top-off price lookup keys: `top_up_20`, `top_up_50`, `top_up_100`, `top_up_200`
@@ -178,6 +186,7 @@ The production layout is:
 
 - `caddy` terminates public HTTPS for `CONTROL_PLANE_DOMAIN`
 - `web` serves the Next.js control plane on the internal Docker network
+- `integration-gateway` handles managed integration execution on the internal Docker network
 - `worker` runs the durable job loop as a separate container
 - `postgres` stores control-plane state on a persistent Docker volume
 - `postgres` is also bound to `127.0.0.1:5433` on the host for operator access over SSH / Tailscale
