@@ -351,7 +351,12 @@
   - `web/src/lib/managed-skills/package.ts` now validates `SKILL.md`, parses dependency metadata, rejects invalid paths and `state/` writes, and classifies package files into editable managed text, download-only managed files, and local state
   - dependency validation now checks the real current workspace integration universe, combining the new integration registry with the still-runtime-config-backed Slack and WhatsApp surfaces
   - `web/src/db/managed-skills.ts` now provides the initial text-first create/list path for managed skills while leaving binary managed-file persistence intentionally deferred
-  - the next recommended slice is Increment 2: project managed skill packages into `workspace/skills/<skill-key>/` while preserving unknown local `state/` contents
+- The second `TODO_18_managed_skills.md` increment is now implemented on `main`:
+  - desired-state compilation now snapshots managed skill versions under `managedSkills.versions` so apply and reprovision flows can reproduce exact skill-package state
+  - provisioning and config-apply now read those exact versions and project managed skill text files into `workspace/skills/<skill-key>/` on the tenant runtime
+  - runtime projection now maintains a `managed-skills-manifest.json` file so removed managed files are pruned safely while unknown local `state/` contents remain untouched
+  - focused tests now cover managed-skill manifest normalization and prune safety
+  - the next recommended slice is Increment 3: ship the minimal workspace Skills UI on top of the new projection foundation
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface

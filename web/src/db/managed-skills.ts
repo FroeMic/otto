@@ -15,6 +15,17 @@ import {
   validateManagedSkillPackage,
 } from "@/lib/managed-skills/package";
 
+type DbExecutor = ReturnType<typeof getDb>;
+type DbTransaction = Parameters<Parameters<DbExecutor["transaction"]>[0]>[0];
+
+type ManagedSkillVersionMap = Record<string, number>;
+
+export type ManagedSkillProjectedFile = {
+  contents: string;
+  relativePath: string;
+  skillKey: string;
+};
+
 export async function createTenantManagedSkillForTenant(input: {
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
@@ -187,4 +198,154 @@ export async function listTenantManagedSkillsForTenant(input: {
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
     .orderBy(desc(tenantSkills.updatedAt), tenantSkills.skillKey);
+}
+
+export async function listLatestTenantManagedSkillVersionMapForTenant(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return await listLatestTenantManagedSkillVersionMapTx(db, input);
+}
+
+export async function listProjectedManagedSkillFilesForTenant(input: {
+  tenantId: string;
+  versionMap?: ManagedSkillVersionMap | null;
+}) {
+  const db = getDb();
+
+  return await listProjectedManagedSkillFilesTx(db, input);
+}
+
+export async function listLatestTenantManagedSkillVersionMapTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const skillRows = await tx
+    .select({
+      skillId: tenantSkills.id,
+      skillKey: tenantSkills.skillKey,
+    })
+    .from(tenantSkills)
+    .where(
+      and(
+        eq(tenantSkills.tenantId, input.tenantId),
+        eq(tenantSkills.enabled, true),
+      ),
+    )
+    .orderBy(tenantSkills.skillKey);
+
+  const versionMap: ManagedSkillVersionMap = {};
+
+  for (const skill of skillRows) {
+    const [latestVersion] = await tx
+      .select({
+        version: tenantSkillVersions.version,
+      })
+      .from(tenantSkillVersions)
+      .where(eq(tenantSkillVersions.tenantSkillId, skill.skillId))
+      .orderBy(desc(tenantSkillVersions.version))
+      .limit(1);
+
+    if (latestVersion?.version) {
+      versionMap[skill.skillKey] = latestVersion.version;
+    }
+  }
+
+  return versionMap;
+}
+
+export async function listProjectedManagedSkillFilesTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    tenantId: string;
+    versionMap?: ManagedSkillVersionMap | null;
+  },
+) {
+  const versionMap =
+    input.versionMap ??
+    (await listLatestTenantManagedSkillVersionMapTx(tx, input));
+  const entries = Object.entries(versionMap).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
+  if (entries.length === 0) {
+    return [] satisfies ManagedSkillProjectedFile[];
+  }
+
+  const projectedFiles: ManagedSkillProjectedFile[] = [];
+
+  for (const [skillKey, version] of entries) {
+    const [skill] = await tx
+      .select({
+        skillId: tenantSkills.id,
+        skillKey: tenantSkills.skillKey,
+      })
+      .from(tenantSkills)
+      .where(
+        and(
+          eq(tenantSkills.tenantId, input.tenantId),
+          eq(tenantSkills.skillKey, skillKey),
+          eq(tenantSkills.enabled, true),
+        ),
+      )
+      .limit(1);
+
+    if (!skill) {
+      throw new Error(
+        `Managed skill ${skillKey} is missing for tenant ${input.tenantId}.`,
+      );
+    }
+
+    const [skillVersion] = await tx
+      .select({
+        id: tenantSkillVersions.id,
+      })
+      .from(tenantSkillVersions)
+      .where(
+        and(
+          eq(tenantSkillVersions.tenantSkillId, skill.skillId),
+          eq(tenantSkillVersions.version, version),
+        ),
+      )
+      .limit(1);
+
+    if (!skillVersion) {
+      throw new Error(
+        `Managed skill ${skillKey} does not have version ${version}.`,
+      );
+    }
+
+    const fileRows = await tx
+      .select({
+        contentEncoding: tenantSkillFiles.contentEncoding,
+        contentText: tenantSkillFileVersions.contentText,
+        relativePath: tenantSkillFiles.relativePath,
+      })
+      .from(tenantSkillFileVersions)
+      .innerJoin(
+        tenantSkillFiles,
+        eq(tenantSkillFiles.id, tenantSkillFileVersions.tenantSkillFileId),
+      )
+      .where(eq(tenantSkillFileVersions.tenantSkillVersionId, skillVersion.id))
+      .orderBy(tenantSkillFiles.relativePath);
+
+    for (const file of fileRows) {
+      if (file.contentEncoding !== "utf8_text") {
+        throw new Error(
+          `Managed skill ${skillKey} includes non-text file ${file.relativePath}, which cannot be projected yet.`,
+        );
+      }
+
+      projectedFiles.push({
+        contents: file.contentText,
+        relativePath: `skills/${skillKey}/${file.relativePath}`,
+        skillKey,
+      });
+    }
+  }
+
+  return projectedFiles;
 }

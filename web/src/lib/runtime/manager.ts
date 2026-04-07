@@ -20,6 +20,11 @@ export type ManagedBootstrapRuntimeFile = {
   contents: string;
 };
 
+export type ManagedSkillRuntimeFile = {
+  filename: string;
+  contents: string;
+};
+
 export type ApplyTenantConfigResult = {
   restartStderr: string;
   restartStdout: string;
@@ -42,6 +47,9 @@ const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000;
 const RUNTIME_START_HELPER_PATH =
   "/app/otto-helpers/start-runtime-with-watchers.mjs";
 const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
+const MANAGED_SKILL_WORKSPACE_ROOT = "/opt/openclaw/home/workspace/skills";
+const MANAGED_SKILL_MANIFEST_PATH =
+  "/opt/openclaw/runtime/managed-skills-manifest.json";
 
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
@@ -67,6 +75,7 @@ export class RuntimeManager {
       gatewayToken: string;
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+      managedSkillFiles: ManagedSkillRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
     },
@@ -77,6 +86,7 @@ export class RuntimeManager {
       gatewayToken: input.gatewayToken,
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       metadataTimestampKey: "bootstrappedAt",
       openClawConfig: input.openClawConfig,
@@ -84,6 +94,7 @@ export class RuntimeManager {
       tenantId: input.tenantId,
     });
     await this.verifyTenantConfigFiles(connection, {
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       openClawConfig: input.openClawConfig,
     });
@@ -108,6 +119,7 @@ export class RuntimeManager {
       gatewayToken: string;
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+      managedSkillFiles: ManagedSkillRuntimeFile[];
       openClawConfig: OpenClawTenantConfig;
       pullImageFirst?: boolean;
       slackBotToken?: string | null;
@@ -120,6 +132,7 @@ export class RuntimeManager {
       gatewayToken: input.gatewayToken,
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
       openClawConfig: input.openClawConfig,
@@ -127,6 +140,7 @@ export class RuntimeManager {
       tenantId: input.tenantId,
     });
     await this.verifyTenantConfigFiles(connection, {
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       openClawConfig: input.openClawConfig,
     });
@@ -188,6 +202,7 @@ export class RuntimeManager {
       connection,
       buildShellCommand([
         "mkdir -p /opt/openclaw/home/workspace",
+        `mkdir -p ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
         "mkdir -p /opt/openclaw/runtime",
       ]),
     );
@@ -200,6 +215,7 @@ export class RuntimeManager {
       gatewayToken: string;
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+      managedSkillFiles: ManagedSkillRuntimeFile[];
       metadataPath: string;
       metadataTimestampKey: string;
       openClawConfig: OpenClawTenantConfig;
@@ -212,6 +228,7 @@ export class RuntimeManager {
       gatewayToken: input.gatewayToken,
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: input.metadataPath,
       metadataTimestampKey: input.metadataTimestampKey,
       openClawConfig: input.openClawConfig,
@@ -220,8 +237,10 @@ export class RuntimeManager {
     });
 
     await this.applyTenantFiles(connection, runtimeFiles);
+    await this.reconcileManagedSkillFiles(connection, input.managedSkillFiles);
     await this.normalizeTenantRuntimeFilePermissions(connection, {
       managedBootstrapFiles: input.managedBootstrapFiles,
+      managedSkillFiles: input.managedSkillFiles,
       metadataPath: input.metadataPath,
     });
   }
@@ -229,6 +248,7 @@ export class RuntimeManager {
   async verifyTenantConfigFiles(
     connection: SshConnection,
     input: {
+      managedSkillFiles: ManagedSkillRuntimeFile[];
       metadataPath: string;
       openClawConfig: OpenClawTenantConfig;
     },
@@ -243,6 +263,12 @@ export class RuntimeManager {
       "test -s /opt/openclaw/home/workspace/TOOLS.md",
       `test -s ${shellQuoteForShell(input.metadataPath)}`,
     ];
+
+    for (const file of input.managedSkillFiles) {
+      commands.push(
+        `test -s ${shellQuoteForShell(`/opt/openclaw/home/workspace/${file.filename}`)}`,
+      );
+    }
 
     if (input.openClawConfig.audio?.enabled) {
       const firstAudioModel = input.openClawConfig.audio.models[0]?.model;
@@ -345,10 +371,14 @@ export class RuntimeManager {
     connection: SshConnection,
     input: {
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+      managedSkillFiles: ManagedSkillRuntimeFile[];
       metadataPath: string;
     },
   ) {
     const managedFilePaths = input.managedBootstrapFiles.map(
+      (file) => `/opt/openclaw/home/workspace/${file.filename}`,
+    );
+    const managedSkillPaths = input.managedSkillFiles.map(
       (file) => `/opt/openclaw/home/workspace/${file.filename}`,
     );
 
@@ -356,11 +386,14 @@ export class RuntimeManager {
       "/opt/openclaw",
       "/opt/openclaw/home",
       "/opt/openclaw/home/workspace",
+      MANAGED_SKILL_WORKSPACE_ROOT,
       "/opt/openclaw/runtime",
       "/opt/openclaw/home/openclaw.json",
       "/opt/openclaw/home/.env",
       input.metadataPath,
+      MANAGED_SKILL_MANIFEST_PATH,
       ...managedFilePaths,
+      ...managedSkillPaths,
     ];
 
     const quotedOwnershipTargets = ownershipTargets
@@ -370,14 +403,18 @@ export class RuntimeManager {
     const quotedManagedFilePaths = managedFilePaths
       .map((path) => shellQuoteForShell(path))
       .join(" ");
+    const quotedManagedSkillPaths = managedSkillPaths
+      .map((path) => shellQuoteForShell(path))
+      .join(" ");
 
     const commands = [
-      "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace /opt/openclaw/runtime",
+      `install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)} /opt/openclaw/runtime`,
       "rm -f /opt/openclaw/home/workspace/USERS.md",
       `chown openclaw:openclaw ${quotedOwnershipTargets}`,
-      "chmod 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace /opt/openclaw/runtime",
+      `chmod 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)} /opt/openclaw/runtime`,
       "chmod 640 /opt/openclaw/home/openclaw.json",
       "chmod 600 /opt/openclaw/home/.env",
+      `chmod 640 ${shellQuoteForShell(MANAGED_SKILL_MANIFEST_PATH)}`,
       `chmod 640 ${shellQuoteForShell(input.metadataPath)}`,
     ];
 
@@ -385,7 +422,63 @@ export class RuntimeManager {
       commands.push(`chmod 640 ${quotedManagedFilePaths}`);
     }
 
+    if (quotedManagedSkillPaths.length > 0) {
+      commands.push(`chmod 640 ${quotedManagedSkillPaths}`);
+    }
+
     await this.execChecked(connection, buildShellCommand(commands));
+  }
+
+  async reconcileManagedSkillFiles(
+    connection: SshConnection,
+    managedSkillFiles: ManagedSkillRuntimeFile[],
+  ) {
+    const previousManifest = await this.readManagedSkillManifest(connection);
+    const nextManifest = buildManagedSkillManifest(managedSkillFiles);
+    const pruneCommand = buildManagedSkillPruneCommand({
+      nextPaths: nextManifest.files,
+      previousPaths: previousManifest.files,
+    });
+
+    if (pruneCommand) {
+      await this.execChecked(connection, buildShellCommand([pruneCommand]));
+    }
+
+    await this.sshClient.writeFileAtomic(
+      connection,
+      MANAGED_SKILL_MANIFEST_PATH,
+      JSON.stringify(nextManifest, null, 2),
+      0o640,
+    );
+  }
+
+  async readManagedSkillManifest(
+    connection: SshConnection,
+  ): Promise<{ files: string[] }> {
+    const result = await this.sshClient.exec(
+      connection,
+      buildShellCommand([
+        [
+          `if test -f ${shellQuoteForShell(MANAGED_SKILL_MANIFEST_PATH)}; then`,
+          `cat ${shellQuoteForShell(MANAGED_SKILL_MANIFEST_PATH)};`,
+          "else",
+          `printf '%s' ${shellQuoteForShell('{"files":[]}')};`,
+          "fi",
+        ].join(" "),
+      ]),
+    );
+
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Failed to read managed skill manifest: ${result.stderr || result.stdout}`,
+      );
+    }
+
+    try {
+      return parseManagedSkillManifest(result.stdout);
+    } catch {
+      return { files: [] };
+    }
   }
 
   async checkGatewayHealth(connection: SshConnection): Promise<void> {
@@ -775,6 +868,7 @@ async function buildTenantRuntimeFiles(input: {
   gatewayToken: string;
   tenantToken: string;
   managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
+  managedSkillFiles: ManagedSkillRuntimeFile[];
   metadataPath: string;
   metadataTimestampKey: string;
   openClawConfig: OpenClawTenantConfig;
@@ -783,6 +877,11 @@ async function buildTenantRuntimeFiles(input: {
 }): Promise<RuntimeFile[]> {
   return [
     ...input.managedBootstrapFiles.map((file) => ({
+      contents: file.contents,
+      mode: 0o640,
+      path: `/opt/openclaw/home/workspace/${file.filename}`,
+    })),
+    ...input.managedSkillFiles.map((file) => ({
       contents: file.contents,
       mode: 0o640,
       path: `/opt/openclaw/home/workspace/${file.filename}`,
@@ -863,4 +962,74 @@ function parseToolInvokePayload(value: string) {
   throw new Error(
     "Tenant runtime tool response did not include a JSON payload",
   );
+}
+
+export function buildManagedSkillManifest(
+  managedSkillFiles: ManagedSkillRuntimeFile[],
+) {
+  return {
+    files: [
+      ...new Set(
+        managedSkillFiles.map(
+          (file) => `/opt/openclaw/home/workspace/${file.filename}`,
+        ),
+      ),
+    ].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+export function parseManagedSkillManifest(value: string): { files: string[] } {
+  const parsed = parseJsonObject(value);
+  const files = Array.isArray(parsed.files)
+    ? parsed.files.filter((entry): entry is string => typeof entry === "string")
+    : [];
+
+  return {
+    files: [...new Set(files)].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+export function buildManagedSkillPruneCommand(input: {
+  nextPaths: string[];
+  previousPaths: string[];
+}) {
+  const nextPaths = new Set(input.nextPaths);
+  const removedPaths = [...new Set(input.previousPaths)]
+    .filter((path) => path.startsWith(`${MANAGED_SKILL_WORKSPACE_ROOT}/`))
+    .filter((path) => !path.includes("/state/"))
+    .filter((path) => !nextPaths.has(path))
+    .sort((left, right) => left.localeCompare(right));
+
+  if (removedPaths.length === 0) {
+    return null;
+  }
+
+  const directorySet = new Set<string>();
+
+  for (const removedPath of removedPaths) {
+    let currentDirectory = removedPath.slice(0, removedPath.lastIndexOf("/"));
+
+    while (currentDirectory.startsWith(`${MANAGED_SKILL_WORKSPACE_ROOT}/`)) {
+      directorySet.add(currentDirectory);
+      currentDirectory = currentDirectory.slice(
+        0,
+        currentDirectory.lastIndexOf("/"),
+      );
+    }
+  }
+
+  const directories = [...directorySet].sort(
+    (left, right) => right.length - left.length || left.localeCompare(right),
+  );
+
+  return [
+    ...removedPaths.map(
+      (path) =>
+        `if test -f ${shellQuoteForShell(path)}; then rm -f ${shellQuoteForShell(path)}; fi`,
+    ),
+    ...directories.map(
+      (directory) =>
+        `rmdir ${shellQuoteForShell(directory)} >/dev/null 2>&1 || true`,
+    ),
+  ].join(" ");
 }
