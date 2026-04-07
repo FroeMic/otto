@@ -871,11 +871,15 @@ Tracker:
   - `[ ]` `customer_need.delete`
 
 - `customer_status`
-  - `[ ]` `customer_status.list`
-  - `[ ]` `customer_status.get`
-  - `[ ]` `customer_status.create`
-  - `[ ]` `customer_status.update`
-  - `[ ]` `customer_status.delete`
+  - `[x]` `customer_status.list`
+  - `[x]` `customer_status.get`
+  - `[x]` `customer_status.create`
+  - `[x]` `customer_status.update`
+  - `[x]` `customer_status.delete`
+  - Later testing plan:
+    - verify customer-status list/get against a workspace with multiple custom customer-flow states
+    - verify customer-status create/update for color, displayName, and position changes
+    - verify customer-status delete succeeds only after the status is no longer referenced by active customers
 
 - `customer_tier`
   - `[ ]` `customer_tier.list`

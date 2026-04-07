@@ -12,6 +12,13 @@ import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
+import {
+  executeLinearCustomerStatusCreate,
+  executeLinearCustomerStatusDelete,
+  executeLinearCustomerStatusGet,
+  executeLinearCustomerStatusList,
+  executeLinearCustomerStatusUpdate,
+} from "./commands/customer-status/commands";
 import { executeLinearDocumentCreate } from "./commands/document/create";
 import { executeLinearDocumentGet } from "./commands/document/get";
 import { executeLinearDocumentList } from "./commands/document/list";
@@ -277,6 +284,12 @@ const INITIATIVE_STATUS_ARGUMENT_SCHEMA = {
   description: "Linear initiative status.",
 } as const;
 
+const CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear customer status id.",
+} as const;
+
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
@@ -384,6 +397,252 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     "Connect Linear so Otto can inspect your workspace, search issue, project, and initiative work, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "customer_status.list",
+            commandPath: ["customer_status", "list"],
+            description:
+              "List customer statuses from the connected Linear workspace.",
+            exampleArguments: {
+              limit: 10,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer status",
+              "customer statuses",
+              "customer flow",
+            ],
+            label: "List customer statuses",
+            resultMode: "json",
+            usageNotes: [
+              "Use this before customer.create or customer.update when you need a canonical status id.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+            }),
+            execute: executeLinearCustomerStatusList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.get",
+            commandPath: ["customer_status", "get"],
+            description: "Read one Linear customer status by id.",
+            exampleArguments: {
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "get customer status"],
+            label: "Get customer status",
+            resultMode: "json",
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Customer status color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer status description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer status name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer workflow.",
+                },
+              },
+              required: ["color"],
+            },
+            commandKey: "customer_status.create",
+            commandPath: ["customer_status", "create"],
+            description: "Create a new Linear customer status.",
+            exampleArguments: {
+              color: "#4F46E5",
+              displayName: "Active",
+              name: "active",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "create", "customer flow"],
+            label: "Create customer status",
+            resultMode: "json",
+            usageNotes: [
+              "Create statuses before assigning them to customers if your workspace flow is still being set up.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+            }),
+            execute: executeLinearCustomerStatusCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional customer status color as a HEX string.",
+                },
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional customer status description.",
+                },
+                displayName: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional display name shown in the UI.",
+                },
+                name: {
+                  ...OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                  description: "Optional internal customer status name.",
+                },
+                position: {
+                  type: "number",
+                  description: "Optional position in the customer workflow.",
+                },
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.update",
+            commandPath: ["customer_status", "update"],
+            description: "Update an existing Linear customer status.",
+            exampleArguments: {
+              displayName: "Current",
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "update", "edit"],
+            label: "Update customer status",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides statusId.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : null,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              position:
+                typeof argumentsObject.position === "number" &&
+                Number.isFinite(argumentsObject.position)
+                  ? argumentsObject.position
+                  : null,
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                statusId: CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["statusId"],
+            },
+            commandKey: "customer_status.delete",
+            commandPath: ["customer_status", "delete"],
+            description: "Delete one Linear customer status.",
+            exampleArguments: {
+              statusId: "customer-status-id",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "customer status", "delete", "remove"],
+            label: "Delete customer status",
+            resultMode: "json",
+            usageNotes: [
+              "Only delete statuses that are no longer referenced by active customer workflows.",
+            ],
+            validate: (argumentsObject) => ({
+              statusId:
+                typeof argumentsObject.statusId === "string"
+                  ? argumentsObject.statusId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerStatusDelete,
+          },
+        ],
+        description:
+          "Customer-status reads and writes for the workspace customer lifecycle.",
+        groupKey: "customer_status",
+        groupPath: ["customer_status"],
+        intentKeywords: ["linear", "customer status", "customer flow"],
+        label: "Customer Statuses",
+      },
       {
         commands: [
           {
