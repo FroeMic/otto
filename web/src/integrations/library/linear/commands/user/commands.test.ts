@@ -5,6 +5,7 @@ import { executeLinearUserGet } from "./get";
 import { executeLinearUserListAssignedIssues } from "./list-assigned-issues";
 import { executeLinearUserListCreatedIssues } from "./list-created-issues";
 import { executeLinearUserList } from "./list";
+import { executeLinearUserListTeamMemberships } from "./list-team-memberships";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -319,6 +320,93 @@ describe("linear user commands", () => {
     assert.equal(result.limit, 7);
     assert.equal(result.totalMatched, 1);
     assert.equal(result.items[0]?.identifier, "INT-16");
+    assert.equal(result.user?.id, "user-1");
+  });
+
+  it("lists team memberships for one user", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            user: {
+              ...buildUserNode(),
+              teamMemberships: {
+                nodes: [
+                  {
+                    createdAt: "2026-04-07T10:00:00.000Z",
+                    id: "membership-1",
+                    owner: true,
+                    sortOrder: 1,
+                    team: {
+                      displayName: "Integration",
+                      id: "team-1",
+                      key: "INT",
+                      name: "Integration",
+                    },
+                    updatedAt: "2026-04-07T12:00:00.000Z",
+                    user: buildUserNode(),
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearUserListTeamMemberships({
+      arguments: {
+        limit: 8,
+        userId: "user-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      items: Array<{
+        id: string | null;
+        owner: boolean;
+        team: {
+          key: string | null;
+        } | null;
+      }>;
+      limit: number;
+      lookup: string;
+      totalMatched: number;
+      user: {
+        id: string | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+        limit: number;
+      };
+    };
+
+    assert.match(payload.query, /teamMemberships\(first: \$limit, orderBy: updatedAt\)/);
+    assert.equal(payload.variables.id, "user-1");
+    assert.equal(payload.variables.limit, 8);
+    assert.equal(result.commandKey, "user.list_team_memberships");
+    assert.equal(result.lookup, "user-1");
+    assert.equal(result.limit, 8);
+    assert.equal(result.totalMatched, 1);
+    assert.equal(result.items[0]?.id, "membership-1");
+    assert.equal(result.items[0]?.owner, true);
+    assert.equal(result.items[0]?.team?.key, "INT");
     assert.equal(result.user?.id, "user-1");
   });
 });
