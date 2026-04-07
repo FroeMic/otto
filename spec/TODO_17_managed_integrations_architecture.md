@@ -958,7 +958,7 @@ Acceptance criteria:
 
 If implementation begins immediately, the recommended first four increments are:
 
-1. Increment 1: static metatool plugin plus synthetic integration
+1. Increment 1: static metatool plugin plus one narrow real integration
 2. Increment 2: real `integration-gateway` execution boundary
 3. Increment 3: workspace-visible Linear shell
 4. Increment 4: first-party OAuth connect flow for Linear
