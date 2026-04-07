@@ -750,6 +750,12 @@ Acceptance criteria:
 
 Introduce the first real product-facing integration shell in the workspace, but still without completing OAuth.
 
+Status:
+
+- done on `main`
+- the canonical Linear workspace surface now lives under `/integrations2`
+- the legacy `/integrations` page no longer carries Linear
+
 Scope:
 
 - add a Linear integration page under workspace integrations
@@ -930,12 +936,14 @@ Scope:
 
 - keep Slack OAuth, ingress, and routing control-plane-native
 - move Slack's runtime-facing read and safe-configure surface into `otto-integrations`
+- move the remaining legacy workspace surfaces onto the same registry-driven shape, covering Slack, WhatsApp, and Brave where that fit is appropriate
 - keep `otto-runtime-config` in place for non-integration surfaces
 
 Acceptance criteria:
 
 - Slack appears through the same runtime integration plugin family as Linear
 - Slack transport architecture remains unchanged
+- the remaining legacy workspace integration surfaces no longer depend on the older `/integrations` composition
 - the runtime-facing integration model is more unified than before
 
 ### Increment 12: Custom integration registration
@@ -960,7 +968,7 @@ If implementation begins immediately, the recommended first four increments are:
 
 1. Increment 1: static metatool plugin plus one narrow real integration
 2. Increment 2: real `integration-gateway` execution boundary
-3. Increment 3: workspace-visible Linear shell
+3. Increment 3: workspace-visible Linear shell (done)
 4. Increment 4: first-party OAuth connect flow for Linear
 
 That sequence gives a real vertical line quickly without prematurely committing to a broad schema or webhook buildout.

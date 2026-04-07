@@ -3,7 +3,9 @@ import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 
 import type { IntegrationDefinition } from "./types";
 
-const registry = [linearIntegrationDefinition] as const satisfies readonly IntegrationDefinition[];
+const registry = [
+  linearIntegrationDefinition,
+] as const satisfies readonly IntegrationDefinition[];
 
 const integrationKeys = new Set<string>();
 

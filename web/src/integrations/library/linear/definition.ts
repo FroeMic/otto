@@ -133,7 +133,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       "Search Linear issues through Otto's managed integration runtime surface.",
     toolName: "linear",
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations/linear`,
+  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/linear`,
   showInWorkspaceCatalog: true,
   ui: {
     loadDetailPage: async () =>
