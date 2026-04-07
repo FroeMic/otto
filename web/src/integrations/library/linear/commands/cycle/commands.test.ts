@@ -4,6 +4,7 @@ import { afterEach, describe, it } from "node:test";
 import { executeLinearCycleCreate } from "./create";
 import { executeLinearCycleGet } from "./get";
 import { executeLinearCycleList } from "./list";
+import { executeLinearCycleUpdate } from "./update";
 
 function buildCycleNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -208,6 +209,71 @@ describe("linear cycle commands", () => {
     assert.equal(result.commandKey, "cycle.create");
     assert.equal(result.cycle?.name, "Cycle 42");
     assert.equal(result.lastSyncId, 42);
+    assert.equal(result.success, true);
+  });
+
+  it("updates cycles with a curated input shape", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            cycleUpdate: {
+              cycle: buildCycleNode({
+                description: "Updated sprint for credits work",
+              }),
+              lastSyncId: 44,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCycleUpdate({
+      arguments: {
+        cycleId: "cycle-1",
+        description: "Updated sprint for credits work",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      cycle: {
+        description: string | null;
+      } | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: {
+        id: string;
+        input: Record<string, unknown>;
+      };
+    };
+
+    assert.match(payload.query, /cycleUpdate/);
+    assert.equal(payload.variables.id, "cycle-1");
+    assert.deepEqual(payload.variables.input, {
+      description: "Updated sprint for credits work",
+    });
+    assert.equal(result.commandKey, "cycle.update");
+    assert.equal(result.lookup, "cycle-1");
+    assert.equal(result.cycle?.description, "Updated sprint for credits work");
+    assert.equal(result.lastSyncId, 44);
     assert.equal(result.success, true);
   });
 });

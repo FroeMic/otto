@@ -37,3 +37,37 @@ export function buildLinearCycleCreateInput(
 
   return input;
 }
+
+export function buildLinearCycleUpdateInput(
+  argumentsObject: Record<string, unknown>,
+) {
+  const input: Record<string, unknown> = {};
+
+  assignIfPresent(
+    input,
+    "completedAt",
+    normalizeOptionalString(argumentsObject.completedAt),
+  );
+  assignIfPresent(
+    input,
+    "description",
+    normalizeOptionalString(argumentsObject.description),
+  );
+  assignIfPresent(
+    input,
+    "endsAt",
+    normalizeOptionalString(argumentsObject.endsAt),
+  );
+  assignIfPresent(input, "name", normalizeOptionalString(argumentsObject.name));
+  assignIfPresent(
+    input,
+    "startsAt",
+    normalizeOptionalString(argumentsObject.startsAt),
+  );
+
+  if (Object.keys(input).length === 0) {
+    throw new Error("cycle.update requires at least one field to update.");
+  }
+
+  return input;
+}

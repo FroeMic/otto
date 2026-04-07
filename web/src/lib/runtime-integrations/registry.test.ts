@@ -43,7 +43,7 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "cycle")
         ?.commandCount,
-      3,
+      4,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "comment")

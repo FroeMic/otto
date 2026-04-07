@@ -9,6 +9,7 @@ import { executeLinearCommentUpdate } from "./commands/comment/update";
 import { executeLinearCycleCreate } from "./commands/cycle/create";
 import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
+import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
@@ -330,6 +331,79 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearCycleCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                completedAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional cycle completion datetime.",
+                },
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                description: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated cycle description.",
+                },
+                endsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional updated cycle end datetime.",
+                },
+                name: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Optional updated custom cycle name.",
+                },
+                startsAt: {
+                  ...DATETIME_ARGUMENT_SCHEMA,
+                  description: "Optional updated cycle start datetime.",
+                },
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.update",
+            commandPath: ["cycle", "update"],
+            description: "Update an existing Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+              description: "Updated cycle description",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "update", "edit", "sprint"],
+            label: "Update cycle",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides cycleId.",
+            ],
+            validate: (argumentsObject) => ({
+              completedAt:
+                typeof argumentsObject.completedAt === "string"
+                  ? argumentsObject.completedAt.trim()
+                  : null,
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : null,
+              endsAt:
+                typeof argumentsObject.endsAt === "string"
+                  ? argumentsObject.endsAt.trim()
+                  : null,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : null,
+              startsAt:
+                typeof argumentsObject.startsAt === "string"
+                  ? argumentsObject.startsAt.trim()
+                  : null,
+            }),
+            execute: executeLinearCycleUpdate,
           },
           {
             argumentsSchema: {
