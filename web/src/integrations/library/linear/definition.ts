@@ -10,6 +10,7 @@ import { executeLinearCycleArchive } from "./commands/cycle/archive";
 import { executeLinearCycleCreate } from "./commands/cycle/create";
 import { executeLinearCycleGet } from "./commands/cycle/get";
 import { executeLinearCycleList } from "./commands/cycle/list";
+import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
@@ -435,6 +436,43 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearCycleArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                cycleId: CYCLE_ID_ARGUMENT_SCHEMA,
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+              required: ["cycleId"],
+            },
+            commandKey: "cycle.list_issues",
+            commandPath: ["cycle", "list_issues"],
+            description: "List issues attached to one Linear cycle.",
+            exampleArguments: {
+              cycleId: "cycle-id",
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "cycle", "issues", "sprint issues"],
+            label: "List cycle issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to expand a cycle into the underlying issue work scheduled inside that sprint.",
+            ],
+            validate: (argumentsObject) => ({
+              cycleId:
+                typeof argumentsObject.cycleId === "string"
+                  ? argumentsObject.cycleId.trim()
+                  : "",
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearCycleListIssues,
           },
           {
             argumentsSchema: {

@@ -5,6 +5,7 @@ import { executeLinearCycleArchive } from "./archive";
 import { executeLinearCycleCreate } from "./create";
 import { executeLinearCycleGet } from "./get";
 import { executeLinearCycleList } from "./list";
+import { executeLinearCycleListIssues } from "./list-issues";
 import { executeLinearCycleUpdate } from "./update";
 
 function buildCycleNode(overrides: Record<string, unknown> = {}) {
@@ -334,5 +335,90 @@ describe("linear cycle commands", () => {
     assert.equal(result.cycle?.id, "cycle-1");
     assert.equal(result.lastSyncId, 45);
     assert.equal(result.success, true);
+  });
+
+  it("lists issues for one cycle", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+
+      assert.match(body.query, /cycle\(id: \$id\)/);
+      assert.match(body.query, /issues\(first: \$limit, orderBy: updatedAt\)/);
+      assert.equal(body.variables.id, "cycle-1");
+      assert.equal(body.variables.limit, 25);
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            cycle: {
+              ...buildCycleNode(),
+              issues: {
+                nodes: [
+                  {
+                    assignee: null,
+                    createdAt: "2026-04-07T10:00:00.000Z",
+                    description: "Issue description",
+                    id: "issue-uuid-1",
+                    identifier: "INT-6",
+                    labelIds: ["label-1"],
+                    priority: 2,
+                    project: null,
+                    state: {
+                      id: "state-1",
+                      name: "Backlog",
+                      type: "unstarted",
+                    },
+                    team: {
+                      id: "team-1",
+                      key: "INT",
+                      name: "Integration",
+                    },
+                    title: "Track credits workflow",
+                    updatedAt: "2026-04-07T12:00:00.000Z",
+                    url: "https://linear.app/otto/issue/INT-6/track-credits-workflow",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCycleListIssues({
+      arguments: {
+        cycleId: "cycle-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      cycle: {
+        id: string | null;
+        name: string | null;
+      };
+      items: Array<{
+        identifier: string | null;
+      }>;
+      lookup: string;
+      totalMatched: number;
+    };
+
+    assert.equal(result.commandKey, "cycle.list_issues");
+    assert.equal(result.lookup, "cycle-1");
+    assert.equal(result.cycle.id, "cycle-1");
+    assert.equal(result.cycle.name, "Cycle 42");
+    assert.equal(result.items[0]?.identifier, "INT-6");
+    assert.equal(result.totalMatched, 1);
   });
 });
