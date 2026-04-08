@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearWorkspaceMemberInvite } from "./invite";
+import { executeLinearWorkspaceMemberInviteUpdate } from "./invite-update";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -128,5 +129,59 @@ describe("linear workspace member commands", () => {
     assert.equal(result.invite?.id, "invite-1");
     assert.equal(result.invite?.email, "new.person@example.com");
     assert.equal(result.invite?.role, "user");
+  });
+
+  it("updates one pending workspace invite by invite id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          organizationInviteUpdate: {
+            lastSyncId: 131,
+            organizationInvite: buildOrganizationInviteNode(),
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearWorkspaceMemberInviteUpdate({
+      arguments: {
+        inviteId: "invite-1",
+        teamIds: ["team-1", " team-3 "],
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      invite: {
+        email: string | null;
+        id: string | null;
+      } | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+        input: Record<string, unknown>;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearOrganizationInviteUpdate/);
+    assert.equal(payload.variables.id, "invite-1");
+    assert.deepEqual(payload.variables.input, {
+      teamIds: ["team-1", "team-3"],
+    });
+    assert.equal(result.commandKey, "workspace_member.invite_update");
+    assert.equal(result.lastSyncId, 131);
+    assert.equal(result.lookup, "invite-1");
+    assert.equal(result.success, true);
+    assert.equal(result.invite?.id, "invite-1");
+    assert.equal(result.invite?.email, "new.person@example.com");
   });
 });

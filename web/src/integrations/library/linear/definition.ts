@@ -149,6 +149,7 @@ import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams
 import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
 import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
+import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
 
@@ -313,6 +314,12 @@ const EMAIL_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Email address.",
+} as const;
+
+const ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear organization invite id.",
 } as const;
 
 const DOCUMENT_ID_ARGUMENT_SCHEMA = {
@@ -4169,6 +4176,52 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+              },
+              required: ["inviteId", "teamIds"],
+            },
+            commandKey: "workspace_member.invite_update",
+            commandPath: ["workspace_member", "invite_update"],
+            description:
+              "Update one pending Linear workspace invite by replacing its assigned team ids.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+              teamIds: ["6332efd5-64d0-4e60-a33f-9078e7f2620b"],
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "update invite",
+              "change invite teams",
+              "organization invite",
+            ],
+            label: "Update workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
+              "teamIds replaces the full team assignment for that pending invite.",
+            ],
+            validate: (argumentsObject) => ({
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : "",
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                    .filter((value) => typeof value === "string")
+                    .map((value) => value.trim())
+                    .filter((value) => value.length > 0)
+                : [],
+            }),
+            execute: executeLinearWorkspaceMemberInviteUpdate,
+          },
           {
             argumentsSchema: {
               type: "object",
