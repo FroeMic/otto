@@ -148,6 +148,7 @@ import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/
 import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams";
 import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
+import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
 
@@ -296,10 +297,22 @@ const USER_ID_ARGUMENT_SCHEMA = {
   description: "Linear user id.",
 } as const;
 
+const USER_ROLE_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["admin", "app", "guest", "owner", "user"],
+  description: "Linear user role.",
+} as const;
+
 const TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear team membership id.",
+} as const;
+
+const EMAIL_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Email address.",
 } as const;
 
 const DOCUMENT_ID_ARGUMENT_SCHEMA = {
@@ -4153,6 +4166,67 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["team"],
         intentKeywords: ["linear", "team", "squad", "group", "planning"],
         label: "Teams",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                email: EMAIL_ARGUMENT_SCHEMA,
+                role: USER_ROLE_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+              },
+              required: ["email"],
+            },
+            commandKey: "workspace_member.invite",
+            commandPath: ["workspace_member", "invite"],
+            description:
+              "Invite one person into the Linear workspace, optionally scoped to teams.",
+            exampleArguments: {
+              email: "person@example.com",
+              role: "user",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "invite member",
+              "invite teammate",
+              "organization invite",
+            ],
+            label: "Invite workspace member",
+            resultMode: "json",
+            usageNotes: [
+              "Use teamIds to pre-assign the invited person to one or more teams.",
+              "This requires Linear workspace invite permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              email:
+                typeof argumentsObject.email === "string"
+                  ? argumentsObject.email.trim()
+                  : "",
+              role:
+                typeof argumentsObject.role === "string"
+                  ? argumentsObject.role.trim()
+                  : undefined,
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                    .filter((value) => typeof value === "string")
+                    .map((value) => value.trim())
+                    .filter((value) => value.length > 0)
+                : undefined,
+            }),
+            execute: executeLinearWorkspaceMemberInvite,
+          },
+        ],
+        description:
+          "Workspace invite and member-management commands for the connected Linear workspace.",
+        groupKey: "workspace_member",
+        groupPath: ["workspace_member"],
+        intentKeywords: ["linear", "workspace", "member", "invite", "people"],
+        label: "Workspace Members",
       },
       {
         commands: [

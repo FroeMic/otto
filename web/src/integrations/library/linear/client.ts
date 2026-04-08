@@ -594,6 +594,20 @@ export type LinearTeamMembershipNode = {
   user?: LinearUserNode | null;
 };
 
+export type LinearOrganizationInviteNode = {
+  acceptedAt?: string | null;
+  archivedAt?: string | null;
+  createdAt?: string | null;
+  email?: string | null;
+  expiresAt?: string | null;
+  external?: boolean | null;
+  id?: string | null;
+  invitee?: LinearUserNode | null;
+  inviter?: LinearUserNode | null;
+  role?: string | null;
+  updatedAt?: string | null;
+};
+
 export type LinearIssueReferenceNode = {
   id?: string | null;
   identifier?: string | null;
@@ -1392,6 +1406,28 @@ export function mapLinearTeamMembership(membership: LinearTeamMembershipNode) {
   };
 }
 
+export function mapLinearOrganizationInvite(
+  invite: LinearOrganizationInviteNode | null,
+) {
+  if (!invite) {
+    return null;
+  }
+
+  return {
+    acceptedAt: invite.acceptedAt ?? null,
+    archivedAt: invite.archivedAt ?? null,
+    createdAt: invite.createdAt ?? null,
+    email: invite.email?.trim() || null,
+    expiresAt: invite.expiresAt ?? null,
+    external: invite.external ?? false,
+    id: invite.id?.trim() || null,
+    invitee: mapLinearUser(invite.invitee ?? null),
+    inviter: mapLinearUser(invite.inviter ?? null),
+    role: invite.role?.trim() || null,
+    updatedAt: invite.updatedAt ?? null,
+  };
+}
+
 export function mapLinearIssue(issue: LinearIssueNode) {
   return {
     assignee:
@@ -1654,6 +1690,22 @@ export function buildLinearTeamMembershipCommandResult(input: {
     teamMembership: input.teamMembership
       ? mapLinearTeamMembership(input.teamMembership)
       : null,
+  };
+}
+
+export function buildLinearOrganizationInviteCommandResult(input: {
+  commandKey: string;
+  invite: LinearOrganizationInviteNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    invite: mapLinearOrganizationInvite(input.invite ?? null),
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
   };
 }
 

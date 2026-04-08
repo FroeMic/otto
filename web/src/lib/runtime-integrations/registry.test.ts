@@ -33,6 +33,7 @@ describe("runtime integration registry", () => {
         "cycle",
         "workspace",
         "team",
+        "workspace_member",
         "user",
         "document",
         "label",
@@ -58,6 +59,12 @@ describe("runtime integration registry", () => {
       manifest[0]?.commandGroups.find((group) => group.groupKey === "team")
         ?.commandCount,
       14,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "workspace_member",
+      )?.commandCount,
+      1,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "user")
