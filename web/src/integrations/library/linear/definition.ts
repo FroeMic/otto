@@ -150,6 +150,7 @@ import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
 import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
 import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel";
+import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-member/invite-resend";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
@@ -4177,6 +4178,48 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                email: EMAIL_ARGUMENT_SCHEMA,
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "workspace_member.invite_resend",
+            commandPath: ["workspace_member", "invite_resend"],
+            description:
+              "Resend one pending Linear workspace invite by invite id or email.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "resend invite",
+              "retry invite email",
+              "organization invite",
+            ],
+            label: "Resend workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer inviteId when you already have the canonical invite id.",
+              "Use email only when you need a simpler fallback lookup.",
+            ],
+            validate: (argumentsObject) => ({
+              email:
+                typeof argumentsObject.email === "string"
+                  ? argumentsObject.email.trim()
+                  : undefined,
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : undefined,
+            }),
+            execute: executeLinearWorkspaceMemberInviteResend,
+          },
           {
             argumentsSchema: {
               type: "object",

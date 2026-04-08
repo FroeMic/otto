@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearWorkspaceMemberInvite } from "./invite";
 import { executeLinearWorkspaceMemberInviteCancel } from "./invite-cancel";
+import { executeLinearWorkspaceMemberInviteResend } from "./invite-resend";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./invite-update";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
@@ -228,6 +229,95 @@ describe("linear workspace member commands", () => {
     assert.equal(result.deletedInviteId, "invite-1");
     assert.equal(result.lastSyncId, 132);
     assert.equal(result.lookup, "invite-1");
+    assert.equal(result.success, true);
+  });
+
+  it("resends one pending workspace invite by invite id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          resendOrganizationInvite: {
+            entityId: "invite-1",
+            lastSyncId: 133,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearWorkspaceMemberInviteResend({
+      arguments: {
+        inviteId: "invite-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      resentInviteId: string | null;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: { id: string };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearResendOrganizationInvite/);
+    assert.equal(payload.variables.id, "invite-1");
+    assert.equal(result.commandKey, "workspace_member.invite_resend");
+    assert.equal(result.lastSyncId, 133);
+    assert.equal(result.lookup, "invite-1");
+    assert.equal(result.resentInviteId, "invite-1");
+    assert.equal(result.success, true);
+  });
+
+  it("resends one pending workspace invite by email fallback", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          resendOrganizationInviteByEmail: {
+            entityId: "invite-2",
+            lastSyncId: 134,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearWorkspaceMemberInviteResend({
+      arguments: {
+        email: " new.person@example.com ",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      resentInviteId: string | null;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: { email: string };
+    };
+
+    assert.match(
+      payload.query,
+      /mutation OttoLinearResendOrganizationInviteByEmail/,
+    );
+    assert.equal(payload.variables.email, "new.person@example.com");
+    assert.equal(result.commandKey, "workspace_member.invite_resend");
+    assert.equal(result.lastSyncId, 134);
+    assert.equal(result.lookup, "new.person@example.com");
+    assert.equal(result.resentInviteId, "invite-2");
     assert.equal(result.success, true);
   });
 });
