@@ -8,7 +8,9 @@ import {
 const DELETE_DOCUMENT_MUTATION = `
   mutation OttoLinearDocumentDelete($id: String!) {
     documentDelete(id: $id) {
-      entityId
+      entity {
+        id
+      }
       lastSyncId
       success
     }
@@ -32,7 +34,9 @@ export const executeLinearDocumentDelete: IntegrationCommandExecute = async ({
 
   const data = await executeLinearGraphql<{
     documentDelete?: {
-      entityId?: string | null;
+      entity?: {
+        id?: string | null;
+      } | null;
       lastSyncId?: number | null;
       success?: boolean | null;
     } | null;
@@ -47,7 +51,7 @@ export const executeLinearDocumentDelete: IntegrationCommandExecute = async ({
   return {
     ...buildLinearDeleteCommandResult({
       commandKey: "document.delete",
-      entityId: data.documentDelete?.entityId,
+      entityId: data.documentDelete?.entity?.id,
       entityKey: "DocumentId",
       lastSyncId: data.documentDelete?.lastSyncId,
       success: data.documentDelete?.success,

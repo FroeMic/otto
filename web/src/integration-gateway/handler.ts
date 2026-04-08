@@ -64,6 +64,16 @@ export function buildExecutionErrorResponse(input: {
     input.commandKey?.startsWith("team.") &&
     input.commandKey !== "team.create"
   ) {
+    if (
+      input.commandKey === "team.delete" ||
+      input.commandKey === "team.unarchive"
+    ) {
+      return {
+        error: message,
+        hint: "Otto's current Linear actor may need workspace-admin or team-owner permissions before retrying this team command.",
+      };
+    }
+
     return {
       error: message,
       hint: "Otto may need to be added to that Linear team before retrying this team command.",

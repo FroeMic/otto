@@ -606,7 +606,9 @@ describe("linear issue commands", () => {
         JSON.stringify({
           data: {
             issueDelete: {
-              entityId: "issue-uuid-1",
+              entity: {
+                id: "issue-uuid-1",
+              },
               lastSyncId: 93,
               success: true,
             },

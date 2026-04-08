@@ -3926,6 +3926,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Delete team",
             resultMode: "json",
             usageNotes: [
+              "Currently unavailable for Otto agent interaction through Linear in this workspace. Team deletion requires stronger Linear permissions than Otto's current app actor has.",
               "Prefer the canonical team id from workspace.list_teams before deleting a team.",
               "This may require elevated Linear workspace permissions.",
             ],
@@ -4124,6 +4125,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Unarchive team",
             resultMode: "json",
             usageNotes: [
+              "Currently unavailable for Otto agent interaction through Linear in this workspace. Team restoration requires stronger Linear permissions than Otto's current app actor has.",
               "Prefer the canonical team id from workspace.list_teams before restoring a team.",
               "This may require elevated Linear workspace permissions.",
             ],
@@ -4419,6 +4421,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Resend workspace invite",
             resultMode: "json",
             usageNotes: [
+              "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Prefer inviteId when you already have the canonical invite id.",
               "Use email only when you need a simpler fallback lookup.",
             ],
@@ -4460,6 +4463,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Cancel workspace invite",
             resultMode: "json",
             usageNotes: [
+              "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
             ],
             validate: (argumentsObject) => ({
@@ -4499,6 +4503,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Update workspace invite",
             resultMode: "json",
             usageNotes: [
+              "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
               "teamIds replaces the full team assignment for that pending invite.",
             ],
