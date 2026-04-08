@@ -120,7 +120,7 @@ describe("runtime integration registry", () => {
       manifest[0]?.commandGroups.find(
         (group) => group.groupKey === "initiative",
       )?.commandCount,
-      8,
+      9,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")

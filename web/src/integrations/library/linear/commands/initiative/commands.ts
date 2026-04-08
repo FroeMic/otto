@@ -1,6 +1,7 @@
 import type { IntegrationCommandExecute } from "@/integrations/framework";
 
 import {
+  buildLinearDeleteCommandResult,
   buildLinearInitiativeCollectionCommandResult,
   buildLinearInitiativeCommandResult,
   buildLinearInitiativeUpdateCollectionCommandResult,
@@ -68,6 +69,16 @@ const ARCHIVE_INITIATIVE_MUTATION = `
       entity {
         ${getLinearInitiativeFields()}
       }
+      lastSyncId
+      success
+    }
+  }
+`;
+
+const DELETE_INITIATIVE_MUTATION = `
+  mutation OttoLinearInitiativeDelete($id: String!) {
+    initiativeDelete(id: $id) {
+      entityId
       lastSyncId
       success
     }
@@ -271,6 +282,45 @@ export const executeLinearInitiativeArchive: IntegrationCommandExecute =
       success: data.initiativeArchive?.success,
     });
   };
+
+export const executeLinearInitiativeDelete: IntegrationCommandExecute = async ({
+  arguments: args,
+  context,
+}) => {
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
+
+  const initiativeId =
+    typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+
+  if (!initiativeId) {
+    throw new Error("linear initiative.delete requires initiativeId.");
+  }
+
+  const data = await executeLinearGraphql<{
+    initiativeDelete?: {
+      entityId?: string | null;
+      lastSyncId?: number | null;
+      success?: boolean | null;
+    } | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: DELETE_INITIATIVE_MUTATION,
+    variables: { id: initiativeId },
+  });
+
+  return {
+    ...buildLinearDeleteCommandResult({
+      commandKey: "initiative.delete",
+      entityId: data.initiativeDelete?.entityId,
+      entityKey: "InitiativeId",
+      lastSyncId: data.initiativeDelete?.lastSyncId,
+      success: data.initiativeDelete?.success,
+    }),
+    lookup: initiativeId,
+  };
+};
 
 export const executeLinearInitiativeListProjects: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {

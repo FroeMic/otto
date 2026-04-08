@@ -5,6 +5,7 @@ import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
   executeLinearInitiativeCreateUpdate,
+  executeLinearInitiativeDelete,
   executeLinearInitiativeGet,
   executeLinearInitiativeList,
   executeLinearInitiativeListProjects,
@@ -364,6 +365,55 @@ describe("linear initiative commands", () => {
     assert.equal(result.commandKey, "initiative.archive");
     assert.equal(result.initiative?.trashed, true);
     assert.equal(result.lastSyncId, 63);
+    assert.equal(result.success, true);
+  });
+
+  it("deletes initiatives by id", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: { id: string };
+      };
+      assert.match(body.query, /mutation OttoLinearInitiativeDelete/);
+      assert.equal(body.variables.id, "initiative-1");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            initiativeDelete: {
+              entityId: "initiative-1",
+              lastSyncId: 65,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearInitiativeDelete({
+      arguments: {
+        initiativeId: "initiative-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedInitiativeId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    assert.equal(result.commandKey, "initiative.delete");
+    assert.equal(result.deletedInitiativeId, "initiative-1");
+    assert.equal(result.lastSyncId, 65);
+    assert.equal(result.lookup, "initiative-1");
     assert.equal(result.success, true);
   });
 

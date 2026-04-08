@@ -60,6 +60,7 @@ import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
   executeLinearInitiativeCreateUpdate,
+  executeLinearInitiativeDelete,
   executeLinearInitiativeGet,
   executeLinearInitiativeList,
   executeLinearInitiativeListProjects,
@@ -2607,6 +2608,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : 10,
             }),
             execute: executeLinearInitiativeList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.delete",
+            commandPath: ["initiative", "delete"],
+            description: "Delete one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "delete initiative",
+              "remove initiative",
+            ],
+            label: "Delete initiative",
+            resultMode: "json",
+            usageNotes: [
+              "Use initiative.archive when you want the initiative off the roadmap without hard deletion.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeDelete,
           },
           {
             argumentsSchema: {
