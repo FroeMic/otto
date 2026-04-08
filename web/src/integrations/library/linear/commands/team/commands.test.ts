@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearTeamCreate } from "./create";
+import { executeLinearTeamDelete } from "./delete";
 import { executeLinearTeamGet } from "./get";
 import { executeLinearTeamList } from "./list";
 import { executeLinearTeamListCycles } from "./list-cycles";
@@ -646,5 +647,57 @@ describe("linear team commands", () => {
     assert.equal(result.commandKey, "team.update");
     assert.equal(result.team?.id, "team-1");
     assert.equal(result.team?.description, "Updated team");
+  });
+
+  it("deletes a team after resolving its key", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          teams: {
+            nodes: [buildTeamNode()],
+          },
+        },
+      },
+      {
+        data: {
+          teamDelete: {
+            entityId: "team-1",
+            lastSyncId: 125,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamDelete({
+      arguments: {
+        teamIdOrKey: "INT",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedTeamId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[1] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearTeamDelete/);
+    assert.equal(payload.variables.id, "team-1");
+    assert.equal(result.commandKey, "team.delete");
+    assert.equal(result.deletedTeamId, "team-1");
+    assert.equal(result.lastSyncId, 125);
+    assert.equal(result.lookup, "INT");
+    assert.equal(result.success, true);
   });
 });

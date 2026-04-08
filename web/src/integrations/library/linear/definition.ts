@@ -124,6 +124,7 @@ import {
   executeLinearProjectStatusUpdate,
 } from "./commands/project-status/commands";
 import { executeLinearTeamCreate } from "./commands/team/create";
+import { executeLinearTeamDelete } from "./commands/team/delete";
 import { executeLinearTeamGet } from "./commands/team/get";
 import { executeLinearTeamList } from "./commands/team/list";
 import { executeLinearTeamListCycles } from "./commands/team/list-cycles";
@@ -3736,6 +3737,37 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearTeamListIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.delete",
+            commandPath: ["team", "delete"],
+            description: "Delete one Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "team", "delete team", "remove team"],
+            label: "Delete team",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before deleting a team.",
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamDelete,
           },
           {
             argumentsSchema: {
