@@ -1,4 +1,5 @@
 import { executeRuntimeIntegrationInGateway } from "@/integration-gateway/execute";
+import { LinearGraphqlError } from "@/integrations/library/linear/client";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 function json(body: unknown, status = 200) {
@@ -20,7 +21,15 @@ function clipForLog(value: string, max = 1000) {
   return `${trimmed.slice(0, max)}…`;
 }
 
-function buildExecutionErrorResponse(message: string) {
+export function buildExecutionErrorResponse(input: {
+  commandKey?: string;
+  error: unknown;
+}) {
+  const message =
+    input.error instanceof Error
+      ? input.error.message
+      : "Managed integration execution failed";
+
   if (message.includes("needs attention. Reconnect")) {
     const integrationLabel = message.split(" needs attention")[0]?.trim();
     const integrationKey = integrationLabel?.toLowerCase();
@@ -49,34 +58,21 @@ function buildExecutionErrorResponse(message: string) {
     };
   }
 
+  if (
+    input.error instanceof LinearGraphqlError &&
+    input.error.code === "FORBIDDEN" &&
+    input.commandKey?.startsWith("team.") &&
+    input.commandKey !== "team.create"
+  ) {
+    return {
+      error: message,
+      hint: "Otto may need to be added to that Linear team before retrying this team command.",
+    };
+  }
+
   return {
     error: message,
   };
-}
-
-function handleRouteError(error: unknown) {
-  if (error instanceof Error) {
-    if (
-      error.message === "Missing runtime bearer token" ||
-      error.message === "Invalid runtime bearer token"
-    ) {
-      return json(
-        {
-          error: error.message,
-        },
-        401,
-      );
-    }
-
-    return json(buildExecutionErrorResponse(error.message), 400);
-  }
-
-  return json(
-    {
-      error: "Managed integration execution failed",
-    },
-    500,
-  );
 }
 
 async function handleExecuteRequest(request: Request) {
@@ -160,8 +156,39 @@ async function handleExecuteRequest(request: Request) {
       `[integration-gateway] execute tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} command=${commandKey} failed`,
       error,
     );
-    return handleRouteError(error);
+    return handleRouteErrorWithCommand(error, commandKey);
   }
+}
+
+function handleRouteErrorWithCommand(error: unknown, commandKey?: string) {
+  if (error instanceof Error) {
+    if (
+      error.message === "Missing runtime bearer token" ||
+      error.message === "Invalid runtime bearer token"
+    ) {
+      return json(
+        {
+          error: error.message,
+        },
+        401,
+      );
+    }
+
+    return json(
+      buildExecutionErrorResponse({
+        commandKey,
+        error,
+      }),
+      400,
+    );
+  }
+
+  return json(
+    {
+      error: "Managed integration execution failed",
+    },
+    500,
+  );
 }
 
 export async function handleIntegrationGatewayRequest(request: Request) {
