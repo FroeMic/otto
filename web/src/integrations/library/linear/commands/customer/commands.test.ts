@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import {
   executeLinearCustomerCreate,
+  executeLinearCustomerDelete,
   executeLinearCustomerGet,
   executeLinearCustomerList,
   executeLinearCustomerListNeeds,
@@ -350,5 +351,57 @@ describe("linear customer commands", () => {
     assert.equal(result.customer?.id, "customer-1");
     assert.equal(result.totalMatched, 1);
     assert.equal(result.items[0]?.customerId, "customer-1");
+  });
+
+  it("deletes customers by id", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            customerDelete: {
+              entityId: "customer-1",
+              lastSyncId: 93,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearCustomerDelete({
+      arguments: {
+        customerId: "customer-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedCustomerId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: { id: string };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearCustomerDelete/);
+    assert.equal(payload.variables.id, "customer-1");
+    assert.equal(result.commandKey, "customer.delete");
+    assert.equal(result.deletedCustomerId, "customer-1");
+    assert.equal(result.lastSyncId, 93);
+    assert.equal(result.lookup, "customer-1");
+    assert.equal(result.success, true);
   });
 });

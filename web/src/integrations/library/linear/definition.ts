@@ -15,6 +15,7 @@ import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
 import {
   executeLinearCustomerCreate,
+  executeLinearCustomerDelete,
   executeLinearCustomerGet,
   executeLinearCustomerList,
   executeLinearCustomerListNeeds,
@@ -51,6 +52,7 @@ import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearDocumentCreate } from "./commands/document/create";
+import { executeLinearDocumentDelete } from "./commands/document/delete";
 import { executeLinearDocumentGet } from "./commands/document/get";
 import { executeLinearDocumentList } from "./commands/document/list";
 import { executeLinearDocumentSearch } from "./commands/document/search";
@@ -58,6 +60,8 @@ import { executeLinearDocumentUpdate } from "./commands/document/update";
 import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
+  executeLinearInitiativeCreateUpdate,
+  executeLinearInitiativeDelete,
   executeLinearInitiativeGet,
   executeLinearInitiativeList,
   executeLinearInitiativeListProjects,
@@ -68,6 +72,7 @@ import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
 import { executeLinearIssueCreate } from "./commands/issue/create";
+import { executeLinearIssueDelete } from "./commands/issue/delete";
 import { executeLinearIssueGet } from "./commands/issue/get";
 import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image";
 import { executeLinearIssueList } from "./commands/issue/list";
@@ -100,6 +105,7 @@ import {
 import { executeLinearProjectArchive } from "./commands/project/archive";
 import { executeLinearProjectCreate } from "./commands/project/create";
 import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
+import { executeLinearProjectDelete } from "./commands/project/delete";
 import { executeLinearProjectGet } from "./commands/project/get";
 import { executeLinearProjectList } from "./commands/project/list";
 import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
@@ -124,6 +130,7 @@ import {
   executeLinearProjectStatusUpdate,
 } from "./commands/project-status/commands";
 import { executeLinearTeamCreate } from "./commands/team/create";
+import { executeLinearTeamDelete } from "./commands/team/delete";
 import { executeLinearTeamGet } from "./commands/team/get";
 import { executeLinearTeamList } from "./commands/team/list";
 import { executeLinearTeamListCycles } from "./commands/team/list-cycles";
@@ -131,6 +138,10 @@ import { executeLinearTeamListIssues } from "./commands/team/list-issues";
 import { executeLinearTeamListLabels } from "./commands/team/list-labels";
 import { executeLinearTeamListProjects } from "./commands/team/list-projects";
 import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
+import { executeLinearTeamMembersAdd } from "./commands/team/members-add";
+import { executeLinearTeamMembersRemove } from "./commands/team/members-remove";
+import { executeLinearTeamMembersUpdate } from "./commands/team/members-update";
+import { executeLinearTeamUnarchive } from "./commands/team/unarchive";
 import { executeLinearTeamUpdate } from "./commands/team/update";
 import { executeLinearUserGet } from "./commands/user/get";
 import { executeLinearUserList } from "./commands/user/list";
@@ -143,6 +154,11 @@ import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/
 import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams";
 import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
+import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
+import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel";
+import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-member/invite-resend";
+import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
+import { executeLinearWorkspaceMemberUpdate } from "./commands/workspace-member/update";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
 
@@ -289,6 +305,30 @@ const USER_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear user id.",
+} as const;
+
+const USER_ROLE_ARGUMENT_SCHEMA = {
+  type: "string",
+  enum: ["admin", "app", "guest", "owner", "user"],
+  description: "Linear user role.",
+} as const;
+
+const TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear team membership id.",
+} as const;
+
+const EMAIL_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Email address.",
+} as const;
+
+const ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear organization invite id.",
 } as const;
 
 const DOCUMENT_ID_ARGUMENT_SCHEMA = {
@@ -1713,6 +1753,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               },
               required: ["customerId"],
             },
+            commandKey: "customer.delete",
+            commandPath: ["customer", "delete"],
+            description: "Delete one Linear customer.",
+            exampleArguments: {
+              customerId: "customer-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer",
+              "delete customer",
+              "remove customer",
+            ],
+            label: "Delete customer",
+            resultMode: "json",
+            usageNotes: [
+              "Use this only when the customer record should be permanently removed.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
             commandKey: "customer.get",
             commandPath: ["customer", "get"],
             description: "Read one Linear customer by id.",
@@ -2579,6 +2654,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               },
               required: ["initiativeId"],
             },
+            commandKey: "initiative.delete",
+            commandPath: ["initiative", "delete"],
+            description: "Delete one Linear initiative.",
+            exampleArguments: {
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "delete initiative",
+              "remove initiative",
+            ],
+            label: "Delete initiative",
+            resultMode: "json",
+            usageNotes: [
+              "Use initiative.archive when you want the initiative off the roadmap without hard deletion.",
+            ],
+            validate: (argumentsObject) => ({
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+            }),
+            execute: executeLinearInitiativeDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["initiativeId"],
+            },
             commandKey: "initiative.get",
             commandPath: ["initiative", "get"],
             description:
@@ -2872,6 +2982,65 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearInitiativeArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                body: {
+                  type: "string",
+                  description: "Optional initiative update body in markdown.",
+                },
+                health: PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA,
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                isDiffHidden: {
+                  type: "boolean",
+                  description:
+                    "Whether the diff between this update and the previous one should be hidden.",
+                },
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.create_update",
+            commandPath: ["initiative", "create_update"],
+            description: "Create one update entry for a Linear initiative.",
+            exampleArguments: {
+              body: "Still on track",
+              health: "onTrack",
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "create update",
+              "status update",
+            ],
+            label: "Create initiative update",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you want to post a roadmap update without editing the initiative itself.",
+            ],
+            validate: (argumentsObject) => ({
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : undefined,
+              health:
+                typeof argumentsObject.health === "string"
+                  ? argumentsObject.health.trim()
+                  : undefined,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              isDiffHidden:
+                typeof argumentsObject.isDiffHidden === "boolean"
+                  ? argumentsObject.isDiffHidden
+                  : undefined,
+            }),
+            execute: executeLinearInitiativeCreateUpdate,
           },
           {
             argumentsSchema: {
@@ -3742,6 +3911,235 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               type: "object",
               additionalProperties: false,
               properties: {
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.delete",
+            commandPath: ["team", "delete"],
+            description: "Delete one Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "team", "delete team", "remove team"],
+            label: "Delete team",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before deleting a team.",
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                alsoLeaveParentTeams: {
+                  type: "boolean",
+                  description:
+                    "Whether to also remove the user from inherited parent team memberships.",
+                },
+                membershipId: TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["membershipId"],
+            },
+            commandKey: "team.members_remove",
+            commandPath: ["team", "members_remove"],
+            description: "Remove one user from a Linear team by membership id.",
+            exampleArguments: {
+              membershipId: "team-membership-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "remove team member",
+              "leave team",
+              "team membership",
+            ],
+            label: "Remove team member",
+            resultMode: "json",
+            usageNotes: [
+              "Use user.list_team_memberships first to get the canonical membership id.",
+              "Set alsoLeaveParentTeams when the membership was inherited from a parent team structure.",
+            ],
+            validate: (argumentsObject) => ({
+              alsoLeaveParentTeams:
+                typeof argumentsObject.alsoLeaveParentTeams === "boolean"
+                  ? argumentsObject.alsoLeaveParentTeams
+                  : undefined,
+              membershipId:
+                typeof argumentsObject.membershipId === "string"
+                  ? argumentsObject.membershipId.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamMembersRemove,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                membershipId: TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA,
+                owner: {
+                  type: "boolean",
+                  description: "Whether the user should be a team owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional sort order for the team membership.",
+                },
+              },
+              required: ["membershipId"],
+            },
+            commandKey: "team.members_update",
+            commandPath: ["team", "members_update"],
+            description: "Update one Linear team membership.",
+            exampleArguments: {
+              membershipId: "team-membership-id",
+              owner: true,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "update team member",
+              "promote team member",
+              "change team membership",
+              "team membership",
+            ],
+            label: "Update team member",
+            resultMode: "json",
+            usageNotes: [
+              "Use user.list_team_memberships first to get the canonical membership id.",
+              "This requires at least one update field besides membershipId.",
+            ],
+            validate: (argumentsObject) => ({
+              membershipId:
+                typeof argumentsObject.membershipId === "string"
+                  ? argumentsObject.membershipId.trim()
+                  : "",
+              owner:
+                typeof argumentsObject.owner === "boolean"
+                  ? argumentsObject.owner
+                  : undefined,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : undefined,
+            }),
+            execute: executeLinearTeamMembersUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                owner: {
+                  type: "boolean",
+                  description: "Whether the user should be a team owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional sort order for the team membership.",
+                },
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey", "userId"],
+            },
+            commandKey: "team.members_add",
+            commandPath: ["team", "members_add"],
+            description: "Add one user to a Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+              userId: "7036157e-c337-4699-8134-6b833b85b844",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "add team member",
+              "invite to team",
+              "team membership",
+            ],
+            label: "Add team member",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before adding a team member.",
+              "Use user.list to find the target Linear user id first.",
+            ],
+            validate: (argumentsObject) => ({
+              owner:
+                typeof argumentsObject.owner === "boolean"
+                  ? argumentsObject.owner
+                  : undefined,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : undefined,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamMembersAdd,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.unarchive",
+            commandPath: ["team", "unarchive"],
+            description: "Unarchive one previously deleted Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "restore team",
+              "unarchive team",
+            ],
+            label: "Unarchive team",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before restoring a team.",
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamUnarchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
                 color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
                 cyclesEnabled: {
                   type: "boolean",
@@ -3913,6 +4311,269 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["team"],
         intentKeywords: ["linear", "team", "squad", "group", "planning"],
         label: "Teams",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                avatarUrl: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                displayName: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                name: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusEmoji: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusLabel: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusUntilAt: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                timezone: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "workspace_member.update",
+            commandPath: ["workspace_member", "update"],
+            description: "Update one existing Linear workspace member profile.",
+            exampleArguments: {
+              statusLabel: "Helping customers",
+              userId: "7036157e-c337-4699-8134-6b833b85b844",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "update member",
+              "update user",
+              "member profile",
+            ],
+            label: "Update workspace member",
+            resultMode: "json",
+            usageNotes: [
+              "This updates the Linear user profile fields, not workspace role assignments.",
+              "Use user.list or user.get first to confirm the target user id.",
+            ],
+            validate: (argumentsObject) => ({
+              avatarUrl:
+                typeof argumentsObject.avatarUrl === "string"
+                  ? argumentsObject.avatarUrl.trim()
+                  : undefined,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : undefined,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : undefined,
+              statusEmoji:
+                typeof argumentsObject.statusEmoji === "string"
+                  ? argumentsObject.statusEmoji.trim()
+                  : undefined,
+              statusLabel:
+                typeof argumentsObject.statusLabel === "string"
+                  ? argumentsObject.statusLabel.trim()
+                  : undefined,
+              statusUntilAt:
+                typeof argumentsObject.statusUntilAt === "string"
+                  ? argumentsObject.statusUntilAt.trim()
+                  : undefined,
+              timezone:
+                typeof argumentsObject.timezone === "string"
+                  ? argumentsObject.timezone.trim()
+                  : undefined,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearWorkspaceMemberUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                email: EMAIL_ARGUMENT_SCHEMA,
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "workspace_member.invite_resend",
+            commandPath: ["workspace_member", "invite_resend"],
+            description:
+              "Resend one pending Linear workspace invite by invite id or email.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "resend invite",
+              "retry invite email",
+              "organization invite",
+            ],
+            label: "Resend workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer inviteId when you already have the canonical invite id.",
+              "Use email only when you need a simpler fallback lookup.",
+            ],
+            validate: (argumentsObject) => ({
+              email:
+                typeof argumentsObject.email === "string"
+                  ? argumentsObject.email.trim()
+                  : undefined,
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : undefined,
+            }),
+            execute: executeLinearWorkspaceMemberInviteResend,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["inviteId"],
+            },
+            commandKey: "workspace_member.invite_cancel",
+            commandPath: ["workspace_member", "invite_cancel"],
+            description: "Cancel one pending Linear workspace invite.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "cancel invite",
+              "revoke invite",
+              "organization invite",
+            ],
+            label: "Cancel workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
+            ],
+            validate: (argumentsObject) => ({
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : "",
+            }),
+            execute: executeLinearWorkspaceMemberInviteCancel,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+              },
+              required: ["inviteId", "teamIds"],
+            },
+            commandKey: "workspace_member.invite_update",
+            commandPath: ["workspace_member", "invite_update"],
+            description:
+              "Update one pending Linear workspace invite by replacing its assigned team ids.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+              teamIds: ["6332efd5-64d0-4e60-a33f-9078e7f2620b"],
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "update invite",
+              "change invite teams",
+              "organization invite",
+            ],
+            label: "Update workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
+              "teamIds replaces the full team assignment for that pending invite.",
+            ],
+            validate: (argumentsObject) => ({
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : "",
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                    .filter((value) => typeof value === "string")
+                    .map((value) => value.trim())
+                    .filter((value) => value.length > 0)
+                : [],
+            }),
+            execute: executeLinearWorkspaceMemberInviteUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                email: EMAIL_ARGUMENT_SCHEMA,
+                role: USER_ROLE_ARGUMENT_SCHEMA,
+                teamIds: TEAM_IDS_ARGUMENT_SCHEMA,
+              },
+              required: ["email"],
+            },
+            commandKey: "workspace_member.invite",
+            commandPath: ["workspace_member", "invite"],
+            description:
+              "Invite one person into the Linear workspace, optionally scoped to teams.",
+            exampleArguments: {
+              email: "person@example.com",
+              role: "user",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "invite member",
+              "invite teammate",
+              "organization invite",
+            ],
+            label: "Invite workspace member",
+            resultMode: "json",
+            usageNotes: [
+              "Use teamIds to pre-assign the invited person to one or more teams.",
+              "This requires Linear workspace invite permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              email:
+                typeof argumentsObject.email === "string"
+                  ? argumentsObject.email.trim()
+                  : "",
+              role:
+                typeof argumentsObject.role === "string"
+                  ? argumentsObject.role.trim()
+                  : undefined,
+              teamIds: Array.isArray(argumentsObject.teamIds)
+                ? argumentsObject.teamIds
+                    .filter((value) => typeof value === "string")
+                    .map((value) => value.trim())
+                    .filter((value) => value.length > 0)
+                : undefined,
+            }),
+            execute: executeLinearWorkspaceMemberInvite,
+          },
+        ],
+        description:
+          "Workspace invite and member-management commands for the connected Linear workspace.",
+        groupKey: "workspace_member",
+        groupPath: ["workspace_member"],
+        intentKeywords: ["linear", "workspace", "member", "invite", "people"],
+        label: "Workspace Members",
       },
       {
         commands: [
@@ -4245,6 +4906,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearDocumentSearch,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.delete",
+            commandPath: ["document", "delete"],
+            description: "Delete one Linear document.",
+            exampleArguments: {
+              documentId: "document-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "delete document",
+              "remove document",
+            ],
+            label: "Delete document",
+            resultMode: "json",
+            usageNotes: [
+              "This permanently deletes the document instead of updating or reparenting it.",
+            ],
+            validate: (argumentsObject) => ({
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentDelete,
           },
           {
             argumentsSchema: {
@@ -6394,6 +7090,37 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               additionalProperties: false,
               properties: {
                 identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["identifierOrId"],
+            },
+            commandKey: "issue.delete",
+            commandPath: ["issue", "delete"],
+            description: "Delete one Linear issue.",
+            exampleArguments: {
+              identifierOrId: "INT-6",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "issue", "delete issue", "remove issue"],
+            label: "Delete issue",
+            resultMode: "json",
+            usageNotes: [
+              "Use the issue identifier like INT-6 or the canonical issue id.",
+              "This permanently deletes the issue instead of archiving it.",
+            ],
+            validate: (argumentsObject) => ({
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+            }),
+            execute: executeLinearIssueDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
                 trash: {
                   type: "boolean",
                   description:
@@ -6978,6 +7705,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : null,
             }),
             execute: executeLinearProjectUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.delete",
+            commandPath: ["project", "delete"],
+            description: "Delete one Linear project.",
+            exampleArguments: {
+              projectId: "project-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project",
+              "delete project",
+              "remove project",
+            ],
+            label: "Delete project",
+            resultMode: "json",
+            usageNotes: [
+              "Use project.archive when you want a softer archive flow instead of hard deletion.",
+            ],
+            validate: (argumentsObject) => ({
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectDelete,
           },
           {
             argumentsSchema: {

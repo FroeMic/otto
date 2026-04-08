@@ -33,6 +33,7 @@ describe("runtime integration registry", () => {
         "cycle",
         "workspace",
         "team",
+        "workspace_member",
         "user",
         "document",
         "label",
@@ -57,7 +58,13 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "team")
         ?.commandCount,
-      9,
+      14,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "workspace_member",
+      )?.commandCount,
+      5,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "user")
@@ -67,7 +74,7 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "document")
         ?.commandCount,
-      5,
+      6,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "label")
@@ -107,23 +114,23 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "customer")
         ?.commandCount,
-      5,
+      6,
     );
     assert.equal(
       manifest[0]?.commandGroups.find(
         (group) => group.groupKey === "initiative",
       )?.commandCount,
-      7,
+      9,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")
         ?.commandCount,
-      15,
+      16,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "project")
         ?.commandCount,
-      12,
+      13,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "cycle")

@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearIssueBatchUpdate } from "./batch-update";
 import { executeLinearIssueCreate } from "./create";
+import { executeLinearIssueDelete } from "./delete";
 import { executeLinearIssueInsertInlineImage } from "./insert-inline-image";
 import { executeLinearIssueListComments } from "./list-comments";
 import { executeLinearIssueUploadInlineImage } from "./upload-inline-image";
@@ -569,5 +570,76 @@ describe("linear issue commands", () => {
       "https://uploads.linear.app/assets/openclaw-logo.png",
     );
     assert.match(result.issue?.description ?? "", /!\[Inline logo\]/);
+  });
+
+  it("deletes one issue after resolving its identifier", async () => {
+    let callCount = 0;
+    globalThis.fetch = (async (_input, init) => {
+      callCount += 1;
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+
+      if (body.query.includes("searchIssues")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchIssues: {
+                nodes: [buildIssueNode()],
+              },
+            },
+          }),
+          {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          },
+        );
+      }
+
+      assert.match(body.query, /mutation OttoLinearIssueDelete/);
+      assert.deepEqual(body.variables, {
+        id: "issue-uuid-1",
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            issueDelete: {
+              entityId: "issue-uuid-1",
+              lastSyncId: 93,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearIssueDelete({
+      arguments: {
+        identifierOrId: "INT-6",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedIssueId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    assert.equal(callCount, 2);
+    assert.equal(result.commandKey, "issue.delete");
+    assert.equal(result.deletedIssueId, "issue-uuid-1");
+    assert.equal(result.lastSyncId, 93);
+    assert.equal(result.lookup, "INT-6");
+    assert.equal(result.success, true);
   });
 });

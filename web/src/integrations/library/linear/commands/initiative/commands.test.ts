@@ -4,6 +4,8 @@ import { afterEach, describe, it } from "node:test";
 import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
+  executeLinearInitiativeCreateUpdate,
+  executeLinearInitiativeDelete,
   executeLinearInitiativeGet,
   executeLinearInitiativeList,
   executeLinearInitiativeListProjects,
@@ -366,6 +368,55 @@ describe("linear initiative commands", () => {
     assert.equal(result.success, true);
   });
 
+  it("deletes initiatives by id", async () => {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: { id: string };
+      };
+      assert.match(body.query, /mutation OttoLinearInitiativeDelete/);
+      assert.equal(body.variables.id, "initiative-1");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            initiativeDelete: {
+              entityId: "initiative-1",
+              lastSyncId: 65,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearInitiativeDelete({
+      arguments: {
+        initiativeId: "initiative-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedInitiativeId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    assert.equal(result.commandKey, "initiative.delete");
+    assert.equal(result.deletedInitiativeId, "initiative-1");
+    assert.equal(result.lastSyncId, 65);
+    assert.equal(result.lookup, "initiative-1");
+    assert.equal(result.success, true);
+  });
+
   it("lists projects for one initiative", async () => {
     let requestBody = "";
     globalThis.fetch = (async (_input, init) => {
@@ -470,5 +521,69 @@ describe("linear initiative commands", () => {
     assert.equal(result.initiative?.id, "initiative-1");
     assert.equal(result.totalMatched, 1);
     assert.equal(result.items[0]?.initiativeId, "initiative-1");
+  });
+
+  it("creates initiative updates with a curated input shape", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            initiativeUpdateCreate: {
+              initiativeUpdate: buildInitiativeUpdateNode(),
+              lastSyncId: 64,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearInitiativeCreateUpdate({
+      arguments: {
+        body: "Still on track",
+        health: "onTrack",
+        initiativeId: "initiative-1",
+        isDiffHidden: false,
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      initiativeUpdate: {
+        health: string | null;
+        id: string | null;
+        initiativeId: string | null;
+      } | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      variables: { input: Record<string, unknown> };
+    };
+
+    assert.deepEqual(payload.variables.input, {
+      body: "Still on track",
+      health: "onTrack",
+      initiativeId: "initiative-1",
+      isDiffHidden: false,
+    });
+    assert.equal(result.commandKey, "initiative.create_update");
+    assert.equal(result.lastSyncId, 64);
+    assert.equal(result.lookup, "initiative-1");
+    assert.equal(result.success, true);
+    assert.equal(result.initiativeUpdate?.id, "initiative-update-1");
+    assert.equal(result.initiativeUpdate?.health, "onTrack");
+    assert.equal(result.initiativeUpdate?.initiativeId, "initiative-1");
   });
 });
