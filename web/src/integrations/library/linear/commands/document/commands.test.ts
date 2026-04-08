@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearDocumentCreate } from "./create";
+import { executeLinearDocumentDelete } from "./delete";
 import { executeLinearDocumentGet } from "./get";
 import { executeLinearDocumentList } from "./list";
 import { executeLinearDocumentSearch } from "./search";
@@ -349,6 +350,58 @@ describe("linear document commands", () => {
     assert.equal(result.commandKey, "document.update");
     assert.equal(result.document?.title, "Updated doc");
     assert.equal(result.lastSyncId, 13);
+    assert.equal(result.success, true);
+  });
+
+  it("deletes documents by id", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            documentDelete: {
+              entityId: "document-1",
+              lastSyncId: 14,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearDocumentDelete({
+      arguments: {
+        documentId: "document-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedDocumentId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: { id: string };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearDocumentDelete/);
+    assert.equal(payload.variables.id, "document-1");
+    assert.equal(result.commandKey, "document.delete");
+    assert.equal(result.deletedDocumentId, "document-1");
+    assert.equal(result.lastSyncId, 14);
+    assert.equal(result.lookup, "document-1");
     assert.equal(result.success, true);
   });
 });

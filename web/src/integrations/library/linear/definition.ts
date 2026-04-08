@@ -51,6 +51,7 @@ import { executeLinearCycleList } from "./commands/cycle/list";
 import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
 import { executeLinearCycleUpdate } from "./commands/cycle/update";
 import { executeLinearDocumentCreate } from "./commands/document/create";
+import { executeLinearDocumentDelete } from "./commands/document/delete";
 import { executeLinearDocumentGet } from "./commands/document/get";
 import { executeLinearDocumentList } from "./commands/document/list";
 import { executeLinearDocumentSearch } from "./commands/document/search";
@@ -4773,6 +4774,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearDocumentSearch,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                documentId: DOCUMENT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["documentId"],
+            },
+            commandKey: "document.delete",
+            commandPath: ["document", "delete"],
+            description: "Delete one Linear document.",
+            exampleArguments: {
+              documentId: "document-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "document",
+              "delete document",
+              "remove document",
+            ],
+            label: "Delete document",
+            resultMode: "json",
+            usageNotes: [
+              "This permanently deletes the document instead of updating or reparenting it.",
+            ],
+            validate: (argumentsObject) => ({
+              documentId:
+                typeof argumentsObject.documentId === "string"
+                  ? argumentsObject.documentId.trim()
+                  : "",
+            }),
+            execute: executeLinearDocumentDelete,
           },
           {
             argumentsSchema: {
