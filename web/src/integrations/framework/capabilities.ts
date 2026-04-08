@@ -1,7 +1,9 @@
 import type {
   IntegrationCapabilityPolicy,
   IntegrationCommandEffect,
+  IntegrationDefinition,
   IntegrationRuntimeCommandDefinition,
+  IntegrationRuntimeCommandGroupDefinition,
   RuntimeCapabilityState,
   RuntimeIntegrationStatus,
 } from "./types";
@@ -112,5 +114,72 @@ export function resolveCommandCapabilityState(input: {
 
   return {
     status: "enabled",
+  };
+}
+
+export type ResolvedIntegrationCommandCapability = {
+  capabilityKey: string;
+  capabilityState: RuntimeCapabilityState;
+  capabilityType: "command";
+  commandKey: string;
+  commandPath: string[];
+  description: string;
+  effect: IntegrationCommandEffect;
+  integrationKey: string;
+  integrationLabel: string;
+  label: string;
+  policy: IntegrationCapabilityPolicy | null;
+  userControllable: boolean;
+};
+
+function collectCommandsFromGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+): IntegrationRuntimeCommandDefinition[] {
+  return [
+    ...(group.commands ?? []),
+    ...((group.childGroups ?? []).flatMap(collectCommandsFromGroup) ?? []),
+  ];
+}
+
+export function listIntegrationCommands(input: {
+  definition: IntegrationDefinition & {
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
+  };
+}) {
+  return [
+    ...input.definition.runtimeSurface.rootCommands,
+    ...input.definition.runtimeSurface.commandGroups.flatMap(
+      collectCommandsFromGroup,
+    ),
+  ];
+}
+
+export function buildResolvedIntegrationCommandCapability(input: {
+  command: IntegrationRuntimeCommandDefinition;
+  definition: IntegrationDefinition & {
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
+  };
+  policy: IntegrationCapabilityPolicy | null;
+  status: RuntimeIntegrationStatus;
+}): ResolvedIntegrationCommandCapability {
+  return {
+    capabilityKey: input.command.commandKey,
+    capabilityState: resolveCommandCapabilityState({
+      command: input.command,
+      policy: input.policy,
+      status: input.status,
+    }),
+    capabilityType: "command",
+    commandKey: input.command.commandKey,
+    commandPath: [...input.command.commandPath],
+    description: input.command.description,
+    effect: getCommandEffect(input.command),
+    integrationKey: input.definition.key,
+    integrationLabel: input.definition.label,
+    label: input.command.label,
+    policy: getCommandPolicy({
+      policy: input.policy,
+    }),
+    userControllable: isCommandUserControllable(input.command),
   };
 }
