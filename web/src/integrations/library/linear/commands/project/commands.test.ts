@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearProjectCreate } from "./create";
 import { executeLinearProjectCreateUpdate } from "./create-update";
+import { executeLinearProjectDelete } from "./delete";
 import { executeLinearProjectListIssues } from "./list-issues";
 import { executeLinearProjectSearch } from "./search";
 
@@ -342,6 +343,58 @@ describe("linear project commands", () => {
     assert.equal(result.projectUpdate?.health, "onTrack");
     assert.equal(result.projectUpdate?.projectName, "Credits workflow");
     assert.equal(result.lastSyncId, 77);
+    assert.equal(result.success, true);
+  });
+
+  it("deletes projects by id", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            projectDelete: {
+              entityId: "project-1",
+              lastSyncId: 59,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearProjectDelete({
+      arguments: {
+        projectId: "project-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedProjectId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBody) as {
+      query: string;
+      variables: { id: string };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearProjectDelete/);
+    assert.equal(payload.variables.id, "project-1");
+    assert.equal(result.commandKey, "project.delete");
+    assert.equal(result.deletedProjectId, "project-1");
+    assert.equal(result.lastSyncId, 59);
+    assert.equal(result.lookup, "project-1");
     assert.equal(result.success, true);
   });
 });

@@ -101,6 +101,7 @@ import {
 import { executeLinearProjectArchive } from "./commands/project/archive";
 import { executeLinearProjectCreate } from "./commands/project/create";
 import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
+import { executeLinearProjectDelete } from "./commands/project/delete";
 import { executeLinearProjectGet } from "./commands/project/get";
 import { executeLinearProjectList } from "./commands/project/list";
 import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
@@ -7536,6 +7537,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : null,
             }),
             execute: executeLinearProjectUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                projectId: PROJECT_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["projectId"],
+            },
+            commandKey: "project.delete",
+            commandPath: ["project", "delete"],
+            description: "Delete one Linear project.",
+            exampleArguments: {
+              projectId: "project-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "project",
+              "delete project",
+              "remove project",
+            ],
+            label: "Delete project",
+            resultMode: "json",
+            usageNotes: [
+              "Use project.archive when you want a softer archive flow instead of hard deletion.",
+            ],
+            validate: (argumentsObject) => ({
+              projectId:
+                typeof argumentsObject.projectId === "string"
+                  ? argumentsObject.projectId.trim()
+                  : "",
+            }),
+            execute: executeLinearProjectDelete,
           },
           {
             argumentsSchema: {
