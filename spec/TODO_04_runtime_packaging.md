@@ -23,7 +23,7 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
   custom runtime image layer on top of upstream OpenClaw instead of forking the
   whole runtime repo.
 - Keep Otto-owned runtime plugins under `runtime-plugins/` and copy them into
-  `/app/extensions` in the custom runtime image so OpenClaw discovers them as
+  `/app/dist/extensions` in the custom runtime image so OpenClaw discovers them as
   bundled plugins.
 - Pin the upstream OpenClaw base image to an actual published container tag
   such as `ghcr.io/openclaw/openclaw:2026.4.8`, not only a Git release name.
