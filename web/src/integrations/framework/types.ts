@@ -11,16 +11,33 @@ export type IntegrationCommandInputMode =
 
 export type IntegrationCommandResultMode = "download_url" | "file_ref" | "json";
 
+export type IntegrationCapabilityPolicy = {
+  policy: "allow" | "block";
+};
+
+export type IntegrationCommandEffect = "read" | "write";
+
+export type RuntimeCapabilityState = {
+  reason?: string;
+  status: "disabled" | "enabled" | "needs_attention";
+};
+
 export type IntegrationCommandDefinition = {
+  agentAvailability?: {
+    available: boolean;
+    reason: string;
+  };
   argumentsSchema: Record<string, unknown>;
   commandKey: string;
   commandPath: string[];
   description: string;
+  effect?: IntegrationCommandEffect;
   exampleArguments?: Record<string, unknown>;
   inputMode: IntegrationCommandInputMode;
   intentKeywords?: string[];
   label: string;
   resultMode: IntegrationCommandResultMode;
+  userControllable?: boolean;
   usageNotes?: string[];
 };
 
@@ -115,6 +132,7 @@ export type RuntimeIntegrationSummaryResponse = {
 
 export type RuntimeIntegrationCommandDetails = {
   argumentsSchema: Record<string, unknown>;
+  capabilityState: RuntimeCapabilityState;
   commandKey: string;
   commandPath: string[];
   description: string;
@@ -126,7 +144,9 @@ export type RuntimeIntegrationCommandDetails = {
   };
   inputMode: IntegrationCommandInputMode;
   label: string;
+  policy: IntegrationCapabilityPolicy | null;
   resultMode: IntegrationCommandResultMode;
+  userControllable: boolean;
   usageNotes: string[];
 };
 

@@ -14,6 +14,7 @@ import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import { getTenantIntegrationCapabilityPolicy } from "@/db/integration-capability-policies";
 import {
   createTenantManagedSkillForTenant,
   listLatestTenantManagedSkillVersionMapTx,
@@ -4597,6 +4598,7 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
       disconnectedAt: tenantIntegrations.disconnectedAt,
       integrationStatus: tenantIntegrations.status,
       providerKey: tenantIntegrations.providerKey,
+      tenantIntegrationId: tenantIntegrations.id,
     })
     .from(tenantIntegrations)
     .leftJoin(
@@ -4623,6 +4625,7 @@ function buildRuntimeTenantIntegrations(input: {
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
@@ -4647,6 +4650,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const statusByProviderKey = new Map<
@@ -4656,6 +4660,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
       connectionStatus: string | null;
       disconnectedAt: Date | null;
       integrationStatus: string | null;
+      tenantIntegrationId: string;
     }
   >();
 
@@ -4686,9 +4691,11 @@ function buildRuntimeDefinitionsWithStatus(input: {
         enabled: connected,
         integrationStatus,
         needsAttention:
+          integrationStatus === "error" ||
           integrationStatus === "needs_attention" ||
           connectionStatus === "needs_attention",
       },
+      tenantIntegrationId: row?.tenantIntegrationId ?? null,
     };
   });
 }
@@ -4899,10 +4906,12 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
       providerKeys: [integrationKey],
       tenantId: input.tenantId,
     });
-    const [{ status }] = buildRuntimeDefinitionsWithStatus({
-      definitions: [definition],
-      rows,
-    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [definition],
+        rows,
+      },
+    );
 
     const detail =
       input.detailType === "command"
@@ -4913,10 +4922,20 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
       return null;
     }
 
+    const policy =
+      input.detailType === "command" && tenantIntegrationId
+        ? await getTenantIntegrationCapabilityPolicy({
+            capabilityKey: (detail as IntegrationRuntimeCommandDefinition)
+              .commandKey,
+            tenantIntegrationId,
+          })
+        : null;
+
     return buildRuntimeIntegrationDetailsResponse({
       definition,
       detail,
       detailType: input.detailType,
+      policy,
       status,
     });
   });

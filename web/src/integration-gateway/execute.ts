@@ -1,43 +1,15 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
+import { getTenantIntegrationCapabilityPolicy } from "@/db/integration-capability-policies";
 import { recordIntegrationExecutionAudit } from "@/db/integration-execution-audits";
 import { tenantIntegrations } from "@/db/schema";
 import {
+  collectCommands,
   executeRegisteredIntegrationCommand,
   getIntegrationDefinition,
-  listSupportedRuntimeIntegrationKeys,
+  resolveCommandCapabilityState,
 } from "@/integrations/framework";
-
-async function getEnabledManagedRuntimeIntegrationKeysForTenant(input: {
-  tenantId: string;
-}) {
-  const supportedProviderKeys = listSupportedRuntimeIntegrationKeys();
-
-  if (supportedProviderKeys.length === 0) {
-    return [];
-  }
-
-  const db = getDb();
-  const rows = await db
-    .select({
-      connectedAt: tenantIntegrations.connectedAt,
-      disconnectedAt: tenantIntegrations.disconnectedAt,
-      providerKey: tenantIntegrations.providerKey,
-    })
-    .from(tenantIntegrations)
-    .where(
-      and(
-        eq(tenantIntegrations.tenantId, input.tenantId),
-        inArray(tenantIntegrations.providerKey, supportedProviderKeys),
-      ),
-    );
-
-  return rows
-    .filter((row) => row.connectedAt && !row.disconnectedAt)
-    .map((row) => row.providerKey)
-    .sort((left, right) => left.localeCompare(right));
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -65,6 +37,48 @@ function resolveCommandKey(input: {
   return "unknown";
 }
 
+async function getTenantIntegrationExecutionState(input: {
+  integrationKey: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+      integrationStatus: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, input.integrationKey),
+      ),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+function buildRuntimeStatus(input: {
+  connectedAt: Date | null;
+  disconnectedAt: Date | null;
+  integrationStatus: string | null;
+}) {
+  const connected = Boolean(input.connectedAt && !input.disconnectedAt);
+  const integrationStatus = input.integrationStatus ?? null;
+
+  return {
+    connected,
+    connectionStatus: null,
+    enabled: connected,
+    integrationStatus,
+    needsAttention:
+      integrationStatus === "error" || integrationStatus === "needs_attention",
+  };
+}
+
 export async function executeRuntimeIntegrationInGateway(input: {
   arguments: Record<string, unknown>;
   commandKey?: string;
@@ -89,40 +103,58 @@ export async function executeRuntimeIntegrationInGateway(input: {
       );
     }
 
-    const providerKeys = await getEnabledManagedRuntimeIntegrationKeysForTenant(
-      {
-        tenantId: input.tenantId,
-      },
+    const command = collectCommands(definition.runtimeSurface).find(
+      (entry) => entry.commandKey === commandKey,
     );
 
-    if (!providerKeys.includes(integrationKey)) {
+    if (!command) {
       throw new Error(
-        `Managed integration ${input.integrationKey} is not enabled for this tenant.`,
+        `${definition.key} does not support the ${commandKey || "requested"} command.`,
+      );
+    }
+
+    const integrationState = await getTenantIntegrationExecutionState({
+      integrationKey,
+      tenantId: input.tenantId,
+    });
+    const tenantStatus = buildRuntimeStatus({
+      connectedAt: integrationState?.connectedAt ?? null,
+      disconnectedAt: integrationState?.disconnectedAt ?? null,
+      integrationStatus: integrationState?.integrationStatus ?? null,
+    });
+
+    const policy = integrationState?.id
+      ? await getTenantIntegrationCapabilityPolicy({
+          capabilityKey: command.commandKey,
+          tenantIntegrationId: integrationState.id,
+        })
+      : null;
+    const capabilityState = resolveCommandCapabilityState({
+      command,
+      policy,
+      status: tenantStatus,
+    });
+
+    if (capabilityState.status === "disabled") {
+      throw new Error(
+        `Capability ${integrationKey}.${command.commandKey} is disabled. ${capabilityState.reason ?? ""}`.trim(),
+      );
+    }
+
+    if (capabilityState.status === "needs_attention") {
+      throw new Error(
+        `Capability ${integrationKey}.${command.commandKey} needs attention. ${capabilityState.reason ?? ""}`.trim(),
       );
     }
 
     if (definition.oauth) {
-      const db = getDb();
-      const [integration] = await db
-        .select({
-          id: tenantIntegrations.id,
-        })
-        .from(tenantIntegrations)
-        .where(
-          and(
-            eq(tenantIntegrations.tenantId, input.tenantId),
-            eq(tenantIntegrations.providerKey, integrationKey),
-          ),
-        )
-        .limit(1);
-
-      if (!integration) {
+      if (!integrationState?.id) {
         throw new Error(
           `${definition.label} is not connected in this workspace.`,
         );
       }
 
-      tenantIntegrationId = integration.id;
+      tenantIntegrationId = integrationState.id;
     }
 
     const result = await executeRegisteredIntegrationCommand({

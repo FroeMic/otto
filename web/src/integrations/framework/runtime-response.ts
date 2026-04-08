@@ -1,4 +1,10 @@
+import {
+  getCommandPolicy,
+  isCommandUserControllable,
+  resolveCommandCapabilityState,
+} from "./capabilities";
 import type {
+  IntegrationCapabilityPolicy,
   IntegrationDefinition,
   IntegrationOverviewEntry,
   IntegrationRuntimeCommandDefinition,
@@ -93,9 +99,16 @@ export function buildRuntimeIntegrationSummaryResponse(input: {
 function buildCommandDetails(input: {
   command: IntegrationRuntimeCommandDefinition;
   integrationKey: string;
+  policy: IntegrationCapabilityPolicy | null;
+  status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationCommandDetails {
   return {
     argumentsSchema: input.command.argumentsSchema,
+    capabilityState: resolveCommandCapabilityState({
+      command: input.command,
+      policy: input.policy,
+      status: input.status,
+    }),
     commandKey: input.command.commandKey,
     commandPath: [...input.command.commandPath],
     description: input.command.description,
@@ -107,7 +120,11 @@ function buildCommandDetails(input: {
     },
     inputMode: input.command.inputMode,
     label: input.command.label,
+    policy: getCommandPolicy({
+      policy: input.policy,
+    }),
     resultMode: input.command.resultMode,
+    userControllable: isCommandUserControllable(input.command),
     usageNotes: input.command.usageNotes ?? [],
   };
 }
@@ -133,6 +150,7 @@ export function buildRuntimeIntegrationDetailsResponse(input: {
   detail:
     | IntegrationRuntimeCommandDefinition
     | IntegrationRuntimeCommandGroupDefinition;
+  policy?: IntegrationCapabilityPolicy | null;
   status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationDetailsResponse {
   return {
@@ -141,6 +159,8 @@ export function buildRuntimeIntegrationDetailsResponse(input: {
           command: buildCommandDetails({
             command: input.detail as IntegrationRuntimeCommandDefinition,
             integrationKey: input.definition.key,
+            policy: input.policy ?? null,
+            status: input.status,
           }),
         }
       : {
