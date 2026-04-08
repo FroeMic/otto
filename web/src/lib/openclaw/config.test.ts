@@ -70,6 +70,12 @@ describe("renderOpenClawConfig", () => {
       },
       enabled: true,
     });
+    assert.deepEqual(renderedConfig.plugins.entries.openai, {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries["memory-core"], {
+      enabled: false,
+    });
     assert.deepEqual(renderedConfig.tools.media.audio, {
       enabled: true,
       maxBytes: 20 * 1024 * 1024,
@@ -180,6 +186,9 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.plugins.entries.brave.config.webSearch, {
       mode: "web",
     });
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      enabled: false,
+    });
   });
 
   it("renders WhatsApp config with the Otto-managed defaults", () => {
@@ -272,6 +281,9 @@ describe("renderOpenClawConfig", () => {
       renderedConfig.plugins.entries["otto-ai-provider"].enabled,
       true,
     );
+    assert.deepEqual(renderedConfig.plugins.entries.openai, {
+      enabled: false,
+    });
     assert.deepEqual(renderedConfig.models.providers["openai-proxy"], {
       api: "openai-responses",
       // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
@@ -282,6 +294,36 @@ describe("renderOpenClawConfig", () => {
       models: [],
     });
     assert.equal(renderedConfig.tools.alsoAllow, undefined);
+  });
+
+  it("re-enables a web search plugin when Otto selects it", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      webSearch: {
+        enabled: true,
+        gemini: {
+          mode: "web",
+        },
+        provider: "google",
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.plugins.allow, ["google"]);
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      config: {
+        webSearch: {
+          mode: "web",
+        },
+      },
+      enabled: true,
+    });
   });
 
   it("routes audio transcription through openai-proxy when the proxy provider is configured", () => {

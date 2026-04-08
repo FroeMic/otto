@@ -130,6 +130,7 @@
   - `runtime-image/Dockerfile` now layers Otto plugins into `/app/dist/extensions/`, matching the bundled plugin root used by the published OpenClaw image
   - the runtime image now seeds `/home/node/.openclaw` with restrictive defaults, and tenant runtime apply now enforces `700` on the runtime home plus `600` on `openclaw.json`
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
+  - rendered tenant runtime config now also emits explicit `enabled: false` entries for non-selected bundled provider and memory plugins, so managed runtimes do not inherit OpenClaw's upstream provider defaults accidentally
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
   - the plugin packaging is now aligned with the released OpenClaw `2026.4.8` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
 - Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:

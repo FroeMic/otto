@@ -88,6 +88,51 @@ export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
 
 const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
+const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
+  "amazon-bedrock",
+  "amazon-bedrock-mantle",
+  "anthropic",
+  "anthropic-vertex",
+  "arcee",
+  "byteplus",
+  "chutes",
+  "cloudflare-ai-gateway",
+  "comfy",
+  "copilot-proxy",
+  "deepseek",
+  "fal",
+  "fireworks",
+  "github-copilot",
+  "google",
+  "huggingface",
+  "kilocode",
+  "kimi-coding",
+  "litellm",
+  "memory-core",
+  "microsoft-foundry",
+  "minimax",
+  "mistral",
+  "moonshot",
+  "nvidia",
+  "ollama",
+  "openai",
+  "opencode",
+  "opencode-go",
+  "openrouter",
+  "qianfan",
+  "qwen",
+  "sglang",
+  "stepfun",
+  "synthetic",
+  "together",
+  "venice",
+  "vercel-ai-gateway",
+  "vllm",
+  "volcengine",
+  "xai",
+  "xiaomi",
+  "zai",
+] as const;
 
 function buildWebSearchPluginEntries(
   webSearch: OpenClawWebSearchConfig | undefined,
@@ -173,6 +218,20 @@ function normalizeProviderId(value: string) {
   return value.trim().toLowerCase();
 }
 
+function buildDefaultDisabledPluginEntries(): Record<
+  string,
+  {
+    enabled: false;
+  }
+> {
+  return Object.fromEntries(
+    DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS.map((pluginId) => [
+      pluginId,
+      { enabled: false as const },
+    ]),
+  );
+}
+
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
@@ -199,6 +258,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   );
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
+  const defaultDisabledPluginEntries = buildDefaultDisabledPluginEntries();
   const pluginIds = [
     ...new Set([
       ...ottoToolPluginIds,
@@ -207,6 +267,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   ];
   const pluginEntries = {
+    ...defaultDisabledPluginEntries,
     ...ottoToolPluginEntries,
     ...ottoProviderPluginEntries,
     ...webSearchPluginEntries,
