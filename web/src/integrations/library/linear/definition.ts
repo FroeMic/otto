@@ -132,6 +132,7 @@ import { executeLinearTeamListIssues } from "./commands/team/list-issues";
 import { executeLinearTeamListLabels } from "./commands/team/list-labels";
 import { executeLinearTeamListProjects } from "./commands/team/list-projects";
 import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
+import { executeLinearTeamUnarchive } from "./commands/team/unarchive";
 import { executeLinearTeamUpdate } from "./commands/team/update";
 import { executeLinearUserGet } from "./commands/user/get";
 import { executeLinearUserList } from "./commands/user/list";
@@ -3768,6 +3769,42 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearTeamDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.unarchive",
+            commandPath: ["team", "unarchive"],
+            description: "Unarchive one previously deleted Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "restore team",
+              "unarchive team",
+            ],
+            label: "Unarchive team",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before restoring a team.",
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamUnarchive,
           },
           {
             argumentsSchema: {

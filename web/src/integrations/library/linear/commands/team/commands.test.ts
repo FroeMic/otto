@@ -10,6 +10,7 @@ import { executeLinearTeamListIssues } from "./list-issues";
 import { executeLinearTeamListLabels } from "./list-labels";
 import { executeLinearTeamListProjects } from "./list-projects";
 import { executeLinearTeamListWorkflowStates } from "./list-workflow-states";
+import { executeLinearTeamUnarchive } from "./unarchive";
 import { executeLinearTeamUpdate } from "./update";
 
 function buildCycleNode(overrides: Record<string, unknown> = {}) {
@@ -697,6 +698,64 @@ describe("linear team commands", () => {
     assert.equal(result.commandKey, "team.delete");
     assert.equal(result.deletedTeamId, "team-1");
     assert.equal(result.lastSyncId, 125);
+    assert.equal(result.lookup, "INT");
+    assert.equal(result.success, true);
+  });
+
+  it("unarchives a team after resolving its key", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          teams: {
+            nodes: [buildTeamNode()],
+          },
+        },
+      },
+      {
+        data: {
+          teamUnarchive: {
+            entity: buildTeamNode({
+              archivedAt: null,
+            }),
+            lastSyncId: 126,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamUnarchive({
+      arguments: {
+        teamIdOrKey: "INT",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+      team: {
+        archivedAt: string | null;
+        id: string | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBodies[1] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearTeamUnarchive/);
+    assert.equal(payload.variables.id, "team-1");
+    assert.equal(result.commandKey, "team.unarchive");
+    assert.equal(result.team?.id, "team-1");
+    assert.equal(result.team?.archivedAt, null);
+    assert.equal(result.lastSyncId, 126);
     assert.equal(result.lookup, "INT");
     assert.equal(result.success, true);
   });

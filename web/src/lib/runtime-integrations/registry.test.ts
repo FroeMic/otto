@@ -57,7 +57,7 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "team")
         ?.commandCount,
-      10,
+      11,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "user")
