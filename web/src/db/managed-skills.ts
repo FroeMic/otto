@@ -878,6 +878,10 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
     tenantId: string;
   },
 ) {
+  console.info("[managed-skills] ensure system skills start", {
+    tenantId: input.tenantId,
+  });
+
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
     const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
       skillKey: definition.skillKey,
@@ -885,7 +889,12 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
     });
 
     if (!detail) {
-      await createTenantManagedSkillForTenant({
+      console.info("[managed-skills] seeding missing system skill", {
+        skillKey: definition.skillKey,
+        tenantId: input.tenantId,
+      });
+
+      await createTenantManagedSkillForTenantTx(tx, {
         createdByType: "system",
         files: [
           {
@@ -924,6 +933,10 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
       tenantId: input.tenantId,
     });
   }
+
+  console.info("[managed-skills] ensure system skills complete", {
+    tenantId: input.tenantId,
+  });
 }
 
 function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {
