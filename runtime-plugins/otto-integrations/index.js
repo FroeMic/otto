@@ -19,10 +19,6 @@ export default definePluginEntry({
     "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups, use get_integration_details to inspect one command or command group in detail, use manage_integration when an integration needs attention, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
-    console.info(
-      "[otto-integrations] register staticTools=find_integration_commands,list_integrations,get_integration,get_integration_details,manage_integration,execute_integration_command",
-    );
-
     api.registerTool(
       {
         name: "find_integration_commands",

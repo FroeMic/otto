@@ -9,7 +9,9 @@ import {
 const DELETE_ISSUE_MUTATION = `
   mutation OttoLinearIssueDelete($id: String!) {
     issueDelete(id: $id) {
-      entityId
+      entity {
+        id
+      }
       lastSyncId
       success
     }
@@ -37,7 +39,9 @@ export const executeLinearIssueDelete: IntegrationCommandExecute = async ({
   });
   const data = await executeLinearGraphql<{
     issueDelete?: {
-      entityId?: string | null;
+      entity?: {
+        id?: string | null;
+      } | null;
       lastSyncId?: number | null;
       success?: boolean | null;
     } | null;
@@ -52,7 +56,7 @@ export const executeLinearIssueDelete: IntegrationCommandExecute = async ({
   return {
     ...buildLinearDeleteCommandResult({
       commandKey: "issue.delete",
-      entityId: data.issueDelete?.entityId,
+      entityId: data.issueDelete?.entity?.id,
       entityKey: "IssueId",
       lastSyncId: data.issueDelete?.lastSyncId,
       success: data.issueDelete?.success,

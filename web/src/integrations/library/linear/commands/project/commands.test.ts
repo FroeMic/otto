@@ -355,7 +355,9 @@ describe("linear project commands", () => {
         JSON.stringify({
           data: {
             projectDelete: {
-              entityId: "project-1",
+              entity: {
+                id: "project-1",
+              },
               lastSyncId: 59,
               success: true,
             },

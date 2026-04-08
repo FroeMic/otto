@@ -362,7 +362,9 @@ describe("linear document commands", () => {
         JSON.stringify({
           data: {
             documentDelete: {
-              entityId: "document-1",
+              entity: {
+                id: "document-1",
+              },
               lastSyncId: 14,
               success: true,
             },

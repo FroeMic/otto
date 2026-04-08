@@ -53,4 +53,30 @@ describe("integration gateway execution error responses", () => {
     );
     assert.equal(response.hint, undefined);
   });
+
+  it("uses a stronger permission hint for team delete", () => {
+    const response = buildExecutionErrorResponse({
+      commandKey: "team.delete",
+      error: new LinearGraphqlError(
+        "Only a workspace administrator or team owner can delete this team.",
+        {
+          code: "FORBIDDEN",
+          userPresentableMessage:
+            "Only a workspace administrator or team owner can delete this team.",
+        },
+      ),
+    }) as {
+      error: string;
+      hint?: string;
+    };
+
+    assert.equal(
+      response.error,
+      "Only a workspace administrator or team owner can delete this team.",
+    );
+    assert.equal(
+      response.hint,
+      "Otto's current Linear actor may need workspace-admin or team-owner permissions before retrying this team command.",
+    );
+  });
 });
