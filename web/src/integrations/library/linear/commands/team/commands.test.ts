@@ -11,6 +11,7 @@ import { executeLinearTeamListLabels } from "./list-labels";
 import { executeLinearTeamListProjects } from "./list-projects";
 import { executeLinearTeamListWorkflowStates } from "./list-workflow-states";
 import { executeLinearTeamMembersAdd } from "./members-add";
+import { executeLinearTeamMembersUpdate } from "./members-update";
 import { executeLinearTeamUnarchive } from "./unarchive";
 import { executeLinearTeamUpdate } from "./update";
 
@@ -868,5 +869,66 @@ describe("linear team commands", () => {
     assert.equal(result.teamMembership?.team?.key, "INT");
     assert.equal(result.teamMembership?.user?.id, "user-1");
     assert.equal(result.teamMembership?.user?.email, "alice@example.com");
+  });
+
+  it("updates one team membership by membership id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          teamMembershipUpdate: {
+            lastSyncId: 128,
+            success: true,
+            teamMembership: buildTeamMembershipNode({
+              owner: false,
+              sortOrder: 4,
+            }),
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamMembersUpdate({
+      arguments: {
+        membershipId: "membership-1",
+        owner: false,
+        sortOrder: 4,
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+      teamMembership: {
+        id: string | null;
+        owner: boolean;
+        sortOrder: number;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+        input: Record<string, unknown>;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearTeamMembershipUpdate/);
+    assert.equal(payload.variables.id, "membership-1");
+    assert.deepEqual(payload.variables.input, {
+      owner: false,
+      sortOrder: 4,
+    });
+    assert.equal(result.commandKey, "team.members_update");
+    assert.equal(result.lastSyncId, 128);
+    assert.equal(result.lookup, "membership-1");
+    assert.equal(result.success, true);
+    assert.equal(result.teamMembership?.id, "membership-1");
+    assert.equal(result.teamMembership?.owner, false);
+    assert.equal(result.teamMembership?.sortOrder, 4);
   });
 });
