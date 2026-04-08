@@ -16,6 +16,14 @@
 - A parallel public-site planning track still exists in `www/spec/`, but the newer long-term direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - the landing page and workspace should converge into one browser-facing frontend over time
   - `www/` and `web/` are now legacy app boundaries during the planned migration rather than the desired steady state
+- The unified frontend migration has now moved from planning into the first implementation slice:
+  - Phase 0 has started
+  - the first complete port target is `www/` into `apps/frontend`
+  - the new subpackages must each carry `format`, `lint`, `test`, and `build` gates before their first commit
+- The first new frontend slice now exists in parallel:
+  - `apps/frontend` is a Bun-managed package with Hono SSR, React landing routes, a TanStack Router workspace placeholder, and package-level `format`, `lint`, `test`, and `build` gates
+  - the current `www/` landing routes have been ported there without deleting `www/`
+  - the style-token source for this first port is the current `www/app/globals.css` token set and visual treatment
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
@@ -515,12 +523,12 @@
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
 - If the current priority shifts to the unified frontend and service extraction work, start `TODO_20_unified_frontend_and_hono_migration.md` in this order:
-  - Phase 0 packaging and shared-package extraction
-  - Phase 1 gateway extraction
-  - Phase 2 worker extraction
-  - Phase 3 API extraction
-  - Phase 4 unified frontend foundation
-  - only then begin workspace slice cutovers
+  - Bun workspace and repo-level gate scaffolding
+  - fully port `www/` into `apps/frontend` without deleting `www/`
+  - then continue Phase 1 gateway extraction
+  - then Phase 2 worker extraction
+  - then Phase 3 API extraction
+  - then continue unified frontend and workspace slice cutovers
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto

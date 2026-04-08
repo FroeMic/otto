@@ -1,16 +1,27 @@
 {
   "name": "otto",
+  "packageManager": "bun@1.3.5",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm --prefix web run dev",
     "dev:www": "bun --cwd www run dev",
+    "dev:frontend": "bun run --cwd apps/frontend dev",
     "worker": "npm --prefix web run worker",
     "dev:all": "npm --prefix web run dev:all",
     "lint": "npm --prefix web run lint",
     "lint:www": "bun --cwd www run lint",
+    "lint:frontend": "bun run --cwd apps/frontend lint",
     "build": "npm --prefix web run build",
     "build:www": "bun --cwd www run build",
+    "build:frontend": "bun run --cwd apps/frontend build",
     "format:www": "bun --cwd www run format",
+    "format:frontend": "bun run --cwd apps/frontend format",
+    "test:frontend": "bun run --cwd apps/frontend test",
+    "check:frontend": "bun run lint:frontend && bun run test:frontend && bun run build:frontend",
     "runtime:image:publish": "./publish-runtime-image.sh"
   }
 }

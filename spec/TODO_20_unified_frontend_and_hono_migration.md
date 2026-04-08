@@ -571,7 +571,7 @@ Exit criteria:
 
 ### Overall migration state
 
-- current state: planning only
+- current state: Phase 0 foundation starting
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -581,11 +581,42 @@ Exit criteria:
   - extracted `gateway`
   - extracted `worker`
 - current recommended first implementation step:
-  - package extraction and service boundary preparation
+  - create the new Bun workspace and fully port legacy `www` into `apps/frontend` without deleting `www/`
+
+### Immediate execution order
+
+The first implementation passes should happen in this order:
+
+1. Bun workspace and repo-level gate scaffolding
+2. `apps/frontend` as the first fully ported app
+3. legacy `www` route and style port into `apps/frontend`
+4. then `apps/gateway`
+5. then `apps/worker`
+6. then `apps/api`
+7. only then begin workspace SPA slice cutovers from `web/`
+
+### First port target
+
+The first complete port target is the current `www/` app.
+
+Definition of done for that target:
+
+- legacy `www` routes are implemented in `apps/frontend`
+- the new frontend runs through Hono
+- landing routes are server-rendered there
+- the new frontend package has working `format`, `lint`, `test`, and `build` gates
+- `www/` remains in the repo unchanged as the legacy fallback until a later retirement phase
+
+Current checkpoint:
+
+- complete in parallel implementation
+- cutover still pending
+- `apps/frontend` now exists as the new frontend service foundation
+- the legacy `www/` app remains present and untouched as the fallback
 
 ### Phase checklist
 
-- [ ] Phase 0 started
+- [x] Phase 0 started
 - [ ] Phase 0 complete
 - [ ] Phase 1 started
 - [ ] Phase 1 complete
@@ -607,7 +638,7 @@ Exit criteria:
 - `www`:
   - current owner: legacy marketing app
   - target owner: `frontend`
-  - status: not started
+  - status: parallel port complete, cutover pending
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `frontend`
