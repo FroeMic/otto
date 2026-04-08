@@ -749,15 +749,24 @@ Tracker:
   - `[x]` `cycle.list_issues`
 
 - `team`
-  - `[ ]` `team.list`
-  - `[ ]` `team.get`
-  - `[ ]` `team.create`
-  - `[ ]` `team.update`
-  - `[ ]` `team.list_cycles`
-  - `[ ]` `team.list_workflow_states`
-  - `[ ]` `team.list_labels`
-  - `[ ]` `team.list_projects`
-  - `[ ]` `team.list_issues`
+  - `[x]` `team.list`
+  - `[x]` `team.get`
+  - `[x]` `team.create`
+  - `[x]` `team.update`
+  - `[x]` `team.list_cycles`
+  - `[x]` `team.list_workflow_states`
+  - `[x]` `team.list_labels`
+  - `[x]` `team.list_projects`
+  - `[x]` `team.list_issues`
+  - Later testing plan:
+    - verify `team.list` returns all accessible teams with stable key/id/displayName metadata
+    - verify `team.get` by both team key and canonical team id
+    - verify `team.list_cycles` against a team with an active cycle and one with historical cycles only
+    - verify `team.list_workflow_states` against a team with inherited and custom workflow states
+    - verify `team.list_labels` against a team with active and retired issue labels
+    - verify `team.list_projects` against a team with multiple projects in different statuses
+    - verify `team.list_issues` against a team with active backlog and completed work
+    - verify `team.create` and `team.update` in a workspace where the connected Linear actor has sufficient team-management permissions
 
 - `user`
   - `[x]` `user.get`
@@ -915,16 +924,10 @@ Tracker:
 
 Immediate next recommended slice:
 
-- move to the next adjacent object slices:
-  - `team.list`
-  - `team.get`
-  - `team.create`
-  - `team.update`
-  - `team.list_cycles`
-  - `team.list_workflow_states`
-  - `team.list_labels`
-  - `team.list_projects`
-  - `team.list_issues`
+- Linear command coverage is complete through the final `team.*` slice.
+- next recommended work:
+  - `Increment 7: Safe Linear settings with validation`
+  - then `Increment 9: Integration-linked skill projection`
 
 ## Slack Example
 
