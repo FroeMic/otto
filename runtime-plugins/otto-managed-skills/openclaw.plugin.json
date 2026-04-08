@@ -1,0 +1,23 @@
+{
+  "id": "otto-managed-skills",
+  "name": "Otto Managed Skills",
+  "description": "Managed skill tools backed by the workspace app.",
+  "contracts": {
+    "tools": [
+      "list_managed_skills",
+      "get_managed_skill",
+      "read_managed_skill_file",
+      "patch_managed_skill_file"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000
+      }
+    }
+  }
+}

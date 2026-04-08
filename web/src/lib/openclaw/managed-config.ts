@@ -231,6 +231,7 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "## Managed Instruction Files",
       "",
       "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md`.",
+      "- Use `list_managed_skills`, `get_managed_skill`, `read_managed_skill_file`, and `patch_managed_skill_file` for workspace-managed skills under `workspace/skills/`.",
       "- Use normal file and exec tools for everything else in the local workspace.",
       "- Do not use managed-file tools for secrets, gateway auth, sandbox settings, or operator-only policy.",
     ].join("\n"),

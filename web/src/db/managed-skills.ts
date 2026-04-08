@@ -53,6 +53,17 @@ export type TenantManagedSkillDetail = {
   version: number;
 };
 
+export class ManagedSkillVersionConflictError extends Error {
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Managed skill version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
+    );
+  }
+}
+
 export async function createTenantManagedSkillForTenant(input: {
   createdByExternalId?: string | null;
   createdByType: "runtime" | "system" | "user";
@@ -546,8 +557,9 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     input.expectedVersion !== undefined &&
     detail.version !== input.expectedVersion
   ) {
-    throw new Error(
-      `Managed skill version mismatch: expected ${input.expectedVersion}, current ${detail.version}`,
+    throw new ManagedSkillVersionConflictError(
+      input.expectedVersion,
+      detail.version,
     );
   }
 

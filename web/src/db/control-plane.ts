@@ -4330,17 +4330,39 @@ export async function updateTenantManagedSkillTextFile(input: {
     throw new Error("Organization tenant not found");
   }
 
+  return updateTenantManagedSkillTextFileForTenant({
+    contentText: input.contentText,
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    relativePath: input.relativePath,
+    skillKey: input.skillKey,
+    summary: `Updated ${input.skillKey}/${input.relativePath}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantManagedSkillTextFileForTenant(input: {
+  contentText: string;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  expectedVersion?: number;
+  relativePath: string;
+  skillKey: string;
+  summary?: string;
+  tenantId: string;
+}) {
   const db = getDb();
   const result = await db.transaction(async (tx) => {
     const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
       contentText: input.contentText,
-      createdByExternalId: input.userExternalId,
-      createdByType: "user",
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
       expectedVersion: input.expectedVersion,
       relativePath: input.relativePath,
       skillKey: input.skillKey,
-      summary: `Updated ${input.skillKey}/${input.relativePath}`,
-      tenantId: authorizedTenant.tenantId,
+      summary: input.summary,
+      tenantId: input.tenantId,
     });
 
     if (!updatedSkill.changed) {
@@ -4353,13 +4375,10 @@ export async function updateTenantManagedSkillTextFile(input: {
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
-        tenantId: authorizedTenant.tenantId,
+        tenantId: input.tenantId,
       })
     ).version;
-    const tenantRuntime = await getTenantRuntimeState(
-      tx,
-      authorizedTenant.tenantId,
-    );
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -4373,7 +4392,7 @@ export async function updateTenantManagedSkillTextFile(input: {
   if (result.applyQueued && result.changed && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
-      tenantId: authorizedTenant.tenantId,
+      tenantId: input.tenantId,
     });
   }
 
