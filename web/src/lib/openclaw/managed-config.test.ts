@@ -26,11 +26,31 @@ describe("buildManagedBootstrapFileContent", () => {
     assert.match(rendered, /## Workspace App Context/);
     assert.match(
       rendered,
-      /Slack settings: https:\/\/app\.getyourotto\.com\/michael\/integrations\/slack/,
+      /Workspace home: https:\/\/app\.getyourotto\.com\/michael/,
     );
     assert.match(
       rendered,
-      /Web Search settings: https:\/\/app\.getyourotto\.com\/michael\/tools\/web\/search/,
+      /Skills: https:\/\/app\.getyourotto\.com\/michael\/skills/,
+    );
+    assert.match(
+      rendered,
+      /Integrations: https:\/\/app\.getyourotto\.com\/michael\/integrations2/,
+    );
+    assert.match(
+      rendered,
+      /Otto settings: https:\/\/app\.getyourotto\.com\/michael\/agent/,
+    );
+    assert.match(
+      rendered,
+      /Scheduled tasks: https:\/\/app\.getyourotto\.com\/michael\/scheduled-tasks/,
+    );
+    assert.match(
+      rendered,
+      /Workspace settings: https:\/\/app\.getyourotto\.com\/michael\/settings\/workspace/,
+    );
+    assert.match(
+      rendered,
+      /User settings: https:\/\/app\.getyourotto\.com\/michael\/settings\/user/,
     );
   });
 

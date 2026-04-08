@@ -343,10 +343,13 @@ export function buildManagedBootstrapSystemContent(
     "",
     "### Known Workspace URLs",
     "",
-    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations`,
-    `- Slack settings: ${ottoBaseUrl}/${workspaceSlug}/integrations/slack`,
-    `- Tools: ${ottoBaseUrl}/${workspaceSlug}/tools`,
-    `- Web Search settings: ${ottoBaseUrl}/${workspaceSlug}/tools/web/search`,
+    `- Workspace home: ${ottoBaseUrl}/${workspaceSlug}`,
+    `- Skills: ${ottoBaseUrl}/${workspaceSlug}/skills`,
+    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations2`,
+    `- Otto settings: ${ottoBaseUrl}/${workspaceSlug}/agent`,
+    `- Scheduled tasks: ${ottoBaseUrl}/${workspaceSlug}/scheduled-tasks`,
+    `- Workspace settings: ${ottoBaseUrl}/${workspaceSlug}/settings/workspace`,
+    `- User settings: ${ottoBaseUrl}/${workspaceSlug}/settings/user`,
   ].join("\n");
 }
 
