@@ -7,7 +7,7 @@ import type {
   Role,
   User,
 } from "@workos-inc/node";
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
@@ -475,6 +475,10 @@ export class TenantRuntimeConfigVersionConflictError extends Error {
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
+
+const DESIRED_STATE_LOCK_TIMEOUT = "5s";
+const DESIRED_STATE_STATEMENT_TIMEOUT = "20s";
+const DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT = "20s";
 
 export type DashboardOrganization = {
   id: string;
@@ -8975,6 +8979,9 @@ async function ensureCurrentTenantDesiredStateVersionTx(
   console.info("[runtime-config] desired state tx start", {
     tenantId: input.tenantId,
   });
+  await configureDesiredStateTransactionTimeouts(tx, {
+    tenantId: input.tenantId,
+  });
   const [latestDesiredState] = await tx
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -9042,10 +9049,31 @@ async function compileTenantDesiredStateConfig(
   tx: DbTransaction,
   tenantId: string,
 ) {
+  const startedAt = Date.now();
+  console.info("[runtime-config] ensure managed config version start", {
+    tenantId,
+  });
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
   });
+  console.info("[runtime-config] ensure managed config version complete", {
+    durationMs: Date.now() - startedAt,
+    managedConfigVersion: managedConfig.version,
+    tenantId,
+  });
+
+  console.info("[runtime-config] ensure system managed skills start", {
+    tenantId,
+  });
   await ensureTenantSystemManagedSkillsForTenantTx(tx, {
+    tenantId,
+  });
+  console.info("[runtime-config] ensure system managed skills complete", {
+    durationMs: Date.now() - startedAt,
+    tenantId,
+  });
+
+  console.info("[runtime-config] list managed skill versions start", {
     tenantId,
   });
   const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(
@@ -9054,6 +9082,15 @@ async function compileTenantDesiredStateConfig(
       tenantId,
     },
   );
+  console.info("[runtime-config] list managed skill versions complete", {
+    durationMs: Date.now() - startedAt,
+    managedSkillCount: Object.keys(managedSkillVersionMap).length,
+    tenantId,
+  });
+
+  console.info("[runtime-config] load desired state inputs start", {
+    tenantId,
+  });
   const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
     tx
       .select({
@@ -9095,6 +9132,12 @@ async function compileTenantDesiredStateConfig(
       tenantId,
     }),
   ]);
+  console.info("[runtime-config] load desired state inputs complete", {
+    durationMs: Date.now() - startedAt,
+    hasSlackIntegration: Boolean(slackIntegration),
+    hasWhatsAppIntegration: Boolean(whatsAppIntegration),
+    tenantId,
+  });
 
   const config: Record<string, unknown> = {
     integrations: [],
@@ -9220,6 +9263,34 @@ async function compileTenantDesiredStateConfig(
   }
 
   return config;
+}
+
+async function configureDesiredStateTransactionTimeouts(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  console.info("[runtime-config] desired state tx timeouts start", {
+    idleInTransactionSessionTimeout: DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT,
+    lockTimeout: DESIRED_STATE_LOCK_TIMEOUT,
+    statementTimeout: DESIRED_STATE_STATEMENT_TIMEOUT,
+    tenantId: input.tenantId,
+  });
+
+  await tx.execute(
+    sql`select set_config('lock_timeout', ${DESIRED_STATE_LOCK_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('statement_timeout', ${DESIRED_STATE_STATEMENT_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('idle_in_transaction_session_timeout', ${DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT}, true)`,
+  );
+
+  console.info("[runtime-config] desired state tx timeouts complete", {
+    tenantId: input.tenantId,
+  });
 }
 
 async function getOrCreateTenantSlackRuntimeConfigEntry(
@@ -10003,6 +10074,10 @@ async function ensureLatestTenantManagedConfigVersion(
     tenantId: string;
   },
 ) {
+  const startedAt = Date.now();
+  console.info("[runtime-config] managed config lookup start", {
+    tenantId: input.tenantId,
+  });
   const [existingVersion] = await tx
     .select({
       id: tenantManagedConfigVersions.id,
@@ -10014,8 +10089,21 @@ async function ensureLatestTenantManagedConfigVersion(
     .limit(1);
 
   if (existingVersion) {
+    console.info("[runtime-config] managed config lookup complete", {
+      durationMs: Date.now() - startedAt,
+      seededInitialVersion: false,
+      tenantId: input.tenantId,
+      version: existingVersion.version,
+    });
     return existingVersion;
   }
+
+  console.info(
+    "[runtime-config] managed config missing; seeding initial version",
+    {
+      tenantId: input.tenantId,
+    },
+  );
 
   return createInitialTenantManagedConfigVersion(tx, {
     tenantId: input.tenantId,
@@ -10028,6 +10116,10 @@ async function createInitialTenantManagedConfigVersion(
     tenantId: string;
   },
 ) {
+  const startedAt = Date.now();
+  console.info("[runtime-config] create initial managed config start", {
+    tenantId: input.tenantId,
+  });
   const [createdVersion] = await tx
     .insert(tenantManagedConfigVersions)
     .values({
@@ -10040,6 +10132,12 @@ async function createInitialTenantManagedConfigVersion(
       id: tenantManagedConfigVersions.id,
       version: tenantManagedConfigVersions.version,
     });
+
+  console.info("[runtime-config] create initial managed config row inserted", {
+    durationMs: Date.now() - startedAt,
+    tenantId: input.tenantId,
+    version: createdVersion.version,
+  });
 
   await tx.insert(tenantManagedFileVersions).values(
     getManagedBootstrapFileDefinitions().map((definition) => ({
@@ -10054,6 +10152,13 @@ async function createInitialTenantManagedConfigVersion(
       tenantManagedConfigVersionId: createdVersion.id,
     })),
   );
+
+  console.info("[runtime-config] create initial managed config complete", {
+    durationMs: Date.now() - startedAt,
+    fileCount: getManagedBootstrapFileDefinitions().length,
+    tenantId: input.tenantId,
+    version: createdVersion.version,
+  });
 
   return createdVersion;
 }
