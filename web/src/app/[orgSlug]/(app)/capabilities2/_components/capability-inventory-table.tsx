@@ -26,6 +26,7 @@ import {
 export type CapabilityInventoryRow = {
   capabilityKey: string;
   capabilityType: "command" | "trigger";
+  commandGroup: string | null;
   description: string;
   effect: "read" | "write" | null;
   label: string;
@@ -88,6 +89,17 @@ function formatCapabilityEffect(effect: CapabilityInventoryRow["effect"]) {
   }
 
   return "—";
+}
+
+function formatCommandGroup(group: string | null) {
+  if (!group) {
+    return "—";
+  }
+
+  return group
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function parseCapabilityTypeFilter(value: string | null): CapabilityTypeFilter {
@@ -210,6 +222,18 @@ function createColumns(
         >
           {formatCapabilityType(row.original.capabilityType)}
         </Badge>
+      ),
+    },
+    {
+      accessorKey: "commandGroup",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Group" />
+      ),
+      size: 160,
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatCommandGroup(row.original.commandGroup)}
+        </span>
       ),
     },
     {

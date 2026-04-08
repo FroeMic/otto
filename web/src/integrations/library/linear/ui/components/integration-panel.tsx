@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import {
   type ReadonlyURLSearchParams,
   usePathname,
@@ -10,6 +9,8 @@ import {
 } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
+import { CapabilityInventoryTable } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import {
   SettingsCard,
   SettingsPage,
@@ -24,7 +25,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
@@ -46,6 +46,7 @@ type LinearIntegrationSummary = {
 type Props = {
   agentCapabilities: AgentCapability[];
   canConnect: boolean;
+  capabilityRows: CapabilityInventoryRow[];
   connectActionLabel: string;
   connectUrl: string;
   iconSrc: string | null;
@@ -168,6 +169,7 @@ export function LinearIntegrationPanel(props: Props) {
   const {
     agentCapabilities,
     canConnect,
+    capabilityRows,
     connectActionLabel,
     connectUrl,
     iconSrc,
@@ -325,14 +327,17 @@ export function LinearIntegrationPanel(props: Props) {
         <TabsContent value="capabilities">
           <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
-              <div className="flex justify-end">
-                <Link
-                  className={buttonVariants({ variant: "outline" })}
-                  href={`/${orgSlug}/integrations2/linear/capabilities`}
-                >
-                  Open capability controls
-                </Link>
-              </div>
+              <SettingsSection>
+                <SettingsSectionTitle>Capability controls</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Review which Linear commands Otto can use in this workspace
+                  and enable or disable them individually.
+                </SettingsSectionDescription>
+                <CapabilityInventoryTable
+                  rows={capabilityRows}
+                  showSource={false}
+                />
+              </SettingsSection>
               {capabilityGroups.map(([direction, capabilities]) => (
                 <SettingsSection key={direction}>
                   <SettingsSectionTitle>

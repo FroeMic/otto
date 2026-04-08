@@ -19,6 +19,7 @@ function buildCoreCapabilityRows(orgSlug: string): CapabilityInventoryRow[] {
         capability.direction === "trigger"
           ? ("trigger" as const)
           : ("command" as const),
+      commandGroup: null,
       description: capability.description,
       effect:
         capability.direction === "trigger"
@@ -79,6 +80,7 @@ export default async function Capabilities2Page({
         searchText: [
           row.label,
           row.description,
+          row.commandGroup ?? "",
           row.commandKey,
           row.sourceLabel,
           row.capabilityState.reason ?? "",
