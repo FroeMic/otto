@@ -179,6 +179,10 @@ const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
   listSupportedRuntimeIntegrationKeys();
 const runtimeManager = new RuntimeManager();
 
+function getLogMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
 function normalizeWorkspaceMembershipStatus(status: string) {
   return status.trim().toLowerCase();
 }
@@ -733,12 +737,23 @@ export type WorkspaceMemberDirectory = {
 };
 
 export async function syncUserFromSession(user: User) {
+  const startedAt = Date.now();
+  console.info("[auth] syncUserFromSession start", {
+    userExternalId: user.id,
+  });
+
   const syncedUser = await upsertLocalUser(user);
 
   await ensureWorkspaceMembershipProjection({
     allowStaleFallback: true,
     localUserId: syncedUser.id,
     reason: "session-sync",
+    userExternalId: user.id,
+  });
+
+  console.info("[auth] syncUserFromSession complete", {
+    durationMs: Date.now() - startedAt,
+    localUserId: syncedUser.id,
     userExternalId: user.id,
   });
 
@@ -822,7 +837,11 @@ async function requirePlatformAdmin(userExternalId: string) {
 export async function getDashboardOrganizations(
   userExternalId: string,
 ): Promise<DashboardOrganization[]> {
+  const startedAt = Date.now();
   const db = getDb();
+  console.info("[auth] getDashboardOrganizations start", {
+    userExternalId,
+  });
   await ensureWorkspaceMembershipProjection({
     allowStaleFallback: true,
     reason: "dashboard-organizations",
@@ -832,6 +851,11 @@ export async function getDashboardOrganizations(
   const organizationRows = await getDashboardOrganizationRows(userExternalId);
 
   if (organizationRows.length === 0) {
+    console.info("[auth] getDashboardOrganizations complete", {
+      durationMs: Date.now() - startedAt,
+      organizationCount: 0,
+      userExternalId,
+    });
     return [];
   }
 
@@ -1074,7 +1098,7 @@ export async function getDashboardOrganizations(
     latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
   }
 
-  return organizationRows.map((organization) => {
+  const organizationsForUser = organizationRows.map((organization) => {
     const organizationTenants = tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
       .map((tenant) => ({
@@ -1123,6 +1147,14 @@ export async function getDashboardOrganizations(
       tenants: organizationTenants,
     };
   });
+
+  console.info("[auth] getDashboardOrganizations complete", {
+    durationMs: Date.now() - startedAt,
+    organizationCount: organizationsForUser.length,
+    userExternalId,
+  });
+
+  return organizationsForUser;
 }
 
 export async function listPlatformOrganizationSlugs(input: {
@@ -4150,18 +4182,44 @@ export async function triggerPlatformOrganizationApply(input: {
   orgSlug: string;
   userExternalId: string;
 }) {
+  const startedAt = Date.now();
+  console.info("[platform/apply] trigger start", input);
   const tenant = await getPlatformTenantTarget(input);
 
   if (!tenant) {
     throw new Error("Organization tenant not found");
   }
 
+  console.info("[platform/apply] resolved tenant", {
+    orgSlug: input.orgSlug,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+    userExternalId: input.userExternalId,
+  });
+
   const desiredState = await ensureCurrentTenantDesiredStateVersion({
     tenantId: tenant.tenantId,
+  });
+  console.info("[platform/apply] desired state ready", {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    orgSlug: input.orgSlug,
+    tenantId: tenant.tenantId,
+    userExternalId: input.userExternalId,
   });
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     tenantId: tenant.tenantId,
+  });
+
+  console.info("[platform/apply] trigger complete", {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    durationMs: Date.now() - startedAt,
+    jobId,
+    orgSlug: input.orgSlug,
+    tenantId: tenant.tenantId,
+    userExternalId: input.userExternalId,
   });
 
   return {
@@ -8374,13 +8432,35 @@ export async function enqueueTenantConfigApply(input: {
 export async function ensureCurrentTenantDesiredStateVersion(input: {
   tenantId: string;
 }) {
+  const startedAt = Date.now();
   const db = getDb();
+  console.info("[runtime-config] ensure desired state start", {
+    tenantId: input.tenantId,
+  });
 
-  return db.transaction(async (tx) =>
-    ensureCurrentTenantDesiredStateVersionTx(tx, {
+  try {
+    const result = await db.transaction(async (tx) =>
+      ensureCurrentTenantDesiredStateVersionTx(tx, {
+        tenantId: input.tenantId,
+      }),
+    );
+
+    console.info("[runtime-config] ensure desired state complete", {
+      changed: result.changed,
+      durationMs: Date.now() - startedAt,
       tenantId: input.tenantId,
-    }),
-  );
+      version: result.version,
+    });
+
+    return result;
+  } catch (error) {
+    console.error("[runtime-config] ensure desired state failed", {
+      durationMs: Date.now() - startedAt,
+      error: getLogMessage(error),
+      tenantId: input.tenantId,
+    });
+    throw error;
+  }
 }
 
 async function upsertMessagingWorkspace(
@@ -8891,6 +8971,10 @@ async function ensureCurrentTenantDesiredStateVersionTx(
     tenantId: string;
   },
 ) {
+  const startedAt = Date.now();
+  console.info("[runtime-config] desired state tx start", {
+    tenantId: input.tenantId,
+  });
   const [latestDesiredState] = await tx
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -8901,12 +8985,26 @@ async function ensureCurrentTenantDesiredStateVersionTx(
     .orderBy(desc(tenantDesiredStates.version))
     .limit(1);
 
+  console.info("[runtime-config] compiling desired state config", {
+    latestVersion: latestDesiredState?.version ?? null,
+    tenantId: input.tenantId,
+  });
   const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+  console.info("[runtime-config] compiled desired state config", {
+    durationMs: Date.now() - startedAt,
+    latestVersion: latestDesiredState?.version ?? null,
+    tenantId: input.tenantId,
+  });
 
   if (
     latestDesiredState &&
     JSON.stringify(latestDesiredState.configJson) === JSON.stringify(configJson)
   ) {
+    console.info("[runtime-config] desired state unchanged", {
+      durationMs: Date.now() - startedAt,
+      tenantId: input.tenantId,
+      version: latestDesiredState.version,
+    });
     return {
       changed: false,
       configJson: latestDesiredState.configJson,
@@ -8926,6 +9024,12 @@ async function ensureCurrentTenantDesiredStateVersionTx(
       configJson: tenantDesiredStates.configJson,
       version: tenantDesiredStates.version,
     });
+
+  console.info("[runtime-config] desired state inserted", {
+    durationMs: Date.now() - startedAt,
+    nextVersion,
+    tenantId: input.tenantId,
+  });
 
   return {
     changed: true,

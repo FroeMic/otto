@@ -9,8 +9,23 @@ const globalForDb = globalThis as unknown as {
 
 function getClient() {
   if (!globalForDb.__dbClient) {
+    console.info("[db] initializing postgres client", {
+      maxConnections: 10,
+    });
     globalForDb.__dbClient = postgres(getEnv().DATABASE_URL, {
       max: 10,
+      onclose: (connectionId) => {
+        console.warn("[db] connection closed", {
+          connectionId,
+        });
+      },
+      onnotice: (notice) => {
+        console.warn("[db] notice", {
+          code: notice.code,
+          message: notice.message,
+          severity: notice.severity,
+        });
+      },
     });
   }
   return globalForDb.__dbClient;
