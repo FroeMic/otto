@@ -1288,6 +1288,15 @@ Acceptance criteria:
 
 Introduce a first-class capability control layer on top of managed integrations.
 
+Status:
+
+- functionally done on `main`
+- `integration-gateway` now resolves and enforces command capability state before execution
+- workspace users can review and toggle user-controllable command capabilities in:
+  - `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - `/[orgSlug]/capabilities2`
+- provider-unavailable Linear commands now resolve as disabled with a clear reason instead of relying only on usage-note copy
+
 Product intent:
 
 - `Integrations` remain the workspace-managed connections to external systems.
