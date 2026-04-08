@@ -13,7 +13,9 @@
 ## Current state
 
 - Repository state is still mostly bootstrap.
-- A parallel public-site planning track now exists in `www/spec/` for a standalone marketing site that will sit beside `web/` instead of inside it.
+- A parallel public-site planning track still exists in `www/spec/`, but the newer long-term direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
+  - the landing page and workspace should converge into one browser-facing frontend over time
+  - `www/` and `web/` are now legacy app boundaries during the planned migration rather than the desired steady state
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
@@ -512,6 +514,13 @@
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
 - In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
+- If the current priority shifts to the unified frontend and service extraction work, start `TODO_20_unified_frontend_and_hono_migration.md` in this order:
+  - Phase 0 packaging and shared-package extraction
+  - Phase 1 gateway extraction
+  - Phase 2 worker extraction
+  - Phase 3 API extraction
+  - Phase 4 unified frontend foundation
+  - only then begin workspace slice cutovers
 - When billing implementation becomes active, start `TODO_15_billing_and_credit_metering.md` in this order:
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto

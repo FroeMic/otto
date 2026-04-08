@@ -38,8 +38,8 @@ This folder is the source of truth for the public website plan.
 
 ## Working assumptions
 
-- the public website should live in its own standalone Next.js app under `www/`
-- `web/` remains the workspace app hosted under `app.getyourotto.com`
+- `www/` is the current legacy home of the public website, but the long-term direction is now a unified browser-facing frontend captured in `/Users/michaelfrohlich/Repositories/otto/spec/TODO_20_unified_frontend_and_hono_migration.md`
+- `web/` remains the current legacy workspace app during that migration
 - the public site should reuse Otto's warm, rounded visual language without coupling itself to workspace-only code
 - shadcn is the default component base
 - Magic UI can be used for fast marketing-site prototyping, but only via local env setup and never by committing registry credentials
