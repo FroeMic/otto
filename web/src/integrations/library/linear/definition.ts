@@ -149,6 +149,7 @@ import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams
 import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
 import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
 import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
+import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
@@ -4176,6 +4177,42 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                inviteId: ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["inviteId"],
+            },
+            commandKey: "workspace_member.invite_cancel",
+            commandPath: ["workspace_member", "invite_cancel"],
+            description: "Cancel one pending Linear workspace invite.",
+            exampleArguments: {
+              inviteId: "organization-invite-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "cancel invite",
+              "revoke invite",
+              "organization invite",
+            ],
+            label: "Cancel workspace invite",
+            resultMode: "json",
+            usageNotes: [
+              "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
+            ],
+            validate: (argumentsObject) => ({
+              inviteId:
+                typeof argumentsObject.inviteId === "string"
+                  ? argumentsObject.inviteId.trim()
+                  : "",
+            }),
+            execute: executeLinearWorkspaceMemberInviteCancel,
+          },
           {
             argumentsSchema: {
               type: "object",

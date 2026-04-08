@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
 import { executeLinearWorkspaceMemberInvite } from "./invite";
+import { executeLinearWorkspaceMemberInviteCancel } from "./invite-cancel";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./invite-update";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
@@ -183,5 +184,50 @@ describe("linear workspace member commands", () => {
     assert.equal(result.success, true);
     assert.equal(result.invite?.id, "invite-1");
     assert.equal(result.invite?.email, "new.person@example.com");
+  });
+
+  it("cancels one pending workspace invite by invite id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          organizationInviteDelete: {
+            entityId: "invite-1",
+            lastSyncId: 132,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearWorkspaceMemberInviteCancel({
+      arguments: {
+        inviteId: "invite-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedInviteId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearOrganizationInviteDelete/);
+    assert.equal(payload.variables.id, "invite-1");
+    assert.equal(result.commandKey, "workspace_member.invite_cancel");
+    assert.equal(result.deletedInviteId, "invite-1");
+    assert.equal(result.lastSyncId, 132);
+    assert.equal(result.lookup, "invite-1");
+    assert.equal(result.success, true);
   });
 });
