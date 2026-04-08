@@ -115,4 +115,49 @@ describe("searchLinearIssues", () => {
       },
     );
   });
+
+  it("prefers Linear user-presentable messages when available", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          errors: [
+            {
+              extensions: {
+                code: "FORBIDDEN",
+                userPresentableMessage:
+                  "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+              },
+              message: "Access denied",
+            },
+          ],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      )) as typeof fetch;
+
+    await assert.rejects(
+      () =>
+        searchLinearIssues({
+          accessToken: "token",
+          query: "oauth",
+        }),
+      (error) => {
+        assert.ok(error instanceof LinearGraphqlError);
+        assert.equal(error.code, "FORBIDDEN");
+        assert.equal(
+          error.message,
+          "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+        );
+        assert.equal(
+          error.userPresentableMessage,
+          "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+        );
+        return true;
+      },
+    );
+  });
 });

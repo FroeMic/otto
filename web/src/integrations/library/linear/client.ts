@@ -481,6 +481,7 @@ export class LinearGraphqlError extends Error {
   operationName?: string;
   rawResponseSnippet?: string;
   status?: number;
+  userPresentableMessage?: string;
   variableSummary?: string;
 
   constructor(
@@ -490,6 +491,7 @@ export class LinearGraphqlError extends Error {
       operationName?: string;
       rawResponseSnippet?: string;
       status?: number;
+      userPresentableMessage?: string;
       variableSummary?: string;
     },
   ) {
@@ -499,6 +501,7 @@ export class LinearGraphqlError extends Error {
     this.operationName = options?.operationName;
     this.rawResponseSnippet = options?.rawResponseSnippet;
     this.status = options?.status;
+    this.userPresentableMessage = options?.userPresentableMessage;
     this.variableSummary = options?.variableSummary;
   }
 }
@@ -940,6 +943,7 @@ export async function executeLinearGraphql<T>(input: {
     errors?: Array<{
       extensions?: {
         code?: string;
+        userPresentableMessage?: string;
       } | null;
       message?: string;
     }>;
@@ -963,25 +967,27 @@ export async function executeLinearGraphql<T>(input: {
   }
 
   const firstError = payload.errors?.find((error) => Boolean(error.message));
+  const userPresentableMessage =
+    firstError?.extensions?.userPresentableMessage?.trim() || undefined;
+  const surfacedMessage =
+    userPresentableMessage ?? firstError?.message ?? "Linear request failed.";
 
   if (!response.ok || firstError || !payload.data) {
     const rawResponseSnippet = clipForLog(rawResponseText);
     const variableSummary = summarizeVariables(variables);
 
     console.error(
-      `[linear] graphql request failed operation=${operationName} status=${response.status} code=${firstError?.extensions?.code ?? "none"} message=${firstError?.message ?? "missing data"} variables=${variableSummary} response=${rawResponseSnippet}`,
+      `[linear] graphql request failed operation=${operationName} status=${response.status} code=${firstError?.extensions?.code ?? "none"} message=${surfacedMessage} variables=${variableSummary} response=${rawResponseSnippet}`,
     );
 
-    throw new LinearGraphqlError(
-      firstError?.message ?? "Linear request failed.",
-      {
-        code: firstError?.extensions?.code,
-        operationName,
-        rawResponseSnippet,
-        status: response.status,
-        variableSummary,
-      },
-    );
+    throw new LinearGraphqlError(surfacedMessage, {
+      code: firstError?.extensions?.code,
+      operationName,
+      rawResponseSnippet,
+      status: response.status,
+      userPresentableMessage,
+      variableSummary,
+    });
   }
 
   return payload.data;
