@@ -5,6 +5,7 @@ import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-upl
 import { executeLinearAttachmentGet } from "./get";
 import { executeLinearAttachmentList } from "./list";
 import { executeLinearAttachmentListForUrl } from "./list-for-url";
+import { executeLinearAttachmentRequestUploadUrl } from "./request-upload-url";
 import { executeLinearAttachmentUpdate } from "./update";
 import { executeLinearAttachmentUploadFile } from "./upload-file";
 
@@ -408,7 +409,7 @@ describe("linear attachment commands", () => {
     assert.equal(result.attachment?.subtitle, "Updated subtitle");
   });
 
-  it("prepares signed upload metadata for files", async () => {
+  it("requests signed upload metadata for files", async () => {
     globalThis.fetch = (async (_input, init) => {
       const body = JSON.parse(String(init?.body ?? "{}")) as {
         variables: {
@@ -462,7 +463,7 @@ describe("linear attachment commands", () => {
       );
     }) as typeof fetch;
 
-    const result = (await executeLinearAttachmentUploadFile({
+    const result = (await executeLinearAttachmentRequestUploadUrl({
       arguments: {
         contentType: "application/pdf",
         filename: "credits.pdf",
@@ -477,6 +478,9 @@ describe("linear attachment commands", () => {
     })) as {
       commandKey: string;
       lastSyncId: number | null;
+      nextStep: {
+        followupCommands: Array<{ commandKey: string }>;
+      } | null;
       uploadFile: {
         assetUrl: string | null;
         headers: Array<{ key: string; value: string }>;
@@ -484,7 +488,7 @@ describe("linear attachment commands", () => {
       } | null;
     };
 
-    assert.equal(result.commandKey, "attachment.upload_file");
+    assert.equal(result.commandKey, "attachment.request_upload_url");
     assert.equal(result.lastSyncId, 45);
     assert.equal(
       result.uploadFile?.assetUrl,
@@ -495,5 +499,157 @@ describe("linear attachment commands", () => {
       "https://signed-upload.example.com/credits.pdf",
     );
     assert.equal(result.uploadFile?.headers[0]?.key, "x-amz-acl");
+    assert.deepEqual(
+      result.nextStep?.followupCommands.map((command) => command.commandKey),
+      ["attachment.create_from_uploaded_file", "issue.insert_inline_image"],
+    );
+  });
+
+  it("uploads file bytes and creates the final attachment", async () => {
+    const requests: Array<{
+      body: string;
+      headers: Headers;
+      method: string;
+      url: string;
+    }> = [];
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      const method = String(init?.method ?? "GET");
+      const headers = new Headers(init?.headers);
+      const body =
+        init?.body instanceof Blob
+          ? await init.body.text()
+          : init?.body instanceof Buffer
+            ? init.body.toString("utf8")
+            : String(init?.body ?? "");
+
+      requests.push({
+        body,
+        headers,
+        method,
+        url,
+      });
+
+      if (url.includes("api.linear.app/graphql")) {
+        const parsed = JSON.parse(body) as {
+          query: string;
+          variables: Record<string, unknown>;
+        };
+
+        if (parsed.query.includes("fileUpload(")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                fileUpload: {
+                  lastSyncId: 45,
+                  success: true,
+                  uploadFile: {
+                    assetUrl: "https://uploads.linear.app/assets/credits.pdf",
+                    contentType: "application/pdf",
+                    filename: "credits.pdf",
+                    headers: [
+                      {
+                        key: "x-amz-acl",
+                        value: "private",
+                      },
+                    ],
+                    metaData: {
+                      purpose: "smoke-test",
+                    },
+                    size: 15,
+                    uploadUrl: "https://signed-upload.example.com/credits.pdf",
+                  },
+                },
+              },
+            }),
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+              status: 200,
+            },
+          );
+        }
+
+        assert.match(parsed.query, /attachmentCreate/);
+        assert.deepEqual(parsed.variables.input, {
+          issueId: "INT-6",
+          metadata: { foo: "bar" },
+          subtitle: "Uploaded PDF",
+          title: "Credits PDF",
+          url: "https://uploads.linear.app/assets/credits.pdf",
+        });
+
+        return new Response(
+          JSON.stringify({
+            data: {
+              attachmentCreate: {
+                attachment: buildAttachmentNode({
+                  metadata: { foo: "bar" },
+                  subtitle: "Uploaded PDF",
+                  title: "Credits PDF",
+                  url: "https://uploads.linear.app/assets/credits.pdf",
+                }),
+                lastSyncId: 46,
+                success: true,
+              },
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      assert.equal(url, "https://signed-upload.example.com/credits.pdf");
+      assert.equal(method, "PUT");
+      assert.equal(headers.get("content-type"), "application/pdf");
+      assert.equal(headers.get("cache-control"), "public, max-age=31536000");
+      assert.equal(headers.get("x-amz-acl"), "private");
+      assert.equal(body, "hello world");
+
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    const result = (await executeLinearAttachmentUploadFile({
+      arguments: {
+        contentBase64: Buffer.from("hello world").toString("base64"),
+        contentType: "application/pdf",
+        filename: "credits.pdf",
+        issueIdentifierOrId: "INT-6",
+        metaData: { purpose: "smoke-test" },
+        metadata: { foo: "bar" },
+        subtitle: "Uploaded PDF",
+        title: "Credits PDF",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      attachment: { title: string; url: string | null } | null;
+      commandKey: string;
+      lastSyncId: number | null;
+      uploadFile: { assetUrl: string | null } | null;
+      uploadedBytes: number;
+    };
+
+    assert.equal(result.commandKey, "attachment.upload_file");
+    assert.equal(result.lastSyncId, 46);
+    assert.equal(result.uploadedBytes, 11);
+    assert.equal(result.attachment?.title, "Credits PDF");
+    assert.equal(
+      result.attachment?.url,
+      "https://uploads.linear.app/assets/credits.pdf",
+    );
+    assert.equal(
+      result.uploadFile?.assetUrl,
+      "https://uploads.linear.app/assets/credits.pdf",
+    );
+    assert.equal(requests.length, 3);
   });
 });

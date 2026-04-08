@@ -5,6 +5,7 @@ import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attach
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
+import { executeLinearAttachmentRequestUploadUrl } from "./commands/attachment/request-upload-url";
 import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
 import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file";
 import { executeLinearCommentCreate } from "./commands/comment/create";
@@ -522,10 +523,10 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               },
               required: ["contentType", "filename", "size"],
             },
-            commandKey: "attachment.upload_file",
-            commandPath: ["attachment", "upload_file"],
+            commandKey: "attachment.request_upload_url",
+            commandPath: ["attachment", "request_upload_url"],
             description:
-              "Request signed upload instructions for a file that will later be attached in Linear.",
+              "Request signed upload instructions for a file without uploading the bytes yet.",
             exampleArguments: {
               contentType: "application/pdf",
               filename: "credits.pdf",
@@ -534,16 +535,17 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             inputMode: "json",
             intentKeywords: [
               "linear",
-              "upload file",
+              "request upload url",
               "attachment upload",
               "signed upload",
               "asset upload",
             ],
-            label: "Upload file",
+            label: "Request upload URL",
             resultMode: "json",
             usageNotes: [
-              "This does not upload the bytes itself. It returns Linear's signed upload URL and headers.",
-              "Upload the bytes to uploadFile.uploadUrl first, then call attachment.create_from_uploaded_file with uploadFile.assetUrl.",
+              "This command does not upload the bytes itself.",
+              "Next step: perform a server-side PUT to uploadFile.uploadUrl using every returned uploadFile.headers entry and also set Content-Type to uploadFile.contentType.",
+              "After the PUT succeeds, either call attachment.create_from_uploaded_file with uploadFile.assetUrl or use issue.insert_inline_image to embed the uploaded asset in an issue description.",
             ],
             validate: (argumentsObject) => ({
               contentType:
@@ -569,6 +571,189 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 Number.isInteger(argumentsObject.size)
                   ? argumentsObject.size
                   : null,
+            }),
+            execute: executeLinearAttachmentRequestUploadUrl,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
+                },
+                contentBase64: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Base64-encoded file bytes. Data URLs are also accepted.",
+                },
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the file to upload.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded file.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional alias for issueIdentifierOrId if the caller already has the issue id or identifier under this field name.",
+                },
+                issueIdentifierOrId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Linear issue id or identifier that should receive the uploaded attachment.",
+                },
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's signed upload request.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object stored on the final Linear attachment record.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+              },
+              required: [
+                "contentBase64",
+                "contentType",
+                "filename",
+                "issueIdentifierOrId",
+                "title",
+              ],
+            },
+            commandKey: "attachment.upload_file",
+            commandPath: ["attachment", "upload_file"],
+            description:
+              "Upload file bytes to Linear storage on the server, then create the final Linear attachment in one step.",
+            exampleArguments: {
+              contentBase64: "<base64-file-bytes>",
+              contentType: "application/pdf",
+              filename: "credits.pdf",
+              issueIdentifierOrId: "INT-6",
+              title: "Credits PDF",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "upload file",
+              "attach file",
+              "attachment upload",
+              "uploaded asset",
+            ],
+            label: "Upload file",
+            resultMode: "json",
+            usageNotes: [
+              "This command performs the full server-side upload flow: request signed upload URL, PUT the file bytes, then create the Linear attachment.",
+              "Provide contentBase64 with the raw file bytes. Data URL prefixes are accepted.",
+              "Use attachment.request_upload_url only when you need the lower-level signed upload primitive for custom flows.",
+            ],
+            validate: (argumentsObject) => ({
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              contentBase64:
+                typeof argumentsObject.contentBase64 === "string"
+                  ? argumentsObject.contentBase64.trim()
+                  : "",
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              issueIdentifierOrId:
+                typeof argumentsObject.issueIdentifierOrId === "string"
+                  ? argumentsObject.issueIdentifierOrId.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
             }),
             execute: executeLinearAttachmentUploadFile,
           },
@@ -654,7 +839,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   type: "string",
                   minLength: 1,
                   description:
-                    "Uploaded Linear asset URL returned by attachment.upload_file.",
+                    "Uploaded Linear asset URL returned by attachment.request_upload_url or the uploadFile field from attachment.upload_file.",
                 },
                 commentBody: {
                   type: "string",
@@ -721,7 +906,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Create attachment from uploaded file",
             resultMode: "json",
             usageNotes: [
-              "Use this after attachment.upload_file and after the bytes have been uploaded to the returned signed URL.",
+              "Use this after attachment.request_upload_url and after the bytes have been uploaded to the returned signed URL.",
+              "You do not need this follow-up command when using the high-level attachment.upload_file command.",
             ],
             validate: (argumentsObject) => ({
               assetUrl:

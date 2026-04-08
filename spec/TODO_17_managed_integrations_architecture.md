@@ -775,6 +775,7 @@ Tracker:
   - `[x]` `attachment.list`
   - `[x]` `attachment.get`
   - `[x]` `attachment.list_for_url`
+  - `[x]` `attachment.request_upload_url`
   - `[x]` `attachment.upload_file`
   - `[x]` `attachment.create`
   - `[x]` `attachment.create_from_uploaded_file`
@@ -783,7 +784,8 @@ Tracker:
     - verify `attachment.list` against a workspace with a mix of rich external links and uploaded assets
     - verify `attachment.get` on one attachment linked to an issue and one moved attachment with `originalIssue` populated
     - verify `attachment.list_for_url` returns all issue links for the same external URL
-    - verify `attachment.upload_file` returns usable signed upload metadata, then complete the signed upload and follow with `attachment.create_from_uploaded_file`
+    - verify `attachment.request_upload_url` returns usable signed upload metadata, then complete the signed upload and follow with `attachment.create_from_uploaded_file`
+    - verify `attachment.upload_file` performs the full server-side upload and attachment-create flow without requiring a separate follow-up command
     - verify `attachment.create` against both a fresh external URL and a repeated URL to confirm Linear updates the existing attachment record
     - verify `attachment.update` for title, subtitle, icon, and metadata changes on an existing attachment
 
