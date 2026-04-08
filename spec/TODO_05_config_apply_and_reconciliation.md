@@ -108,6 +108,7 @@ Compile tenant desired state into runtime files, write them safely to the VPS, a
   - the host has an `openclaw` user and runtime directories under `/home/openclaw`
   - the gateway listens on all container interfaces so Docker port publishing works, while the host publish can stay bound to `127.0.0.1` unless external ingress is intentionally enabled
   - the control plane applies tenant runtime state over SSH
+  - tenant desired state should explicitly disable non-selected bundled provider and memory plugins so managed runtimes do not inherit upstream provider defaults unintentionally
   - normal config apply should not pull the runtime image again when the image is unchanged
   - the Otto runtime image should set `OPENCLAW_NO_RESPAWN=1` and a persistent `NODE_COMPILE_CACHE` path inside the mounted runtime home so config-only restarts do not pay avoidable OpenClaw startup overhead
   - control-plane-managed bootstrap files such as `AGENTS.md`, `IDENTITY.md`, and `TOOLS.md` are projected into the OpenClaw workspace root at the exact paths the runtime expects
