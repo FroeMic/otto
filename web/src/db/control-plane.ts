@@ -174,6 +174,7 @@ const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
 const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
 const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
+const WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS = 5 * 60_000;
 const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
   listSupportedRuntimeIntegrationKeys();
 const runtimeManager = new RuntimeManager();
@@ -734,8 +735,10 @@ export type WorkspaceMemberDirectory = {
 export async function syncUserFromSession(user: User) {
   const syncedUser = await upsertLocalUser(user);
 
-  await reconcileWorkspaceMembershipsFromWorkOS({
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
     localUserId: syncedUser.id,
+    reason: "session-sync",
     userExternalId: user.id,
   });
 
@@ -820,7 +823,11 @@ export async function getDashboardOrganizations(
   userExternalId: string,
 ): Promise<DashboardOrganization[]> {
   const db = getDb();
-  await backfillOrganizationsFromWorkOS(userExternalId);
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "dashboard-organizations",
+    userExternalId,
+  });
 
   const organizationRows = await getDashboardOrganizationRows(userExternalId);
 
@@ -1658,7 +1665,12 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
   userExternalId: string;
 }): Promise<AuthorizedWorkspaceMembershipContext> {
   const db = getDb();
-  await backfillOrganizationsFromWorkOS(input.userExternalId);
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "authorized-workspace-membership",
+    requireFreshProjectionOnFailure: true,
+    userExternalId: input.userExternalId,
+  });
 
   const [authorizedMembership] = await db
     .select({
@@ -1880,14 +1892,142 @@ function getWorkspaceMemberSortOrder(entry: WorkspaceMemberDirectoryEntry) {
   return 3;
 }
 
-async function backfillOrganizationsFromWorkOS(
+type WorkspaceMembershipProjectionSnapshot = {
+  activeMembershipCount: number;
+  hasAnyMemberships: boolean;
+  localUserId: string | null;
+  newestSyncAt: Date | null;
+};
+
+async function getWorkspaceMembershipProjectionSnapshot(
   userExternalId: string,
-  localUserId?: string,
+): Promise<WorkspaceMembershipProjectionSnapshot> {
+  const db = getDb();
+  const [localUser] = await db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.externalId, userExternalId))
+    .limit(1);
+
+  if (!localUser) {
+    return {
+      activeMembershipCount: 0,
+      hasAnyMemberships: false,
+      localUserId: null,
+      newestSyncAt: null,
+    };
+  }
+
+  const membershipRows = await db
+    .select({
+      lastSyncedAt: memberships.lastSyncedAt,
+      status: memberships.status,
+    })
+    .from(memberships)
+    .where(eq(memberships.userId, localUser.id))
+    .orderBy(desc(memberships.lastSyncedAt));
+
+  return {
+    activeMembershipCount: membershipRows.filter(
+      (membership) => membership.status === ACTIVE_WORKSPACE_MEMBERSHIP_STATUS,
+    ).length,
+    hasAnyMemberships: membershipRows.length > 0,
+    localUserId: localUser.id,
+    newestSyncAt: membershipRows[0]?.lastSyncedAt ?? null,
+  };
+}
+
+function getWorkspaceMembershipProjectionAgeMs(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
 ) {
-  await reconcileWorkspaceMembershipsFromWorkOS({
-    localUserId,
-    userExternalId,
+  return snapshot.newestSyncAt
+    ? Date.now() - snapshot.newestSyncAt.getTime()
+    : null;
+}
+
+function isWorkspaceMembershipProjectionFresh(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
+) {
+  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot);
+  return ageMs !== null && ageMs < WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS;
+}
+
+async function ensureWorkspaceMembershipProjection(input: {
+  allowStaleFallback: boolean;
+  localUserId?: string;
+  reason: string;
+  requireFreshProjectionOnFailure?: boolean;
+  userExternalId: string;
+}) {
+  const snapshot = await getWorkspaceMembershipProjectionSnapshot(
+    input.userExternalId,
+  );
+
+  if (isWorkspaceMembershipProjectionFresh(snapshot)) {
+    return;
+  }
+
+  const startedAt = Date.now();
+  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot);
+
+  console.info("[auth] refreshing workspace membership projection", {
+    activeMembershipCount: snapshot.activeMembershipCount,
+    ageMs,
+    hasAnyMemberships: snapshot.hasAnyMemberships,
+    reason: input.reason,
+    userExternalId: input.userExternalId,
   });
+
+  try {
+    await reconcileWorkspaceMembershipsFromWorkOS({
+      localUserId: input.localUserId ?? snapshot.localUserId ?? undefined,
+      userExternalId: input.userExternalId,
+    });
+
+    console.info("[auth] refreshed workspace membership projection", {
+      activeMembershipCountBeforeRefresh: snapshot.activeMembershipCount,
+      durationMs: Date.now() - startedAt,
+      hadCachedProjection: snapshot.hasAnyMemberships,
+      reason: input.reason,
+      userExternalId: input.userExternalId,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown reconciliation error";
+
+    if (input.allowStaleFallback && snapshot.hasAnyMemberships) {
+      console.error(
+        "[auth] workspace membership reconciliation failed; using cached projection",
+        {
+          activeMembershipCount: snapshot.activeMembershipCount,
+          ageMs,
+          durationMs: Date.now() - startedAt,
+          message,
+          reason: input.reason,
+          userExternalId: input.userExternalId,
+        },
+      );
+      return;
+    }
+
+    console.error("[auth] workspace membership reconciliation failed", {
+      activeMembershipCount: snapshot.activeMembershipCount,
+      ageMs,
+      durationMs: Date.now() - startedAt,
+      hasAnyMemberships: snapshot.hasAnyMemberships,
+      message,
+      reason: input.reason,
+      requireFreshProjectionOnFailure:
+        input.requireFreshProjectionOnFailure ?? false,
+      userExternalId: input.userExternalId,
+    });
+
+    if (input.requireFreshProjectionOnFailure || !input.allowStaleFallback) {
+      throw error;
+    }
+  }
 }
 
 async function reconcileWorkspaceMembershipsFromWorkOS(input: {
