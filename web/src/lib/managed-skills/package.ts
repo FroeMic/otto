@@ -19,7 +19,10 @@ export type ManagedSkillStatus =
   | "missing_prerequisite"
   | "projection_failed"
   | "ready";
-export type ManagedSkillSourceType = "integration_contribution" | "user";
+export type ManagedSkillSourceType =
+  | "integration_contribution"
+  | "system"
+  | "user";
 
 export type ManagedSkillPackageFileInput = {
   contentText?: string | null;
@@ -161,7 +164,10 @@ export function classifyManagedSkillFile(input: ManagedSkillPackageFileInput): {
   }
 
   return {
-    editability: isUtf8Text ? "editable" : "download_only",
+    editability:
+      isUtf8Text && normalizedPath === MANAGED_SKILL_ENTRY_FILE_PATH
+        ? "editable"
+        : "download_only",
     fileKind: "managed",
     path: normalizedPath,
     storageEncoding: isUtf8Text ? "utf8_text" : "binary",
@@ -188,6 +194,12 @@ export function validateManagedSkillPackage(input: {
     if (classification.fileKind === "state") {
       throw new Error(
         `Managed skill writes cannot target reserved local state path: ${classification.path}`,
+      );
+    }
+
+    if (classification.path !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+      throw new Error(
+        `Only ${MANAGED_SKILL_ENTRY_FILE_PATH} can be stored as managed skill content.`,
       );
     }
 

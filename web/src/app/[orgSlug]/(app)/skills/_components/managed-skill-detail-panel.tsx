@@ -63,7 +63,7 @@ type Props = {
       storageEncoding: "binary" | "utf8_text";
     }>;
     skillKey: string;
-    sourceType: "integration_contribution" | "user";
+    sourceType: "integration_contribution" | "system" | "user";
     status:
       | "disabled"
       | "invalid"
@@ -121,7 +121,9 @@ function formatStatusLabel(status: string) {
 function formatSourceLabel(sourceType: Props["detail"]["sourceType"]) {
   return sourceType === "integration_contribution"
     ? "Integration starter"
-    : "Workspace managed";
+    : sourceType === "system"
+      ? "System managed"
+      : "Workspace managed";
 }
 
 function getStatusDescription(status: Props["detail"]["status"]) {

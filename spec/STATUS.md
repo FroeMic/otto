@@ -343,11 +343,12 @@
   - Slack should remain control-plane-native for transport and ingress, while its runtime-facing surface can migrate into the new integration plugin family later
 - Managed skills planning is now captured in `TODO_18_managed_skills.md`:
   - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
-  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state and should stay read-only from workspace-managed APIs in `v1`
-  - `SKILL.md` and other managed UTF-8 text files should be editable through an explicit managed editing flow, while non-text package files should be visible and downloadable but not editable in `v1`
+  - `SKILL.md` is the only Otto-managed file in a skill package
+  - `references/`, `scripts/`, and `state/` should be durable runtime-local writable directories, not managed source of truth
+  - only `SKILL.md` should be editable through Otto's managed-skills surface; local skill directories should remain non-editable there in `v1`
   - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain outside the skills surface
-  - the workspace should expose a dedicated `Skills` area with a package viewer and explicit editing for editable managed text files, while the general file browser remains a lower-level filesystem surface
-  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, read-only `state/` visibility, then integration-linked starter skills
+  - the workspace should expose a dedicated `Skills` area with a package viewer and explicit editing for `SKILL.md`, while the general file browser remains a lower-level filesystem surface
+  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, local-directory visibility, bundled skill policy, then integration-linked starter skills
 - The first `TODO_18_managed_skills.md` increment is now implemented on `main`:
   - `tenant_skills`, `tenant_skill_versions`, `tenant_skill_files`, and `tenant_skill_file_versions` now exist in schema plus migration form as the managed-skills persistence foundation
   - `web/src/lib/managed-skills/package.ts` now validates `SKILL.md`, parses dependency metadata, rejects invalid paths and `state/` writes, and classifies package files into editable managed text, download-only managed files, and local state
@@ -356,12 +357,13 @@
 - The second `TODO_18_managed_skills.md` increment is now implemented on `main`:
   - desired-state compilation now snapshots managed skill versions under `managedSkills.versions` so apply and reprovision flows can reproduce exact skill-package state
   - provisioning and config-apply now read those exact versions and project managed skill text files into `workspace/skills/<skill-key>/` on the tenant runtime
-  - runtime projection now maintains a `managed-skills-manifest.json` file so removed managed files are pruned safely while unknown local `state/` contents remain untouched
+  - runtime projection now maintains a `managed-skills-manifest.json` file so removed managed files are pruned safely while unknown local `references/`, `scripts/`, and `state/` contents remain untouched
+  - projection now also creates `references/`, `scripts/`, and `state/` for each skill and keeps those directories writable by the tenant runtime
   - focused tests now cover managed-skill manifest normalization and prune safety
 - The third `TODO_18_managed_skills.md` increment is now implemented on `main` for the current text-first slice:
   - the workspace now exposes `/[orgSlug]/skills` as a real managed-skills list instead of a placeholder card
   - `/[orgSlug]/skills/[skillKey]` now provides a detail view with URL-backed `Files` and `Status` tabs, package-file browsing, dependency badges, and status visibility modeled on the newer integration detail pages
-  - users can now create a first skill from `SKILL.md` in the workspace and then edit managed UTF-8 text files there, with each save creating a new skill version and reusing the desired-state/apply pipeline
+  - users can now create a first skill from `SKILL.md` in the workspace and then edit `SKILL.md` there, with each save creating a new skill version and reusing the desired-state/apply pipeline
   - binary managed-file persistence is still deferred, so the current viewer surfaces non-text metadata but does not yet represent a fully general binary package flow
 - A managed-skill dependency graph slice is now implemented on `main`:
   - `SKILL.md` now supports `metadata.dependsOn.skills` alongside `metadata.dependsOn.integrations`
@@ -370,9 +372,12 @@
 - A runtime-authenticated managed-skills slice is now implemented on `main`:
   - `/api/internal/runtime/managed-skills` now exposes tenant-token-authenticated list, detail, file-read, and file-patch operations for managed skills
   - the new `otto-managed-skills` runtime plugin now gives Otto a first-class tool surface for inspecting and updating managed skill packages
-  - patch operations reuse the existing managed skill versioning and desired-state/apply pipeline, with version checks and the same editable-text-only restrictions as the workspace UI
-  - the managed-skill contract is being narrowed further: `SKILL.md` should remain the only managed file, while `references/`, `scripts/`, and `state/` should become durable runtime-local writable directories
-  - the next recommended slices are Increment 5, then Increment 8: make those local directories writable/preserved and visible read-only, then explicitly control bundled OpenClaw skill exposure and add Otto-owned system overrides like `skill-creator`
+  - patch operations reuse the existing managed skill versioning and desired-state/apply pipeline, with version checks and `SKILL.md`-only edit restrictions matching the workspace UI
+- A bundled-skill policy and Otto system-skill override slice is now implemented on `main`:
+  - Otto now renders an explicit bundled-skill allowlist into tenant OpenClaw config so unwanted upstream bundled skills such as `healthcheck`, `node-connect`, and `weather` are not exposed by default
+  - managed-skill seeding now installs an Otto-owned `skill-creator` system skill into each workspace with higher precedence than the bundled OpenClaw copy
+  - the Otto `skill-creator` override is visible in the Skills UI and available to Otto, but it is system-managed and non-editable through the workspace or runtime-managed skills surface
+  - the next recommended slice is Increment 5: add read-only workspace visibility for runtime-local `references/`, `scripts/`, and `state/` contents
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface

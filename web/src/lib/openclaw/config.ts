@@ -3,6 +3,7 @@ import {
   normalizeTimeZone,
 } from "@/lib/date-time";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
+import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "@/lib/managed-skills/system-skills";
 import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
 import {
   getDefaultSlackRuntimeConfig,
@@ -52,6 +53,7 @@ export type OpenClawTenantConfig = {
   ottoProviderPlugins?: Array<{
     id: string;
   }>;
+  bundledSkillAllowlist?: string[];
   primaryModel?: string;
   timeFormat?: "12" | "24" | "auto";
   slack?: {
@@ -233,6 +235,9 @@ function buildDefaultDisabledPluginEntries(): Record<
 }
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
+  const bundledSkillAllowlist = config.bundledSkillAllowlist ?? [
+    ...DEFAULT_BUNDLED_SKILL_ALLOWLIST,
+  ];
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
   const ottoToolPluginEntries = Object.fromEntries(
@@ -463,6 +468,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
+      skills: {
+        allowBundled: bundledSkillAllowlist,
+      },
       ...(config.modelProviders
         ? {
             models: {
@@ -569,10 +577,13 @@ export function buildOpenClawTenantConfig(input: {
       : [],
     ...(proxyModelConfig
       ? {
+          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
           modelProviders: proxyModelConfig.modelProviders,
           ottoProviderPlugins: proxyModelConfig.plugins,
         }
-      : {}),
+      : {
+          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
+        }),
     primaryModel,
     prompts: parseStringRecord(config.prompts),
     timeFormat,

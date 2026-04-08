@@ -16,6 +16,7 @@ import {
 } from "@/db/credit-ledger";
 import {
   createTenantManagedSkillForTenant,
+  ensureTenantSystemManagedSkillsForTenantTx,
   listLatestTenantManagedSkillVersionMapTx,
   updateTenantManagedSkillTextFileForTenantTx,
 } from "@/db/managed-skills";
@@ -8493,6 +8494,9 @@ async function compileTenantDesiredStateConfig(
   tenantId: string,
 ) {
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
+    tenantId,
+  });
+  await ensureTenantSystemManagedSkillsForTenantTx(tx, {
     tenantId,
   });
   const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(

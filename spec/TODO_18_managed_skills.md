@@ -765,7 +765,7 @@ Status:
 
 - done on `main` for the current text-first managed-skills slice
 - the workspace now has a dedicated `/skills` list plus `/skills/<skill-key>` detail page with URL-backed tabs modeled on the newer integration surfaces
-- users can create a first skill from `SKILL.md`, inspect package files, and edit managed UTF-8 text files directly from the workspace
+- users can create a first skill from `SKILL.md`, inspect package files, and edit `SKILL.md` directly from the workspace
 - non-text file metadata is surfaced in the viewer, while true binary download remains coupled to the still-deferred binary managed-file persistence work
 
 Scope:
@@ -773,7 +773,7 @@ Scope:
 - add a dedicated `Skills` section in the workspace
 - show list, detail, package tree, dependency badges, and status
 - add viewer support for the whole package
-- allow explicit editing for `SKILL.md` and other editable managed text files
+- allow explicit editing for `SKILL.md`
 - allow `SKILL.md` to declare both integration prerequisites and managed-skill prerequisites through structured controls
 
 Acceptance criteria:
@@ -813,6 +813,13 @@ Parallel note:
 
 ### Increment 5: Read-only `state/` visibility
 
+Status:
+
+- partially done on `main`
+- projected skills now create and preserve writable runtime-local `references/`, `scripts/`, and `state/` directories
+- workspace and runtime-managed edits are already restricted away from those local directories
+- read-only listing, preview, and download for local directory contents are still open
+
 Scope:
 
 - make `references/`, `scripts/`, and `state/` durable runtime-local writable directories in projected skills
@@ -831,6 +838,13 @@ Acceptance criteria:
 - the workspace and runtime-authenticated surfaces never edit local files through the managed-skills API
 
 ### Increment 8: Bundled skill policy and Otto system overrides
+
+Status:
+
+- done on `main`
+- Otto now renders an explicit bundled-skill allowlist into tenant OpenClaw config instead of passing through the entire upstream bundled catalog
+- Otto now seeds a system-managed `skill-creator` skill with higher precedence than the bundled OpenClaw copy
+- the Otto `skill-creator` override stays visible to Otto and in the workspace list, but it is non-editable through Otto's managed-skills surfaces
 
 Scope:
 
@@ -888,7 +902,7 @@ Acceptance criteria:
 - [ ] Increment 5: read-only `state/` visibility
 - [ ] Increment 6: integration-linked starter skills
 - [x] Increment 7: managed skill dependency graph metadata
-- [ ] Increment 8: bundled skill policy and Otto system overrides
+- [x] Increment 8: bundled skill policy and Otto system overrides
 
 ## Recommendation
 
@@ -902,4 +916,4 @@ OpenClaw remains the native runtime substrate for both.
 
 Next:
 
-- Increment 5, then Increment 8. First make `references/`, `scripts/`, and `state/` truly durable runtime-local writable directories with read-only workspace visibility. Then lock down the bundled skill surface and add Otto-owned system overrides such as `skill-creator`.
+- Increment 5. Add read-only workspace visibility for local `references/`, `scripts/`, and `state/` contents now that the local-directory contract and bundled-skill policy are in place.

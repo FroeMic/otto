@@ -100,7 +100,9 @@ function formatStatusLabel(status: string) {
 function formatSourceLabel(sourceType: string) {
   return sourceType === "integration_contribution"
     ? "Integration starter"
-    : "Workspace managed";
+    : sourceType === "system"
+      ? "System managed"
+      : "Workspace managed";
 }
 
 export default async function SkillsPage({
@@ -187,7 +189,7 @@ export default async function SkillsPage({
           <SettingsSectionTitle>Managed skills</SettingsSectionTitle>
           <SettingsSectionDescription>
             Open a skill package to inspect its files, check prerequisites, and
-            edit managed text files.
+            edit SKILL.md where the package is workspace-managed.
           </SettingsSectionDescription>
           <SettingsCard>
             {skills.map((skill) => (
