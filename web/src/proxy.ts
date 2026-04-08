@@ -9,36 +9,12 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     return NextResponse.next();
   }
 
-  const startedAt = Date.now();
-  const { method } = request;
-  const { pathname } = request.nextUrl;
-  console.info("[proxy] auth middleware start", {
-    method,
-    pathname,
-  });
-
   const authMiddleware = authkitMiddleware({
     redirectUri: getWorkOSAuthConfig().redirectUri,
   });
+  const response = await authMiddleware(request, event);
 
-  try {
-    const response = await authMiddleware(request, event);
-    console.info("[proxy] auth middleware complete", {
-      durationMs: Date.now() - startedAt,
-      method,
-      pathname,
-      status: response?.status ?? null,
-    });
-    return response ?? NextResponse.next();
-  } catch (error) {
-    console.error("[proxy] auth middleware failed", {
-      durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : "Unknown error",
-      method,
-      pathname,
-    });
-    throw error;
-  }
+  return response ?? NextResponse.next();
 }
 
 export const config = {

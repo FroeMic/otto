@@ -178,7 +178,6 @@
     - `/platform/organizations/[orgSlug]/access`
     - `/platform/organizations/[orgSlug]/activity`
     - `/platform/organizations/[orgSlug]/logs`
-- Desired-state apply diagnostics now also log managed-config compilation substeps and set transaction-local Postgres timeouts so blocked statements and lock waits fail explicitly instead of hanging indefinitely.
   - the new activity view now combines jobs and events into one filtered surface with polling
   - runtime image refresh is now queued through the worker as a first-class job instead of running inline in the route handler
   - the per-organization actions menu now also exposes the one-click `Pull new image and apply config` path
