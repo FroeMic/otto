@@ -35,6 +35,7 @@ type DataTableProps<TData, TValue> = {
   getRowHref?: (row: TData) => string | null;
   headClassName?: string;
   headerClassName?: string;
+  initialSorting?: SortingState;
   rowClassName?: string;
   searchKeys?: Array<Extract<keyof TData, string>>;
   searchInputClassName?: string;
@@ -59,6 +60,7 @@ export function DataTable<TData, TValue>({
   getRowHref,
   headClassName,
   headerClassName,
+  initialSorting,
   rowClassName,
   searchKeys = [],
   searchInputClassName,
@@ -72,7 +74,9 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>(
+    initialSorting ?? [],
+  );
 
   const table = useReactTable({
     columns,
@@ -80,6 +84,7 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableSortingRemoval: false,
     globalFilterFn: (row, _columnId, filterValue) => {
       const normalizedFilter = String(filterValue ?? "")
         .trim()
