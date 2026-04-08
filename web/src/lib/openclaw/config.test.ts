@@ -79,7 +79,14 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.plugins.entries.openai, {
       enabled: false,
     });
+    assert.deepEqual(renderedConfig.plugins.entries.kimi, {
+      enabled: false,
+    });
+    assert.equal(renderedConfig.plugins.entries["kimi-coding"], undefined);
     assert.deepEqual(renderedConfig.plugins.entries["memory-core"], {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.vydra, {
       enabled: false,
     });
     assert.deepEqual(renderedConfig.tools.media.audio, {
@@ -193,6 +200,9 @@ describe("renderOpenClawConfig", () => {
       mode: "web",
     });
     assert.deepEqual(renderedConfig.plugins.entries.google, {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.vydra, {
       enabled: false,
     });
   });
