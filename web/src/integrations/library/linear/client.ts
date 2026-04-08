@@ -30,6 +30,16 @@ const TEAM_REFERENCE_FIELDS = `
   displayName
 `;
 
+const WORKFLOW_STATE_FIELDS = `
+  id
+  name
+  type
+  position
+  team {
+    ${TEAM_REFERENCE_FIELDS}
+  }
+`;
+
 const ISSUE_FIELDS = `
   id
   identifier
@@ -285,6 +295,30 @@ const CYCLE_FIELDS = `
   }
 `;
 
+const TEAM_FIELDS = `
+  id
+  key
+  name
+  displayName
+  description
+  color
+  icon
+  private
+  cyclesEnabled
+  triageEnabled
+  issueCount
+  createdAt
+  updatedAt
+  archivedAt
+  retiredAt
+  activeCycle {
+    ${CYCLE_FIELDS}
+  }
+  parent {
+    ${TEAM_REFERENCE_FIELDS}
+  }
+`;
+
 const INITIATIVE_FIELDS = `
   id
   name
@@ -402,6 +436,30 @@ const CUSTOMER_NEED_FIELDS = `
   }
 `;
 
+const GET_TEAM_BY_ID_QUERY = `
+  query OttoLinearTeamById($id: String!) {
+    team(id: $id) {
+      ${TEAM_FIELDS}
+    }
+  }
+`;
+
+const SEARCH_TEAM_BY_LOOKUP_QUERY = `
+  query OttoLinearTeamByLookup($lookup: String!) {
+    teams(
+      first: 10
+      orderBy: updatedAt
+      filter: {
+        or: [{ id: { eq: $lookup } }, { key: { eq: $lookup } }]
+      }
+    ) {
+      nodes {
+        ${TEAM_FIELDS}
+      }
+    }
+  }
+`;
+
 const GET_ISSUE_BY_ID_QUERY = `
   query OttoLinearIssueById($id: String!) {
     issue(id: $id) {
@@ -495,6 +553,34 @@ export type LinearTeamReferenceNode = {
   id?: string | null;
   key?: string | null;
   name?: string | null;
+};
+
+export type LinearWorkflowStateNode = {
+  id?: string | null;
+  name?: string | null;
+  position?: number | null;
+  team?: LinearTeamReferenceNode | null;
+  type?: string | null;
+};
+
+export type LinearTeamNode = {
+  activeCycle?: LinearCycleNode | null;
+  archivedAt?: string | null;
+  color?: string | null;
+  createdAt?: string | null;
+  cyclesEnabled?: boolean | null;
+  description?: string | null;
+  displayName?: string | null;
+  icon?: string | null;
+  id?: string | null;
+  issueCount?: number | null;
+  key?: string | null;
+  name?: string | null;
+  parent?: LinearTeamReferenceNode | null;
+  private?: boolean | null;
+  retiredAt?: string | null;
+  triageEnabled?: boolean | null;
+  updatedAt?: string | null;
 };
 
 export type LinearTeamMembershipNode = {
@@ -1187,6 +1273,14 @@ export function getLinearCustomerTierFields() {
   return CUSTOMER_TIER_FIELDS;
 }
 
+export function getLinearWorkflowStateFields() {
+  return WORKFLOW_STATE_FIELDS;
+}
+
+export function getLinearTeamFields() {
+  return TEAM_FIELDS;
+}
+
 export function mapLinearIssueReference(
   issue: LinearIssueReferenceNode | null,
 ) {
@@ -1238,6 +1332,43 @@ export function mapLinearTeamReference(team: LinearTeamReferenceNode | null) {
     id: team.id?.trim() || null,
     key: team.key?.trim() || null,
     name: team.name?.trim() || team.displayName?.trim() || null,
+  };
+}
+
+export function mapLinearWorkflowState(state: LinearWorkflowStateNode) {
+  return {
+    id: state.id?.trim() || null,
+    name: state.name?.trim() || "Unnamed state",
+    position: typeof state.position === "number" ? state.position : null,
+    team: state.team?.key?.trim() || state.team?.name?.trim() || null,
+    teamId: state.team?.id?.trim() || null,
+    type: state.type?.trim() || null,
+  };
+}
+
+export function mapLinearTeam(team: LinearTeamNode) {
+  return {
+    activeCycle: team.activeCycle ? mapLinearCycle(team.activeCycle) : null,
+    archivedAt: team.archivedAt ?? null,
+    color: team.color?.trim() || null,
+    createdAt: team.createdAt ?? null,
+    cyclesEnabled: team.cyclesEnabled ?? false,
+    description: team.description?.trim() || null,
+    displayName:
+      team.displayName?.trim() || team.name?.trim() || "Untitled team",
+    icon: team.icon?.trim() || null,
+    id: team.id?.trim() || null,
+    issueCount:
+      typeof team.issueCount === "number" && Number.isFinite(team.issueCount)
+        ? team.issueCount
+        : 0,
+    key: team.key?.trim() || null,
+    name: team.name?.trim() || team.displayName?.trim() || "Untitled team",
+    parent: mapLinearTeamReference(team.parent ?? null),
+    private: team.private ?? false,
+    retiredAt: team.retiredAt ?? null,
+    triageEnabled: team.triageEnabled ?? false,
+    updatedAt: team.updatedAt ?? null,
   };
 }
 
@@ -1993,6 +2124,77 @@ export function isUuidLike(value: string) {
   );
 }
 
+export async function findLinearTeamByIdOrKey(input: {
+  accessToken: string;
+  teamIdOrKey: string;
+}): Promise<LinearTeamNode | null> {
+  const lookup = input.teamIdOrKey.trim();
+
+  if (!lookup) {
+    return null;
+  }
+
+  if (isUuidLike(lookup)) {
+    try {
+      const byId = await executeLinearGraphql<{
+        team?: LinearTeamNode | null;
+      }>({
+        accessToken: input.accessToken,
+        query: GET_TEAM_BY_ID_QUERY,
+        variables: {
+          id: lookup,
+        },
+      });
+
+      if (byId.team?.id) {
+        return byId.team;
+      }
+    } catch (error) {
+      if (!(error instanceof LinearGraphqlError)) {
+        throw error;
+      }
+    }
+  }
+
+  const byLookup = await executeLinearGraphql<{
+    teams?: {
+      nodes?: LinearTeamNode[] | null;
+    } | null;
+  }>({
+    accessToken: input.accessToken,
+    query: SEARCH_TEAM_BY_LOOKUP_QUERY,
+    variables: {
+      lookup,
+    },
+  });
+
+  const normalizedLookup = lookup.toLowerCase();
+
+  return (
+    (byLookup.teams?.nodes ?? []).find((team) => {
+      const id = team.id?.trim().toLowerCase();
+      const key = team.key?.trim().toLowerCase();
+
+      return id === normalizedLookup || key === normalizedLookup;
+    }) ??
+    (byLookup.teams?.nodes ?? [])[0] ??
+    null
+  );
+}
+
+export async function resolveLinearTeamId(input: {
+  accessToken: string;
+  teamIdOrKey: string;
+}) {
+  const team = await findLinearTeamByIdOrKey(input);
+
+  if (!team?.id) {
+    throw new Error(`Linear could not find team ${input.teamIdOrKey}.`);
+  }
+
+  return team.id;
+}
+
 export async function findLinearIssueByIdentifierOrId(input: {
   accessToken: string;
   identifierOrId: string;
@@ -2430,6 +2632,54 @@ export function buildLinearCustomerTierCollectionCommandResult(input: {
     items: input.items.map((tier) => mapLinearCustomerTier(tier)),
     limit: input.limit,
     source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearTeamCommandResult(input: {
+  commandKey: string;
+  team: LinearTeamNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+    team: input.team ? mapLinearTeam(input.team) : null,
+  };
+}
+
+export function buildLinearTeamCollectionCommandResult(input: {
+  commandKey: string;
+  items: LinearTeamNode[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items.map(mapLinearTeam),
+    limit: input.limit,
+    source: "linear",
+    totalMatched: input.items.length,
+  };
+}
+
+export function buildLinearTeamChildCollectionCommandResult<T>(input: {
+  commandKey: string;
+  team: LinearTeamNode;
+  items: T[];
+  limit: number;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    items: input.items,
+    limit: input.limit,
+    source: "linear",
+    team: mapLinearTeam(input.team),
     totalMatched: input.items.length,
   };
 }

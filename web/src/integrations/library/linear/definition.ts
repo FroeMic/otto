@@ -123,6 +123,15 @@ import {
   executeLinearProjectStatusList,
   executeLinearProjectStatusUpdate,
 } from "./commands/project-status/commands";
+import { executeLinearTeamCreate } from "./commands/team/create";
+import { executeLinearTeamGet } from "./commands/team/get";
+import { executeLinearTeamList } from "./commands/team/list";
+import { executeLinearTeamListCycles } from "./commands/team/list-cycles";
+import { executeLinearTeamListIssues } from "./commands/team/list-issues";
+import { executeLinearTeamListLabels } from "./commands/team/list-labels";
+import { executeLinearTeamListProjects } from "./commands/team/list-projects";
+import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
+import { executeLinearTeamUpdate } from "./commands/team/update";
 import { executeLinearUserGet } from "./commands/user/get";
 import { executeLinearUserList } from "./commands/user/list";
 import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues";
@@ -228,6 +237,24 @@ const TEAM_IDS_ARGUMENT_SCHEMA = {
     minLength: 1,
   },
   description: "List of Linear team ids associated with the project.",
+} as const;
+
+const TEAM_ID_OR_KEY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Linear team id or short team key such as INT.",
+} as const;
+
+const TEAM_NAME_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Team name.",
+} as const;
+
+const TEAM_KEY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Optional short team key such as INT.",
 } as const;
 
 const MEMBER_IDS_ARGUMENT_SCHEMA = {
@@ -426,6 +453,19 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     }),
     buildCapability({
       description:
+        "Read teams and the cycles, workflow states, labels, projects, and issues associated with them in the connected Linear workspace.",
+      direction: "read",
+      key: "team.read",
+      label: "Read teams",
+    }),
+    buildCapability({
+      description: "Create and update teams in the connected Linear workspace.",
+      direction: "tool",
+      key: "team.write",
+      label: "Write teams",
+    }),
+    buildCapability({
+      description:
         "Create and later update or archive cycles in the connected Linear workspace.",
       direction: "tool",
       key: "cycle.write",
@@ -476,9 +516,9 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
   ],
   categoryLabel: "Product Management",
   catalogDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer context, and create or update Linear records when needed.",
+    "Connect Linear so Otto can inspect workspace, team, issue, project, document, initiative, and customer context, and create or update Linear records when needed.",
   description:
-    "Workspace-managed Linear connection for workspace metadata plus issue, comment, project, initiative, and customer reads and writes.",
+    "Workspace-managed Linear connection for workspace, team, issue, comment, project, document, initiative, and customer reads and writes.",
   iconSrc: "/integrations/linear.svg",
   key: "linear",
   label: "Linear",
@@ -486,7 +526,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     provider: linearOAuthProvider,
   },
   pageDescription:
-    "Connect Linear so Otto can inspect your workspace, search issue, project, initiative, and customer work, and create or update Linear records for your team.",
+    "Connect Linear so Otto can inspect workspace and team context, search and manage issues and projects, and create or update Linear records for your team.",
   runtimeSurface: {
     commandGroups: [
       {
@@ -3413,6 +3453,459 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["workspace"],
         intentKeywords: ["linear", "workspace", "metadata", "teams", "users"],
         label: "Workspace",
+      },
+      {
+        commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+              },
+            },
+            commandKey: "team.list",
+            commandPath: ["team", "list"],
+            description:
+              "List teams visible in the connected Linear workspace with normalized team metadata.",
+            exampleArguments: {
+              limit: 25,
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "team", "teams", "squad", "group"],
+            label: "List teams",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need canonical team ids or keys before reading one team or narrowing team-specific work.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+            }),
+            execute: executeLinearTeamList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.get",
+            commandPath: ["team", "get"],
+            description:
+              "Read one Linear team by team id or short team key and return normalized team context.",
+            exampleArguments: {
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "squad",
+              "group",
+              "team settings",
+            ],
+            label: "Get team",
+            resultMode: "json",
+            usageNotes: [
+              "Use workspace.list_teams first if you need the canonical team id or key.",
+            ],
+            validate: (argumentsObject) => ({
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamGet,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.list_cycles",
+            commandPath: ["team", "list_cycles"],
+            description: "List cycles associated with one Linear team.",
+            exampleArguments: {
+              limit: 25,
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "cycles",
+              "sprints",
+              "iterations",
+            ],
+            label: "List team cycles",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the cycle history or active sprint context for one team.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamListCycles,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: {
+                  ...LIMIT_ARGUMENT_SCHEMA,
+                  maximum: 200,
+                },
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.list_workflow_states",
+            commandPath: ["team", "list_workflow_states"],
+            description:
+              "List workflow states associated with one Linear team.",
+            exampleArguments: {
+              limit: 50,
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "team", "workflow", "states", "status"],
+            label: "List team workflow states",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the canonical workflow states for one team before filtering or updating team issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 50,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamListWorkflowStates,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.list_labels",
+            commandPath: ["team", "list_labels"],
+            description: "List issue labels associated with one Linear team.",
+            exampleArguments: {
+              limit: 25,
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "labels",
+              "taxonomy",
+              "issue labels",
+            ],
+            label: "List team labels",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need team-scoped issue labels before labeling or filtering issues.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamListLabels,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.list_projects",
+            commandPath: ["team", "list_projects"],
+            description: "List projects associated with one Linear team.",
+            exampleArguments: {
+              limit: 10,
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "projects",
+              "roadmap",
+              "planning",
+            ],
+            label: "List team projects",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the project portfolio or planning context for one team.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 10,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamListProjects,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                limit: LIMIT_ARGUMENT_SCHEMA,
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.list_issues",
+            commandPath: ["team", "list_issues"],
+            description: "List issues associated with one Linear team.",
+            exampleArguments: {
+              limit: 25,
+              teamIdOrKey: "INT",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "team", "issues", "tickets", "backlog"],
+            label: "List team issues",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need the recent issue backlog or active work for one team.",
+            ],
+            validate: (argumentsObject) => ({
+              limit:
+                typeof argumentsObject.limit === "number" &&
+                Number.isInteger(argumentsObject.limit)
+                  ? argumentsObject.limit
+                  : 25,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamListIssues,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                cyclesEnabled: {
+                  type: "boolean",
+                  description: "Whether the team uses cycles.",
+                },
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                key: TEAM_KEY_ARGUMENT_SCHEMA,
+                name: TEAM_NAME_ARGUMENT_SCHEMA,
+                private: {
+                  type: "boolean",
+                  description: "Whether the team is private.",
+                },
+                triageEnabled: {
+                  type: "boolean",
+                  description: "Whether triage mode is enabled for the team.",
+                },
+              },
+              required: ["name"],
+            },
+            commandKey: "team.create",
+            commandPath: ["team", "create"],
+            description: "Create a new Linear team.",
+            exampleArguments: {
+              key: "OPS",
+              name: "Operations",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "create team",
+              "new team",
+              "new squad",
+            ],
+            label: "Create team",
+            resultMode: "json",
+            usageNotes: [
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : undefined,
+              cyclesEnabled:
+                typeof argumentsObject.cyclesEnabled === "boolean"
+                  ? argumentsObject.cyclesEnabled
+                  : undefined,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : undefined,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : undefined,
+              key:
+                typeof argumentsObject.key === "string"
+                  ? argumentsObject.key.trim()
+                  : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : "",
+              private:
+                typeof argumentsObject.private === "boolean"
+                  ? argumentsObject.private
+                  : undefined,
+              triageEnabled:
+                typeof argumentsObject.triageEnabled === "boolean"
+                  ? argumentsObject.triageEnabled
+                  : undefined,
+            }),
+            execute: executeLinearTeamCreate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                color: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                cyclesEnabled: {
+                  type: "boolean",
+                  description: "Whether the team uses cycles.",
+                },
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                icon: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                key: TEAM_KEY_ARGUMENT_SCHEMA,
+                name: TEAM_NAME_ARGUMENT_SCHEMA,
+                private: {
+                  type: "boolean",
+                  description: "Whether the team is private.",
+                },
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+                triageEnabled: {
+                  type: "boolean",
+                  description: "Whether triage mode is enabled for the team.",
+                },
+              },
+              required: ["teamIdOrKey"],
+            },
+            commandKey: "team.update",
+            commandPath: ["team", "update"],
+            description: "Update one existing Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "INT",
+              triageEnabled: true,
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "update team",
+              "edit team",
+              "team settings",
+            ],
+            label: "Update team",
+            resultMode: "json",
+            usageNotes: [
+              "This requires at least one update field besides teamIdOrKey.",
+              "This may require elevated Linear workspace permissions.",
+            ],
+            validate: (argumentsObject) => ({
+              color:
+                typeof argumentsObject.color === "string"
+                  ? argumentsObject.color.trim()
+                  : undefined,
+              cyclesEnabled:
+                typeof argumentsObject.cyclesEnabled === "boolean"
+                  ? argumentsObject.cyclesEnabled
+                  : undefined,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : undefined,
+              icon:
+                typeof argumentsObject.icon === "string"
+                  ? argumentsObject.icon.trim()
+                  : undefined,
+              key:
+                typeof argumentsObject.key === "string"
+                  ? argumentsObject.key.trim()
+                  : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : undefined,
+              private:
+                typeof argumentsObject.private === "boolean"
+                  ? argumentsObject.private
+                  : undefined,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+              triageEnabled:
+                typeof argumentsObject.triageEnabled === "boolean"
+                  ? argumentsObject.triageEnabled
+                  : undefined,
+            }),
+            execute: executeLinearTeamUpdate,
+          },
+        ],
+        description:
+          "Team reads and writes for the connected Linear workspace.",
+        groupKey: "team",
+        groupPath: ["team"],
+        intentKeywords: ["linear", "team", "squad", "group", "planning"],
+        label: "Teams",
       },
       {
         commands: [
@@ -7021,7 +7514,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
     ],
     rootCommands: [],
     toolDescription:
-      "Read Linear workspace metadata plus issue, comment, and project context through Otto's managed integration runtime surface.",
+      "Read Linear workspace, team, issue, comment, project, document, initiative, and customer context through Otto's managed integration runtime surface.",
     toolName: "linear",
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations2/linear`,
