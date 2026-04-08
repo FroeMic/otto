@@ -16,40 +16,18 @@ export async function POST(
     }>;
   },
 ) {
-  const startedAt = Date.now();
   try {
-    console.info("[platform/apply-route] request start");
     const { user } = await withAuth({ ensureSignedIn: true });
-    console.info("[platform/apply-route] withAuth complete", {
-      durationMs: Date.now() - startedAt,
-      userExternalId: user.id,
-    });
     const { orgSlug } = await context.params;
     await syncUserFromSession(user);
-    console.info("[platform/apply-route] syncUserFromSession complete", {
-      durationMs: Date.now() - startedAt,
-      orgSlug,
-      userExternalId: user.id,
-    });
 
     const result = await triggerPlatformOrganizationApply({
       orgSlug,
       userExternalId: user.id,
     });
 
-    console.info("[platform/apply-route] request complete", {
-      durationMs: Date.now() - startedAt,
-      jobId: result.jobId,
-      orgSlug,
-      userExternalId: user.id,
-    });
-
     return json(result);
   } catch (error) {
-    console.error("[platform/apply-route] request failed", {
-      durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
     return handlePlatformRouteError(error);
   }
 }

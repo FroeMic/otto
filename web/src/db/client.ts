@@ -24,27 +24,11 @@ function getDbApplicationName() {
 function getClient() {
   if (!globalForDb.__dbClient) {
     const applicationName = getDbApplicationName();
-    console.info("[db] initializing postgres client", {
-      applicationName,
-      maxConnections: 10,
-    });
     globalForDb.__dbClient = postgres(getEnv().DATABASE_URL, {
       connection: {
         application_name: applicationName,
       },
       max: 10,
-      onclose: (connectionId) => {
-        console.warn("[db] connection closed", {
-          connectionId,
-        });
-      },
-      onnotice: (notice) => {
-        console.warn("[db] notice", {
-          code: notice.code,
-          message: notice.message,
-          severity: notice.severity,
-        });
-      },
     });
   }
   return globalForDb.__dbClient;

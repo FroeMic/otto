@@ -8,8 +8,6 @@ import { getOrganizationHomePath, isOrganizationReady } from "@/lib/workspace";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const startedAt = Date.now();
-  console.info("[home] request start");
   if (!hasWorkOSConfig()) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 py-10">
@@ -30,21 +28,12 @@ export default async function Home() {
   }
 
   const auth = await withAuth();
-  console.info("[home] withAuth complete", {
-    durationMs: Date.now() - startedAt,
-    hasUser: Boolean(auth.user),
-  });
 
   if (!auth.user) {
     redirect("/login");
   }
 
   const organizations = await getDashboardOrganizations(auth.user.id);
-  console.info("[home] getDashboardOrganizations complete", {
-    durationMs: Date.now() - startedAt,
-    organizationCount: organizations.length,
-    userExternalId: auth.user.id,
-  });
 
   if (organizations.length === 0) {
     redirect("/onboarding/create-organization");
@@ -53,12 +42,6 @@ export default async function Home() {
   const readyOrganization =
     organizations.find((organization) => isOrganizationReady(organization)) ??
     organizations[0];
-
-  console.info("[home] redirecting to organization", {
-    durationMs: Date.now() - startedAt,
-    targetOrgSlug: readyOrganization.slug,
-    userExternalId: auth.user.id,
-  });
 
   redirect(getOrganizationHomePath(readyOrganization));
 }
