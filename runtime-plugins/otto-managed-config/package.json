@@ -1,6 +1,6 @@
 {
   "name": "@otto/openclaw-otto-managed-config",
-  "version": "2026.4.5.1",
+  "version": "2026.4.8.1",
   "private": true,
   "description": "Otto managed config runtime plugin",
   "type": "module",

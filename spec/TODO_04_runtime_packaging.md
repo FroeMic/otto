@@ -26,7 +26,7 @@ Define and validate the reproducible OpenClaw runtime that will be placed on eac
   `/app/extensions` in the custom runtime image so OpenClaw discovers them as
   bundled plugins.
 - Pin the upstream OpenClaw base image to an actual published container tag
-  such as `ghcr.io/openclaw/openclaw:2026.4.5`, not only a Git release name.
+  such as `ghcr.io/openclaw/openclaw:2026.4.8`, not only a Git release name.
 - The initial container should listen on all container interfaces, but publish only the required host port and prefer host-loopback binding unless a public ingress is explicitly required.
 
 ## Exit criteria

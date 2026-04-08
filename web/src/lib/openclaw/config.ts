@@ -424,6 +424,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       tools: {
         ...(pluginTools ?? {}),
         ...execTools,
+        experimental: {
+          planTool: false,
+        },
         ...(mediaTools ?? {}),
         ...(webTools ?? {}),
       },

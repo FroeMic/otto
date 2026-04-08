@@ -8,6 +8,8 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 - bundled `otto-managed-config` plugin under `/app/extensions/otto-managed-config`
 - bundled `otto-runtime-config` plugin under `/app/extensions/otto-runtime-config`
 - bundled `otto-integrations` plugin under `/app/extensions/otto-integrations`
+- bundled `otto-session-reporter` plugin under `/app/extensions/otto-session-reporter`
+- bundled `otto-ai-provider` plugin under `/app/extensions/otto-ai-provider`
 - Otto-owned WhatsApp QR helper under `/app/otto-helpers/whatsapp-qr-login.mjs`
 
 ## Build
@@ -29,15 +31,15 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
-  -t ghcr.io/froemic/otto-openclaw:2026.4.5.1 .
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.8 \
+  -t ghcr.io/froemic/otto-openclaw:2026.4.8.1 .
 ```
 
 With the helper:
 
 ```bash
 IMAGE_REVISION=1 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.8 \
 ./publish-runtime-image.sh
 ```
 
@@ -72,7 +74,7 @@ IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 Point the control plane at the published custom image:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.5.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.8.1
 ```
 
 Tenant provisioning and later `apply_tenant_config` runs will then pull this
