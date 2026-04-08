@@ -254,6 +254,7 @@
   - signed-in workspace and platform loads now use a cached-first membership projection with a 5-minute freshness window instead of forcing a WorkOS refresh on every request
   - when a refresh fails but Otto already has local membership state, the request now logs the failure and falls back to the cached projection instead of hard-blocking the user
   - platform operator action menus now surface missing `jobId` and non-JSON API responses instead of silently doing nothing
+  - request-path diagnostics now log auth middleware entry/exit, signed-in page/load step timings, apply desired-state compilation/enqueue timings, and Caddy access logs so production hangs can be localized to proxy/auth/DB/apply boundaries
 
 ## Active architectural decision
 

@@ -26,9 +26,30 @@ type OrganizationRouteContext = {
 export async function loadOrganizationRouteContext(
   orgSlug: string,
 ): Promise<OrganizationRouteContext> {
+  const startedAt = Date.now();
+  console.info("[workspace-context] load start", {
+    orgSlug,
+  });
   const { user } = await withAuth({ ensureSignedIn: true });
+  console.info("[workspace-context] withAuth complete", {
+    durationMs: Date.now() - startedAt,
+    orgSlug,
+    userExternalId: user.id,
+  });
   const organizations = await getDashboardOrganizations(user.id);
+  console.info("[workspace-context] getDashboardOrganizations complete", {
+    durationMs: Date.now() - startedAt,
+    organizationCount: organizations.length,
+    orgSlug,
+    userExternalId: user.id,
+  });
   const isPlatformAdmin = await hasPlatformAdminRole(user.id);
+  console.info("[workspace-context] hasPlatformAdminRole complete", {
+    durationMs: Date.now() - startedAt,
+    isPlatformAdmin,
+    orgSlug,
+    userExternalId: user.id,
+  });
 
   if (organizations.length === 0) {
     redirect("/onboarding/create-organization");
@@ -41,6 +62,13 @@ export async function loadOrganizationRouteContext(
   if (!currentOrganization) {
     redirect(getOrganizationHomePath(organizations[0]));
   }
+
+  console.info("[workspace-context] load complete", {
+    currentOrganizationSlug: currentOrganization.slug,
+    durationMs: Date.now() - startedAt,
+    orgSlug,
+    userExternalId: user.id,
+  });
 
   return {
     currentOrganization,
