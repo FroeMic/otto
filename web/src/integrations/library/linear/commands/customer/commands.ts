@@ -4,6 +4,7 @@ import {
   buildLinearCustomerCollectionCommandResult,
   buildLinearCustomerCommandResult,
   buildLinearCustomerNeedChildCollectionCommandResult,
+  buildLinearDeleteCommandResult,
   executeLinearGraphql,
   getLinearCustomerFields,
   getLinearCustomerNeedFields,
@@ -52,6 +53,16 @@ const UPDATE_CUSTOMER_MUTATION = `
       customer {
         ${getLinearCustomerFields()}
       }
+      lastSyncId
+      success
+    }
+  }
+`;
+
+const DELETE_CUSTOMER_MUTATION = `
+  mutation OttoLinearCustomerDelete($id: String!) {
+    customerDelete(id: $id) {
+      entityId
       lastSyncId
       success
     }
@@ -194,6 +205,45 @@ export const executeLinearCustomerUpdate: IntegrationCommandExecute = async ({
     lastSyncId: data.customerUpdate?.lastSyncId,
     success: data.customerUpdate?.success,
   });
+};
+
+export const executeLinearCustomerDelete: IntegrationCommandExecute = async ({
+  arguments: args,
+  context,
+}) => {
+  if (!context.auth) {
+    throw new Error("Linear requires an authenticated execution context.");
+  }
+
+  const customerId =
+    typeof args.customerId === "string" ? args.customerId.trim() : "";
+
+  if (!customerId) {
+    throw new Error("linear customer.delete requires customerId.");
+  }
+
+  const data = await executeLinearGraphql<{
+    customerDelete?: {
+      entityId?: string | null;
+      lastSyncId?: number | null;
+      success?: boolean | null;
+    } | null;
+  }>({
+    accessToken: context.auth.accessToken,
+    query: DELETE_CUSTOMER_MUTATION,
+    variables: { id: customerId },
+  });
+
+  return {
+    ...buildLinearDeleteCommandResult({
+      commandKey: "customer.delete",
+      entityId: data.customerDelete?.entityId,
+      entityKey: "CustomerId",
+      lastSyncId: data.customerDelete?.lastSyncId,
+      success: data.customerDelete?.success,
+    }),
+    lookup: customerId,
+  };
 };
 
 export const executeLinearCustomerListNeeds: IntegrationCommandExecute =

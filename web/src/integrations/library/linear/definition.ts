@@ -15,6 +15,7 @@ import { executeLinearCommentList } from "./commands/comment/list";
 import { executeLinearCommentUpdate } from "./commands/comment/update";
 import {
   executeLinearCustomerCreate,
+  executeLinearCustomerDelete,
   executeLinearCustomerGet,
   executeLinearCustomerList,
   executeLinearCustomerListNeeds,
@@ -1742,6 +1743,41 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : 10,
             }),
             execute: executeLinearCustomerList,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                customerId: CUSTOMER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["customerId"],
+            },
+            commandKey: "customer.delete",
+            commandPath: ["customer", "delete"],
+            description: "Delete one Linear customer.",
+            exampleArguments: {
+              customerId: "customer-1",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "customer",
+              "delete customer",
+              "remove customer",
+            ],
+            label: "Delete customer",
+            resultMode: "json",
+            usageNotes: [
+              "Use this only when the customer record should be permanently removed.",
+            ],
+            validate: (argumentsObject) => ({
+              customerId:
+                typeof argumentsObject.customerId === "string"
+                  ? argumentsObject.customerId.trim()
+                  : "",
+            }),
+            execute: executeLinearCustomerDelete,
           },
           {
             argumentsSchema: {
