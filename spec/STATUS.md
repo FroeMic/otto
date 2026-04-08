@@ -426,7 +426,7 @@
   - the new `workspace_member.*` slice is now implemented end to end, including workspace invite create/update/cancel/resend plus accepted-user profile updates
   - delete coverage is now implemented for `issue.*`, `project.*`, `document.*`, `initiative.*`, and `customer.*`, and initiatives also now support authored update creation
   - Linear command coverage is now complete across the tracked object families plus the immediate post-coverage cleanup slice
-  - the next recommended managed-integrations step is now `Increment 7: Safe Linear settings with validation`
+  - the next recommended managed-integrations step is now `Increment 7: Capability policy, capability inventory UI, and gateway enforcement`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

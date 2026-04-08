@@ -1036,8 +1036,8 @@ Immediate next recommended slice:
 
 - Linear command coverage is complete through the post-coverage cleanup slice, including team membership management, workspace-member invite/update flows, and delete coverage for issue, project, document, initiative, and customer.
 - next recommended work:
-  - `Increment 7: Safe Linear settings with validation`
-  - `Increment 8: First Linear write capability` is already satisfied by the current `issue.create` path through `integration-gateway`; the remaining policy/defaults work belongs under Increment 7
+  - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement`
+  - `Increment 8: First Linear write capability` is already satisfied by the current `issue.create` path through `integration-gateway`; the remaining policy/defaults work now belongs under Increment 7
   - then `Increment 9: Integration-linked skill projection`
 
 ## Slack Example
@@ -1284,30 +1284,118 @@ Acceptance criteria:
 - Otto can return a workspace connect link for the tenant
 - after the user completes connect, the runtime status/detail responses reflect the updated Linear state without changing the static tool registry
 
-### Increment 7: Safe Linear settings with validation
+### Increment 7: Capability policy, capability inventory UI, and gateway enforcement
 
-Allow Otto and users to configure non-sensitive integration behavior.
+Introduce a first-class capability control layer on top of managed integrations.
+
+Product intent:
+
+- `Integrations` remain the workspace-managed connections to external systems.
+- `Capabilities` are the commands and triggers those integrations expose to Otto.
+- Users should be able to see all capabilities in the workspace, understand whether they are usable, and block individual ones when appropriate.
+- The runtime and `integration-gateway` must enforce those capability controls, not just the UI.
 
 Scope:
 
-- add provider-specific safe settings for Linear
-- add validation and apply endpoints
-- classify settings into restricted, user-managed, and agent-manageable
-- expose those settings in the workspace UI and to the runtime plugin
+- derive canonical capability definitions from the integration registry instead of maintaining a second hand-written capability catalog
+- treat integration commands and triggers as capability rows, with commands marked as `read` or `write`
+- add tenant-scoped capability policy records with a default-allow model
+- surface resolved capability state in the workspace UI and the runtime detail path
+- add per-integration capability inventory under `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+- add a global workspace capability inventory under `/[orgSlug]/capabilities2`
+- enforce capability policy and provider/runtime availability at `integration-gateway` before command execution
 
-Suggested initial safe settings:
+Data model:
 
-- default team
-- default project
-- label mapping
-- issue creation mode such as draft-only vs direct-create
+- add `tenant_integration_capability_states`
+- store `policy_json` with a v1 shape of:
+
+```json
+{
+  "policy": "allow" | "block"
+}
+```
+
+- no row means allow by default
+- keep policy storage generic so richer policies can be added later without reworking the schema
+
+Capability model:
+
+- capabilities are derived from the integration registry
+- commands and triggers are both capability types
+- commands carry:
+  - `effect: "read" | "write"`
+- capability definitions may also carry:
+  - `userControllable`
+  - provider-owned availability notes for cases where a capability should remain visible but not be executable by Otto in the current provider/actor shape
+
+Resolved capability state:
+
+- the runtime and agent-facing surface should use:
+  - `status: "enabled" | "disabled" | "needs_attention"`
+  - `reason?: string`
+- the workspace UI may additionally read:
+  - `policy`
+  - `userControllable`
+- disabled capability rows must remain visible in discovery and UI instead of being hidden
+
+Examples:
+
+- user blocks `linear.issue.delete`
+  - UI shows the capability as `disabled`
+  - `reason = "Disabled by workspace policy."`
+  - execution fails in `integration-gateway`
+- provider/actor limitation such as `team.delete`
+  - UI still shows the capability as `disabled`
+  - `reason = "Not available for Otto's current Linear actor in this workspace."`
+  - the row is not user-toggleable
+- disconnected integration
+  - capability resolves as `needs_attention`
+  - `reason = "Integration disconnected."`
+
+UI:
+
+- per-integration capability page:
+  - route: `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - sortable data table
+  - default sort: triggers first, then commands, then label
+  - actions column with a three-dot menu for `Enable` / `Disable` when the capability is user-controllable
+- global capability page:
+  - route: `/[orgSlug]/capabilities2`
+  - includes installed integration capabilities plus Otto core capabilities such as file read/write
+  - filter dropdown with:
+    - `All`
+    - `Triggers`
+    - `Commands`
+
+Runtime and enforcement:
+
+- `get_integration_details(command)` should include resolved capability state for the selected command
+- disabled capabilities stay discoverable so Otto can explain why a capability exists but cannot be used
+- `integration-gateway` must resolve capability state before executing a command and reject:
+  - workspace-blocked capabilities
+  - provider-unavailable capabilities
+  - integrations in a `needs_attention` state
+
+Initial provider-owned disabled examples for Linear:
+
+- `workspace_member.invite_update`
+- `workspace_member.invite_resend`
+- `workspace_member.invite_cancel`
+- `team.delete`
+- `team.unarchive`
 
 Acceptance criteria:
 
-- workspace users can edit safe Linear settings
-- Otto can read safe settings metadata
-- Otto can validate and apply only agent-manageable settings
-- restricted settings remain blocked from the runtime path
+- every managed integration command resolves to a capability row
+- command capabilities are classified as `read` or `write`
+- workspace users can block and re-allow user-controllable capabilities
+- blocked capabilities remain visible in the capability tables and integration details
+- blocked capabilities fail clearly at `integration-gateway`
+- provider-unavailable capabilities remain visible and disabled with a clear reason
+- provider-unavailable capabilities are not user-toggleable
+- `/integrations2/[integrationKey]/capabilities` shows resolved capability rows for that integration
+- `/capabilities2` shows workspace-wide capability inventory across installed integrations and Otto core tools
 
 ### Increment 8: First Linear write capability
 
@@ -1318,7 +1406,7 @@ Status:
 - functionally done on `main`
 - `linear.issue.create` exists and executes through `integration-gateway`
 - execution is audited already
-- the remaining settings-aware policy/default enforcement belongs to Increment 7
+- the remaining capability-policy enforcement belongs to Increment 7
 
 Scope:
 
