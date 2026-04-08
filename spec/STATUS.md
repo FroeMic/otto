@@ -366,7 +366,11 @@
   - `SKILL.md` now supports `metadata.dependsOn.skills` alongside `metadata.dependsOn.integrations`
   - create and update now validate referenced managed skill keys against the current workspace skill set and reject self-dependencies and dependency cycles
   - the Skills workspace surface now lets users declare managed-skill prerequisites during create and edit, and the status view renders both prerequisite lists as the basis for a dependency tree
-  - the next recommended slice is Increment 4: add Otto-facing runtime-authenticated managed-skill CRUD on top of the now-live workspace-managed package model
+- A runtime-authenticated managed-skills slice is now implemented on `main`:
+  - `/api/internal/runtime/managed-skills` now exposes tenant-token-authenticated list, detail, file-read, and file-patch operations for managed skills
+  - the new `otto-managed-skills` runtime plugin now gives Otto a first-class tool surface for inspecting and updating managed skill packages
+  - patch operations reuse the existing managed skill versioning and desired-state/apply pipeline, with version checks and the same editable-text-only restrictions as the workspace UI
+  - the next recommended slice is Increment 5: expose read-only `state/` visibility in both the workspace and runtime-authenticated managed-skills surfaces
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface

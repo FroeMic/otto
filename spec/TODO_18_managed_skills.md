@@ -773,6 +773,11 @@ Parallel note:
 
 ### Increment 4: Runtime-authenticated managed-skill CRUD surface
 
+Status:
+
+- done in this slice
+- the tenant runtime now has a dedicated managed-skills plugin and runtime-authenticated route for list, inspect, read, and patch operations on editable managed text files
+
 Scope:
 
 - add runtime-authenticated list/read/patch tools for managed skills
@@ -844,7 +849,7 @@ Acceptance criteria:
 - [x] Increment 1: managed skill package model and validation
 - [x] Increment 2: projection into `workspace/skills/`
 - [x] Increment 3: minimal workspace Skills UI
-- [ ] Increment 4: runtime-authenticated managed-skill CRUD surface
+- [x] Increment 4: runtime-authenticated managed-skill CRUD surface
 - [ ] Increment 5: read-only `state/` visibility
 - [ ] Increment 6: integration-linked starter skills
 - [x] Increment 7: managed skill dependency graph metadata
@@ -858,3 +863,7 @@ TODO 17 defines what the agent can connect to and call.
 TODO 18 defines the managed instruction packages that teach the agent how to use those capabilities well.
 OpenClaw remains the native runtime substrate for both.
 ```
+
+Next:
+
+- Increment 5. The managed-skill runtime surface can now read and patch editable managed files, so the next slice should expose read-only `state/` visibility in both the workspace and runtime-authenticated paths without weakening the managed/local boundary.
