@@ -708,6 +708,8 @@ Tracker:
   - `[x]` `issue.search`
   - `[x]` `issue.create`
   - `[x]` `issue.update`
+  - `[x]` `issue.insert_inline_image`
+  - `[x]` `issue.upload_inline_image`
   - `[x]` `issue.archive`
   - `[x]` `issue.batch_update`
   - `[x]` `issue.list_comments`

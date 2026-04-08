@@ -69,6 +69,7 @@ import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
 import { executeLinearIssueCreate } from "./commands/issue/create";
 import { executeLinearIssueGet } from "./commands/issue/get";
+import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image";
 import { executeLinearIssueList } from "./commands/issue/list";
 import { executeLinearIssueListAttachments } from "./commands/issue/list-attachments";
 import { executeLinearIssueListComments } from "./commands/issue/list-comments";
@@ -77,6 +78,7 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import { executeLinearIssueUploadInlineImage } from "./commands/issue/upload-inline-image";
 import {
   executeLinearLabelCreateIssueLabel,
   executeLinearLabelDeleteIssueLabel,
@@ -5574,6 +5576,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             resultMode: "json",
             usageNotes: [
               "This requires at least one update field besides identifierOrId.",
+              "Inline images are supported in the description via Markdown image syntax like ![alt](assetUrl).",
+              "Use issue.insert_inline_image or issue.upload_inline_image when you want Otto to manage the markdown insertion for you.",
             ],
             validate: (argumentsObject) => ({
               addedLabelIds: Array.isArray(argumentsObject.addedLabelIds)
@@ -5632,6 +5636,257 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : null,
             }),
             execute: executeLinearIssueUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                altText: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Alt text to use in the Markdown image tag.",
+                },
+                anchorText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Required when position is after_text, before_text, or replace_text. Otto inserts relative to the first exact match.",
+                },
+                assetUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Uploaded Linear asset URL to embed inline in the issue description.",
+                },
+                fallbackPosition: {
+                  type: "string",
+                  enum: ["append", "fail", "prepend"],
+                  description:
+                    "What to do if anchorText is not found. Defaults to fail.",
+                },
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                position: {
+                  type: "string",
+                  enum: [
+                    "append",
+                    "prepend",
+                    "after_text",
+                    "before_text",
+                    "replace_text",
+                  ],
+                  description:
+                    "How to place the Markdown image within the description. Defaults to append.",
+                },
+              },
+              required: ["altText", "assetUrl", "identifierOrId"],
+            },
+            commandKey: "issue.insert_inline_image",
+            commandPath: ["issue", "insert_inline_image"],
+            description:
+              "Insert a Markdown image into an issue description using an existing uploaded Linear asset URL.",
+            exampleArguments: {
+              altText: "OpenClaw logo",
+              assetUrl: "https://uploads.linear.app/assets/openclaw-logo.png",
+              identifierOrId: "INT-15",
+              position: "append",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "issue",
+              "inline image",
+              "embed image",
+              "markdown image",
+            ],
+            label: "Insert inline image",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you already have an uploaded Linear asset URL.",
+              "For anchor-based placement, provide anchorText and choose after_text, before_text, or replace_text.",
+              "When fallbackPosition is fail, Otto will error instead of silently appending if the anchor is missing.",
+            ],
+            validate: (argumentsObject) => ({
+              altText:
+                typeof argumentsObject.altText === "string"
+                  ? argumentsObject.altText.trim()
+                  : "",
+              anchorText:
+                typeof argumentsObject.anchorText === "string"
+                  ? argumentsObject.anchorText.trim()
+                  : null,
+              assetUrl:
+                typeof argumentsObject.assetUrl === "string"
+                  ? argumentsObject.assetUrl.trim()
+                  : "",
+              fallbackPosition:
+                argumentsObject.fallbackPosition === "append" ||
+                argumentsObject.fallbackPosition === "prepend" ||
+                argumentsObject.fallbackPosition === "fail"
+                  ? argumentsObject.fallbackPosition
+                  : "fail",
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+              position:
+                argumentsObject.position === "after_text" ||
+                argumentsObject.position === "before_text" ||
+                argumentsObject.position === "prepend" ||
+                argumentsObject.position === "replace_text"
+                  ? argumentsObject.position
+                  : "append",
+            }),
+            execute: executeLinearIssueInsertInlineImage,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                altText: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Alt text to use in the Markdown image tag.",
+                },
+                anchorText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Required when position is after_text, before_text, or replace_text. Otto inserts relative to the first exact match.",
+                },
+                contentBase64: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Base64-encoded file bytes. Data URLs are also accepted.",
+                },
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the inline image.",
+                },
+                fallbackPosition: {
+                  type: "string",
+                  enum: ["append", "fail", "prepend"],
+                  description:
+                    "What to do if anchorText is not found. Defaults to fail.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded image asset.",
+                },
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's signed upload request.",
+                },
+                position: {
+                  type: "string",
+                  enum: [
+                    "append",
+                    "prepend",
+                    "after_text",
+                    "before_text",
+                    "replace_text",
+                  ],
+                  description:
+                    "How to place the Markdown image within the description. Defaults to append.",
+                },
+              },
+              required: [
+                "altText",
+                "contentBase64",
+                "contentType",
+                "filename",
+                "identifierOrId",
+              ],
+            },
+            commandKey: "issue.upload_inline_image",
+            commandPath: ["issue", "upload_inline_image"],
+            description:
+              "Upload image bytes to Linear storage on the server, then insert the uploaded image inline into the issue description.",
+            exampleArguments: {
+              altText: "OpenClaw logo",
+              contentBase64: "<base64-image-bytes>",
+              contentType: "image/png",
+              filename: "openclaw-logo.png",
+              identifierOrId: "INT-15",
+              position: "append",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "issue",
+              "upload inline image",
+              "embed uploaded image",
+              "description image",
+            ],
+            label: "Upload inline image",
+            resultMode: "json",
+            usageNotes: [
+              "This command performs the full server-side upload flow and then updates the issue description with Markdown image syntax.",
+              "Provide contentBase64 with the raw image bytes. Data URL prefixes are accepted.",
+              "For anchor-based placement, provide anchorText and choose after_text, before_text, or replace_text.",
+            ],
+            validate: (argumentsObject) => ({
+              altText:
+                typeof argumentsObject.altText === "string"
+                  ? argumentsObject.altText.trim()
+                  : "",
+              anchorText:
+                typeof argumentsObject.anchorText === "string"
+                  ? argumentsObject.anchorText.trim()
+                  : null,
+              contentBase64:
+                typeof argumentsObject.contentBase64 === "string"
+                  ? argumentsObject.contentBase64.trim()
+                  : "",
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              fallbackPosition:
+                argumentsObject.fallbackPosition === "append" ||
+                argumentsObject.fallbackPosition === "prepend" ||
+                argumentsObject.fallbackPosition === "fail"
+                  ? argumentsObject.fallbackPosition
+                  : "fail",
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              position:
+                argumentsObject.position === "after_text" ||
+                argumentsObject.position === "before_text" ||
+                argumentsObject.position === "prepend" ||
+                argumentsObject.position === "replace_text"
+                  ? argumentsObject.position
+                  : "append",
+            }),
+            execute: executeLinearIssueUploadInlineImage,
           },
           {
             argumentsSchema: {

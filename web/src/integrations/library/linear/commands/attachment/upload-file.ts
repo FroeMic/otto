@@ -55,8 +55,8 @@ export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
       uploadFile: upload.uploadFile,
     });
 
-    const attachmentResult = (await executeLinearAttachmentCreateFromUploadedFile(
-      {
+    const attachmentResult =
+      (await executeLinearAttachmentCreateFromUploadedFile({
         arguments: {
           assetUrl: upload.uploadFile.assetUrl,
           commentBody: args.commentBody,
@@ -74,8 +74,7 @@ export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
           title: args.title,
         },
         context,
-      },
-    )) as Record<string, unknown>;
+      })) as Record<string, unknown>;
 
     return {
       ...attachmentResult,

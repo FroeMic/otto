@@ -983,8 +983,7 @@ function normalizeLinearUploadPlan(
       }))
       .filter((header) => header.key.length > 0),
     metadata: uploadFile.metaData ?? null,
-    size:
-      typeof uploadFile.size === "number" ? uploadFile.size : null,
+    size: typeof uploadFile.size === "number" ? uploadFile.size : null,
     uploadUrl: uploadFile.uploadUrl ?? null,
   };
 }
@@ -1105,9 +1104,7 @@ export async function uploadLinearFileBytes(input: {
     `[linear] upload put failed status=${response.status} filename=${input.uploadFile.filename ?? "unknown"} contentType=${input.contentType} response=${rawResponseSnippet}`,
   );
 
-  throw new Error(
-    `Linear upload PUT failed with status ${response.status}.`,
-  );
+  throw new Error(`Linear upload PUT failed with status ${response.status}.`);
 }
 
 export function getLinearIssueFields() {

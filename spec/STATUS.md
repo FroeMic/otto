@@ -384,7 +384,7 @@
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
   - runtime Linear now exposes grouped commands such as `workspace.get_viewer`, `workspace.get_organization`, `workspace.list_teams`, `workspace.list_users`, `workspace.list_workflow_states`, `workspace.list_project_statuses`, `issue.search`, `issue.get`, `issue.list`, `issue.create`, `issue.update`, `issue.archive`, `issue.batch_update`, `issue.list_comments`, `issue.list_attachments`, `issue.list_documents`, `issue.list_relations`, `issue.add_label`, `issue.remove_label`, `comment.list`, `comment.get`, `comment.create`, `comment.update`, and `comment.delete`
   - `issue.search` performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
-  - the full planned `issue.*` slice is now implemented end to end, including reads, writes, nested issue resources, and label mutations
+  - the full planned `issue.*` slice is now implemented end to end, including reads, writes, nested issue resources, label mutations, and inline image insertion/upload helpers
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
   - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits.command_key` rows recorded for success and failure
 - The next managed-integrations refactor slice is now in progress on `main`:

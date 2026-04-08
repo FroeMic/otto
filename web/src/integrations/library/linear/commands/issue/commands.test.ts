@@ -3,7 +3,9 @@ import { afterEach, describe, it } from "node:test";
 
 import { executeLinearIssueBatchUpdate } from "./batch-update";
 import { executeLinearIssueCreate } from "./create";
+import { executeLinearIssueInsertInlineImage } from "./insert-inline-image";
 import { executeLinearIssueListComments } from "./list-comments";
+import { executeLinearIssueUploadInlineImage } from "./upload-inline-image";
 
 function buildIssueNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -313,5 +315,259 @@ describe("linear issue commands", () => {
       result.items.map((item) => item.priority),
       [1, 1],
     );
+  });
+
+  it("inserts an inline image after anchor text", async () => {
+    const requests: Array<{
+      query: string;
+      variables: Record<string, unknown>;
+    }> = [];
+
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+      requests.push(body);
+
+      if (body.query.includes("searchIssues")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchIssues: {
+                nodes: [
+                  buildIssueNode({
+                    description: "Intro\n\n## Assets",
+                  }),
+                ],
+              },
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      assert.match(body.query, /issueUpdate/);
+      assert.deepEqual(body.variables, {
+        id: "issue-uuid-1",
+        input: {
+          description:
+            "Intro\n\n## Assets\n\n![OpenClaw logo](https://uploads.linear.app/assets/logo.png)",
+        },
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            issueUpdate: {
+              issue: buildIssueNode({
+                description:
+                  "Intro\n\n## Assets\n\n![OpenClaw logo](https://uploads.linear.app/assets/logo.png)",
+              }),
+              lastSyncId: 80,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearIssueInsertInlineImage({
+      arguments: {
+        altText: "OpenClaw logo",
+        anchorText: "## Assets",
+        assetUrl: "https://uploads.linear.app/assets/logo.png",
+        identifierOrId: "INT-6",
+        position: "after_text",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      anchorMatched: boolean;
+      commandKey: string;
+      insertedMarkdown: string;
+      insertionMode: string;
+      issue: { description: string | null } | null;
+      lastSyncId: number | null;
+    };
+
+    assert.equal(requests.length, 2);
+    assert.equal(result.commandKey, "issue.insert_inline_image");
+    assert.equal(result.anchorMatched, true);
+    assert.equal(result.insertionMode, "after_text");
+    assert.equal(
+      result.insertedMarkdown,
+      "![OpenClaw logo](https://uploads.linear.app/assets/logo.png)",
+    );
+    assert.equal(result.lastSyncId, 80);
+    assert.match(result.issue?.description ?? "", /!\[OpenClaw logo\]/);
+  });
+
+  it("uploads an inline image and appends it to the issue description", async () => {
+    let graphqlCallCount = 0;
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+
+      if (url.includes("signed-upload.example.com")) {
+        const body =
+          init?.body instanceof Blob
+            ? await init.body.text()
+            : String(init?.body ?? "");
+
+        assert.equal(String(init?.method ?? "GET"), "PUT");
+        assert.equal(body, "hello world");
+        assert.equal(
+          new Headers(init?.headers).get("content-type"),
+          "image/png",
+        );
+
+        return new Response(null, { status: 200 });
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        query: string;
+        variables: Record<string, unknown>;
+      };
+      graphqlCallCount += 1;
+
+      if (body.query.includes("fileUpload(")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              fileUpload: {
+                lastSyncId: 91,
+                success: true,
+                uploadFile: {
+                  assetUrl:
+                    "https://uploads.linear.app/assets/openclaw-logo.png",
+                  contentType: "image/png",
+                  filename: "openclaw-logo.png",
+                  headers: [
+                    {
+                      key: "x-amz-acl",
+                      value: "private",
+                    },
+                  ],
+                  metaData: {
+                    purpose: "inline-image",
+                  },
+                  size: 11,
+                  uploadUrl:
+                    "https://signed-upload.example.com/openclaw-logo.png",
+                },
+              },
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      if (body.query.includes("searchIssues")) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              searchIssues: {
+                nodes: [
+                  buildIssueNode({
+                    description: "Current description",
+                  }),
+                ],
+              },
+            },
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      assert.match(body.query, /issueUpdate/);
+      assert.deepEqual(body.variables, {
+        id: "issue-uuid-1",
+        input: {
+          description:
+            "Current description\n\n![Inline logo](https://uploads.linear.app/assets/openclaw-logo.png)",
+        },
+      });
+
+      return new Response(
+        JSON.stringify({
+          data: {
+            issueUpdate: {
+              issue: buildIssueNode({
+                description:
+                  "Current description\n\n![Inline logo](https://uploads.linear.app/assets/openclaw-logo.png)",
+              }),
+              lastSyncId: 92,
+              success: true,
+            },
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    const result = (await executeLinearIssueUploadInlineImage({
+      arguments: {
+        altText: "Inline logo",
+        contentBase64: Buffer.from("hello world").toString("base64"),
+        contentType: "image/png",
+        filename: "openclaw-logo.png",
+        identifierOrId: "INT-6",
+        metaData: { purpose: "inline-image" },
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      insertionMode: string;
+      issue: { description: string | null } | null;
+      uploadFile: { assetUrl: string | null } | null;
+      uploadedAssetUrl: string | null;
+      uploadedBytes: number;
+    };
+
+    assert.equal(graphqlCallCount, 3);
+    assert.equal(result.commandKey, "issue.upload_inline_image");
+    assert.equal(result.insertionMode, "append");
+    assert.equal(result.uploadedBytes, 11);
+    assert.equal(
+      result.uploadedAssetUrl,
+      "https://uploads.linear.app/assets/openclaw-logo.png",
+    );
+    assert.equal(
+      result.uploadFile?.assetUrl,
+      "https://uploads.linear.app/assets/openclaw-logo.png",
+    );
+    assert.match(result.issue?.description ?? "", /!\[Inline logo\]/);
   });
 });
