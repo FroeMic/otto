@@ -5,6 +5,7 @@ import { executeLinearWorkspaceMemberInvite } from "./invite";
 import { executeLinearWorkspaceMemberInviteCancel } from "./invite-cancel";
 import { executeLinearWorkspaceMemberInviteResend } from "./invite-resend";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./invite-update";
+import { executeLinearWorkspaceMemberUpdate } from "./update";
 
 function buildUserNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -319,5 +320,74 @@ describe("linear workspace member commands", () => {
     assert.equal(result.lookup, "new.person@example.com");
     assert.equal(result.resentInviteId, "invite-2");
     assert.equal(result.success, true);
+  });
+
+  it("updates one workspace member profile by user id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          userUpdate: {
+            lastSyncId: 135,
+            success: true,
+            user: buildUserNode({
+              displayName: "Otto Updated",
+              statusEmoji: ":robot_face:",
+              statusLabel: "Helping",
+              timezone: "Europe/Berlin",
+            }),
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearWorkspaceMemberUpdate({
+      arguments: {
+        displayName: " Otto Updated ",
+        statusEmoji: " :robot_face: ",
+        statusLabel: " Helping ",
+        timezone: " Europe/Berlin ",
+        userId: "user-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+      user: {
+        displayName: string;
+        id: string | null;
+        statusEmoji: string | null;
+        statusLabel: string | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: {
+        id: string;
+        input: Record<string, unknown>;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearUserUpdate/);
+    assert.equal(payload.variables.id, "user-1");
+    assert.deepEqual(payload.variables.input, {
+      displayName: "Otto Updated",
+      statusEmoji: ":robot_face:",
+      statusLabel: "Helping",
+      timezone: "Europe/Berlin",
+    });
+    assert.equal(result.commandKey, "workspace_member.update");
+    assert.equal(result.lastSyncId, 135);
+    assert.equal(result.lookup, "user-1");
+    assert.equal(result.success, true);
+    assert.equal(result.user?.id, "user-1");
+    assert.equal(result.user?.displayName, "Otto Updated");
+    assert.equal(result.user?.statusEmoji, ":robot_face:");
+    assert.equal(result.user?.statusLabel, "Helping");
   });
 });

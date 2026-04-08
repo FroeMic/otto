@@ -152,6 +152,7 @@ import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/
 import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel";
 import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-member/invite-resend";
 import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
+import { executeLinearWorkspaceMemberUpdate } from "./commands/workspace-member/update";
 import { linearOAuthProvider } from "./oauth/provider";
 import { LinearIntegrationListItem } from "./ui/list-item";
 
@@ -4178,6 +4179,84 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: [
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                avatarUrl: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                description: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                displayName: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                name: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusEmoji: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusLabel: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                statusUntilAt: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                timezone: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["userId"],
+            },
+            commandKey: "workspace_member.update",
+            commandPath: ["workspace_member", "update"],
+            description: "Update one existing Linear workspace member profile.",
+            exampleArguments: {
+              statusLabel: "Helping customers",
+              userId: "7036157e-c337-4699-8134-6b833b85b844",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "workspace member",
+              "update member",
+              "update user",
+              "member profile",
+            ],
+            label: "Update workspace member",
+            resultMode: "json",
+            usageNotes: [
+              "This updates the Linear user profile fields, not workspace role assignments.",
+              "Use user.list or user.get first to confirm the target user id.",
+            ],
+            validate: (argumentsObject) => ({
+              avatarUrl:
+                typeof argumentsObject.avatarUrl === "string"
+                  ? argumentsObject.avatarUrl.trim()
+                  : undefined,
+              description:
+                typeof argumentsObject.description === "string"
+                  ? argumentsObject.description.trim()
+                  : undefined,
+              displayName:
+                typeof argumentsObject.displayName === "string"
+                  ? argumentsObject.displayName.trim()
+                  : undefined,
+              name:
+                typeof argumentsObject.name === "string"
+                  ? argumentsObject.name.trim()
+                  : undefined,
+              statusEmoji:
+                typeof argumentsObject.statusEmoji === "string"
+                  ? argumentsObject.statusEmoji.trim()
+                  : undefined,
+              statusLabel:
+                typeof argumentsObject.statusLabel === "string"
+                  ? argumentsObject.statusLabel.trim()
+                  : undefined,
+              statusUntilAt:
+                typeof argumentsObject.statusUntilAt === "string"
+                  ? argumentsObject.statusUntilAt.trim()
+                  : undefined,
+              timezone:
+                typeof argumentsObject.timezone === "string"
+                  ? argumentsObject.timezone.trim()
+                  : undefined,
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearWorkspaceMemberUpdate,
+          },
           {
             argumentsSchema: {
               type: "object",
