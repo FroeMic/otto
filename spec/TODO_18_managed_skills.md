@@ -8,15 +8,18 @@ The key decisions are:
 
 - A managed skill is a filesystem package rooted at `workspace/skills/<skill-key>/`.
 - Every skill is anchored by `SKILL.md`.
-- Skills may include additional managed files and folders as needed, but only `SKILL.md` is required.
+- `SKILL.md` is the only Otto-managed file in the skill package.
+- Otto should always create `references/`, `scripts/`, and `state/` inside each projected skill package.
+- `references/`, `scripts/`, and `state/` are runtime-local writable directories, not control-plane-managed source of truth.
 - `state/` is the reserved directory for local runtime state created by the agent or tools.
 - Skills may declare dependencies on integrations, but they do not create tools and they do not own integration setup.
 - Managed skill files are stored canonically in the control plane and projected into the tenant runtime.
 - Users and Otto should both be able to view managed skill packages through workspace-managed APIs.
-- `SKILL.md` and other UTF-8 managed text files in the package should be editable through an explicit managed editing flow.
-- Non-text managed files should be visible and downloadable, but not editable in `v1`.
-- `state/` should be visible, previewable when text-like, downloadable, and read-only in `v1`.
+- Only `SKILL.md` should be editable through an explicit managed editing flow.
+- Split skill documentation should live under `references/` and be referenced from `SKILL.md`.
+- `state/` should be visible, previewable when text-like, downloadable, and read-only in the workspace and runtime-managed UI, while remaining runtime-writable on disk.
 - OpenClaw should discover these skills natively from `workspace/skills` without Otto-specific changes to the upstream skill loader.
+- Otto should explicitly control which upstream bundled skills remain visible to end users, and override same-named bundled skills in `workspace/skills` when Otto needs a workspace-specific system version.
 
 At a product level:
 
@@ -41,9 +44,10 @@ The system must also satisfy these goals:
 
 - Managed skills should be the source of truth for workspace-owned instructional packages.
 - OpenClaw should continue to load and present skills using its native filesystem and prompt model.
-- Skill packages should support several files without forcing a large fixed folder taxonomy.
-- Local runtime state should be allowed, but contained, visible, and clearly distinct from managed files.
+- Skill packages should support local companion material without making those files managed source of truth.
+- Local runtime state and helper files should be allowed, but contained, visible, and clearly distinct from managed files.
 - The skill UI should be semantic and managed-first, while the general file browser can remain a lower-level filesystem view.
+- Otto should be able to hide or override inappropriate upstream bundled skills instead of exposing the raw OpenClaw defaults directly to workspace users.
 
 ## Architecture
 
@@ -126,6 +130,12 @@ Managed skills should reuse the same control-plane-owned mutation, versioning, a
 - explicit validation on write
 - desired-state versioning and projection
 - runtime-authenticated read and patch tools for the managed subset
+
+For skills, the managed subset should stay intentionally narrow:
+
+- `SKILL.md` only for managed writes
+- runtime-local `references/`, `scripts/`, and `state/` directories for non-managed skill files
+- workspace and runtime-authenticated visibility for those local directories without treating them as managed source of truth
 
 This matters because some skills will declare integration prerequisites and some integrations may later contribute starter skill packages. Those contributions should create normal managed skill records that project into `workspace/skills/<skill-key>/`. They should not write ad hoc files into a separate repository-level skills directory.
 
@@ -242,20 +252,22 @@ workspace/
   skills/
     <skill-key>/
       SKILL.md
-      <additional managed files and folders as needed>
+      references/
+      scripts/
       state/
 ```
 
 The rules should be:
 
 - `SKILL.md` is required.
+- `references/`, `scripts/`, and `state/` should always exist after projection.
+- `references/`, `scripts/`, and `state/` are runtime-writable local directories, not managed source of truth.
 - `state/` is reserved for local runtime state created by the agent or tools.
-- `state/` is optional, but if it exists, Otto treats it as local mutable state rather than managed source of truth.
-- All other files and folders are optional managed package content.
-- Managed UTF-8 text files are editable through the workspace and runtime-authenticated managed-skills surfaces.
-- Non-text managed files are viewable as metadata and downloadable, but not editable in `v1`.
-- Otto should not require fixed subfolder names such as `references/`, `scripts/`, `examples/`, or `assets/`.
-- Skills may still include those folders by convention when useful.
+- `references/` is the preferred location for split markdown details that `SKILL.md` references.
+- `scripts/` is the preferred location for skill-local helper scripts.
+- Otto-managed writes should apply only to `SKILL.md`.
+- Otto should preserve local contents under `references/`, `scripts/`, and `state/` across applies and reprojection.
+- Otto should not require additional fixed subfolder names beyond these defaults, but these three directories define the supported writable local primitives.
 
 This gives the system a minimal but powerful workspace primitive:
 
@@ -435,9 +447,13 @@ The workspace-facing operations should include:
 - create skill
 - update skill metadata
 - list skill files
-- read managed skill file
-- patch editable managed skill file
+- read `SKILL.md`
+- patch `SKILL.md`
 - enable or disable skill
+- list `references/` files
+- read or download `references/` files
+- list `scripts/` files
+- read or download `scripts/` files
 - list `state/` files
 - read or download `state/` files
 
@@ -452,18 +468,19 @@ The agent should be able to:
 - list managed skills
 - inspect a skill's structured metadata
 - create a new managed skill
-- edit managed skill files
-- only edit files the control plane classifies as editable managed text files
+- edit `SKILL.md`
 - detect whether a skill's declared prerequisites are satisfied
-- use the skill's `state/` directory as the designated location for local skill runtime state
+- use `references/`, `scripts/`, and `state/` as the designated local writable directories for skill-owned files
+- store split markdown details under `references/` and refer to them from `SKILL.md`
 
 The agent should not be able to:
 
 - provision integrations through the skills surface
 - bypass integration setup or policy
 - write arbitrary hidden projected files outside the skill package
-- edit binary managed files through the managed-skills surface
+- create ad hoc sibling managed files next to `SKILL.md` through the managed-skills surface
 - treat local `state/` files as managed source of truth
+- treat local `references/` or `scripts/` files as managed source of truth
 
 If a skill depends on an integration that is unavailable, the skill should show a status like `Missing prerequisite`. The actual setup flow remains in `TODO_17`.
 
@@ -748,7 +765,7 @@ Status:
 
 - done on `main` for the current text-first managed-skills slice
 - the workspace now has a dedicated `/skills` list plus `/skills/<skill-key>` detail page with URL-backed tabs modeled on the newer integration surfaces
-- users can create a first skill from `SKILL.md`, inspect package files, and edit managed UTF-8 text files directly from the workspace
+- users can create a first skill from `SKILL.md`, inspect package files, and edit `SKILL.md` directly from the workspace
 - non-text file metadata is surfaced in the viewer, while true binary download remains coupled to the still-deferred binary managed-file persistence work
 
 Scope:
@@ -756,15 +773,15 @@ Scope:
 - add a dedicated `Skills` section in the workspace
 - show list, detail, package tree, dependency badges, and status
 - add viewer support for the whole package
-- allow explicit editing for `SKILL.md` and other editable managed text files
+- allow explicit editing for `SKILL.md`
 - allow `SKILL.md` to declare both integration prerequisites and managed-skill prerequisites through structured controls
 
 Acceptance criteria:
 
 - users can browse managed skills in a dedicated workspace section
 - the package tree clearly distinguishes editable managed files, download-only managed files, and local `state/`
-- users can edit `SKILL.md` and other editable managed text files through an explicit edit action
-- non-text files are viewable as metadata in the current text-first slice
+- users can edit `SKILL.md` through an explicit edit action
+- local `references/`, `scripts/`, and `state/` directories are visible as local, runtime-owned areas
 - the Skills UI can show both integration and skill prerequisites as the basis for a dependency tree
 
 Parallel note:
@@ -776,19 +793,19 @@ Parallel note:
 Status:
 
 - done in this slice
-- the tenant runtime now has a dedicated managed-skills plugin and runtime-authenticated route for list, inspect, read, and patch operations on editable managed text files
+- the tenant runtime now has a dedicated managed-skills plugin and runtime-authenticated route for list, inspect, read, and patch operations on `SKILL.md`
 
 Scope:
 
 - add runtime-authenticated list/read/patch tools for managed skills
 - reuse the managed bootstrap-file mutation/version/apply pipeline
-- restrict patch operations to editable managed text files
+- restrict patch operations to `SKILL.md`
 
 Acceptance criteria:
 
 - Otto can list managed skills and inspect package files through runtime-authenticated APIs
-- Otto can patch `SKILL.md` and other editable managed text files with version checks
-- Otto cannot patch `state/` files or non-text managed files through the managed-skills surface
+- Otto can patch `SKILL.md` with version checks
+- Otto cannot patch `references/`, `scripts/`, `state/`, or non-text files through the managed-skills surface
 
 Parallel note:
 
@@ -796,18 +813,50 @@ Parallel note:
 
 ### Increment 5: Read-only `state/` visibility
 
+Status:
+
+- partially done on `main`
+- projected skills now create and preserve writable runtime-local `references/`, `scripts/`, and `state/` directories
+- workspace and runtime-managed edits are already restricted away from those local directories
+- read-only listing, preview, and download for local directory contents are still open
+
 Scope:
 
+- make `references/`, `scripts/`, and `state/` durable runtime-local writable directories in projected skills
+- list `references/` and `scripts/` files
+- preview text-like `references/`, `scripts/`, and `state/` files
+- allow download for text and binary local files across those directories
 - list `state/` files
-- preview text-like `state/` files
-- allow download for text and binary local state
+- preserve local contents in those directories across applies and reprojection
 
 Acceptance criteria:
 
-- `state/` appears in the package tree as local read-only state
-- text-like state files can be previewed
-- binary state files can be downloaded
-- the workspace and runtime-authenticated surfaces never edit local state
+- `references/`, `scripts/`, and `state/` appear in the package tree as local runtime-owned directories
+- the tenant runtime can write new files under those directories without permission errors
+- text-like local files can be previewed
+- binary local files can be downloaded
+- the workspace and runtime-authenticated surfaces never edit local files through the managed-skills API
+
+### Increment 8: Bundled skill policy and Otto system overrides
+
+Status:
+
+- done on `main`
+- Otto now renders an explicit bundled-skill allowlist into tenant OpenClaw config instead of passing through the entire upstream bundled catalog
+- Otto now seeds a system-managed `skill-creator` skill with higher precedence than the bundled OpenClaw copy
+- the Otto `skill-creator` override stays visible to Otto and in the workspace list, but it is non-editable through Otto's managed-skills surfaces
+
+Scope:
+
+- explicitly control which upstream bundled OpenClaw skills are visible to end users
+- allow Otto to override same-named bundled skills by projecting workspace/system-managed skills with higher precedence
+- seed Otto-owned system skills such as `skill-creator` as non-editable managed skills
+
+Acceptance criteria:
+
+- Otto can suppress bundled skills that should not be exposed in the workspace experience
+- Otto can project a same-named workspace skill that overrides a bundled OpenClaw skill
+- Otto-owned system skills remain visible in the available skills list while staying non-editable in the workspace UI
 
 ### Increment 6: Integration-linked starter skills
 
@@ -853,6 +902,7 @@ Acceptance criteria:
 - [ ] Increment 5: read-only `state/` visibility
 - [ ] Increment 6: integration-linked starter skills
 - [x] Increment 7: managed skill dependency graph metadata
+- [x] Increment 8: bundled skill policy and Otto system overrides
 
 ## Recommendation
 
@@ -866,4 +916,4 @@ OpenClaw remains the native runtime substrate for both.
 
 Next:
 
-- Increment 5. The managed-skill runtime surface can now read and patch editable managed files, so the next slice should expose read-only `state/` visibility in both the workspace and runtime-authenticated paths without weakening the managed/local boundary.
+- Increment 5. Add read-only workspace visibility for local `references/`, `scripts/`, and `state/` contents now that the local-directory contract and bundled-skill policy are in place.

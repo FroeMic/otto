@@ -70,7 +70,7 @@ test("classifyManagedSkillFile distinguishes managed, binary, and local state pa
       path: "references/notes.md",
     }),
     {
-      editability: "editable",
+      editability: "download_only",
       fileKind: "managed",
       path: "references/notes.md",
       storageEncoding: "utf8_text",
@@ -123,13 +123,6 @@ metadata:
 `,
         path: "SKILL.md",
       },
-      {
-        contentText: "## Team conventions",
-        path: "references/conventions.md",
-      },
-      {
-        path: "assets/logo.png",
-      },
     ],
     knownSkillKeys: ["incident-triage-base", "writing-style-guide"],
     skillKey: "Linear Triage",
@@ -141,11 +134,7 @@ metadata:
   assert.deepEqual(validated.dependencies.skills, ["incident-triage-base"]);
   assert.deepEqual(
     validated.files.map((file) => [file.path, file.editability]),
-    [
-      ["assets/logo.png", "download_only"],
-      ["references/conventions.md", "editable"],
-      ["SKILL.md", "editable"],
-    ],
+    [["SKILL.md", "editable"]],
   );
 });
 
@@ -170,6 +159,28 @@ description: Route support questions.
         skillKey: "support-routing",
       }),
     /reserved local state path/i,
+  );
+
+  assert.throws(
+    () =>
+      validateManagedSkillPackage({
+        files: [
+          {
+            contentText: `---
+name: support-routing
+description: Route support questions.
+---
+`,
+            path: "SKILL.md",
+          },
+          {
+            contentText: "## Supplemental notes",
+            path: "references/notes.md",
+          },
+        ],
+        skillKey: "support-routing",
+      }),
+    /Only SKILL\.md can be stored as managed skill content/i,
   );
 
   assert.throws(

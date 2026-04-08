@@ -50,6 +50,11 @@ const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
 const MANAGED_SKILL_WORKSPACE_ROOT = "/opt/openclaw/home/workspace/skills";
 const MANAGED_SKILL_MANIFEST_PATH =
   "/opt/openclaw/runtime/managed-skills-manifest.json";
+const MANAGED_SKILL_LOCAL_DIRECTORY_NAMES = [
+  "references",
+  "scripts",
+  "state",
+] as const;
 
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
@@ -381,6 +386,12 @@ export class RuntimeManager {
     const managedSkillPaths = input.managedSkillFiles.map(
       (file) => `/opt/openclaw/home/workspace/${file.filename}`,
     );
+    const managedSkillDirectoryPaths = listManagedSkillDirectoryPaths(
+      input.managedSkillFiles,
+    );
+    const managedSkillLocalDirectoryPaths = listManagedSkillLocalDirectoryPaths(
+      input.managedSkillFiles,
+    );
 
     const ownershipTargets = [
       "/opt/openclaw",
@@ -393,6 +404,8 @@ export class RuntimeManager {
       input.metadataPath,
       MANAGED_SKILL_MANIFEST_PATH,
       ...managedFilePaths,
+      ...managedSkillDirectoryPaths,
+      ...managedSkillLocalDirectoryPaths,
       ...managedSkillPaths,
     ];
 
@@ -403,6 +416,13 @@ export class RuntimeManager {
     const quotedManagedFilePaths = managedFilePaths
       .map((path) => shellQuoteForShell(path))
       .join(" ");
+    const quotedManagedSkillDirectoryPaths = managedSkillDirectoryPaths
+      .map((path) => shellQuoteForShell(path))
+      .join(" ");
+    const quotedManagedSkillLocalDirectoryPaths =
+      managedSkillLocalDirectoryPaths
+        .map((path) => shellQuoteForShell(path))
+        .join(" ");
     const quotedManagedSkillPaths = managedSkillPaths
       .map((path) => shellQuoteForShell(path))
       .join(" ");
@@ -410,6 +430,16 @@ export class RuntimeManager {
     const commands = [
       "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/runtime",
       `install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      ...(quotedManagedSkillDirectoryPaths.length > 0
+        ? [
+            `install -d -o openclaw -g openclaw -m 750 ${quotedManagedSkillDirectoryPaths}`,
+          ]
+        : []),
+      ...(quotedManagedSkillLocalDirectoryPaths.length > 0
+        ? [
+            `install -d -o openclaw -g openclaw -m 770 ${quotedManagedSkillLocalDirectoryPaths}`,
+          ]
+        : []),
       "rm -f /opt/openclaw/home/workspace/USERS.md",
       `chown openclaw:openclaw ${quotedOwnershipTargets}`,
       "chmod 750 /opt/openclaw /opt/openclaw/runtime",
@@ -426,6 +456,14 @@ export class RuntimeManager {
 
     if (quotedManagedSkillPaths.length > 0) {
       commands.push(`chmod 640 ${quotedManagedSkillPaths}`);
+    }
+
+    if (quotedManagedSkillDirectoryPaths.length > 0) {
+      commands.push(`chmod 750 ${quotedManagedSkillDirectoryPaths}`);
+    }
+
+    if (quotedManagedSkillLocalDirectoryPaths.length > 0) {
+      commands.push(`chmod 770 ${quotedManagedSkillLocalDirectoryPaths}`);
     }
 
     await this.execChecked(connection, buildShellCommand(commands));
@@ -998,7 +1036,7 @@ export function buildManagedSkillPruneCommand(input: {
   const nextPaths = new Set(input.nextPaths);
   const removedPaths = [...new Set(input.previousPaths)]
     .filter((path) => path.startsWith(`${MANAGED_SKILL_WORKSPACE_ROOT}/`))
-    .filter((path) => !path.includes("/state/"))
+    .filter((path) => !isManagedSkillLocalPath(path))
     .filter((path) => !nextPaths.has(path))
     .sort((left, right) => left.localeCompare(right));
 
@@ -1034,4 +1072,51 @@ export function buildManagedSkillPruneCommand(input: {
         `rmdir ${shellQuoteForShell(directory)} >/dev/null 2>&1 || true`,
     ),
   ].join(" ");
+}
+
+function listManagedSkillDirectoryPaths(
+  managedSkillFiles: ManagedSkillRuntimeFile[],
+) {
+  return [
+    ...new Set(
+      managedSkillFiles.map((file) => {
+        const pathSegments = file.filename.split("/").filter(Boolean);
+        const skillKey = pathSegments[1];
+
+        if (!skillKey) {
+          return pathDirname(`/opt/openclaw/home/workspace/${file.filename}`);
+        }
+
+        return `${MANAGED_SKILL_WORKSPACE_ROOT}/${skillKey}`;
+      }),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+}
+
+function listManagedSkillLocalDirectoryPaths(
+  managedSkillFiles: ManagedSkillRuntimeFile[],
+) {
+  return listManagedSkillDirectoryPaths(managedSkillFiles)
+    .flatMap((skillDirectoryPath) =>
+      MANAGED_SKILL_LOCAL_DIRECTORY_NAMES.map(
+        (directoryName) => `${skillDirectoryPath}/${directoryName}`,
+      ),
+    )
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function isManagedSkillLocalPath(path: string) {
+  return MANAGED_SKILL_LOCAL_DIRECTORY_NAMES.some((directoryName) =>
+    path.includes(`/${directoryName}/`),
+  );
+}
+
+function pathDirname(path: string) {
+  const lastSlashIndex = path.lastIndexOf("/");
+
+  if (lastSlashIndex <= 0) {
+    return path;
+  }
+
+  return path.slice(0, lastSlashIndex);
 }

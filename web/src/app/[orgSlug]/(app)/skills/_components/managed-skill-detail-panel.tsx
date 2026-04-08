@@ -63,7 +63,7 @@ type Props = {
       storageEncoding: "binary" | "utf8_text";
     }>;
     skillKey: string;
-    sourceType: "integration_contribution" | "user";
+    sourceType: "integration_contribution" | "system" | "user";
     status:
       | "disabled"
       | "invalid"
@@ -121,7 +121,9 @@ function formatStatusLabel(status: string) {
 function formatSourceLabel(sourceType: Props["detail"]["sourceType"]) {
   return sourceType === "integration_contribution"
     ? "Integration starter"
-    : "Workspace managed";
+    : sourceType === "system"
+      ? "System managed"
+      : "Workspace managed";
 }
 
 function getStatusDescription(status: Props["detail"]["status"]) {
@@ -389,8 +391,8 @@ export function ManagedSkillDetailPanel({
             <SettingsSection>
               <SettingsSectionTitle>Package files</SettingsSectionTitle>
               <SettingsSectionDescription>
-                Select a file to inspect it. Editable managed text files can be
-                changed here.
+                Select a file to inspect it. Only SKILL.md is edited through the
+                workspace; references/, scripts/, and state/ stay runtime local.
               </SettingsSectionDescription>
               <SettingsCard className="overflow-hidden">
                 <ScrollArea className="max-h-[34rem]">
@@ -414,7 +416,7 @@ export function ManagedSkillDetailPanel({
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {file.editability === "editable"
-                                ? "Editable text"
+                                ? "Managed SKILL.md"
                                 : "Download-only file"}
                             </span>
                           </div>
@@ -438,8 +440,8 @@ export function ManagedSkillDetailPanel({
             <SettingsSection>
               <SettingsSectionTitle>Viewer</SettingsSectionTitle>
               <SettingsSectionDescription>
-                Review the selected file and edit it when the package allows
-                managed text updates.
+                Review the selected file. Otto only edits SKILL.md through the
+                managed workspace surface.
               </SettingsSectionDescription>
               <div className="flex flex-col gap-4">
                 {errorMessage ? (

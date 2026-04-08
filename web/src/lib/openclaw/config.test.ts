@@ -70,6 +70,9 @@ describe("renderOpenClawConfig", () => {
       "otto-integrations",
       "otto-session-reporter",
     ]);
+    assert.deepEqual(renderedConfig.skills, {
+      allowBundled: ["slack"],
+    });
     assert.deepEqual(renderedConfig.plugins.entries["otto-integrations"], {
       config: {
         timeoutMs: 15_000,
@@ -195,6 +198,9 @@ describe("renderOpenClawConfig", () => {
       timeoutSeconds: 30,
     });
     assert.deepEqual(renderedConfig.plugins.allow, ["brave"]);
+    assert.deepEqual(renderedConfig.skills, {
+      allowBundled: ["slack"],
+    });
     assert.equal(renderedConfig.plugins.entries.brave.enabled, true);
     assert.deepEqual(renderedConfig.plugins.entries.brave.config.webSearch, {
       mode: "web",
