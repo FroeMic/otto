@@ -1639,6 +1639,24 @@ export function buildLinearDeleteCommandResult(input: {
   };
 }
 
+export function buildLinearTeamMembershipCommandResult(input: {
+  commandKey: string;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+  teamMembership: LinearTeamMembershipNode | null | undefined;
+}) {
+  return {
+    commandKey: input.commandKey,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+    teamMembership: input.teamMembership
+      ? mapLinearTeamMembership(input.teamMembership)
+      : null,
+  };
+}
+
 export function buildLinearUserCommandResult(input: {
   commandKey: string;
   lastSyncId?: number | null;

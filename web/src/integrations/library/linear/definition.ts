@@ -132,6 +132,7 @@ import { executeLinearTeamListIssues } from "./commands/team/list-issues";
 import { executeLinearTeamListLabels } from "./commands/team/list-labels";
 import { executeLinearTeamListProjects } from "./commands/team/list-projects";
 import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
+import { executeLinearTeamMembersAdd } from "./commands/team/members-add";
 import { executeLinearTeamUnarchive } from "./commands/team/unarchive";
 import { executeLinearTeamUpdate } from "./commands/team/update";
 import { executeLinearUserGet } from "./commands/user/get";
@@ -3769,6 +3770,66 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearTeamDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                owner: {
+                  type: "boolean",
+                  description: "Whether the user should be a team owner.",
+                },
+                sortOrder: {
+                  type: "number",
+                  description: "Optional sort order for the team membership.",
+                },
+                teamIdOrKey: TEAM_ID_OR_KEY_ARGUMENT_SCHEMA,
+                userId: USER_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["teamIdOrKey", "userId"],
+            },
+            commandKey: "team.members_add",
+            commandPath: ["team", "members_add"],
+            description: "Add one user to a Linear team.",
+            exampleArguments: {
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+              userId: "7036157e-c337-4699-8134-6b833b85b844",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "add team member",
+              "invite to team",
+              "team membership",
+            ],
+            label: "Add team member",
+            resultMode: "json",
+            usageNotes: [
+              "Prefer the canonical team id from workspace.list_teams before adding a team member.",
+              "Use user.list to find the target Linear user id first.",
+            ],
+            validate: (argumentsObject) => ({
+              owner:
+                typeof argumentsObject.owner === "boolean"
+                  ? argumentsObject.owner
+                  : undefined,
+              sortOrder:
+                typeof argumentsObject.sortOrder === "number" &&
+                Number.isFinite(argumentsObject.sortOrder)
+                  ? argumentsObject.sortOrder
+                  : undefined,
+              teamIdOrKey:
+                typeof argumentsObject.teamIdOrKey === "string"
+                  ? argumentsObject.teamIdOrKey.trim()
+                  : "",
+              userId:
+                typeof argumentsObject.userId === "string"
+                  ? argumentsObject.userId.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamMembersAdd,
           },
           {
             argumentsSchema: {

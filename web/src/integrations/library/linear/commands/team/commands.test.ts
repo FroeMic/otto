@@ -10,6 +10,7 @@ import { executeLinearTeamListIssues } from "./list-issues";
 import { executeLinearTeamListLabels } from "./list-labels";
 import { executeLinearTeamListProjects } from "./list-projects";
 import { executeLinearTeamListWorkflowStates } from "./list-workflow-states";
+import { executeLinearTeamMembersAdd } from "./members-add";
 import { executeLinearTeamUnarchive } from "./unarchive";
 import { executeLinearTeamUpdate } from "./update";
 
@@ -161,6 +162,43 @@ function buildIssueNode(overrides: Record<string, unknown> = {}) {
     title: "Hello World",
     updatedAt: "2026-04-08T10:00:00.000Z",
     url: "https://linear.app/otto/issue/INT-15/hello-world",
+    ...overrides,
+  };
+}
+
+function buildTeamMembershipNode(overrides: Record<string, unknown> = {}) {
+  return {
+    createdAt: "2026-04-08T08:00:00.000Z",
+    id: "membership-1",
+    owner: true,
+    sortOrder: 1,
+    team: {
+      id: "team-1",
+      key: "INT",
+      name: "Integration",
+      displayName: "Integration",
+    },
+    updatedAt: "2026-04-08T09:00:00.000Z",
+    user: {
+      admin: false,
+      avatarUrl: null,
+      createdAt: "2026-04-08T07:00:00.000Z",
+      description: null,
+      displayName: "Alice Example",
+      email: "alice@example.com",
+      guest: false,
+      id: "user-1",
+      isAssignable: true,
+      isMentionable: true,
+      lastSeen: null,
+      name: "Alice Example",
+      owner: false,
+      statusEmoji: null,
+      statusLabel: null,
+      statusUntilAt: null,
+      updatedAt: "2026-04-08T09:00:00.000Z",
+      url: "https://linear.app/otto/user/alice-example",
+    },
     ...overrides,
   };
 }
@@ -758,5 +796,77 @@ describe("linear team commands", () => {
     assert.equal(result.lastSyncId, 126);
     assert.equal(result.lookup, "INT");
     assert.equal(result.success, true);
+  });
+
+  it("adds one user to a team after resolving the team key", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          teams: {
+            nodes: [buildTeamNode()],
+          },
+        },
+      },
+      {
+        data: {
+          teamMembershipCreate: {
+            lastSyncId: 127,
+            success: true,
+            teamMembership: buildTeamMembershipNode(),
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamMembersAdd({
+      arguments: {
+        owner: true,
+        sortOrder: 2,
+        teamIdOrKey: "INT",
+        userId: "user-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+      teamMembership: {
+        id: string | null;
+        owner: boolean;
+        sortOrder: number;
+        team: { id: string | null; key: string | null } | null;
+        user: { id: string | null; email: string | null } | null;
+      } | null;
+    };
+
+    const payload = JSON.parse(requestBodies[1] ?? "{}") as {
+      query: string;
+      variables: {
+        input: Record<string, unknown>;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearTeamMembershipCreate/);
+    assert.deepEqual(payload.variables.input, {
+      owner: true,
+      sortOrder: 2,
+      teamId: "team-1",
+      userId: "user-1",
+    });
+    assert.equal(result.commandKey, "team.members_add");
+    assert.equal(result.lastSyncId, 127);
+    assert.equal(result.lookup, "INT");
+    assert.equal(result.success, true);
+    assert.equal(result.teamMembership?.id, "membership-1");
+    assert.equal(result.teamMembership?.owner, true);
+    assert.equal(result.teamMembership?.sortOrder, 1);
+    assert.equal(result.teamMembership?.team?.id, "team-1");
+    assert.equal(result.teamMembership?.team?.key, "INT");
+    assert.equal(result.teamMembership?.user?.id, "user-1");
+    assert.equal(result.teamMembership?.user?.email, "alice@example.com");
   });
 });
