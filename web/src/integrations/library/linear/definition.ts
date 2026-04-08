@@ -242,7 +242,8 @@ const TEAM_IDS_ARGUMENT_SCHEMA = {
 const TEAM_ID_OR_KEY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-  description: "Linear team id or short team key such as INT.",
+  description:
+    "Linear team id, preferably from workspace.list_teams, or a short team key such as INT.",
 } as const;
 
 const TEAM_NAME_ARGUMENT_SCHEMA = {
@@ -3499,9 +3500,9 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             commandKey: "team.get",
             commandPath: ["team", "get"],
             description:
-              "Read one Linear team by team id or short team key and return normalized team context.",
+              "Read one Linear team by team id, or by short team key if you already have it, and return normalized team context.",
             exampleArguments: {
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: [
@@ -3514,7 +3515,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Get team",
             resultMode: "json",
             usageNotes: [
-              "Use workspace.list_teams first if you need the canonical team id or key.",
+              "Prefer the canonical team id from workspace.list_teams for the most reliable lookup path.",
             ],
             validate: (argumentsObject) => ({
               teamIdOrKey:
@@ -3539,7 +3540,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             description: "List cycles associated with one Linear team.",
             exampleArguments: {
               limit: 25,
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: [
@@ -3552,6 +3553,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "List team cycles",
             resultMode: "json",
             usageNotes: [
+              "Prefer a canonical team id from workspace.list_teams before reading team-specific collections.",
               "Use this when you need the cycle history or active sprint context for one team.",
             ],
             validate: (argumentsObject) => ({
@@ -3586,13 +3588,14 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               "List workflow states associated with one Linear team.",
             exampleArguments: {
               limit: 50,
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: ["linear", "team", "workflow", "states", "status"],
             label: "List team workflow states",
             resultMode: "json",
             usageNotes: [
+              "Prefer a canonical team id from workspace.list_teams before reading team-specific collections.",
               "Use this when you need the canonical workflow states for one team before filtering or updating team issues.",
             ],
             validate: (argumentsObject) => ({
@@ -3623,7 +3626,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             description: "List issue labels associated with one Linear team.",
             exampleArguments: {
               limit: 25,
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: [
@@ -3636,6 +3639,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "List team labels",
             resultMode: "json",
             usageNotes: [
+              "Prefer a canonical team id from workspace.list_teams before reading team-specific collections.",
               "Use this when you need team-scoped issue labels before labeling or filtering issues.",
             ],
             validate: (argumentsObject) => ({
@@ -3666,7 +3670,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             description: "List projects associated with one Linear team.",
             exampleArguments: {
               limit: 10,
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: [
@@ -3679,6 +3683,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "List team projects",
             resultMode: "json",
             usageNotes: [
+              "Prefer a canonical team id from workspace.list_teams before reading team-specific collections.",
               "Use this when you need the project portfolio or planning context for one team.",
             ],
             validate: (argumentsObject) => ({
@@ -3709,13 +3714,14 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             description: "List issues associated with one Linear team.",
             exampleArguments: {
               limit: 25,
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
             },
             inputMode: "json",
             intentKeywords: ["linear", "team", "issues", "tickets", "backlog"],
             label: "List team issues",
             resultMode: "json",
             usageNotes: [
+              "Prefer a canonical team id from workspace.list_teams before reading team-specific collections.",
               "Use this when you need the recent issue backlog or active work for one team.",
             ],
             validate: (argumentsObject) => ({
@@ -3842,7 +3848,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["team", "update"],
             description: "Update one existing Linear team.",
             exampleArguments: {
-              teamIdOrKey: "INT",
+              teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
               triageEnabled: true,
             },
             inputMode: "json",
@@ -3857,6 +3863,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             resultMode: "json",
             usageNotes: [
               "This requires at least one update field besides teamIdOrKey.",
+              "Prefer the canonical team id from workspace.list_teams before updating a team.",
               "This may require elevated Linear workspace permissions.",
             ],
             validate: (argumentsObject) => ({
