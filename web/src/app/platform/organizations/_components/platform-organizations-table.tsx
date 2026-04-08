@@ -241,7 +241,13 @@ function OrganizationActionsCell({
         const response = await fetch(endpoint, {
           method: "POST",
         });
-        const body = (await response.json().catch(() => null)) as {
+        const contentType = response.headers.get("content-type") ?? "";
+        const body = (
+          contentType.includes("application/json")
+            ? await response.json().catch(() => null)
+            : null
+        ) as {
+          jobId?: string;
           message?: string;
         } | null;
 
@@ -249,6 +255,14 @@ function OrganizationActionsCell({
           throw new Error(
             body?.message ??
               `Platform action failed with status ${response.status}.`,
+          );
+        }
+
+        if (!body?.jobId) {
+          throw new Error(
+            contentType.includes("application/json")
+              ? "Platform action returned no job id."
+              : "Platform action returned a non-JSON response.",
           );
         }
 
