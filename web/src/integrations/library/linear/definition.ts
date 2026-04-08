@@ -68,6 +68,7 @@ import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
 import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
 import { executeLinearIssueCreate } from "./commands/issue/create";
+import { executeLinearIssueDelete } from "./commands/issue/delete";
 import { executeLinearIssueGet } from "./commands/issue/get";
 import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image";
 import { executeLinearIssueList } from "./commands/issue/list";
@@ -6913,6 +6914,37 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "append",
             }),
             execute: executeLinearIssueUploadInlineImage,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["identifierOrId"],
+            },
+            commandKey: "issue.delete",
+            commandPath: ["issue", "delete"],
+            description: "Delete one Linear issue.",
+            exampleArguments: {
+              identifierOrId: "INT-6",
+            },
+            inputMode: "json",
+            intentKeywords: ["linear", "issue", "delete issue", "remove issue"],
+            label: "Delete issue",
+            resultMode: "json",
+            usageNotes: [
+              "Use the issue identifier like INT-6 or the canonical issue id.",
+              "This permanently deletes the issue instead of archiving it.",
+            ],
+            validate: (argumentsObject) => ({
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+            }),
+            execute: executeLinearIssueDelete,
           },
           {
             argumentsSchema: {
