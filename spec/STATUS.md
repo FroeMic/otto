@@ -127,7 +127,8 @@
 - The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
   - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
   - `runtime-plugins/otto-runtime-config` now contains a second native OpenClaw plugin that exposes generic runtime-surface read, validate, apply, lifecycle, and reapply tools backed by the control plane
-  - `runtime-image/Dockerfile` now layers both Otto plugins into `/app/extensions/`
+  - `runtime-image/Dockerfile` now layers Otto plugins into `/app/dist/extensions/`, matching the bundled plugin root used by the published OpenClaw image
+  - the runtime image now seeds `/home/node/.openclaw` with restrictive defaults, and tenant runtime apply now enforces `700` on the runtime home plus `600` on `openclaw.json`
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
   - the plugin packaging is now aligned with the released OpenClaw `2026.4.8` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)

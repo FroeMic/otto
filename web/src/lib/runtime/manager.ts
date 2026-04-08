@@ -408,11 +408,13 @@ export class RuntimeManager {
       .join(" ");
 
     const commands = [
-      `install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)} /opt/openclaw/runtime`,
+      "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/runtime",
+      `install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
       "rm -f /opt/openclaw/home/workspace/USERS.md",
       `chown openclaw:openclaw ${quotedOwnershipTargets}`,
-      `chmod 750 /opt/openclaw /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)} /opt/openclaw/runtime`,
-      "chmod 640 /opt/openclaw/home/openclaw.json",
+      "chmod 750 /opt/openclaw /opt/openclaw/runtime",
+      `chmod 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      "chmod 600 /opt/openclaw/home/openclaw.json",
       "chmod 600 /opt/openclaw/home/.env",
       `chmod 640 ${shellQuoteForShell(MANAGED_SKILL_MANIFEST_PATH)}`,
       `chmod 640 ${shellQuoteForShell(input.metadataPath)}`,

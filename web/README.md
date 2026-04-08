@@ -38,7 +38,7 @@ docker compose up -d
    - make sure the chosen `server_type` is still available in the chosen `location`
    - set one of `RUNTIME_DEPLOY_PRIVATE_KEY`, `RUNTIME_DEPLOY_PRIVATE_KEY_PATH`, or rely on a loaded local SSH agent
    - optionally override `RUNTIME_OPENCLAW_IMAGE` if you need a non-default OpenClaw runtime image
-   - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
+   - to include Otto-owned runtime plugins such as `otto-managed-config`, build and publish the custom image defined in `/Users/michaelfrohlich/Repositories/otto-3/runtime-image/Dockerfile` and point `RUNTIME_OPENCLAW_IMAGE` at that published image
    - the Otto custom runtime image also sets `OPENCLAW_NO_RESPAWN=1` and a persistent `NODE_COMPILE_CACHE` inside the mounted runtime home to reduce OpenClaw restart overhead
    - to preconfigure the default OpenAI model, optionally override `RUNTIME_MODEL_PRIMARY` (defaults to `openai/gpt-5.4`)
    - to let the control plane provision the initial tenant-specific OpenAI project and service-account key during runtime bootstrap, set `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
