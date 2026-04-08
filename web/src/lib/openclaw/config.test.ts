@@ -55,6 +55,9 @@ describe("renderOpenClawConfig", () => {
       host: "gateway",
       security: "full",
     });
+    assert.deepEqual(renderedConfig.tools.experimental, {
+      planTool: false,
+    });
     assert.deepEqual(renderedConfig.plugins.allow, [
       "otto-managed-config",
       "otto-runtime-config",
