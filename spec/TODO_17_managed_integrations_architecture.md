@@ -639,11 +639,31 @@ Current shipped Linear commands:
 - `workspace.list_users`
 - `workspace.list_workflow_states`
 - `workspace.list_project_statuses`
+- `team.list`
+- `team.get`
+- `team.create`
+- `team.update`
+- `team.delete`
+- `team.unarchive`
+- `team.members_add`
+- `team.members_update`
+- `team.members_remove`
+- `team.list_cycles`
+- `team.list_workflow_states`
+- `team.list_labels`
+- `team.list_projects`
+- `team.list_issues`
+- `workspace_member.invite`
+- `workspace_member.invite_update`
+- `workspace_member.invite_cancel`
+- `workspace_member.invite_resend`
+- `workspace_member.update`
 - `issue.list`
 - `issue.get`
 - `issue.search`
 - `issue.create`
 - `issue.update`
+- `issue.delete`
 - `issue.archive`
 - `issue.batch_update`
 - `issue.list_comments`
@@ -662,6 +682,7 @@ Current shipped Linear commands:
 - `project.search`
 - `project.create`
 - `project.update`
+- `project.delete`
 - `project.archive`
 - `project.list_issues`
 - `project.list_updates`
@@ -669,6 +690,69 @@ Current shipped Linear commands:
 - `project.list_documents`
 - `project.list_milestones`
 - `project.list_labels`
+- `document.list`
+- `document.get`
+- `document.search`
+- `document.create`
+- `document.update`
+- `document.delete`
+- `label.list_issue_labels`
+- `label.get_issue_label`
+- `label.create_issue_label`
+- `label.update_issue_label`
+- `label.delete_issue_label`
+- `label.restore_issue_label`
+- `label.retire_issue_label`
+- `label.list_project_labels`
+- `label.get_project_label`
+- `label.create_project_label`
+- `label.update_project_label`
+- `label.delete_project_label`
+- `label.restore_project_label`
+- `label.retire_project_label`
+- `project_milestone.list`
+- `project_milestone.get`
+- `project_milestone.create`
+- `project_milestone.update`
+- `project_milestone.delete`
+- `project_milestone.move`
+- `project_status.list`
+- `project_status.get`
+- `project_status.create`
+- `project_status.update`
+- `initiative.list`
+- `initiative.get`
+- `initiative.create`
+- `initiative.update`
+- `initiative.create_update`
+- `initiative.delete`
+- `initiative.archive`
+- `initiative.list_projects`
+- `initiative.list_updates`
+- `customer.list`
+- `customer.get`
+- `customer.create`
+- `customer.update`
+- `customer.delete`
+- `customer.list_needs`
+- `customer_need.list`
+- `customer_need.get`
+- `customer_need.create`
+- `customer_need.create_from_attachment`
+- `customer_need.update`
+- `customer_need.archive`
+- `customer_need.unarchive`
+- `customer_need.delete`
+- `customer_status.list`
+- `customer_status.get`
+- `customer_status.create`
+- `customer_status.update`
+- `customer_status.delete`
+- `customer_tier.list`
+- `customer_tier.get`
+- `customer_tier.create`
+- `customer_tier.update`
+- `customer_tier.delete`
 
 Recommended implementation order:
 
@@ -708,6 +792,7 @@ Tracker:
   - `[x]` `issue.search`
   - `[x]` `issue.create`
   - `[x]` `issue.update`
+  - `[x]` `issue.delete`
   - `[x]` `issue.insert_inline_image`
   - `[x]` `issue.upload_inline_image`
   - `[x]` `issue.archive`
@@ -732,6 +817,7 @@ Tracker:
   - `[x]` `project.search`
   - `[x]` `project.create`
   - `[x]` `project.update`
+  - `[x]` `project.delete`
   - `[x]` `project.archive`
   - `[x]` `project.list_issues`
   - `[x]` `project.list_updates`
@@ -753,6 +839,11 @@ Tracker:
   - `[x]` `team.get`
   - `[x]` `team.create`
   - `[x]` `team.update`
+  - `[x]` `team.delete`
+  - `[x]` `team.unarchive`
+  - `[x]` `team.members_add`
+  - `[x]` `team.members_update`
+  - `[x]` `team.members_remove`
   - `[x]` `team.list_cycles`
   - `[x]` `team.list_workflow_states`
   - `[x]` `team.list_labels`
@@ -767,6 +858,17 @@ Tracker:
     - verify `team.list_projects` against a team with multiple projects in different statuses
     - verify `team.list_issues` against a team with active backlog and completed work
     - verify `team.create` and `team.update` in a workspace where the connected Linear actor has sufficient team-management permissions
+
+- `workspace_member`
+  - `[x]` `workspace_member.invite`
+  - `[x]` `workspace_member.invite_update`
+  - `[x]` `workspace_member.invite_cancel`
+  - `[x]` `workspace_member.invite_resend`
+  - `[x]` `workspace_member.update`
+  - Later testing plan:
+    - verify workspace-member invite create/update/cancel/resend against a pending invite that includes explicit `teamIds`
+    - verify workspace-member update against an accepted human user with mutable profile fields such as display name, status label, and timezone
+    - verify invite resend works by both canonical invite id and raw invite email address
 
 - `user`
   - `[x]` `user.get`
@@ -806,12 +908,14 @@ Tracker:
   - `[x]` `document.search`
   - `[x]` `document.create`
   - `[x]` `document.update`
+  - `[x]` `document.delete`
   - Later testing plan:
     - verify `document.list` against a workspace with both project-linked and issue-linked documents
     - verify `document.get` on a document that has creator, updatedBy, project, issue, and team associations populated
     - verify `document.search` returns relevant matches for title-only and content-only terms
     - verify `document.create` with only `title`, then again with project/team linkage and markdown content
     - verify `document.update` for title/content edits plus toggling `trashed` and changing linked project or issue context
+    - verify `document.delete` removes a document from follow-up list/get calls and returns the deleted document id
 
 - `label`
   - `[x]` `label.list_issue_labels`
@@ -863,12 +967,16 @@ Tracker:
   - `[x]` `initiative.get`
   - `[x]` `initiative.create`
   - `[x]` `initiative.update`
+  - `[x]` `initiative.create_update`
+  - `[x]` `initiative.delete`
   - `[x]` `initiative.archive`
   - `[x]` `initiative.list_projects`
   - `[x]` `initiative.list_updates`
   - Later testing plan:
     - verify initiative list/get against a workspace with multiple active and completed initiatives
     - verify initiative create/update for owner, status, target date, and markdown content changes
+    - verify initiative create_update against an initiative with historical updates and check returned health/diff metadata
+    - verify initiative delete returns the deleted initiative id and removes it from subsequent list calls
     - verify initiative archive removes the initiative from normal active planning views
     - verify initiative list_projects against an initiative linked to multiple projects
     - verify initiative list_updates against an initiative with multiple historical updates and different health states
@@ -878,10 +986,12 @@ Tracker:
   - `[x]` `customer.get`
   - `[x]` `customer.create`
   - `[x]` `customer.update`
+  - `[x]` `customer.delete`
   - `[x]` `customer.list_needs`
   - Later testing plan:
     - verify customer list/get against a workspace with customers spanning different statuses and tiers
     - verify customer create/update for domain arrays, external ids, owner, status, tier, revenue, and size changes
+    - verify customer delete returns the deleted customer id and removes it from subsequent list/get calls
     - verify customer list_needs against a customer with multiple linked needs across issues and projects
 
 - `customer_need`
@@ -924,7 +1034,7 @@ Tracker:
 
 Immediate next recommended slice:
 
-- Linear command coverage is complete through the final `team.*` slice.
+- Linear command coverage is complete through the post-coverage cleanup slice, including team membership management, workspace-member invite/update flows, and delete coverage for issue, project, document, initiative, and customer.
 - next recommended work:
   - `Increment 7: Safe Linear settings with validation`
   - then `Increment 9: Integration-linked skill projection`

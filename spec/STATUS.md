@@ -417,8 +417,10 @@
   - the full `customer.*` slice is now implemented end to end, including list/get/create/update plus `customer.list_needs`
   - the full `customer_need.*` slice is now implemented end to end, including list/get/create/update/archive/unarchive/delete plus attachment-derived creation
   - the full `attachment.*` slice is now implemented end to end, including workspace attachment reads, URL lookup, attachment create/update, low-level signed upload URL preparation via `attachment.request_upload_url`, and high-level server-side file upload via `attachment.upload_file`
-  - the full `team.*` slice is now implemented end to end, including direct team reads and writes plus team-scoped cycle, workflow-state, label, project, and issue reads
-  - Linear command coverage is now complete across the tracked object families
+  - the full `team.*` slice is now implemented end to end, including direct team reads and writes, team delete/unarchive, team membership add/update/remove, and team-scoped cycle, workflow-state, label, project, and issue reads
+  - the new `workspace_member.*` slice is now implemented end to end, including workspace invite create/update/cancel/resend plus accepted-user profile updates
+  - delete coverage is now implemented for `issue.*`, `project.*`, `document.*`, `initiative.*`, and `customer.*`, and initiatives also now support authored update creation
+  - Linear command coverage is now complete across the tracked object families plus the immediate post-coverage cleanup slice
   - the next recommended managed-integrations step is now `Increment 7: Safe Linear settings with validation`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
