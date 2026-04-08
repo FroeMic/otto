@@ -5326,7 +5326,7 @@ function buildManagedIntegrationCapabilityRows(input: {
 
       return {
         ...resolved,
-        sourceHref: `/${input.orgSlug}/integrations2/${input.definition.key}/capabilities`,
+        sourceHref: `/${input.orgSlug}/integrations2/${input.definition.key}?tab=capabilities`,
         sourceIcon: input.definition.iconSrc,
         sourceKey: input.definition.key,
         sourceLabel: input.definition.label,

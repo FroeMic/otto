@@ -122,6 +122,7 @@ export type ResolvedIntegrationCommandCapability = {
   capabilityState: RuntimeCapabilityState;
   capabilityType: "command";
   commandKey: string;
+  commandGroup: string | null;
   commandPath: string[];
   description: string;
   effect: IntegrationCommandEffect;
@@ -171,6 +172,7 @@ export function buildResolvedIntegrationCommandCapability(input: {
     }),
     capabilityType: "command",
     commandKey: input.command.commandKey,
+    commandGroup: input.command.commandPath.at(0)?.trim() || null,
     commandPath: [...input.command.commandPath],
     description: input.command.description,
     effect: getCommandEffect(input.command),
