@@ -271,13 +271,56 @@ describe("linear team commands", () => {
       variables: { lookup: string };
     };
 
-    assert.match(payload.query, /query OttoLinearTeamByLookup/);
+    assert.match(payload.query, /query OttoLinearTeamByKey/);
+    assert.match(payload.query, /filter: \{ key: \{ eq: \$lookup \} \}/);
+    assert.doesNotMatch(payload.query, /id: \{ eq: \$lookup \}/);
     assert.equal(payload.variables.lookup, "INT");
     assert.equal(result.commandKey, "team.get");
     assert.equal(result.lookup, "INT");
     assert.equal(result.team?.id, "team-1");
     assert.equal(result.team?.key, "INT");
     assert.equal(result.team?.name, "Integration");
+  });
+
+  it("gets one team by id before falling back to key lookup", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          team: buildTeamNode(),
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamGet({
+      arguments: {
+        teamIdOrKey: "6332efd5-64d0-4e60-a33f-9078e7f2620b",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      lookup: string;
+      team: {
+        id: string | null;
+        key: string | null;
+      } | null;
+    };
+
+    assert.equal(requestBodies.length, 1);
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: { id: string };
+    };
+
+    assert.match(payload.query, /query OttoLinearTeamById/);
+    assert.equal(payload.variables.id, "6332efd5-64d0-4e60-a33f-9078e7f2620b");
+    assert.equal(result.commandKey, "team.get");
+    assert.equal(result.lookup, "6332efd5-64d0-4e60-a33f-9078e7f2620b");
+    assert.equal(result.team?.id, "team-1");
+    assert.equal(result.team?.key, "INT");
   });
 
   it("lists cycles for one team", async () => {

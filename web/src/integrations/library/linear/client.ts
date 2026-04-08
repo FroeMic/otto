@@ -444,14 +444,12 @@ const GET_TEAM_BY_ID_QUERY = `
   }
 `;
 
-const SEARCH_TEAM_BY_LOOKUP_QUERY = `
-  query OttoLinearTeamByLookup($lookup: String!) {
+const SEARCH_TEAM_BY_KEY_QUERY = `
+  query OttoLinearTeamByKey($lookup: String!) {
     teams(
       first: 10
       orderBy: updatedAt
-      filter: {
-        or: [{ id: { eq: $lookup } }, { key: { eq: $lookup } }]
-      }
+      filter: { key: { eq: $lookup } }
     ) {
       nodes {
         ${TEAM_FIELDS}
@@ -2162,7 +2160,7 @@ export async function findLinearTeamByIdOrKey(input: {
     } | null;
   }>({
     accessToken: input.accessToken,
-    query: SEARCH_TEAM_BY_LOOKUP_QUERY,
+    query: SEARCH_TEAM_BY_KEY_QUERY,
     variables: {
       lookup,
     },
@@ -2172,10 +2170,9 @@ export async function findLinearTeamByIdOrKey(input: {
 
   return (
     (byLookup.teams?.nodes ?? []).find((team) => {
-      const id = team.id?.trim().toLowerCase();
       const key = team.key?.trim().toLowerCase();
 
-      return id === normalizedLookup || key === normalizedLookup;
+      return key === normalizedLookup;
     }) ??
     (byLookup.teams?.nodes ?? [])[0] ??
     null
