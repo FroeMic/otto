@@ -1037,6 +1037,7 @@ Immediate next recommended slice:
 - Linear command coverage is complete through the post-coverage cleanup slice, including team membership management, workspace-member invite/update flows, and delete coverage for issue, project, document, initiative, and customer.
 - next recommended work:
   - `Increment 7: Safe Linear settings with validation`
+  - `Increment 8: First Linear write capability` is already satisfied by the current `issue.create` path through `integration-gateway`; the remaining policy/defaults work belongs under Increment 7
   - then `Increment 9: Integration-linked skill projection`
 
 ## Slack Example
@@ -1311,6 +1312,13 @@ Acceptance criteria:
 ### Increment 8: First Linear write capability
 
 After the settings model exists, add one write command that benefits from those defaults.
+
+Status:
+
+- functionally done on `main`
+- `linear.issue.create` exists and executes through `integration-gateway`
+- execution is audited already
+- the remaining settings-aware policy/default enforcement belongs to Increment 7
 
 Scope:
 
