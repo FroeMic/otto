@@ -7,6 +7,7 @@ import {
   listTenantManagedSkillsForTenant,
   ManagedSkillVersionConflictError,
 } from "@/db/managed-skills";
+import { MANAGED_SKILL_ENTRY_FILE_PATH } from "@/lib/managed-skills/package";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,16 @@ export async function GET(request: Request) {
       return json(
         {
           error: "filePath requires skillKey.",
+        },
+        400,
+      );
+    }
+
+    if (filePath && filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+      return json(
+        {
+          error:
+            "Only SKILL.md can be read through the runtime-managed skills surface.",
         },
         400,
       );
@@ -123,6 +134,16 @@ export async function PATCH(request: Request) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
     const body = patchSchema.parse(await request.json());
+
+    if (body.filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+      return json(
+        {
+          error:
+            "Only SKILL.md can be patched through the runtime-managed skills surface.",
+        },
+        400,
+      );
+    }
 
     const result = await updateTenantManagedSkillTextFileForTenant({
       contentText: body.contentText,

@@ -1,6 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md";
 const PLUGIN_CONFIG_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -62,7 +63,7 @@ export default definePluginEntry({
       {
         name: "read_managed_skill_file",
         description:
-          "Read the current contents of an editable managed UTF-8 skill file from the workspace app.",
+          "Read the current contents of SKILL.md for one managed skill from the workspace app.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -89,7 +90,7 @@ export default definePluginEntry({
       {
         name: "patch_managed_skill_file",
         description:
-          "Update an editable managed UTF-8 skill file through the workspace app. Do not use this for state/ files or binary files.",
+          "Update SKILL.md for one managed skill through the workspace app. Do not use this for references/, scripts/, state/, or binary files.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -185,6 +186,13 @@ async function readManagedSkillFile(api, params) {
     };
   }
 
+  if (filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+    return {
+      ok: false,
+      error: "Only SKILL.md can be read through the managed-skills surface.",
+    };
+  }
+
   const response = await requestControlPlane(api, {
     method: "GET",
     path: `/api/internal/runtime/managed-skills?skillKey=${encodeURIComponent(
@@ -224,6 +232,13 @@ async function patchManagedSkillFile(api, params) {
     return {
       ok: false,
       error: "filePath must be a non-empty string.",
+    };
+  }
+
+  if (filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+    return {
+      ok: false,
+      error: "Only SKILL.md can be patched through the managed-skills surface.",
     };
   }
 

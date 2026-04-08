@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import {
   listKnownManagedSkillDependencyIntegrationKeys,
+  MANAGED_SKILL_ENTRY_FILE_PATH,
   type ManagedSkillFileEditability,
   type ManagedSkillPackageFileInput,
   type ManagedSkillSourceType,
@@ -514,7 +515,10 @@ export async function getLatestTenantManagedSkillDetailForTenantTx(
       contentText: file.contentText,
       contentType: file.contentType,
       editability:
-        file.contentEncoding === "utf8_text" ? "editable" : "download_only",
+        file.contentEncoding === "utf8_text" &&
+        file.relativePath === MANAGED_SKILL_ENTRY_FILE_PATH
+          ? "editable"
+          : "download_only",
       path: file.relativePath,
       storageEncoding:
         file.contentEncoding === "utf8_text" ? "utf8_text" : "binary",
@@ -564,6 +568,13 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
   }
 
   const normalizedPath = input.relativePath.trim().replaceAll("\\", "/");
+
+  if (normalizedPath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+    throw new Error(
+      "Only SKILL.md can be edited through the managed-skills surface.",
+    );
+  }
+
   const targetFile = detail.files.find((file) => file.path === normalizedPath);
 
   if (!targetFile) {
