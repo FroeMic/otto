@@ -7,12 +7,31 @@ const globalForDb = globalThis as unknown as {
   __dbClient?: postgres.Sql;
 };
 
+function getDbApplicationName() {
+  const argv = process.argv.join(" ");
+
+  if (argv.includes("src/worker/index.ts")) {
+    return "otto-control-plane-worker";
+  }
+
+  if (argv.includes("next")) {
+    return "otto-control-plane-web";
+  }
+
+  return "otto-control-plane";
+}
+
 function getClient() {
   if (!globalForDb.__dbClient) {
+    const applicationName = getDbApplicationName();
     console.info("[db] initializing postgres client", {
+      applicationName,
       maxConnections: 10,
     });
     globalForDb.__dbClient = postgres(getEnv().DATABASE_URL, {
+      connection: {
+        application_name: applicationName,
+      },
       max: 10,
       onclose: (connectionId) => {
         console.warn("[db] connection closed", {
