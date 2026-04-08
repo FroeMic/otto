@@ -63,6 +63,24 @@ test("managed skill markdown helpers round-trip structured metadata and body", (
   assert.equal(parsed.skillBody, "# Linear Triage\n\nFollow the workflow.");
 });
 
+test("managed skill markdown helpers accept empty dependency lists", () => {
+  const content = buildManagedSkillMarkdown({
+    description: "Create workspace skills.",
+    integrationKeys: [],
+    name: "skill-creator",
+    skillKeys: [],
+    skillBody: "\n# Skill Creator\n\nFollow the workflow.\n",
+  });
+
+  const parsed = parseManagedSkillMarkdown(content);
+
+  assert.equal(parsed.name, "skill-creator");
+  assert.equal(parsed.description, "Create workspace skills.");
+  assert.deepEqual(parsed.integrationKeys, []);
+  assert.deepEqual(parsed.skillKeys, []);
+  assert.equal(parsed.skillBody, "# Skill Creator\n\nFollow the workflow.");
+});
+
 test("classifyManagedSkillFile distinguishes managed, binary, and local state paths", () => {
   assert.deepEqual(
     classifyManagedSkillFile({

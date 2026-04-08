@@ -111,22 +111,21 @@ export function buildManagedSkillMarkdown(input: {
     `description: ${input.description.trim()}`,
     "metadata:",
     "  dependsOn:",
-    "    integrations:",
   ];
 
   if (normalizedIntegrationKeys.length === 0) {
-    lines.push("      []");
+    lines.push("    integrations: []");
   } else {
+    lines.push("    integrations:");
     for (const integrationKey of normalizedIntegrationKeys) {
       lines.push(`      - ${integrationKey}`);
     }
   }
 
-  lines.push("    skills:");
-
   if (normalizedSkillKeys.length === 0) {
-    lines.push("      []");
+    lines.push("    skills: []");
   } else {
+    lines.push("    skills:");
     for (const skillKey of normalizedSkillKeys) {
       lines.push(`      - ${skillKey}`);
     }
