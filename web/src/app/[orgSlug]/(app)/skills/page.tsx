@@ -24,7 +24,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { createTenantManagedSkill } from "@/db/control-plane";
-import { listTenantManagedSkillsForTenant } from "@/db/managed-skills";
+import {
+  listTenantManagedSkillKeysForTenant,
+  listTenantManagedSkillsForTenant,
+} from "@/db/managed-skills";
 import { buildManagedSkillMarkdown } from "@/lib/managed-skills/markdown";
 import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
@@ -40,6 +43,10 @@ async function createManagedSkillAction(formData: FormData) {
     .getAll("integrationKeys")
     .map((value) => value.toString())
     .filter(Boolean);
+  const skillKeys = formData
+    .getAll("skillKeys")
+    .map((value) => value.toString())
+    .filter(Boolean);
   const orgSlug = formData.get("orgSlug")?.toString();
   const skillBody = formData.get("skillBody")?.toString();
   const skillKey = formData.get("skillKey")?.toString();
@@ -52,6 +59,7 @@ async function createManagedSkillAction(formData: FormData) {
     description,
     integrationKeys,
     name: skillKey,
+    skillKeys,
     skillBody,
   });
   const createdSkill = await createTenantManagedSkill({
@@ -115,6 +123,11 @@ export default async function SkillsPage({
         tenantId: primaryAgent.id,
       })
     : [];
+  const knownSkillKeys = primaryAgent
+    ? await listTenantManagedSkillKeysForTenant({
+        tenantId: primaryAgent.id,
+      })
+    : [];
 
   return (
     <SettingsPage className="mx-0 flex max-w-4xl flex-1 flex-col gap-8">
@@ -130,6 +143,7 @@ export default async function SkillsPage({
           <CreateSkillButton
             createAction={createManagedSkillAction}
             knownIntegrationKeys={knownIntegrationKeys}
+            knownSkillKeys={knownSkillKeys}
             orgSlug={organization.slug}
           />
         ) : null}

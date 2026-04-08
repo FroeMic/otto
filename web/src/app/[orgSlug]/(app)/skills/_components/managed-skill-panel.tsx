@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { ManagedSkillDetailPanel } from "@/app/[orgSlug]/(app)/skills/_components/managed-skill-detail-panel";
 import { updateTenantManagedSkillTextFile } from "@/db/control-plane";
-import { getLatestTenantManagedSkillDetailForTenant } from "@/db/managed-skills";
+import {
+  getLatestTenantManagedSkillDetailForTenant,
+  listTenantManagedSkillKeysForTenant,
+} from "@/db/managed-skills";
 import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
 
 async function updateManagedSkillAction(formData: FormData) {
@@ -46,6 +49,11 @@ export async function ManagedSkillPanel({
   tenantId: string;
 }) {
   const knownIntegrationKeys = listKnownManagedSkillDependencyIntegrationKeys();
+  const knownSkillKeys = (
+    await listTenantManagedSkillKeysForTenant({
+      tenantId,
+    })
+  ).filter((knownSkillKey) => knownSkillKey !== skillKey);
   const detail = await getLatestTenantManagedSkillDetailForTenant({
     skillKey,
     tenantId,
@@ -62,6 +70,7 @@ export async function ManagedSkillPanel({
         updatedAt: detail.updatedAt.toISOString(),
       }}
       knownIntegrationKeys={knownIntegrationKeys}
+      knownSkillKeys={knownSkillKeys}
       orgSlug={orgSlug}
       updateAction={updateManagedSkillAction}
     />
