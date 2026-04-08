@@ -371,7 +371,8 @@
   - `/api/internal/runtime/managed-skills` now exposes tenant-token-authenticated list, detail, file-read, and file-patch operations for managed skills
   - the new `otto-managed-skills` runtime plugin now gives Otto a first-class tool surface for inspecting and updating managed skill packages
   - patch operations reuse the existing managed skill versioning and desired-state/apply pipeline, with version checks and the same editable-text-only restrictions as the workspace UI
-  - the next recommended slice is Increment 5: expose read-only `state/` visibility in both the workspace and runtime-authenticated managed-skills surfaces
+  - the managed-skill contract is being narrowed further: `SKILL.md` should remain the only managed file, while `references/`, `scripts/`, and `state/` should become durable runtime-local writable directories
+  - the next recommended slices are Increment 5, then Increment 8: make those local directories writable/preserved and visible read-only, then explicitly control bundled OpenClaw skill exposure and add Otto-owned system overrides like `skill-creator`
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
