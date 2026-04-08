@@ -33,10 +33,12 @@ Describe the workflow Otto should follow.
 export function CreateSkillButton({
   createAction,
   knownIntegrationKeys,
+  knownSkillKeys,
   orgSlug,
 }: {
   createAction: (formData: FormData) => Promise<{ skillKey: string }>;
   knownIntegrationKeys: string[];
+  knownSkillKeys: string[];
   orgSlug: string;
 }) {
   const router = useRouter();
@@ -49,6 +51,7 @@ export function CreateSkillButton({
   const [selectedIntegrationKeys, setSelectedIntegrationKeys] = useState<
     string[]
   >([]);
+  const [selectedSkillKeys, setSelectedSkillKeys] = useState<string[]>([]);
   const [skillBody, setSkillBody] = useState(DEFAULT_SKILL_BODY);
   const [skillKey, setSkillKey] = useState("");
 
@@ -56,6 +59,7 @@ export function CreateSkillButton({
     setDescription("Describe when Otto should use this skill.");
     setErrorMessage(null);
     setSelectedIntegrationKeys([]);
+    setSelectedSkillKeys([]);
     setSkillBody(DEFAULT_SKILL_BODY);
     setSkillKey("");
   }
@@ -77,6 +81,10 @@ export function CreateSkillButton({
 
     for (const integrationKey of selectedIntegrationKeys) {
       formData.append("integrationKeys", integrationKey);
+    }
+
+    for (const dependencySkillKey of selectedSkillKeys) {
+      formData.append("skillKeys", dependencySkillKey);
     }
 
     startTransition(async () => {
@@ -110,6 +118,21 @@ export function CreateSkillButton({
       }
 
       return current.filter((entry) => entry !== integrationKey);
+    });
+  }
+
+  function handleSkillToggle(
+    dependencySkillKey: string,
+    checked: boolean | "indeterminate",
+  ) {
+    setSelectedSkillKeys((current) => {
+      if (checked === true) {
+        return [...new Set([...current, dependencySkillKey])].sort(
+          (left, right) => left.localeCompare(right),
+        );
+      }
+
+      return current.filter((entry) => entry !== dependencySkillKey);
     });
   }
 
@@ -200,6 +223,48 @@ export function CreateSkillButton({
                       );
                     })}
                   </div>
+                </FieldSet>
+
+                <FieldSet>
+                  <FieldLegend>Skill dependencies</FieldLegend>
+                  <FieldDescription>
+                    Other managed skills this skill expects to exist first.
+                  </FieldDescription>
+                  {knownSkillKeys.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {knownSkillKeys.map((dependencySkillKey) => {
+                        const checked =
+                          selectedSkillKeys.includes(dependencySkillKey);
+
+                        return (
+                          <Field
+                            key={dependencySkillKey}
+                            orientation="horizontal"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              id={`skill-skill-dependency-${dependencySkillKey}`}
+                              onCheckedChange={(nextChecked) =>
+                                handleSkillToggle(
+                                  dependencySkillKey,
+                                  nextChecked,
+                                )
+                              }
+                            />
+                            <FieldLabel
+                              htmlFor={`skill-skill-dependency-${dependencySkillKey}`}
+                            >
+                              {dependencySkillKey}
+                            </FieldLabel>
+                          </Field>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No other managed skills exist in this workspace yet.
+                    </p>
+                  )}
                 </FieldSet>
 
                 <Field>

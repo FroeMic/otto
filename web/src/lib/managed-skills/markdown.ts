@@ -4,6 +4,7 @@ export type ManagedSkillMarkdownDocument = {
   description: string;
   integrationKeys: string[];
   name: string;
+  skillKeys: string[];
   skillBody: string;
 };
 
@@ -12,6 +13,7 @@ type ParsedFrontmatter = {
   metadata: {
     dependsOn: {
       integrations: string[];
+      skills: string[];
     };
   };
   name: string;
@@ -45,10 +47,19 @@ export function parseManagedSkillSkillFile(
   const integrations = [...new Set(metadata.dependsOn.integrations)].map(
     (integrationKey) => integrationKey.trim().toLowerCase(),
   );
+  const skills = [...new Set(metadata.dependsOn.skills)].map((skillKey) =>
+    skillKey.trim().toLowerCase(),
+  );
 
   if (integrations.some((integrationKey) => !integrationKey)) {
     throw new Error(
       "metadata.dependsOn.integrations must contain only non-empty strings.",
+    );
+  }
+
+  if (skills.some((skillKey) => !skillKey)) {
+    throw new Error(
+      "metadata.dependsOn.skills must contain only non-empty strings.",
     );
   }
 
@@ -57,6 +68,7 @@ export function parseManagedSkillSkillFile(
     metadata: {
       dependsOn: {
         integrations,
+        skills,
       },
     },
     name,
@@ -73,6 +85,7 @@ export function parseManagedSkillMarkdown(
     description: parsedSkill.description,
     integrationKeys: parsedSkill.metadata.dependsOn.integrations,
     name: parsedSkill.name,
+    skillKeys: parsedSkill.metadata.dependsOn.skills,
     skillBody: body.trim(),
   };
 }
@@ -81,10 +94,15 @@ export function buildManagedSkillMarkdown(input: {
   description: string;
   integrationKeys: string[];
   name: string;
+  skillKeys: string[];
   skillBody: string;
 }) {
   const normalizedIntegrationKeys = [...new Set(input.integrationKeys)]
     .map((integrationKey) => integrationKey.trim().toLowerCase())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const normalizedSkillKeys = [...new Set(input.skillKeys)]
+    .map((skillKey) => skillKey.trim().toLowerCase())
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right));
   const lines = [
@@ -101,6 +119,16 @@ export function buildManagedSkillMarkdown(input: {
   } else {
     for (const integrationKey of normalizedIntegrationKeys) {
       lines.push(`      - ${integrationKey}`);
+    }
+  }
+
+  lines.push("    skills:");
+
+  if (normalizedSkillKeys.length === 0) {
+    lines.push("      []");
+  } else {
+    for (const skillKey of normalizedSkillKeys) {
+      lines.push(`      - ${skillKey}`);
     }
   }
 
@@ -133,6 +161,7 @@ function normalizeDependencyMetadata(value: unknown) {
     return {
       dependsOn: {
         integrations: [],
+        skills: [],
       },
     };
   }
@@ -143,26 +172,27 @@ function normalizeDependencyMetadata(value: unknown) {
     return {
       dependsOn: {
         integrations: [],
+        skills: [],
       },
     };
   }
 
   const integrations = (dependsOn as { integrations?: unknown }).integrations;
-
-  if (!Array.isArray(integrations)) {
-    return {
-      dependsOn: {
-        integrations: [],
-      },
-    };
-  }
+  const skills = (dependsOn as { skills?: unknown }).skills;
 
   return {
     dependsOn: {
-      integrations: integrations.filter(
-        (integrationKey): integrationKey is string =>
-          typeof integrationKey === "string",
-      ),
+      integrations: Array.isArray(integrations)
+        ? integrations.filter(
+            (integrationKey): integrationKey is string =>
+              typeof integrationKey === "string",
+          )
+        : [],
+      skills: Array.isArray(skills)
+        ? skills.filter(
+            (skillKey): skillKey is string => typeof skillKey === "string",
+          )
+        : [],
     },
   };
 }

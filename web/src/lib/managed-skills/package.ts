@@ -40,6 +40,7 @@ export type ManagedSkillValidatedFile = {
 export type ManagedSkillPackageValidationResult = {
   dependencies: {
     integrations: string[];
+    skills: string[];
   };
   description: string;
   files: ManagedSkillValidatedFile[];
@@ -52,6 +53,7 @@ export type ManagedSkillMarkdownDocument = {
   description: string;
   integrationKeys: string[];
   name: string;
+  skillKeys: string[];
   skillBody: string;
 };
 
@@ -60,6 +62,7 @@ type ParsedFrontmatter = {
   metadata: {
     dependsOn: {
       integrations: string[];
+      skills: string[];
     };
   };
   name: string;
@@ -70,6 +73,7 @@ const skillDependencyMetadataSchema = z
     dependsOn: z
       .object({
         integrations: z.array(z.string()).optional(),
+        skills: z.array(z.string()).optional(),
       })
       .partial()
       .optional(),
@@ -167,12 +171,14 @@ export function classifyManagedSkillFile(input: ManagedSkillPackageFileInput): {
 export function validateManagedSkillPackage(input: {
   files: ManagedSkillPackageFileInput[];
   knownIntegrationKeys?: Iterable<string>;
+  knownSkillKeys?: Iterable<string>;
   skillKey: string;
 }): ManagedSkillPackageValidationResult {
   const knownIntegrationKeys = new Set(
     input.knownIntegrationKeys ??
       listKnownManagedSkillDependencyIntegrationKeys(),
   );
+  const knownSkillKeys = new Set(input.knownSkillKeys ?? []);
   const skillKey = normalizeManagedSkillKey(input.skillKey);
   const validatedFiles = new Map<string, ManagedSkillValidatedFile>();
 
@@ -216,6 +222,9 @@ export function validateManagedSkillPackage(input: {
     parsedSkill.metadata.dependsOn.integrations.filter(
       (integrationKey) => !knownIntegrationKeys.has(integrationKey),
     );
+  const unknownSkillDependencies = parsedSkill.metadata.dependsOn.skills.filter(
+    (dependencySkillKey) => !knownSkillKeys.has(dependencySkillKey),
+  );
 
   if (unknownDependencies.length > 0) {
     throw new Error(
@@ -223,9 +232,20 @@ export function validateManagedSkillPackage(input: {
     );
   }
 
+  if (unknownSkillDependencies.length > 0) {
+    throw new Error(
+      `Managed skill depends on unknown skill keys: ${unknownSkillDependencies.join(", ")}`,
+    );
+  }
+
+  if (parsedSkill.metadata.dependsOn.skills.includes(skillKey)) {
+    throw new Error("Managed skill cannot depend on itself.");
+  }
+
   return {
     dependencies: {
       integrations: parsedSkill.metadata.dependsOn.integrations,
+      skills: parsedSkill.metadata.dependsOn.skills,
     },
     description: parsedSkill.description,
     files: [...validatedFiles.values()].sort((left, right) =>
@@ -267,10 +287,19 @@ export function parseManagedSkillSkillFile(
   const integrations = [...new Set(metadata.dependsOn?.integrations ?? [])].map(
     (integrationKey) => integrationKey.trim().toLowerCase(),
   );
+  const skills = [...new Set(metadata.dependsOn?.skills ?? [])].map(
+    (skillKey) => skillKey.trim().toLowerCase(),
+  );
 
   if (integrations.some((integrationKey) => !integrationKey)) {
     throw new Error(
       "metadata.dependsOn.integrations must contain only non-empty strings.",
+    );
+  }
+
+  if (skills.some((skillKey) => !skillKey)) {
+    throw new Error(
+      "metadata.dependsOn.skills must contain only non-empty strings.",
     );
   }
 
@@ -279,6 +308,7 @@ export function parseManagedSkillSkillFile(
     metadata: {
       dependsOn: {
         integrations,
+        skills,
       },
     },
     name,
@@ -295,6 +325,7 @@ export function parseManagedSkillMarkdown(
     description: parsedSkill.description,
     integrationKeys: parsedSkill.metadata.dependsOn.integrations,
     name: parsedSkill.name,
+    skillKeys: parsedSkill.metadata.dependsOn.skills,
     skillBody: body.trim(),
   };
 }
@@ -303,10 +334,15 @@ export function buildManagedSkillMarkdown(input: {
   description: string;
   integrationKeys: string[];
   name: string;
+  skillKeys: string[];
   skillBody: string;
 }) {
   const normalizedIntegrationKeys = [...new Set(input.integrationKeys)]
     .map((integrationKey) => integrationKey.trim().toLowerCase())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const normalizedSkillKeys = [...new Set(input.skillKeys)]
+    .map((skillKey) => skillKey.trim().toLowerCase())
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right));
   const lines = [
@@ -323,6 +359,16 @@ export function buildManagedSkillMarkdown(input: {
   } else {
     for (const integrationKey of normalizedIntegrationKeys) {
       lines.push(`      - ${integrationKey}`);
+    }
+  }
+
+  lines.push("    skills:");
+
+  if (normalizedSkillKeys.length === 0) {
+    lines.push("      []");
+  } else {
+    for (const skillKey of normalizedSkillKeys) {
+      lines.push(`      - ${skillKey}`);
     }
   }
 

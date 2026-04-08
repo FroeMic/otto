@@ -13,6 +13,7 @@ import {
   type ManagedSkillPackageFileInput,
   type ManagedSkillSourceType,
   type ManagedSkillStatus,
+  normalizeManagedSkillKey,
   validateManagedSkillPackage,
 } from "@/lib/managed-skills/package";
 
@@ -30,6 +31,7 @@ export type ManagedSkillProjectedFile = {
 export type TenantManagedSkillDetail = {
   dependencies: {
     integrations: string[];
+    skills: string[];
   };
   description: string;
   displayName: string;
@@ -62,25 +64,31 @@ export async function createTenantManagedSkillForTenant(input: {
   summary?: string;
   tenantId: string;
 }) {
-  const validated = validateManagedSkillPackage({
-    files: input.files,
-    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
-    skillKey: input.skillKey,
-  });
-
-  const binaryManagedFiles = validated.files.filter(
-    (file) => file.fileKind === "managed" && file.storageEncoding === "binary",
-  );
-
-  if (binaryManagedFiles.length > 0) {
-    throw new Error(
-      "Managed skill binary file storage is not implemented yet. Create the skill with text files only in the first slice.",
-    );
-  }
+  const normalizedSkillKey = normalizeManagedSkillKey(input.skillKey);
 
   const db = getDb();
 
   return db.transaction(async (tx) => {
+    const knownSkillKeys = await listTenantManagedSkillKeysForTenantTx(tx, {
+      tenantId: input.tenantId,
+    });
+    const validated = validateManagedSkillPackage({
+      files: input.files,
+      knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+      knownSkillKeys,
+      skillKey: normalizedSkillKey,
+    });
+    const binaryManagedFiles = validated.files.filter(
+      (file) =>
+        file.fileKind === "managed" && file.storageEncoding === "binary",
+    );
+
+    if (binaryManagedFiles.length > 0) {
+      throw new Error(
+        "Managed skill binary file storage is not implemented yet. Create the skill with text files only in the first slice.",
+      );
+    }
+
     const [existingSkill] = await tx
       .select({
         id: tenantSkills.id,
@@ -99,6 +107,17 @@ export async function createTenantManagedSkillForTenant(input: {
         `Managed skill ${validated.skillKey} already exists for this tenant.`,
       );
     }
+
+    assertManagedSkillDependencyGraphValid({
+      dependencyMap: await listTenantManagedSkillDependencyGraphForTenantTx(
+        tx,
+        {
+          tenantId: input.tenantId,
+        },
+      ),
+      nextDependencies: validated.dependencies.skills,
+      skillKey: validated.skillKey,
+    });
 
     const [createdSkill] = await tx
       .insert(tenantSkills)
@@ -223,6 +242,31 @@ export async function listTenantManagedSkillsForTenant(input: {
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
     .orderBy(desc(tenantSkills.updatedAt), tenantSkills.skillKey);
+}
+
+export async function listTenantManagedSkillKeysForTenant(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return await listTenantManagedSkillKeysForTenantTx(db, input);
+}
+
+export async function listTenantManagedSkillKeysForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const rows = await tx
+    .select({
+      skillKey: tenantSkills.skillKey,
+    })
+    .from(tenantSkills)
+    .where(eq(tenantSkills.tenantId, input.tenantId))
+    .orderBy(tenantSkills.skillKey);
+
+  return rows.map((row) => row.skillKey);
 }
 
 export async function listLatestTenantManagedSkillVersionMapForTenant(input: {
@@ -539,6 +583,16 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
   const validated = validateManagedSkillPackage({
     files: nextPackageFiles,
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+    knownSkillKeys: await listTenantManagedSkillKeysForTenantTx(tx, {
+      tenantId: input.tenantId,
+    }),
+    skillKey: detail.skillKey,
+  });
+  assertManagedSkillDependencyGraphValid({
+    dependencyMap: await listTenantManagedSkillDependencyGraphForTenantTx(tx, {
+      tenantId: input.tenantId,
+    }),
+    nextDependencies: validated.dependencies.skills,
     skillKey: detail.skillKey,
   });
   const managedFileRows = await tx
@@ -641,6 +695,7 @@ function normalizeManagedSkillDependencies(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {
       integrations: [],
+      skills: [],
     };
   }
 
@@ -651,12 +706,84 @@ function normalizeManagedSkillDependencies(value: unknown) {
         (entry): entry is string => typeof entry === "string",
       )
     : [];
+  const skills = Array.isArray((value as { skills?: unknown }).skills)
+    ? (value as { skills: unknown[] }).skills.filter(
+        (entry): entry is string => typeof entry === "string",
+      )
+    : [];
 
   return {
     integrations: [...new Set(integrations)].sort((left, right) =>
       left.localeCompare(right),
     ),
+    skills: [...new Set(skills)].sort((left, right) =>
+      left.localeCompare(right),
+    ),
   };
+}
+
+async function listTenantManagedSkillDependencyGraphForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const rows = await tx
+    .select({
+      dependsOnJson: tenantSkills.dependsOnJson,
+      skillKey: tenantSkills.skillKey,
+    })
+    .from(tenantSkills)
+    .where(eq(tenantSkills.tenantId, input.tenantId))
+    .orderBy(tenantSkills.skillKey);
+
+  return Object.fromEntries(
+    rows.map((row) => [
+      row.skillKey,
+      normalizeManagedSkillDependencies(row.dependsOnJson).skills,
+    ]),
+  ) satisfies Record<string, string[]>;
+}
+
+export function assertManagedSkillDependencyGraphValid(input: {
+  dependencyMap: Record<string, string[]>;
+  nextDependencies: string[];
+  skillKey: string;
+}) {
+  const graph: Record<string, string[]> = {
+    ...input.dependencyMap,
+    [input.skillKey]: [...new Set(input.nextDependencies)].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  };
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  function visit(skillKey: string, stack: string[]) {
+    if (visiting.has(skillKey)) {
+      const cycleStartIndex = stack.indexOf(skillKey);
+      const cyclePath = [...stack.slice(cycleStartIndex), skillKey].join(
+        " -> ",
+      );
+      throw new Error(`Managed skill dependency cycle detected: ${cyclePath}`);
+    }
+
+    if (visited.has(skillKey)) {
+      return;
+    }
+
+    visiting.add(skillKey);
+    const nextStack = [...stack, skillKey];
+
+    for (const dependencySkillKey of graph[skillKey] ?? []) {
+      visit(dependencySkillKey, nextStack);
+    }
+
+    visiting.delete(skillKey);
+    visited.add(skillKey);
+  }
+
+  visit(input.skillKey, []);
 }
 
 function normalizeManagedSkillSourceType(

@@ -25,6 +25,8 @@ metadata:
     integrations:
       - linear
       - slack
+    skills:
+      - incident-triage-base
 ---
 
 # Linear Triage
@@ -33,6 +35,7 @@ metadata:
   assert.equal(parsed.name, "linear-triage");
   assert.equal(parsed.description, "Triage bugs with our team rules.");
   assert.deepEqual(parsed.metadata.dependsOn.integrations, ["linear", "slack"]);
+  assert.deepEqual(parsed.metadata.dependsOn.skills, ["incident-triage-base"]);
 });
 
 test("managed skill markdown helpers round-trip structured metadata and body", () => {
@@ -40,6 +43,11 @@ test("managed skill markdown helpers round-trip structured metadata and body", (
     description: "Triage bugs with our team rules.",
     integrationKeys: ["slack", "linear", "linear"],
     name: "linear-triage",
+    skillKeys: [
+      "incident-triage-base",
+      "writing-style-guide",
+      "incident-triage-base",
+    ],
     skillBody: "\n# Linear Triage\n\nFollow the workflow.\n",
   });
 
@@ -48,6 +56,10 @@ test("managed skill markdown helpers round-trip structured metadata and body", (
   assert.equal(parsed.name, "linear-triage");
   assert.equal(parsed.description, "Triage bugs with our team rules.");
   assert.deepEqual(parsed.integrationKeys, ["linear", "slack"]);
+  assert.deepEqual(parsed.skillKeys, [
+    "incident-triage-base",
+    "writing-style-guide",
+  ]);
   assert.equal(parsed.skillBody, "# Linear Triage\n\nFollow the workflow.");
 });
 
@@ -103,6 +115,8 @@ metadata:
     integrations:
       - linear
       - slack
+    skills:
+      - incident-triage-base
 ---
 
 # Linear Triage
@@ -117,12 +131,14 @@ metadata:
         path: "assets/logo.png",
       },
     ],
+    knownSkillKeys: ["incident-triage-base", "writing-style-guide"],
     skillKey: "Linear Triage",
   });
 
   assert.equal(validated.skillKey, "linear-triage");
   assert.equal(validated.name, "linear-triage");
   assert.deepEqual(validated.dependencies.integrations, ["linear", "slack"]);
+  assert.deepEqual(validated.dependencies.skills, ["incident-triage-base"]);
   assert.deepEqual(
     validated.files.map((file) => [file.path, file.editability]),
     [
@@ -133,7 +149,7 @@ metadata:
   );
 });
 
-test("validateManagedSkillPackage rejects reserved state writes and unknown integrations", () => {
+test("validateManagedSkillPackage rejects reserved state writes and unknown dependencies", () => {
   assert.throws(
     () =>
       validateManagedSkillPackage({
@@ -168,14 +184,63 @@ metadata:
   dependsOn:
     integrations:
       - not-real
+    skills:
+      - unknown-skill
 ---
 `,
             path: "SKILL.md",
           },
         ],
+        knownSkillKeys: ["support-routing"],
         skillKey: "support-routing",
       }),
     /unknown integration keys/i,
+  );
+
+  assert.throws(
+    () =>
+      validateManagedSkillPackage({
+        files: [
+          {
+            contentText: `---
+name: support-routing
+description: Route support questions.
+metadata:
+  dependsOn:
+    skills:
+      - not-real
+---
+`,
+            path: "SKILL.md",
+          },
+        ],
+        knownSkillKeys: ["support-routing"],
+        skillKey: "support-routing",
+      }),
+    /unknown skill keys/i,
+  );
+
+  assert.throws(
+    () =>
+      validateManagedSkillPackage({
+        files: [
+          {
+            contentText: `---
+name: support-routing
+description: Route support questions.
+metadata:
+  dependsOn:
+    skills:
+      - support-routing
+---
+`,
+            path: "SKILL.md",
+          },
+        ],
+        knownSkillKeys: ["support-routing"],
+        skillKey: "support-routing",
+      }),
+    /cannot depend on itself/i,
   );
 });
 

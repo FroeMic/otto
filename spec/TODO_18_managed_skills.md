@@ -144,7 +144,8 @@ That skill may declare:
 ```json
 {
   "dependsOn": {
-    "integrations": ["linear"]
+    "integrations": ["linear"],
+    "skills": ["incident-triage-base"]
   }
 }
 ```
@@ -655,7 +656,10 @@ The control plane should validate:
 - valid `SKILL.md`
 - valid `name` and `description`
 - valid `metadata.dependsOn.integrations` shape
+- valid `metadata.dependsOn.skills` shape
 - dependency keys that resolve to known integration keys
+- dependency keys that resolve to known managed skill keys in the same workspace
+- no self-dependency and no dependency cycles across managed skills
 - valid relative paths within the skill package
 - no path traversal or symlink escape through managed writes
 - `state/` reserved for local runtime state
@@ -689,6 +693,7 @@ Status:
 - done on `main`
 - the first slice includes schema, validation, dependency-key checks, and managed file classification
 - binary managed-file persistence remains intentionally deferred; the first create path is text-first
+- local skill-to-skill dependency metadata is the next extension on the same validation model
 
 Scope:
 
@@ -702,6 +707,10 @@ Acceptance criteria:
 - dependency metadata is validated against known integration keys
 - invalid paths and writes into `state/` are rejected
 - the control plane can classify package files into editable text, download-only managed files, and local `state/`
+
+Follow-up note:
+
+- the same dependency model should extend to `metadata.dependsOn.skills` so skills can declare prerequisites on other managed skills and the workspace can render a dependency tree
 
 Parallel note:
 
@@ -748,6 +757,7 @@ Scope:
 - show list, detail, package tree, dependency badges, and status
 - add viewer support for the whole package
 - allow explicit editing for `SKILL.md` and other editable managed text files
+- allow `SKILL.md` to declare both integration prerequisites and managed-skill prerequisites through structured controls
 
 Acceptance criteria:
 
@@ -755,6 +765,7 @@ Acceptance criteria:
 - the package tree clearly distinguishes editable managed files, download-only managed files, and local `state/`
 - users can edit `SKILL.md` and other editable managed text files through an explicit edit action
 - non-text files are viewable as metadata in the current text-first slice
+- the Skills UI can show both integration and skill prerequisites as the basis for a dependency tree
 
 Parallel note:
 
@@ -807,6 +818,27 @@ Acceptance criteria:
 - prerequisite status is derived automatically from current workspace state
 - contributed skills behave like normal managed skills after creation
 
+### Increment 7: Managed skill dependency graph metadata
+
+Status:
+
+- done in this slice
+- `metadata.dependsOn.skills` now validates against current workspace skills, rejects self-dependencies and cycles, and renders alongside integration prerequisites in the workspace
+
+Scope:
+
+- add `metadata.dependsOn.skills`
+- validate referenced skill keys against the current workspace skill set
+- reject self-dependencies and dependency cycles
+- show local skill prerequisites in the Skills UI alongside integration prerequisites
+
+Acceptance criteria:
+
+- `SKILL.md` can declare `metadata.dependsOn.skills`
+- create and update validate those keys against known managed skills in the same workspace
+- self-dependencies and cycles are rejected
+- the detail and status UI render both dependency lists so a tree view can be built on top
+
 ## Status Checklist
 
 - [x] Increment 1: managed skill package model and validation
@@ -815,6 +847,7 @@ Acceptance criteria:
 - [ ] Increment 4: runtime-authenticated managed-skill CRUD surface
 - [ ] Increment 5: read-only `state/` visibility
 - [ ] Increment 6: integration-linked starter skills
+- [x] Increment 7: managed skill dependency graph metadata
 
 ## Recommendation
 

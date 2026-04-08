@@ -49,6 +49,7 @@ type Props = {
   detail: {
     dependencies: {
       integrations: string[];
+      skills: string[];
     };
     description: string;
     displayName: string;
@@ -74,6 +75,7 @@ type Props = {
     version: number;
   };
   knownIntegrationKeys: string[];
+  knownSkillKeys: string[];
   orgSlug: string;
   updateAction: (formData: FormData) => Promise<void>;
 };
@@ -157,6 +159,7 @@ const compactReadOnlyTextareaClassName = [
 export function ManagedSkillDetailPanel({
   detail,
   knownIntegrationKeys,
+  knownSkillKeys,
   orgSlug,
   updateAction,
 }: Props) {
@@ -172,6 +175,7 @@ export function ManagedSkillDetailPanel({
   const [skillIntegrationKeysDraft, setSkillIntegrationKeysDraft] = useState<
     string[]
   >([]);
+  const [skillSkillKeysDraft, setSkillSkillKeysDraft] = useState<string[]>([]);
   const [skillInstructionsDraft, setSkillInstructionsDraft] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
@@ -249,6 +253,7 @@ export function ManagedSkillDetailPanel({
     setDraftValue(selectedFile?.contentText ?? "");
     setSkillDescriptionDraft(selectedSkillDocument?.description ?? "");
     setSkillIntegrationKeysDraft(selectedSkillDocument?.integrationKeys ?? []);
+    setSkillSkillKeysDraft(selectedSkillDocument?.skillKeys ?? []);
     setSkillInstructionsDraft(selectedSkillDocument?.skillBody ?? "");
     setErrorMessage(null);
     setIsEditing(false);
@@ -281,6 +286,7 @@ export function ManagedSkillDetailPanel({
     setDraftValue(selectedFile?.contentText ?? "");
     setSkillDescriptionDraft(selectedSkillDocument?.description ?? "");
     setSkillIntegrationKeysDraft(selectedSkillDocument?.integrationKeys ?? []);
+    setSkillSkillKeysDraft(selectedSkillDocument?.skillKeys ?? []);
     setSkillInstructionsDraft(selectedSkillDocument?.skillBody ?? "");
     setErrorMessage(null);
     setIsEditing(false);
@@ -312,6 +318,7 @@ export function ManagedSkillDetailPanel({
           description: skillDescriptionDraft,
           integrationKeys: skillIntegrationKeysDraft,
           name: selectedSkillDocument.name,
+          skillKeys: skillSkillKeysDraft,
           skillBody: skillInstructionsDraft,
         })
       : draftValue;
@@ -336,6 +343,21 @@ export function ManagedSkillDetailPanel({
           error instanceof Error ? error.message : "Skill update failed",
         );
       }
+    });
+  }
+
+  function handleSkillToggle(
+    dependencySkillKey: string,
+    checked: boolean | "indeterminate",
+  ) {
+    setSkillSkillKeysDraft((current) => {
+      if (checked === true) {
+        return [...new Set([...current, dependencySkillKey])].sort(
+          (left, right) => left.localeCompare(right),
+        );
+      }
+
+      return current.filter((entry) => entry !== dependencySkillKey);
     });
   }
 
@@ -480,6 +502,7 @@ export function ManagedSkillDetailPanel({
                                       skillDescriptionDraft,
                                       skillInstructionsDraft,
                                       skillIntegrationKeysDraft,
+                                      skillSkillKeysDraft,
                                     }) === (selectedFile.contentText ?? "")
                                   }
                                   onClick={handleSave}
@@ -615,6 +638,73 @@ export function ManagedSkillDetailPanel({
                               ) : (
                                 <p className="text-sm text-muted-foreground">
                                   No integration prerequisites declared.
+                                </p>
+                              )}
+                            </FieldSet>
+
+                            <FieldSet>
+                              <FieldLegend>Skill dependencies</FieldLegend>
+                              <FieldDescription>
+                                Other managed skills this skill expects to exist
+                                first.
+                              </FieldDescription>
+                              {isEditing ? (
+                                knownSkillKeys.length > 0 ? (
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    {knownSkillKeys.map(
+                                      (dependencySkillKey) => {
+                                        const checked =
+                                          skillSkillKeysDraft.includes(
+                                            dependencySkillKey,
+                                          );
+
+                                        return (
+                                          <Field
+                                            key={dependencySkillKey}
+                                            orientation="horizontal"
+                                          >
+                                            <Checkbox
+                                              checked={checked}
+                                              id={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                              onCheckedChange={(nextChecked) =>
+                                                handleSkillToggle(
+                                                  dependencySkillKey,
+                                                  nextChecked,
+                                                )
+                                              }
+                                            />
+                                            <FieldLabel
+                                              htmlFor={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                            >
+                                              {dependencySkillKey}
+                                            </FieldLabel>
+                                          </Field>
+                                        );
+                                      },
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    No other managed skills exist in this
+                                    workspace yet.
+                                  </p>
+                                )
+                              ) : skillSkillKeysDraft.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {skillSkillKeysDraft.map(
+                                    (dependencySkillKey) => (
+                                      <Badge
+                                        key={dependencySkillKey}
+                                        variant="outline"
+                                      >
+                                        {dependencySkillKey}
+                                      </Badge>
+                                    ),
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">
+                                  No managed skill prerequisites declared.
                                 </p>
                               )}
                             </FieldSet>
@@ -759,24 +849,52 @@ export function ManagedSkillDetailPanel({
               <SettingsSection>
                 <SettingsSectionTitle>Dependencies</SettingsSectionTitle>
                 <SettingsSectionDescription>
-                  Integrations this skill expects to exist in the workspace.
+                  Integrations and managed skills this skill expects to exist in
+                  the workspace.
                 </SettingsSectionDescription>
-                <SettingsCard className="divide-y-0 px-5 py-5">
-                  {detail.dependencies.integrations.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {detail.dependencies.integrations.map(
-                        (integrationKey) => (
-                          <Badge key={integrationKey} variant="outline">
-                            {integrationKey}
-                          </Badge>
-                        ),
-                      )}
+                <SettingsCard className="flex flex-col gap-5 divide-y-0 px-5 py-5">
+                  <div className="flex flex-col gap-3">
+                    <div className="text-sm font-medium text-foreground">
+                      Integration prerequisites
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      This skill does not declare any integration prerequisites.
-                    </p>
-                  )}
+                    {detail.dependencies.integrations.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {detail.dependencies.integrations.map(
+                          (integrationKey) => (
+                            <Badge key={integrationKey} variant="outline">
+                              {integrationKey}
+                            </Badge>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        This skill does not declare any integration
+                        prerequisites.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="text-sm font-medium text-foreground">
+                      Skill prerequisites
+                    </div>
+                    {detail.dependencies.skills.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {detail.dependencies.skills.map(
+                          (dependencySkillKey) => (
+                            <Badge key={dependencySkillKey} variant="outline">
+                              {dependencySkillKey}
+                            </Badge>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        This skill does not declare any managed skill
+                        prerequisites.
+                      </p>
+                    )}
+                  </div>
                 </SettingsCard>
               </SettingsSection>
             </div>
@@ -794,6 +912,7 @@ function nextContentTextValue(input: {
   skillDescriptionDraft: string;
   skillInstructionsDraft: string;
   skillIntegrationKeysDraft: string[];
+  skillSkillKeysDraft: string[];
 }) {
   if (
     input.selectedFile.path === MANAGED_SKILL_ENTRY_FILE_PATH &&
@@ -805,6 +924,7 @@ function nextContentTextValue(input: {
       description: input.skillDescriptionDraft,
       integrationKeys: input.skillIntegrationKeysDraft,
       name: input.selectedSkillDocument.name,
+      skillKeys: input.skillSkillKeysDraft,
       skillBody: input.skillInstructionsDraft,
     });
   }
