@@ -1,43 +1,12 @@
 import type { IntegrationCommandExecute } from "@/integrations/framework";
 
 import {
-  executeLinearGraphql,
+  decodeLinearFileContentBase64,
   normalizeOptionalBoolean,
-  normalizeOptionalInteger,
+  requestLinearUploadUrl,
+  uploadLinearFileBytes,
 } from "../../client";
-
-const UPLOAD_FILE_MUTATION = `
-  mutation OttoLinearAttachmentUploadFile(
-    $contentType: String!
-    $filename: String!
-    $makePublic: Boolean
-    $metaData: JSON
-    $size: Int!
-  ) {
-    fileUpload(
-      contentType: $contentType
-      filename: $filename
-      makePublic: $makePublic
-      metaData: $metaData
-      size: $size
-    ) {
-      lastSyncId
-      success
-      uploadFile {
-        assetUrl
-        contentType
-        filename
-        headers {
-          key
-          value
-        }
-        metaData
-        size
-        uploadUrl
-      }
-    }
-  }
-`;
+import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-uploaded-file";
 
 export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
@@ -49,75 +18,68 @@ export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
       typeof args.filename === "string" ? args.filename.trim() : "";
     const contentType =
       typeof args.contentType === "string" ? args.contentType.trim() : "";
-    const size = normalizeOptionalInteger(args.size);
 
-    if (!filename || !contentType || size === null) {
+    if (!filename || !contentType) {
       throw new Error(
-        "attachment.upload_file requires filename, contentType, and size.",
+        "attachment.upload_file requires filename and contentType.",
       );
     }
 
-    const data = await executeLinearGraphql<{
-      fileUpload?: {
-        lastSyncId?: number | null;
-        success?: boolean | null;
-        uploadFile?: {
-          assetUrl?: string | null;
-          contentType?: string | null;
-          filename?: string | null;
-          headers?: Array<{
-            key?: string | null;
-            value?: string | null;
-          }> | null;
-          metaData?: Record<string, unknown> | null;
-          size?: number | null;
-          uploadUrl?: string | null;
-        } | null;
-      } | null;
-    }>({
-      accessToken: context.auth.accessToken,
-      query: UPLOAD_FILE_MUTATION,
-      variables: {
-        contentType,
-        filename,
-        makePublic: normalizeOptionalBoolean(args.makePublic),
-        metaData:
-          args.metaData &&
-          typeof args.metaData === "object" &&
-          !Array.isArray(args.metaData)
-            ? args.metaData
-            : null,
-        size,
-      },
+    const bytes = decodeLinearFileContentBase64({
+      contentBase64:
+        typeof args.contentBase64 === "string" ? args.contentBase64 : "",
+      filename,
     });
 
-    return {
-      commandKey: "attachment.upload_file",
-      integrationKey: "linear",
-      lastSyncId:
-        typeof data.fileUpload?.lastSyncId === "number"
-          ? data.fileUpload.lastSyncId
+    const upload = await requestLinearUploadUrl({
+      accessToken: context.auth.accessToken,
+      contentType,
+      filename,
+      makePublic: normalizeOptionalBoolean(args.makePublic),
+      metaData:
+        args.metaData &&
+        typeof args.metaData === "object" &&
+        !Array.isArray(args.metaData)
+          ? (args.metaData as Record<string, unknown>)
           : null,
-      source: "linear",
-      success: data.fileUpload?.success ?? true,
-      uploadFile: data.fileUpload?.uploadFile
-        ? {
-            assetUrl: data.fileUpload.uploadFile.assetUrl ?? null,
-            contentType: data.fileUpload.uploadFile.contentType?.trim() || null,
-            filename: data.fileUpload.uploadFile.filename?.trim() || null,
-            headers: (data.fileUpload.uploadFile.headers ?? []).map(
-              (header) => ({
-                key: header.key?.trim() || "",
-                value: header.value?.trim() || "",
-              }),
-            ),
-            metadata: data.fileUpload.uploadFile.metaData ?? null,
-            size:
-              typeof data.fileUpload.uploadFile.size === "number"
-                ? data.fileUpload.uploadFile.size
-                : null,
-            uploadUrl: data.fileUpload.uploadFile.uploadUrl ?? null,
-          }
-        : null,
+      size: bytes.byteLength,
+    });
+
+    if (!upload.uploadFile?.assetUrl) {
+      throw new Error("Linear did not return an assetUrl for the upload.");
+    }
+
+    await uploadLinearFileBytes({
+      bytes,
+      contentType,
+      uploadFile: upload.uploadFile,
+    });
+
+    const attachmentResult =
+      (await executeLinearAttachmentCreateFromUploadedFile({
+        arguments: {
+          assetUrl: upload.uploadFile.assetUrl,
+          commentBody: args.commentBody,
+          createAsUser: args.createAsUser,
+          groupBySource: args.groupBySource,
+          iconUrl: args.iconUrl,
+          id: args.id,
+          issueId:
+            typeof args.issueIdentifierOrId === "string" &&
+            args.issueIdentifierOrId.trim()
+              ? args.issueIdentifierOrId
+              : args.issueId,
+          metadata: args.metadata,
+          subtitle: args.subtitle,
+          title: args.title,
+        },
+        context,
+      })) as Record<string, unknown>;
+
+    return {
+      ...attachmentResult,
+      commandKey: "attachment.upload_file",
+      uploadFile: upload.uploadFile,
+      uploadedBytes: bytes.byteLength,
     };
   };

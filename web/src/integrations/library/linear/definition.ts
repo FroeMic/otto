@@ -5,6 +5,7 @@ import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attach
 import { executeLinearAttachmentGet } from "./commands/attachment/get";
 import { executeLinearAttachmentList } from "./commands/attachment/list";
 import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
+import { executeLinearAttachmentRequestUploadUrl } from "./commands/attachment/request-upload-url";
 import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
 import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file";
 import { executeLinearCommentCreate } from "./commands/comment/create";
@@ -68,6 +69,7 @@ import { executeLinearIssueArchive } from "./commands/issue/archive";
 import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
 import { executeLinearIssueCreate } from "./commands/issue/create";
 import { executeLinearIssueGet } from "./commands/issue/get";
+import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image";
 import { executeLinearIssueList } from "./commands/issue/list";
 import { executeLinearIssueListAttachments } from "./commands/issue/list-attachments";
 import { executeLinearIssueListComments } from "./commands/issue/list-comments";
@@ -76,6 +78,7 @@ import { executeLinearIssueListRelations } from "./commands/issue/list-relations
 import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
 import { executeLinearIssueSearch } from "./commands/issue/search";
 import { executeLinearIssueUpdate } from "./commands/issue/update";
+import { executeLinearIssueUploadInlineImage } from "./commands/issue/upload-inline-image";
 import {
   executeLinearLabelCreateIssueLabel,
   executeLinearLabelDeleteIssueLabel,
@@ -522,10 +525,10 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
               },
               required: ["contentType", "filename", "size"],
             },
-            commandKey: "attachment.upload_file",
-            commandPath: ["attachment", "upload_file"],
+            commandKey: "attachment.request_upload_url",
+            commandPath: ["attachment", "request_upload_url"],
             description:
-              "Request signed upload instructions for a file that will later be attached in Linear.",
+              "Request signed upload instructions for a file without uploading the bytes yet.",
             exampleArguments: {
               contentType: "application/pdf",
               filename: "credits.pdf",
@@ -534,16 +537,17 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             inputMode: "json",
             intentKeywords: [
               "linear",
-              "upload file",
+              "request upload url",
               "attachment upload",
               "signed upload",
               "asset upload",
             ],
-            label: "Upload file",
+            label: "Request upload URL",
             resultMode: "json",
             usageNotes: [
-              "This does not upload the bytes itself. It returns Linear's signed upload URL and headers.",
-              "Upload the bytes to uploadFile.uploadUrl first, then call attachment.create_from_uploaded_file with uploadFile.assetUrl.",
+              "This command does not upload the bytes itself.",
+              "Next step: perform a server-side PUT to uploadFile.uploadUrl using every returned uploadFile.headers entry and also set Content-Type to uploadFile.contentType.",
+              "After the PUT succeeds, either call attachment.create_from_uploaded_file with uploadFile.assetUrl or use issue.insert_inline_image to embed the uploaded asset in an issue description.",
             ],
             validate: (argumentsObject) => ({
               contentType:
@@ -569,6 +573,189 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                 Number.isInteger(argumentsObject.size)
                   ? argumentsObject.size
                   : null,
+            }),
+            execute: executeLinearAttachmentRequestUploadUrl,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                commentBody: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional markdown comment body linked to the attachment.",
+                },
+                contentBase64: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Base64-encoded file bytes. Data URLs are also accepted.",
+                },
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the file to upload.",
+                },
+                createAsUser: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional non-Linear username to create the attachment as when supported by the auth mode.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded file.",
+                },
+                groupBySource: {
+                  type: "boolean",
+                  description:
+                    "Whether matching source attachments should be grouped together in Linear.",
+                },
+                iconUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional icon URL to display with the attachment.",
+                },
+                id: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                issueId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Optional alias for issueIdentifierOrId if the caller already has the issue id or identifier under this field name.",
+                },
+                issueIdentifierOrId: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Linear issue id or identifier that should receive the uploaded attachment.",
+                },
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's signed upload request.",
+                },
+                metadata: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object stored on the final Linear attachment record.",
+                },
+                subtitle: OPTIONAL_STRING_ARGUMENT_SCHEMA,
+                title: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Attachment title shown in Linear.",
+                },
+              },
+              required: [
+                "contentBase64",
+                "contentType",
+                "filename",
+                "issueIdentifierOrId",
+                "title",
+              ],
+            },
+            commandKey: "attachment.upload_file",
+            commandPath: ["attachment", "upload_file"],
+            description:
+              "Upload file bytes to Linear storage on the server, then create the final Linear attachment in one step.",
+            exampleArguments: {
+              contentBase64: "<base64-file-bytes>",
+              contentType: "application/pdf",
+              filename: "credits.pdf",
+              issueIdentifierOrId: "INT-6",
+              title: "Credits PDF",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "upload file",
+              "attach file",
+              "attachment upload",
+              "uploaded asset",
+            ],
+            label: "Upload file",
+            resultMode: "json",
+            usageNotes: [
+              "This command performs the full server-side upload flow: request signed upload URL, PUT the file bytes, then create the Linear attachment.",
+              "Provide contentBase64 with the raw file bytes. Data URL prefixes are accepted.",
+              "Use attachment.request_upload_url only when you need the lower-level signed upload primitive for custom flows.",
+            ],
+            validate: (argumentsObject) => ({
+              commentBody:
+                typeof argumentsObject.commentBody === "string"
+                  ? argumentsObject.commentBody.trim()
+                  : null,
+              contentBase64:
+                typeof argumentsObject.contentBase64 === "string"
+                  ? argumentsObject.contentBase64.trim()
+                  : "",
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              createAsUser:
+                typeof argumentsObject.createAsUser === "string"
+                  ? argumentsObject.createAsUser.trim()
+                  : null,
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              groupBySource:
+                typeof argumentsObject.groupBySource === "boolean"
+                  ? argumentsObject.groupBySource
+                  : null,
+              iconUrl:
+                typeof argumentsObject.iconUrl === "string"
+                  ? argumentsObject.iconUrl.trim()
+                  : null,
+              id:
+                typeof argumentsObject.id === "string"
+                  ? argumentsObject.id.trim()
+                  : null,
+              issueId:
+                typeof argumentsObject.issueId === "string"
+                  ? argumentsObject.issueId.trim()
+                  : null,
+              issueIdentifierOrId:
+                typeof argumentsObject.issueIdentifierOrId === "string"
+                  ? argumentsObject.issueIdentifierOrId.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              metadata:
+                argumentsObject.metadata &&
+                typeof argumentsObject.metadata === "object" &&
+                !Array.isArray(argumentsObject.metadata)
+                  ? argumentsObject.metadata
+                  : null,
+              subtitle:
+                typeof argumentsObject.subtitle === "string"
+                  ? argumentsObject.subtitle.trim()
+                  : null,
+              title:
+                typeof argumentsObject.title === "string"
+                  ? argumentsObject.title.trim()
+                  : "",
             }),
             execute: executeLinearAttachmentUploadFile,
           },
@@ -654,7 +841,7 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   type: "string",
                   minLength: 1,
                   description:
-                    "Uploaded Linear asset URL returned by attachment.upload_file.",
+                    "Uploaded Linear asset URL returned by attachment.request_upload_url or the uploadFile field from attachment.upload_file.",
                 },
                 commentBody: {
                   type: "string",
@@ -721,7 +908,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             label: "Create attachment from uploaded file",
             resultMode: "json",
             usageNotes: [
-              "Use this after attachment.upload_file and after the bytes have been uploaded to the returned signed URL.",
+              "Use this after attachment.request_upload_url and after the bytes have been uploaded to the returned signed URL.",
+              "You do not need this follow-up command when using the high-level attachment.upload_file command.",
             ],
             validate: (argumentsObject) => ({
               assetUrl:
@@ -5388,6 +5576,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             resultMode: "json",
             usageNotes: [
               "This requires at least one update field besides identifierOrId.",
+              "Inline images are supported in the description via Markdown image syntax like ![alt](assetUrl).",
+              "Use issue.insert_inline_image or issue.upload_inline_image when you want Otto to manage the markdown insertion for you.",
             ],
             validate: (argumentsObject) => ({
               addedLabelIds: Array.isArray(argumentsObject.addedLabelIds)
@@ -5446,6 +5636,257 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : null,
             }),
             execute: executeLinearIssueUpdate,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                altText: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Alt text to use in the Markdown image tag.",
+                },
+                anchorText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Required when position is after_text, before_text, or replace_text. Otto inserts relative to the first exact match.",
+                },
+                assetUrl: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Uploaded Linear asset URL to embed inline in the issue description.",
+                },
+                fallbackPosition: {
+                  type: "string",
+                  enum: ["append", "fail", "prepend"],
+                  description:
+                    "What to do if anchorText is not found. Defaults to fail.",
+                },
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                position: {
+                  type: "string",
+                  enum: [
+                    "append",
+                    "prepend",
+                    "after_text",
+                    "before_text",
+                    "replace_text",
+                  ],
+                  description:
+                    "How to place the Markdown image within the description. Defaults to append.",
+                },
+              },
+              required: ["altText", "assetUrl", "identifierOrId"],
+            },
+            commandKey: "issue.insert_inline_image",
+            commandPath: ["issue", "insert_inline_image"],
+            description:
+              "Insert a Markdown image into an issue description using an existing uploaded Linear asset URL.",
+            exampleArguments: {
+              altText: "OpenClaw logo",
+              assetUrl: "https://uploads.linear.app/assets/openclaw-logo.png",
+              identifierOrId: "INT-15",
+              position: "append",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "issue",
+              "inline image",
+              "embed image",
+              "markdown image",
+            ],
+            label: "Insert inline image",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you already have an uploaded Linear asset URL.",
+              "For anchor-based placement, provide anchorText and choose after_text, before_text, or replace_text.",
+              "When fallbackPosition is fail, Otto will error instead of silently appending if the anchor is missing.",
+            ],
+            validate: (argumentsObject) => ({
+              altText:
+                typeof argumentsObject.altText === "string"
+                  ? argumentsObject.altText.trim()
+                  : "",
+              anchorText:
+                typeof argumentsObject.anchorText === "string"
+                  ? argumentsObject.anchorText.trim()
+                  : null,
+              assetUrl:
+                typeof argumentsObject.assetUrl === "string"
+                  ? argumentsObject.assetUrl.trim()
+                  : "",
+              fallbackPosition:
+                argumentsObject.fallbackPosition === "append" ||
+                argumentsObject.fallbackPosition === "prepend" ||
+                argumentsObject.fallbackPosition === "fail"
+                  ? argumentsObject.fallbackPosition
+                  : "fail",
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+              position:
+                argumentsObject.position === "after_text" ||
+                argumentsObject.position === "before_text" ||
+                argumentsObject.position === "prepend" ||
+                argumentsObject.position === "replace_text"
+                  ? argumentsObject.position
+                  : "append",
+            }),
+            execute: executeLinearIssueInsertInlineImage,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                altText: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Alt text to use in the Markdown image tag.",
+                },
+                anchorText: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Required when position is after_text, before_text, or replace_text. Otto inserts relative to the first exact match.",
+                },
+                contentBase64: {
+                  type: "string",
+                  minLength: 1,
+                  description:
+                    "Base64-encoded file bytes. Data URLs are also accepted.",
+                },
+                contentType: {
+                  type: "string",
+                  minLength: 1,
+                  description: "MIME type of the inline image.",
+                },
+                fallbackPosition: {
+                  type: "string",
+                  enum: ["append", "fail", "prepend"],
+                  description:
+                    "What to do if anchorText is not found. Defaults to fail.",
+                },
+                filename: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Filename for the uploaded image asset.",
+                },
+                identifierOrId: IDENTIFIER_OR_ID_ARGUMENT_SCHEMA,
+                makePublic: {
+                  type: "boolean",
+                  description:
+                    "Whether the uploaded file should be publicly accessible.",
+                },
+                metaData: {
+                  type: "object",
+                  additionalProperties: true,
+                  description:
+                    "Optional metadata object forwarded to Linear's signed upload request.",
+                },
+                position: {
+                  type: "string",
+                  enum: [
+                    "append",
+                    "prepend",
+                    "after_text",
+                    "before_text",
+                    "replace_text",
+                  ],
+                  description:
+                    "How to place the Markdown image within the description. Defaults to append.",
+                },
+              },
+              required: [
+                "altText",
+                "contentBase64",
+                "contentType",
+                "filename",
+                "identifierOrId",
+              ],
+            },
+            commandKey: "issue.upload_inline_image",
+            commandPath: ["issue", "upload_inline_image"],
+            description:
+              "Upload image bytes to Linear storage on the server, then insert the uploaded image inline into the issue description.",
+            exampleArguments: {
+              altText: "OpenClaw logo",
+              contentBase64: "<base64-image-bytes>",
+              contentType: "image/png",
+              filename: "openclaw-logo.png",
+              identifierOrId: "INT-15",
+              position: "append",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "issue",
+              "upload inline image",
+              "embed uploaded image",
+              "description image",
+            ],
+            label: "Upload inline image",
+            resultMode: "json",
+            usageNotes: [
+              "This command performs the full server-side upload flow and then updates the issue description with Markdown image syntax.",
+              "Provide contentBase64 with the raw image bytes. Data URL prefixes are accepted.",
+              "For anchor-based placement, provide anchorText and choose after_text, before_text, or replace_text.",
+            ],
+            validate: (argumentsObject) => ({
+              altText:
+                typeof argumentsObject.altText === "string"
+                  ? argumentsObject.altText.trim()
+                  : "",
+              anchorText:
+                typeof argumentsObject.anchorText === "string"
+                  ? argumentsObject.anchorText.trim()
+                  : null,
+              contentBase64:
+                typeof argumentsObject.contentBase64 === "string"
+                  ? argumentsObject.contentBase64.trim()
+                  : "",
+              contentType:
+                typeof argumentsObject.contentType === "string"
+                  ? argumentsObject.contentType.trim()
+                  : "",
+              fallbackPosition:
+                argumentsObject.fallbackPosition === "append" ||
+                argumentsObject.fallbackPosition === "prepend" ||
+                argumentsObject.fallbackPosition === "fail"
+                  ? argumentsObject.fallbackPosition
+                  : "fail",
+              filename:
+                typeof argumentsObject.filename === "string"
+                  ? argumentsObject.filename.trim()
+                  : "",
+              identifierOrId:
+                typeof argumentsObject.identifierOrId === "string"
+                  ? argumentsObject.identifierOrId.trim()
+                  : "",
+              makePublic:
+                typeof argumentsObject.makePublic === "boolean"
+                  ? argumentsObject.makePublic
+                  : null,
+              metaData:
+                argumentsObject.metaData &&
+                typeof argumentsObject.metaData === "object" &&
+                !Array.isArray(argumentsObject.metaData)
+                  ? argumentsObject.metaData
+                  : null,
+              position:
+                argumentsObject.position === "after_text" ||
+                argumentsObject.position === "before_text" ||
+                argumentsObject.position === "prepend" ||
+                argumentsObject.position === "replace_text"
+                  ? argumentsObject.position
+                  : "append",
+            }),
+            execute: executeLinearIssueUploadInlineImage,
           },
           {
             argumentsSchema: {

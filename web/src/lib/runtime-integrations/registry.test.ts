@@ -46,7 +46,7 @@ describe("runtime integration registry", () => {
       manifest[0]?.commandGroups.find(
         (group) => group.groupKey === "attachment",
       )?.commandCount,
-      7,
+      8,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "workspace")
@@ -112,7 +112,7 @@ describe("runtime integration registry", () => {
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")
         ?.commandCount,
-      13,
+      15,
     );
     assert.equal(
       manifest[0]?.commandGroups.find((group) => group.groupKey === "project")

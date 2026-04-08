@@ -903,6 +903,210 @@ export async function executeLinearGraphql<T>(input: {
   return payload.data;
 }
 
+export type LinearUploadHeader = {
+  key: string;
+  value: string;
+};
+
+export type LinearUploadPlan = {
+  assetUrl: string | null;
+  contentType: string | null;
+  filename: string | null;
+  headers: LinearUploadHeader[];
+  metadata: Record<string, unknown> | null;
+  size: number | null;
+  uploadUrl: string | null;
+};
+
+const FILE_UPLOAD_MUTATION = `
+  mutation OttoLinearFileUpload(
+    $contentType: String!
+    $filename: String!
+    $makePublic: Boolean
+    $metaData: JSON
+    $size: Int!
+  ) {
+    fileUpload(
+      contentType: $contentType
+      filename: $filename
+      makePublic: $makePublic
+      metaData: $metaData
+      size: $size
+    ) {
+      lastSyncId
+      success
+      uploadFile {
+        assetUrl
+        contentType
+        filename
+        headers {
+          key
+          value
+        }
+        metaData
+        size
+        uploadUrl
+      }
+    }
+  }
+`;
+
+function normalizeLinearUploadPlan(
+  uploadFile:
+    | {
+        assetUrl?: string | null;
+        contentType?: string | null;
+        filename?: string | null;
+        headers?: Array<{
+          key?: string | null;
+          value?: string | null;
+        }> | null;
+        metaData?: Record<string, unknown> | null;
+        size?: number | null;
+        uploadUrl?: string | null;
+      }
+    | null
+    | undefined,
+): LinearUploadPlan | null {
+  if (!uploadFile) {
+    return null;
+  }
+
+  return {
+    assetUrl: uploadFile.assetUrl ?? null,
+    contentType: uploadFile.contentType?.trim() || null,
+    filename: uploadFile.filename?.trim() || null,
+    headers: (uploadFile.headers ?? [])
+      .map((header) => ({
+        key: header.key?.trim() || "",
+        value: header.value?.trim() || "",
+      }))
+      .filter((header) => header.key.length > 0),
+    metadata: uploadFile.metaData ?? null,
+    size: typeof uploadFile.size === "number" ? uploadFile.size : null,
+    uploadUrl: uploadFile.uploadUrl ?? null,
+  };
+}
+
+export async function requestLinearUploadUrl(input: {
+  accessToken: string;
+  contentType: string;
+  filename: string;
+  makePublic?: boolean | null;
+  metaData?: Record<string, unknown> | null;
+  size: number;
+}): Promise<{
+  lastSyncId: number | null;
+  success: boolean;
+  uploadFile: LinearUploadPlan | null;
+}> {
+  const data = await executeLinearGraphql<{
+    fileUpload?: {
+      lastSyncId?: number | null;
+      success?: boolean | null;
+      uploadFile?: {
+        assetUrl?: string | null;
+        contentType?: string | null;
+        filename?: string | null;
+        headers?: Array<{
+          key?: string | null;
+          value?: string | null;
+        }> | null;
+        metaData?: Record<string, unknown> | null;
+        size?: number | null;
+        uploadUrl?: string | null;
+      } | null;
+    } | null;
+  }>({
+    accessToken: input.accessToken,
+    query: FILE_UPLOAD_MUTATION,
+    variables: {
+      contentType: input.contentType,
+      filename: input.filename,
+      makePublic: input.makePublic ?? null,
+      metaData: input.metaData ?? null,
+      size: input.size,
+    },
+  });
+
+  return {
+    lastSyncId:
+      typeof data.fileUpload?.lastSyncId === "number"
+        ? data.fileUpload.lastSyncId
+        : null,
+    success: data.fileUpload?.success ?? true,
+    uploadFile: normalizeLinearUploadPlan(data.fileUpload?.uploadFile),
+  };
+}
+
+export function decodeLinearFileContentBase64(input: {
+  contentBase64: string;
+  filename: string;
+}) {
+  const trimmed = input.contentBase64.trim();
+  const payload = trimmed.includes(",")
+    ? trimmed.slice(trimmed.indexOf(",") + 1)
+    : trimmed;
+
+  if (!payload) {
+    throw new Error(
+      `Missing file bytes for ${input.filename}. Provide contentBase64.`,
+    );
+  }
+
+  try {
+    return Buffer.from(payload, "base64");
+  } catch {
+    throw new Error(
+      `Invalid base64 file bytes for ${input.filename}. Provide contentBase64.`,
+    );
+  }
+}
+
+export async function uploadLinearFileBytes(input: {
+  bytes: Buffer;
+  contentType: string;
+  uploadFile: LinearUploadPlan;
+}) {
+  if (!input.uploadFile.uploadUrl) {
+    throw new Error("Linear did not return an uploadUrl.");
+  }
+
+  const headers = new Headers();
+  headers.set("Content-Type", input.contentType);
+
+  if (!headers.has("Cache-Control")) {
+    headers.set("Cache-Control", "public, max-age=31536000");
+  }
+
+  for (const header of input.uploadFile.headers) {
+    if (header.key) {
+      headers.set(header.key, header.value);
+    }
+  }
+
+  const response = await fetch(input.uploadFile.uploadUrl, {
+    body: new Blob([Uint8Array.from(input.bytes)], {
+      type: input.contentType,
+    }),
+    headers,
+    method: "PUT",
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const rawResponseText = await response.text();
+  const rawResponseSnippet = clipForLog(rawResponseText);
+
+  console.error(
+    `[linear] upload put failed status=${response.status} filename=${input.uploadFile.filename ?? "unknown"} contentType=${input.contentType} response=${rawResponseSnippet}`,
+  );
+
+  throw new Error(`Linear upload PUT failed with status ${response.status}.`);
+}
+
 export function getLinearIssueFields() {
   return ISSUE_FIELDS;
 }
