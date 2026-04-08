@@ -52,20 +52,20 @@ test("buildManagedSkillPruneCommand only removes previously managed skill files"
     nextPaths: ["/opt/openclaw/home/workspace/skills/linear-triage/SKILL.md"],
     previousPaths: [
       "/opt/openclaw/home/workspace/skills/linear-triage/SKILL.md",
+      "/opt/openclaw/home/workspace/skills/linear-triage/notes.md",
       "/opt/openclaw/home/workspace/skills/linear-triage/references/rules.md",
+      "/opt/openclaw/home/workspace/skills/linear-triage/scripts/refresh.sh",
       "/opt/openclaw/home/workspace/skills/linear-triage/state/cache.json",
       "/opt/openclaw/home/workspace/AGENTS.md",
     ],
   });
 
   assert.ok(command);
-  assert.match(command, /references\/rules\.md/);
+  assert.match(command ?? "", /notes\.md/);
+  assert.doesNotMatch(command ?? "", /references\/rules\.md/);
+  assert.doesNotMatch(command ?? "", /scripts\/refresh\.sh/);
   assert.doesNotMatch(command ?? "", /state\/cache\.json/);
   assert.doesNotMatch(command ?? "", /workspace\/AGENTS\.md/);
-  assert.match(
-    command ?? "",
-    /rmdir '\/opt\/openclaw\/home\/workspace\/skills\/linear-triage\/references'/,
-  );
 });
 
 test("buildManagedSkillPruneCommand returns null when nothing was removed", () => {
