@@ -81,7 +81,7 @@ export function AppSidebar({
       title: "Tools",
     },
     {
-      href: `/${currentOrganization.slug}/capabilities`,
+      href: `/${currentOrganization.slug}/capabilities2`,
       icon: <Brain />,
       title: "Capabilities",
     },

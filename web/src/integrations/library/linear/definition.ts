@@ -3925,6 +3925,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             intentKeywords: ["linear", "team", "delete team", "remove team"],
             label: "Delete team",
             resultMode: "json",
+            agentAvailability: {
+              available: false,
+              reason:
+                "Not available for Otto's current Linear actor in this workspace.",
+            },
+            userControllable: false,
             usageNotes: [
               "Currently unavailable for Otto agent interaction through Linear in this workspace. Team deletion requires stronger Linear permissions than Otto's current app actor has.",
               "Prefer the canonical team id from workspace.list_teams before deleting a team.",
@@ -4124,6 +4130,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             ],
             label: "Unarchive team",
             resultMode: "json",
+            agentAvailability: {
+              available: false,
+              reason:
+                "Not available for Otto's current Linear actor in this workspace.",
+            },
+            userControllable: false,
             usageNotes: [
               "Currently unavailable for Otto agent interaction through Linear in this workspace. Team restoration requires stronger Linear permissions than Otto's current app actor has.",
               "Prefer the canonical team id from workspace.list_teams before restoring a team.",
@@ -4420,6 +4432,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             ],
             label: "Resend workspace invite",
             resultMode: "json",
+            agentAvailability: {
+              available: false,
+              reason:
+                "Not available for Otto's current Linear actor in this workspace.",
+            },
+            userControllable: false,
             usageNotes: [
               "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Prefer inviteId when you already have the canonical invite id.",
@@ -4462,6 +4480,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             ],
             label: "Cancel workspace invite",
             resultMode: "json",
+            agentAvailability: {
+              available: false,
+              reason:
+                "Not available for Otto's current Linear actor in this workspace.",
+            },
+            userControllable: false,
             usageNotes: [
               "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Use the inviteId returned by workspace_member.invite or a future invite-list command.",
@@ -4502,6 +4526,12 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             ],
             label: "Update workspace invite",
             resultMode: "json",
+            agentAvailability: {
+              available: false,
+              reason:
+                "Not available for Otto's current Linear actor in this workspace.",
+            },
+            userControllable: false,
             usageNotes: [
               "Currently unavailable for Otto agent interaction through Linear in this workspace. Pending-invite admin operations require a human Linear workspace admin.",
               "Use the inviteId returned by workspace_member.invite or a future invite-list command.",

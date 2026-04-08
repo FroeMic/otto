@@ -207,6 +207,35 @@ export const tenantIntegrations = pgTable(
   }),
 );
 
+export const tenantIntegrationCapabilityStates = pgTable(
+  "tenant_integration_capability_states",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    capabilityKey: varchar("capability_key", { length: 128 }).notNull(),
+    policyJson: jsonb("policy_json")
+      .$type<{ policy: "allow" | "block" }>()
+      .default({ policy: "allow" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantIntegrationIdx: index(
+      "tenant_integration_capability_states_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+    tenantIntegrationCapabilityUniqueIdx: uniqueIndex(
+      "tenant_integration_capability_states_tenant_integration_id_capability_key_idx",
+    ).on(table.tenantIntegrationId, table.capabilityKey),
+  }),
+);
+
 export const integrationSlackInstallations = pgTable(
   "integration_slack_installations",
   {

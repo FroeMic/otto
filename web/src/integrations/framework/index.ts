@@ -1,3 +1,11 @@
+export type { ResolvedIntegrationCommandCapability } from "./capabilities";
+export {
+  buildResolvedIntegrationCommandCapability,
+  getCommandEffect,
+  isCommandUserControllable,
+  listIntegrationCommands,
+  resolveCommandCapabilityState,
+} from "./capabilities";
 export { executeRegisteredIntegrationCommand } from "./execute";
 export { buildRuntimeIntegrationManifestForKeys } from "./manifest";
 export {
@@ -16,7 +24,9 @@ export {
 } from "./runtime-response";
 export { collectCommands, findIntegrationCommandMatches } from "./search";
 export type {
+  IntegrationCapabilityPolicy,
   IntegrationCommandDefinition,
+  IntegrationCommandEffect,
   IntegrationCommandExecute,
   IntegrationCommandGroupDefinition,
   IntegrationCommandInputMode,
@@ -31,6 +41,7 @@ export type {
   IntegrationRuntimeCommandDefinition,
   IntegrationRuntimeCommandGroupDefinition,
   IntegrationRuntimeSurfaceDefinition,
+  RuntimeCapabilityState,
   RuntimeIntegrationCommandDetails,
   RuntimeIntegrationCommandGroupDetails,
   RuntimeIntegrationCommandGroupSummary,

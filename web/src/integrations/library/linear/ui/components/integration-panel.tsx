@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   type ReadonlyURLSearchParams,
   usePathname,
@@ -23,6 +24,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
@@ -323,6 +325,14 @@ export function LinearIntegrationPanel(props: Props) {
         <TabsContent value="capabilities">
           <SettingsPage className="mx-0 max-w-none">
             <div className="flex flex-col gap-8">
+              <div className="flex justify-end">
+                <Link
+                  className={buttonVariants({ variant: "outline" })}
+                  href={`/${orgSlug}/integrations2/linear/capabilities`}
+                >
+                  Open capability controls
+                </Link>
+              </div>
               {capabilityGroups.map(([direction, capabilities]) => (
                 <SettingsSection key={direction}>
                   <SettingsSectionTitle>

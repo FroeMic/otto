@@ -15,6 +15,11 @@ import {
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
 import {
+  getTenantIntegrationCapabilityPolicy,
+  listTenantIntegrationCapabilityPolicies,
+  upsertTenantIntegrationCapabilityPolicy,
+} from "@/db/integration-capability-policies";
+import {
   createTenantManagedSkillForTenant,
   ensureTenantSystemManagedSkillsForTenantTx,
   listLatestTenantManagedSkillVersionMapTx,
@@ -57,6 +62,7 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildResolvedIntegrationCommandCapability,
   buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationManifestForKeys,
   buildRuntimeIntegrationSummaryResponse,
@@ -64,8 +70,11 @@ import {
   getIntegrationDefinition,
   type IntegrationRuntimeCommandDefinition,
   type IntegrationRuntimeCommandGroupDefinition,
+  isCommandUserControllable,
+  listIntegrationCommands,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
+  type ResolvedIntegrationCommandCapability,
   type RuntimeIntegrationCommandMatch,
   type RuntimeIntegrationDetailsResponse,
   type RuntimeIntegrationManifestEntry,
@@ -4598,6 +4607,7 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
       disconnectedAt: tenantIntegrations.disconnectedAt,
       integrationStatus: tenantIntegrations.status,
       providerKey: tenantIntegrations.providerKey,
+      tenantIntegrationId: tenantIntegrations.id,
     })
     .from(tenantIntegrations)
     .leftJoin(
@@ -4624,6 +4634,7 @@ function buildRuntimeTenantIntegrations(input: {
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
@@ -4648,6 +4659,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const statusByProviderKey = new Map<
@@ -4657,6 +4669,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
       connectionStatus: string | null;
       disconnectedAt: Date | null;
       integrationStatus: string | null;
+      tenantIntegrationId: string;
     }
   >();
 
@@ -4687,9 +4700,11 @@ function buildRuntimeDefinitionsWithStatus(input: {
         enabled: connected,
         integrationStatus,
         needsAttention:
+          integrationStatus === "error" ||
           integrationStatus === "needs_attention" ||
           connectionStatus === "needs_attention",
       },
+      tenantIntegrationId: row?.tenantIntegrationId ?? null,
     };
   });
 }
@@ -4900,10 +4915,12 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
       providerKeys: [integrationKey],
       tenantId: input.tenantId,
     });
-    const [{ status }] = buildRuntimeDefinitionsWithStatus({
-      definitions: [definition],
-      rows,
-    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [definition],
+        rows,
+      },
+    );
 
     const detail =
       input.detailType === "command"
@@ -4914,10 +4931,20 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
       return null;
     }
 
+    const policy =
+      input.detailType === "command" && tenantIntegrationId
+        ? await getTenantIntegrationCapabilityPolicy({
+            capabilityKey: (detail as IntegrationRuntimeCommandDefinition)
+              .commandKey,
+            tenantIntegrationId,
+          })
+        : null;
+
     return buildRuntimeIntegrationDetailsResponse({
       definition,
       detail,
       detailType: input.detailType,
+      policy,
       status,
     });
   });
@@ -5103,6 +5130,284 @@ export async function getTenantManagedIntegrationSummary(input: {
     .limit(1);
 
   return integration ?? null;
+}
+
+export type ManagedIntegrationCapabilityRow =
+  ResolvedIntegrationCommandCapability & {
+    sourceHref: string | null;
+    sourceIcon: string | null;
+    sourceKey: string;
+    sourceLabel: string;
+    sourceType: "integration";
+  };
+
+function sortManagedIntegrationCapabilityRows(
+  rows: ManagedIntegrationCapabilityRow[],
+) {
+  return [...rows].sort((left, right) => {
+    if (left.capabilityType !== right.capabilityType) {
+      return left.capabilityType === "trigger" ? -1 : 1;
+    }
+
+    if (left.label !== right.label) {
+      return left.label.localeCompare(right.label);
+    }
+
+    return left.commandKey.localeCompare(right.commandKey);
+  });
+}
+
+function buildManagedIntegrationCapabilityRows(input: {
+  definition: NonNullable<ReturnType<typeof getIntegrationDefinition>> & {
+    runtimeSurface: NonNullable<
+      NonNullable<ReturnType<typeof getIntegrationDefinition>>["runtimeSurface"]
+    >;
+  };
+  orgSlug: string;
+  policies: Map<string, { policy: "allow" | "block" }>;
+  status: {
+    connected: boolean;
+    connectionStatus: string | null;
+    enabled: boolean;
+    integrationStatus: string | null;
+    needsAttention: boolean;
+  };
+}): ManagedIntegrationCapabilityRow[] {
+  return sortManagedIntegrationCapabilityRows(
+    listIntegrationCommands({
+      definition: input.definition,
+    }).map((command) => {
+      const resolved = buildResolvedIntegrationCommandCapability({
+        command,
+        definition: input.definition,
+        policy: input.policies.get(command.commandKey) ?? null,
+        status: input.status,
+      });
+
+      return {
+        ...resolved,
+        sourceHref: `/${input.orgSlug}/integrations2/${input.definition.key}/capabilities`,
+        sourceIcon: input.definition.iconSrc,
+        sourceKey: input.definition.key,
+        sourceLabel: input.definition.label,
+        sourceType: "integration",
+      };
+    }),
+  );
+}
+
+export async function listManagedIntegrationCapabilitiesForOrganization(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    return [];
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [runtimeDefinition.key],
+      tenantId: authorizedTenant.tenantId,
+    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [runtimeDefinition],
+        rows,
+      },
+    );
+    const policies = tenantIntegrationId
+      ? await listTenantIntegrationCapabilityPolicies({
+          tenantIntegrationId,
+        })
+      : new Map();
+
+    return buildManagedIntegrationCapabilityRows({
+      definition: runtimeDefinition,
+      orgSlug: input.orgSlug,
+      policies,
+      status,
+    });
+  });
+}
+
+export async function listWorkspaceManagedIntegrationCapabilities(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: authorizedTenant.tenantId,
+    });
+    const installedProviderKeys = [
+      ...new Set(rows.map((row) => row.providerKey)),
+    ].sort((left, right) => left.localeCompare(right));
+    const definitions = installedProviderKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
+          >;
+        } => Boolean(definition?.runtimeSurface),
+      );
+
+    const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+    const capabilityRows = await Promise.all(
+      resolvedDefinitions.map(
+        async ({ definition, status, tenantIntegrationId }) => {
+          const policies = tenantIntegrationId
+            ? await listTenantIntegrationCapabilityPolicies({
+                tenantIntegrationId,
+              })
+            : new Map();
+
+          return buildManagedIntegrationCapabilityRows({
+            definition,
+            orgSlug: input.orgSlug,
+            policies,
+            status,
+          });
+        },
+      ),
+    );
+
+    return capabilityRows.flat().sort((left, right) => {
+      if (left.sourceLabel !== right.sourceLabel) {
+        return left.sourceLabel.localeCompare(right.sourceLabel);
+      }
+
+      if (left.capabilityType !== right.capabilityType) {
+        return left.capabilityType === "trigger" ? -1 : 1;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  });
+}
+
+export async function updateManagedIntegrationCapabilityPolicy(input: {
+  capabilityKey: string;
+  orgSlug: string;
+  policy: { policy: "allow" | "block" };
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Workspace is not available.");
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    throw new Error(
+      `Managed integration ${input.providerKey} is not available.`,
+    );
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const command = listIntegrationCommands({
+    definition: runtimeDefinition,
+  }).find((entry) => entry.commandKey === input.capabilityKey);
+
+  if (!command) {
+    throw new Error(
+      `${definition.label} does not expose the ${input.capabilityKey} capability.`,
+    );
+  }
+
+  if (!isCommandUserControllable(command)) {
+    throw new Error(
+      `${definition.label} does not allow workspace policy changes for ${command.commandKey}.`,
+    );
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(tenantIntegrations.providerKey, runtimeDefinition.key),
+      ),
+    )
+    .limit(1);
+
+  if (!integration) {
+    throw new Error(
+      `${definition.label} must be connected before capability policy can be updated.`,
+    );
+  }
+
+  await upsertTenantIntegrationCapabilityPolicy({
+    capabilityKey: command.commandKey,
+    policy: input.policy,
+    tenantIntegrationId: integration.id,
+  });
+
+  const rows = await listManagedIntegrationCapabilitiesForOrganization({
+    orgSlug: input.orgSlug,
+    providerKey: runtimeDefinition.key,
+    userExternalId: input.userExternalId,
+  });
+  const row = rows.find((entry) => entry.commandKey === command.commandKey);
+
+  if (!row) {
+    throw new Error(
+      "Capability policy was updated but the capability could not be reloaded.",
+    );
+  }
+
+  return row;
 }
 
 export async function getTenantManagedIntegrationConnectContext(input: {
