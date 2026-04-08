@@ -213,6 +213,41 @@ describe("renderOpenClawConfig", () => {
     });
   });
 
+  it("renders Gemini web search config into OpenClaw tools", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      webSearch: {
+        enabled: true,
+        gemini: {
+          model: "gemini-2.5-pro",
+        },
+        provider: "gemini",
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.tools.web.search, {
+      enabled: true,
+      provider: "gemini",
+    });
+    assert.deepEqual(renderedConfig.plugins.allow, ["google"]);
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      config: {
+        webSearch: {
+          model: "gemini-2.5-pro",
+        },
+      },
+      enabled: true,
+    });
+    assert.equal(renderedConfig.plugins.entries.brave, undefined);
+  });
+
   it("renders WhatsApp config with the Otto-managed defaults", () => {
     const config: OpenClawTenantConfig = {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
@@ -328,9 +363,9 @@ describe("renderOpenClawConfig", () => {
       webSearch: {
         enabled: true,
         gemini: {
-          mode: "web",
+          model: "gemini-2.5-flash",
         },
-        provider: "google",
+        provider: "gemini",
       },
       workspacePath: "/home/node/.openclaw/workspace",
     };
@@ -341,7 +376,7 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.plugins.entries.google, {
       config: {
         webSearch: {
-          mode: "web",
+          model: "gemini-2.5-flash",
         },
       },
       enabled: true,
