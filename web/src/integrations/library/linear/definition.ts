@@ -133,6 +133,7 @@ import { executeLinearTeamListLabels } from "./commands/team/list-labels";
 import { executeLinearTeamListProjects } from "./commands/team/list-projects";
 import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
 import { executeLinearTeamMembersAdd } from "./commands/team/members-add";
+import { executeLinearTeamMembersRemove } from "./commands/team/members-remove";
 import { executeLinearTeamMembersUpdate } from "./commands/team/members-update";
 import { executeLinearTeamUnarchive } from "./commands/team/unarchive";
 import { executeLinearTeamUpdate } from "./commands/team/update";
@@ -3777,6 +3778,52 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearTeamDelete,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                alsoLeaveParentTeams: {
+                  type: "boolean",
+                  description:
+                    "Whether to also remove the user from inherited parent team memberships.",
+                },
+                membershipId: TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA,
+              },
+              required: ["membershipId"],
+            },
+            commandKey: "team.members_remove",
+            commandPath: ["team", "members_remove"],
+            description: "Remove one user from a Linear team by membership id.",
+            exampleArguments: {
+              membershipId: "team-membership-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "team",
+              "remove team member",
+              "leave team",
+              "team membership",
+            ],
+            label: "Remove team member",
+            resultMode: "json",
+            usageNotes: [
+              "Use user.list_team_memberships first to get the canonical membership id.",
+              "Set alsoLeaveParentTeams when the membership was inherited from a parent team structure.",
+            ],
+            validate: (argumentsObject) => ({
+              alsoLeaveParentTeams:
+                typeof argumentsObject.alsoLeaveParentTeams === "boolean"
+                  ? argumentsObject.alsoLeaveParentTeams
+                  : undefined,
+              membershipId:
+                typeof argumentsObject.membershipId === "string"
+                  ? argumentsObject.membershipId.trim()
+                  : "",
+            }),
+            execute: executeLinearTeamMembersRemove,
           },
           {
             argumentsSchema: {

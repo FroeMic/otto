@@ -11,6 +11,7 @@ import { executeLinearTeamListLabels } from "./list-labels";
 import { executeLinearTeamListProjects } from "./list-projects";
 import { executeLinearTeamListWorkflowStates } from "./list-workflow-states";
 import { executeLinearTeamMembersAdd } from "./members-add";
+import { executeLinearTeamMembersRemove } from "./members-remove";
 import { executeLinearTeamMembersUpdate } from "./members-update";
 import { executeLinearTeamUnarchive } from "./unarchive";
 import { executeLinearTeamUpdate } from "./update";
@@ -930,5 +931,53 @@ describe("linear team commands", () => {
     assert.equal(result.teamMembership?.id, "membership-1");
     assert.equal(result.teamMembership?.owner, false);
     assert.equal(result.teamMembership?.sortOrder, 4);
+  });
+
+  it("removes one team membership by membership id", async () => {
+    const requestBodies = queueFetchResponses([
+      {
+        data: {
+          teamMembershipDelete: {
+            entityId: "membership-1",
+            lastSyncId: 129,
+            success: true,
+          },
+        },
+      },
+    ]);
+
+    const result = (await executeLinearTeamMembersRemove({
+      arguments: {
+        alsoLeaveParentTeams: true,
+        membershipId: "membership-1",
+      },
+      context: {
+        auth: { accessToken: "token" } as never,
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    })) as {
+      commandKey: string;
+      deletedTeamMembershipId: string | null;
+      lastSyncId: number | null;
+      lookup: string;
+      success: boolean;
+    };
+
+    const payload = JSON.parse(requestBodies[0] ?? "{}") as {
+      query: string;
+      variables: {
+        alsoLeaveParentTeams: boolean;
+        id: string;
+      };
+    };
+
+    assert.match(payload.query, /mutation OttoLinearTeamMembershipDelete/);
+    assert.equal(payload.variables.id, "membership-1");
+    assert.equal(payload.variables.alsoLeaveParentTeams, true);
+    assert.equal(result.commandKey, "team.members_remove");
+    assert.equal(result.deletedTeamMembershipId, "membership-1");
+    assert.equal(result.lastSyncId, 129);
+    assert.equal(result.lookup, "membership-1");
+    assert.equal(result.success, true);
   });
 });
