@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowsClockwise, DotsThree } from "@phosphor-icons/react/ssr";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -66,6 +66,28 @@ const capabilityTypeBadgeVariant: Record<
   command: "outline",
   trigger: "default",
 };
+
+const effectSortOrder: Record<
+  NonNullable<CapabilityInventoryRow["effect"]>,
+  number
+> = {
+  read: 0,
+  write: 1,
+};
+
+const capabilityTypeSortOrder: Record<
+  CapabilityInventoryRow["capabilityType"],
+  number
+> = {
+  command: 0,
+  trigger: 1,
+};
+
+const DEFAULT_CAPABILITY_SORTING: SortingState = [
+  { desc: false, id: "commandGroup" },
+  { desc: false, id: "capabilityType" },
+  { desc: false, id: "effect" },
+];
 
 function formatCapabilityStatus(status: CapabilityInventoryRow["status"]) {
   if (status === "needs_attention") {
@@ -215,6 +237,9 @@ function createColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Type" />
       ),
+      sortingFn: (left, right) =>
+        capabilityTypeSortOrder[left.original.capabilityType] -
+        capabilityTypeSortOrder[right.original.capabilityType],
       size: 120,
       cell: ({ row }) => (
         <Badge
@@ -229,6 +254,10 @@ function createColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Group" />
       ),
+      sortingFn: (left, right) =>
+        formatCommandGroup(left.original.commandGroup).localeCompare(
+          formatCommandGroup(right.original.commandGroup),
+        ),
       size: 160,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
@@ -241,6 +270,13 @@ function createColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Effect" />
       ),
+      sortingFn: (left, right) =>
+        (left.original.effect
+          ? effectSortOrder[left.original.effect]
+          : Number.POSITIVE_INFINITY) -
+        (right.original.effect
+          ? effectSortOrder[right.original.effect]
+          : Number.POSITIVE_INFINITY),
       size: 120,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
@@ -368,6 +404,7 @@ export function CapabilityInventoryTable({
       data={filteredRows}
       emptyMessage="No capabilities available."
       fillAvailableSpace
+      initialSorting={DEFAULT_CAPABILITY_SORTING}
       headClassName="px-4 text-sm font-medium text-foreground"
       headerClassName="[&_tr]:border-0 sticky top-0 z-10 bg-background"
       rowClassName="border-0 hover:bg-transparent"

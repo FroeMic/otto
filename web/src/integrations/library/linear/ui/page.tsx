@@ -109,7 +109,6 @@ export async function LinearIntegrationPage({
 
   return (
     <LinearIntegrationPanel
-      agentCapabilities={definition.agentCapabilities}
       canConnect={hasLinearOAuthConfig()}
       capabilityRows={capabilityRows}
       connectActionLabel={getConnectActionLabel(uiState)}
