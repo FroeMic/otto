@@ -59,6 +59,7 @@ import { executeLinearDocumentUpdate } from "./commands/document/update";
 import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
+  executeLinearInitiativeCreateUpdate,
   executeLinearInitiativeGet,
   executeLinearInitiativeList,
   executeLinearInitiativeListProjects,
@@ -2909,6 +2910,65 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
                   : "",
             }),
             execute: executeLinearInitiativeArchive,
+          },
+          {
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                body: {
+                  type: "string",
+                  description: "Optional initiative update body in markdown.",
+                },
+                health: PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA,
+                initiativeId: INITIATIVE_ID_ARGUMENT_SCHEMA,
+                isDiffHidden: {
+                  type: "boolean",
+                  description:
+                    "Whether the diff between this update and the previous one should be hidden.",
+                },
+              },
+              required: ["initiativeId"],
+            },
+            commandKey: "initiative.create_update",
+            commandPath: ["initiative", "create_update"],
+            description: "Create one update entry for a Linear initiative.",
+            exampleArguments: {
+              body: "Still on track",
+              health: "onTrack",
+              initiativeId: "initiative-id",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "linear",
+              "initiative",
+              "create update",
+              "status update",
+            ],
+            label: "Create initiative update",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you want to post a roadmap update without editing the initiative itself.",
+            ],
+            validate: (argumentsObject) => ({
+              body:
+                typeof argumentsObject.body === "string"
+                  ? argumentsObject.body
+                  : undefined,
+              health:
+                typeof argumentsObject.health === "string"
+                  ? argumentsObject.health.trim()
+                  : undefined,
+              initiativeId:
+                typeof argumentsObject.initiativeId === "string"
+                  ? argumentsObject.initiativeId.trim()
+                  : "",
+              isDiffHidden:
+                typeof argumentsObject.isDiffHidden === "boolean"
+                  ? argumentsObject.isDiffHidden
+                  : undefined,
+            }),
+            execute: executeLinearInitiativeCreateUpdate,
           },
           {
             argumentsSchema: {

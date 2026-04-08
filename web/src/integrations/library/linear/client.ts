@@ -2565,6 +2565,24 @@ export function buildLinearInitiativeUpdateCollectionCommandResult(input: {
   };
 }
 
+export function buildLinearInitiativeUpdateCommandResult(input: {
+  commandKey: string;
+  initiativeUpdate: LinearInitiativeUpdateNode | null | undefined;
+  lastSyncId?: number | null;
+  success?: boolean | null;
+}) {
+  return {
+    commandKey: input.commandKey,
+    initiativeUpdate: input.initiativeUpdate
+      ? mapLinearInitiativeUpdate(input.initiativeUpdate)
+      : null,
+    integrationKey: "linear",
+    lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
+    source: "linear",
+    success: input.success ?? true,
+  };
+}
+
 export function buildLinearCustomerCommandResult(input: {
   commandKey: string;
   customer: LinearCustomerNode | null | undefined;
