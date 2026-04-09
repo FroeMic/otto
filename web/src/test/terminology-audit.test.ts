@@ -15,9 +15,7 @@ const TARGET_ROOTS = [
   path.join(REPO_ROOT, "runtime-plugins"),
 ] as const;
 
-const ALLOWED_PATHS = new Set([
-  path.join(REPO_ROOT, "runtime-plugins/otto-runtime-config/NEXT_STEPS.md"),
-]);
+const ALLOWED_PATHS = new Set<string>();
 
 const ALLOWED_LINE_PATTERNS = [
   /@\/db\/control-plane/,

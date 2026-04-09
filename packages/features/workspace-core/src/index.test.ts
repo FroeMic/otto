@@ -41,6 +41,90 @@ describe("workspace core", () => {
     assert.equal(data.user.isPlatformAdmin, true)
   })
 
+  it("falls back to the current workspace when dashboard organizations fail", async () => {
+    const response = await handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: async () => ({
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      }),
+      getDashboardOrganizations: async () => {
+        throw new Error("WorkOS sync is temporarily unavailable")
+      },
+      hasPlatformAdminRole: async () => false,
+      orgSlug: "otto",
+      syncUserFromSession: async () => undefined,
+      user,
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      currentOrganization: {
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      },
+      organizations: [
+        {
+          id: "org_1",
+          isReady: true,
+          locale: "en-US",
+          name: "Otto",
+          slug: "otto",
+          timeFormatPreference: "auto",
+          timezone: "UTC",
+        },
+      ],
+      user: {
+        email: "test@getyourotto.com",
+        id: "user_123",
+        isPlatformAdmin: false,
+        name: "Test User",
+      },
+    })
+  })
+
+  it("returns a stage-specific bootstrap error when workspace loading fails", async () => {
+    const response = await handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: async () => {
+        throw new Error("workspace lookup query failed")
+      },
+      getDashboardOrganizations: async () => {
+        throw new Error("organization projection refresh failed")
+      },
+      hasPlatformAdminRole: async () => false,
+      orgSlug: "otto",
+      syncUserFromSession: async () => undefined,
+      user,
+    })
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      code: "workspace_lookup_failed",
+      failureStage: "load_current_workspace",
+      failures: [
+        {
+          message: "organization projection refresh failed",
+          stage: "load_dashboard_organizations",
+        },
+        {
+          message: "workspace lookup query failed",
+          stage: "load_current_workspace",
+        },
+      ],
+      message:
+        "Failed to load the requested workspace: workspace lookup query failed",
+    })
+  })
+
   it("returns usage overview", async () => {
     const response = await handleWorkspaceUsageRequest({
       getOrganizationTenantForBilling: async () => ({ id: "tenant_1" }),

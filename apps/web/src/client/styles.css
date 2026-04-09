@@ -1,11 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
 
 @source "../server/**/*.{ts,tsx}";
 @source "../shared/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
 @theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -157,5 +163,9 @@
         color-mix(in oklch, var(--background) 88%, white),
         var(--background)
       );
+  }
+
+  html {
+    @apply font-sans;
   }
 }

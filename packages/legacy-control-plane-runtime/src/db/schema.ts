@@ -236,33 +236,6 @@ export const tenantIntegrationCapabilityStates = pgTable(
   }),
 );
 
-export const integrationSlackInstallations = pgTable(
-  "integration_slack_installations",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    tenantIntegrationId: uuid("tenant_integration_id")
-      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
-      .notNull(),
-    slackTeamId: varchar("slack_team_id", { length: 255 }).notNull(),
-    slackTeamName: text("slack_team_name"),
-    slackBotUserId: varchar("slack_bot_user_id", { length: 255 }),
-    installerUserId: varchar("installer_user_id", { length: 255 }),
-    scopeCsv: text("scope_csv"),
-    installedAt: timestamp("installed_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => ({
-    tenantIntegrationUniqueIdx: uniqueIndex(
-      "integration_slack_installations_tenant_integration_id_idx",
-    ).on(table.tenantIntegrationId),
-  }),
-);
-
 export const integrationOauthSessions = pgTable(
   "integration_oauth_sessions",
   {
@@ -320,6 +293,10 @@ export const integrationOauthConnections = pgTable(
     providerKey: varchar("provider_key", { length: 64 }).notNull(),
     externalAccountId: varchar("external_account_id", { length: 255 }),
     externalAccountLabel: text("external_account_label"),
+    providerMetadataJson: jsonb("provider_metadata_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
     authMode: varchar("auth_mode", { length: 64 }).notNull(),
     actorType: varchar("actor_type", { length: 32 }),
     status: varchar("status", { length: 64 }).notNull(),
@@ -555,31 +532,6 @@ export const integrationWhatsAppLinkSessions = pgTable(
     tenantIntegrationStatusIdx: index(
       "integration_whatsapp_link_sessions_tenant_integration_id_status_idx",
     ).on(table.tenantIntegrationId, table.status),
-  }),
-);
-
-export const integrationCredentials = pgTable(
-  "integration_credentials",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    tenantIntegrationId: uuid("tenant_integration_id")
-      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
-      .notNull(),
-    secretType: varchar("secret_type", { length: 64 }).notNull(),
-    ciphertext: text("ciphertext").notNull(),
-    keyVersion: integer("key_version").default(1).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    rotatedAt: timestamp("rotated_at", { withTimezone: true }),
-  },
-  (table) => ({
-    tenantIntegrationIdx: index(
-      "integration_credentials_tenant_integration_id_idx",
-    ).on(table.tenantIntegrationId),
-    tenantIntegrationSecretTypeUniqueIdx: uniqueIndex(
-      "integration_credentials_tenant_integration_id_secret_type_idx",
-    ).on(table.tenantIntegrationId, table.secretType),
   }),
 );
 

@@ -42,6 +42,10 @@ type DbClientModule = {
 
 export type WorkspaceCoreRouteDependencies = {
   authenticateWorkspaceUser: (request: Request) => Promise<WorkspaceShellUser>
+  getCurrentWorkspace: (payload: {
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<WorkspaceSummary | null>
   getDashboardOrganizations: (
     userExternalId: string,
   ) => Promise<WorkspaceSummary[]>
@@ -85,6 +89,16 @@ function createDefaultWorkspaceCoreDependencies(): WorkspaceCoreRouteDependencie
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
+    getCurrentWorkspace: async (payload) => {
+      const controlPlaneModule = (await import(controlPlaneModulePath)) as {
+        getWorkspaceSummaryBySlugForUser: (payload: {
+          orgSlug: string
+          userExternalId: string
+        }) => Promise<WorkspaceSummary | null>
+      }
+
+      return controlPlaneModule.getWorkspaceSummaryBySlugForUser(payload)
+    },
     getDashboardOrganizations: async (userExternalId) => {
       const controlPlaneModule = (await import(controlPlaneModulePath)) as {
         getDashboardOrganizations: (
@@ -271,8 +285,12 @@ export function registerWorkspaceCoreRoutes(
     }
 
     return handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: dependencies.getCurrentWorkspace,
       getDashboardOrganizations: dependencies.getDashboardOrganizations,
       hasPlatformAdminRole: dependencies.hasPlatformAdminRole,
+      onBootstrapFailure: (payload) => {
+        console.error("[workspace-bootstrap] failed", payload)
+      },
       orgSlug: context.req.param("orgSlug"),
       syncUserFromSession: dependencies.syncUserFromSession,
       user: authResult.user,

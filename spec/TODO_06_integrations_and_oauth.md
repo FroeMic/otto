@@ -319,7 +319,7 @@ The next layer on top of this substrate is now in place as well:
 - `web/src/tools/` acts as the control-plane-owned registry for configurable runtime surfaces
 - `tenant_runtime_config_entries.install_state` plus `tenant_runtime_config_mutations` now cover lifecycle state and audit history without per-tool tables
 - runtime-authenticated agent access now goes through `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
-- `runtime-plugins/otto-runtime-config` now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
+- the legacy runtime-surface plugin now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
 - Brave web search is now moving onto a platform-managed integration backed by an Otto-owned runtime web provider instead of a legacy `web/search` surface
 - tenant desired-state compilation should project Otto-owned web-search proxy config into `tools.web.search` without writing provider API keys into tenant `.env`
 - runtime surface payloads now carry explicit `surfaceType` and `uiGroup` metadata so the same registry can back both `Integrations` and `Tools`

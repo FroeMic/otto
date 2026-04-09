@@ -917,7 +917,7 @@ Current checkpoint:
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
 - the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
 - the legacy `web/` route handlers remain present and untouched as the API fallback
-- next implementation target is expanding `apps/api` route coverage
+- next implementation targets are expanding `apps/web` slice coverage on top of the new slug-based shell and continuing `apps/api` native route coverage
 
 ### Phase checklist
 
@@ -931,7 +931,7 @@ Current checkpoint:
 - [ ] Phase 3 complete
 - [x] Phase 4 started
 - [ ] Phase 4 complete
-- [ ] Phase 5 started
+- [x] Phase 5 started
 - [ ] Phase 5 complete
 - [ ] Phase 6 started
 - [ ] Phase 6 complete
@@ -947,7 +947,7 @@ Current checkpoint:
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `web`
-  - status: in progress, with the new SPA shell and first usage/settings slices now present under `apps/web`
+  - status: in progress, with the required shadcn/Vite baseline merged into `apps/web` and the new SPA mounted on slug-based workspace routes plus `/platform`
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
@@ -959,7 +959,7 @@ Current checkpoint:
 - `web bootstrap and workspace read/write slices`:
   - current owner: `apps/web` via `apps/api`
   - target owner: `web` plus `api`
-  - status: first real shell implemented, now backed by native `apps/api` routes for bootstrap, usage, and settings
+  - status: first real slug-based shell implemented, now backed by native `apps/api` routes for bootstrap and settings with `/app/*` removed from the new shell surface
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
