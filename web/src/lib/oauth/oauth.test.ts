@@ -4,13 +4,22 @@ import test from "node:test";
 process.env.DATABASE_URL ??= "https://example.com/db";
 process.env.CONTROL_PLANE_ENCRYPTION_SECRET ??= "test-encryption-secret";
 process.env.CONTROL_PLANE_OAUTH_STATE_SECRET ??= "test-oauth-state-secret";
+process.env.CONTROL_PLANE_DOMAIN = "app.example.com";
+process.env.WORKOS_BASE_URL = "https://app.example.com";
 process.env.LINEAR_CLIENT_ID ??= "linear-client-id";
 process.env.LINEAR_CLIENT_SECRET ??= "linear-client-secret";
 process.env.LINEAR_REDIRECT_URI ??=
   "https://app.example.com/oauth/callback/integration/linear";
 process.env.LINEAR_OAUTH_ACTOR ??= "app";
 process.env.LINEAR_OAUTH_SCOPES ??= "read,write,app:mentionable";
+process.env.SLACK_CLIENT_ID ??= "slack-client-id";
+process.env.SLACK_CLIENT_SECRET ??= "slack-client-secret";
+process.env.SLACK_REDIRECT_URI ??=
+  "https://app.example.com/oauth/callback/slack";
+process.env.SLACK_BOT_SCOPES ??= "chat:write,channels:read";
 
+import { slackOAuthProvider } from "@/integrations/library/slack/oauth/provider";
+import { listOAuthProviderKeys } from "@/lib/oauth/providers";
 import { linearOAuthProvider } from "@/lib/oauth/providers/linear";
 import {
   createPkcePair,
@@ -70,4 +79,29 @@ test("linear oauth provider classifies invalid grant as reauthorize", () => {
     }),
     "reauthorize",
   );
+});
+
+test("slack oauth provider builds managed integration authorization url", () => {
+  const authorizeUrl = new URL(
+    slackOAuthProvider.buildAuthorizationUrl({
+      codeChallenge: null,
+      state: "signed-state",
+    }),
+  );
+
+  assert.equal(authorizeUrl.origin, "https://slack.com");
+  assert.equal(authorizeUrl.pathname, "/oauth/v2/authorize");
+  assert.equal(
+    authorizeUrl.searchParams.get("redirect_uri"),
+    "https://app.example.com/oauth/callback/integration/slack",
+  );
+  assert.equal(
+    authorizeUrl.searchParams.get("scope"),
+    "chat:write,channels:read",
+  );
+  assert.equal(authorizeUrl.searchParams.get("state"), "signed-state");
+});
+
+test("oauth provider registry includes slack", () => {
+  assert.deepEqual(listOAuthProviderKeys(), ["linear", "slack"]);
 });

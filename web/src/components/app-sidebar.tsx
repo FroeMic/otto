@@ -39,6 +39,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import type { DashboardOrganization } from "@/db/control-plane";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { isSlackConnected } from "@/lib/workspace";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
@@ -192,7 +193,11 @@ export function AppSidebar({
                 <SidebarMenuButton
                   render={
                     <Link
-                      href={`/${currentOrganization.slug}/integrations/slack`}
+                      href={buildIntegrationSectionPath({
+                        integrationKey: "slack",
+                        orgSlug: currentOrganization.slug,
+                        section: "status",
+                      })}
                     />
                   }
                 >

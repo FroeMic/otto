@@ -1576,6 +1576,11 @@ Implementation status:
 - the legacy `/integrations/slack` page is now a redirect into `/integrations2/slack/status`
 - `otto-runtime-config` no longer registers Slack-specific tools
 - managed integration tabs now use nested routes like `/integrations2/slack/status`, `/integrations2/slack/capabilities`, and `/integrations2/slack/channels`
+- Slack workspace navigation now points at the managed route from the sidebar, setup-flow shell, workspace status rail fallback, Slack OAuth callback redirects, and the legacy Slack tool-detail redirect
+- the legacy `/integrations` index now only carries non-migrated runtime-surface entries such as WhatsApp
+- Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
+- the shared managed integration callback route now completes Slack OAuth and redirects back to the managed Slack page
+- `manage_integration` for Slack now returns the explicit managed Slack reconnect URL while keeping disconnect routed through the shared provider disconnect endpoint
 
 Completion plan from the current partial migration state:
 

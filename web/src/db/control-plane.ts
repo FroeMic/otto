@@ -5353,7 +5353,9 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       break;
     }
     case "slack": {
-      connectUrl = workspaceUrl;
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
 
       if (integration.status.needsAttention) {
         recommendedAction = "reconnect";
@@ -5922,6 +5924,140 @@ export async function completeLinearOauthConnection(input: {
   };
 }
 
+export async function completeSlackOauthConnection(input: {
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const metadata = input.tokenResult.identity?.providerMetadata ?? {};
+  const slackTeamId = getStringMetadataValue(metadata, "slackTeamId");
+  const slackTeamName = getNullableStringMetadataValue(
+    metadata,
+    "slackTeamName",
+  );
+  const slackBotUserId = getNullableStringMetadataValue(
+    metadata,
+    "slackBotUserId",
+  );
+  const installerUserId = getNullableStringMetadataValue(
+    metadata,
+    "installerUserId",
+  );
+  const scopeCsv =
+    getNullableStringMetadataValue(metadata, "scopeCsv") ??
+    input.tokenResult.grantedScopes.join(",");
+
+  if (!slackTeamId) {
+    throw new Error("Slack workspace id is missing from the OAuth response.");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let tenantIntegrationId = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+
+    tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
+      botToken: input.tokenResult.accessToken,
+      installerUserId,
+      now,
+      scopeCsv,
+      slackBotUserId,
+      slackTeamId,
+      slackTeamName,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.tokenResult.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.tokenResult.identity?.externalAccountId ?? null,
+      externalAccountLabel:
+        input.tokenResult.identity?.externalAccountLabel ?? null,
+      now,
+      providerKey: SLACK_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+
+    if (shouldEnqueueApply) {
+      await markSlackIntegrationPendingApply(tx, {
+        now,
+        tenantId,
+      });
+    }
+  });
+
+  try {
+    await refreshSlackDirectoryForInstallation({
+      botToken: input.tokenResult.accessToken,
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  } catch (directoryError) {
+    await recordMessagingWorkspaceSyncFailure({
+      error: getUnknownErrorMessage(directoryError),
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  }
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
 export async function disconnectTenantManagedIntegration(input: {
   orgSlug: string;
   providerKey: string;
@@ -5964,6 +6100,38 @@ export async function recordLinearOauthFailure(input: {
     }
 
     await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
+export async function recordSlackManagedOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack OAuth failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordSlackIntegrationError(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
@@ -6791,6 +6959,7 @@ async function disconnectTenantSlackIntegration(input: {
         connectedAt: tenantIntegrations.connectedAt,
         disconnectedAt: tenantIntegrations.disconnectedAt,
         id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
       })
       .from(tenantIntegrations)
       .where(
@@ -6813,6 +6982,52 @@ async function disconnectTenantSlackIntegration(input: {
           eq(integrationCredentials.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
         ),
       );
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: SLACK_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
 
     await tx
       .update(tenantIntegrations)
@@ -11421,4 +11636,26 @@ export async function getMemberNameMap(input: {
     }
   }
   return map;
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function getStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getNullableStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" ? value : null;
 }

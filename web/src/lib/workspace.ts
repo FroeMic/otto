@@ -1,4 +1,5 @@
 import type { DashboardOrganization } from "@/db/control-plane";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 
 export type WhatsAppUiPhase =
   | "prepare"
@@ -120,7 +121,11 @@ export function getConnectedMessagingSurfaces(
       external: Boolean(slackTeamId),
       href: slackTeamId
         ? `https://app.slack.com/client/${slackTeamId}`
-        : `/${organization.slug}/integrations/slack`,
+        : buildIntegrationSectionPath({
+            integrationKey: "slack",
+            orgSlug: organization.slug,
+            section: "status",
+          }),
       iconSrc: "/integrations/slack.svg",
       key: "slack",
       label: "Slack",

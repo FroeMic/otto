@@ -127,7 +127,6 @@ export async function SlackManagedIntegrationPage({
     await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
-  const onboardingSessionId = session?.id ?? null;
   const summary = await getTenantManagedIntegrationSummary({
     orgSlug,
     providerKey: definition.key,
@@ -178,7 +177,7 @@ export async function SlackManagedIntegrationPage({
     integrationStatus === "pending_apply" || integrationStatus === "applying";
   const connectUrl = buildSlackWorkspaceOauthStartUrl({
     hasSlackOAuthConfig: hasSlackOAuthConfig(),
-    onboardingSessionId,
+    orgSlug,
   });
   const connectActionLabel =
     slackIsConnected || connectionError ? "Reconnect Slack" : "Connect Slack";
