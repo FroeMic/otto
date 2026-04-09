@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { createOnboardingDraftForOrganization } from "@/db/control-plane";
+import { buildSlackOnboardingOauthStartUrl } from "@/integrations/library/slack/oauth-url";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
@@ -89,8 +90,10 @@ export default async function OrganizationOnboardingPage({
   const onboardingSession = getCurrentOnboardingSession(organization);
   const agent = getPrimaryAgent(organization);
   const onboardingSessionId = onboardingSession?.id ?? null;
-  const canStartSlackOAuth =
-    Boolean(onboardingSessionId) && hasSlackOAuthConfig();
+  const slackOauthStartUrl = buildSlackOnboardingOauthStartUrl({
+    hasSlackOAuthConfig: hasSlackOAuthConfig(),
+    onboardingSessionId,
+  });
   const slackIsConnected = isSlackConnected(organization);
   const slackError = getSlackErrorMessage(organization);
   const slackTeamName =
@@ -164,11 +167,10 @@ export default async function OrganizationOnboardingPage({
                   : "Slack is not connected yet."}
             </p>
             {(!slackIsConnected || Boolean(slackError)) &&
-            canStartSlackOAuth &&
-            onboardingSessionId ? (
+            slackOauthStartUrl ? (
               <a
                 className={buttonVariants({ variant: "default" })}
-                href={`/oauth/start/slack?onboardingSessionId=${onboardingSessionId}`}
+                href={slackOauthStartUrl}
               >
                 {slackError ? "Retry Slack connection" : "Add to Slack"}
               </a>

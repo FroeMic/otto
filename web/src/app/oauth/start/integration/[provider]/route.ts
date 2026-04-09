@@ -1,14 +1,20 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
-import { getTenantManagedIntegrationConnectContext } from "@/db/control-plane";
+import {
+  getOnboardingDraftForUser,
+  getTenantManagedIntegrationConnectContext,
+} from "@/db/control-plane";
 import { getIntegrationDefinition } from "@/integrations/framework";
+import { signSlackOnboardingOAuthState } from "@/integrations/library/slack/oauth/onboarding-state";
 import {
   getControlPlaneBaseUrl,
   hasLinearOAuthConfig,
   hasSlackOAuthConfig,
 } from "@/lib/env";
 import { createManagedIntegrationOauthAuthorizationUrl } from "@/lib/oauth/service";
+import { buildSlackInstallUrl } from "@/lib/slack";
+import { getPendingAccessPath } from "@/lib/workspace";
 
 export async function GET(
   request: Request,
@@ -24,6 +30,7 @@ export async function GET(
   const { provider } = await context.params;
   const providerKey = provider.trim().toLowerCase();
   const orgSlug = url.searchParams.get("orgSlug");
+  const onboardingSessionId = url.searchParams.get("onboardingSessionId");
   const definition = orgSlug ? getIntegrationDefinition(providerKey) : null;
   const fallbackPath =
     orgSlug && definition ? definition.settingsPath(orgSlug) : "/login";
@@ -39,6 +46,30 @@ export async function GET(
 
     if (providerKey === "slack" && !hasSlackOAuthConfig()) {
       throw new Error("Slack is not available right now.");
+    }
+
+    if (providerKey === "slack" && onboardingSessionId) {
+      const onboardingSession = await getOnboardingDraftForUser({
+        onboardingSessionId,
+        userExternalId: user.id,
+      });
+
+      if (!onboardingSession.organizationIsReady) {
+        return NextResponse.redirect(
+          new URL(
+            getPendingAccessPath(onboardingSession.organizationSlug),
+            redirectBaseUrl,
+          ),
+        );
+      }
+
+      const state = signSlackOnboardingOAuthState({
+        onboardingSessionId,
+        orgSlug: onboardingSession.organizationSlug,
+        userExternalId: user.id,
+      });
+
+      return NextResponse.redirect(buildSlackInstallUrl(state));
     }
 
     const connectContext = await getTenantManagedIntegrationConnectContext({
@@ -65,9 +96,16 @@ export async function GET(
 
     return NextResponse.redirect(authorization.authorizeUrl);
   } catch (error) {
+    const onboardingFallbackPath =
+      providerKey === "slack" && onboardingSessionId
+        ? orgSlug
+          ? `/${orgSlug}/onboarding`
+          : "/login"
+        : fallbackPath;
+
     return NextResponse.redirect(
       new URL(
-        `${fallbackPath}?${providerKey}_error=${encodeURIComponent(getErrorMessage(error))}`,
+        `${onboardingFallbackPath}?${providerKey}_error=${encodeURIComponent(getErrorMessage(error))}`,
         redirectBaseUrl,
       ),
     );
