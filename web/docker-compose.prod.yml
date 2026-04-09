@@ -71,14 +71,10 @@ services:
 
   integration-gateway:
     <<: *app-env
+    image: ${OTTO_GATEWAY_IMAGE:-otto-control-plane-gateway:local}
     build:
       context: ..
-      dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
-        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
-    command: ["bun", "src/integration-gateway/server.ts"]
+      dockerfile: apps/gateway/Dockerfile
     environment:
       HOSTNAME: 0.0.0.0
       INTEGRATION_GATEWAY_INTERNAL_URL: http://integration-gateway:3001

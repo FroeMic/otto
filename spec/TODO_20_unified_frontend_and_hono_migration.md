@@ -342,19 +342,42 @@ These routes are browser-facing and go to `frontend`, which serves SSR or SPA en
 
 ### Backend routing
 
-- `/api/*`
+- `/api/v1/*`
+- `/api/internal/*`
 - `/auth/*`
 - `/oauth/*`
 - `/webhooks/*`
-- `/api/internal/runtime/*`
 
-These routes go to `api`, except for execution paths intentionally held in `gateway`.
+These routes live on the same primary Otto origin and go to `api`, except for
+execution paths intentionally held in `gateway`.
+
+Route contract:
+
+- `/api/v1/*` is the future public product API surface:
+  - versioned
+  - stable
+  - suitable for external developer use once exposed
+- `/api/internal/*` is Otto-internal:
+  - workspace app backend-for-frontend routes
+  - tenant runtime control surfaces
+  - migration-period compatibility routes
+  - other internal product and operator flows that should not be presented as a
+    public developer contract
 
 ### Gateway routing
 
 - `/api/internal/runtime/integrations/execute*`
 
-This route continues to go to `gateway` unless later evidence shows it should be merged into `api`.
+This route continues to go to `gateway` unless later evidence shows it should be
+merged into `api`.
+
+Gateway URL rule:
+
+- keep gateway behavior on the primary Otto origin
+- do not expose a separate public `/gateway/*` namespace
+- do not introduce a separate public gateway hostname
+- the service boundary is internal; the browser and runtime contract stays under
+  `/api/internal/*`
 
 ## Target repository layout
 
@@ -484,6 +507,24 @@ Exit criteria:
 - production execute traffic can run against the new gateway image
 - response shapes and auth behavior remain compatible
 - rollback is one Caddy target or one image tag
+
+Cutover plan:
+
+1. Keep the external route unchanged at
+   `/api/internal/runtime/integrations/execute*`.
+2. Keep traffic on the primary Otto origin instead of introducing
+   `/gateway/*`.
+3. Run `apps/gateway` in production compose behind the existing
+   `integration-gateway` service boundary.
+4. Switch the `integration-gateway` container implementation from the legacy
+   `web/` entrypoint to the `apps/gateway` image while preserving the same
+   internal service name and Caddy route.
+5. Verify:
+   - `POST /api/internal/runtime/integrations/execute` still succeeds through
+     Caddy
+   - gateway health remains green
+   - runtime auth and error payloads remain compatible
+   - rollback is a one-service revert to the previous image/command
 
 ### Phase 2: Worker extraction
 
@@ -798,7 +839,7 @@ Exit criteria:
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
   - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding
 - current browser-facing production split:
-  - landing on `www`
+  - landing on `frontend`
   - workspace on `web`
 - target browser-facing production split:
   - unified `frontend` on one primary origin
@@ -806,7 +847,9 @@ Exit criteria:
   - extracted `gateway`
   - extracted `worker`
 - current recommended next implementation step:
-  - begin routing real traffic toward `apps/api` and continue extracting shared logic out of legacy Next route handlers without deleting them
+  - deploy and verify the `integration-gateway` container cutover to
+    `apps/gateway` while keeping the execute URL on
+    `/api/internal/runtime/integrations/execute*`
 
 ### Immediate execution order
 
@@ -901,7 +944,7 @@ Current checkpoint:
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`
-  - status: parallel port complete, cutover pending
+  - status: production compose cutover wired, deployment verification pending
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
