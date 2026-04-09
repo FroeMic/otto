@@ -58,6 +58,11 @@
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
+- The apex-domain parallel launch shape is now wired in repo config:
+  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto frontend
+  - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`
+  - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
+  - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`

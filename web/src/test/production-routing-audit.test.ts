@@ -19,19 +19,47 @@ function getServiceBlock(compose: string, serviceName: string) {
 }
 
 describe("production routing audit", () => {
-  it("sends landing traffic to frontend instead of legacy www", () => {
+  it("routes the apex domain to frontend, api, and gateway", () => {
     const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
 
     assert.match(
       caddyfile,
+      /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/internal\/runtime\/integrations\/execute\* \{[\s\S]*?reverse_proxy integration-gateway:3001/,
+      "Apex domain must send integration execute traffic to integration-gateway:3001 in web/Caddyfile",
+    );
+
+    assert.match(
+      caddyfile,
+      /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/\* \{[\s\S]*?reverse_proxy api:3002/,
+      "Apex domain must send /api/* traffic to api:3002 in web/Caddyfile",
+    );
+
+    assert.match(
+      caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy frontend:3000/,
-      "Landing domain must proxy to frontend:3000 in web/Caddyfile",
+      "Apex domain must default to frontend:3000 in web/Caddyfile",
     );
 
     assert.doesNotMatch(
       caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy www:3000/,
-      "Landing domain must not proxy to legacy www:3000 in web/Caddyfile",
+      "Apex domain must not proxy to legacy www:3000 in web/Caddyfile",
+    );
+  });
+
+  it("keeps the legacy app domain on web", () => {
+    const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
+
+    assert.match(
+      caddyfile,
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
+      "Legacy app domain must proxy to web:3000 in web/Caddyfile",
+    );
+
+    assert.doesNotMatch(
+      caddyfile,
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy frontend:3000/,
+      "Legacy app domain must not proxy to frontend:3000 in web/Caddyfile",
     );
   });
 
@@ -77,6 +105,40 @@ describe("production routing audit", () => {
       gatewayService,
       /command:\s+\["bun",\s+"src\/integration-gateway\/server\.ts"\]/,
       "integration-gateway must not keep using the legacy web gateway entrypoint in production compose",
+    );
+  });
+
+  it("runs the extracted api service in production compose", () => {
+    const compose = readFileSync(COMPOSE_PATH, "utf8");
+    const apiService = getServiceBlock(compose, "api");
+
+    assert.match(
+      apiService,
+      /dockerfile:\s+apps\/api\/Dockerfile/,
+      "api must build from apps/api/Dockerfile in production compose",
+    );
+
+    assert.match(
+      apiService,
+      /API_PORT:\s+3002/,
+      "api must expose API_PORT 3002 in production compose",
+    );
+  });
+
+  it("points frontend at the extracted api and unified apex origin", () => {
+    const compose = readFileSync(COMPOSE_PATH, "utf8");
+    const frontendService = getServiceBlock(compose, "frontend");
+
+    assert.match(
+      frontendService,
+      /API_ORIGIN:\s+http:\/\/api:3002/,
+      "frontend must proxy /api traffic to api:3002 in production compose",
+    );
+
+    assert.match(
+      frontendService,
+      /WORKSPACE_APP_ORIGIN:\s+https:\/\/\$\{LANDING_PAGE_DOMAIN\}/,
+      "frontend must treat the apex landing domain as the workspace origin in production compose",
     );
   });
 });

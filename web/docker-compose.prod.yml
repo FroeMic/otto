@@ -69,6 +69,32 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    image: ${OTTO_API_IMAGE:-otto-control-plane-api:local}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      API_PORT: 3002
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      WORKSPACE_APP_ORIGIN: https://${CONTROL_PLANE_DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3002/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   integration-gateway:
     <<: *app-env
     image: ${OTTO_GATEWAY_IMAGE:-otto-control-plane-gateway:local}
@@ -98,11 +124,11 @@ services:
 
   frontend:
     environment:
-      API_ORIGIN: http://web:3000
+      API_ORIGIN: http://api:3002
       FRONTEND_PORT: 3000
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
-      WORKSPACE_APP_ORIGIN: https://${CONTROL_PLANE_DOMAIN}
+      WORKSPACE_APP_ORIGIN: https://${LANDING_PAGE_DOMAIN}
     build:
       context: ..
       dockerfile: apps/frontend/Dockerfile
@@ -136,6 +162,8 @@ services:
   caddy:
     image: caddy:2.9-alpine
     depends_on:
+      api:
+        condition: service_healthy
       frontend:
         condition: service_healthy
       integration-gateway:

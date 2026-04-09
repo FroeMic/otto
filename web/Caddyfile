@@ -8,6 +8,14 @@
     X-Frame-Options "DENY"
   }
 
+  handle /api/internal/runtime/integrations/execute* {
+    reverse_proxy integration-gateway:3001
+  }
+
+  handle /api/* {
+    reverse_proxy api:3002
+  }
+
   reverse_proxy frontend:3000
 }
 
@@ -19,10 +27,6 @@
     Strict-Transport-Security "max-age=31536000; includeSubDomains"
     X-Content-Type-Options "nosniff"
     X-Frame-Options "DENY"
-  }
-
-  handle /api/internal/runtime/integrations/execute* {
-    reverse_proxy integration-gateway:3001
   }
 
   reverse_proxy web:3000
