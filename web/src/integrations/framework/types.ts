@@ -271,6 +271,10 @@ export type IntegrationSettingsDefinition = {
   recommendedWorkflow?: string[];
 };
 
+export type IntegrationManagementMode =
+  | "platform_managed"
+  | "workspace_managed";
+
 export type IntegrationDefinition = {
   agentCapabilities: AgentCapability[];
   categoryLabel: string;
@@ -279,8 +283,10 @@ export type IntegrationDefinition = {
   iconSrc: string | null;
   key: string;
   label: string;
+  managementMode?: IntegrationManagementMode;
   oauth?: IntegrationOauthBinding;
   pageDescription: string;
+  resolveStatus?: () => RuntimeIntegrationStatus;
   runtimeSurface: IntegrationRuntimeSurfaceDefinition | null;
   settings?: IntegrationSettingsDefinition;
   settingsPath: (orgSlug: string) => string;

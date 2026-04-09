@@ -73,6 +73,7 @@ import {
   type IntegrationRuntimeCommandGroupDefinition,
   isAgentCapabilityUserControllable,
   isCommandUserControllable,
+  isPlatformManagedIntegration,
   listIntegrationCommands,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
@@ -83,8 +84,10 @@ import {
   type RuntimeIntegrationManifestEntry,
   type RuntimeIntegrationSettingsContract,
   type RuntimeIntegrationSummaryResponse,
+  resolveRuntimeIntegrationStatus,
 } from "@/integrations/framework";
 import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
+import { braveFieldMeanings } from "@/integrations/library/brave/settings-metadata";
 import {
   applySlackPolicyAction,
   isSlackPolicyDestructive,
@@ -136,6 +139,7 @@ import {
   slackRuntimeConfigUiHints,
 } from "@/lib/slack-config";
 import {
+  parseWebSearchRuntimeConfig,
   resolveRuntimeWebSearchConfig,
   WEB_SEARCH_TOOL_DESCRIPTION,
   WEB_SEARCH_TOOL_LABEL,
@@ -4733,7 +4737,7 @@ export type RuntimeIntegrationSettingsResponse = {
     RuntimeIntegrationSummaryResponse,
     "key" | "label" | "settings" | "status"
   >;
-  surface: TenantSlackRuntimeConfigSurface;
+  surface: Record<string, unknown>;
 };
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
@@ -4774,7 +4778,6 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
 
 function buildRuntimeTenantIntegrations(input: {
   definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
-  installedProviderKeys?: string[];
   rows: Array<{
     connectedAt: Date | null;
     connectionStatus: string | null;
@@ -4786,13 +4789,11 @@ function buildRuntimeTenantIntegrations(input: {
 }) {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
 
-  return definitionsWithStatus.map(({ definition, status }) =>
+  return definitionsWithStatus.map(({ definition, installed, status }) =>
     buildRuntimeIntegrationSummaryResponse({
       available: true,
       definition,
-      installed:
-        input.installedProviderKeys?.includes(definition.key) ??
-        status.connected,
+      installed,
       status,
     }),
   );
@@ -4835,23 +4836,16 @@ function buildRuntimeDefinitionsWithStatus(input: {
 
   return input.definitions.map((definition) => {
     const row = statusByProviderKey.get(definition.key) ?? null;
-    const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
-    const integrationStatus = row?.integrationStatus ?? null;
-    const connectionStatus = row?.connectionStatus ?? null;
+    const resolved = resolveRuntimeIntegrationStatus({
+      definition,
+      row,
+    });
 
     return {
       definition,
-      status: {
-        connected,
-        connectionStatus,
-        enabled: connected,
-        integrationStatus,
-        needsAttention:
-          integrationStatus === "error" ||
-          integrationStatus === "needs_attention" ||
-          connectionStatus === "needs_attention",
-      },
-      tenantIntegrationId: row?.tenantIntegrationId ?? null,
+      installed: resolved.installed,
+      status: resolved.status,
+      tenantIntegrationId: resolved.tenantIntegrationId,
     };
   });
 }
@@ -4867,17 +4861,11 @@ export async function listRuntimeIntegrationsForTenant(input: {
       tenantId: input.tenantId,
     });
     const installedKeys = rows.map((row) => row.providerKey).sort();
-    const definitions = installedKeys
-      .map((key) => getIntegrationDefinition(key))
-      .filter(
-        (
-          definition,
-        ): definition is NonNullable<typeof definition> & {
-          runtimeSurface: NonNullable<
-            NonNullable<typeof definition>["runtimeSurface"]
-          >;
-        } => Boolean(definition?.runtimeSurface),
-      );
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
 
     if (definitions.length === 0) {
       return [];
@@ -4885,7 +4873,6 @@ export async function listRuntimeIntegrationsForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
-      installedProviderKeys: installedKeys,
       rows,
     });
   });
@@ -4916,7 +4903,6 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
-      installedProviderKeys: rows.map((row) => row.providerKey),
       rows,
     });
   });
@@ -4951,6 +4937,73 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave": {
+      const definition = getIntegrationDefinition("brave");
+
+      if (!definition?.settings) {
+        return null;
+      }
+
+      const resolved = resolveRuntimeWebSearchConfig();
+      const config = {
+        ...parseWebSearchRuntimeConfig(resolved.surfaceConfig),
+        enabled: true,
+        entryVersion: 1,
+        installState: "installed",
+        schemaVersion: "1",
+      };
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: config as Record<string, unknown>,
+          fieldMeanings: [...braveFieldMeanings],
+          patchSchema: webSearchRuntimeConfigJsonSchema,
+          settingsExamples:
+            definition.settings.examples?.map((example) => ({
+              call: {
+                action: example.action,
+                expectedEntryVersion: example.expectedEntryVersion,
+                integrationKey: definition.key,
+                patch: example.patch,
+                summary: example.summary,
+              },
+              description: example.description,
+            })) ?? [],
+          settingsLabel: definition.settings.label,
+          uiFields:
+            (webSearchRuntimeConfigUiHints.fields as Record<string, unknown>) ??
+            {},
+          workflow: definition.settings.recommendedWorkflow ?? [],
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface: {
+          actionMeanings: [],
+          agentOperations: [],
+          allowedActions: [],
+          availability: resolved.enabled ? "available" : "blocked",
+          blockingReason: resolved.reason,
+          canAgentEdit: false,
+          canUserEdit: false,
+          config,
+          description: definition.pageDescription,
+          fieldMeanings: [...braveFieldMeanings],
+          id: "brave",
+          key: "brave",
+          kind: "integration",
+          label: definition.label,
+          schema: webSearchRuntimeConfigJsonSchema,
+          settingsUrl: null,
+          surfaceType: "integration",
+          uiGroup: "integrations",
+          uiHints: webSearchRuntimeConfigUiHints,
+        },
+      };
+    }
     case "slack": {
       const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
         tenantId: input.tenantId,
@@ -5005,6 +5058,10 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
     case "slack": {
       const validation = await validateTenantSlackRuntimeConfigChangeForTenant({
         createdByType: "runtime",
@@ -5048,6 +5105,10 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
     case "slack": {
       const result = await updateTenantSlackRuntimeConfigForTenant({
         createdByType: "runtime",
@@ -5332,6 +5393,12 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
   let message = `${integration.label} is available.`;
 
   switch (integration.key) {
+    case "brave": {
+      recommendedAction = "open_workspace";
+      message =
+        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults.";
+      break;
+    }
     case "linear": {
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
@@ -5623,17 +5690,11 @@ export async function listWorkspaceManagedIntegrationCapabilities(input: {
     const installedProviderKeys = [
       ...new Set(rows.map((row) => row.providerKey)),
     ].sort((left, right) => left.localeCompare(right));
-    const definitions = installedProviderKeys
-      .map((key) => getIntegrationDefinition(key))
-      .filter(
-        (
-          definition,
-        ): definition is NonNullable<typeof definition> & {
-          runtimeSurface: NonNullable<
-            NonNullable<typeof definition>["runtimeSurface"]
-          >;
-        } => Boolean(definition?.runtimeSurface),
-      );
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedProviderKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
 
     const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
       definitions,

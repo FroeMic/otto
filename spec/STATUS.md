@@ -536,6 +536,12 @@
   - runtime surfaces now carry explicit `surfaceType` and `uiGroup` metadata so UI and agent consumers can distinguish `Integrations` vs `Tools` without hardcoded Slack heuristics
   - the runtime plugin and route contract now use surface-oriented naming consistently for synchronized rollout
   - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
+- The next managed-integrations follow-on slice has now started for Brave as a platform-managed integration:
+  - the managed integration framework now supports `platform_managed` definitions that resolve installed/enabled status without a `tenant_integrations` row
+  - Brave is now registered under `web/src/integrations/library/brave` and appears in the managed integration catalog as a platform-managed integration
+  - runtime integration inventory and detail routes now include Brave in the installed catalog and expose its read-only projected settings through `configure_integration action=get`
+  - the legacy `web/src/tools/web-search` surface still exists as a temporary compatibility path, but it is no longer the only Brave workspace surface
+  - the next Brave step is to add a dedicated `otto-web-provider` runtime plugin plus a control-plane web-search proxy so tenant runtimes no longer receive `BRAVE_API_KEY`
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default

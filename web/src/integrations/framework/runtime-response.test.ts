@@ -6,8 +6,8 @@ import {
 } from "./runtime-response";
 import type { IntegrationDefinition } from "./types";
 
-const settingsDefinition: IntegrationDefinition = {
-  agentCapabilities: [],
+const settingsDefinition = {
+  agentCapabilities: [] as [],
   categoryLabel: "Messaging",
   catalogDescription: "Test integration",
   description: "Test integration with settings.",
@@ -25,8 +25,10 @@ const settingsDefinition: IntegrationDefinition = {
     description: "Manage Slack behavior.",
     label: "Configuration",
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/slack/status`,
+  settingsPath: (orgSlug: string) => `/${orgSlug}/integrations2/slack/status`,
   showInWorkspaceCatalog: true,
+} satisfies IntegrationDefinition & {
+  runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
 };
 
 const connectedStatus = {
