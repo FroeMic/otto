@@ -60,6 +60,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     key: "slack:trigger:dm",
     label: "Receive direct messages",
     source: "integration",
+    userControllable: false,
   },
   {
     description: "An @Otto mention in a Slack channel triggers a session.",
@@ -67,6 +68,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     key: "slack:trigger:channel-mention",
     label: "Receive channel mentions",
     source: "integration",
+    userControllable: false,
   },
   {
     description:
@@ -76,6 +78,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     label: "Send messages",
     openclawTool: "message",
     source: "integration",
+    userControllable: false,
   },
   {
     description: "Otto can add emoji reactions to Slack messages.",
@@ -84,6 +87,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     label: "React to messages",
     openclawTool: "message",
     source: "integration",
+    userControllable: false,
   },
   {
     description: "Otto can pin, delete, and moderate Slack messages.",
@@ -92,6 +96,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     label: "Manage messages",
     openclawTool: "message",
     source: "integration",
+    userControllable: false,
   },
   {
     description: "Otto can read recent thread and channel history for context.",
@@ -99,6 +104,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     key: "slack:read:history",
     label: "Read message history",
     source: "integration",
+    userControllable: false,
   },
 ];
 

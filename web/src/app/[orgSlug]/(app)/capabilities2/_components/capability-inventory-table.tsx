@@ -141,7 +141,7 @@ function CapabilityActionsCell({ row }: { row: CapabilityInventoryRow }) {
   if (!policyEndpoint || !row.userControllable) {
     return (
       <span className="text-sm text-muted-foreground">
-        {row.userControllable ? "—" : "Managed by provider"}
+        {row.userControllable ? "—" : "Not configurable here"}
       </span>
     );
   }

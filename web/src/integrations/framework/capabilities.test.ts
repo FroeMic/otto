@@ -38,6 +38,29 @@ describe("integration capability resolution", () => {
     assert.equal(resolved.userControllable, true);
   });
 
+  it("respects non-configurable provider-owned capabilities", () => {
+    const resolved = buildResolvedIntegrationAgentCapability({
+      capability: {
+        ...slackTriggerCapability,
+        userControllable: false,
+      },
+      definition: {
+        key: "slack",
+        label: "Slack",
+      },
+      policy: null,
+      status: {
+        connected: true,
+        connectionStatus: "connected",
+        enabled: true,
+        integrationStatus: "connected",
+        needsAttention: false,
+      },
+    });
+
+    assert.equal(resolved.userControllable, false);
+  });
+
   it("marks provider-owned capabilities disabled when workspace policy blocks them", () => {
     const resolved = buildResolvedIntegrationAgentCapability({
       capability: {
@@ -65,6 +88,9 @@ describe("integration capability resolution", () => {
     assert.equal(resolved.capabilityType, "command");
     assert.equal(resolved.effect, "write");
     assert.equal(resolved.capabilityState.status, "disabled");
-    assert.equal(resolved.capabilityState.reason, "Disabled by workspace policy.");
+    assert.equal(
+      resolved.capabilityState.reason,
+      "Disabled by workspace policy.",
+    );
   });
 });
