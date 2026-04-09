@@ -288,6 +288,9 @@ export function registerWorkspaceCoreRoutes(
       getCurrentWorkspace: dependencies.getCurrentWorkspace,
       getDashboardOrganizations: dependencies.getDashboardOrganizations,
       hasPlatformAdminRole: dependencies.hasPlatformAdminRole,
+      onBootstrapFailure: (payload) => {
+        console.error("[workspace-bootstrap] failed", payload)
+      },
       orgSlug: context.req.param("orgSlug"),
       syncUserFromSession: dependencies.syncUserFromSession,
       user: authResult.user,
