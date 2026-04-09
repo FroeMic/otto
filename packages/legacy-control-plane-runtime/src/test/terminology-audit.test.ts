@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 const WEB_ROOT = process.cwd();
-const REPO_ROOT = path.resolve(WEB_ROOT, "..");
+const REPO_ROOT = path.resolve(WEB_ROOT, "..", "..");
 
 const TARGET_ROOTS = [
   path.join(WEB_ROOT, "src/app"),

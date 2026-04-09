@@ -119,16 +119,6 @@ function isWorkspaceSlugCandidate(path: string) {
   return WORKSPACE_SLUG_PATTERN.test(firstSegment)
 }
 
-function getLegacyAppRedirectPath(path: string) {
-  if (path === "/app" || path === "/app/") {
-    return "/login"
-  }
-
-  const nextPath = path.replace(/^\/app/, "")
-
-  return nextPath.length > 0 ? nextPath : "/login"
-}
-
 function createProxyHandler(targetOrigin: string) {
   return async (context: Context) => {
     const upstreamUrl = new URL(context.req.url)
@@ -257,11 +247,6 @@ export function createApp(env: FrontendEnv = getEnv()) {
         title: "Otto Security",
       }),
     ),
-  )
-
-  app.get("/app", (c) => c.redirect(getLegacyAppRedirectPath(c.req.path), 302))
-  app.get("/app/*", (c) =>
-    c.redirect(getLegacyAppRedirectPath(c.req.path), 302),
   )
 
   app.get("*", (c) => {
