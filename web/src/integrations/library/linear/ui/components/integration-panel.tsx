@@ -1,13 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import {
-  type ReadonlyURLSearchParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import { CapabilityInventoryTable } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
@@ -26,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 
 import { LinearConnectButton } from "./connect-button";
 
@@ -47,6 +43,7 @@ type Props = {
   capabilityRows: CapabilityInventoryRow[];
   connectActionLabel: string;
   connectUrl: string;
+  currentSection: "capabilities" | "configuration" | "status";
   hasConfiguration: boolean;
   iconSrc: string | null;
   orgSlug: string;
@@ -55,26 +52,6 @@ type Props = {
   summary: LinearIntegrationSummary | null;
   uiState: LinearIntegrationUiState;
 };
-
-function updateQueryString(
-  pathname: string,
-  searchParams: ReadonlyURLSearchParams,
-  updates: Record<string, string | null>,
-) {
-  const params = new URLSearchParams(searchParams.toString());
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (!value) {
-      params.delete(key);
-      continue;
-    }
-
-    params.set(key, value);
-  }
-
-  const query = params.toString();
-  return `${pathname}${query ? `?${query}` : ""}`;
-}
 
 function getStatusBadgeVariant(state: LinearIntegrationUiState) {
   switch (state) {
@@ -137,6 +114,7 @@ export function LinearIntegrationPanel(props: Props) {
     capabilityRows,
     connectActionLabel,
     connectUrl,
+    currentSection,
     hasConfiguration,
     iconSrc,
     orgSlug,
@@ -146,36 +124,13 @@ export function LinearIntegrationPanel(props: Props) {
     uiState,
   } = props;
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const tabParam = searchParams.get("tab");
-  const transientConnectError = searchParams.get("linear_error");
-  const currentTab =
-    tabParam === "capabilities" ||
-    (hasConfiguration && tabParam === "configuration")
-      ? tabParam
-      : "status";
   const statusAlert = getStatusAlert({
-    error: transientConnectError ?? summary?.lastError ?? null,
+    error: summary?.lastError ?? null,
     state: uiState,
   });
-
-  useEffect(() => {
-    if (
-      tabParam &&
-      tabParam !== "capabilities" &&
-      tabParam !== "status" &&
-      (!hasConfiguration || tabParam !== "configuration")
-    ) {
-      router.replace(
-        updateQueryString(pathname, searchParams, { tab: "status" }),
-        { scroll: false },
-      );
-    }
-  }, [hasConfiguration, pathname, router, searchParams, tabParam]);
 
   async function postJson(url: string, body: Record<string, unknown>) {
     const response = await fetch(url, {
@@ -233,8 +188,10 @@ export function LinearIntegrationPanel(props: Props) {
     }
 
     router.replace(
-      updateQueryString(pathname, searchParams, {
-        tab: value,
+      buildIntegrationSectionPath({
+        integrationKey: "linear",
+        orgSlug,
+        section: value,
       }),
       { scroll: false },
     );
@@ -284,7 +241,7 @@ export function LinearIntegrationPanel(props: Props) {
         </Alert>
       ) : null}
 
-      <Tabs onValueChange={setTopLevelTab} value={currentTab}>
+      <Tabs onValueChange={setTopLevelTab} value={currentSection}>
         <TabsList>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>

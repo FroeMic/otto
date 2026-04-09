@@ -63,6 +63,7 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildResolvedIntegrationAgentCapability,
   buildResolvedIntegrationCommandCapability,
   buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationManifestForKeys,
@@ -71,16 +72,31 @@ import {
   getIntegrationDefinition,
   type IntegrationRuntimeCommandDefinition,
   type IntegrationRuntimeCommandGroupDefinition,
+  isAgentCapabilityUserControllable,
   isCommandUserControllable,
   listIntegrationCommands,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
+  type ResolvedIntegrationAgentCapability,
   type ResolvedIntegrationCommandCapability,
   type RuntimeIntegrationCommandMatch,
   type RuntimeIntegrationDetailsResponse,
   type RuntimeIntegrationManifestEntry,
   type RuntimeIntegrationSummaryResponse,
 } from "@/integrations/framework";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
+import {
+  applySlackPolicyAction,
+  isSlackPolicyDestructive,
+  type SlackPolicyAction,
+  type SlackPolicyDerivedEffects,
+} from "@/integrations/library/slack/policy";
+import {
+  slackActionMeanings,
+  slackAgentCapabilities,
+  slackAgentOperations,
+  slackFieldMeanings,
+} from "@/integrations/library/slack/settings-metadata";
 import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
@@ -150,12 +166,6 @@ import {
   normalizeInstallState,
 } from "@/tools";
 import { evaluateSlackPolicyForTenant } from "@/tools/server";
-import {
-  applySlackPolicyAction,
-  isSlackPolicyDestructive,
-  type SlackPolicyAction,
-  type SlackPolicyDerivedEffects,
-} from "@/tools/slack/policy";
 import type {
   ToolInstallState,
   ToolSurfaceAction,
@@ -189,6 +199,22 @@ function isSlackSurface(surfaceKind: string, surfaceKey: string) {
     surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
     surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
   );
+}
+
+function getSlackSurfaceAllowedActions(input: {
+  enabled: boolean;
+  installState: ToolInstallState;
+}): ToolSurfaceAction[] {
+  if (input.installState === "uninstalled") {
+    return ["install"];
+  }
+
+  return [
+    "update",
+    input.enabled ? "disable" : "enable",
+    "uninstall",
+    "reapply",
+  ];
 }
 
 function isWhatsAppSurface(surfaceKind: string, surfaceKey: string) {
@@ -4662,21 +4688,13 @@ export async function listTenantToolConfigSurfacesForTenant(input: {
   tenantId: string;
 }): Promise<TenantToolConfigSurface[]> {
   const surfaces = await Promise.all(
-    listToolDefinitions()
-      .filter(
-        (definition) =>
-          !(
-            definition.kind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
-            definition.key === SLACK_RUNTIME_CONFIG_SURFACE_KEY
-          ),
-      )
-      .map((definition) =>
-        getTenantToolConfigSurfaceForTenant({
-          surfaceKey: definition.key,
-          surfaceKind: definition.kind,
-          tenantId: input.tenantId,
-        }),
-      ),
+    listToolDefinitions().map((definition) =>
+      getTenantToolConfigSurfaceForTenant({
+        surfaceKey: definition.key,
+        surfaceKind: definition.kind,
+        tenantId: input.tenantId,
+      }),
+    ),
   );
 
   return surfaces.filter((surface): surface is TenantToolConfigSurface =>
@@ -5309,6 +5327,28 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       }
       break;
     }
+    case "slack": {
+      connectUrl = workspaceUrl;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Slack needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Slack is not connected yet. Ask the user to connect it in the workspace.";
+      } else if (!integration.status.enabled) {
+        recommendedAction = "open_workspace";
+        message =
+          "Slack is connected but not active. Open the workspace integration page to review its status and settings.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it.";
+      }
+      break;
+    }
     default: {
       recommendedAction = "open_workspace";
       message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
@@ -5321,6 +5361,7 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
     workspaceUrl ? "open_workspace" : null,
     connectUrl ? "connect" : null,
     connectUrl ? "reconnect" : null,
+    integration.key === "slack" && workspaceUrl ? "disconnect" : null,
   ].filter((action): action is string => Boolean(action));
   const selectedAction =
     requestedAction && availableActions.includes(requestedAction)
@@ -5381,14 +5422,16 @@ export async function getTenantManagedIntegrationSummary(input: {
   return integration ?? null;
 }
 
-export type ManagedIntegrationCapabilityRow =
-  ResolvedIntegrationCommandCapability & {
-    sourceHref: string | null;
-    sourceIcon: string | null;
-    sourceKey: string;
-    sourceLabel: string;
-    sourceType: "integration";
-  };
+export type ManagedIntegrationCapabilityRow = (
+  | ResolvedIntegrationAgentCapability
+  | ResolvedIntegrationCommandCapability
+) & {
+  sourceHref: string | null;
+  sourceIcon: string | null;
+  sourceKey: string;
+  sourceLabel: string;
+  sourceType: "integration";
+};
 
 function sortManagedIntegrationCapabilityRows(
   rows: ManagedIntegrationCapabilityRow[],
@@ -5422,27 +5465,60 @@ function buildManagedIntegrationCapabilityRows(input: {
     needsAttention: boolean;
   };
 }): ManagedIntegrationCapabilityRow[] {
-  return sortManagedIntegrationCapabilityRows(
-    listIntegrationCommands({
+  const commandRows = listIntegrationCommands({
+    definition: input.definition,
+  }).map((command) => {
+    const resolved = buildResolvedIntegrationCommandCapability({
+      command,
       definition: input.definition,
-    }).map((command) => {
-      const resolved = buildResolvedIntegrationCommandCapability({
-        command,
+      policy: input.policies.get(command.commandKey) ?? null,
+      status: input.status,
+    });
+
+    return {
+      ...resolved,
+      sourceHref: buildIntegrationSectionPath({
+        integrationKey: input.definition.key,
+        orgSlug: input.orgSlug,
+        section: "capabilities",
+      }),
+      sourceIcon: input.definition.iconSrc,
+      sourceKey: input.definition.key,
+      sourceLabel: input.definition.label,
+      sourceType: "integration" as const,
+    };
+  });
+  const providerCapabilityRows = input.definition.agentCapabilities
+    .filter(
+      (capability) =>
+        !commandRows.some((row) => row.capabilityKey === capability.key),
+    )
+    .map((capability) => {
+      const resolved = buildResolvedIntegrationAgentCapability({
+        capability,
         definition: input.definition,
-        policy: input.policies.get(command.commandKey) ?? null,
+        policy: input.policies.get(capability.key) ?? null,
         status: input.status,
       });
 
       return {
         ...resolved,
-        sourceHref: `/${input.orgSlug}/integrations2/${input.definition.key}?tab=capabilities`,
+        sourceHref: buildIntegrationSectionPath({
+          integrationKey: input.definition.key,
+          orgSlug: input.orgSlug,
+          section: "capabilities",
+        }),
         sourceIcon: input.definition.iconSrc,
         sourceKey: input.definition.key,
         sourceLabel: input.definition.label,
-        sourceType: "integration",
+        sourceType: "integration" as const,
       };
-    }),
-  );
+    });
+
+  return sortManagedIntegrationCapabilityRows([
+    ...commandRows,
+    ...providerCapabilityRows,
+  ]);
 }
 
 export async function listManagedIntegrationCapabilitiesForOrganization(input: {
@@ -5604,16 +5680,37 @@ export async function updateManagedIntegrationCapabilityPolicy(input: {
   const command = listIntegrationCommands({
     definition: runtimeDefinition,
   }).find((entry) => entry.commandKey === input.capabilityKey);
+  const providerCapability = runtimeDefinition.agentCapabilities.find(
+    (entry) => entry.key === input.capabilityKey,
+  );
 
-  if (!command) {
+  if (!command && !providerCapability) {
     throw new Error(
       `${definition.label} does not expose the ${input.capabilityKey} capability.`,
     );
   }
 
-  if (!isCommandUserControllable(command)) {
+  if (command && !isCommandUserControllable(command)) {
     throw new Error(
       `${definition.label} does not allow workspace policy changes for ${command.commandKey}.`,
+    );
+  }
+
+  if (
+    providerCapability &&
+    !isAgentCapabilityUserControllable(providerCapability)
+  ) {
+    throw new Error(
+      `${definition.label} does not allow workspace policy changes for ${providerCapability.key}.`,
+    );
+  }
+
+  const resolvedCapabilityKey =
+    command?.commandKey ?? providerCapability?.key ?? null;
+
+  if (!resolvedCapabilityKey) {
+    throw new Error(
+      `${definition.label} does not expose the ${input.capabilityKey} capability.`,
     );
   }
 
@@ -5638,7 +5735,7 @@ export async function updateManagedIntegrationCapabilityPolicy(input: {
   }
 
   await upsertTenantIntegrationCapabilityPolicy({
-    capabilityKey: command.commandKey,
+    capabilityKey: resolvedCapabilityKey,
     policy: input.policy,
     tenantIntegrationId: integration.id,
   });
@@ -5648,7 +5745,7 @@ export async function updateManagedIntegrationCapabilityPolicy(input: {
     providerKey: runtimeDefinition.key,
     userExternalId: input.userExternalId,
   });
-  const row = rows.find((entry) => entry.commandKey === command.commandKey);
+  const row = rows.find((entry) => entry.commandKey === resolvedCapabilityKey);
 
   if (!row) {
     throw new Error(
@@ -5807,6 +5904,8 @@ export async function disconnectTenantManagedIntegration(input: {
   switch (providerKey) {
     case LINEAR_PROVIDER_KEY:
       return disconnectTenantLinearIntegration(input);
+    case SLACK_PROVIDER_KEY:
+      return disconnectTenantSlackIntegration(input);
     default:
       throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
   }
@@ -6174,10 +6273,6 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
   tenantId: string;
 }): Promise<TenantSlackRuntimeConfigSurface | null> {
   const db = getDb();
-  const definition = getToolDefinition(
-    SLACK_RUNTIME_CONFIG_SURFACE_KIND,
-    SLACK_RUNTIME_CONFIG_SURFACE_KEY,
-  );
 
   return db.transaction(async (tx) => {
     const [slackConfig, directory, slackIntegration, organizationSlug] =
@@ -6196,23 +6291,21 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
         }),
       ]);
 
-    const allowedActions = definition
-      ? listAvailableToolActions(definition, {
-          enabled: slackConfig.enabled,
-          installState: slackConfig.installState,
-        })
-      : [];
+    const allowedActions = getSlackSurfaceAllowedActions({
+      enabled: slackConfig.enabled,
+      installState: slackConfig.installState,
+    });
     const effects = await evaluateSlackPolicyForTenant(tx, {
       config: slackConfig.config,
       tenantId: input.tenantId,
     });
 
     return {
-      agentCapabilities: definition?.agentCapabilities ?? [],
-      agentOperations: definition?.agentOperations ?? [],
+      agentCapabilities: slackAgentCapabilities,
+      agentOperations: slackAgentOperations,
       availableChannels: directory.channels,
       availableUsers: directory.users,
-      actionMeanings: definition?.actionMeanings ?? [],
+      actionMeanings: slackActionMeanings,
       allowedActions,
       availability: slackIntegration ? "available" : "blocked",
       blockingReason: slackIntegration
@@ -6223,7 +6316,7 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       config: buildTenantSlackRuntimeConfig(slackConfig),
       description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
       derivedEffects: effects,
-      fieldMeanings: definition?.fieldMeanings ?? [],
+      fieldMeanings: slackFieldMeanings,
       id: getToolSurfaceId(
         SLACK_RUNTIME_CONFIG_SURFACE_KIND,
         SLACK_RUNTIME_CONFIG_SURFACE_KEY,
@@ -6233,10 +6326,18 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       label: SLACK_RUNTIME_CONFIG_LABEL,
       schema: slackRuntimeConfigJsonSchema,
       settingsUrl: organizationSlug
-        ? `/${organizationSlug}/integrations/slack`
+        ? buildIntegrationSectionPath({
+            integrationKey: "slack",
+            orgSlug: organizationSlug,
+            section: "status",
+          })
         : null,
       setupUrl: organizationSlug
-        ? `/${organizationSlug}/integrations/slack`
+        ? buildIntegrationSectionPath({
+            integrationKey: "slack",
+            orgSlug: organizationSlug,
+            section: "status",
+          })
         : null,
       surfaceType: "integration",
       uiGroup: "integrations",
@@ -6599,6 +6700,91 @@ async function disconnectTenantLinearIntegration(input: {
         tenantIntegrationId: integration.id,
       });
     }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
+}
+
+async function disconnectTenantSlackIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration?.connectedAt || integration.disconnectedAt) {
+      throw new Error("Slack is not connected in this workspace.");
+    }
+
+    await tx
+      .delete(integrationCredentials)
+      .where(
+        and(
+          eq(integrationCredentials.tenantIntegrationId, integration.id),
+          eq(integrationCredentials.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
+        ),
+      );
 
     await tx
       .update(tenantIntegrations)

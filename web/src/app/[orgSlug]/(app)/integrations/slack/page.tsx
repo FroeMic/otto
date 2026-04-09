@@ -1,5 +1,6 @@
-import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { SlackManagedIntegrationPage } from "@/integrations/library/slack/ui/page";
+import { redirect } from "next/navigation";
+
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +10,12 @@ export default async function SlackIntegrationPage({
   params: Promise<{ orgSlug: string }>;
 }) {
   const { orgSlug } = await params;
-  const { user } = await loadOrganizationRouteContext(orgSlug);
 
-  return (
-    <SlackManagedIntegrationPage orgSlug={orgSlug} userExternalId={user.id} />
+  redirect(
+    buildIntegrationSectionPath({
+      integrationKey: "slack",
+      orgSlug,
+      section: "status",
+    }),
   );
 }

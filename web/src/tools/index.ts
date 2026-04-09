@@ -1,4 +1,3 @@
-import { slackToolSurfaceDefinition } from "@/tools/slack";
 import type {
   ToolInstallState,
   ToolSurfaceAction,
@@ -8,7 +7,6 @@ import { webSearchToolSurfaceDefinition } from "@/tools/web-search";
 import { whatsappToolSurfaceDefinition } from "@/tools/whatsapp";
 
 const registry = [
-  slackToolSurfaceDefinition,
   whatsappToolSurfaceDefinition,
   webSearchToolSurfaceDefinition,
 ] as const;

@@ -5,12 +5,12 @@ import {
   integrationMessagingWorkspaces,
   tenantIntegrations,
 } from "@/db/schema";
-import type { SlackRuntimeConfig } from "@/lib/slack-config";
-import type { DbTransaction } from "@/tools/server-types";
 import {
   deriveSlackPolicyEffects,
   type SlackPolicyDerivedEffects,
-} from "@/tools/slack/policy";
+} from "@/integrations/library/slack/policy";
+import type { SlackRuntimeConfig } from "@/lib/slack-config";
+import type { DbTransaction } from "@/tools/server-types";
 
 const SLACK_PROVIDER_KEY = "slack";
 

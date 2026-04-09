@@ -1,9 +1,15 @@
-export type { ResolvedIntegrationCommandCapability } from "./capabilities";
+export type {
+  ResolvedIntegrationAgentCapability,
+  ResolvedIntegrationCommandCapability,
+} from "./capabilities";
 export {
+  buildResolvedIntegrationAgentCapability,
   buildResolvedIntegrationCommandCapability,
   getCommandEffect,
+  isAgentCapabilityUserControllable,
   isCommandUserControllable,
   listIntegrationCommands,
+  resolveAgentCapabilityState,
   resolveCommandCapabilityState,
 } from "./capabilities";
 export { executeRegisteredIntegrationCommand } from "./execute";

@@ -1,9 +1,12 @@
+import { redirect } from "next/navigation";
+
 import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import {
   getTenantManagedIntegrationSummary,
   listManagedIntegrationCapabilitiesForOrganization,
 } from "@/db/control-plane";
 import { getIntegrationDefinition } from "@/integrations/framework";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { hasLinearOAuthConfig } from "@/lib/env";
 import { LinearIntegrationPanel } from "./components/integration-panel";
 
@@ -61,15 +64,34 @@ function getConnectActionLabel(state: LinearIntegrationUiState) {
 
 export async function LinearIntegrationPage({
   orgSlug,
+  section,
   userExternalId,
 }: {
   orgSlug: string;
+  section: string | null;
   userExternalId: string;
 }) {
   const definition = getIntegrationDefinition("linear");
 
   if (!definition) {
     throw new Error("Integration definition for Linear is missing.");
+  }
+
+  const currentSection =
+    section === "capabilities" ||
+    section === "configuration" ||
+    section === "status"
+      ? section
+      : "status";
+
+  if (section && currentSection !== section) {
+    redirect(
+      buildIntegrationSectionPath({
+        integrationKey: definition.key,
+        orgSlug,
+        section: "status",
+      }),
+    );
   }
 
   const summary = await getTenantManagedIntegrationSummary({
@@ -113,6 +135,7 @@ export async function LinearIntegrationPage({
       capabilityRows={capabilityRows}
       connectActionLabel={getConnectActionLabel(uiState)}
       connectUrl={`/oauth/start/integration/linear?orgSlug=${encodeURIComponent(orgSlug)}`}
+      currentSection={currentSection}
       hasConfiguration={Boolean(definition.settings)}
       iconSrc={definition.iconSrc}
       orgSlug={orgSlug}

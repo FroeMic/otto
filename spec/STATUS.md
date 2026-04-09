@@ -445,6 +445,11 @@
   - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
   - Slack HTTP ingress is now live on `main`, and `TODO_17` Increment 11 now includes a concrete Slack migration plan from the legacy runtime-surface system into `otto-integrations`
   - Slack is now registered in the managed-integrations catalog with a dedicated `/integrations2/slack` page, and `otto-integrations` now exposes `configure_integration` for provider-owned settings reads and writes
+  - the full Slack managed-integration migration is now implemented:
+    - Slack capability policy now uses the shared managed capability inventory table and policy endpoint flow
+    - Slack lifecycle/status UI now lives under `web/src/integrations/library/slack`, with the legacy `/integrations/slack` page reduced to a redirect
+    - `otto-runtime-config` no longer exposes Slack-specific tools
+    - managed integration detail tabs now use route paths like `/integrations2/slack/status` and `/integrations2/slack/channels` instead of `?tab=`
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`

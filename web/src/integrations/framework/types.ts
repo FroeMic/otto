@@ -199,6 +199,7 @@ export type IntegrationOauthBinding = {
 
 export type IntegrationPageProps = {
   orgSlug: string;
+  section: string | null;
   userExternalId: string;
 };
 

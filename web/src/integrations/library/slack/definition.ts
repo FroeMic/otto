@@ -1,10 +1,10 @@
 import type { IntegrationDefinition } from "@/integrations/framework";
-import { slackToolSurfaceDefinition } from "@/tools/slack";
+import { slackAgentCapabilities } from "./settings-metadata";
 
 import { SlackIntegrationListItem } from "./ui/list-item";
 
 export const slackIntegrationDefinition: IntegrationDefinition = {
-  agentCapabilities: slackToolSurfaceDefinition.agentCapabilities ?? [],
+  agentCapabilities: slackAgentCapabilities,
   categoryLabel: "Messaging",
   catalogDescription:
     "Choose who can use Otto in Slack and where Otto can reply.",
@@ -26,7 +26,7 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
       "Manage reply behavior, permissions, and channel access for Slack.",
     label: "Configuration",
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/slack`,
+  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/slack/status`,
   showInWorkspaceCatalog: true,
   ui: {
     loadDetailPage: () =>
