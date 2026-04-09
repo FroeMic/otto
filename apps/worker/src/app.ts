@@ -1,32 +1,53 @@
 type WorkerLane = string
 
+type ClaimedJob = {
+  id: string
+}
+
 type WorkerEnv = {
   WORKER_POLL_INTERVAL_MS: number
 }
 
 type WorkerRuntime = {
+  claimAvailableJobsForLane: (input: {
+    lane: WorkerLane
+    limit: number
+  }) => Promise<ClaimedJob[]>
   ensureWorkerSchedulerJobsSeeded: () => Promise<void>
   getEnv: () => WorkerEnv
+  getLaneConcurrency: (lane: WorkerLane) => number
   getRuntimeSshAuthSource: () => string
   getWorkerLanes: () => WorkerLane[]
-  runWorkerLaneIteration: (lane: WorkerLane) => Promise<number>
+  processClaimedJob: (job: ClaimedJob) => Promise<void>
+  reclaimStaleRunningJobsForLane: (input: {
+    lane: WorkerLane
+  }) => Promise<number>
 }
 
-type WorkerLoopDependencies = {
-  runWorkerLaneIteration: (lane: WorkerLane) => Promise<number>
+type WorkerSlotLoopDependencies = {
+  claimAvailableJobsForLane: (input: {
+    lane: WorkerLane
+    limit: number
+  }) => Promise<ClaimedJob[]>
+  processClaimedJob: (job: ClaimedJob) => Promise<void>
+  reclaimStaleRunningJobsForLane: (input: {
+    lane: WorkerLane
+  }) => Promise<number>
   shouldContinue?: () => boolean
   sleep?: (ms: number) => Promise<void>
 }
 
 type WorkerStartDependencies = {
-  runWorkerLaneLoop?: (
+  runWorkerLaneSlotLoop?: (
     lane: WorkerLane,
+    slotIndex: number,
     pollIntervalMs: number,
-    dependencies: WorkerLoopDependencies,
+    dependencies: WorkerSlotLoopDependencies,
   ) => Promise<void>
 }
 
 const envModulePath = "../../../web/src/lib/env"
+const queueModulePath = "../../../web/src/lib/jobs/queue"
 const workerModulePath = "../../../web/src/lib/jobs/worker"
 
 export function sleep(ms: number) {
@@ -35,21 +56,30 @@ export function sleep(ms: number) {
   })
 }
 
-export async function runWorkerLaneLoop(
+export async function runWorkerLaneSlotLoop(
   lane: WorkerLane,
+  _slotIndex: number,
   pollIntervalMs: number,
-  dependencies: WorkerLoopDependencies,
+  dependencies: WorkerSlotLoopDependencies,
 ) {
   const shouldContinue = dependencies.shouldContinue ?? (() => true)
   const sleepImpl = dependencies.sleep ?? sleep
 
   while (shouldContinue()) {
     try {
-      const processedCount = await dependencies.runWorkerLaneIteration(lane)
+      await dependencies.reclaimStaleRunningJobsForLane({ lane })
 
-      if (processedCount === 0) {
+      const [job] = await dependencies.claimAvailableJobsForLane({
+        lane,
+        limit: 1,
+      })
+
+      if (!job) {
         await sleepImpl(pollIntervalMs)
+        continue
       }
+
+      await dependencies.processClaimedJob(job)
     } catch (error) {
       console.error(`[worker] ${lane} lane failed`, error)
       await sleepImpl(pollIntervalMs)
@@ -57,22 +87,37 @@ export async function runWorkerLaneLoop(
   }
 }
 
+export async function runWorkerLaneLoop(
+  lane: WorkerLane,
+  pollIntervalMs: number,
+  dependencies: WorkerSlotLoopDependencies,
+) {
+  await runWorkerLaneSlotLoop(lane, 0, pollIntervalMs, dependencies)
+}
+
 export async function loadWorkerRuntime(): Promise<WorkerRuntime> {
-  const [envModule, workerModule] = await Promise.all([
+  const [envModule, queueModule, workerModule] = await Promise.all([
     import(envModulePath),
+    import(queueModulePath),
     import(workerModulePath),
   ])
 
   return {
+    claimAvailableJobsForLane:
+      queueModule.claimAvailableJobsForLane as WorkerRuntime["claimAvailableJobsForLane"],
     ensureWorkerSchedulerJobsSeeded:
       workerModule.ensureWorkerSchedulerJobsSeeded as WorkerRuntime["ensureWorkerSchedulerJobsSeeded"],
     getEnv: envModule.getEnv as WorkerRuntime["getEnv"],
+    getLaneConcurrency:
+      workerModule.getLaneConcurrency as WorkerRuntime["getLaneConcurrency"],
     getRuntimeSshAuthSource:
       envModule.getRuntimeSshAuthSource as WorkerRuntime["getRuntimeSshAuthSource"],
     getWorkerLanes:
       workerModule.getWorkerLanes as WorkerRuntime["getWorkerLanes"],
-    runWorkerLaneIteration:
-      workerModule.runWorkerLaneIteration as WorkerRuntime["runWorkerLaneIteration"],
+    processClaimedJob:
+      workerModule.processClaimedJob as WorkerRuntime["processClaimedJob"],
+    reclaimStaleRunningJobsForLane:
+      queueModule.reclaimStaleRunningJobsForLane as WorkerRuntime["reclaimStaleRunningJobsForLane"],
   }
 }
 
@@ -89,13 +134,19 @@ export async function startWorker(
 
   await runtime.ensureWorkerSchedulerJobsSeeded()
 
-  const runLoop = dependencies?.runWorkerLaneLoop ?? runWorkerLaneLoop
+  const runSlotLoop =
+    dependencies?.runWorkerLaneSlotLoop ?? runWorkerLaneSlotLoop
 
   await Promise.all(
-    runtime.getWorkerLanes().map((lane) =>
-      runLoop(lane, env.WORKER_POLL_INTERVAL_MS, {
-        runWorkerLaneIteration: runtime.runWorkerLaneIteration,
-      }),
+    runtime.getWorkerLanes().flatMap((lane) =>
+      Array.from({ length: runtime.getLaneConcurrency(lane) }, (_, slotIndex) =>
+        runSlotLoop(lane, slotIndex, env.WORKER_POLL_INTERVAL_MS, {
+          claimAvailableJobsForLane: runtime.claimAvailableJobsForLane,
+          processClaimedJob: runtime.processClaimedJob,
+          reclaimStaleRunningJobsForLane:
+            runtime.reclaimStaleRunningJobsForLane,
+        }),
+      ),
     ),
   )
 }

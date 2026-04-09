@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { jobEvents, jobRuns } from "@/db/schema";
@@ -10,6 +10,7 @@ import {
   type JobLane,
   laneUsesTenantMutex,
 } from "./lanes";
+import { getJobStaleTimeoutMs } from "./stale";
 import type { ClaimedJob, ControlPlaneJobPayload } from "./types";
 import { JOB_STATUSES } from "./types";
 
@@ -65,6 +66,97 @@ export async function claimAvailableJobsForLane(input: {
     limit: input.limit,
     useTenantMutex: laneUsesTenantMutex(input.lane),
   });
+}
+
+export async function reclaimStaleRunningJobsForLane(input: {
+  lane: JobLane;
+  now?: Date;
+}): Promise<number> {
+  const db = getDb();
+  const now = input.now ?? new Date();
+  const defaultStaleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
+  const jobTypes = laneUsesTenantMutex(input.lane)
+    ? getTenantMutexJobTypes()
+    : getJobTypesForLane(input.lane);
+
+  const runningJobs = await db
+    .select({
+      attempt: jobRuns.attempt,
+      id: jobRuns.id,
+      jobType: jobRuns.jobType,
+      payload: jobRuns.payloadJson,
+      startedAt: jobRuns.startedAt,
+      tenantId: jobRuns.tenantId,
+    })
+    .from(jobRuns)
+    .where(
+      and(
+        eq(jobRuns.status, JOB_STATUSES.running),
+        inArray(jobRuns.jobType, jobTypes),
+        isNotNull(jobRuns.startedAt),
+      ),
+    );
+
+  let reclaimedCount = 0;
+
+  for (const job of runningJobs) {
+    if (!job.startedAt) {
+      continue;
+    }
+
+    const payload = parsePayload(job.payload);
+    const staleTimeoutMs = getJobStaleTimeoutMs(
+      {
+        jobType: job.jobType as ClaimedJob["jobType"],
+        payload,
+      },
+      defaultStaleTimeoutMs,
+    );
+
+    if (now.getTime() - job.startedAt.getTime() < staleTimeoutMs) {
+      continue;
+    }
+
+    const reclaimed = await db
+      .update(jobRuns)
+      .set({
+        availableAt: now,
+        error: null,
+        finishedAt: null,
+        startedAt: null,
+        status: JOB_STATUSES.queued,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(jobRuns.id, job.id),
+          eq(jobRuns.status, JOB_STATUSES.running),
+          eq(jobRuns.startedAt, job.startedAt),
+        ),
+      )
+      .returning({
+        id: jobRuns.id,
+      });
+
+    if (reclaimed.length === 0) {
+      continue;
+    }
+
+    reclaimedCount += 1;
+
+    await appendJobEvent(
+      job.id,
+      JOB_STATUSES.queued,
+      "Job marked stale after timeout and requeued",
+      {
+        attempt: job.attempt,
+        staleTimeoutMs,
+        tenantId: job.tenantId,
+      },
+    );
+  }
+
+  return reclaimedCount;
 }
 
 export async function listQueuedOrRunningJobsByType(jobType: string) {
