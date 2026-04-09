@@ -36,6 +36,9 @@
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service that now mirrors the current `web/` route-handler surface through adapter-mounted route families, with package-level `format`, `lint`, `test`, and `build` gates
   - the service boundary is extracted, but the underlying request logic still lives in legacy handlers until cutover and shared-package extraction continue
+- The migration layout rule is now explicit:
+  - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
+  - `apps/api`, `apps/worker`, and `apps/frontend` should keep thin feature adapters instead of scattering product logic across generic layer folders
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

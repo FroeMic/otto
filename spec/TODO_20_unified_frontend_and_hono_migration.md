@@ -351,9 +351,8 @@ The long-term target layout should be:
 - `apps/gateway`
 - `apps/worker`
 - `packages/db`
-- `packages/domain`
-- `packages/contracts`
 - `packages/auth`
+- `packages/features/<feature-name>`
 - `infra/caddy`
 - `runtime-image`
 - `runtime-plugins`
@@ -361,10 +360,45 @@ The long-term target layout should be:
 ### Layout rules
 
 - new shared business logic must not be added only inside legacy `web/` or `www/` once replacement work begins
-- new backend logic should prefer `packages/domain` and `packages/contracts`
+- major product areas should be extracted feature-first rather than layer-first
+- product-specific logic should prefer `packages/features/<feature-name>` instead of a generic `packages/domain` dump
+- feature packages should keep related contracts, service logic, worker logic, query keys, and view models close together
+- app-local code in `apps/api`, `apps/worker`, and `apps/frontend` should stay thin and mostly wire feature packages into HTTP routes, worker entrypoints, and UI routes
+- only truly cross-cutting concerns should live outside feature packages, for example:
+  - `packages/db`
+  - `packages/auth`
 - Drizzle schema and DB helpers should move toward `packages/db`
 - legacy apps can import shared packages during the transition
 - `web/` and `www/` remain present until their replacements are proven and cut over
+
+### Feature co-location rule
+
+To avoid scattering product-specific behavior across the repo, important Otto domains should have one obvious home.
+
+Example shape:
+
+- `packages/features/scheduled-tasks`
+- `packages/features/sessions`
+- `packages/features/integrations`
+- `packages/features/billing`
+
+For each feature package, keep together as much of the domain-specific code as practical:
+
+- Zod schemas and typed contracts
+- server-side service functions
+- worker-executed operations
+- shared selectors, query keys, and view models
+- domain tests
+
+Then keep app integration layers thin:
+
+- `apps/api/src/features/<feature-name>` for Hono route wiring only
+- `apps/worker/src/features/<feature-name>` for job wiring only
+- `apps/frontend/src/features/<feature-name>` for route components, feature hooks, and feature-local UI state
+
+Anti-goal:
+
+- spreading one domain such as `scheduled-tasks` across unrelated generic folders with no clear home
 
 ## Migration principles
 
