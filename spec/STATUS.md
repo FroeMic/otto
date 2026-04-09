@@ -67,6 +67,7 @@
   - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
   - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
   - for the extracted `frontend` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
+  - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`

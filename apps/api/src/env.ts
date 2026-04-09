@@ -9,10 +9,12 @@ const rawApiEnvSchema = z.object({
     .default("development"),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
+  WORKOS_BASE_URL_BETA: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
   WORKOS_COOKIE_NAME: z.string().optional(),
   WORKOS_COOKIE_PASSWORD: z.string().optional(),
   WORKOS_REDIRECT_URI: z.string().url().optional(),
+  WORKOS_REDIRECT_URI_BETA: z.string().url().optional(),
 })
 
 export type ApiEnv = {
@@ -85,6 +87,7 @@ function deriveControlPlaneDomain(input: {
 export function resolveApiEnv(input: Record<string, string | undefined>) {
   const raw = rawApiEnvSchema.parse(input)
   const publicAppBaseUrl =
+    raw.WORKOS_BASE_URL_BETA ??
     deriveBaseUrlFromDomain(raw.LANDING_PAGE_DOMAIN) ??
     deriveBaseUrlFromDomain(raw.CONTROL_PLANE_DOMAIN) ??
     raw.WORKOS_BASE_URL ??
@@ -107,7 +110,9 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     WORKOS_COOKIE_NAME: raw.WORKOS_COOKIE_NAME?.trim() || undefined,
     WORKOS_COOKIE_PASSWORD: raw.WORKOS_COOKIE_PASSWORD?.trim() || undefined,
     WORKOS_REDIRECT_URI:
-      raw.WORKOS_REDIRECT_URI ?? `${publicAppBaseUrl}/auth/callback`,
+      raw.WORKOS_REDIRECT_URI_BETA ??
+      raw.WORKOS_REDIRECT_URI ??
+      `${publicAppBaseUrl}/auth/callback`,
   } satisfies ApiEnv
 }
 
