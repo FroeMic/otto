@@ -767,7 +767,6 @@ export function SlackIntegrationPanel(props: Props) {
     startTransition(() => {
       void (async () => {
         setErrorMessage(null);
-        setSuccessMessage(null);
 
         try {
           const response = await fetch(
