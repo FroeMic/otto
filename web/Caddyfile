@@ -24,7 +24,7 @@
     reverse_proxy api:3002
   }
 
-  reverse_proxy frontend:3000
+  reverse_proxy web:3000
 }
 
 {$CONTROL_PLANE_DOMAIN} {
@@ -37,5 +37,5 @@
     X-Frame-Options "DENY"
   }
 
-  reverse_proxy web:3000
+  reverse_proxy legacy-web:3000
 }

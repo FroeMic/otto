@@ -7,7 +7,7 @@ const env = getEnv()
 const app = createApp()
 
 if (import.meta.main) {
-  console.info(`[frontend] starting on :${env.FRONTEND_PORT}`)
+  console.info(`[web] starting on :${env.FRONTEND_PORT}`)
 
   serve({
     fetch: app.fetch,

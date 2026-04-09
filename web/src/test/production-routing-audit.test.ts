@@ -22,7 +22,7 @@ function getServiceBlock(compose: string, serviceName: string) {
 }
 
 describe("production routing audit", () => {
-  it("routes the apex domain to frontend, api, and gateway", () => {
+  it("routes the apex domain to web, api, and gateway", () => {
     const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
 
     assert.match(
@@ -39,8 +39,8 @@ describe("production routing audit", () => {
 
     assert.match(
       caddyfile,
-      /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy frontend:3000/,
-      "Apex domain must default to frontend:3000 in web/Caddyfile",
+      /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
+      "Apex domain must default to web:3000 in web/Caddyfile",
     );
 
     assert.doesNotMatch(
@@ -50,19 +50,19 @@ describe("production routing audit", () => {
     );
   });
 
-  it("keeps the legacy app domain on web", () => {
+  it("keeps the legacy app domain on legacy-web", () => {
     const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
 
     assert.match(
       caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
-      "Legacy app domain must proxy to web:3000 in web/Caddyfile",
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy legacy-web:3000/,
+      "Legacy app domain must proxy to legacy-web:3000 in web/Caddyfile",
     );
 
     assert.doesNotMatch(
       caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy frontend:3000/,
-      "Legacy app domain must not proxy to frontend:3000 in web/Caddyfile",
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
+      "Legacy app domain must not proxy to the new web:3000 service in web/Caddyfile",
     );
   });
 
@@ -128,20 +128,20 @@ describe("production routing audit", () => {
     );
   });
 
-  it("points frontend at the extracted api and unified apex origin", () => {
+  it("points the web service at the extracted api and unified apex origin", () => {
     const compose = readFileSync(COMPOSE_PATH, "utf8");
-    const frontendService = getServiceBlock(compose, "frontend");
+    const webService = getServiceBlock(compose, "web");
 
     assert.match(
-      frontendService,
+      webService,
       /API_ORIGIN:\s+http:\/\/api:3002/,
-      "frontend must proxy /api traffic to api:3002 in production compose",
+      "web must proxy /api traffic to api:3002 in production compose",
     );
 
     assert.match(
-      frontendService,
+      webService,
       /WORKSPACE_APP_ORIGIN:\s+https:\/\/\$\{LANDING_PAGE_DOMAIN\}/,
-      "frontend must treat the apex landing domain as the workspace origin in production compose",
+      "web must treat the apex landing domain as the workspace origin in production compose",
     );
   });
 

@@ -263,7 +263,7 @@ export function registerWorkspaceCoreRoutes(
     }
   }
 
-  app.get("/api/frontend/bootstrap/:orgSlug", async (context) => {
+  app.get("/api/web/bootstrap/:orgSlug", async (context) => {
     const authResult = await authenticateUser(context.req.raw)
 
     if ("response" in authResult) {

@@ -56,7 +56,7 @@ export function shellBootstrapQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: () =>
       fetchJson(
-        `/api/frontend/bootstrap/${orgSlug}`,
+        `/api/web/bootstrap/${orgSlug}`,
         {
           method: "GET",
         },

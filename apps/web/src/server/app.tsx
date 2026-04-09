@@ -171,7 +171,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.get("/healthz", (c) =>
     c.json({
       ok: true,
-      service: "frontend",
+      service: "web",
     }),
   )
 
