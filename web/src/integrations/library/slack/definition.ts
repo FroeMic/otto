@@ -1,4 +1,5 @@
 import type { IntegrationDefinition } from "@/integrations/framework";
+import { slackIngressDefinition } from "./ingress";
 import { slackOAuthProvider } from "./oauth/provider";
 import {
   slackAgentCapabilities,
@@ -15,6 +16,7 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
   description:
     "Manage Slack connection status and safe workspace-owned Slack settings.",
   iconSrc: "/integrations/slack.svg",
+  ingress: slackIngressDefinition,
   key: "slack",
   label: "Slack",
   oauth: {

@@ -233,6 +233,23 @@ export type IntegrationOauthBinding = {
   provider: OAuthProviderDefinition;
 };
 
+export type IntegrationIngressSetupMode =
+  | "manual"
+  | "platform_managed"
+  | "provider_managed"
+  | "workspace_managed";
+
+export type IntegrationIngressEndpointDefinition = {
+  description?: string;
+  endpointKey: string;
+  label: string;
+};
+
+export type IntegrationIngressDefinition = {
+  endpoints: IntegrationIngressEndpointDefinition[];
+  setupMode: IntegrationIngressSetupMode;
+};
+
 export type IntegrationPageProps = {
   orgSlug: string;
   section: string | null;
@@ -281,6 +298,7 @@ export type IntegrationDefinition = {
   catalogDescription: string;
   description: string;
   iconSrc: string | null;
+  ingress?: IntegrationIngressDefinition;
   key: string;
   label: string;
   managementMode?: IntegrationManagementMode;

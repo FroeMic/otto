@@ -464,21 +464,26 @@ export const integrationExecutionAudits = pgTable(
   }),
 );
 
-export const slackIngressDeliveries = pgTable(
-  "slack_ingress_deliveries",
+export const integrationIngressDeliveries = pgTable(
+  "integration_ingress_deliveries",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     tenantIntegrationId: uuid("tenant_integration_id")
       .references(() => tenantIntegrations.id, { onDelete: "cascade" })
       .notNull(),
-    requestType: varchar("request_type", { length: 64 }).notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    endpointKey: varchar("endpoint_key", { length: 64 }).notNull(),
     requestPath: varchar("request_path", { length: 255 }).notNull(),
-    teamId: varchar("team_id", { length: 255 }).notNull(),
-    enterpriseId: varchar("enterprise_id", { length: 255 }),
+    externalWorkspaceId: varchar("external_workspace_id", { length: 255 }),
+    externalAccountId: varchar("external_account_id", { length: 255 }),
     status: varchar("status", { length: 64 }).notNull(),
     attempt: integer("attempt").default(1).notNull(),
     responseStatus: integer("response_status"),
     error: text("error"),
+    providerMetadata: jsonb("provider_metadata")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -486,12 +491,14 @@ export const slackIngressDeliveries = pgTable(
   },
   (table) => ({
     tenantIntegrationIdx: index(
-      "slack_ingress_deliveries_tenant_integration_id_idx",
+      "integration_ingress_deliveries_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
-    teamStatusIdx: index("slack_ingress_deliveries_team_id_status_idx").on(
-      table.teamId,
-      table.status,
-    ),
+    workspaceStatusIdx: index(
+      "integration_ingress_deliveries_external_workspace_id_status_idx",
+    ).on(table.externalWorkspaceId, table.status),
+    providerEndpointCreatedAtIdx: index(
+      "integration_ingress_deliveries_provider_endpoint_created_at_idx",
+    ).on(table.providerKey, table.endpointKey, table.createdAt),
   }),
 );
 
