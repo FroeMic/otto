@@ -62,15 +62,15 @@
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
-  - `frontend` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
+  - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
   - `/app` should only exist if a temporary migration prefix is explicitly reintroduced, not as the default workspace root
-  - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `frontend`
+  - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
 - The apex-domain parallel launch shape is now wired in repo config:
-  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto frontend
+  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
   - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`
   - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
   - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
-  - for the extracted `frontend` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
+  - for the extracted `web` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
   - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
