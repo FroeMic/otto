@@ -27,6 +27,26 @@ describe("api app", () => {
     })
   })
 
+  it("adapts legacy-style routes that expect nextUrl", async () => {
+    const app = createApiApp([
+      {
+        exportName: "GET",
+        honoPath: "/auth-fixture",
+        legacyModulePath: "./test-fixtures/next-request-route",
+        requestMode: "next-request",
+      } satisfies LegacyRouteDefinition,
+    ])
+    const response = await app.request(
+      "http://api.local/auth-fixture?returnTo=/workspace",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      pathname: "/auth-fixture",
+      returnTo: "/workspace",
+    })
+  })
+
   it("adapts a legacy-style route module", async () => {
     const app = createApiApp([
       {

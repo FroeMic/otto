@@ -14,6 +14,20 @@ type LegacyRouteHandler = (
   },
 ) => Promise<Response> | Response
 
+type NextRequestLike = Request & {
+  nextUrl: URL
+}
+
+function toLegacyRequest(request: Request, route: LegacyRouteDefinition) {
+  if (route.requestMode !== "next-request") {
+    return request
+  }
+
+  return Object.assign(new Request(request), {
+    nextUrl: new URL(request.url),
+  }) as NextRequestLike
+}
+
 async function invokeLegacyRoute(
   context: Context,
   route: LegacyRouteDefinition,
@@ -36,7 +50,7 @@ async function invokeLegacyRoute(
     )
   }
 
-  return handler(context.req.raw, {
+  return handler(toLegacyRequest(context.req.raw, route), {
     params: Promise.resolve(context.req.param()),
   })
 }

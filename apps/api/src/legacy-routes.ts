@@ -4,12 +4,38 @@ export type LegacyRouteDefinition = {
   exportName: LegacyRouteMethod
   honoPath: string
   legacyModulePath: string
+  requestMode?: "next-request" | "request"
 }
 
+const authBasePath = "../../../web/src/app/auth"
 const internalRuntimeBasePath = "../../../web/src/app/api/internal/runtime"
+const oauthBasePath = "../../../web/src/app/oauth"
 const webhookBasePath = "../../../web/src/app/webhooks"
 
 export const legacyRouteDefinitions: LegacyRouteDefinition[] = [
+  {
+    exportName: "GET",
+    honoPath: "/auth/callback",
+    legacyModulePath: `${authBasePath}/callback/route`,
+    requestMode: "next-request",
+  },
+  {
+    exportName: "GET",
+    honoPath: "/auth/sign-in",
+    legacyModulePath: `${authBasePath}/sign-in/route`,
+    requestMode: "next-request",
+  },
+  {
+    exportName: "GET",
+    honoPath: "/auth/sign-out",
+    legacyModulePath: `${authBasePath}/sign-out/route`,
+  },
+  {
+    exportName: "GET",
+    honoPath: "/auth/sign-up",
+    legacyModulePath: `${authBasePath}/sign-up/route`,
+    requestMode: "next-request",
+  },
   {
     exportName: "POST",
     honoPath: "/api/internal/runtime/ai/openai/v1/audio/transcriptions",
@@ -135,5 +161,25 @@ export const legacyRouteDefinitions: LegacyRouteDefinition[] = [
     exportName: "POST",
     honoPath: "/webhooks/workos",
     legacyModulePath: `${webhookBasePath}/workos/route`,
+  },
+  {
+    exportName: "GET",
+    honoPath: "/oauth/callback/integration/:provider",
+    legacyModulePath: `${oauthBasePath}/callback/integration/[provider]/route`,
+  },
+  {
+    exportName: "GET",
+    honoPath: "/oauth/callback/slack",
+    legacyModulePath: `${oauthBasePath}/callback/slack/route`,
+  },
+  {
+    exportName: "GET",
+    honoPath: "/oauth/start/integration/:provider",
+    legacyModulePath: `${oauthBasePath}/start/integration/[provider]/route`,
+  },
+  {
+    exportName: "GET",
+    honoPath: "/oauth/start/slack",
+    legacyModulePath: `${oauthBasePath}/start/slack/route`,
   },
 ]
