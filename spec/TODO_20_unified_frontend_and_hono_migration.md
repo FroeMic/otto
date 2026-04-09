@@ -571,11 +571,12 @@ Exit criteria:
 
 ### Overall migration state
 
-- current state: Phase 0 foundation active, Phase 1 gateway extraction started, Phase 2 worker extraction started
+- current state: Phase 0 foundation active, Phase 1 gateway extraction started, Phase 2 worker extraction started, Phase 3 API extraction started
 - current parallel-port progress:
   - `apps/frontend` exists for legacy `www`
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
+  - `apps/api` exists for the first extracted internal runtime and webhook route families
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -585,7 +586,7 @@ Exit criteria:
   - extracted `gateway`
   - extracted `worker`
 - current recommended next implementation step:
-  - begin `apps/api` extraction without deleting the current `web/` route-handler surface
+  - expand `apps/api` beyond internal runtime and webhooks into auth, OAuth, workspace, and platform route families without deleting the legacy handlers
 
 ### Immediate execution order
 
@@ -617,11 +618,15 @@ Current checkpoint:
   - `apps/frontend`
   - `apps/gateway`
   - `apps/worker`
+- partial in parallel implementation for:
+  - `apps/api` internal runtime routes
+  - `apps/api` webhook routes
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
 - the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
-- next implementation target is `apps/api`
+- the legacy `web/` route handlers remain present and untouched as the API fallback
+- next implementation target is expanding `apps/api` route coverage
 
 ### Phase checklist
 
@@ -631,7 +636,7 @@ Current checkpoint:
 - [ ] Phase 1 complete
 - [x] Phase 2 started
 - [ ] Phase 2 complete
-- [ ] Phase 3 started
+- [x] Phase 3 started
 - [ ] Phase 3 complete
 - [ ] Phase 4 started
 - [ ] Phase 4 complete
@@ -655,6 +660,14 @@ Current checkpoint:
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
+  - status: in progress, with internal runtime route families now mounted in `apps/api`
+- `webhooks`:
+  - current owner: legacy Next.js app
+  - target owner: `apps/api`
+  - status: parallel port complete for Stripe and WorkOS, cutover pending
+- `auth` and `oauth` routes:
+  - current owner: legacy Next.js app
+  - target owner: `apps/api`
   - status: not started
 - `integration-gateway`:
   - current owner: legacy gateway service
