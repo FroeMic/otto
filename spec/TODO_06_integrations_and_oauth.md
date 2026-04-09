@@ -320,8 +320,8 @@ The next layer on top of this substrate is now in place as well:
 - `tenant_runtime_config_entries.install_state` plus `tenant_runtime_config_mutations` now cover lifecycle state and audit history without per-tool tables
 - runtime-authenticated agent access now goes through `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
 - `runtime-plugins/otto-runtime-config` now exposes generic list/read/validate/apply/lifecycle/reapply tools for registry-backed surfaces
-- the first non-Slack surface is now `web/search`, resolved from control-plane env instead of tenant DB state
-- tenant desired-state compilation now projects Brave web search into `tools.web.search` plus runtime `.env`, so globally managed web search is visible in both the UI and runtime surface APIs without becoming tenant-editable
+- Brave web search is now projected from control-plane env into tenant runtime config as a platform-managed integration
+- tenant desired-state compilation still renders Brave into `tools.web.search` plus runtime `.env`, but the old workspace `web/search` surface has been removed in favor of `/integrations2/brave`
 - runtime surface payloads now carry explicit `surfaceType` and `uiGroup` metadata so the same registry can back both `Integrations` and `Tools`
 - the runtime plugin and route contract now use surface-oriented naming consistently
 - the next integration on top of this surface layer is now `channel/whatsapp`, with one dedicated-number install per tenant, QR-based linking through `whatsapp_login`, and control-plane-owned policy defaults

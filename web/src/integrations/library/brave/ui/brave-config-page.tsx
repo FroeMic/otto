@@ -28,11 +28,7 @@ import type {
   WebSearchProvider,
   WebSearchRuntimeConfig,
 } from "@/lib/web-search-config";
-import type {
-  AgentCapability,
-  AgentCapabilityDirection,
-  ToolSurfacePageProps,
-} from "@/tools/types";
+import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
 const capabilityDirectionConfig: Record<
   AgentCapabilityDirection,
@@ -47,6 +43,17 @@ type ConfigRow = {
   description?: string;
   title: string;
   value: string;
+};
+
+export type BraveConfigSurface = {
+  agentCapabilities: AgentCapability[];
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit: boolean;
+  canUserEdit: boolean;
+  config: WebSearchRuntimeConfig;
+  description: string;
+  label: string;
 };
 
 function groupCapabilities(capabilities: AgentCapability[]) {
@@ -217,9 +224,7 @@ function buildProviderRows(config: WebSearchRuntimeConfig): ConfigRow[] {
   return rows;
 }
 
-export function WebSearchToolPage({
-  surface,
-}: ToolSurfacePageProps<WebSearchRuntimeConfig>) {
+export function BraveConfigPage({ surface }: { surface: BraveConfigSurface }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -235,7 +240,7 @@ export function WebSearchToolPage({
   const hasStatusIssue =
     surface.availability !== "available" || Boolean(surface.blockingReason);
   const capabilityGroups = useMemo(
-    () => groupCapabilities(surface.agentCapabilities ?? []),
+    () => groupCapabilities(surface.agentCapabilities),
     [surface.agentCapabilities],
   );
   const defaultRows = useMemo(
@@ -333,8 +338,7 @@ export function WebSearchToolPage({
                         No capabilities listed
                       </SettingsRowTitle>
                       <SettingsRowDescription>
-                        Otto has no web-search-specific capabilities to show
-                        yet.
+                        Otto has no Brave-specific capabilities to show yet.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                   </SettingsRow>
@@ -349,7 +353,7 @@ export function WebSearchToolPage({
             <div className="flex flex-col gap-8">
               {surface.blockingReason ? (
                 <Alert variant="destructive">
-                  <AlertTitle>Web search is unavailable</AlertTitle>
+                  <AlertTitle>Brave is unavailable</AlertTitle>
                   <AlertDescription>{surface.blockingReason}</AlertDescription>
                 </Alert>
               ) : null}
@@ -360,7 +364,7 @@ export function WebSearchToolPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Status</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Otto can only use web search when a provider is
+                        Otto can only use Brave search when a provider is
                         configured.
                       </SettingsRowDescription>
                     </SettingsRowLabel>

@@ -13,12 +13,11 @@ type TenantRuntimeTarget = {
 };
 
 async function main() {
-  const [orgSlug, surfaceKind = "web", surfaceKey = "search"] =
-    process.argv.slice(2);
+  const [orgSlug, surfaceKind, surfaceKey] = process.argv.slice(2);
 
-  if (!orgSlug) {
+  if (!orgSlug || !surfaceKind || !surfaceKey) {
     throw new Error(
-      "Usage: tsx src/scripts/verify-runtime-surface.ts <org-slug> [surfaceKind] [surfaceKey]",
+      "Usage: tsx src/scripts/verify-runtime-surface.ts <org-slug> <surfaceKind> <surfaceKey>",
     );
   }
 

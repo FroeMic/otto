@@ -30,6 +30,12 @@ export {
 } from "./runtime-response";
 export { collectCommands, findIntegrationCommandMatches } from "./search";
 export { buildRuntimeIntegrationSettingsContract } from "./settings-contract";
+export {
+  getIntegrationManagementMode,
+  isPlatformManagedIntegration,
+  resolvePlatformManagedIntegrationStatus,
+  resolveRuntimeIntegrationStatus,
+} from "./status";
 export type {
   IntegrationCapabilityPolicy,
   IntegrationCommandDefinition,
@@ -41,6 +47,7 @@ export type {
   IntegrationCommandValidate,
   IntegrationDefinition,
   IntegrationExecutionContext,
+  IntegrationManagementMode,
   IntegrationOauthBinding,
   IntegrationOverviewEntry,
   IntegrationOverviewItemProps,

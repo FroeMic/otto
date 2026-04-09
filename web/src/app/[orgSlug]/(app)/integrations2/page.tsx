@@ -10,7 +10,9 @@ import {
 import { getTenantManagedIntegrationSummary } from "@/db/control-plane";
 import {
   buildIntegrationOverviewEntry,
+  isPlatformManagedIntegration,
   listWorkspaceIntegrationDefinitions,
+  resolvePlatformManagedIntegrationStatus,
 } from "@/integrations/framework";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 import { Integrations2SearchInput } from "./_components/integrations2-search-input";
@@ -61,13 +63,17 @@ export default async function Integrations2Page({
 
   const definitions = listWorkspaceIntegrationDefinitions();
   const summaries = await Promise.all(
-    definitions.map((definition) =>
-      getTenantManagedIntegrationSummary({
+    definitions.map((definition) => {
+      if (isPlatformManagedIntegration(definition)) {
+        return Promise.resolve(null);
+      }
+
+      return getTenantManagedIntegrationSummary({
         orgSlug,
         providerKey: definition.key,
         userExternalId: user.id,
-      }),
-    ),
+      });
+    }),
   );
 
   const entries = definitions
@@ -80,11 +86,15 @@ export default async function Integrations2Page({
       }
 
       const entry = buildIntegrationOverviewEntry({
-        connected: Boolean(summary?.connectedAt && !summary?.disconnectedAt),
+        connected: isPlatformManagedIntegration(definition)
+          ? (resolvePlatformManagedIntegrationStatus(definition)?.connected ??
+            false)
+          : Boolean(summary?.connectedAt && !summary?.disconnectedAt),
         definition,
-        needsAttention: Boolean(
-          summary?.lastError || summary?.status === "error",
-        ),
+        needsAttention: isPlatformManagedIntegration(definition)
+          ? (resolvePlatformManagedIntegrationStatus(definition)
+              ?.needsAttention ?? false)
+          : Boolean(summary?.lastError || summary?.status === "error"),
         orgSlug: organization.slug,
       });
 
