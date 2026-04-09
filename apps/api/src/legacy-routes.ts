@@ -299,18 +299,8 @@ export const legacyRouteDefinitions: LegacyRouteDefinition[] = [
   },
   {
     exportName: "POST",
-    honoPath: "/api/workspace/:orgSlug/settings",
-    legacyModulePath: `${apiBasePath}/workspace/[orgSlug]/settings/route`,
-  },
-  {
-    exportName: "POST",
     honoPath: "/api/workspace/:orgSlug/slack/resync-directory",
     legacyModulePath: `${apiBasePath}/workspace/[orgSlug]/slack/resync-directory/route`,
-  },
-  {
-    exportName: "GET",
-    honoPath: "/api/workspace/:orgSlug/usage",
-    legacyModulePath: `${apiBasePath}/workspace/[orgSlug]/usage/route`,
   },
   {
     exportName: "POST",

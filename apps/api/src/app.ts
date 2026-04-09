@@ -7,6 +7,7 @@ import {
   legacyRouteDefinitions,
 } from "./legacy-routes"
 import { registerRuntimeCoreRoutes } from "./native/runtime-core"
+import { registerWorkspaceCoreRoutes } from "./native/workspace-core"
 import { registerCompatibilityProxyRoutes } from "./proxy"
 
 type LegacyRouteHandler = (
@@ -92,6 +93,7 @@ export function createApiApp(
   })
 
   registerRuntimeCoreRoutes(app)
+  registerWorkspaceCoreRoutes(app)
   registerCompatibilityProxyRoutes(app)
 
   for (const route of routeDefinitions) {

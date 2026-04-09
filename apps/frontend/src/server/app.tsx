@@ -4,7 +4,7 @@ import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { serveStatic } from "@hono/node-server/serve-static"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 import { logger } from "hono/logger"
 import { proxy } from "hono/proxy"
 import { secureHeaders } from "hono/secure-headers"
@@ -12,6 +12,7 @@ import { renderToString } from "react-dom/server"
 
 import { buttonVariants } from "../shared/button-variants"
 import { cn } from "../shared/cn"
+import type { FrontendEnv } from "./env"
 import { getEnv } from "./env"
 import {
   LandingHomePage,
@@ -96,8 +97,57 @@ async function readWorkspaceIndex() {
   }
 }
 
-export function createApp() {
-  const env = getEnv()
+function createProxyHandler(targetOrigin: string) {
+  return (context: Context) =>
+    proxy(
+      `${targetOrigin}${context.req.path}${context.req.url.includes("?") ? new URL(context.req.url).search : ""}`,
+      {
+        method: context.req.method,
+        headers: context.req.raw.headers,
+        body:
+          context.req.method === "GET" || context.req.method === "HEAD"
+            ? undefined
+            : context.req.raw.body,
+      },
+    )
+}
+
+function LoginPage({ returnTo }: { returnTo: string }) {
+  return (
+    <main className="min-h-svh bg-background px-6 py-16 text-foreground">
+      <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-card px-8 py-10 shadow-sm">
+        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+          Otto
+        </p>
+        <div className="flex flex-col gap-3">
+          <h1 className="text-4xl font-semibold tracking-tight">
+            Sign in to your workspace
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            The new frontend now keeps authentication on the same origin. Sign
+            in with WorkOS, then continue directly into the workspace shell.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
+            className={cn(buttonVariants())}
+          >
+            Sign in
+          </a>
+          <a
+            href={`/auth/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            Create account
+          </a>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+export function createApp(env: FrontendEnv = getEnv()) {
   const app = new Hono()
 
   app.use("*", logger())
@@ -114,20 +164,24 @@ export function createApp() {
     }),
   )
 
-  app.get("/login", (c) => c.redirect(`${env.WORKSPACE_APP_ORIGIN}/login`, 302))
-  app.all("/api/*", (c) =>
-    proxy(
-      `${env.API_ORIGIN}${c.req.path}${c.req.url.includes("?") ? new URL(c.req.url).search : ""}`,
-      {
-        method: c.req.method,
-        headers: c.req.raw.headers,
-        body:
-          c.req.method === "GET" || c.req.method === "HEAD"
-            ? undefined
-            : c.req.raw.body,
-      },
-    ),
-  )
+  const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
+
+  app.get("/login", (c) => {
+    const returnTo = c.req.query("returnTo") ?? "/app"
+
+    return c.html(
+      renderDocument({
+        children: <LoginPage returnTo={returnTo} />,
+        description: "Sign in to Otto",
+        path: "/login",
+        title: "Otto Sign In",
+      }),
+    )
+  })
+  app.get("/logout", (c) => c.redirect("/auth/sign-out", 302))
+  app.all("/api/*", apiProxyHandler)
+  app.all("/auth/*", apiProxyHandler)
+  app.all("/oauth/*", apiProxyHandler)
 
   app.get("/", (c) =>
     c.html(

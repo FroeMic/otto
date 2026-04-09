@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.6",
+    "@otto/feature-workspace-core": "workspace:*",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-router": "^1.139.3",
     "class-variance-authority": "^0.7.1",

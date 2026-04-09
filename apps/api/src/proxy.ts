@@ -30,9 +30,6 @@ async function proxyToLegacy(request: Request) {
 }
 
 export function registerCompatibilityProxyRoutes(app: Hono) {
-  app.get("/api/frontend/*", (context) => proxyToLegacy(context.req.raw))
-  app.get("/api/workspace/*", (context) => proxyToLegacy(context.req.raw))
-  app.post("/api/workspace/*", (context) => proxyToLegacy(context.req.raw))
   app.get("/api/user/*", (context) => proxyToLegacy(context.req.raw))
   app.post("/api/user/*", (context) => proxyToLegacy(context.req.raw))
 }

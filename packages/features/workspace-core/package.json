@@ -1,5 +1,5 @@
 {
-  "name": "@otto/auth",
+  "name": "@otto/feature-workspace-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "iron-session": "^8.0.4"
+    "@otto/auth": "workspace:*",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",

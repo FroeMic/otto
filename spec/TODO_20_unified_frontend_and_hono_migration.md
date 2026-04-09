@@ -774,9 +774,10 @@ Exit criteria:
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
-  - `packages/auth` and `packages/features/runtime-core` now exist and are used by both legacy `web/` and `apps/api`
-  - `apps/api` now proxies selected authenticated workspace/frontend families back to legacy `web` so the new shell can use one API origin during transition
-  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices
+  - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist and are used by both legacy `web/` and the new services
+  - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
+  - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
+  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -821,7 +822,7 @@ Current checkpoint:
 - partial in parallel implementation for:
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
   - the managed-config and managed-skills runtime routes now use shared package logic in both `web/` and `apps/api`
-  - authenticated workspace/frontend routes still relying on compatibility proxying through `apps/api`
+  - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
@@ -839,7 +840,7 @@ Current checkpoint:
 - [ ] Phase 2 complete
 - [x] Phase 3 started
 - [ ] Phase 3 complete
-- [ ] Phase 4 started
+- [x] Phase 4 started
 - [ ] Phase 4 complete
 - [ ] Phase 5 started
 - [ ] Phase 5 complete
@@ -869,7 +870,7 @@ Current checkpoint:
 - `frontend bootstrap and workspace read/write slices`:
   - current owner: `apps/frontend` via `apps/api`
   - target owner: `frontend` plus `api`
-  - status: first real shell implemented, still relying on compatibility proxy for authenticated data
+  - status: first real shell implemented, now backed by native `apps/api` routes for bootstrap, usage, and settings
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
@@ -877,7 +878,7 @@ Current checkpoint:
 - `auth` and `oauth` routes:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
-  - status: parallel port complete, cutover pending
+  - status: parallel port complete, with same-origin forwarding from `apps/frontend` now in place for login, logout, and OAuth callbacks
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`

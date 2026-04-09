@@ -1,62 +1,12 @@
+import {
+  shellBootstrapSchema,
+  usageOverviewSchema,
+  usageSearchSchema,
+  type WorkspaceSettingsSuccess,
+  workspaceSettingsSuccessSchema,
+} from "@otto/feature-workspace-core"
 import { queryOptions } from "@tanstack/react-query"
-import * as z from "zod"
-
-const workspaceSummarySchema = z.object({
-  id: z.string(),
-  isReady: z.boolean(),
-  locale: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  timeFormatPreference: z.string(),
-  timezone: z.string(),
-})
-
-const shellBootstrapSchema = z.object({
-  currentOrganization: workspaceSummarySchema,
-  organizations: z.array(workspaceSummarySchema),
-  user: z.object({
-    email: z.string(),
-    id: z.string(),
-    isPlatformAdmin: z.boolean(),
-    name: z.string(),
-  }),
-})
-
-const usageOverviewSchema = z.object({
-  summary: z.object({
-    activeApiKeys: z.number(),
-    activeModels: z.number(),
-    totalCreditsBurnedMilli: z.number(),
-    totalInputTokens: z.number(),
-    totalOutputTokens: z.number(),
-    totalProviderCostMicros: z.number(),
-    totalRequests: z.number(),
-  }),
-  timeSeries: z.array(
-    z.object({
-      bucketStart: z.string().optional().nullable(),
-      inputTokens: z.number().optional().nullable(),
-      outputTokens: z.number().optional().nullable(),
-      requests: z.number().optional().nullable(),
-    }),
-  ),
-  usageByModel: z.array(
-    z.object({
-      creditsBurnedMilli: z.number().optional().nullable(),
-      inputTokens: z.number().optional().nullable(),
-      model: z.string(),
-      outputTokens: z.number().optional().nullable(),
-      provider: z.string().optional().nullable(),
-      requests: z.number().optional().nullable(),
-    }),
-  ),
-  usageByType: z.array(z.record(z.string(), z.unknown())),
-})
-
-export const usageSearchSchema = z.object({
-  from: z.string().optional(),
-  to: z.string().optional(),
-})
+import type * as z from "zod"
 
 export type ShellBootstrap = z.infer<typeof shellBootstrapSchema>
 export type UsageOverview = z.infer<typeof usageOverviewSchema>
@@ -143,14 +93,24 @@ export async function updateWorkspaceSettings(
   orgSlug: string,
   body:
     | { action: "update-name"; name: string }
-    | { action: "update-slug"; slug: string },
-) {
+    | { action: "update-slug"; slug: string }
+    | { action: "update-locale"; locale: string }
+    | { action: "update-time-format"; timeFormatPreference: string }
+    | { action: "update-timezone"; timezone: string },
+): Promise<WorkspaceSettingsSuccess> {
   return fetchJson(
     `/api/workspace/${orgSlug}/settings`,
     {
       body: JSON.stringify(body),
       method: "POST",
     },
-    z.record(z.string(), z.unknown()),
+    workspaceSettingsSuccessSchema,
   )
+}
+
+export {
+  shellBootstrapSchema,
+  usageOverviewSchema,
+  usageSearchSchema,
+  workspaceSettingsSuccessSchema,
 }

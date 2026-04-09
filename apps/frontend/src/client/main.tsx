@@ -48,7 +48,7 @@ function RootPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <a href="/login" className={cn(buttonVariants())}>
+          <a href="/login?returnTo=/app" className={cn(buttonVariants())}>
             Sign in
           </a>
           <a href="/" className={cn(buttonVariants({ variant: "outline" }))}>
@@ -85,10 +85,10 @@ function WorkspaceShell() {
               <p className="text-xs text-muted-foreground">{data.user.email}</p>
             </div>
             <a
-              href="/login"
+              href="/auth/sign-out"
               className={cn(buttonVariants({ variant: "outline" }))}
             >
-              Auth
+              Sign out
             </a>
           </div>
         </header>
@@ -258,6 +258,7 @@ function WorkspaceUsagePage() {
 }
 
 function WorkspaceSettingsPage() {
+  const navigate = useNavigate({ from: "/$orgSlug/settings/workspace" })
   const router = useRouter()
   const { orgSlug } = orgRoute.useParams()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
@@ -283,11 +284,23 @@ function WorkspaceSettingsPage() {
         slug: input.value,
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (result, variables) => {
+      const nextOrgSlug =
+        variables.action === "update-slug" && "slug" in result
+          ? result.slug
+          : orgSlug
+
       await queryClient.invalidateQueries({
         queryKey: ["shell-bootstrap", orgSlug],
       })
       await router.invalidate()
+
+      if (nextOrgSlug !== orgSlug) {
+        await navigate({
+          params: { orgSlug: nextOrgSlug },
+          to: "/$orgSlug/settings/workspace",
+        })
+      }
     },
   })
 
