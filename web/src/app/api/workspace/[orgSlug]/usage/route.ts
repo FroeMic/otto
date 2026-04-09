@@ -35,11 +35,11 @@ export async function GET(
     }>;
   },
 ) {
-  try {
-    const { user } = await withAuth({ ensureSignedIn: true });
-    const { orgSlug } = await context.params;
-    await syncUserFromSession(user);
+  const { user } = await withAuth({ ensureSignedIn: true });
+  const { orgSlug } = await context.params;
 
+  try {
+    await syncUserFromSession(user);
     const url = new URL(request.url);
     const fromParam = url.searchParams.get("from");
     const toParam = url.searchParams.get("to");

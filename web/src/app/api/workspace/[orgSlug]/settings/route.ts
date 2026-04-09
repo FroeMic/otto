@@ -15,6 +15,7 @@ import {
   isSupportedTimeZone,
   normalizeTimeFormatPreference,
 } from "@/lib/date-time";
+import { isReservedWorkspaceSlug } from "@/lib/workspace-slugs";
 import { getWorkOS } from "@/lib/workos";
 
 export const dynamic = "force-dynamic";
@@ -83,9 +84,10 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ orgSlug: string }> },
 ) {
+  const { user } = await withAuth({ ensureSignedIn: true });
+  const { orgSlug } = await context.params;
+
   try {
-    const { user } = await withAuth({ ensureSignedIn: true });
-    const { orgSlug } = await context.params;
     await syncUserFromSession(user);
 
     const db = getDb();
@@ -96,7 +98,6 @@ export async function POST(
     });
 
     if (body.action === "update-name") {
-      // Update name in WorkOS and local DB
       const workos = getWorkOS();
       await workos.organizations.updateOrganization({
         organization: org.externalId,
@@ -108,14 +109,17 @@ export async function POST(
         .set({ name: body.name, updatedAt: new Date() })
         .where(eq(organizations.id, org.id));
 
-      return NextResponse.json(
-        { name: body.name },
-        { headers: { "Cache-Control": "no-store" } },
-      );
+      return json({ name: body.name });
     }
 
     if (body.action === "update-slug") {
-      // Check slug uniqueness
+      if (isReservedWorkspaceSlug(body.slug)) {
+        return json(
+          { code: "slug_reserved", message: "This URL is reserved" },
+          409,
+        );
+      }
+
       const [existing] = await db
         .select({ id: organizations.id })
         .from(organizations)
@@ -123,9 +127,9 @@ export async function POST(
         .limit(1);
 
       if (existing && existing.id !== org.id) {
-        return NextResponse.json(
+        return json(
           { code: "slug_taken", message: "This URL is already in use" },
-          { status: 409, headers: { "Cache-Control": "no-store" } },
+          409,
         );
       }
 
@@ -134,10 +138,7 @@ export async function POST(
         .set({ slug: body.slug, updatedAt: new Date() })
         .where(eq(organizations.id, org.id));
 
-      return NextResponse.json(
-        { slug: body.slug },
-        { headers: { "Cache-Control": "no-store" } },
-      );
+      return json({ slug: body.slug });
     }
 
     const result = await updateWorkspaceDateTimePreferences(
@@ -157,15 +158,12 @@ export async function POST(
             },
     );
 
-    return NextResponse.json(
-      {
-        applyQueued: result.applyQueued,
-        locale: result.locale,
-        timeFormatPreference: result.timeFormatPreference,
-        timezone: result.timezone,
-      },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    return json({
+      applyQueued: result.applyQueued,
+      locale: result.locale,
+      timeFormatPreference: result.timeFormatPreference,
+      timezone: result.timezone,
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -185,4 +183,11 @@ export async function POST(
       { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
+}
+
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": "no-store" },
+    status,
+  });
 }

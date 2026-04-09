@@ -8,7 +8,7 @@
     X-Frame-Options "DENY"
   }
 
-  reverse_proxy www:3000
+  reverse_proxy frontend:3000
 }
 
 {$CONTROL_PLANE_DOMAIN} {

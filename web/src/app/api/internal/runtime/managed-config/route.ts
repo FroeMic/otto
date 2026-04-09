@@ -69,7 +69,6 @@ export async function PATCH(request: Request) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
     const body = patchSchema.parse(await request.json());
-
     const normalizedFilePath = normalizeManagedBootstrapFilePath(body.filePath);
 
     if (!normalizedFilePath) {

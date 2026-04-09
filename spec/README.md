@@ -45,10 +45,7 @@ This folder is the source of truth for implementation planning and session-to-se
 18. `TODO_17_managed_integrations_architecture.md`
 19. `TODO_18_managed_skills.md`
 20. `TODO_19_oauth_connected_accounts_substrate.md`
-15. `TODO_14_session_history_visibility.md`
-16. `TODO_15_billing_and_credit_metering.md`
-17. `TODO_16_runtime_ai_provider_proxy.md`
-18. `TODO_17_managed_integrations_architecture.md`
+21. `TODO_20_unified_frontend_and_hono_migration.md`
 
 ## Trigger.dev decision
 
