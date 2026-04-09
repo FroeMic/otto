@@ -321,6 +321,8 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
         lastError: null,
         lastErrorAt: null,
         lastRefreshSucceededAt: input.now,
+        providerMetadataJson:
+          input.tokenResult.identity?.providerMetadata ?? {},
         providerKey: input.providerKey,
         refreshAttemptCount: 0,
         refreshRetryAfter: null,
@@ -348,6 +350,8 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
           null,
         grantedScopesCsv: joinScopeCsv(input.tokenResult.grantedScopes),
         lastRefreshSucceededAt: input.now,
+        providerMetadataJson:
+          input.tokenResult.identity?.providerMetadata ?? {},
         providerKey: input.providerKey,
         refreshTokenExpiresAt: input.tokenResult.refreshTokenExpiresAt,
         requestedScopesCsv: joinScopeCsv(input.requestedScopes),

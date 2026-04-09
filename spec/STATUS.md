@@ -543,6 +543,14 @@
   - `integration_whatsapp_installations` and `integration_whatsapp_link_sessions` are dropped by `web/drizzle/0046_remove_whatsapp_integration.sql`, and the migration also clears WhatsApp rows from shared tables such as `tenant_integrations`, `tenant_runtime_config_entries`, `user_channel_identities`, and `job_runs`
   - the legacy runtime-surface compatibility layer remained in place at that point because it still powered shared runtime-surface management for non-WhatsApp integrations
   - if a dedicated-number messaging integration returns later, it should be treated as a fresh scope decision rather than reviving the removed partial implementation
+- Slack now treats the generic OAuth substrate as canonical:
+  - `integration_slack_installations` and `integration_credentials` are replaced by `integration_oauth_connections` and `integration_oauth_credentials`
+  - Slack installation metadata now persists on `integration_oauth_connections.provider_metadata_json`
+  - `web/drizzle/0047_slack_oauth_canonicalization.sql` adds that metadata column and drops the legacy Slack-only tables
+- The runtime image no longer includes the old runtime-surface compatibility plugin:
+  - `runtime-plugins/otto-runtime-config` is removed from the repo
+  - tenant runtime plugin bundles now include `otto-managed-config`, `otto-managed-skills`, `otto-integrations`, `otto-session-reporter`, and provider plugins as needed
+  - the remaining runtime-surface HTTP routes are compatibility code and should be removed separately when their callers are deleted
 - Brave web search now uses the final managed-integration + proxy shape:
   - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations/brave/...`
   - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
@@ -621,7 +629,10 @@
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
+<<<<<<< HEAD
+=======
   - manually verifying that the control-plane UI and the legacy runtime-surface plugin could both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
+>>>>>>> origin/main
   - running a Brave integration + proxy smoke test against a provisioned tenant after the updated runtime image is published and applied
   - preserving the raw Slack attachment semantics needed for `DONE_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Keep `DONE_10_voice_note_understanding.md` treated as complete, while preserving its regression constraints during later Slack ingress work:
@@ -630,7 +641,6 @@
 - Continue the managed-bootstrap-files slice by:
   - building and publishing the custom Otto runtime image so tenant servers actually run the bundled Otto-managed runtime plugins instead of the raw upstream image
   - verifying end to end that `list_managed_files`, `read_managed_file`, and `patch_managed_file` appear in a tenant runtime and can mutate managed config through the control plane
-  - verifying end to end that `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface` appear in a tenant runtime and drive the shared runtime-surface mutation flow
   - confirming end to end that the expanded instruction set (`AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, `TOOLS.md`) reaches tenant runtimes and stays editable through both the Agent and Settings UI
 - After the managed plugin image is validated, implement `TODO_11_runtime_release_rollout.md` by:
   - adding the runtime release schema migration and DB-backed active release record
@@ -647,7 +657,11 @@
 - If Slack becomes the active managed-integrations priority again, use `TODO_17` Increment 11 as the implementation source of truth:
   - add framework-native integration settings storage and runtime contract first
   - port Slack's safe config fields and diagnostics into a provider-owned Slack integration definition
+<<<<<<< HEAD
+  - keep Slack OAuth and shared HTTP ingress control-plane-native while continuing to use `otto-integrations` for runtime-facing settings and commands
+=======
   - keep Slack OAuth and shared HTTP ingress control-plane-native while cutting runtime-facing settings from the legacy runtime-surface path over to `otto-integrations`
+>>>>>>> origin/main
   - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
   - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
   - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`
