@@ -20,6 +20,7 @@
     "@otto/auth": "workspace:*",
     "@otto/feature-runtime-core": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
+    "@workos-inc/node": "^8.9.0",
     "drizzle-orm": "^0.44.6",
     "hono": "^4.10.5",
     "zod": "^4.1.12"

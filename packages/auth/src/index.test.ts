@@ -6,10 +6,14 @@ import { describe, it } from "vitest"
 import {
   authenticateTenantRuntimeRequest,
   authenticateWorkspaceSessionRequest,
+  clearWorkspaceSessionCookie,
+  createWorkspaceSessionCookie,
   getBearerTokenFromRequest,
   isRuntimeAuthError,
   isWorkspaceSessionAuthError,
   RuntimeAuthError,
+  readAuthFlowState,
+  sealAuthFlowState,
 } from "./index"
 
 describe("runtime auth helpers", () => {
@@ -102,5 +106,47 @@ describe("runtime auth helpers", () => {
         "Missing workspace session",
       )
     }
+  })
+
+  it("round-trips an auth flow state payload", async () => {
+    const sealedState = await sealAuthFlowState({
+      password: "b".repeat(32),
+      payload: {
+        returnTo: "/app/acme/settings/workspace",
+      },
+    })
+
+    const payload = await readAuthFlowState({
+      password: "b".repeat(32),
+      sealedState,
+    })
+
+    assert.deepEqual(payload, {
+      returnTo: "/app/acme/settings/workspace",
+    })
+  })
+
+  it("creates a secure workspace session cookie for https origins", () => {
+    const cookieHeader = createWorkspaceSessionCookie({
+      publicBaseUrl: "https://getyourotto.com",
+      sealedSession: "sealed-value",
+    })
+
+    assert.match(cookieHeader, /^wos-session=sealed-value;/)
+    assert.match(cookieHeader, /HttpOnly/)
+    assert.match(cookieHeader, /Path=\//)
+    assert.match(cookieHeader, /SameSite=Lax/)
+    assert.match(cookieHeader, /Secure/)
+  })
+
+  it("clears the workspace session cookie", () => {
+    const cookieHeader = clearWorkspaceSessionCookie({
+      publicBaseUrl: "https://getyourotto.com",
+    })
+
+    assert.match(cookieHeader, /^wos-session=;/)
+    assert.match(cookieHeader, /Max-Age=0/)
+    assert.match(cookieHeader, /HttpOnly/)
+    assert.match(cookieHeader, /Path=\//)
   })
 })

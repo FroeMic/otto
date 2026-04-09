@@ -7,36 +7,12 @@ export type LegacyRouteDefinition = {
   requestMode?: "next-request" | "request"
 }
 
-const authBasePath = "../../../web/src/app/auth"
 const apiBasePath = "../../../web/src/app/api"
 const internalRuntimeBasePath = "../../../web/src/app/api/internal/runtime"
 const oauthBasePath = "../../../web/src/app/oauth"
 const webhookBasePath = "../../../web/src/app/webhooks"
 
 export const legacyRouteDefinitions: LegacyRouteDefinition[] = [
-  {
-    exportName: "GET",
-    honoPath: "/auth/callback",
-    legacyModulePath: `${authBasePath}/callback/route`,
-    requestMode: "next-request",
-  },
-  {
-    exportName: "GET",
-    honoPath: "/auth/sign-in",
-    legacyModulePath: `${authBasePath}/sign-in/route`,
-    requestMode: "next-request",
-  },
-  {
-    exportName: "GET",
-    honoPath: "/auth/sign-out",
-    legacyModulePath: `${authBasePath}/sign-out/route`,
-  },
-  {
-    exportName: "GET",
-    honoPath: "/auth/sign-up",
-    legacyModulePath: `${authBasePath}/sign-up/route`,
-    requestMode: "next-request",
-  },
   {
     exportName: "POST",
     honoPath: "/api/internal/runtime/ai/openai/v1/audio/transcriptions",
