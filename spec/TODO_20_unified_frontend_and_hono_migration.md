@@ -868,7 +868,7 @@ Current checkpoint:
 - `www`:
   - current owner: legacy marketing app
   - target owner: `frontend`
-  - status: parallel port complete, cutover pending
+  - status: production landing cutover wired; legacy `www` remains defined behind a non-default compose profile for rollback
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `frontend`

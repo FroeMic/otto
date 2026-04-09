@@ -100,6 +100,29 @@ services:
       timeout: 5s
       retries: 5
 
+  frontend:
+    environment:
+      API_ORIGIN: http://web:3000
+      FRONTEND_PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NODE_ENV: production
+      WORKSPACE_APP_ORIGIN: https://${CONTROL_PLANE_DOMAIN}
+    build:
+      context: ..
+      dockerfile: apps/frontend/Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3000/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   www:
     environment:
       HOSTNAME: 0.0.0.0
@@ -108,6 +131,7 @@ services:
     build:
       context: ../www
       dockerfile: Dockerfile
+    profiles: ["legacy-www"]
     restart: unless-stopped
     healthcheck:
       test:
@@ -138,9 +162,9 @@ services:
   caddy:
     image: caddy:2.9-alpine
     depends_on:
-      integration-gateway:
+      frontend:
         condition: service_healthy
-      www:
+      integration-gateway:
         condition: service_healthy
       web:
         condition: service_healthy
