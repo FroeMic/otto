@@ -77,4 +77,23 @@ describe("integration status resolution", () => {
     assert.equal(resolved.status.enabled, false);
     assert.equal(isPlatformManagedIntegration(baseDefinition), false);
   });
+
+  it("marks failed workspace-managed integrations as needing attention", () => {
+    const resolved = resolveRuntimeIntegrationStatus({
+      definition: baseDefinition,
+      row: {
+        connectedAt: null,
+        connectionStatus: null,
+        disconnectedAt: null,
+        integrationStatus: "link_failed",
+        tenantIntegrationId: "tenant-integration-1",
+      },
+    });
+
+    assert.equal(resolved.installed, true);
+    assert.equal(resolved.status.connected, false);
+    assert.equal(resolved.status.enabled, false);
+    assert.equal(resolved.status.needsAttention, true);
+    assert.equal(resolved.status.integrationStatus, "link_failed");
+  });
 });

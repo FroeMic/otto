@@ -41,6 +41,8 @@ import type {
 import { getWhatsAppUiPhase } from "@/lib/workspace";
 import { deriveWhatsAppPolicyEffects } from "@/tools/whatsapp/policy";
 
+type WhatsAppTab = "capabilities" | "status" | "configuration";
+
 type WhatsAppRuntimeConfig = {
   ackReactionEnabled: boolean;
   allowedGroupIds: string[];
@@ -102,6 +104,8 @@ type Props = {
     title: string;
     variant: "default" | "destructive";
   } | null;
+  tabNavigationMode?: "query_param" | "section_path";
+  tabOverride?: WhatsAppTab;
   whatsappPhaseLabel: string;
   whatsappStatusVariant: "default" | "destructive" | "outline" | "secondary";
 };
@@ -321,7 +325,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
     Boolean(integration?.selfE164);
   const canConfigure = hasPairedNumber;
   const tabParam = searchParams.get("tab");
-  const currentTab: "capabilities" | "status" | "configuration" =
+  const queryTab: WhatsAppTab =
     tabParam === "capabilities" || tabParam === "status"
       ? tabParam
       : tabParam === "configuration"
@@ -329,6 +333,12 @@ export function WhatsAppIntegrationPanel(props: Props) {
           ? "configuration"
           : "status"
         : "capabilities";
+  const currentTab =
+    props.tabNavigationMode === "section_path" && props.tabOverride
+      ? props.tabOverride === "configuration" && !canConfigure
+        ? "status"
+        : props.tabOverride
+      : queryTab;
   const hasStatusIssue = Boolean(props.statusAlert);
 
   useEffect(() => {
@@ -440,18 +450,38 @@ export function WhatsAppIntegrationPanel(props: Props) {
     };
   }, [router, uiPhase]);
 
+  function buildTabHref(value: WhatsAppTab) {
+    if (props.tabNavigationMode === "section_path") {
+      return `/${orgSlug}/integrations2/whatsapp/${value}`;
+    }
+
+    return updateQueryString(pathname, searchParams, {
+      tab: value,
+    });
+  }
+
   useEffect(() => {
-    if (tabParam !== "configuration" || canConfigure) {
+    if (currentTab !== "configuration" || canConfigure) {
       return;
     }
 
-    router.replace(
-      updateQueryString(pathname, searchParams, {
-        tab: "status",
-      }),
-      { scroll: false },
-    );
-  }, [canConfigure, pathname, router, searchParams, tabParam]);
+    const nextHref =
+      props.tabNavigationMode === "section_path"
+        ? `/${orgSlug}/integrations2/whatsapp/status`
+        : updateQueryString(pathname, searchParams, {
+            tab: "status",
+          });
+
+    router.replace(nextHref, { scroll: false });
+  }, [
+    canConfigure,
+    currentTab,
+    orgSlug,
+    pathname,
+    props.tabNavigationMode,
+    router,
+    searchParams,
+  ]);
 
   useEffect(() => {
     if (linkSession?.status !== "qr_ready") {
@@ -583,13 +613,8 @@ export function WhatsAppIntegrationPanel(props: Props) {
   const isWhatsAppInstalled = surface?.config.installState === "installed";
   const linkedNumber = integration?.selfE164 ?? "No number connected yet";
 
-  function setTopLevelTab(value: "capabilities" | "status" | "configuration") {
-    router.replace(
-      updateQueryString(pathname, searchParams, {
-        tab: value,
-      }),
-      { scroll: false },
-    );
+  function setTopLevelTab(value: WhatsAppTab) {
+    router.replace(buildTabHref(value), { scroll: false });
   }
 
   async function runAction<T>(operation: () => Promise<T>) {
@@ -821,9 +846,7 @@ export function WhatsAppIntegrationPanel(props: Props) {
       <Tabs
         className="flex flex-col gap-6"
         value={currentTab}
-        onValueChange={(value) =>
-          setTopLevelTab(value as "capabilities" | "status" | "configuration")
-        }
+        onValueChange={(value) => setTopLevelTab(value as WhatsAppTab)}
       >
         <TabsList className="h-auto justify-start overflow-x-auto p-1">
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>

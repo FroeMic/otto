@@ -71,10 +71,10 @@ export async function proxyRuntimeWebSearchRequest(input: {
   );
 
   switch (provider) {
-    case "brave":
-      const apiKey = getEnv().RUNTIME_BRAVE_API_KEY;
+    case "brave": {
+      const braveApiKey = getEnv().RUNTIME_BRAVE_API_KEY;
 
-      if (!apiKey) {
+      if (!braveApiKey) {
         throw new RuntimeWebSearchProxyError(
           'Managed web search provider "brave" is missing RUNTIME_BRAVE_API_KEY in the workspace app.',
           503,
@@ -83,7 +83,7 @@ export async function proxyRuntimeWebSearchRequest(input: {
 
       return Response.json(
         await executeBraveWebSearchProxy({
-          apiKey,
+          apiKey: braveApiKey,
           args,
           searchConfig: resolved.openClawConfig,
         }),
@@ -93,6 +93,7 @@ export async function proxyRuntimeWebSearchRequest(input: {
           },
         },
       );
+    }
     default:
       throw new RuntimeWebSearchProxyError(
         `Managed web search provider "${provider}" is not yet supported by Otto's runtime proxy.`,

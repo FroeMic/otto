@@ -156,6 +156,7 @@ import {
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
   type WhatsAppRuntimeConfig,
   whatsappRuntimeConfigJsonSchema,
+  whatsappRuntimeConfigPatchSchema,
   whatsappRuntimeConfigUiHints,
 } from "@/lib/whatsapp-config";
 import { getWorkOS } from "@/lib/workos";
@@ -5034,6 +5035,40 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
         surface,
       };
     }
+    case "whatsapp": {
+      const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+        tenantId: input.tenantId,
+      });
+
+      if (!surface) {
+        return null;
+      }
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: surface.config as Record<string, unknown>,
+          fieldMeanings: surface.fieldMeanings,
+          patchSchema: surface.schema,
+          settingsExamples: integration.settings.examples,
+          settingsLabel: integration.settings.label,
+          uiFields:
+            typeof surface.uiHints === "object" &&
+            surface.uiHints &&
+            "fields" in surface.uiHints
+              ? ((surface.uiHints as { fields?: Record<string, unknown> })
+                  .fields ?? {})
+              : {},
+          workflow: integration.settings.recommendedWorkflow,
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface,
+      };
+    }
     default:
       return null;
   }
@@ -5079,6 +5114,30 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
         validation: validation.validation,
       };
     }
+    case "whatsapp": {
+      const validation =
+        await validateTenantWhatsAppRuntimeConfigChangeForTenant({
+          createdByType: "runtime",
+          patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
+          tenantId: input.tenantId,
+        });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        effects: validation.effects,
+        integration: settings.integration,
+        nextConfig: validation.nextConfig,
+        surface: settings.surface,
+        validation: validation.validation,
+      };
+    }
     default:
       return null;
   }
@@ -5110,6 +5169,33 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
         createdByType: "runtime",
         expectedEntryVersion: input.expectedEntryVersion,
         patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+        summary: input.summary,
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        ...result,
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: {
+          ok: true,
+          warnings: result.effects?.warnings ?? [],
+        },
+      };
+    }
+    case "whatsapp": {
+      const result = await updateTenantWhatsAppRuntimeConfigForTenant({
+        createdByType: "runtime",
+        expectedEntryVersion: input.expectedEntryVersion,
+        patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
         summary: input.summary,
         tenantId: input.tenantId,
       });
@@ -5439,6 +5525,33 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       }
       break;
     }
+    case "whatsapp": {
+      connectUrl = workspaceUrl;
+
+      if (
+        integration.status.integrationStatus === "linking" ||
+        integration.status.integrationStatus === "pending_apply" ||
+        integration.status.integrationStatus === "applying" ||
+        integration.status.integrationStatus === "activating"
+      ) {
+        recommendedAction = "open_workspace";
+        message =
+          "WhatsApp setup is already in progress. Open the workspace integration page to follow pairing or activation.";
+      } else if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "WhatsApp needs attention. Ask the user to reopen the workspace integration page and pair the number again.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "WhatsApp is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "WhatsApp is connected. Open the workspace integration page to review settings, pair a new number, or disconnect it.";
+      }
+      break;
+    }
     default: {
       recommendedAction = "open_workspace";
       message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
@@ -5451,7 +5564,10 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
     workspaceUrl ? "open_workspace" : null,
     connectUrl ? "connect" : null,
     connectUrl ? "reconnect" : null,
-    integration.key === "slack" && workspaceUrl ? "disconnect" : null,
+    (integration.key === "slack" || integration.key === "whatsapp") &&
+    workspaceUrl
+      ? "disconnect"
+      : null,
   ].filter((action): action is string => Boolean(action));
   const selectedAction =
     requestedAction && availableActions.includes(requestedAction)
@@ -6127,6 +6243,8 @@ export async function disconnectTenantManagedIntegration(input: {
       return disconnectTenantLinearIntegration(input);
     case SLACK_PROVIDER_KEY:
       return disconnectTenantSlackIntegration(input);
+    case WHATSAPP_PROVIDER_KEY:
+      return disconnectTenantWhatsApp(input);
     default:
       throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
   }

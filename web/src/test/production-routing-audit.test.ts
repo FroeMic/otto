@@ -13,7 +13,10 @@ function getServiceBlock(compose: string, serviceName: string) {
   );
   const match = compose.match(pattern);
 
-  assert.ok(match, `Could not find ${serviceName} service block in production compose`);
+  assert.ok(
+    match,
+    `Could not find ${serviceName} service block in production compose`,
+  );
 
   return match[0];
 }
@@ -68,7 +71,7 @@ describe("production routing audit", () => {
 
     assert.doesNotMatch(
       compose,
-      /(^|\n)  www:\n/,
+      /(^|\n) {2}www:\n/,
       "Legacy www service must be removed from production compose",
     );
   });

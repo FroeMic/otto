@@ -27,7 +27,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Legacy integration page entries that still live on the runtime-config-backed
- * surface until they move onto the registry-driven integrations2 shape.
+ * surface. WhatsApp now routes into integrations2 even though the underlying
+ * settings and lifecycle APIs still reuse the runtime-config substrate.
  */
 const knownIntegrations: SurfaceEntry[] = [
   {
@@ -98,7 +99,7 @@ export default async function IntegrationsPage({
       capabilitySummary: computeCapabilitySummary(
         definition?.agentCapabilities,
       ),
-      settingsUrl: `/${organization.slug}/integrations/${known.key}`,
+      settingsUrl: `/${organization.slug}/integrations2/${known.key}/status`,
     };
   });
 

@@ -15,8 +15,8 @@ import {
   isSupportedTimeZone,
   normalizeTimeFormatPreference,
 } from "@/lib/date-time";
-import { isReservedWorkspaceSlug } from "@/lib/workspace-slugs";
 import { getWorkOS } from "@/lib/workos";
+import { isReservedWorkspaceSlug } from "@/lib/workspace-slugs";
 
 export const dynamic = "force-dynamic";
 
