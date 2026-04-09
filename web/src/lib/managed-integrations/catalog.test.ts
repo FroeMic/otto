@@ -31,6 +31,10 @@ describe("managed integration catalog", () => {
     assert.equal(definition.label, "Linear");
     assert.equal(definition.runtimeSurface?.toolName, "linear");
     assert.equal(definition.settings, undefined);
+    assert.equal(
+      definition.settingsPath("michael"),
+      "/michael/integrations2/linear/status",
+    );
     assert.ok(definition.agentCapabilities.length >= 1);
   });
 
@@ -41,7 +45,10 @@ describe("managed integration catalog", () => {
     assert.equal(definition.label, "Slack");
     assert.equal(definition.runtimeSurface?.toolName, "slack");
     assert.equal(definition.settings?.label, "Configuration");
-    assert.equal(definition.settingsPath("michael"), "/michael/integrations2/slack");
+    assert.equal(
+      definition.settingsPath("michael"),
+      "/michael/integrations2/slack/status",
+    );
     assert.ok(definition.agentCapabilities.length >= 1);
   });
 });

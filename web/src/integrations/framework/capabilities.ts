@@ -1,3 +1,4 @@
+import type { AgentCapability } from "@/tools/types";
 import type {
   IntegrationCapabilityPolicy,
   IntegrationCommandEffect,
@@ -133,6 +134,22 @@ export type ResolvedIntegrationCommandCapability = {
   userControllable: boolean;
 };
 
+export type ResolvedIntegrationAgentCapability = {
+  capabilityKey: string;
+  capabilityState: RuntimeCapabilityState;
+  capabilityType: "command" | "trigger";
+  commandKey: string;
+  commandGroup: string | null;
+  commandPath: string[];
+  description: string;
+  effect: IntegrationCommandEffect | null;
+  integrationKey: string;
+  integrationLabel: string;
+  label: string;
+  policy: IntegrationCapabilityPolicy | null;
+  userControllable: boolean;
+};
+
 function collectCommandsFromGroup(
   group: IntegrationRuntimeCommandGroupDefinition,
 ): IntegrationRuntimeCommandDefinition[] {
@@ -153,6 +170,44 @@ export function listIntegrationCommands(input: {
       collectCommandsFromGroup,
     ),
   ];
+}
+
+function getAgentCapabilityEffect(
+  capability: AgentCapability,
+): IntegrationCommandEffect | null {
+  if (capability.direction === "trigger") {
+    return null;
+  }
+
+  return capability.direction === "read" ? "read" : "write";
+}
+
+export function isAgentCapabilityUserControllable(capability: AgentCapability) {
+  return capability.userControllable ?? true;
+}
+
+export function resolveAgentCapabilityState(input: {
+  capability: AgentCapability;
+  policy: IntegrationCapabilityPolicy | null;
+  status: RuntimeIntegrationStatus;
+}): RuntimeCapabilityState {
+  if (input.status.needsAttention || !input.status.connected) {
+    return {
+      reason: "Integration disconnected.",
+      status: "needs_attention",
+    };
+  }
+
+  if (input.policy?.policy === "block") {
+    return {
+      reason: "Disabled by workspace policy.",
+      status: "disabled",
+    };
+  }
+
+  return {
+    status: "enabled",
+  };
 }
 
 export function buildResolvedIntegrationCommandCapability(input: {
@@ -183,5 +238,35 @@ export function buildResolvedIntegrationCommandCapability(input: {
       policy: input.policy,
     }),
     userControllable: isCommandUserControllable(input.command),
+  };
+}
+
+export function buildResolvedIntegrationAgentCapability(input: {
+  capability: AgentCapability;
+  definition: Pick<IntegrationDefinition, "key" | "label">;
+  policy: IntegrationCapabilityPolicy | null;
+  status: RuntimeIntegrationStatus;
+}): ResolvedIntegrationAgentCapability {
+  return {
+    capabilityKey: input.capability.key,
+    capabilityState: resolveAgentCapabilityState({
+      capability: input.capability,
+      policy: input.policy,
+      status: input.status,
+    }),
+    capabilityType:
+      input.capability.direction === "trigger" ? "trigger" : "command",
+    commandKey: input.capability.key,
+    commandGroup: null,
+    commandPath: [input.capability.direction, input.capability.key],
+    description: input.capability.description,
+    effect: getAgentCapabilityEffect(input.capability),
+    integrationKey: input.definition.key,
+    integrationLabel: input.definition.label,
+    label: input.capability.label,
+    policy: getCommandPolicy({
+      policy: input.policy,
+    }),
+    userControllable: isAgentCapabilityUserControllable(input.capability),
   };
 }

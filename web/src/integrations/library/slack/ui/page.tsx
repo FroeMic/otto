@@ -1,25 +1,26 @@
 import Image from "next/image";
-import Link from "next/link";
-
+import { redirect } from "next/navigation";
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import { SlackActionsMenu } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-actions-menu";
-import { SlackRuntimeConfigPanel } from "@/app/[orgSlug]/(app)/integrations/slack/_components/slack-runtime-config-panel";
+import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
   getTenantManagedIntegrationSummary,
   getTenantSlackRuntimeConfigSurface,
+  listManagedIntegrationCapabilitiesForOrganization,
   refreshTenantSlackDirectory,
 } from "@/db/control-plane";
+import { getIntegrationDefinition } from "@/integrations/framework";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { hasSlackOAuthConfig } from "@/lib/env";
 import {
   getCurrentOnboardingSession,
-  getPrimaryAgentLatestApplyRun,
   getRuntimeApplyStatusLabel,
   getRuntimeStatusLabel,
   getSlackStatusLabel,
-  isOrganizationUnlocked,
 } from "@/lib/workspace";
-import { getToolDefinition } from "@/tools";
+
+import { SlackActionsMenu } from "./components/actions-menu";
+import { SlackIntegrationPanel } from "./components/integration-panel";
 
 type SlackStatusVariant = "default" | "destructive" | "outline" | "secondary";
 
@@ -89,22 +90,71 @@ function getStatusAlert(props: {
 
 export async function SlackManagedIntegrationPage({
   orgSlug,
+  section,
   userExternalId,
 }: {
   orgSlug: string;
+  section: string | null;
   userExternalId: string;
 }) {
+  const definition = getIntegrationDefinition("slack");
+
+  if (!definition) {
+    throw new Error("Integration definition for Slack is missing.");
+  }
+
+  const currentSection =
+    section === "capabilities" ||
+    section === "channels" ||
+    section === "configuration" ||
+    section === "people" ||
+    section === "status"
+      ? section
+      : "status";
+
+  if (section && currentSection !== section) {
+    redirect(
+      buildIntegrationSectionPath({
+        integrationKey: definition.key,
+        orgSlug,
+        section: "status",
+      }),
+    );
+  }
+
   const { currentOrganization: organization } =
     await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
-  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
   const sessionId = session?.id ?? null;
   const summary = await getTenantManagedIntegrationSummary({
     orgSlug,
-    providerKey: "slack",
+    providerKey: definition.key,
     userExternalId,
   });
+  const capabilityRows = (
+    await listManagedIntegrationCapabilitiesForOrganization({
+      orgSlug,
+      providerKey: definition.key,
+      userExternalId,
+    })
+  ).map(
+    (row): CapabilityInventoryRow => ({
+      ...row,
+      policyEndpoint: `/api/integrations/${orgSlug}/${definition.key}/capabilities/${encodeURIComponent(row.capabilityKey)}/policy`,
+      reason: row.capabilityState.reason ?? null,
+      searchText: [
+        row.label,
+        row.description,
+        row.commandGroup ?? "",
+        row.commandKey,
+        row.capabilityState.reason ?? "",
+      ]
+        .join(" ")
+        .toLowerCase(),
+      status: row.capabilityState.status,
+    }),
+  );
   const slackIsConnected = Boolean(
     summary?.connectedAt && !summary?.disconnectedAt,
   );
@@ -119,35 +169,19 @@ export async function SlackManagedIntegrationPage({
       : onboardingSlackError;
   const runtimeApplyStatusLabel = getRuntimeApplyStatusLabel(organization);
   const runtimeApplyError =
-    integrationStatus === "apply_failed"
-      ? (summary?.lastError ?? latestApplyRun?.error ?? null)
-      : latestApplyRun?.status === "failed"
-        ? latestApplyRun.error
-        : null;
+    integrationStatus === "apply_failed" ? (summary?.lastError ?? null) : null;
   const connectedAt = summary?.connectedAt ?? session?.slackConnectedAt ?? null;
   const slackTeamName =
     organization.slackIntegration?.teamName ?? session?.slackTeamName ?? null;
-  const ottoIsReady = isOrganizationUnlocked(organization);
-  const canRetrySlackDuringSetup =
-    hasSlackOAuthConfig() &&
-    Boolean(sessionId) &&
-    (!slackIsConnected || Boolean(connectionError)) &&
-    !ottoIsReady;
   const runtimeApplyIsActive =
-    integrationStatus === "pending_apply" ||
-    integrationStatus === "applying" ||
-    latestApplyRun?.status === "queued" ||
-    latestApplyRun?.status === "loading_desired_state" ||
-    latestApplyRun?.status === "rendering_files" ||
-    latestApplyRun?.status === "writing_files" ||
-    latestApplyRun?.status === "pulling_runtime_image" ||
-    latestApplyRun?.status === "restarting_runtime" ||
-    latestApplyRun?.status === "verifying_runtime";
-  const canReconnectSlack =
-    hasSlackOAuthConfig() &&
-    Boolean(sessionId) &&
-    slackIsConnected &&
-    !runtimeApplyIsActive;
+    integrationStatus === "pending_apply" || integrationStatus === "applying";
+  const connectUrl =
+    hasSlackOAuthConfig() && sessionId
+      ? `/oauth/start/slack?onboardingSessionId=${sessionId}`
+      : null;
+  const connectActionLabel =
+    slackIsConnected || connectionError ? "Reconnect Slack" : "Connect Slack";
+  const canReconnectSlack = Boolean(connectUrl) && slackIsConnected;
   const slackDirectoryRefresh = slackIsConnected
     ? await refreshTenantSlackDirectory({
         orgSlug,
@@ -164,11 +198,10 @@ export async function SlackManagedIntegrationPage({
     runtimeApplyIsActive,
     slackIsConnected,
   });
-  const slackToolDefinition = getToolDefinition("channel", "slack");
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6 pb-12">
-      <section className="flex flex-col gap-4">
+    <div className="flex w-full max-w-none flex-col gap-6 pb-12">
+      <section className="flex max-w-3xl flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
@@ -182,46 +215,38 @@ export async function SlackManagedIntegrationPage({
               <h1 className="text-3xl font-semibold tracking-tight">Slack</h1>
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
-              Choose who can use Otto in Slack and where Otto can reply.
+              {definition.pageDescription}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {canRetrySlackDuringSetup && sessionId ? (
+            {connectUrl && !slackIsConnected ? (
               <a
                 className={buttonVariants({ variant: "default" })}
-                href={`/oauth/start/slack?onboardingSessionId=${sessionId}`}
+                href={connectUrl}
               >
-                {connectionError ? "Retry Slack" : "Connect Slack"}
+                {connectActionLabel}
               </a>
-            ) : null}
-            {slackIsConnected && !ottoIsReady ? (
-              <Link
-                className={buttonVariants({ variant: "default" })}
-                href={`/${organization.slug}/onboarding`}
-              >
-                Continue setup
-              </Link>
             ) : null}
             {slackIsConnected ? (
               <SlackActionsMenu
-                canReconnect={canReconnectSlack && !!sessionId && ottoIsReady}
+                canReconnect={canReconnectSlack}
                 orgSlug={organization.slug}
-                reconnectUrl={
-                  canReconnectSlack && sessionId && ottoIsReady
-                    ? `/oauth/start/slack?onboardingSessionId=${sessionId}`
-                    : null
-                }
+                reconnectUrl={canReconnectSlack ? connectUrl : null}
               />
             ) : null}
           </div>
         </div>
       </section>
 
-      <SlackRuntimeConfigPanel
-        agentCapabilities={slackToolDefinition?.agentCapabilities ?? []}
+      <SlackIntegrationPanel
+        capabilityRows={capabilityRows}
+        connectActionLabel={connectActionLabel}
+        connectUrl={connectUrl}
         connectedAtLabel={connectedAt ? connectedAt.toISOString() : null}
+        currentSection={currentSection}
         directoryRefreshError={slackDirectoryRefresh?.error ?? null}
+        disconnectAvailable={slackIsConnected && !runtimeApplyIsActive}
         initialSurface={slackRuntimeConfigSurface}
         orgSlug={orgSlug}
         runtimeApplyStatusLabel={runtimeApplyStatusLabel}

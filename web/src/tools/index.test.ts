@@ -8,7 +8,7 @@ import {
 } from "@/tools";
 
 describe("tool registry", () => {
-  it("loads unique registry-backed surfaces", () => {
+  it("loads unique registry-backed non-integration surfaces", () => {
     const definitions = listToolDefinitions();
     const surfaceIds = new Set(
       definitions.map((definition) => `${definition.kind}:${definition.key}`),
@@ -17,12 +17,13 @@ describe("tool registry", () => {
 
     assert.equal(surfaceIds.size, definitions.length);
     assert.equal(ids.size, definitions.length);
-    assert.ok(getToolDefinition("channel", "slack"));
+    assert.equal(getToolDefinition("channel", "slack"), null);
+    assert.ok(getToolDefinition("channel", "whatsapp"));
     assert.ok(getToolDefinition("web", "search"));
   });
 
   it("computes lifecycle actions from current state", () => {
-    const definition = getToolDefinition("channel", "slack");
+    const definition = getToolDefinition("channel", "whatsapp");
 
     assert.ok(definition);
     assert.deepEqual(
@@ -30,21 +31,21 @@ describe("tool registry", () => {
         enabled: true,
         installState: "installed",
       }),
-      ["update", "disable", "uninstall", "reapply"],
+      ["update", "reapply"],
     );
     assert.deepEqual(
       listAvailableToolActions(definition, {
         enabled: false,
         installState: "installed",
       }),
-      ["update", "enable", "uninstall", "reapply"],
+      ["update", "reapply"],
     );
     assert.deepEqual(
       listAvailableToolActions(definition, {
         enabled: false,
         installState: "uninstalled",
       }),
-      ["install"],
+      [],
     );
 
     const webSearchDefinition = getToolDefinition("web", "search");

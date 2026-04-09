@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react/ssr";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+
 import { SyncNotification } from "@/components/sync-notification";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +20,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function SlackActionsMenu({
+  canReconnect,
   orgSlug,
   reconnectUrl,
-  canReconnect,
 }: {
+  canReconnect: boolean;
   orgSlug: string;
   reconnectUrl: string | null;
-  canReconnect: boolean;
 }) {
   const [syncJobId, setSyncJobId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState("");
@@ -35,22 +36,22 @@ export function SlackActionsMenu({
       const response = await fetch(
         `/api/workspace/${orgSlug}/slack/resync-directory`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
         },
       );
       const data = await response.json();
+
       if (!response.ok || !data.ok) {
         toast.error(`Resync ${action} failed`, {
           description: data.error ?? "Unknown error",
         });
-      } else {
-        setSyncMessage(
-          action === "users" ? "Syncing Users" : "Syncing Channels",
-        );
-        setSyncJobId(data.jobId);
+        return;
       }
+
+      setSyncMessage(action === "users" ? "Syncing Users" : "Syncing Channels");
+      setSyncJobId(data.jobId);
     } catch (error) {
       toast.error(`Resync ${action} failed`, {
         description: error instanceof Error ? error.message : "Unknown error",
@@ -78,9 +79,9 @@ export function SlackActionsMenu({
           render={
             <Button
               aria-label="Slack actions"
-              variant="outline"
-              size="icon"
               disabled={syncJobId !== null}
+              size="icon"
+              variant="outline"
             />
           }
         >

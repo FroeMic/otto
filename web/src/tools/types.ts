@@ -43,6 +43,7 @@ export type AgentCapability = {
   label: string;
   openclawTool?: string;
   source: AgentCapabilitySource;
+  userControllable?: boolean;
 };
 
 export type ToolSurfaceLifecycleState = {

@@ -1568,13 +1568,66 @@ Phase D: verification and cleanup
 - verify there are no stale-write or double-mutation paths after the cutover
 - delete the now-unused Slack-specific runtime-surface adapters and routes
 
+Implementation status:
+
+- completed on `main`
+- Slack capability policy now renders through the shared managed capability inventory table
+- Slack lifecycle/status UI is provider-owned under `web/src/integrations/library/slack`
+- the legacy `/integrations/slack` page is now a redirect into `/integrations2/slack/status`
+- `otto-runtime-config` no longer registers Slack-specific tools
+- managed integration tabs now use nested routes like `/integrations2/slack/status`, `/integrations2/slack/capabilities`, and `/integrations2/slack/channels`
+
+Completion plan from the current partial migration state:
+
+1. Make `web/src/integrations/library/slack` the only long-term home for Slack integration behavior.
+   - keep the Slack provider definition, integration page shell, capability rendering, and integration-specific actions under `web/src/integrations/library/slack`
+   - stop growing Slack-specific behavior inside `web/src/app/[orgSlug]/(app)/integrations/slack/*` except as temporary shims
+   - treat `web/src/app/[orgSlug]/(app)/integrations/slack/*` as compatibility wrappers that should eventually disappear
+2. Finish the Slack page-shell migration so it matches the shared managed-integration shape used by Linear.
+   - stop rendering the old custom Slack tab system directly from the legacy runtime-config panel
+   - move Slack onto a provider-owned detail shell under `library/slack` that uses the same managed-integration layout concepts as Linear
+   - keep Slack-specific sections only where Slack genuinely needs them, such as people and channels
+3. Move Slack capabilities onto the shared managed capability inventory path.
+   - render the `Capabilities` tab with the shared capability table instead of custom grouped badges
+   - support enable and disable actions through the same managed capability policy endpoints used by Linear
+   - stop treating Slack capability display as a one-off static rendering
+4. Finish lifecycle parity in the managed integration contract.
+   - add Slack-specific `connect`, `reconnect`, and `disconnect` behavior to `manage_integration`
+   - show reconnect and disconnect actions in the managed Slack status UI, not only in temporary legacy controls
+   - remove the current gap where Slack falls back to `open_workspace` for actions the runtime should understand explicitly
+5. Remove Slack-specific agent mutation tools from `otto-runtime-config`.
+   - delete `get_slack_policy`, `preview_slack_policy_action`, and `apply_slack_policy_action`
+   - leave `otto-runtime-config` responsible only for non-integration runtime surfaces
+   - make `otto-integrations` the only runtime plugin surface for Slack lifecycle and settings
+6. Extract shared integration detail-page behavior.
+   - create a shared sticky save treatment for editable integration pages instead of Slack owning its own save bar behavior
+   - fix the current Slack save bar layout shift by rendering it outside normal page flow and positioning it higher on the viewport
+   - reuse the same shared save treatment for future editable integrations so Linear, Slack, and later providers do not drift
+7. Replace query-param tabs with real nested routes for managed integration detail pages.
+   - stop using `?tab=` as the primary navigation shape for `integrations2`
+   - move to routes such as `/integrations2/slack/status`, `/integrations2/slack/capabilities`, `/integrations2/slack/configuration`, and provider-specific child routes like `/integrations2/slack/channels`
+   - make the integration framework own tab routing at the page-shell level so every provider follows the same URL semantics
+
+Definition of done for the full Slack migration:
+
+- Slack capability policy uses the shared managed capability inventory table and policy endpoints
+- Slack status actions for connect, reconnect, and disconnect are exposed consistently in both the workspace UI and `manage_integration`
+- Slack settings, page shell, and provider-specific UI all live under `web/src/integrations/library/slack`
+- `otto-runtime-config` no longer exposes any Slack-specific tools or Slack inventory entries
+- Slack managed integration pages use route-based tabs rather than query-param tabs
+- the remaining legacy `/integrations/slack` page is either removed or reduced to a redirect into `/integrations2/slack/...`
+
 Verification checklist:
 
 - Slack still connects and reconnects through the control-plane OAuth flow
 - Slack HTTP ingress still routes events, commands, and interactivity by `team_id`
 - a connected workspace can read Slack settings through the new integration detail path
 - Otto can update agent-manageable Slack settings through the new integration settings contract
+- Slack capability policy appears in the shared managed capability inventory table and can be enabled or disabled there
+- Slack lifecycle actions are available through `manage_integration`, including explicit reconnect and disconnect handling
 - locked or read-only Slack fields fail clearly when the agent tries to mutate them
+- no Slack-specific runtime mutation tools remain in `otto-runtime-config`
+- route-based managed integration tabs work for Slack and the shared integration detail shell
 - voice-note transcription still works after the runtime-facing settings migration
 - the legacy `otto-runtime-config` plugin no longer advertises Slack once the cutover is complete
 

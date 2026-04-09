@@ -1,14 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  type ReadonlyURLSearchParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
+import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
+import { CapabilityInventoryTable } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import {
   SettingsCard,
   SettingsPage,
@@ -26,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import {
   Dialog,
   DialogContent,
@@ -43,12 +41,13 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
+import { IntegrationStickySaveBar } from "@/integrations/framework/ui/sticky-save-bar";
 import {
   deriveSlackPolicyEffects,
   isSlackPolicyDestructive,
   type SlackPolicyDerivedEffects,
-} from "@/tools/slack/policy";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
+} from "@/integrations/library/slack/policy";
 
 type SlackDirectoryOption = {
   memberCount?: number | null;
@@ -76,16 +75,6 @@ type SlackRuntimeConfigSurface = {
     requireMentionInChannels: boolean;
     schemaVersion: string;
   };
-  description: string;
-  derivedEffects?: {
-    warnings?: string[];
-    wouldDisableChannelReplies?: boolean;
-    wouldDisableDMs?: boolean;
-    wouldFullyLockOutSlack?: boolean;
-  };
-  key: string;
-  kind: string;
-  label: string;
 };
 
 type SelectedDirectoryEntry = SlackDirectoryOption & {
@@ -104,10 +93,19 @@ type SlackChannelRow = SlackDirectoryOption & {
   searchText: string;
 };
 
-type SlackRuntimeConfigPanelProps = {
-  agentCapabilities: AgentCapability[];
+type Props = {
+  capabilityRows: CapabilityInventoryRow[];
+  connectActionLabel: string;
+  connectUrl: string | null;
   connectedAtLabel: string | null;
+  currentSection:
+    | "capabilities"
+    | "channels"
+    | "configuration"
+    | "people"
+    | "status";
   directoryRefreshError: string | null;
+  disconnectAvailable: boolean;
   initialSurface: SlackRuntimeConfigSurface | null;
   orgSlug: string;
   runtimeApplyStatusLabel: string | null;
@@ -132,31 +130,6 @@ const EMPTY_DRAFT_EFFECTS: SlackPolicyDerivedEffects = {
   wouldDisableDMs: false,
   wouldFullyLockOutSlack: false,
 };
-
-const capabilityDirectionConfig: Record<
-  AgentCapabilityDirection,
-  { label: string; order: number }
-> = {
-  trigger: { label: "Session triggers", order: 0 },
-  tool: { label: "Tools", order: 1 },
-  read: { label: "Read access", order: 2 },
-};
-
-function groupCapabilities(capabilities: AgentCapability[]) {
-  const groups = new Map<AgentCapabilityDirection, AgentCapability[]>();
-
-  for (const capability of capabilities) {
-    const currentGroup = groups.get(capability.direction) ?? [];
-    currentGroup.push(capability);
-    groups.set(capability.direction, currentGroup);
-  }
-
-  return [...groups.entries()].sort(
-    ([left], [right]) =>
-      capabilityDirectionConfig[left].order -
-      capabilityDirectionConfig[right].order,
-  );
-}
 
 function getInitials(label: string) {
   const parts = label
@@ -317,26 +290,6 @@ function getChannelReplyAccess(input: {
   };
 }
 
-function updateQueryString(
-  pathname: string,
-  searchParams: ReadonlyURLSearchParams,
-  updates: Record<string, string | null>,
-) {
-  const params = new URLSearchParams(searchParams.toString());
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (!value) {
-      params.delete(key);
-      continue;
-    }
-
-    params.set(key, value);
-  }
-
-  const query = params.toString();
-  return `${pathname}${query ? `?${query}` : ""}`;
-}
-
 function DirectoryIdentity(props: {
   kind: "channel" | "user";
   option: SelectedDirectoryEntry;
@@ -391,51 +344,15 @@ function SummaryValue({
   );
 }
 
-function SaveBar(props: {
-  hasChanges: boolean;
-  isPending: boolean;
-  onReset: () => void;
-  onSave: () => void;
-}) {
-  const { hasChanges, isPending, onReset, onSave } = props;
-
-  return (
-    <div className="fixed right-6 bottom-6 left-6 z-30 sm:left-[max(1.5rem,calc(50%-24rem))] sm:right-auto sm:w-[min(100%-3rem,48rem)]">
-      <div className="flex flex-col gap-3 rounded-2xl border bg-background/95 p-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/85 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">
-            You have unsaved Slack changes.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Review the changes, then save or discard them.
-          </p>
-        </div>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row">
-          <Button
-            disabled={isPending || !hasChanges}
-            onClick={onReset}
-            type="button"
-            variant="outline"
-          >
-            Discard
-          </Button>
-          <Button
-            disabled={isPending || !hasChanges}
-            onClick={onSave}
-            type="button"
-          >
-            {isPending ? "Saving..." : "Save changes"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+function readJson(response: Response) {
+  return response.json().catch(() => null) as Promise<Record<
+    string,
+    unknown
+  > | null>;
 }
 
-export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
+export function SlackIntegrationPanel(props: Props) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [surface, setSurface] = useState(props.initialSurface);
   const [draft, setDraft] = useState(props.initialSurface?.config ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -448,21 +365,6 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
   const [isDangerDialogOpen, setIsDangerDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const tabParam = searchParams.get("tab");
-  const currentTab:
-    | "capabilities"
-    | "status"
-    | "configuration"
-    | "people"
-    | "channels" =
-    tabParam === "status" ||
-    tabParam === "capabilities" ||
-    tabParam === "configuration" ||
-    tabParam === "people" ||
-    tabParam === "channels"
-      ? tabParam
-      : "capabilities";
-  const hasStatusIssue = Boolean(props.statusAlert);
   const hasChanges =
     surface && draft ? !areConfigsEqual(draft, surface.config) : false;
   const draftEffects = useMemo(
@@ -629,12 +531,19 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
     };
   }, [hasChanges]);
 
-  function setTopLevelTab(
-    value: "status" | "configuration" | "people" | "channels" | "capabilities",
+  function navigateToSection(
+    section:
+      | "capabilities"
+      | "channels"
+      | "configuration"
+      | "people"
+      | "status",
   ) {
     router.replace(
-      updateQueryString(pathname, searchParams, {
-        tab: value,
+      buildIntegrationSectionPath({
+        integrationKey: "slack",
+        orgSlug: props.orgSlug,
+        section,
       }),
       { scroll: false },
     );
@@ -744,7 +653,6 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
           method: "POST",
         },
       );
-
       const payload = (await response.json()) as {
         message?: string;
         surface?: SlackRuntimeConfigSurface;
@@ -756,14 +664,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         );
       }
 
-      setSurface((current) =>
-        current
-          ? {
-              ...current,
-              availableChannels: payload.surface?.availableChannels ?? [],
-            }
-          : current,
-      );
+      setSurface(payload.surface);
       router.refresh();
     } catch (error) {
       setMembershipError(
@@ -849,6 +750,51 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
     }
 
     submitDraft();
+  }
+
+  function handleDisconnect() {
+    if (
+      !window.confirm(
+        "Disconnect Slack from this workspace? Otto will stop using it until you reconnect.",
+      )
+    ) {
+      return;
+    }
+
+    startTransition(() => {
+      void (async () => {
+        setErrorMessage(null);
+        setSuccessMessage(null);
+
+        try {
+          const response = await fetch(
+            `/api/integrations/${props.orgSlug}/slack/disconnect`,
+            {
+              body: JSON.stringify({}),
+              headers: {
+                "Content-Type": "application/json",
+              },
+              method: "POST",
+            },
+          );
+          const payload = await readJson(response);
+
+          if (!response.ok) {
+            throw new Error(
+              typeof payload?.message === "string"
+                ? payload.message
+                : "Slack disconnect failed.",
+            );
+          }
+
+          router.refresh();
+        } catch (error) {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Slack disconnect failed.",
+          );
+        }
+      })();
+    });
   }
 
   const peopleColumns: Array<ColumnDef<SlackPersonRow>> = [
@@ -1038,69 +984,6 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
     },
   ];
 
-  if (!surface || !draft) {
-    return (
-      <SettingsPage className="mx-0 max-w-none">
-        <div className="flex flex-col gap-8 pb-24">
-          <SettingsSection>
-            <SettingsSectionTitle>Connection</SettingsSectionTitle>
-            <SettingsSectionDescription>
-              Connect Slack before you choose who can use Otto and where Otto
-              can reply.
-            </SettingsSectionDescription>
-            <SettingsCard>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Status</SettingsRowTitle>
-                  <SettingsRowDescription>
-                    Slack must be connected before Otto can answer messages.
-                  </SettingsRowDescription>
-                </SettingsRowLabel>
-                <Badge variant={props.slackStatusVariant}>
-                  {props.slackStatusLabel}
-                </Badge>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Slack workspace</SettingsRowTitle>
-                </SettingsRowLabel>
-                <span className="text-sm text-muted-foreground">
-                  {props.slackTeamName ?? "Not connected"}
-                </span>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Connected on</SettingsRowTitle>
-                </SettingsRowLabel>
-                <span className="text-sm text-muted-foreground">
-                  {props.connectedAtLabel ?? "Not connected yet"}
-                </span>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Otto status</SettingsRowTitle>
-                </SettingsRowLabel>
-                <span className="text-sm text-muted-foreground">
-                  {props.runtimeStatusLabel}
-                </span>
-              </SettingsRow>
-            </SettingsCard>
-          </SettingsSection>
-
-          <Alert>
-            <AlertTitle>
-              Slack settings will appear here after you connect Slack
-            </AlertTitle>
-            <AlertDescription>
-              Once Slack is connected, you can choose reply behavior, selected
-              people, and channel access from this page.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </SettingsPage>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6 pb-24">
       {errorMessage ? (
@@ -1117,7 +1000,8 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         </Alert>
       ) : null}
 
-      {draftEffects.warnings.length > 0 ? (
+      {draftEffects.warnings.length > 0 &&
+      props.currentSection !== "capabilities" ? (
         <Alert
           variant={
             draftEffects.wouldFullyLockOutSlack ? "destructive" : "default"
@@ -1136,26 +1020,26 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
 
       <Tabs
         className="flex flex-col gap-6"
-        value={currentTab}
         onValueChange={(value) =>
-          setTopLevelTab(
+          navigateToSection(
             value as
               | "capabilities"
-              | "status"
+              | "channels"
               | "configuration"
               | "people"
-              | "channels",
+              | "status",
           )
         }
+        value={props.currentSection}
       >
         <TabsList className="h-auto justify-start overflow-x-auto p-1">
-          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           <TabsTrigger value="status">
             <span>Status</span>
-            {hasStatusIssue ? (
+            {props.statusAlert ? (
               <span className="size-2 rounded-full bg-destructive" />
             ) : null}
           </TabsTrigger>
+          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="channels">Channels</TabsTrigger>
@@ -1225,8 +1109,64 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                   </SettingsRow>
                 </SettingsCard>
               </SettingsSection>
+
+              <SettingsSection>
+                <SettingsSectionTitle>Actions</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Connect, reconnect, or disconnect Slack for this workspace.
+                </SettingsSectionDescription>
+                <SettingsCard>
+                  {props.connectUrl ? (
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>
+                          {props.connectActionLabel}
+                        </SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Use the workspace-owned Slack flow when the connection
+                          needs setup or attention.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <a
+                        className={buttonVariants({ variant: "default" })}
+                        href={props.connectUrl}
+                      >
+                        {props.connectActionLabel}
+                      </a>
+                    </SettingsRow>
+                  ) : null}
+                  {props.disconnectAvailable ? (
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Disconnect Slack</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Remove the current Slack connection from this
+                          workspace.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <Button
+                        disabled={isPending}
+                        onClick={handleDisconnect}
+                        type="button"
+                        variant="outline"
+                      >
+                        Disconnect
+                      </Button>
+                    </SettingsRow>
+                  ) : null}
+                </SettingsCard>
+              </SettingsSection>
             </div>
           </SettingsPage>
+        </TabsContent>
+
+        <TabsContent value="capabilities">
+          <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
+            <CapabilityInventoryTable
+              rows={props.capabilityRows}
+              showSource={false}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="configuration">
@@ -1250,7 +1190,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Switch
-                      checked={draft.ackReactionEnabled}
+                      checked={draft?.ackReactionEnabled ?? false}
                       onCheckedChange={(checked) =>
                         updateBooleanSetting("ackReactionEnabled", checked)
                       }
@@ -1264,7 +1204,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Switch
-                      checked={draft.answerInThreads}
+                      checked={draft?.answerInThreads ?? false}
                       onCheckedChange={(checked) =>
                         updateBooleanSetting("answerInThreads", checked)
                       }
@@ -1281,7 +1221,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Switch
-                      checked={draft.requireMentionInChannels}
+                      checked={draft?.requireMentionInChannels ?? false}
                       onCheckedChange={(checked) =>
                         updateBooleanSetting(
                           "requireMentionInChannels",
@@ -1313,7 +1253,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                     <SummaryValue
                       action={
                         <Button
-                          onClick={() => setTopLevelTab("people")}
+                          onClick={() => navigateToSection("people")}
                           size="sm"
                           type="button"
                           variant="outline"
@@ -1333,13 +1273,13 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                     <SettingsRowLabel>
                       <SettingsRowTitle>Where Otto can reply</SettingsRowTitle>
                       <SettingsRowDescription>
-                        {draft.channelAccessMode === "member_of_channels"
+                        {draft?.channelAccessMode === "member_of_channels"
                           ? "Any channel where Otto has been added becomes active right away."
                           : "Otto only replies in channels that are selected here and already include Otto."}
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Select
-                      value={draft.channelAccessMode}
+                      value={draft?.channelAccessMode ?? "manual_allowlist"}
                       onValueChange={(value) => {
                         if (
                           value === "manual_allowlist" ||
@@ -1376,12 +1316,12 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                   <SettingsRow>
                     <SettingsRowLabel>
                       <SettingsRowTitle>
-                        {draft.channelAccessMode === "member_of_channels"
+                        {draft?.channelAccessMode === "member_of_channels"
                           ? "Channels where Otto is active"
                           : "Selected channels"}
                       </SettingsRowTitle>
                       <SettingsRowDescription>
-                        {draft.channelAccessMode === "member_of_channels"
+                        {draft?.channelAccessMode === "member_of_channels"
                           ? "Otto can reply in every channel listed as added."
                           : missingSelectedChannels.length > 0
                             ? `${missingSelectedChannels.length} saved selection${missingSelectedChannels.length === 1 ? "" : "s"} are missing from the latest Slack sync.`
@@ -1391,7 +1331,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                     <SummaryValue
                       action={
                         <Button
-                          onClick={() => setTopLevelTab("channels")}
+                          onClick={() => navigateToSection("channels")}
                           size="sm"
                           type="button"
                           variant="outline"
@@ -1477,7 +1417,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
                 <span className="font-medium text-foreground">
                   Channel Policy:
                 </span>{" "}
-                {draft.channelAccessMode === "member_of_channels"
+                {draft?.channelAccessMode === "member_of_channels"
                   ? "Otto can be added to any channel. Only authorized users can chat with him."
                   : "Otto will reply only in selected channels where Otto has been added."}
               </p>
@@ -1500,71 +1440,16 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
             </div>
           </div>
         </TabsContent>
-
-        <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-none">
-            <div className="flex flex-col gap-8">
-              {props.agentCapabilities.length > 0 ? (
-                groupCapabilities(props.agentCapabilities).map(
-                  ([direction, capabilities]) => (
-                    <div className="flex flex-col gap-3" key={direction}>
-                      <SettingsSectionTitle>
-                        {capabilityDirectionConfig[direction].label}
-                      </SettingsSectionTitle>
-                      <SettingsCard>
-                        {capabilities.map((capability) => (
-                          <SettingsRow key={capability.key}>
-                            <SettingsRowLabel>
-                              <SettingsRowTitle>
-                                {capability.label}
-                              </SettingsRowTitle>
-                              <SettingsRowDescription>
-                                {capability.description}
-                              </SettingsRowDescription>
-                              {capability.conditionNote ? (
-                                <span className="text-xs text-muted-foreground">
-                                  {capability.conditionNote}
-                                </span>
-                              ) : null}
-                            </SettingsRowLabel>
-                            <Badge variant="outline">
-                              {capabilityDirectionConfig[direction].label}
-                            </Badge>
-                          </SettingsRow>
-                        ))}
-                      </SettingsCard>
-                    </div>
-                  ),
-                )
-              ) : (
-                <SettingsCard>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>
-                        No capabilities listed
-                      </SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Otto has no Slack-specific capabilities to show yet.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                  </SettingsRow>
-                </SettingsCard>
-              )}
-            </div>
-          </SettingsPage>
-        </TabsContent>
       </Tabs>
 
-      {hasChanges ? (
-        <SettingsPage className="mx-0 max-w-none">
-          <SaveBar
-            hasChanges={hasChanges}
-            isPending={isPending}
-            onReset={resetDraft}
-            onSave={saveDraft}
-          />
-        </SettingsPage>
-      ) : null}
+      <IntegrationStickySaveBar
+        description="Review the changes, then save or discard them."
+        hasChanges={hasChanges}
+        isPending={isPending}
+        onDiscard={resetDraft}
+        onSave={saveDraft}
+        title="You have unsaved Slack changes."
+      />
 
       <Dialog open={isDangerDialogOpen} onOpenChange={setIsDangerDialogOpen}>
         <DialogContent>

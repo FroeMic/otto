@@ -5,7 +5,7 @@ import {
   applySlackPolicyAction,
   deriveSlackPolicyEffects,
   isSlackPolicyDestructive,
-} from "@/tools/slack/policy";
+} from "@/integrations/library/slack/policy";
 
 describe("slack policy actions", () => {
   it("adds and removes allowed users without overwriting unrelated config", () => {
