@@ -15,6 +15,7 @@ import type {
   RuntimeIntegrationCommandMatch,
   RuntimeIntegrationCommandSummary,
   RuntimeIntegrationDetailsResponse,
+  RuntimeIntegrationSettingsSummary,
   RuntimeIntegrationStatus,
   RuntimeIntegrationSummaryResponse,
 } from "./types";
@@ -72,6 +73,47 @@ function buildUsageGuide() {
   };
 }
 
+function buildSettingsSummary(
+  input: Pick<IntegrationDefinition, "key" | "settings">,
+): RuntimeIntegrationSettingsSummary | null {
+  if (!input.settings) {
+    return null;
+  }
+
+  const recommendedWorkflow = input.settings.recommendedWorkflow ?? [
+    `Call configure_integration with {"integrationKey":"${input.key}","action":"get"} first to inspect the current settings, editable fields, and update schema.`,
+    "Use action=validate with a minimal patch to dry-run the change before saving it.",
+    "Use action=apply with expectedEntryVersion from the most recent action=get response to persist the change.",
+  ];
+
+  const examples = input.settings.examples?.map((example) => ({
+    call: {
+      action: example.action,
+      expectedEntryVersion: example.expectedEntryVersion,
+      integrationKey: input.key,
+      patch: example.patch,
+      summary: example.summary,
+    },
+    description: example.description,
+  })) ?? [
+    {
+      call: {
+        action: "get" as const,
+        integrationKey: input.key,
+      },
+      description: `Read the current ${input.key} settings before making changes.`,
+    },
+  ];
+
+  return {
+    description: input.settings.description,
+    examples,
+    label: input.settings.label,
+    recommendedWorkflow,
+    toolName: "configure_integration",
+  };
+}
+
 export function buildRuntimeIntegrationSummaryResponse(input: {
   available?: boolean;
   definition: IntegrationDefinition & {
@@ -91,12 +133,7 @@ export function buildRuntimeIntegrationSummaryResponse(input: {
     label: input.definition.label,
     rootCommands:
       input.definition.runtimeSurface.rootCommands.map(buildCommandSummary),
-    settings: input.definition.settings
-      ? {
-          description: input.definition.settings.description,
-          label: input.definition.settings.label,
-        }
-      : null,
+    settings: buildSettingsSummary(input.definition),
     status: input.status,
     toolDescription: input.definition.runtimeSurface.toolDescription,
     toolName: input.definition.runtimeSurface.toolName,
@@ -181,12 +218,7 @@ export function buildRuntimeIntegrationDetailsResponse(input: {
       description: input.definition.description,
       key: input.definition.key,
       label: input.definition.label,
-      settings: input.definition.settings
-        ? {
-            description: input.definition.settings.description,
-            label: input.definition.settings.label,
-          }
-        : null,
+      settings: buildSettingsSummary(input.definition),
       status: input.status,
       usageGuide: buildUsageGuide(),
     },

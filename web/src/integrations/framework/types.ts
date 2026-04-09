@@ -106,7 +106,43 @@ export type RuntimeIntegrationUsageGuide = {
 
 export type RuntimeIntegrationSettingsSummary = {
   description?: string;
+  examples: RuntimeIntegrationSettingsExample[];
   label: string;
+  recommendedWorkflow: string[];
+  toolName: "configure_integration";
+};
+
+export type RuntimeIntegrationSettingsExample = {
+  call: {
+    action: "apply" | "get" | "validate";
+    expectedEntryVersion?: number | string;
+    integrationKey: string;
+    patch?: Record<string, unknown>;
+    summary?: string;
+  };
+  description: string;
+};
+
+export type RuntimeIntegrationSettingsEditableField = {
+  currentValue: unknown;
+  description?: string;
+  key: string;
+  label: string;
+  schema: Record<string, unknown>;
+  uiHint?: unknown;
+};
+
+export type RuntimeIntegrationSettingsContract = {
+  editableFields: RuntimeIntegrationSettingsEditableField[];
+  examples: RuntimeIntegrationSettingsExample[];
+  patchSchema: {
+    additionalProperties?: boolean;
+    properties: Record<string, Record<string, unknown>>;
+    type: "object";
+  };
+  recommendedWorkflow: string[];
+  settingsLabel: string;
+  settingsToolName: "configure_integration";
 };
 
 export type RuntimeIntegrationCommandSummary = {
@@ -224,7 +260,15 @@ export type IntegrationOverviewItemProps = {
 
 export type IntegrationSettingsDefinition = {
   description?: string;
+  examples?: Array<{
+    action: "apply" | "get" | "validate";
+    description: string;
+    expectedEntryVersion?: number | string;
+    patch?: Record<string, unknown>;
+    summary?: string;
+  }>;
   label: string;
+  recommendedWorkflow?: string[];
 };
 
 export type IntegrationDefinition = {

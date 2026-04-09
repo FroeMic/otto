@@ -1,9 +1,4 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-
-import {
-  isReservedWorkspaceSlug,
-  normalizeWorkspaceSlug,
-} from "@/lib/workspace-slugs";
 import type {
   Invitation,
   Organization,
@@ -12,7 +7,6 @@ import type {
   User,
 } from "@workos-inc/node";
 import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
-
 import { getDb } from "@/db/client";
 import {
   createManualCreditGrant,
@@ -71,6 +65,7 @@ import {
   buildResolvedIntegrationCommandCapability,
   buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationManifestForKeys,
+  buildRuntimeIntegrationSettingsContract,
   buildRuntimeIntegrationSummaryResponse,
   findIntegrationCommandMatches,
   getIntegrationDefinition,
@@ -86,6 +81,7 @@ import {
   type RuntimeIntegrationCommandMatch,
   type RuntimeIntegrationDetailsResponse,
   type RuntimeIntegrationManifestEntry,
+  type RuntimeIntegrationSettingsContract,
   type RuntimeIntegrationSummaryResponse,
 } from "@/integrations/framework";
 import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
@@ -162,6 +158,10 @@ import {
   whatsappRuntimeConfigUiHints,
 } from "@/lib/whatsapp-config";
 import { getWorkOS } from "@/lib/workos";
+import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "@/lib/workspace-slugs";
 import {
   getToolDefinition,
   getToolSurfaceId,
@@ -4727,6 +4727,7 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
 
 export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
 export type RuntimeIntegrationSettingsResponse = {
+  contract: RuntimeIntegrationSettingsContract;
   integration: Pick<
     RuntimeIntegrationSummaryResponse,
     "key" | "label" | "settings" | "status"
@@ -4959,6 +4960,21 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
       }
 
       return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: surface.config as Record<string, unknown>,
+          fieldMeanings: surface.fieldMeanings,
+          patchSchema: surface.schema,
+          settingsExamples: integration.settings.examples,
+          settingsLabel: integration.settings.label,
+          uiFields:
+            typeof surface.uiHints === "object" &&
+            surface.uiHints &&
+            "fields" in surface.uiHints
+              ? ((surface.uiHints as { fields?: Record<string, unknown> })
+                  .fields ?? {})
+              : {},
+          workflow: integration.settings.recommendedWorkflow,
+        }),
         integration: {
           key: integration.key,
           label: integration.label,

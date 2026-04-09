@@ -16,7 +16,7 @@ export default definePluginEntry({
   id: "otto-integrations",
   name: "Otto Integrations",
   description:
-    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups, use get_integration_details to inspect one command or command group in detail, use configure_integration for safe provider-owned settings, use manage_integration when an integration needs attention, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
+    "Managed integration tools backed by the workspace app. This is the supported path for managed integrations such as Slack and Linear. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups and settings guidance, use get_integration_details to inspect one command or command group in detail, use configure_integration for safe provider-owned settings, use manage_integration for connect or reconnect actions, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -133,7 +133,7 @@ export default definePluginEntry({
       {
         name: "configure_integration",
         description:
-          "Read, validate, or apply safe provider-owned settings for an Otto-managed integration. Use action=get to inspect current settings, action=validate to dry-run a patch, and action=apply to persist a patch with expectedEntryVersion from a prior read.",
+          "Read, validate, or apply safe provider-owned settings for an Otto-managed integration. This is the supported path for managed integration settings such as Slack and Linear. Use action=get first to inspect current settings, editable fields, patch schema, and example updates. Then use action=validate to dry-run a patch and action=apply to persist a patch with expectedEntryVersion from a prior read.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -173,7 +173,7 @@ export default definePluginEntry({
       {
         name: "manage_integration",
         description:
-          "Get the right workspace URL and recommended next action to connect, reconnect, or review an Otto-managed integration. Use this when an integration response says needsAttention=true or connected=false.",
+          "Get the right workspace URL and recommended next action to connect, reconnect, disconnect, or review an Otto-managed integration. Use this for lifecycle changes and browser handoff flows, not for settings updates.",
         parameters: {
           type: "object",
           additionalProperties: false,

@@ -29,6 +29,7 @@ export {
   buildRuntimeIntegrationSummaryResponse,
 } from "./runtime-response";
 export { collectCommands, findIntegrationCommandMatches } from "./search";
+export { buildRuntimeIntegrationSettingsContract } from "./settings-contract";
 export type {
   IntegrationCapabilityPolicy,
   IntegrationCommandDefinition,
@@ -56,6 +57,10 @@ export type {
   RuntimeIntegrationCommandSummary,
   RuntimeIntegrationDetailsResponse,
   RuntimeIntegrationManifestEntry,
+  RuntimeIntegrationSettingsContract,
+  RuntimeIntegrationSettingsEditableField,
+  RuntimeIntegrationSettingsExample,
+  RuntimeIntegrationSettingsSummary,
   RuntimeIntegrationStatus,
   RuntimeIntegrationSummaryResponse,
   RuntimeIntegrationUsageGuide,

@@ -53,6 +53,31 @@ export const slackAgentOperations: ToolAgentOperation[] = [
   },
 ];
 
+export const slackSettingsExamples = [
+  {
+    action: "get" as const,
+    description: "Read the current Slack settings before making changes.",
+  },
+  {
+    action: "validate" as const,
+    description:
+      "Dry-run disabling the Slack acknowledgement reaction before saving it.",
+    patch: {
+      ackReactionEnabled: false,
+    },
+  },
+  {
+    action: "apply" as const,
+    description:
+      "Apply the acknowledgement reaction change after a prior read.",
+    expectedEntryVersion: "<from configure_integration action=get>",
+    patch: {
+      ackReactionEnabled: false,
+    },
+    summary: "Disabled Slack acknowledgement reaction",
+  },
+];
+
 export const slackAgentCapabilities: AgentCapability[] = [
   {
     description: "A Slack DM to Otto starts or continues an agent session.",
