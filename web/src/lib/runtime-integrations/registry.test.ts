@@ -9,16 +9,20 @@ import {
 
 describe("runtime integration registry", () => {
   it("lists supported integration keys deterministically", () => {
-    assert.deepEqual(listSupportedRuntimeIntegrationKeys(), ["linear"]);
+    assert.deepEqual(listSupportedRuntimeIntegrationKeys(), [
+      "linear",
+      "slack",
+    ]);
   });
 
   it("builds a sorted manifest for supported keys only", () => {
     const manifest = buildRuntimeIntegrationManifestForKeys([
       "linear",
+      "slack",
       "unknown",
     ]);
 
-    assert.equal(manifest.length, 1);
+    assert.equal(manifest.length, 2);
     assert.equal(manifest[0]?.key, "linear");
     assert.equal(manifest[0]?.toolName, "linear");
     assert.deepEqual(
@@ -142,6 +146,10 @@ describe("runtime integration registry", () => {
         ?.commandCount,
       5,
     );
+    assert.equal(manifest[1]?.key, "slack");
+    assert.equal(manifest[1]?.toolName, "slack");
+    assert.deepEqual(manifest[1]?.commandGroups, []);
+    assert.deepEqual(manifest[1]?.rootCommands, []);
   });
 
   it("returns a placeholder response for connected linear issue search", async () => {

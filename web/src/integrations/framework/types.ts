@@ -100,7 +100,13 @@ export type RuntimeIntegrationUsageGuide = {
   discoveryToolName: "find_integration_commands";
   executeToolName: "execute_integration_command";
   inventoryToolName: "list_integrations";
+  settingsToolName: "configure_integration";
   recommendedWorkflow: string[];
+};
+
+export type RuntimeIntegrationSettingsSummary = {
+  description?: string;
+  label: string;
 };
 
 export type RuntimeIntegrationCommandSummary = {
@@ -124,6 +130,7 @@ export type RuntimeIntegrationSummaryResponse = {
   key: string;
   label: string;
   rootCommands: RuntimeIntegrationCommandSummary[];
+  settings: RuntimeIntegrationSettingsSummary | null;
   status: RuntimeIntegrationStatus;
   toolDescription: string;
   toolName: string;
@@ -165,7 +172,7 @@ export type RuntimeIntegrationDetailsResponse = {
   group?: RuntimeIntegrationCommandGroupDetails;
   integration: Pick<
     RuntimeIntegrationSummaryResponse,
-    "description" | "key" | "label" | "status" | "usageGuide"
+    "description" | "key" | "label" | "settings" | "status" | "usageGuide"
   >;
 };
 

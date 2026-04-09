@@ -59,11 +59,13 @@ function buildUsageGuide() {
     discoveryToolName: "find_integration_commands" as const,
     executeToolName: "execute_integration_command" as const,
     inventoryToolName: "list_integrations" as const,
+    settingsToolName: "configure_integration" as const,
     recommendedWorkflow: [
       "Use find_integration_commands when you know the user's goal but not the exact integration or command.",
       "Use list_integrations when you need a deterministic workspace inventory instead of semantic discovery.",
       "Use get_integration to inspect top-level command groups and root commands without loading full command schemas.",
       "Use get_integration_details to read one command group or one command in detail before execution.",
+      "Use configure_integration to read or update safe provider-owned settings when the integration exposes configuration.",
       "If status.needsAttention is true, call manage_integration before retrying.",
       "Execute commands with execute_integration_command using integrationKey plus commandKey or commandPath.",
     ],
@@ -89,6 +91,12 @@ export function buildRuntimeIntegrationSummaryResponse(input: {
     label: input.definition.label,
     rootCommands:
       input.definition.runtimeSurface.rootCommands.map(buildCommandSummary),
+    settings: input.definition.settings
+      ? {
+          description: input.definition.settings.description,
+          label: input.definition.settings.label,
+        }
+      : null,
     status: input.status,
     toolDescription: input.definition.runtimeSurface.toolDescription,
     toolName: input.definition.runtimeSurface.toolName,
@@ -173,6 +181,12 @@ export function buildRuntimeIntegrationDetailsResponse(input: {
       description: input.definition.description,
       key: input.definition.key,
       label: input.definition.label,
+      settings: input.definition.settings
+        ? {
+            description: input.definition.settings.description,
+            label: input.definition.settings.label,
+          }
+        : null,
       status: input.status,
       usageGuide: buildUsageGuide(),
     },

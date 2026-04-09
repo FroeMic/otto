@@ -444,6 +444,7 @@
   - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement` is now implemented on `main`
   - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
   - Slack HTTP ingress is now live on `main`, and `TODO_17` Increment 11 now includes a concrete Slack migration plan from the legacy runtime-surface system into `otto-integrations`
+  - Slack is now registered in the managed-integrations catalog with a dedicated `/integrations2/slack` page, and `otto-integrations` now exposes `configure_integration` for provider-owned settings reads and writes
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
