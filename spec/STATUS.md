@@ -28,6 +28,10 @@
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
   - the legacy `integration-gateway` service remains in place as the fallback until cutover work begins
+- The worker extraction slice now also exists in parallel:
+  - Phase 2 worker extraction has started
+  - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
+  - the legacy `web/src/worker/index.ts` entrypoint remains in place as the fallback until cutover work begins
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

@@ -571,10 +571,11 @@ Exit criteria:
 
 ### Overall migration state
 
-- current state: Phase 0 foundation active, Phase 1 gateway extraction started
+- current state: Phase 0 foundation active, Phase 1 gateway extraction started, Phase 2 worker extraction started
 - current parallel-port progress:
   - `apps/frontend` exists for legacy `www`
   - `apps/gateway` exists for legacy `integration-gateway`
+  - `apps/worker` exists for the legacy `web/` worker entrypoint
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -584,7 +585,7 @@ Exit criteria:
   - extracted `gateway`
   - extracted `worker`
 - current recommended next implementation step:
-  - port the legacy worker into `apps/worker` without deleting the current `web/` worker entrypoint
+  - begin `apps/api` extraction without deleting the current `web/` route-handler surface
 
 ### Immediate execution order
 
@@ -615,10 +616,12 @@ Current checkpoint:
 - complete in parallel implementation for:
   - `apps/frontend`
   - `apps/gateway`
+  - `apps/worker`
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
-- next implementation target is `apps/worker`
+- the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
+- next implementation target is `apps/api`
 
 ### Phase checklist
 
@@ -626,7 +629,7 @@ Current checkpoint:
 - [ ] Phase 0 complete
 - [x] Phase 1 started
 - [ ] Phase 1 complete
-- [ ] Phase 2 started
+- [x] Phase 2 started
 - [ ] Phase 2 complete
 - [ ] Phase 3 started
 - [ ] Phase 3 complete
@@ -660,7 +663,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: not started
+  - status: parallel port complete, cutover pending
 
 ### Session update rules
 
