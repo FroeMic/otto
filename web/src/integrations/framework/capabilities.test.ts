@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { AgentCapability } from "@/tools/types";
+import type { AgentCapability } from "@/lib/agent-capabilities";
 
 import { buildResolvedIntegrationAgentCapability } from "./capabilities";
 

@@ -5,7 +5,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
+import type {
+  AgentCapability,
+  AgentCapabilityDirection,
+} from "@/lib/agent-capabilities";
 
 const directionConfig: Record<
   AgentCapabilityDirection,

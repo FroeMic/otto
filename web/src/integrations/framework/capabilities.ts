@@ -1,4 +1,4 @@
-import type { AgentCapability } from "@/tools/types";
+import type { AgentCapability } from "@/lib/agent-capabilities";
 import type {
   IntegrationCapabilityPolicy,
   IntegrationCommandEffect,

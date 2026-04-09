@@ -1,8 +1,8 @@
-import type { AgentCapability } from "@/tools/types";
+import type { AgentCapability } from "@/lib/agent-capabilities";
 
 /**
  * Capabilities always available to the agent regardless of which
- * integrations or tools are installed. Built into the OpenClaw runtime.
+ * integrations are installed. Built into the OpenClaw runtime.
  */
 export const baseAgentCapabilities: AgentCapability[] = [
   {

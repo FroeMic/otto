@@ -28,7 +28,10 @@ import type {
   WebSearchProvider,
   WebSearchRuntimeConfig,
 } from "@/lib/web-search-config";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
+import type {
+  AgentCapability,
+  AgentCapabilityDirection,
+} from "@/lib/agent-capabilities";
 
 const capabilityDirectionConfig: Record<
   AgentCapabilityDirection,

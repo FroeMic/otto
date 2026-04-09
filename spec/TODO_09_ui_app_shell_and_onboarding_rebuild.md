@@ -128,8 +128,6 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 - `/{orgSlug}/integrations`
 - `/{orgSlug}/integrations/slack`
 - `/{orgSlug}/integrations/whatsapp`
-- `/{orgSlug}/tools`
-- `/{orgSlug}/tools/{surfaceKind}/{surfaceKey}`
 - `/{orgSlug}/skills`
 - `/{orgSlug}/scheduled-tasks`
 - `/{orgSlug}/settings`
@@ -493,8 +491,7 @@ Likely additions during implementation:
 - workspace settings includes a `Time and Region` section with workspace-level timezone, locale, and time-format controls
 - the Agent area exposes route-backed status and instruction views
 - `/{orgSlug}/integrations/slack` shows real Slack integration state rather than a placeholder
-- `/{orgSlug}/tools` lists runtime capability surfaces that are not shown as integrations
-- a read-only Brave Web Search detail page is reachable from the Tools section
+- Brave Web Search now appears through the managed integrations UI instead of a separate Tools section
 - the Slack page can render real member and channel tables from synced Slack directory data when available
 - settings includes both user and organization sections
 - prototype UI uses shadcn building blocks without custom color work
