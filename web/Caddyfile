@@ -12,6 +12,14 @@
     reverse_proxy integration-gateway:3001
   }
 
+  handle /auth/* {
+    reverse_proxy api:3002
+  }
+
+  handle /oauth/* {
+    reverse_proxy api:3002
+  }
+
   handle /api/* {
     reverse_proxy api:3002
   }

@@ -336,9 +336,15 @@ Reference list:
 
 - `/{orgSlug}/...`
 - `/platform/...`
-- `/app/...` only if a temporary SPA beta prefix is needed during migration
 
 These routes are browser-facing and go to `frontend`, which serves SSR or SPA entrypoints as appropriate.
+
+Routing rule:
+
+- reserved public and system paths stay server-owned
+- non-reserved top-level paths should be treated as workspace slug candidates
+- if a request does not match a reserved namespace and matches the workspace slug rules, `frontend` should return the workspace shell
+- `/app/...` is acceptable only as a temporary migration prefix if it is intentionally reintroduced later
 
 ### Backend routing
 
@@ -611,9 +617,12 @@ Deliverables:
 
 Temporary routing options:
 
-- `/app/*`
 - `/beta/*`
 - alternate internal hostname only if operationally simpler
+
+Constraint:
+
+- do not make `/app/*` the default apex-domain workspace root; the intended public shape is reserved-path handling plus `/{workspaceSlug}/...`
 
 Exit criteria:
 
@@ -839,12 +848,18 @@ Exit criteria:
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
-  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding
+  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus a same-origin `/login` entry page
 - current browser-facing production split in repo config:
   - apex domain on `frontend`
+  - apex `/auth/*` on `api`
+  - apex `/oauth/*` on `api`
   - apex `/api/*` on `api`
   - apex `/api/internal/runtime/integrations/execute*` on `gateway`
   - legacy app subdomain on `web`
+- target apex routing behavior for workspace paths:
+  - reserved public and system paths remain explicitly routed
+  - `/auth/*`, `/oauth/*`, and `/api/*` should be treated as edge-routed reserved namespaces
+  - non-reserved top-level paths should fall through to the workspace shell as `/{workspaceSlug}` candidates
 - target browser-facing production split:
   - unified `frontend` on one primary origin
   - extracted `api`

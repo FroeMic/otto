@@ -57,10 +57,15 @@
   - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
 - The first real frontend shell now exists:
   - `apps/frontend` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
-  - `apps/frontend` now also owns same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding for WorkOS and integration OAuth flows
+  - `apps/frontend` now owns the same-origin `/login` entry page for the new shell
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
+- The target apex workspace routing rule is now explicit:
+  - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
+  - `frontend` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
+  - `/app` should only exist if a temporary migration prefix is explicitly reintroduced, not as the default workspace root
+  - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `frontend`
 - The apex-domain parallel launch shape is now wired in repo config:
   - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto frontend
   - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`

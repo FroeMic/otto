@@ -191,8 +191,6 @@ export function createApp(env: FrontendEnv = getEnv()) {
   })
   app.get("/logout", (c) => c.redirect("/auth/sign-out", 302))
   app.all("/api/*", apiProxyHandler)
-  app.all("/auth/*", apiProxyHandler)
-  app.all("/oauth/*", apiProxyHandler)
 
   app.get("/", (c) =>
     c.html(
