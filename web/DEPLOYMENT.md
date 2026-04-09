@@ -3,7 +3,7 @@
 This deploy target assumes one public control-plane VPS on Hetzner:
 
 - public HTTPS for both the marketing site and the workspace app
-- local Docker Compose services for `caddy`, `www`, `web`, `integration-gateway`, `worker`, and `postgres`
+- local Docker Compose services for `caddy`, `frontend`, `web`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -160,10 +160,6 @@ Verify:
 - `WORKOS_BASE_URL` matches the public app origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS and Slack redirect URIs point at the public domain
-
-The legacy `www` container is now rollback-only. It should not run in the
-default production deploy unless you intentionally start the `legacy-www`
-profile.
 
 If Brave web search is enabled, also verify a real tenant projection:
 
