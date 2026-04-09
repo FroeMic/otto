@@ -1489,6 +1489,95 @@ Acceptance criteria:
 - the remaining legacy workspace integration surfaces no longer depend on the older `/integrations` composition
 - the runtime-facing integration model is more unified than before
 
+Concrete delivery plan:
+
+1. Add integration-settings primitives to the managed-integrations framework.
+   - extend `IntegrationDefinition` with a provider-owned settings definition instead of reusing `web/src/tools/` for managed integrations
+   - add generic settings storage under `tenant_integration_settings`
+   - keep capability policy outside the settings model
+2. Add one runtime-facing settings contract to `otto-integrations`.
+   - keep lifecycle in `manage_integration`
+   - keep command discovery and execution in the existing metatools
+   - add one settings-specific read/update path for safe integration config instead of routing Slack through `otto-runtime-config`
+3. Port Slack's current safe config surface into the provider-owned integration definition.
+   - move `allowedUserIds`
+   - move `allowedChannelIds`
+   - move `answerInThreads`
+   - move `channelAccessMode`
+   - move `requireMentionInChannels`
+   - move `ackReactionEnabled`
+   - keep derived reachability warnings and destructive-change previews
+4. Preserve the current Slack transport split.
+   - keep Slack OAuth, signing secret ownership, install state, and shared HTTP ingress in the control plane
+   - keep raw Slack request forwarding behavior compatible with the current voice-note path
+   - do not move Slack webhook transport into `integration-gateway` in this increment
+5. Replace the workspace UI with a provider-owned integration page on the new model.
+   - move the current Slack status/configuration UI out of the legacy runtime-surface page path
+   - keep the same user-facing controls and diagnostics where they still make sense
+   - show `Configuration` only when the provider definition actually exposes settings
+6. Keep `otto-runtime-config` only as a compatibility layer during migration.
+   - leave non-integration surfaces such as `web/search` there
+   - remove Slack from the runtime-surface inventory once the new integration-backed page and runtime contract are live
+   - avoid a long-lived period where both runtime plugins can mutate Slack independently
+
+Provider-owned Slack settings shape:
+
+- editable-by-user-and-agent:
+  - `allowedUserIds`
+  - `allowedChannelIds`
+  - `answerInThreads`
+  - `channelAccessMode`
+  - `requireMentionInChannels`
+  - `ackReactionEnabled`
+- read-only provider state:
+  - connected workspace name
+  - connected team id
+  - last webhook time
+  - last directory sync time
+  - last Slack API validation result
+  - reconnect-needed / apply-needed state
+- never exposed as managed settings:
+  - bot token
+  - signing secret
+  - capability permission toggles
+  - shared ingress routing internals
+
+Recommended implementation phases:
+
+Phase A: contract and storage
+
+- add framework-native settings metadata plus storage and audit helpers
+- add the `otto-integrations` settings read/update contract
+- keep Slack UI behavior unchanged during this phase
+
+Phase B: Slack provider port
+
+- add a provider-owned Slack integration definition under `web/src/integrations/library/slack`
+- port the current Slack config schema, directory-backed options, semantic validation, and derived effects
+- add a provider-owned workspace detail page that replaces the old Slack runtime-surface page
+
+Phase C: runtime cutover
+
+- remove Slack from the `otto-runtime-config` integration inventory
+- make `otto-integrations` the only runtime plugin that can read or mutate Slack settings
+- keep the existing public `/api/integrations/slack/*` ingress routes unchanged
+
+Phase D: verification and cleanup
+
+- verify that a connected workspace can read and update Slack settings through both the new workspace UI and the new runtime integration contract
+- verify there are no stale-write or double-mutation paths after the cutover
+- delete the now-unused Slack-specific runtime-surface adapters and routes
+
+Verification checklist:
+
+- Slack still connects and reconnects through the control-plane OAuth flow
+- Slack HTTP ingress still routes events, commands, and interactivity by `team_id`
+- a connected workspace can read Slack settings through the new integration detail path
+- Otto can update agent-manageable Slack settings through the new integration settings contract
+- locked or read-only Slack fields fail clearly when the agent tries to mutate them
+- voice-note transcription still works after the runtime-facing settings migration
+- the legacy `otto-runtime-config` plugin no longer advertises Slack once the cutover is complete
+
 ### Increment 12: Custom integration registration
 
 Support long-tail third-party integrations without exposing OpenClaw primitives to the user.

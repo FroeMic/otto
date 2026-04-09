@@ -443,6 +443,7 @@
   - Linear command coverage is now complete across the tracked object families plus the immediate post-coverage cleanup slice
   - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement` is now implemented on `main`
   - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
+  - Slack HTTP ingress is now live on `main`, and `TODO_17` Increment 11 now includes a concrete Slack migration plan from the legacy runtime-surface system into `otto-integrations`
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
@@ -564,6 +565,10 @@
   - keeping OpenClaw audio transcription defaults intact
   - keeping `tools.media.audio` projected into tenant `openclaw.json`
   - keeping `files:read` in Slack scope defaults for fresh installs
+- If Slack becomes the active managed-integrations priority again, use `TODO_17` Increment 11 as the implementation source of truth:
+  - add framework-native integration settings storage and runtime contract first
+  - port Slack's safe config fields and diagnostics into a provider-owned Slack integration definition
+  - keep Slack OAuth and shared HTTP ingress control-plane-native while cutting runtime-facing settings from `otto-runtime-config` over to `otto-integrations`
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user
