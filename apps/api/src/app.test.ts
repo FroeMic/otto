@@ -1,11 +1,15 @@
 import assert from "node:assert/strict"
 
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import { createApiApp } from "./app"
 import type { LegacyRouteDefinition } from "./legacy-routes"
 
 describe("api app", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("returns service health", async () => {
     const app = createApiApp()
     const response = await app.request("http://api.local/healthz")
@@ -15,6 +19,16 @@ describe("api app", () => {
       ok: true,
       service: "api",
     })
+  })
+
+  it("logs incoming requests", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined)
+    const app = createApiApp()
+
+    const response = await app.request("http://api.local/healthz")
+
+    assert.equal(response.status, 200)
+    assert.equal(logSpy.mock.calls.length > 0, true)
   })
 
   it("returns not found for unknown routes", async () => {
