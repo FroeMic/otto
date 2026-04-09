@@ -150,8 +150,9 @@ Verify:
 - `https://<your-landing-domain>/` returns `200`
 - `https://<your-domain>/healthz` returns `200`
 - the apex or landing hostname resolves to the same VPS that runs Caddy
-- the `web`, `integration-gateway`, and `worker` containers stay healthy
-- the `www` container stays healthy
+- the `frontend`, `web`, `integration-gateway`, and `worker` containers stay healthy
+- `docker compose -f docker-compose.prod.yml exec caddy sh -lc "cat /etc/caddy/Caddyfile"` shows `reverse_proxy frontend:3000` under `{$LANDING_PAGE_DOMAIN}`
+- `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing frontend is deployed
 - Postgres answers on `127.0.0.1:5433` on the host
 - `LANDING_PAGE_DOMAIN` matches the public marketing hostname
 - `CONTROL_PLANE_DOMAIN` matches the public app hostname
@@ -159,6 +160,10 @@ Verify:
 - `WORKOS_BASE_URL` matches the public app origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS and Slack redirect URIs point at the public domain
+
+The legacy `www` container is now rollback-only. It should not run in the
+default production deploy unless you intentionally start the `legacy-www`
+profile.
 
 If Brave web search is enabled, also verify a real tenant projection:
 
