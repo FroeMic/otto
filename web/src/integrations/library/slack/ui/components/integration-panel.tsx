@@ -19,6 +19,7 @@ import {
 } from "@/app/[orgSlug]/settings/_components/settings-layout";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/data-table-column-header";
+import { FloatingStatusChip } from "@/components/floating-status-chip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -356,13 +357,13 @@ export function SlackIntegrationPanel(props: Props) {
   const [surface, setSurface] = useState(props.initialSurface);
   const [draft, setDraft] = useState(props.initialSurface?.config ?? null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [membershipError, setMembershipError] = useState<string | null>(null);
   const [pendingMembershipAction, setPendingMembershipAction] = useState<{
     action: "join" | "leave";
     channelId: string;
   } | null>(null);
   const [isDangerDialogOpen, setIsDangerDialogOpen] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const hasChanges =
@@ -558,7 +559,6 @@ export function SlackIntegrationPanel(props: Props) {
     setErrorMessage(null);
     setIsDangerDialogOpen(false);
     setMembershipError(null);
-    setSuccessMessage(null);
   }
 
   function updateBooleanSetting(
@@ -573,7 +573,6 @@ export function SlackIntegrationPanel(props: Props) {
           }
         : current,
     );
-    setSuccessMessage(null);
   }
 
   function updateChannelAccessMode(
@@ -587,7 +586,6 @@ export function SlackIntegrationPanel(props: Props) {
           }
         : current,
     );
-    setSuccessMessage(null);
   }
 
   function toggleAllowedUser(userId: string) {
@@ -605,7 +603,6 @@ export function SlackIntegrationPanel(props: Props) {
         allowedUserIds: nextIds,
       };
     });
-    setSuccessMessage(null);
   }
 
   function toggleAllowedChannel(channelId: string) {
@@ -623,7 +620,6 @@ export function SlackIntegrationPanel(props: Props) {
         allowedChannelIds: nextIds,
       };
     });
-    setSuccessMessage(null);
   }
 
   async function changeChannelMembership(
@@ -684,57 +680,64 @@ export function SlackIntegrationPanel(props: Props) {
 
     startTransition(() => {
       void (async () => {
-        setErrorMessage(null);
-        setSuccessMessage(null);
+        try {
+          setErrorMessage(null);
+          setIsSavingSettings(true);
 
-        const response = await fetch(
-          `/api/integrations/${props.orgSlug}/slack/settings`,
-          {
-            body: JSON.stringify({
-              allowDestructiveChanges:
-                options?.allowDestructiveChanges === true,
-              expectedEntryVersion: surface.config.entryVersion,
-              patch: {
-                ackReactionEnabled: draft.ackReactionEnabled,
-                allowedChannelIds: draft.allowedChannelIds,
-                allowedUserIds: draft.allowedUserIds,
-                answerInThreads: draft.answerInThreads,
-                channelAccessMode: draft.channelAccessMode,
-                requireMentionInChannels: draft.requireMentionInChannels,
+          const response = await fetch(
+            `/api/integrations/${props.orgSlug}/slack/settings`,
+            {
+              body: JSON.stringify({
+                allowDestructiveChanges:
+                  options?.allowDestructiveChanges === true,
+                expectedEntryVersion: surface.config.entryVersion,
+                patch: {
+                  ackReactionEnabled: draft.ackReactionEnabled,
+                  allowedChannelIds: draft.allowedChannelIds,
+                  allowedUserIds: draft.allowedUserIds,
+                  answerInThreads: draft.answerInThreads,
+                  channelAccessMode: draft.channelAccessMode,
+                  requireMentionInChannels: draft.requireMentionInChannels,
+                },
+                summary: "Updated Slack runtime config",
+              }),
+              headers: {
+                "Content-Type": "application/json",
               },
-              summary: "Updated Slack runtime config",
-            }),
-            headers: {
-              "Content-Type": "application/json",
+              method: "PATCH",
             },
-            method: "PATCH",
-          },
-        );
-
-        const payload = (await response.json()) as {
-          code?: string;
-          message?: string;
-          surface?: SlackRuntimeConfigSurface;
-        };
-
-        if (!response.ok || !payload.surface) {
-          setErrorMessage(
-            payload.message ??
-              (payload.code === "stale_version"
-                ? "Slack settings changed elsewhere. Reload and try again."
-                : "Slack settings could not be saved."),
           );
-          router.refresh();
-          return;
-        }
 
-        setIsDangerDialogOpen(false);
-        setSurface(payload.surface);
-        setDraft(payload.surface.config);
-        setSuccessMessage(
-          "Slack settings saved. Otto will use the new settings shortly.",
-        );
-        router.refresh();
+          const payload = (await response.json()) as {
+            code?: string;
+            message?: string;
+            surface?: SlackRuntimeConfigSurface;
+          };
+
+          if (!response.ok || !payload.surface) {
+            setErrorMessage(
+              payload.message ??
+                (payload.code === "stale_version"
+                  ? "Slack settings changed elsewhere. Reload and try again."
+                  : "Slack settings could not be saved."),
+            );
+            router.refresh();
+            return;
+          }
+
+          setIsDangerDialogOpen(false);
+          setSurface(payload.surface);
+          setDraft(payload.surface.config);
+          router.refresh();
+        } catch (error) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Slack settings could not be saved.",
+          );
+        } finally {
+          setIsSavingSettings(false);
+        }
       })();
     });
   }
@@ -986,6 +989,10 @@ export function SlackIntegrationPanel(props: Props) {
 
   return (
     <div className="flex flex-col gap-6 pb-24">
+      {isSavingSettings ? (
+        <FloatingStatusChip message="Saving Slack settings" />
+      ) : null}
+
       {errorMessage ? (
         <Alert variant="destructive">
           <AlertTitle>Slack settings could not be saved</AlertTitle>
@@ -1438,12 +1445,10 @@ export function SlackIntegrationPanel(props: Props) {
       <IntegrationStickySaveBar
         description="Review the changes, then save or discard them."
         hasChanges={hasChanges}
-        isPending={isPending}
+        isPending={isPending || isSavingSettings}
         onDiscard={resetDraft}
         onSave={saveDraft}
         title="You have unsaved Slack changes."
-        successDescription={successMessage}
-        successTitle="Slack settings saved"
       />
 
       <Dialog open={isDangerDialogOpen} onOpenChange={setIsDangerDialogOpen}>

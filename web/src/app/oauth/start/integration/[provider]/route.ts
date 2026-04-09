@@ -2,7 +2,7 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
 import { getTenantManagedIntegrationConnectContext } from "@/db/control-plane";
-import { hasLinearOAuthConfig } from "@/lib/env";
+import { hasLinearOAuthConfig, hasSlackOAuthConfig } from "@/lib/env";
 import { createManagedIntegrationOauthAuthorizationUrl } from "@/lib/oauth/service";
 
 export async function GET(
@@ -29,6 +29,10 @@ export async function GET(
 
     if (providerKey === "linear" && !hasLinearOAuthConfig()) {
       throw new Error("Linear is not available right now.");
+    }
+
+    if (providerKey === "slack" && !hasSlackOAuthConfig()) {
+      throw new Error("Slack is not available right now.");
     }
 
     const connectContext = await getTenantManagedIntegrationConnectContext({

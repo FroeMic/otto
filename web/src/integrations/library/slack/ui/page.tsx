@@ -126,7 +126,6 @@ export async function SlackManagedIntegrationPage({
     await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
-  const sessionId = session?.id ?? null;
   const summary = await getTenantManagedIntegrationSummary({
     orgSlug,
     providerKey: definition.key,
@@ -175,10 +174,9 @@ export async function SlackManagedIntegrationPage({
     organization.slackIntegration?.teamName ?? session?.slackTeamName ?? null;
   const runtimeApplyIsActive =
     integrationStatus === "pending_apply" || integrationStatus === "applying";
-  const connectUrl =
-    hasSlackOAuthConfig() && sessionId
-      ? `/oauth/start/slack?onboardingSessionId=${sessionId}`
-      : null;
+  const connectUrl = hasSlackOAuthConfig()
+    ? `/oauth/start/integration/slack?orgSlug=${encodeURIComponent(orgSlug)}`
+    : null;
   const connectActionLabel =
     slackIsConnected || connectionError ? "Reconnect Slack" : "Connect Slack";
   const canReconnectSlack = Boolean(connectUrl) && slackIsConnected;
