@@ -22,6 +22,9 @@ export function LandingHomePage() {
           <p className="text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
             Otto
           </p>
+          <p className="text-xs tracking-[0.2em] text-primary uppercase">
+            New frontend preview
+          </p>
           <h1 className="text-3xl font-semibold tracking-tight">
             Public site placeholder
           </h1>
