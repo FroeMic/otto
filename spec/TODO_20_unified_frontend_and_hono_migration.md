@@ -382,7 +382,8 @@ The long-term target layout should be:
   - `packages/db`
   - `packages/auth`
 - Drizzle schema and DB helpers should move toward `packages/db`
-- legacy apps can import shared packages during the transition
+- legacy `web/` and `www/` should remain self-contained during the transition
+- shared packages are for extracted apps and future cutover targets, not as a runtime dependency of the legacy `web/` production image
 - `web/` and `www/` remain present until their replacements are proven and cut over
 
 ### Feature co-location rule
@@ -435,6 +436,7 @@ Once this migration starts in earnest:
 
 - bug fixes may still land in `web/` and `www/` as needed
 - new shared backend logic should land in shared packages first
+- if legacy `web/` still needs that logic before cutover, copy the compatibility wrapper locally instead of wiring the legacy app to shared packages
 - new API endpoints should prefer `apps/api` unless there is a strong short-term blocker
 - new browser-facing product surfaces should prefer `apps/frontend` once it exists
 - avoid expanding legacy Next.js-only abstractions if the same work is part of a near-term extraction phase
@@ -461,7 +463,7 @@ Deliverables:
 Exit criteria:
 
 - legacy apps still boot
-- at least one shared package is imported by both legacy and new code
+- at least one shared package is used by an extracted app
 - image boundaries no longer assume one monolithic `web` build forever
 - the new workspace layout has a clear Bun-first package-manager direction
 - the repo has an explicit decision for how the four quality gates will run during migration
@@ -581,8 +583,9 @@ Exit criteria:
 
 Goal:
 
-- move reusable logic out of legacy route files so old and new apps can import the same feature packages
+- move reusable logic out of legacy route files into extracted app boundaries and feature packages
 - keep adapter route behavior unchanged while logic moves underneath
+- keep the legacy `web/` image self-contained so it can still build and run without repo-root shared-package wiring
 
 Package shape:
 
@@ -613,7 +616,8 @@ Working rule:
 
 - first move pure logic and service functions
 - only later replace route wrappers
-- old `web/` route files should shrink into thin compatibility wrappers during transition
+- extracted apps should consume shared packages directly
+- old `web/` route files may copy compatibility logic locally during transition, but should not import repo-level shared packages
 
 Recommended first feature packages:
 
@@ -633,9 +637,9 @@ Verification for each extraction slice:
 
 Definition of done for Track A:
 
-- at least one shared package is imported by both legacy `web/` and a new app
+- at least one shared package is imported by an extracted app
 - internal runtime and webhook logic no longer live only inside route files
-- legacy route files are measurably thinner than before
+- legacy route files are either thinner or clearly marked as local compatibility copies
 
 ### Track B: Replace adapter-mounted API logic family by family
 
@@ -788,7 +792,8 @@ Exit criteria:
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
-  - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist and are used by both legacy `web/` and the new services
+  - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist for the extracted services
+  - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
   - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding
@@ -835,7 +840,7 @@ Current checkpoint:
   - `apps/worker`
 - partial in parallel implementation for:
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
-  - the managed-config and managed-skills runtime routes now use shared package logic in both `web/` and `apps/api`
+  - `apps/api` consumes the extracted shared packages while legacy `web/` keeps local compatibility copies
   - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback

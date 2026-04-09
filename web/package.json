@@ -9,7 +9,7 @@
     "start": "next start",
     "integration-gateway": "bun src/integration-gateway/server.ts",
     "worker": "bun src/worker/index.ts",
-    "test:terminology": "node --import tsx --test src/lib/openclaw/managed-config.test.ts src/test/terminology-audit.test.ts",
+    "test:terminology": "node --import tsx --test src/lib/openclaw/managed-config.test.ts src/test/terminology-audit.test.ts src/test/legacy-web-boundary.test.ts",
     "test:openai-token": "node src/scripts/test-openai-token.mjs",
     "tenant:openai:provision": "bun src/scripts/provision-openai-tenant.ts",
     "tenant:runtime": "bun src/scripts/tenant-runtime.ts",

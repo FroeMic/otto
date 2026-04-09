@@ -3,7 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   isReservedWorkspaceSlug,
   normalizeWorkspaceSlug,
-} from "@otto/feature-workspace-slugs";
+} from "@/lib/workspace-slugs";
 import type {
   Invitation,
   Organization,

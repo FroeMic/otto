@@ -49,7 +49,8 @@
   - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
   - `packages/features/runtime-core` owns managed-config and managed-skills route logic
   - `packages/features/workspace-core` now owns workspace shell bootstrap, usage, and workspace settings route logic
-  - legacy `web/` and new `apps/api` now both consume those shared packages for the first internal runtime family
+  - the extracted apps consume those shared packages directly
+  - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
 - The first real frontend shell now exists:
   - `apps/frontend` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
   - `apps/frontend` now also owns same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding for WorkOS and integration OAuth flows
