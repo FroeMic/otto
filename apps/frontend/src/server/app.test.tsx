@@ -59,16 +59,21 @@ describe("frontend app", () => {
       }),
     )
 
-    const response = await app.request("http://localhost/auth/sign-in", {
-      redirect: "manual",
-    })
+    const response = await app.request(
+      "http://localhost/auth/sign-in?returnTo=%2Fapp",
+      {
+        redirect: "manual",
+      },
+    )
 
     expect(fetchSpy).toHaveBeenCalledOnce()
     const [firstCall] = fetchSpy.mock.calls
     const request = firstCall?.[0]
 
     expect(request).toBeInstanceOf(Request)
-    expect((request as Request).url).toBe("http://api.internal/auth/sign-in")
+    expect((request as Request).url).toBe(
+      "http://api.internal/auth/sign-in?returnTo=%2Fapp",
+    )
     expect(response.status).toBe(302)
     expect(response.headers.get("location")).toBe(
       "https://example.workos.com/authorize",
