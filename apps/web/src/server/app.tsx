@@ -1,9 +1,8 @@
 import { existsSync } from "node:fs"
-import { readFile } from "node:fs/promises"
-import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { serveStatic } from "@hono/node-server/serve-static"
+import { isReservedWorkspaceSlug } from "@otto/feature-workspace-slugs"
 import { type Context, Hono } from "hono"
 import { logger } from "hono/logger"
 import { secureHeaders } from "hono/secure-headers"
@@ -27,12 +26,10 @@ type PageDocumentProps = {
   title: string
 }
 
-const STATIC_ROOT = fileURLToPath(
-  new URL("../../dist/public/app", import.meta.url),
-)
-const STATIC_PARENT_ROOT = fileURLToPath(
-  new URL("../../dist/public", import.meta.url),
-)
+const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
+const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
+const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
+const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 function PageDocument({
   children,
@@ -54,12 +51,12 @@ function PageDocument({
           rel="canonical"
           href={`https://getyourotto.com${canonicalPath}`}
         />
-        <link rel="stylesheet" href="/app/workspace.css" />
+        <link rel="stylesheet" href={WORKSPACE_STYLE_PATH} />
       </head>
       <body>
         {children}
         {loadWorkspaceScript ? (
-          <script type="module" src="/app/workspace.js" />
+          <script type="module" src={WORKSPACE_SCRIPT_PATH} />
         ) : null}
       </body>
     </html>
@@ -70,30 +67,66 @@ function renderDocument(props: PageDocumentProps) {
   return `<!DOCTYPE html>${renderToString(<PageDocument {...props} />)}`
 }
 
-async function renderWorkspaceShell() {
-  const markup = renderToString(
-    <PageDocument
-      description="Otto workspace migration shell"
-      loadWorkspaceScript
-      path="/app"
-      title="Otto Workspace"
-    >
-      {/* biome-ignore lint/correctness/useUniqueElementIds: static SPA mount point */}
-      <div id="root" />
-    </PageDocument>,
-  )
-
-  return `<!DOCTYPE html>${markup}`
+function renderWorkspaceShell(path: string) {
+  return renderDocument({
+    children: (
+      <>
+        {/* biome-ignore lint/correctness/useUniqueElementIds: static SPA mount point */}
+        <div id="root" />
+      </>
+    ),
+    description: "Otto workspace migration shell",
+    loadWorkspaceScript: true,
+    path,
+    title: "Otto Workspace",
+  })
 }
 
-async function readWorkspaceIndex() {
-  const indexPath = resolve(STATIC_ROOT, "index.html")
+function renderNotFoundPage(path: string) {
+  return renderDocument({
+    children: (
+      <main className="flex min-h-svh items-center justify-center bg-background px-6 py-16 text-foreground">
+        <div className="flex max-w-lg flex-col items-center gap-4 rounded-[2rem] border border-border/70 bg-card px-8 py-10 text-center shadow-sm">
+          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+            Otto
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Page not found
+          </h1>
+          <a href="/" className={cn(buttonVariants())}>
+            Return home
+          </a>
+        </div>
+      </main>
+    ),
+    description: "Otto page not found",
+    path,
+    title: "Otto",
+  })
+}
 
-  try {
-    return await readFile(indexPath, "utf8")
-  } catch {
-    return renderWorkspaceShell()
+function isWorkspaceSlugCandidate(path: string) {
+  const [firstSegment] = path.split("/").filter(Boolean)
+
+  if (!firstSegment) {
+    return false
   }
+
+  if (isReservedWorkspaceSlug(firstSegment)) {
+    return false
+  }
+
+  return WORKSPACE_SLUG_PATTERN.test(firstSegment)
+}
+
+function getLegacyAppRedirectPath(path: string) {
+  if (path === "/app" || path === "/app/") {
+    return "/login"
+  }
+
+  const nextPath = path.replace(/^\/app/, "")
+
+  return nextPath.length > 0 ? nextPath : "/login"
 }
 
 function createProxyHandler(targetOrigin: string) {
@@ -164,8 +197,8 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.use("*", logger())
   app.use("*", secureHeaders())
 
-  if (existsSync(STATIC_PARENT_ROOT)) {
-    app.use("/app/*", serveStatic({ root: STATIC_PARENT_ROOT }))
+  if (existsSync(STATIC_ROOT)) {
+    app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
   }
 
   app.get("/healthz", (c) =>
@@ -178,7 +211,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
 
   app.get("/login", (c) => {
-    const returnTo = c.req.query("returnTo") ?? "/app"
+    const returnTo = c.req.query("returnTo") ?? "/"
 
     return c.html(
       renderDocument({
@@ -226,46 +259,26 @@ export function createApp(env: FrontendEnv = getEnv()) {
     ),
   )
 
-  app.get("/app", async (c) => c.html(await readWorkspaceIndex()))
-  app.get("/app/*", async (c) => {
+  app.get("/app", (c) => c.redirect(getLegacyAppRedirectPath(c.req.path), 302))
+  app.get("/app/*", (c) =>
+    c.redirect(getLegacyAppRedirectPath(c.req.path), 302),
+  )
+
+  app.get("*", (c) => {
     const path = c.req.path
 
-    if (
-      path.startsWith("/app/assets/") ||
-      path.endsWith(".css") ||
-      path.endsWith(".js")
-    ) {
-      return c.notFound()
+    if (path === "/platform" || path.startsWith("/platform/")) {
+      return c.html(renderWorkspaceShell(path))
     }
 
-    return c.html(await readWorkspaceIndex())
+    if (isWorkspaceSlugCandidate(path)) {
+      return c.html(renderWorkspaceShell(path))
+    }
+
+    return c.html(renderNotFoundPage(path), 404)
   })
 
-  app.notFound((c) =>
-    c.html(
-      renderDocument({
-        children: (
-          <main className="flex min-h-svh items-center justify-center bg-background px-6 py-16 text-foreground">
-            <div className="flex max-w-lg flex-col items-center gap-4 rounded-[2rem] border border-border/70 bg-card px-8 py-10 text-center shadow-sm">
-              <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                Otto
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Page not found
-              </h1>
-              <a href="/" className={cn(buttonVariants())}>
-                Return home
-              </a>
-            </div>
-          </main>
-        ),
-        description: "Otto page not found",
-        path: c.req.path,
-        title: "Otto",
-      }),
-      404,
-    ),
-  )
+  app.notFound((c) => c.html(renderNotFoundPage(c.req.path), 404))
 
   return app
 }
