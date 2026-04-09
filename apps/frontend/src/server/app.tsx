@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url"
 import { serveStatic } from "@hono/node-server/serve-static"
 import { type Context, Hono } from "hono"
 import { logger } from "hono/logger"
-import { proxy } from "hono/proxy"
 import { secureHeaders } from "hono/secure-headers"
 import { renderToString } from "react-dom/server"
 
@@ -98,18 +97,30 @@ async function readWorkspaceIndex() {
 }
 
 function createProxyHandler(targetOrigin: string) {
-  return (context: Context) =>
-    proxy(
-      `${targetOrigin}${context.req.path}${context.req.url.includes("?") ? new URL(context.req.url).search : ""}`,
-      {
-        method: context.req.method,
-        headers: context.req.raw.headers,
-        body:
-          context.req.method === "GET" || context.req.method === "HEAD"
-            ? undefined
-            : context.req.raw.body,
-      },
+  return async (context: Context) => {
+    const upstreamUrl = new URL(context.req.url)
+    const targetUrl = new URL(
+      `${upstreamUrl.pathname}${upstreamUrl.search}`,
+      targetOrigin,
     )
+    const init: RequestInit & {
+      duplex?: "half"
+    } = {
+      body:
+        context.req.method === "GET" || context.req.method === "HEAD"
+          ? undefined
+          : context.req.raw.body,
+      duplex: context.req.raw.body ? "half" : undefined,
+      headers: context.req.raw.headers,
+      method: context.req.method,
+    }
+    const response = await fetch(new Request(targetUrl, init))
+
+    return new Response(response.body, {
+      headers: response.headers,
+      status: response.status,
+    })
+  }
 }
 
 function LoginPage({ returnTo }: { returnTo: string }) {
