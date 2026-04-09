@@ -510,6 +510,11 @@
     - Slack lifecycle/status UI now lives under `web/src/integrations/library/slack`, with the legacy `/integrations/slack` page reduced to a redirect
     - `otto-runtime-config` no longer exposes Slack-specific tools
     - managed integration detail tabs now use route paths like `/integrations2/slack/status` and `/integrations2/slack/channels` instead of `?tab=`
+    - Slack workspace navigation now resolves to `/integrations2/slack/status` from the sidebar, setup flow shell, workspace status rail fallback, Slack OAuth callback success/error redirects, and the legacy tool-detail redirect
+    - the legacy `/integrations` index no longer advertises Slack as a runtime-surface-backed entry
+    - Slack is now registered as a real managed OAuth provider in the framework, and workspace Slack connect/reconnect now starts from `/oauth/start/integration/slack?orgSlug=...`
+    - the shared `/oauth/callback/integration/[provider]` callback path now completes Slack OAuth as well, while the older onboarding-only Slack OAuth route remains in place only for the setup flow
+    - runtime `manage_integration` for Slack now returns the explicit managed reconnect URL instead of falling back to a workspace-page-only reconnect path
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`

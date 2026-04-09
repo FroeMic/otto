@@ -7,6 +7,7 @@ import {
   recordSlackOauthFailure,
   syncMessagingDirectoryForTenantIntegration,
 } from "@/db/control-plane";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { verifyOAuthState } from "@/lib/crypto";
 import { getControlPlaneBaseUrl } from "@/lib/env";
 import {
@@ -49,7 +50,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       new URL(
         decodedState?.orgSlug
-          ? `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(error)}`
+          ? `${buildIntegrationSectionPath({
+              integrationKey: "slack",
+              orgSlug: decodedState.orgSlug,
+              section: "status",
+            })}?slack_error=${encodeURIComponent(error)}`
           : `/login?slack_error=${encodeURIComponent(error)}`,
         redirectBaseUrl,
       ),
@@ -114,7 +119,11 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(
       new URL(
-        `/${result.organizationSlug}/integrations/slack?slack_connected=1`,
+        `${buildIntegrationSectionPath({
+          integrationKey: "slack",
+          orgSlug: result.organizationSlug,
+          section: "status",
+        })}?slack_connected=1`,
         redirectBaseUrl,
       ),
     );
@@ -129,7 +138,11 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(
       new URL(
-        `/${decodedState.orgSlug}/integrations/slack?slack_error=${encodeURIComponent(message)}`,
+        `${buildIntegrationSectionPath({
+          integrationKey: "slack",
+          orgSlug: decodedState.orgSlug,
+          section: "status",
+        })}?slack_error=${encodeURIComponent(message)}`,
         redirectBaseUrl,
       ),
     );

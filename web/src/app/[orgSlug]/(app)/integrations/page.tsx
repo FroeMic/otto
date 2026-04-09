@@ -7,7 +7,6 @@ import type {
 } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
-import { SLACK_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/slack-config";
 import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 import { getToolDefinition } from "@/tools";
@@ -31,19 +30,6 @@ export const dynamic = "force-dynamic";
  * surface until they move onto the registry-driven integrations2 shape.
  */
 const knownIntegrations: SurfaceEntry[] = [
-  {
-    categoryLabel: "Messaging",
-    description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
-    enabled: false,
-    id: "known:channel:slack",
-    installState: "uninstalled",
-    key: "slack",
-    kind: "channel",
-    label: "Slack",
-    settingsUrl: null,
-    surfaceType: "integration",
-    uiGroup: "integrations",
-  },
   {
     categoryLabel: "Messaging",
     description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,

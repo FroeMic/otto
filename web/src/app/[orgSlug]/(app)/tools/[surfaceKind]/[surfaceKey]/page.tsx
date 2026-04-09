@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getTenantToolConfigSurface } from "@/db/control-plane";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 import { getToolDefinition } from "@/tools";
 import type { ToolSurfacePageProps, ToolSurfaceResponse } from "@/tools/types";
@@ -34,7 +35,13 @@ export default async function ToolDetailPage({
   }
 
   if (surfaceKind === "channel" && surfaceKey === "slack") {
-    redirect(`/${organization.slug}/integrations/slack`);
+    redirect(
+      buildIntegrationSectionPath({
+        integrationKey: "slack",
+        orgSlug: organization.slug,
+        section: "status",
+      }),
+    );
   }
 
   if (surfaceKind === "channel" && surfaceKey === "whatsapp") {
