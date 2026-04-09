@@ -173,7 +173,7 @@ export default definePluginEntry({
       {
         name: "manage_integration",
         description:
-          "Get the right workspace URL and recommended next action to connect, reconnect, disconnect, or review an Otto-managed integration. Use this for lifecycle changes and browser handoff flows, not for settings updates.",
+          "Get the right workspace URL and recommended next action to connect, reconnect, disconnect, or review an Otto-managed integration. Use this for lifecycle changes and browser handoff flows, not for settings updates. After confirming an integration is connected, say that plainly and offer to help the user connect or review other integrations available in the workspace by using list_integrations when useful.",
         parameters: {
           type: "object",
           additionalProperties: false,
