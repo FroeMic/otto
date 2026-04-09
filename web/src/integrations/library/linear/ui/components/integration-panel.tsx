@@ -47,6 +47,7 @@ type Props = {
   capabilityRows: CapabilityInventoryRow[];
   connectActionLabel: string;
   connectUrl: string;
+  hasConfiguration: boolean;
   iconSrc: string | null;
   orgSlug: string;
   pageDescription: string;
@@ -122,14 +123,6 @@ function getStatusAlert(input: {
   return null;
 }
 
-function getConfigurationSummary(state: LinearIntegrationUiState) {
-  if (state === "connected") {
-    return "Manage the defaults Otto should use when it searches Linear and prepares issue follow-up work.";
-  }
-
-  return "Connect Linear to choose workspace defaults for issue search, project context, and issue creation.";
-}
-
 async function readJson(response: Response) {
   try {
     return (await response.json()) as Record<string, unknown>;
@@ -144,6 +137,7 @@ export function LinearIntegrationPanel(props: Props) {
     capabilityRows,
     connectActionLabel,
     connectUrl,
+    hasConfiguration,
     iconSrc,
     orgSlug,
     pageDescription,
@@ -159,8 +153,9 @@ export function LinearIntegrationPanel(props: Props) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
   const transientConnectError = searchParams.get("linear_error");
-  const currentTab: "capabilities" | "status" | "configuration" =
-    tabParam === "capabilities" || tabParam === "configuration"
+  const currentTab =
+    tabParam === "capabilities" ||
+    (hasConfiguration && tabParam === "configuration")
       ? tabParam
       : "status";
   const statusAlert = getStatusAlert({
@@ -173,14 +168,14 @@ export function LinearIntegrationPanel(props: Props) {
       tabParam &&
       tabParam !== "capabilities" &&
       tabParam !== "status" &&
-      tabParam !== "configuration"
+      (!hasConfiguration || tabParam !== "configuration")
     ) {
       router.replace(
         updateQueryString(pathname, searchParams, { tab: "status" }),
         { scroll: false },
       );
     }
-  }, [pathname, router, searchParams, tabParam]);
+  }, [hasConfiguration, pathname, router, searchParams, tabParam]);
 
   async function postJson(url: string, body: Record<string, unknown>) {
     const response = await fetch(url, {
@@ -233,6 +228,10 @@ export function LinearIntegrationPanel(props: Props) {
   }
 
   function setTopLevelTab(value: "capabilities" | "status" | "configuration") {
+    if (value === "configuration" && !hasConfiguration) {
+      return;
+    }
+
     router.replace(
       updateQueryString(pathname, searchParams, {
         tab: value,
@@ -289,7 +288,9 @@ export function LinearIntegrationPanel(props: Props) {
         <TabsList>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          {hasConfiguration ? (
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="capabilities">
@@ -400,55 +401,7 @@ export function LinearIntegrationPanel(props: Props) {
           </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="configuration">
-          <SettingsPage className="mx-0 mt-4 max-w-3xl">
-            <div className="flex flex-col gap-8">
-              <SettingsSection>
-                <SettingsSectionTitle>Workspace defaults</SettingsSectionTitle>
-                <SettingsSectionDescription>
-                  {getConfigurationSummary(uiState)}
-                </SettingsSectionDescription>
-                <SettingsCard>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Default team</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Choose the Linear team Otto should prefer for new work.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Default project</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Set the project Otto should use when it drafts issue
-                        follow-up.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Issue creation mode</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Decide whether Otto drafts work for review or creates
-                        issues directly.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                </SettingsCard>
-              </SettingsSection>
-            </div>
-          </SettingsPage>
-        </TabsContent>
+        {hasConfiguration ? <TabsContent value="configuration" /> : null}
       </Tabs>
     </div>
   );

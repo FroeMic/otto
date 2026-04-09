@@ -214,6 +214,11 @@ export type IntegrationOverviewItemProps = {
   entry: IntegrationOverviewEntry;
 };
 
+export type IntegrationSettingsDefinition = {
+  description?: string;
+  label: string;
+};
+
 export type IntegrationDefinition = {
   agentCapabilities: AgentCapability[];
   categoryLabel: string;
@@ -225,6 +230,7 @@ export type IntegrationDefinition = {
   oauth?: IntegrationOauthBinding;
   pageDescription: string;
   runtimeSurface: IntegrationRuntimeSurfaceDefinition | null;
+  settings?: IntegrationSettingsDefinition;
   settingsPath: (orgSlug: string) => string;
   showInWorkspaceCatalog: boolean;
   ui?: {

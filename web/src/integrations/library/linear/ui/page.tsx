@@ -113,6 +113,7 @@ export async function LinearIntegrationPage({
       capabilityRows={capabilityRows}
       connectActionLabel={getConnectActionLabel(uiState)}
       connectUrl={`/oauth/start/integration/linear?orgSlug=${encodeURIComponent(orgSlug)}`}
+      hasConfiguration={Boolean(definition.settings)}
       iconSrc={definition.iconSrc}
       orgSlug={orgSlug}
       pageDescription={definition.pageDescription}
