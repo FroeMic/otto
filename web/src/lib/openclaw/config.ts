@@ -63,8 +63,10 @@ export type OpenClawTenantConfig = {
     answerInThreads: boolean;
     channelAccessMode: "manual_allowlist" | "member_of_channels";
     enabled: boolean;
-    mode: "socket";
+    mode: "socket" | "http";
     requireMentionInChannels: boolean;
+    signingSecret?: string;
+    webhookPath?: string;
   };
   whatsapp?: {
     ackReactionEnabled: boolean;
@@ -87,6 +89,7 @@ export type OpenClawTenantConfig = {
 export const OPENCLAW_GATEWAY_BIND = "lan";
 export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
 export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
+export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events";
 
 const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
@@ -320,6 +323,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             ? "open"
             : "allowlist",
         mode: slack.mode,
+        ...(slack.mode === "http"
+          ? {
+              signingSecret: slack.signingSecret,
+              webhookPath:
+                slack.webhookPath ?? TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+            }
+          : {}),
         replyToMode: "off",
         replyToModeByChatType: {
           channel: slack.answerInThreads ? "all" : "off",
@@ -550,8 +560,7 @@ export function buildOpenClawTenantConfig(input: {
   const config = parseRecord(input.configJson);
   const env = getEnv();
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
-  const hasSlackTokens =
-    Boolean(env.RUNTIME_SLACK_APP_TOKEN) && Boolean(input.slackBotToken);
+  const hasSlackBotToken = Boolean(input.slackBotToken);
   const audio = parseAudioConfig(config.media);
   const slackPolicy = parseSlackPolicy(config.slack);
   const whatsappPolicy = parseWhatsAppPolicy(config.whatsapp);
@@ -566,6 +575,12 @@ export function buildOpenClawTenantConfig(input: {
     controlPlaneBaseUrl,
     primaryModel,
   });
+
+  if (hasSlackBotToken && !env.SLACK_SIGNING_SECRET) {
+    throw new Error(
+      "SLACK_SIGNING_SECRET is required to render Slack in HTTP mode for tenant runtimes.",
+    );
+  }
   return {
     ...(audio ? { audio } : {}),
     authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
@@ -614,7 +629,7 @@ export function buildOpenClawTenantConfig(input: {
           ],
         }
       : {}),
-    ...(hasSlackTokens
+    ...(hasSlackBotToken
       ? {
           slack: {
             ackReactionEnabled: slackPolicy.ackReactionEnabled,
@@ -623,8 +638,10 @@ export function buildOpenClawTenantConfig(input: {
             answerInThreads: slackPolicy.answerInThreads,
             channelAccessMode: slackPolicy.channelAccessMode,
             enabled: true,
-            mode: "socket" as const,
+            mode: "http" as const,
             requireMentionInChannels: slackPolicy.requireMentionInChannels,
+            signingSecret: env.SLACK_SIGNING_SECRET,
+            webhookPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
           },
         }
       : {}),

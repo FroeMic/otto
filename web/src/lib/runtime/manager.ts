@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
 import {
   OPENCLAW_GATEWAY_CONTAINER_PORT,
   OPENCLAW_GATEWAY_HOST_PORT,
   type OpenClawTenantConfig,
   renderOpenClawConfig,
+  TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
 } from "@/lib/openclaw/config";
 import type { SshConnection } from "@/lib/ssh/client";
 import { SshClient } from "@/lib/ssh/client";
@@ -40,6 +43,12 @@ export type WhatsAppLinkStatus = {
   selfE164: string | null;
   selfJid: string | null;
   lastError: string | null;
+};
+
+export type ForwardedSlackHttpResponse = {
+  body: string;
+  headers: Record<string, string>;
+  status: number;
 };
 
 const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000;
@@ -596,6 +605,69 @@ export class RuntimeManager {
     return parseToolInvokePayload(result.stdout);
   }
 
+  async forwardSlackHttpRequest(
+    connection: SshConnection,
+    input: {
+      body: string;
+      headers: Record<string, string>;
+      path?: string;
+      timeoutMs?: number;
+    },
+  ): Promise<ForwardedSlackHttpResponse> {
+    const requestBodyPath = `/tmp/otto-slack-ingress-${randomUUID()}.body`;
+    await this.sshClient.writeFileAtomic(
+      connection,
+      requestBodyPath,
+      input.body,
+      0o600,
+    );
+
+    const forwardedHeaders = Object.entries(input.headers)
+      .filter(([, value]) => value.trim().length > 0)
+      .map(([name, value]) => `-H ${shellQuoteForShell(`${name}: ${value}`)}`)
+      .join(" ");
+    const targetUrl = `http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}${input.path ?? TENANT_RUNTIME_SLACK_WEBHOOK_PATH}`;
+    const script = [
+      "set -euo pipefail",
+      `request_body_path=${shellQuoteForShell(requestBodyPath)}`,
+      "response_body=$(mktemp /tmp/otto-slack-response-body.XXXXXX)",
+      "response_headers=$(mktemp /tmp/otto-slack-response-headers.XXXXXX)",
+      'trap \'rm -f "$request_body_path" "$response_body" "$response_headers"\' EXIT',
+      [
+        "status=$(curl -sS",
+        "--max-time 15",
+        '-o "$response_body"',
+        '-D "$response_headers"',
+        "-X POST",
+        forwardedHeaders,
+        '--data-binary @"$request_body_path"',
+        shellQuoteForShell(targetUrl),
+        "-w '%{http_code}')",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      [
+        'printf \'{"status":%s,"headersBase64":"%s","bodyBase64":"%s"}\'',
+        '"$status"',
+        '"$(base64 < "$response_headers" | tr -d \'\\n\')"',
+        '"$(base64 < "$response_body" | tr -d \'\\n\')"',
+      ].join(" "),
+    ].join("\n");
+    const result = await this.sshClient.exec(
+      connection,
+      `bash -lc ${shellQuote(script)}`,
+      { timeoutMs: input.timeoutMs ?? 20_000 },
+    );
+
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Slack HTTP forward failed: ${result.stderr || result.stdout || "Remote command failed"}`,
+      );
+    }
+
+    return parseForwardedSlackHttpPayload(result.stdout);
+  }
+
   async startWhatsAppLoginWithQr(
     connection: SshConnection,
     input: {
@@ -880,7 +952,6 @@ async function buildRuntimeEnvFile(input: {
   tenantToken: string;
   slackBotToken?: string | null;
 }) {
-  const env = getEnv();
   const lines = [`OPENCLAW_GATEWAY_TOKEN=${input.gatewayToken}`];
   lines.push(`TENANT_TOKEN=${input.tenantToken}`);
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
@@ -888,10 +959,6 @@ async function buildRuntimeEnvFile(input: {
 
   if (controlPlaneBaseUrl) {
     lines.push(`OTTO_CONTROL_PLANE_BASE_URL=${controlPlaneBaseUrl}`);
-  }
-
-  if (env.RUNTIME_SLACK_APP_TOKEN) {
-    lines.push(`SLACK_APP_TOKEN=${env.RUNTIME_SLACK_APP_TOKEN}`);
   }
 
   if (input.slackBotToken) {
@@ -1002,6 +1069,61 @@ function parseToolInvokePayload(value: string) {
   throw new Error(
     "Tenant runtime tool response did not include a JSON payload",
   );
+}
+
+function parseForwardedSlackHttpPayload(
+  value: string,
+): ForwardedSlackHttpResponse {
+  const envelope = parseJsonObject(value);
+  const status = envelope.status;
+
+  if (typeof status !== "number") {
+    throw new Error("Tenant runtime Slack forward response is missing status");
+  }
+
+  const headersRaw = Buffer.from(
+    typeof envelope.headersBase64 === "string" ? envelope.headersBase64 : "",
+    "base64",
+  ).toString("utf8");
+  const body = Buffer.from(
+    typeof envelope.bodyBase64 === "string" ? envelope.bodyBase64 : "",
+    "base64",
+  ).toString("utf8");
+
+  return {
+    body,
+    headers: parseRawHttpHeaders(headersRaw),
+    status,
+  };
+}
+
+function parseRawHttpHeaders(value: string) {
+  const headers: Record<string, string> = {};
+
+  for (const line of value.split(/\r?\n/)) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith("HTTP/")) {
+      continue;
+    }
+
+    const separatorIndex = trimmed.indexOf(":");
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const name = trimmed.slice(0, separatorIndex).trim().toLowerCase();
+    const headerValue = trimmed.slice(separatorIndex + 1).trim();
+
+    if (!name || !headerValue) {
+      continue;
+    }
+
+    headers[name] = headerValue;
+  }
+
+  return headers;
 }
 
 export function buildManagedSkillManifest(

@@ -45,6 +45,7 @@ import {
   jobRuns,
   memberships,
   organizations,
+  slackIngressDeliveries,
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
@@ -259,6 +260,8 @@ type SlackIntegrationSummary = {
   teamId: string | null;
   teamName: string | null;
 };
+
+export type SlackIngressRequestType = "events" | "commands" | "interactivity";
 
 type WhatsAppIntegrationSummary = {
   connectedAt: Date | null;
@@ -9423,6 +9426,156 @@ export async function getSlackInstallationForTenant(tenantId: string) {
   return db.transaction(async (tx) => {
     return getConnectedSlackInstallationForTenant(tx, { tenantId });
   });
+}
+
+async function getConnectedSlackInstallationForTeam(
+  tx: DbTransaction,
+  input: {
+    teamId: string;
+  },
+) {
+  const matches = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      slackTeamId: integrationSlackInstallations.slackTeamId,
+      slackTeamName: integrationSlackInstallations.slackTeamName,
+      tenantId: tenantIntegrations.tenantId,
+      tenantIntegrationId: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .innerJoin(
+      integrationSlackInstallations,
+      eq(
+        integrationSlackInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationSlackInstallations.slackTeamId, input.teamId),
+      ),
+    )
+    .orderBy(desc(tenantIntegrations.connectedAt))
+    .limit(2);
+
+  const connectedMatches = matches.filter(
+    (match) => match.connectedAt && !match.disconnectedAt,
+  );
+
+  if (connectedMatches.length === 0) {
+    return null;
+  }
+
+  if (connectedMatches.length > 1) {
+    throw new Error(
+      `Multiple tenants are connected to Slack team ${input.teamId}.`,
+    );
+  }
+
+  return connectedMatches[0];
+}
+
+export async function forwardSlackIngressForTeam(input: {
+  body: string;
+  enterpriseId?: string | null;
+  headers: Record<string, string>;
+  requestPath: string;
+  requestType: SlackIngressRequestType;
+  teamId: string;
+}) {
+  const db = getDb();
+  const target = await db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTeam(tx, {
+      teamId: input.teamId,
+    });
+  });
+
+  if (!target) {
+    throw new Error(
+      `No connected Slack installation was found for team ${input.teamId}.`,
+    );
+  }
+
+  const [delivery] = await db
+    .insert(slackIngressDeliveries)
+    .values({
+      enterpriseId: input.enterpriseId ?? null,
+      requestPath: input.requestPath,
+      requestType: input.requestType,
+      status: "forwarding",
+      teamId: input.teamId,
+      tenantIntegrationId: target.tenantIntegrationId,
+    })
+    .returning({
+      id: slackIngressDeliveries.id,
+    });
+
+  try {
+    const runtimeConnection = await getTenantRuntimeConnection(
+      target.tenantId,
+      `Slack ${input.requestType} ingress`,
+    );
+    const response = await runtimeManager.forwardSlackHttpRequest(
+      runtimeConnection,
+      {
+        body: input.body,
+        headers: input.headers,
+      },
+    );
+    const finishedAt = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(slackIngressDeliveries)
+        .set({
+          finishedAt,
+          responseStatus: response.status,
+          status: "forwarded",
+        })
+        .where(eq(slackIngressDeliveries.id, delivery.id));
+
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: null,
+          lastErrorAt: null,
+          updatedAt: finishedAt,
+        })
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
+    });
+
+    return response;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Slack ingress forwarding failed";
+    const finishedAt = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(slackIngressDeliveries)
+        .set({
+          error: message,
+          finishedAt,
+          status: "failed",
+        })
+        .where(eq(slackIngressDeliveries.id, delivery.id));
+
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: message,
+          lastErrorAt: finishedAt,
+          updatedAt: finishedAt,
+        })
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
+    });
+
+    throw new Error(message);
+  }
 }
 
 async function refreshTenantSlackDirectoryForTenant(input: {
