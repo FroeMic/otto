@@ -1,10 +1,12 @@
 import { linearIntegrationDefinition } from "@/integrations/library/linear/definition";
+import { slackIntegrationDefinition } from "@/integrations/library/slack/definition";
 import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 
 import type { IntegrationDefinition } from "./types";
 
 const registry = [
   linearIntegrationDefinition,
+  slackIntegrationDefinition,
 ] as const satisfies readonly IntegrationDefinition[];
 
 const integrationKeys = new Set<string>();

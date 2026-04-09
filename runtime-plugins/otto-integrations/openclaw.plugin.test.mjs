@@ -14,6 +14,7 @@ test("otto-integrations declares the static metatool contracts", async () => {
     "list_integrations",
     "get_integration",
     "get_integration_details",
+    "configure_integration",
     "manage_integration",
     "execute_integration_command",
   ]);

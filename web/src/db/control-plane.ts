@@ -4662,13 +4662,21 @@ export async function listTenantToolConfigSurfacesForTenant(input: {
   tenantId: string;
 }): Promise<TenantToolConfigSurface[]> {
   const surfaces = await Promise.all(
-    listToolDefinitions().map((definition) =>
-      getTenantToolConfigSurfaceForTenant({
-        surfaceKey: definition.key,
-        surfaceKind: definition.kind,
-        tenantId: input.tenantId,
-      }),
-    ),
+    listToolDefinitions()
+      .filter(
+        (definition) =>
+          !(
+            definition.kind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
+            definition.key === SLACK_RUNTIME_CONFIG_SURFACE_KEY
+          ),
+      )
+      .map((definition) =>
+        getTenantToolConfigSurfaceForTenant({
+          surfaceKey: definition.key,
+          surfaceKind: definition.kind,
+          tenantId: input.tenantId,
+        }),
+      ),
   );
 
   return surfaces.filter((surface): surface is TenantToolConfigSurface =>
@@ -4692,6 +4700,13 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
 }
 
 export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
+export type RuntimeIntegrationSettingsResponse = {
+  integration: Pick<
+    RuntimeIntegrationSummaryResponse,
+    "key" | "label" | "settings" | "status"
+  >;
+  surface: TenantSlackRuntimeConfigSurface;
+};
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
   tx: DbTransaction,
@@ -4892,6 +4907,134 @@ export async function getRuntimeIntegrationForTenant(input: {
     integrations.find((integration) => integration.key === integrationKey) ??
     null
   );
+}
+
+export async function getRuntimeIntegrationSettingsForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationSettingsResponse | null> {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "slack": {
+      const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+        tenantId: input.tenantId,
+      });
+
+      if (!surface) {
+        return null;
+      }
+
+      return {
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+export async function validateRuntimeIntegrationSettingsForTenant(input: {
+  integrationKey: string;
+  patch: Record<string, unknown>;
+  tenantId: string;
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "slack": {
+      const validation = await validateTenantSlackRuntimeConfigChangeForTenant({
+        createdByType: "runtime",
+        patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: validation.validation,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+export async function applyRuntimeIntegrationSettingsForTenant(input: {
+  expectedEntryVersion?: number;
+  integrationKey: string;
+  patch: Record<string, unknown>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "slack": {
+      const result = await updateTenantSlackRuntimeConfigForTenant({
+        createdByType: "runtime",
+        expectedEntryVersion: input.expectedEntryVersion,
+        patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+        summary: input.summary,
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        ...result,
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: {
+          ok: true,
+          warnings: result.effects?.warnings ?? [],
+        },
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 function findRuntimeCommandByKey(
@@ -5135,9 +5278,11 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
   }
 
   const baseUrl = getControlPlaneBaseUrl();
-  const workspaceUrl = baseUrl
-    ? `${baseUrl}/${encodeURIComponent(tenantContext.organizationSlug)}/integrations/${encodeURIComponent(integration.key)}`
-    : null;
+  const definition = getIntegrationDefinition(integration.key);
+  const workspaceUrl =
+    baseUrl && definition
+      ? `${baseUrl}${definition.settingsPath(tenantContext.organizationSlug)}`
+      : null;
 
   let connectUrl: string | null = null;
   let recommendedAction = "none";

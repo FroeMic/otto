@@ -733,7 +733,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
 
     try {
       const response = await fetch(
-        `/api/runtime-config/${props.orgSlug}/surfaces/channel/slack/channels/${channelId}/membership`,
+        `/api/integrations/${props.orgSlug}/slack/channels/${channelId}/membership`,
         {
           body: JSON.stringify({
             action,
@@ -787,7 +787,7 @@ export function SlackRuntimeConfigPanel(props: SlackRuntimeConfigPanelProps) {
         setSuccessMessage(null);
 
         const response = await fetch(
-          `/api/runtime-config/${props.orgSlug}/surfaces/${surface.kind}/${surface.key}`,
+          `/api/integrations/${props.orgSlug}/slack/settings`,
           {
             body: JSON.stringify({
               allowDestructiveChanges:

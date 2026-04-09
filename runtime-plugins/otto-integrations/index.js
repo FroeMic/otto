@@ -16,7 +16,7 @@ export default definePluginEntry({
   id: "otto-integrations",
   name: "Otto Integrations",
   description:
-    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups, use get_integration_details to inspect one command or command group in detail, use manage_integration when an integration needs attention, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
+    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups, use get_integration_details to inspect one command or command group in detail, use configure_integration for safe provider-owned settings, use manage_integration when an integration needs attention, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -124,6 +124,46 @@ export default definePluginEntry({
         },
         async execute(_id, params) {
           return buildToolResult(await getIntegrationDetails(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "configure_integration",
+        description:
+          "Read, validate, or apply safe provider-owned settings for an Otto-managed integration. Use action=get to inspect current settings, action=validate to dry-run a patch, and action=apply to persist a patch with expectedEntryVersion from a prior read.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            action: {
+              type: "string",
+              enum: ["apply", "get", "validate"],
+            },
+            expectedEntryVersion: {
+              type: "integer",
+              minimum: 1,
+            },
+            integrationKey: {
+              type: "string",
+              minLength: 1,
+            },
+            patch: {
+              type: "object",
+              additionalProperties: true,
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["integrationKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await configureIntegration(api, params));
         },
       },
       { optional: true },
@@ -322,6 +362,83 @@ async function getIntegrationDetails(api, params) {
   return response.data;
 }
 
+async function configureIntegration(api, params) {
+  const integrationKey = normalizeString(params.integrationKey);
+  const action = normalizeSettingsAction(params.action);
+  const patch =
+    params.patch && typeof params.patch === "object" && !Array.isArray(params.patch)
+      ? params.patch
+      : null;
+  const expectedEntryVersion =
+    typeof params.expectedEntryVersion === "number" &&
+    Number.isInteger(params.expectedEntryVersion) &&
+    params.expectedEntryVersion >= 1
+      ? params.expectedEntryVersion
+      : null;
+  const summary =
+    typeof params.summary === "string" ? params.summary.trim() : "";
+  const path = `${buildIntegrationDetailPath(integrationKey)}/settings`;
+
+  if (action === "get") {
+    const response = await requestControlPlane(api, {
+      method: "GET",
+      path,
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[otto-integrations] configure-get failed integration=${integrationKey} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+      );
+      return response;
+    }
+
+    console.info(
+      `[otto-integrations] configure-get succeeded integration=${integrationKey}`,
+    );
+
+    return response.data;
+  }
+
+  if (!patch) {
+    return {
+      ok: false,
+      error: "patch must be an object for validate and apply actions.",
+    };
+  }
+
+  if (action === "apply" && !expectedEntryVersion) {
+    return {
+      ok: false,
+      error:
+        "expectedEntryVersion is required for apply and must come from a prior configure_integration action=get call.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path,
+    body: {
+      action,
+      expectedEntryVersion: expectedEntryVersion ?? undefined,
+      patch,
+      ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    console.warn(
+      `[otto-integrations] configure-${action} failed integration=${integrationKey} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
+    return response;
+  }
+
+  console.info(
+    `[otto-integrations] configure-${action} succeeded integration=${integrationKey}`,
+  );
+
+  return response.data;
+}
+
 async function manageIntegration(api, params) {
   const integrationKey = normalizeString(params.integrationKey);
   const action = normalizeString(params.action);
@@ -405,6 +522,10 @@ function normalizeString(value) {
 
 function normalizeScope(value) {
   return value === "available" || value === "all" ? value : "installed";
+}
+
+function normalizeSettingsAction(value) {
+  return value === "apply" || value === "validate" ? value : "get";
 }
 
 function normalizePositiveInteger(value, fallback) {
