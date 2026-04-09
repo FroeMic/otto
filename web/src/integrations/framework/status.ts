@@ -59,6 +59,7 @@ export function resolveRuntimeIntegrationStatus(input: {
         needsAttention:
           integrationStatus === "error" ||
           integrationStatus === "needs_attention" ||
+          integrationStatus?.endsWith("_failed") === true ||
           connectionStatus === "needs_attention",
       } satisfies RuntimeIntegrationStatus,
       tenantIntegrationId: input.row.tenantIntegrationId,

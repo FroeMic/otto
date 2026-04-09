@@ -134,7 +134,11 @@ export function getConnectedMessagingSurfaces(
 
   if (organization.whatsappIntegration?.status === "connected") {
     surfaces.push({
-      href: `/${organization.slug}/integrations/whatsapp`,
+      href: buildIntegrationSectionPath({
+        integrationKey: "whatsapp",
+        orgSlug: organization.slug,
+        section: "status",
+      }),
       iconSrc: "/integrations/whatsapp.png",
       key: "whatsapp",
       label: "WhatsApp",

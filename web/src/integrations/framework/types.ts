@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
 
 import type { ConnectedOauthAccessRecord } from "@/db/oauth";
-import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 import type { AgentCapability } from "@/lib/agent-capabilities";
+import type { OAuthProviderDefinition } from "@/lib/oauth/providers/types";
 
 export type IntegrationCommandInputMode =
   | "file_ref"
