@@ -1,6 +1,7 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
 
+import { registerAuthRoutes } from "./auth"
 import {
   type LegacyRouteDefinition,
   type LegacyRouteMethod,
@@ -92,6 +93,7 @@ export function createApiApp(
     )
   })
 
+  registerAuthRoutes(app)
   registerRuntimeCoreRoutes(app)
   registerWorkspaceCoreRoutes(app)
   registerCompatibilityProxyRoutes(app)

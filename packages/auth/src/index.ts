@@ -1,4 +1,4 @@
-import { unsealData } from "iron-session"
+import { sealData, unsealData } from "iron-session"
 
 export class RuntimeAuthError extends Error {
   code: "missing_runtime_bearer_token" | "invalid_runtime_bearer_token"
@@ -102,6 +102,10 @@ type WorkspaceSessionPayload = {
   user: WorkspaceSessionUser
 }
 
+type AuthFlowStatePayload = {
+  returnTo: string
+}
+
 function getCookieValue(request: Request, cookieName: string) {
   const rawCookieHeader = request.headers.get("cookie")
 
@@ -118,6 +122,10 @@ function getCookieValue(request: Request, cookieName: string) {
   }
 
   return null
+}
+
+export function getRequestCookieValue(request: Request, cookieName: string) {
+  return getCookieValue(request, cookieName)
 }
 
 function getWorkOSCookieConfig(input?: {
@@ -140,6 +148,13 @@ function getWorkOSCookieConfig(input?: {
     cookieName,
     cookiePassword,
   }
+}
+
+export function getWorkspaceSessionCookieConfig(input?: {
+  cookieName?: string
+  cookiePassword?: string
+}) {
+  return getWorkOSCookieConfig(input)
 }
 
 function isWorkspaceSessionUser(value: unknown): value is WorkspaceSessionUser {
@@ -213,6 +228,87 @@ export function isWorkspaceSessionAuthError(
   error: unknown,
 ): error is WorkspaceSessionAuthError {
   return error instanceof WorkspaceSessionAuthError
+}
+
+export async function sealAuthFlowState(input: {
+  password: string
+  payload: AuthFlowStatePayload
+  ttlSeconds?: number
+}) {
+  return sealData(input.payload, {
+    password: input.password,
+    ttl: input.ttlSeconds,
+  })
+}
+
+export async function readAuthFlowState(input: {
+  password: string
+  sealedState: string
+  ttlSeconds?: number
+}) {
+  return unsealData<AuthFlowStatePayload>(input.sealedState, {
+    password: input.password,
+    ttl: input.ttlSeconds,
+  })
+}
+
+function shouldUseSecureCookies(publicBaseUrl: string) {
+  try {
+    return new URL(publicBaseUrl).protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+function encodeCookieValue(value: string) {
+  return encodeURIComponent(value)
+}
+
+export function createWorkspaceSessionCookie(input: {
+  cookieName?: string
+  publicBaseUrl: string
+  sealedSession: string
+}) {
+  const { cookieName } = getWorkOSCookieConfig({
+    cookieName: input.cookieName,
+    cookiePassword: "x".repeat(32),
+  })
+  const parts = [
+    `${cookieName}=${encodeCookieValue(input.sealedSession)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+  ]
+
+  if (shouldUseSecureCookies(input.publicBaseUrl)) {
+    parts.push("Secure")
+  }
+
+  return parts.join("; ")
+}
+
+export function clearWorkspaceSessionCookie(input: {
+  cookieName?: string
+  publicBaseUrl: string
+}) {
+  const { cookieName } = getWorkOSCookieConfig({
+    cookieName: input.cookieName,
+    cookiePassword: "x".repeat(32),
+  })
+  const parts = [
+    `${cookieName}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+  ]
+
+  if (shouldUseSecureCookies(input.publicBaseUrl)) {
+    parts.push("Secure")
+  }
+
+  return parts.join("; ")
 }
 
 export function jsonNoStore(body: unknown, status = 200) {
