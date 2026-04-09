@@ -19,7 +19,17 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@otto/auth": ["../packages/auth/src/index.ts"],
+      "@otto/feature-runtime-core": [
+        "../packages/features/runtime-core/src/index.ts"
+      ],
+      "@otto/feature-workspace-core": [
+        "../packages/features/workspace-core/src/index.ts"
+      ],
+      "@otto/feature-workspace-slugs": [
+        "../packages/features/workspace-slugs/src/index.ts"
+      ]
     }
   },
   "include": [

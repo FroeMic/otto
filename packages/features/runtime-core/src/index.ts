@@ -94,20 +94,22 @@ export async function handleManagedConfigGetRequest(input: {
   }
 }
 
-export async function handleManagedConfigPatchRequest(input: {
+export async function handleManagedConfigPatchRequest<
+  TFilePath extends string,
+>(input: {
   authenticateTenantRuntimeRequest: (
     request: Request,
   ) => Promise<{ tenantId: string }>
   isVersionConflictError: (
     error: unknown,
   ) => error is ManagedConfigVersionConflictLike
-  normalizeManagedBootstrapFilePath: (filePath: string) => string | null
+  normalizeManagedBootstrapFilePath: (filePath: string) => TFilePath | null
   request: Request
   updateTenantManagedFileSharedContentForTenant: (payload: {
     createdByExternalId: string | null
     createdByType: "runtime"
     expectedVersion?: number
-    filePath: string
+    filePath: TFilePath
     sharedContent: string
     summary: string
     tenantId: string
@@ -224,7 +226,7 @@ export async function handleManagedSkillsGetRequest(input: {
   }) => Promise<{
     files: Array<{
       contentText: string | null
-      contentType: string
+      contentType: string | null
       editability: string
       path: string
       storageEncoding: string

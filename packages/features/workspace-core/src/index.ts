@@ -217,14 +217,16 @@ function getEmptyUsageOverview(): WorkspaceUsageOverview {
   })
 }
 
-export async function handleWorkspaceBootstrapRequest(input: {
+export async function handleWorkspaceBootstrapRequest<
+  TUser extends WorkspaceShellUser,
+>(input: {
   getDashboardOrganizations: (
     userExternalId: string,
   ) => Promise<WorkspaceSummary[]>
   hasPlatformAdminRole: (userExternalId: string) => Promise<boolean>
   orgSlug: string
-  syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
-  user: WorkspaceShellUser
+  syncUserFromSession: (user: TUser) => Promise<unknown>
+  user: TUser
 }) {
   try {
     await input.syncUserFromSession(input.user)
@@ -275,7 +277,9 @@ export async function handleWorkspaceBootstrapRequest(input: {
   }
 }
 
-export async function handleWorkspaceUsageRequest(input: {
+export async function handleWorkspaceUsageRequest<
+  TUser extends WorkspaceShellUser,
+>(input: {
   getOrganizationTenantForBilling: (organizationId: string) => Promise<{
     id: string
   } | null>
@@ -290,8 +294,8 @@ export async function handleWorkspaceUsageRequest(input: {
   }) => Promise<WorkspaceUsageOverview>
   orgSlug: string
   request: Request
-  syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
-  user: WorkspaceShellUser
+  syncUserFromSession: (user: TUser) => Promise<unknown>
+  user: TUser
 }) {
   try {
     await input.syncUserFromSession(input.user)
@@ -354,7 +358,9 @@ export async function handleWorkspaceUsageRequest(input: {
   }
 }
 
-export async function handleWorkspaceSettingsUpdateRequest(input: {
+export async function handleWorkspaceSettingsUpdateRequest<
+  TUser extends WorkspaceShellUser,
+>(input: {
   getOrganizationWorkspaceBySlug: (payload: {
     orgSlug: string
     userExternalId: string
@@ -366,7 +372,7 @@ export async function handleWorkspaceSettingsUpdateRequest(input: {
     organizationId: string
   }) => Promise<void>
   request: Request
-  syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
+  syncUserFromSession: (user: TUser) => Promise<unknown>
   updateOrganizationSlug: (payload: {
     organizationId: string
     slug: string
@@ -382,7 +388,7 @@ export async function handleWorkspaceSettingsUpdateRequest(input: {
     timeFormatPreference: string
     timezone: string
   }>
-  user: WorkspaceShellUser
+  user: TUser
 }) {
   try {
     await input.syncUserFromSession(input.user)
