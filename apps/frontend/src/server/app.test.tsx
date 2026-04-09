@@ -49,35 +49,15 @@ describe("frontend app", () => {
     expect(text).toContain("/auth/sign-in?returnTo=%2Fapp")
   })
 
-  it("proxies auth requests to the API service", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(null, {
-        headers: {
-          location: "https://example.workos.com/authorize",
-        },
-        status: 302,
-      }),
-    )
+  it("does not own auth routes at the frontend layer", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
 
-    const response = await app.request(
-      "http://localhost/auth/sign-in?returnTo=%2Fapp",
-      {
-        redirect: "manual",
-      },
-    )
+    const response = await app.request("http://localhost/auth/sign-in", {
+      redirect: "manual",
+    })
 
-    expect(fetchSpy).toHaveBeenCalledOnce()
-    const [firstCall] = fetchSpy.mock.calls
-    const request = firstCall?.[0]
-
-    expect(request).toBeInstanceOf(Request)
-    expect((request as Request).url).toBe(
-      "http://api.internal/auth/sign-in?returnTo=%2Fapp",
-    )
-    expect(response.status).toBe(302)
-    expect(response.headers.get("location")).toBe(
-      "https://example.workos.com/authorize",
-    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(response.status).toBe(404)
   })
 
   it("serves a workspace shell fallback", async () => {
