@@ -1,9 +1,10 @@
 "use client";
 
-import { CircleNotch } from "@phosphor-icons/react/ssr";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { FloatingStatusChip } from "@/components/floating-status-chip";
 
 const MIN_DISPLAY_MS = 10_000;
 const POLL_INTERVAL_MS = 1_000;
@@ -75,12 +76,5 @@ export function SyncNotification({
 
   if (!visible) return null;
 
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-green-600 px-3 py-1.5 shadow-lg">
-        <CircleNotch className="size-3 animate-spin text-white" />
-        <span className="text-xs font-medium text-white">{message}</span>
-      </div>
-    </div>
-  );
+  return <FloatingStatusChip message={message} />;
 }

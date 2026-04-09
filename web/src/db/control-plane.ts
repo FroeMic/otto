@@ -5810,7 +5810,10 @@ export async function getTenantManagedIntegrationConnectContext(input: {
     return null;
   }
 
-  if (normalizedProviderKey !== LINEAR_PROVIDER_KEY) {
+  if (
+    normalizedProviderKey !== LINEAR_PROVIDER_KEY &&
+    normalizedProviderKey !== SLACK_PROVIDER_KEY
+  ) {
     throw new Error(
       `Managed integration ${input.providerKey} does not support connect sessions yet.`,
     );
