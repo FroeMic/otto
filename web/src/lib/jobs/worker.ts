@@ -126,6 +126,13 @@ export function getWorkerLanes() {
   return WORKER_LANE_ORDER;
 }
 
+export function getLaneConcurrency(lane: JobLane) {
+  return Math.max(
+    1,
+    Math.min(getEnv().WORKER_BATCH_SIZE, WORKER_LANE_CONCURRENCY[lane]),
+  );
+}
+
 export async function ensureWorkerSchedulerJobsSeeded() {
   for (const jobType of getRecurringSchedulerJobTypes()) {
     if (await hasQueuedOrRunningJobOfType(jobType)) {
@@ -171,13 +178,6 @@ export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
   }
 
   return jobs.length;
-}
-
-function getLaneConcurrency(lane: JobLane) {
-  return Math.max(
-    1,
-    Math.min(getEnv().WORKER_BATCH_SIZE, WORKER_LANE_CONCURRENCY[lane]),
-  );
 }
 
 function getErrorMessage(error: unknown) {

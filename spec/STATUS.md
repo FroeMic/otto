@@ -35,6 +35,8 @@
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
+  - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
+  - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
   - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
