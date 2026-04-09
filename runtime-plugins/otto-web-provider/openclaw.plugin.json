@@ -1,0 +1,15 @@
+{
+  "id": "otto-web-provider",
+  "name": "Otto Web Provider",
+  "description": "Otto-managed web search provider proxy.",
+  "contracts": {
+    "webSearchProviders": [
+      "otto-web-search"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

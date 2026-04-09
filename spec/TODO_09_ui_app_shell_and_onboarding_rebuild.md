@@ -225,7 +225,7 @@ Purpose:
 Initial content:
 
 - Brave Web Search status
-- link to a read-only detail page for the `web/search` surface
+- link to the managed Brave integration detail page instead of a legacy runtime-surface page
 - placeholder list for future capability surfaces
 - render the Web Search detail page as a read-only settings-style detail view with a constrained header
 - use top-level tabs for Capabilities, Status, and Configuration

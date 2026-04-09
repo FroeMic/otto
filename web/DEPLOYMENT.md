@@ -169,17 +169,20 @@ Verify:
 If Brave web search is enabled, also verify a real tenant projection:
 
 ```bash
-npm run verify:runtime-surface -- <org-slug> web search
+curl -s -H "Authorization: Bearer $TENANT_TOKEN" \
+  "$OTTO_CONTROL_PLANE_BASE_URL/api/internal/runtime/integrations/brave" | jq
 ```
 
-That script authenticates with the tenant gateway token and calls the same
-internal control-plane surface endpoints the `otto-runtime-config` runtime plugin
-uses. On the tenant server itself, you can also verify file projection with:
+On the tenant server itself, you can also verify the new runtime projection with:
 
 ```bash
 grep -F '"search"' /opt/openclaw/home/openclaw.json
-grep '^BRAVE_API_KEY=' /opt/openclaw/home/.env
+grep -F '"otto-web-search"' /opt/openclaw/home/openclaw.json
+grep '^BRAVE_API_KEY=' /opt/openclaw/home/.env || true
 ```
+
+The `BRAVE_API_KEY` grep should return no match because Brave credentials now stay
+in the workspace app and are proxied through Otto's internal web-search endpoint.
 
 To connect from a laptop over Tailscale, forward that host-only Postgres port:
 

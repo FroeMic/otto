@@ -528,14 +528,13 @@
   - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
   - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
   - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
-- The first non-Slack runtime surface is now implemented for global web search:
-  - `web/search` is now registered alongside `channel/slack` as a read-only env-backed surface
-  - desired-state compilation now resolves Brave web search config from control-plane env and projects it into tenant runtime config
-  - tenant runtime bootstrap and apply now write `BRAVE_API_KEY` into `.env` and render `tools.web.search` into `openclaw.json`
-  - the authenticated app shell now includes a `Tools` section with a read-only Brave Web Search detail page, while Slack remains under `Integrations`
-  - runtime surfaces now carry explicit `surfaceType` and `uiGroup` metadata so UI and agent consumers can distinguish `Integrations` vs `Tools` without hardcoded Slack heuristics
-  - the runtime plugin and route contract now use surface-oriented naming consistently for synchronized rollout
-  - `web/DEPLOYMENT.md` now documents Brave rollout env vars and a `npm run verify:runtime-surface -- <org-slug> web search` check for live tenant verification through the runtime-authenticated control-plane API
+- Brave web search is now migrating onto the final managed-integration + proxy shape:
+  - Brave now lives in `integrations/library/brave` as a platform-managed integration instead of a registry-backed runtime surface
+  - the legacy `web/search` surface and old tools page path are being removed so Brave has one workspace/UI path only
+  - desired-state compilation now renders `tools.web.search.provider = "otto-web-search"` plus the new `otto-web-provider` runtime plugin instead of enabling bundled Brave search plugins directly
+  - tenant runtime bootstrap and apply no longer write provider API keys such as `BRAVE_API_KEY` into tenant `.env`
+  - the control plane now owns Brave egress through `/api/internal/runtime/web-search/search`, authenticated by the tenant runtime token
+  - this slice now requires a new custom runtime image because `runtime-plugins/otto-web-provider` must be bundled into tenant runtimes
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default
@@ -613,7 +612,7 @@
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
   - manually verifying that the control-plane UI and `otto-runtime-config` plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
-  - running `npm run verify:runtime-surface -- <org-slug> web search` against a provisioned tenant after Brave env vars are set in the deployed control plane
+  - running a Brave integration + proxy smoke test against a provisioned tenant after the updated runtime image is published and applied
   - preserving the raw Slack attachment semantics needed for `DONE_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Keep `DONE_10_voice_note_understanding.md` treated as complete, while preserving its regression constraints during later Slack ingress work:
   - confirm a fresh install with `files:read` can transcribe a voice note if the Slack ingress path changes
