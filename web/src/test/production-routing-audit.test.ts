@@ -141,4 +141,39 @@ describe("production routing audit", () => {
       "frontend must treat the apex landing domain as the workspace origin in production compose",
     );
   });
+
+  it("runs worker from apps/worker with a dedicated Bun image", () => {
+    const compose = readFileSync(COMPOSE_PATH, "utf8");
+    const workerService = getServiceBlock(compose, "worker");
+
+    assert.match(
+      workerService,
+      /dockerfile:\s+apps\/worker\/Dockerfile/,
+      "worker must build from apps/worker/Dockerfile in production compose",
+    );
+
+    assert.match(
+      workerService,
+      /image:\s+\$\{OTTO_WORKER_IMAGE:-otto-control-plane-worker:local\}/,
+      "worker must publish a dedicated worker image tag in production compose",
+    );
+
+    assert.doesNotMatch(
+      workerService,
+      /dockerfile:\s+web\/Dockerfile/,
+      "worker must not keep building from web/Dockerfile in production compose",
+    );
+
+    assert.doesNotMatch(
+      workerService,
+      /image:\s+\$\{OTTO_IMAGE:-otto-control-plane:local\}/,
+      "worker must not keep reusing the legacy web image tag in production compose",
+    );
+
+    assert.doesNotMatch(
+      workerService,
+      /command:\s+\["npm",\s+"run",\s+"worker"\]/,
+      "worker must not keep using the legacy npm worker entrypoint in production compose",
+    );
+  });
 });

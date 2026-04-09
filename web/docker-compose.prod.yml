@@ -147,14 +147,10 @@ services:
 
   worker:
     <<: *app-env
+    image: ${OTTO_WORKER_IMAGE:-otto-control-plane-worker:local}
     build:
       context: ..
-      dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
-        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
-    command: ["npm", "run", "worker"]
+      dockerfile: apps/worker/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
