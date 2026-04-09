@@ -18,7 +18,7 @@ COPY packages/legacy-control-plane-runtime/package.json packages/legacy-control-
 COPY packages/features/runtime-core/package.json packages/features/runtime-core/package.json
 COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
 COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --filter @otto/api
 
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./

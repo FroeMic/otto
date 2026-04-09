@@ -13,7 +13,7 @@ COPY packages/features/runtime-core/package.json packages/features/runtime-core/
 COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
 COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
 
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --filter @otto/web
 
 COPY apps/web apps/web
 COPY packages/features/workspace-core packages/features/workspace-core
