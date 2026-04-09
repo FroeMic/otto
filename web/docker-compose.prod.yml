@@ -25,7 +25,7 @@ services:
       - otto_control_plane_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 10
 
@@ -65,7 +65,7 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3000/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 5
 
@@ -91,7 +91,7 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3002/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 5
 
@@ -118,7 +118,7 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3001/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 5
 
@@ -141,20 +141,16 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3000/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 12
 
   worker:
     <<: *app-env
+    image: ${OTTO_WORKER_IMAGE:-otto-control-plane-worker:local}
     build:
       context: ..
-      dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
-        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
-    command: ["npm", "run", "worker"]
+      dockerfile: apps/worker/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

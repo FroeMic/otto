@@ -173,7 +173,9 @@ curl -s -H "Authorization: Bearer $TENANT_TOKEN" \
   "$OTTO_CONTROL_PLANE_BASE_URL/api/internal/runtime/integrations/brave" | jq
 ```
 
-On the tenant server itself, you can also verify the new runtime projection with:
+That confirms the managed Brave integration is visible through the new
+integration runtime surface. On the tenant server itself, you can also verify
+file projection with:
 
 ```bash
 grep -F '"search"' /opt/openclaw/home/openclaw.json

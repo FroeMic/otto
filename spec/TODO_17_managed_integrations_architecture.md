@@ -1517,6 +1517,7 @@ Concrete delivery plan:
    - show `Configuration` only when the provider definition actually exposes settings
 6. Keep `otto-runtime-config` only as a compatibility layer during migration.
    - remove legacy non-integration surfaces such as `web/search` once the provider-backed integration replacement is live
+   - remove legacy non-integration surfaces such as `web/search` once the provider-backed integration replacement is live
    - remove Slack from the runtime-surface inventory once the new integration-backed page and runtime contract are live
    - avoid a long-lived period where both runtime plugins can mutate Slack independently
 
@@ -1576,6 +1577,11 @@ Implementation status:
 - the legacy `/integrations/slack` page is now a redirect into `/integrations2/slack/status`
 - `otto-runtime-config` no longer registers Slack-specific tools
 - managed integration tabs now use nested routes like `/integrations2/slack/status`, `/integrations2/slack/capabilities`, and `/integrations2/slack/channels`
+- Slack workspace navigation now points at the managed route from the sidebar, setup-flow shell, workspace status rail fallback, Slack OAuth callback redirects, and the legacy Slack tool-detail redirect
+- the legacy `/integrations` index now only carries non-migrated runtime-surface entries such as WhatsApp
+- Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
+- the shared managed integration callback route now completes Slack OAuth and redirects back to the managed Slack page
+- `manage_integration` for Slack now returns the explicit managed Slack reconnect URL while keeping disconnect routed through the shared provider disconnect endpoint
 
 Completion plan from the current partial migration state:
 
@@ -1630,6 +1636,60 @@ Verification checklist:
 - route-based managed integration tabs work for Slack and the shared integration detail shell
 - voice-note transcription still works after the runtime-facing settings migration
 - the legacy `otto-runtime-config` plugin no longer advertises Slack once the cutover is complete
+
+### Current follow-on slice: platform-managed Brave migration
+
+Brave web search is the first concrete `Class A: Global managed integration`
+and should now move onto the same registry-driven integration shape as the
+workspace-managed providers.
+
+Current direction:
+
+1. Add explicit platform-managed integration support to the shared framework.
+   - integrations must be able to appear as installed, enabled, and visible in
+     the workspace/runtime catalogs without a `tenant_integrations` row
+   - provider-owned status should be able to resolve from control-plane env or
+     other platform state instead of tenant OAuth state
+   - platform-managed integrations must not advertise user-disable or
+     uninstall behavior
+2. Port Brave into `web/src/integrations/library/brave`.
+   - Brave should appear in `/integrations2` instead of only under the legacy
+     `Tools` surface
+   - the provider-owned page should reuse the current read-only Brave config
+     visibility, capability inventory, and status reporting
+   - `configure_integration action=get` should expose current projected Brave
+     defaults, while validation/apply remain blocked because Brave is
+     platform-managed
+3. Keep the current runtime projection path temporarily while the product
+   surface migrates.
+   - this first slice may continue projecting Brave into tenant runtime env and
+     `openclaw.json`
+   - the older `web/src/tools/web-search` path is now removed, so the managed
+     integration page is the only workspace surface for Brave
+4. Add an Otto-owned web provider plugin and proxy path in the next slice.
+   - create a dedicated runtime plugin, `otto-web-provider`, rather than
+     extending `otto-ai-provider`
+   - register an Otto-owned OpenClaw web-search provider that proxies through
+     the workspace app using `TENANT_TOKEN` and
+     `OTTO_CONTROL_PLANE_BASE_URL`
+   - keep upstream provider API keys only in the workspace app / control plane
+5. Remove direct tenant-runtime Brave credentials after the proxy path is
+   stable.
+   - desired-state compilation should stop projecting `BRAVE_API_KEY` into
+     tenant env
+   - runtime web-search egress should then be controlled centrally through the
+     workspace app
+
+Acceptance criteria for the first slice:
+
+- Brave is registered under `web/src/integrations/library/brave`
+- Brave appears in the managed integration catalog for every workspace without
+  requiring a tenant integration record
+- runtime integration inventory and detail routes report Brave as a
+  platform-managed integration
+- `configure_integration action=get` returns a read-only Brave settings view
+- the next proxy slice is explicitly documented as `otto-web-provider` plus a
+  control-plane web-search endpoint
 
 ### Increment 12: Custom integration registration
 

@@ -13,7 +13,7 @@ describe("managed integration catalog", () => {
       (definition) => definition.key,
     );
 
-    assert.deepEqual(keys, ["linear", "slack"]);
+    assert.deepEqual(keys, ["brave", "linear", "slack"]);
   });
 
   it("includes runtime-manifest-backed entries for supported integrations", () => {
@@ -21,7 +21,22 @@ describe("managed integration catalog", () => {
       (definition) => definition.key,
     );
 
-    assert.deepEqual(keys, ["linear", "slack"]);
+    assert.deepEqual(keys, ["brave", "linear", "slack"]);
+  });
+
+  it("returns Brave metadata for the managed integration page", () => {
+    const definition = getManagedIntegrationDefinition("brave");
+
+    assert.ok(definition);
+    assert.equal(definition.label, "Brave");
+    assert.equal(definition.managementMode, "platform_managed");
+    assert.equal(definition.runtimeSurface?.toolName, "brave");
+    assert.equal(definition.settings?.label, "Configuration");
+    assert.equal(
+      definition.settingsPath("michael"),
+      "/michael/integrations2/brave/status",
+    );
+    assert.ok(definition.agentCapabilities.length >= 1);
   });
 
   it("returns Linear metadata for the dedicated integration page", () => {
@@ -43,6 +58,7 @@ describe("managed integration catalog", () => {
 
     assert.ok(definition);
     assert.equal(definition.label, "Slack");
+    assert.equal(definition.oauth?.provider.key, "slack");
     assert.equal(definition.runtimeSurface?.toolName, "slack");
     assert.equal(definition.settings?.label, "Configuration");
     assert.equal(

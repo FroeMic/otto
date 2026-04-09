@@ -2,12 +2,9 @@ import { z } from "zod";
 
 import { getEnv } from "@/lib/env";
 
-export const WEB_SEARCH_TOOL_SURFACE_KIND = "web";
-export const WEB_SEARCH_TOOL_SURFACE_KEY = "search";
-export const WEB_SEARCH_TOOL_SCHEMA_SOURCE = "otto_builtin";
-export const WEB_SEARCH_TOOL_SCHEMA_VERSION = "1";
-export const WEB_SEARCH_TOOL_LABEL = "Web Search";
-export const WEB_SEARCH_TOOL_DESCRIPTION =
+export const WEB_SEARCH_CONFIG_SCHEMA_VERSION = "1";
+export const WEB_SEARCH_LABEL = "Web Search";
+export const WEB_SEARCH_DESCRIPTION =
   "Let Otto search the web using a managed provider.";
 
 const webSearchProviderSchema = z.enum([
@@ -142,7 +139,7 @@ export const webSearchRuntimeConfigJsonSchema = {
 } as const;
 
 export const webSearchRuntimeConfigUiHints = {
-  description: WEB_SEARCH_TOOL_DESCRIPTION,
+  description: WEB_SEARCH_DESCRIPTION,
   fields: {
     braveMode: {
       kind: "enum",
@@ -214,7 +211,7 @@ export const webSearchRuntimeConfigUiHints = {
       readOnly: true,
     },
   },
-  label: WEB_SEARCH_TOOL_LABEL,
+  label: WEB_SEARCH_LABEL,
   readOnly: true,
 } as const;
 

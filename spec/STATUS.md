@@ -34,7 +34,10 @@
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
-  - the legacy `web/src/worker/index.ts` entrypoint remains in place as the fallback until cutover work begins
+  - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
+  - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
+  - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
+  - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service that now mirrors the current `web/` route-handler surface through adapter-mounted route families, with package-level `format`, `lint`, `test`, and `build` gates
@@ -507,6 +510,11 @@
     - Slack lifecycle/status UI now lives under `web/src/integrations/library/slack`, with the legacy `/integrations/slack` page reduced to a redirect
     - `otto-runtime-config` no longer exposes Slack-specific tools
     - managed integration detail tabs now use route paths like `/integrations2/slack/status` and `/integrations2/slack/channels` instead of `?tab=`
+    - Slack workspace navigation now resolves to `/integrations2/slack/status` from the sidebar, setup flow shell, workspace status rail fallback, Slack OAuth callback success/error redirects, and the legacy tool-detail redirect
+    - the legacy `/integrations` index no longer advertises Slack as a runtime-surface-backed entry
+    - Slack is now registered as a real managed OAuth provider in the framework, and workspace Slack connect/reconnect now starts from `/oauth/start/integration/slack?orgSlug=...`
+    - the shared `/oauth/callback/integration/[provider]` callback path now completes Slack OAuth as well, while the older onboarding-only Slack OAuth route remains in place only for the setup flow
+    - runtime `manage_integration` for Slack now returns the explicit managed reconnect URL instead of falling back to a workspace-page-only reconnect path
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
@@ -528,13 +536,14 @@
   - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
   - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
   - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
-- Brave web search is now migrating onto the final managed-integration + proxy shape:
-  - Brave now lives in `integrations/library/brave` as a platform-managed integration instead of a registry-backed runtime surface
-  - the legacy `web/search` surface and old tools page path are being removed so Brave has one workspace/UI path only
-  - desired-state compilation now renders `tools.web.search.provider = "otto-web-search"` plus the new `otto-web-provider` runtime plugin instead of enabling bundled Brave search plugins directly
+- Brave web search now uses the final managed-integration + proxy shape:
+  - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations2/brave/...`
+  - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
+  - the managed integration framework now supports `platform_managed` definitions that resolve installed/enabled status without a `tenant_integrations` row
+  - desired-state compilation now renders `tools.web.search.provider = "otto-web-search"` plus the `otto-web-provider` runtime plugin instead of enabling bundled Brave search plugins directly
   - tenant runtime bootstrap and apply no longer write provider API keys such as `BRAVE_API_KEY` into tenant `.env`
   - the control plane now owns Brave egress through `/api/internal/runtime/web-search/search`, authenticated by the tenant runtime token
-  - this slice now requires a new custom runtime image because `runtime-plugins/otto-web-provider` must be bundled into tenant runtimes
+  - this slice requires a new custom runtime image because `runtime-plugins/otto-web-provider` must be bundled into tenant runtimes
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default

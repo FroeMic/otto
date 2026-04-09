@@ -20,6 +20,10 @@ describe("tool registry", () => {
     assert.equal(getToolDefinition("channel", "slack"), null);
     assert.ok(getToolDefinition("channel", "whatsapp"));
     assert.equal(getToolDefinition("web", "search"), null);
+    assert.deepEqual(
+      definitions.map((definition) => `${definition.kind}:${definition.key}`),
+      ["channel:whatsapp"],
+    );
   });
 
   it("computes lifecycle actions from current state", () => {

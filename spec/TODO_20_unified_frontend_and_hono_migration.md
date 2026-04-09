@@ -541,6 +541,8 @@ Exit criteria:
 - worker runs independently of the legacy `web` app image
 - no normal job execution path depends on inbound HTTP requests
 - stale-job reclaim and lane behavior remain intact
+- one wedged job can only consume one worker slot, not stall an entire lane
+- apply-configuration jobs use an intentionally shorter stale-reclaim window than the global worker default so tenant updates unblock quickly
 
 ### Phase 3: API extraction
 
@@ -952,7 +954,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: parallel port complete, cutover pending
+  - status: production compose cutover wired, deployment verification pending
 
 ### Session update rules
 

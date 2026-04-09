@@ -1,10 +1,10 @@
 export function buildSlackWorkspaceOauthStartUrl(input: {
   hasSlackOAuthConfig: boolean;
-  onboardingSessionId: string | null;
+  orgSlug: string | null;
 }) {
-  if (!input.hasSlackOAuthConfig || !input.onboardingSessionId) {
+  if (!input.hasSlackOAuthConfig || !input.orgSlug) {
     return null;
   }
 
-  return `/oauth/start/slack?onboardingSessionId=${encodeURIComponent(input.onboardingSessionId)}`;
+  return `/oauth/start/integration/slack?orgSlug=${encodeURIComponent(input.orgSlug)}`;
 }

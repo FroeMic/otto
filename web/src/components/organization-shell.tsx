@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { WorkspaceStatusRail } from "@/components/workspace-status-rail";
 import type { DashboardOrganization } from "@/db/control-plane";
+import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 
 const routeTitles: Record<string, string> = {
@@ -144,7 +145,11 @@ export function OrganizationShell({
 }: OrganizationShellProps) {
   const pathname = usePathname();
   const onboardingPath = `/${currentOrganization.slug}/onboarding`;
-  const slackSetupPath = `/${currentOrganization.slug}/integrations/slack`;
+  const slackSetupPath = buildIntegrationSectionPath({
+    integrationKey: "slack",
+    orgSlug: currentOrganization.slug,
+    section: "status",
+  });
   const isSetupFlow =
     !isOrganizationUnlocked(currentOrganization) &&
     (pathname === onboardingPath ||

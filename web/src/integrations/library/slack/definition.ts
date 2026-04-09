@@ -1,4 +1,5 @@
 import type { IntegrationDefinition } from "@/integrations/framework";
+import { slackOAuthProvider } from "./oauth/provider";
 import {
   slackAgentCapabilities,
   slackSettingsExamples,
@@ -16,6 +17,9 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
   iconSrc: "/integrations/slack.svg",
   key: "slack",
   label: "Slack",
+  oauth: {
+    provider: slackOAuthProvider,
+  },
   pageDescription: "Choose who can use Otto in Slack and where Otto can reply.",
   runtimeSurface: {
     commandGroups: [],

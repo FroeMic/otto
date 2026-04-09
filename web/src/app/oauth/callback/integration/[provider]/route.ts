@@ -2,9 +2,12 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import {
   completeLinearOauthConnection,
+  completeSlackOauthConnection,
   recordLinearOauthFailure,
+  recordSlackManagedOauthFailure,
 } from "@/db/control-plane";
 import { getLocalUserIdForExternalId } from "@/db/oauth";
+import { getIntegrationDefinition } from "@/integrations/framework";
 import { getControlPlaneBaseUrl } from "@/lib/env";
 import { getManagedIntegrationOauthCallbackContext } from "@/lib/oauth/service";
 
@@ -91,6 +94,18 @@ export async function GET(
           tokenResult,
         });
         break;
+      case "slack":
+        await completeSlackOauthConnection({
+          mode:
+            callbackContext.session.mode === "reconnect"
+              ? "reconnect"
+              : "connect",
+          organizationId: callbackContext.session.organizationId,
+          requestedScopes: callbackContext.session.requestedScopes,
+          sessionId: callbackContext.session.id,
+          tokenResult,
+        });
+        break;
       default:
         throw new Error(
           `Unsupported managed integration callback: ${callbackContext.session.providerKey}`,
@@ -107,6 +122,11 @@ export async function GET(
   } catch (error) {
     if (callbackContext?.session.providerKey === "linear") {
       await recordLinearOauthFailure({
+        error: getErrorMessage(error),
+        organizationId: callbackContext.session.organizationId,
+      });
+    } else if (callbackContext?.session.providerKey === "slack") {
+      await recordSlackManagedOauthFailure({
         error: getErrorMessage(error),
         organizationId: callbackContext.session.organizationId,
       });
@@ -128,10 +148,12 @@ function buildSuccessRedirect(
   providerKey: string,
   requestUrl: string,
 ) {
-  return new URL(
-    `/${orgSlug}/integrations/${providerKey}?${providerKey}_connected=1`,
-    requestUrl,
-  );
+  const definition = getIntegrationDefinition(providerKey);
+  const path = definition
+    ? definition.settingsPath(orgSlug)
+    : `/${orgSlug}/integrations2/${providerKey}/status`;
+
+  return new URL(`${path}?${providerKey}_connected=1`, requestUrl);
 }
 
 function buildFailureRedirect(
@@ -140,9 +162,17 @@ function buildFailureRedirect(
   message: string,
   requestUrl: string,
 ) {
+  const definition = orgSlug ? getIntegrationDefinition(providerKey) : null;
+  const path =
+    orgSlug && definition
+      ? definition.settingsPath(orgSlug)
+      : orgSlug
+        ? `/${orgSlug}/integrations2/${providerKey}/status`
+        : null;
+
   return new URL(
-    orgSlug
-      ? `/${orgSlug}/integrations/${providerKey}?${providerKey}_error=${encodeURIComponent(message)}`
+    path
+      ? `${path}?${providerKey}_error=${encodeURIComponent(message)}`
       : `/login?${providerKey}_error=${encodeURIComponent(message)}`,
     requestUrl,
   );

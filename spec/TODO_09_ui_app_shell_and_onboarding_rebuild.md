@@ -227,9 +227,7 @@ Initial content:
 - Brave Web Search status
 - link to the managed Brave integration detail page instead of a legacy runtime-surface page
 - placeholder list for future capability surfaces
-- render the Web Search detail page as a read-only settings-style detail view with a constrained header
-- use top-level tabs for Capabilities, Status, and Configuration
-- replace generic cards with settings sections and read-only settings rows
+- Brave now lives under `/integrations2/brave/...` instead of the legacy Tools surface
 
 ### Slack integration detail
 

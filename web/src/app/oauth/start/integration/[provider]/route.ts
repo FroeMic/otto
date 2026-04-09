@@ -2,6 +2,7 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
 import { getTenantManagedIntegrationConnectContext } from "@/db/control-plane";
+import { getIntegrationDefinition } from "@/integrations/framework";
 import {
   getControlPlaneBaseUrl,
   hasLinearOAuthConfig,
@@ -23,9 +24,9 @@ export async function GET(
   const { provider } = await context.params;
   const providerKey = provider.trim().toLowerCase();
   const orgSlug = url.searchParams.get("orgSlug");
-  const fallbackPath = orgSlug
-    ? `/${orgSlug}/integrations/${providerKey}`
-    : "/login";
+  const definition = orgSlug ? getIntegrationDefinition(providerKey) : null;
+  const fallbackPath =
+    orgSlug && definition ? definition.settingsPath(orgSlug) : "/login";
 
   try {
     if (!orgSlug) {

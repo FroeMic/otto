@@ -10,9 +10,7 @@ import type {
 } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 
-const brandIconMap: Record<string, string> = {
-  "web-search": "/integrations/web-search.svg",
-};
+const brandIconMap: Record<string, string> = {};
 
 function getSurfaceHref(surface: SurfaceEntry, orgSlug: string) {
   if (surface.settingsUrl) return surface.settingsUrl;

@@ -73,6 +73,7 @@ import {
   type IntegrationRuntimeCommandGroupDefinition,
   isAgentCapabilityUserControllable,
   isCommandUserControllable,
+  isPlatformManagedIntegration,
   listIntegrationCommands,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
@@ -83,8 +84,10 @@ import {
   type RuntimeIntegrationManifestEntry,
   type RuntimeIntegrationSettingsContract,
   type RuntimeIntegrationSummaryResponse,
+  resolveRuntimeIntegrationStatus,
 } from "@/integrations/framework";
 import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
+import { braveFieldMeanings } from "@/integrations/library/brave/settings-metadata";
 import {
   applySlackPolicyAction,
   isSlackPolicyDestructive,
@@ -4723,7 +4726,7 @@ export type RuntimeIntegrationSettingsResponse = {
     RuntimeIntegrationSummaryResponse,
     "key" | "label" | "settings" | "status"
   >;
-  surface: TenantSlackRuntimeConfigSurface;
+  surface: Record<string, unknown>;
 };
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
@@ -4764,7 +4767,6 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
 
 function buildRuntimeTenantIntegrations(input: {
   definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
-  installedProviderKeys?: string[];
   rows: Array<{
     connectedAt: Date | null;
     connectionStatus: string | null;
@@ -4776,13 +4778,11 @@ function buildRuntimeTenantIntegrations(input: {
 }) {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
 
-  return definitionsWithStatus.map(({ definition, status }) =>
+  return definitionsWithStatus.map(({ definition, installed, status }) =>
     buildRuntimeIntegrationSummaryResponse({
       available: true,
       definition,
-      installed:
-        input.installedProviderKeys?.includes(definition.key) ??
-        status.connected,
+      installed,
       status,
     }),
   );
@@ -4825,23 +4825,16 @@ function buildRuntimeDefinitionsWithStatus(input: {
 
   return input.definitions.map((definition) => {
     const row = statusByProviderKey.get(definition.key) ?? null;
-    const connected = Boolean(row?.connectedAt && !row?.disconnectedAt);
-    const integrationStatus = row?.integrationStatus ?? null;
-    const connectionStatus = row?.connectionStatus ?? null;
+    const resolved = resolveRuntimeIntegrationStatus({
+      definition,
+      row,
+    });
 
     return {
       definition,
-      status: {
-        connected,
-        connectionStatus,
-        enabled: connected,
-        integrationStatus,
-        needsAttention:
-          integrationStatus === "error" ||
-          integrationStatus === "needs_attention" ||
-          connectionStatus === "needs_attention",
-      },
-      tenantIntegrationId: row?.tenantIntegrationId ?? null,
+      installed: resolved.installed,
+      status: resolved.status,
+      tenantIntegrationId: resolved.tenantIntegrationId,
     };
   });
 }
@@ -4857,17 +4850,11 @@ export async function listRuntimeIntegrationsForTenant(input: {
       tenantId: input.tenantId,
     });
     const installedKeys = rows.map((row) => row.providerKey).sort();
-    const definitions = installedKeys
-      .map((key) => getIntegrationDefinition(key))
-      .filter(
-        (
-          definition,
-        ): definition is NonNullable<typeof definition> & {
-          runtimeSurface: NonNullable<
-            NonNullable<typeof definition>["runtimeSurface"]
-          >;
-        } => Boolean(definition?.runtimeSurface),
-      );
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
 
     if (definitions.length === 0) {
       return [];
@@ -4875,7 +4862,6 @@ export async function listRuntimeIntegrationsForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
-      installedProviderKeys: installedKeys,
       rows,
     });
   });
@@ -4906,7 +4892,6 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
-      installedProviderKeys: rows.map((row) => row.providerKey),
       rows,
     });
   });
@@ -4941,6 +4926,73 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave": {
+      const definition = getIntegrationDefinition("brave");
+
+      if (!definition?.settings) {
+        return null;
+      }
+
+      const resolved = resolveRuntimeWebSearchConfig();
+      const config = {
+        ...parseWebSearchRuntimeConfig(resolved.surfaceConfig),
+        enabled: true,
+        entryVersion: 1,
+        installState: "installed",
+        schemaVersion: WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+      };
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: config as Record<string, unknown>,
+          fieldMeanings: [...braveFieldMeanings],
+          patchSchema: webSearchRuntimeConfigJsonSchema,
+          settingsExamples:
+            definition.settings.examples?.map((example) => ({
+              call: {
+                action: example.action,
+                expectedEntryVersion: example.expectedEntryVersion,
+                integrationKey: definition.key,
+                patch: example.patch,
+                summary: example.summary,
+              },
+              description: example.description,
+            })) ?? [],
+          settingsLabel: definition.settings.label,
+          uiFields:
+            (webSearchRuntimeConfigUiHints.fields as Record<string, unknown>) ??
+            {},
+          workflow: definition.settings.recommendedWorkflow ?? [],
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface: {
+          actionMeanings: [],
+          agentOperations: [],
+          allowedActions: [],
+          availability: resolved.enabled ? "available" : "blocked",
+          blockingReason: resolved.reason,
+          canAgentEdit: false,
+          canUserEdit: false,
+          config,
+          description: definition.pageDescription,
+          fieldMeanings: [...braveFieldMeanings],
+          id: "brave",
+          key: "brave",
+          kind: "integration",
+          label: definition.label,
+          schema: webSearchRuntimeConfigJsonSchema,
+          settingsUrl: null,
+          surfaceType: "integration",
+          uiGroup: "integrations",
+          uiHints: webSearchRuntimeConfigUiHints,
+        },
+      };
+    }
     case "slack": {
       const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
         tenantId: input.tenantId,
@@ -4995,6 +5047,10 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
     case "slack": {
       const validation = await validateTenantSlackRuntimeConfigChangeForTenant({
         createdByType: "runtime",
@@ -5038,6 +5094,10 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
   }
 
   switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
     case "slack": {
       const result = await updateTenantSlackRuntimeConfigForTenant({
         createdByType: "runtime",
@@ -5322,6 +5382,12 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
   let message = `${integration.label} is available.`;
 
   switch (integration.key) {
+    case "brave": {
+      recommendedAction = "open_workspace";
+      message =
+        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults.";
+      break;
+    }
     case "linear": {
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
@@ -5343,7 +5409,9 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       break;
     }
     case "slack": {
-      connectUrl = workspaceUrl;
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
 
       if (integration.status.needsAttention) {
         recommendedAction = "reconnect";
@@ -5613,17 +5681,11 @@ export async function listWorkspaceManagedIntegrationCapabilities(input: {
     const installedProviderKeys = [
       ...new Set(rows.map((row) => row.providerKey)),
     ].sort((left, right) => left.localeCompare(right));
-    const definitions = installedProviderKeys
-      .map((key) => getIntegrationDefinition(key))
-      .filter(
-        (
-          definition,
-        ): definition is NonNullable<typeof definition> & {
-          runtimeSurface: NonNullable<
-            NonNullable<typeof definition>["runtimeSurface"]
-          >;
-        } => Boolean(definition?.runtimeSurface),
-      );
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedProviderKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
 
     const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
       definitions,
@@ -5912,6 +5974,140 @@ export async function completeLinearOauthConnection(input: {
   };
 }
 
+export async function completeSlackOauthConnection(input: {
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const metadata = input.tokenResult.identity?.providerMetadata ?? {};
+  const slackTeamId = getStringMetadataValue(metadata, "slackTeamId");
+  const slackTeamName = getNullableStringMetadataValue(
+    metadata,
+    "slackTeamName",
+  );
+  const slackBotUserId = getNullableStringMetadataValue(
+    metadata,
+    "slackBotUserId",
+  );
+  const installerUserId = getNullableStringMetadataValue(
+    metadata,
+    "installerUserId",
+  );
+  const scopeCsv =
+    getNullableStringMetadataValue(metadata, "scopeCsv") ??
+    input.tokenResult.grantedScopes.join(",");
+
+  if (!slackTeamId) {
+    throw new Error("Slack workspace id is missing from the OAuth response.");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let tenantIntegrationId = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+
+    tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
+      botToken: input.tokenResult.accessToken,
+      installerUserId,
+      now,
+      scopeCsv,
+      slackBotUserId,
+      slackTeamId,
+      slackTeamName,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.tokenResult.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.tokenResult.identity?.externalAccountId ?? null,
+      externalAccountLabel:
+        input.tokenResult.identity?.externalAccountLabel ?? null,
+      now,
+      providerKey: SLACK_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+
+    if (shouldEnqueueApply) {
+      await markSlackIntegrationPendingApply(tx, {
+        now,
+        tenantId,
+      });
+    }
+  });
+
+  try {
+    await refreshSlackDirectoryForInstallation({
+      botToken: input.tokenResult.accessToken,
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  } catch (directoryError) {
+    await recordMessagingWorkspaceSyncFailure({
+      error: getUnknownErrorMessage(directoryError),
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  }
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
 export async function disconnectTenantManagedIntegration(input: {
   orgSlug: string;
   providerKey: string;
@@ -5954,6 +6150,38 @@ export async function recordLinearOauthFailure(input: {
     }
 
     await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
+export async function recordSlackManagedOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack OAuth failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordSlackIntegrationError(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
@@ -6772,6 +7000,7 @@ async function disconnectTenantSlackIntegration(input: {
         connectedAt: tenantIntegrations.connectedAt,
         disconnectedAt: tenantIntegrations.disconnectedAt,
         id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
       })
       .from(tenantIntegrations)
       .where(
@@ -6794,6 +7023,52 @@ async function disconnectTenantSlackIntegration(input: {
           eq(integrationCredentials.secretType, SLACK_BOT_TOKEN_SECRET_TYPE),
         ),
       );
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: SLACK_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
 
     await tx
       .update(tenantIntegrations)
@@ -11337,4 +11612,26 @@ export async function getMemberNameMap(input: {
     }
   }
   return map;
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function getStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getNullableStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" ? value : null;
 }
