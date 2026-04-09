@@ -993,13 +993,6 @@ export function SlackIntegrationPanel(props: Props) {
         </Alert>
       ) : null}
 
-      {successMessage && !hasChanges ? (
-        <Alert>
-          <AlertTitle>Slack settings saved</AlertTitle>
-          <AlertDescription>{successMessage}</AlertDescription>
-        </Alert>
-      ) : null}
-
       {draftEffects.warnings.length > 0 &&
       props.currentSection !== "capabilities" ? (
         <Alert
@@ -1046,7 +1039,7 @@ export function SlackIntegrationPanel(props: Props) {
         </TabsList>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-none">
+          <SettingsPage className="mx-0 max-w-3xl">
             <div className="flex flex-col gap-8">
               {props.statusAlert ? (
                 <Alert variant={props.statusAlert.variant}>
@@ -1170,7 +1163,7 @@ export function SlackIntegrationPanel(props: Props) {
         </TabsContent>
 
         <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-none">
+          <SettingsPage className="mx-0 max-w-3xl">
             <div className="flex flex-col gap-8">
               <SettingsSection>
                 <SettingsSectionTitle>Replies</SettingsSectionTitle>
@@ -1449,6 +1442,8 @@ export function SlackIntegrationPanel(props: Props) {
         onDiscard={resetDraft}
         onSave={saveDraft}
         title="You have unsaved Slack changes."
+        successDescription={successMessage}
+        successTitle="Slack settings saved"
       />
 
       <Dialog open={isDangerDialogOpen} onOpenChange={setIsDangerDialogOpen}>
