@@ -571,7 +571,10 @@ Exit criteria:
 
 ### Overall migration state
 
-- current state: Phase 0 foundation starting
+- current state: Phase 0 foundation active, Phase 1 gateway extraction started
+- current parallel-port progress:
+  - `apps/frontend` exists for legacy `www`
+  - `apps/gateway` exists for legacy `integration-gateway`
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -580,8 +583,8 @@ Exit criteria:
   - extracted `api`
   - extracted `gateway`
   - extracted `worker`
-- current recommended first implementation step:
-  - create the new Bun workspace and fully port legacy `www` into `apps/frontend` without deleting `www/`
+- current recommended next implementation step:
+  - port the legacy worker into `apps/worker` without deleting the current `web/` worker entrypoint
 
 ### Immediate execution order
 
@@ -609,16 +612,19 @@ Definition of done for that target:
 
 Current checkpoint:
 
-- complete in parallel implementation
+- complete in parallel implementation for:
+  - `apps/frontend`
+  - `apps/gateway`
 - cutover still pending
-- `apps/frontend` now exists as the new frontend service foundation
-- the legacy `www/` app remains present and untouched as the fallback
+- the legacy `www/` app remains present and untouched as the frontend fallback
+- the legacy `integration-gateway` service remains present and untouched as the gateway fallback
+- next implementation target is `apps/worker`
 
 ### Phase checklist
 
 - [x] Phase 0 started
 - [ ] Phase 0 complete
-- [ ] Phase 1 started
+- [x] Phase 1 started
 - [ ] Phase 1 complete
 - [ ] Phase 2 started
 - [ ] Phase 2 complete
@@ -650,7 +656,7 @@ Current checkpoint:
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`
-  - status: not started
+  - status: parallel port complete, cutover pending
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`

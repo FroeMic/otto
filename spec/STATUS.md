@@ -24,6 +24,10 @@
   - `apps/frontend` is a Bun-managed package with Hono SSR, React landing routes, a TanStack Router workspace placeholder, and package-level `format`, `lint`, `test`, and `build` gates
   - the current `www/` landing routes have been ported there without deleting `www/`
   - the style-token source for this first port is the current `www/app/globals.css` token set and visual treatment
+- The next extracted service slice now also exists in parallel:
+  - Phase 1 gateway extraction has started
+  - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
+  - the legacy `integration-gateway` service remains in place as the fallback until cutover work begins
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
