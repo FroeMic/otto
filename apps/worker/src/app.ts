@@ -49,6 +49,8 @@ type WorkerStartDependencies = {
 const envModulePath = "../../../web/src/lib/env"
 const queueModulePath = "../../../web/src/lib/jobs/queue"
 const workerModulePath = "../../../web/src/lib/jobs/worker"
+const OPENAI_ADMIN_TRANSIENT_STATUS_PATTERN =
+  /^OpenAI admin API request failed \((5\d{2})\)(?::.*)?$/
 
 export function sleep(ms: number) {
   return new Promise<void>((resolve) => {
@@ -81,7 +83,7 @@ export async function runWorkerLaneSlotLoop(
 
       await dependencies.processClaimedJob(job)
     } catch (error) {
-      console.error(`[worker] ${lane} lane failed`, error)
+      console.error(`[worker] ${lane} lane failed: ${formatLaneError(error)}`)
       await sleepImpl(pollIntervalMs)
     }
   }
@@ -154,4 +156,27 @@ export async function startWorker(
 export async function main() {
   const runtime = await loadWorkerRuntime()
   await startWorker(runtime)
+}
+
+function formatLaneError(error: unknown) {
+  const message = getErrorMessage(error)
+  const transientOpenAiStatus = getTransientOpenAiAdminStatus(message)
+
+  if (transientOpenAiStatus) {
+    return `OpenAI admin API transient upstream error (${transientOpenAiStatus})`
+  }
+
+  return message
+}
+
+function getTransientOpenAiAdminStatus(message: string) {
+  return message.match(OPENAI_ADMIN_TRANSIENT_STATUS_PATTERN)?.[1] ?? null
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message
+  }
+
+  return "Unknown worker error"
 }

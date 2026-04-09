@@ -84,6 +84,31 @@ describe("worker loop", () => {
     assert.equal(attempt, 2)
     assert.deepEqual(sleepCalls, [400, 400])
   })
+
+  it("logs brief OpenAI admin 5xx lane failures without passing Bun the raw error", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    let shouldContinue = true
+
+    try {
+      await runWorkerLaneLoop("metering", 400, {
+        claimAvailableJobsForLane: async () => {
+          shouldContinue = false
+          throw new Error(
+            "OpenAI admin API request failed (504): api.openai.com | 504: Gateway time-out",
+          )
+        },
+        processClaimedJob: async () => {},
+        reclaimStaleRunningJobsForLane: async () => 0,
+        shouldContinue: () => shouldContinue,
+        sleep: async () => {},
+      })
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[worker] metering lane failed: OpenAI admin API transient upstream error (504)",
+      )
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
 })
 
 describe("worker startup", () => {
