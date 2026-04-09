@@ -1516,7 +1516,7 @@ Concrete delivery plan:
    - keep the same user-facing controls and diagnostics where they still make sense
    - show `Configuration` only when the provider definition actually exposes settings
 6. Keep `otto-runtime-config` only as a compatibility layer during migration.
-   - leave non-integration surfaces such as `web/search` there
+   - leave only the remaining non-integration surfaces there
    - remove Slack from the runtime-surface inventory once the new integration-backed page and runtime contract are live
    - avoid a long-lived period where both runtime plugins can mutate Slack independently
 
@@ -1658,8 +1658,8 @@ Current direction:
    surface migrates.
    - this first slice may continue projecting Brave into tenant runtime env and
      `openclaw.json`
-   - the older `web/src/tools/web-search` path can remain as a compatibility
-     alias during the migration, but should stop being the primary surface
+   - the older `web/src/tools/web-search` path is now removed, so the managed
+     integration page is the only workspace surface for Brave
 4. Add an Otto-owned web provider plugin and proxy path in the next slice.
    - create a dedicated runtime plugin, `otto-web-provider`, rather than
      extending `otto-ai-provider`

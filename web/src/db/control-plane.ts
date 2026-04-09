@@ -141,11 +141,7 @@ import {
 import {
   parseWebSearchRuntimeConfig,
   resolveRuntimeWebSearchConfig,
-  WEB_SEARCH_TOOL_DESCRIPTION,
-  WEB_SEARCH_TOOL_LABEL,
-  WEB_SEARCH_TOOL_SCHEMA_VERSION,
-  WEB_SEARCH_TOOL_SURFACE_KEY,
-  WEB_SEARCH_TOOL_SURFACE_KIND,
+  WEB_SEARCH_CONFIG_SCHEMA_VERSION,
   webSearchRuntimeConfigJsonSchema,
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
@@ -4950,7 +4946,7 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
         enabled: true,
         entryVersion: 1,
         installState: "installed",
-        schemaVersion: "1",
+        schemaVersion: WEB_SEARCH_CONFIG_SCHEMA_VERSION,
       };
 
       return {
@@ -6081,15 +6077,6 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
     return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
     }) as Promise<TenantToolConfigSurface | null>;
-  }
-
-  if (
-    input.surfaceKind === WEB_SEARCH_TOOL_SURFACE_KIND &&
-    input.surfaceKey === WEB_SEARCH_TOOL_SURFACE_KEY
-  ) {
-    return getTenantWebSearchToolSurfaceForTenant({
-      tenantId: input.tenantId,
-    });
   }
 
   return null;
@@ -7467,71 +7454,6 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
       linkSession: buildTenantWhatsAppLinkSession(updatedSession ?? null),
     };
   });
-}
-
-async function getTenantWebSearchToolSurfaceForTenant(input: {
-  tenantId: string;
-}): Promise<TenantToolConfigSurface | null> {
-  const definition = getToolDefinition(
-    WEB_SEARCH_TOOL_SURFACE_KIND,
-    WEB_SEARCH_TOOL_SURFACE_KEY,
-  );
-
-  if (!definition) {
-    return null;
-  }
-
-  const [options, organizationSlug] = await Promise.all([
-    definition.buildOptions({
-      tenantId: input.tenantId,
-      tx: getDb(),
-    }),
-    getOrganizationSlugForTenant(input.tenantId),
-  ]);
-  const resolved = resolveRuntimeWebSearchConfig();
-
-  return {
-    actionMeanings: definition.actionMeanings,
-    agentCapabilities: definition.agentCapabilities,
-    agentOperations: definition.agentOperations,
-    allowedActions: listAvailableToolActions(definition, {
-      enabled: resolved.enabled,
-      installState: "installed",
-    }),
-    availability: resolved.enabled ? "available" : "blocked",
-    blockingReason: resolved.reason,
-    canAgentEdit: false,
-    canUserEdit: false,
-    config: {
-      ...resolved.surfaceConfig,
-      enabled: resolved.enabled,
-      entryVersion: 1,
-      installState: "installed",
-      schemaVersion: WEB_SEARCH_TOOL_SCHEMA_VERSION,
-    },
-    description: WEB_SEARCH_TOOL_DESCRIPTION,
-    derivedEffects: {
-      managedBy: resolved.surfaceConfig.managedBy,
-      reason: resolved.reason,
-    },
-    fieldMeanings: definition.fieldMeanings,
-    id: getToolSurfaceId(
-      WEB_SEARCH_TOOL_SURFACE_KIND,
-      WEB_SEARCH_TOOL_SURFACE_KEY,
-    ),
-    key: WEB_SEARCH_TOOL_SURFACE_KEY,
-    kind: WEB_SEARCH_TOOL_SURFACE_KIND,
-    label: WEB_SEARCH_TOOL_LABEL,
-    options,
-    schema: webSearchRuntimeConfigJsonSchema,
-    settingsUrl: organizationSlug
-      ? `/${organizationSlug}/tools/web/search`
-      : null,
-    setupUrl: null,
-    surfaceType: definition.surfaceType,
-    uiGroup: definition.uiGroup,
-    uiHints: webSearchRuntimeConfigUiHints,
-  };
 }
 
 export async function updateTenantSlackChannelMembership(input: {

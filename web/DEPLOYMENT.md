@@ -169,12 +169,13 @@ Verify:
 If Brave web search is enabled, also verify a real tenant projection:
 
 ```bash
-npm run verify:runtime-surface -- <org-slug> web search
+curl -s -H "Authorization: Bearer $TENANT_TOKEN" \
+  "$OTTO_CONTROL_PLANE_BASE_URL/api/internal/runtime/integrations/brave" | jq
 ```
 
-That script authenticates with the tenant gateway token and calls the same
-internal control-plane surface endpoints the `otto-runtime-config` runtime plugin
-uses. On the tenant server itself, you can also verify file projection with:
+That confirms the managed Brave integration is visible through the new
+integration runtime surface. On the tenant server itself, you can also verify
+file projection with:
 
 ```bash
 grep -F '"search"' /opt/openclaw/home/openclaw.json

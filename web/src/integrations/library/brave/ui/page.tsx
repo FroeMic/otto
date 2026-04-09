@@ -5,16 +5,10 @@ import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 import {
   parseWebSearchRuntimeConfig,
   resolveRuntimeWebSearchConfig,
-  webSearchRuntimeConfigJsonSchema,
-  webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
-import type { ToolSurfaceResponse } from "@/tools/types";
-import { WebSearchToolPage } from "@/tools/web-search/page";
 
-import {
-  braveAgentCapabilities,
-  braveFieldMeanings,
-} from "../settings-metadata";
+import { braveAgentCapabilities } from "../settings-metadata";
+import { BraveConfigPage, type BraveConfigSurface } from "./brave-config-page";
 
 export async function BraveManagedIntegrationPage({
   orgSlug,
@@ -42,11 +36,8 @@ export async function BraveManagedIntegrationPage({
 
   const resolved = resolveRuntimeWebSearchConfig();
   const braveIsSelected = resolved.surfaceConfig.provider === "brave";
-  const surface = {
-    actionMeanings: [],
+  const surface: BraveConfigSurface = {
     agentCapabilities: braveAgentCapabilities,
-    agentOperations: [],
-    allowedActions: [],
     availability: resolved.enabled && braveIsSelected ? "available" : "blocked",
     blockingReason:
       resolved.enabled && !braveIsSelected
@@ -54,28 +45,10 @@ export async function BraveManagedIntegrationPage({
         : resolved.reason,
     canAgentEdit: false,
     canUserEdit: false,
-    config: {
-      ...parseWebSearchRuntimeConfig(resolved.surfaceConfig),
-      enabled: true,
-      entryVersion: 1,
-      installState: "installed",
-      schemaVersion: "1",
-    },
+    config: parseWebSearchRuntimeConfig(resolved.surfaceConfig),
     description: definition.pageDescription,
-    fieldMeanings: [...braveFieldMeanings],
-    id: "brave",
-    key: "brave",
-    kind: "integration",
     label: definition.label,
-    options: {},
-    schema: webSearchRuntimeConfigJsonSchema,
-    settingsUrl: definition.settingsPath(orgSlug),
-    surfaceType: "integration",
-    uiGroup: "integrations",
-    uiHints: webSearchRuntimeConfigUiHints,
-  } satisfies ToolSurfaceResponse<
-    ReturnType<typeof parseWebSearchRuntimeConfig>
-  >;
+  };
 
-  return <WebSearchToolPage orgSlug={orgSlug} surface={surface} />;
+  return <BraveConfigPage surface={surface} />;
 }

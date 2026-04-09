@@ -3,13 +3,9 @@ import type {
   ToolSurfaceAction,
   ToolSurfaceLifecycleState,
 } from "@/tools/types";
-import { webSearchToolSurfaceDefinition } from "@/tools/web-search";
 import { whatsappToolSurfaceDefinition } from "@/tools/whatsapp";
 
-const registry = [
-  whatsappToolSurfaceDefinition,
-  webSearchToolSurfaceDefinition,
-] as const;
+const registry = [whatsappToolSurfaceDefinition] as const;
 type ToolSurfaceRegistryEntry = (typeof registry)[number];
 const registryIds = new Set<string>();
 const registrySurfaceKeys = new Set<string>();
