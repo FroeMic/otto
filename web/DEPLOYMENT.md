@@ -179,8 +179,12 @@ file projection with:
 
 ```bash
 grep -F '"search"' /opt/openclaw/home/openclaw.json
-grep '^BRAVE_API_KEY=' /opt/openclaw/home/.env
+grep -F '"otto-web-search"' /opt/openclaw/home/openclaw.json
+grep '^BRAVE_API_KEY=' /opt/openclaw/home/.env || true
 ```
+
+The `BRAVE_API_KEY` grep should return no match because Brave credentials now stay
+in the workspace app and are proxied through Otto's internal web-search endpoint.
 
 To connect from a laptop over Tailscale, forward that host-only Postgres port:
 

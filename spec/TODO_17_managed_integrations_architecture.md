@@ -1645,7 +1645,8 @@ Concrete delivery plan:
    - keep the same user-facing controls and diagnostics where they still make sense
    - show `Configuration` only when the provider definition actually exposes settings
 6. Keep `otto-runtime-config` only as a compatibility layer during migration.
-   - leave only the remaining non-integration surfaces there
+   - remove legacy non-integration surfaces such as `web/search` once the provider-backed integration replacement is live
+   - remove legacy non-integration surfaces such as `web/search` once the provider-backed integration replacement is live
    - remove Slack from the runtime-surface inventory once the new integration-backed page and runtime contract are live
    - avoid a long-lived period where both runtime plugins can mutate Slack independently
 

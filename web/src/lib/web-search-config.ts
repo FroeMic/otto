@@ -286,7 +286,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
     case "brave":
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
-        credentialEnvVar: "BRAVE_API_KEY",
+        credentialEnvVar: "RUNTIME_BRAVE_API_KEY",
         credentialValue: env.RUNTIME_BRAVE_API_KEY,
         openClawConfig: {
           ...openClawConfig,
@@ -308,7 +308,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
     case "gemini":
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
-        credentialEnvVar: "GEMINI_API_KEY",
+        credentialEnvVar: "RUNTIME_GEMINI_API_KEY",
         credentialValue: env.RUNTIME_GEMINI_API_KEY,
         openClawConfig: {
           ...openClawConfig,
@@ -330,7 +330,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
     case "grok":
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
-        credentialEnvVar: "XAI_API_KEY",
+        credentialEnvVar: "RUNTIME_XAI_API_KEY",
         credentialValue: env.RUNTIME_XAI_API_KEY,
         openClawConfig: {
           ...openClawConfig,
@@ -370,9 +370,9 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
       });
     case "kimi": {
       const credentialEnvVar = env.RUNTIME_KIMI_API_KEY
-        ? "KIMI_API_KEY"
+        ? "RUNTIME_KIMI_API_KEY"
         : env.RUNTIME_MOONSHOT_API_KEY
-          ? "MOONSHOT_API_KEY"
+          ? "RUNTIME_MOONSHOT_API_KEY"
           : null;
       const credentialValue =
         env.RUNTIME_KIMI_API_KEY ?? env.RUNTIME_MOONSHOT_API_KEY;
@@ -418,9 +418,9 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
     }
     case "perplexity": {
       const credentialEnvVar = env.RUNTIME_PERPLEXITY_API_KEY
-        ? "PERPLEXITY_API_KEY"
+        ? "RUNTIME_PERPLEXITY_API_KEY"
         : env.RUNTIME_OPENROUTER_API_KEY
-          ? "OPENROUTER_API_KEY"
+          ? "RUNTIME_OPENROUTER_API_KEY"
           : null;
       const credentialValue =
         env.RUNTIME_PERPLEXITY_API_KEY ?? env.RUNTIME_OPENROUTER_API_KEY;
@@ -490,7 +490,7 @@ function buildResolvedConfig(input: {
 
   return {
     enabled: true,
-    envLines: [`${input.credentialEnvVar}=${input.credentialValue}`],
+    envLines: [],
     openClawConfig: input.openClawConfig,
     reason: null,
     surfaceConfig: parseWebSearchRuntimeConfig({

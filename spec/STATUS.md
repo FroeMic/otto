@@ -536,18 +536,14 @@
   - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
   - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
   - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
-- Brave web search is now managed only through the managed integration framework:
-  - desired-state compilation resolves Brave web search config from workspace env and projects it into tenant runtime config
-  - tenant runtime bootstrap and apply still write `BRAVE_API_KEY` into `.env` and render `tools.web.search` into `openclaw.json` until the future `otto-web-provider` proxy slice lands
-  - Brave now appears only under `/integrations2/brave/...`; the legacy `web/search` runtime-surface detail page and old Tools entry have been removed
-  - runtime surfaces still carry explicit `surfaceType` and `uiGroup` metadata for the remaining legacy surfaces, but Brave no longer relies on that compatibility layer
-  - `web/DEPLOYMENT.md` now documents Brave rollout env vars without treating `web/search` as a first-class runtime-surface verification target
-- The next managed-integrations follow-on slice has now started for Brave as a platform-managed integration:
+- Brave web search now uses the final managed-integration + proxy shape:
+  - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations2/brave/...`
+  - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
   - the managed integration framework now supports `platform_managed` definitions that resolve installed/enabled status without a `tenant_integrations` row
-  - Brave is now registered under `web/src/integrations/library/brave` and appears in the managed integration catalog as a platform-managed integration
-  - runtime integration inventory and detail routes now include Brave in the installed catalog and expose its read-only projected settings through `configure_integration action=get`
-  - the legacy `web/src/tools/web-search` compatibility surface has now been removed, so Brave no longer appears in the old Tools registry or `/tools/web/search`
-  - the next Brave step is to add a dedicated `otto-web-provider` runtime plugin plus a control-plane web-search proxy so tenant runtimes no longer receive `BRAVE_API_KEY`
+  - desired-state compilation now renders `tools.web.search.provider = "otto-web-search"` plus the `otto-web-provider` runtime plugin instead of enabling bundled Brave search plugins directly
+  - tenant runtime bootstrap and apply no longer write provider API keys such as `BRAVE_API_KEY` into tenant `.env`
+  - the control plane now owns Brave egress through `/api/internal/runtime/web-search/search`, authenticated by the tenant runtime token
+  - this slice requires a new custom runtime image because `runtime-plugins/otto-web-provider` must be bundled into tenant runtimes
 - Operator runtime utilities now exist in `web/src/scripts/tenant-runtime.ts`:
   - `bun run tenant:runtime:apply -- <org-slug>` queues `apply_tenant_config` for the org's latest tenant and waits for the run by default
   - `bun run tenant:runtime:deploy -- <org-slug>` queues `apply_tenant_config` in pull-image-first mode for the org's latest tenant and waits for the run by default
@@ -625,7 +621,7 @@
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
   - manually verifying that the control-plane UI and `otto-runtime-config` plugin can both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
-- verifying Brave from the managed integration surface after Brave env vars are set in the deployed workspace app
+  - running a Brave integration + proxy smoke test against a provisioned tenant after the updated runtime image is published and applied
   - preserving the raw Slack attachment semantics needed for `DONE_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Keep `DONE_10_voice_note_understanding.md` treated as complete, while preserving its regression constraints during later Slack ingress work:
   - confirm a fresh install with `files:read` can transcribe a voice note if the Slack ingress path changes

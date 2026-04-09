@@ -5,6 +5,7 @@ import {
   OPENCLAW_GATEWAY_CONTAINER_PORT,
   OPENCLAW_GATEWAY_HOST_PORT,
   type OpenClawTenantConfig,
+  OTTO_WEB_SEARCH_PROVIDER_ID,
   renderOpenClawConfig,
   TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
 } from "@/lib/openclaw/config";
@@ -301,7 +302,7 @@ export class RuntimeManager {
     if (input.openClawConfig.webSearch?.enabled) {
       commands.push(
         "grep -F '\"search\"' /opt/openclaw/home/openclaw.json >/dev/null",
-        `grep -F ${shellQuoteForShell(input.openClawConfig.webSearch.provider)} /opt/openclaw/home/openclaw.json >/dev/null`,
+        `grep -F ${shellQuoteForShell(OTTO_WEB_SEARCH_PROVIDER_ID)} /opt/openclaw/home/openclaw.json >/dev/null`,
       );
     }
 

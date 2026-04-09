@@ -141,6 +141,12 @@ export function getEnv(): AppEnv {
   return cachedEnv;
 }
 
+export const __testing = {
+  resetEnvCacheForTests() {
+    cachedEnv = null;
+  },
+} as const;
+
 export function getRuntimeSshAuthSource() {
   const env = getEnv();
 

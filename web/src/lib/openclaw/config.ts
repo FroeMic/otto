@@ -93,6 +93,8 @@ export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events";
 
 const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
+export const OTTO_WEB_SEARCH_PROVIDER_ID = "otto-web-search";
+export const OTTO_WEB_PROVIDER_PLUGIN_ID = "otto-web-provider";
 const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
   "amazon-bedrock",
   "amazon-bedrock-mantle",
@@ -145,7 +147,6 @@ function buildWebSearchPluginEntries(
 ): Record<
   string,
   {
-    config: { webSearch: Record<string, unknown> };
     enabled: true;
   }
 > {
@@ -153,60 +154,11 @@ function buildWebSearchPluginEntries(
     return {};
   }
 
-  const entries: Record<
-    string,
-    {
-      config: { webSearch: Record<string, unknown> };
-      enabled: true;
-    }
-  > = {};
-
-  if (webSearch.brave) {
-    entries.brave = {
-      config: {
-        webSearch: webSearch.brave,
-      },
+  return {
+    [OTTO_WEB_PROVIDER_PLUGIN_ID]: {
       enabled: true,
-    };
-  }
-
-  if (webSearch.gemini) {
-    entries.google = {
-      config: {
-        webSearch: webSearch.gemini,
-      },
-      enabled: true,
-    };
-  }
-
-  if (webSearch.grok) {
-    entries.xai = {
-      config: {
-        webSearch: webSearch.grok,
-      },
-      enabled: true,
-    };
-  }
-
-  if (webSearch.kimi) {
-    entries.moonshot = {
-      config: {
-        webSearch: webSearch.kimi,
-      },
-      enabled: true,
-    };
-  }
-
-  if (webSearch.perplexity) {
-    entries.perplexity = {
-      config: {
-        webSearch: webSearch.perplexity,
-      },
-      enabled: true,
-    };
-  }
-
-  return entries;
+    },
+  };
 }
 
 function shouldRouteAudioThroughOpenAiProxy(
@@ -428,7 +380,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                   maxResults: config.webSearch.maxResults,
                 }
               : {}),
-            provider: config.webSearch.provider,
+            provider: OTTO_WEB_SEARCH_PROVIDER_ID,
             ...(typeof config.webSearch.timeoutSeconds === "number"
               ? {
                   timeoutSeconds: config.webSearch.timeoutSeconds,
@@ -576,6 +528,12 @@ export function buildOpenClawTenantConfig(input: {
     primaryModel,
   });
 
+  if (webSearch && !controlPlaneBaseUrl) {
+    throw new Error(
+      `${OTTO_WEB_SEARCH_PROVIDER_ID} requires OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
+    );
+  }
+
   if (hasSlackBotToken && !env.SLACK_SIGNING_SECRET) {
     throw new Error(
       "SLACK_SIGNING_SECRET is required to render Slack in HTTP mode for tenant runtimes.",
@@ -591,15 +549,32 @@ export function buildOpenClawTenantConfig(input: {
           (value): value is string => typeof value === "string",
         )
       : [],
-    ...(proxyModelConfig
-      ? {
-          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
-          modelProviders: proxyModelConfig.modelProviders,
-          ottoProviderPlugins: proxyModelConfig.plugins,
-        }
-      : {
-          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
-        }),
+    bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
+    ...(() => {
+      const ottoProviderPlugins = [
+        ...(proxyModelConfig?.plugins ?? []),
+        ...(webSearch
+          ? [
+              {
+                id: OTTO_WEB_PROVIDER_PLUGIN_ID,
+              },
+            ]
+          : []),
+      ];
+
+      return {
+        ...(proxyModelConfig
+          ? {
+              modelProviders: proxyModelConfig.modelProviders,
+            }
+          : {}),
+        ...(ottoProviderPlugins.length > 0
+          ? {
+              ottoProviderPlugins,
+            }
+          : {}),
+      };
+    })(),
     primaryModel,
     prompts: parseStringRecord(config.prompts),
     timeFormat,

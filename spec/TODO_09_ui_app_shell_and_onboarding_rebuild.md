@@ -224,6 +224,8 @@ Purpose:
 
 Initial content:
 
+- Brave Web Search status
+- link to the managed Brave integration detail page instead of a legacy runtime-surface page
 - placeholder list for future capability surfaces
 - Brave now lives under `/integrations2/brave/...` instead of the legacy Tools surface
 
