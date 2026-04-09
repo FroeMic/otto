@@ -1,4 +1,4 @@
-import { resolve } from "node:path"
+import path, { resolve } from "node:path"
 
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
@@ -9,6 +9,11 @@ export default defineConfig({
     "process.env.NODE_ENV": JSON.stringify("production"),
   },
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   build: {
     emptyOutDir: false,
     lib: {
@@ -17,7 +22,7 @@ export default defineConfig({
       formats: ["es"],
       name: "OttoWorkspace",
     },
-    outDir: resolve(__dirname, "dist/public/app"),
+    outDir: resolve(__dirname, "dist/public/assets"),
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
@@ -27,7 +32,7 @@ export default defineConfig({
             return "workspace.css"
           }
 
-          return "assets/[name]-[hash][extname]"
+          return "[name]-[hash][extname]"
         },
       },
     },

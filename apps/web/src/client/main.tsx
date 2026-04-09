@@ -1,7 +1,15 @@
 import {
+  BuildingsIcon,
+  GearIcon,
+  HouseLineIcon,
+  SignOutIcon,
+  SparkleIcon,
+} from "@phosphor-icons/react"
+import {
   QueryClient,
   QueryClientProvider,
   useMutation,
+  useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import {
@@ -11,48 +19,63 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  useMatchRoute,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router"
-import { StrictMode, useEffect, useId, useState } from "react"
+import { lazy, StrictMode, Suspense, useEffect, useId, useState } from "react"
 import { createRoot } from "react-dom/client"
 
-import { buttonVariants } from "../shared/button-variants"
-import { cn } from "../shared/cn"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
-  getDefaultUsageSearch,
-  shellBootstrapQueryOptions,
-  updateWorkspaceSettings,
-  usageOverviewQueryOptions,
-  usageSearchSchema,
-} from "./api"
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { TooltipProvider } from "@/components/ui/tooltip"
+
+import { shellBootstrapQueryOptions, updateWorkspaceSettings } from "./api"
 import "./styles.css"
 
 const queryClient = new QueryClient()
+const LazyPlatformPage = lazy(() => import("./platform-page"))
 
 function RootPage() {
   return (
-    <main className="min-h-svh bg-background px-6 py-16 text-foreground">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-card px-8 py-10 shadow-sm">
-        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-          Otto Workspace
-        </p>
-        <div className="flex flex-col gap-3">
+    <main className="flex min-h-svh items-center justify-center bg-background px-6 py-16 text-foreground">
+      <div className="flex w-full max-w-3xl flex-col gap-5 rounded-[2rem] border border-border/70 bg-card px-8 py-10 shadow-sm">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+            Otto
+          </p>
           <h1 className="text-4xl font-semibold tracking-tight">
-            New shell in progress
+            Workspace SPA foundation
           </h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            The workspace shell now runs as a TanStack Router SPA against the
-            new API boundary. Open a workspace route directly to test the first
-            migrated slices.
+            Public routes stay server-rendered. The authenticated SPA now owns
+            workspace slug routes and the platform area.
           </p>
         </div>
-        <div className="flex gap-3">
-          <a href="/login?returnTo=/app" className={cn(buttonVariants())}>
-            Sign in
+        <div className="flex flex-wrap gap-3">
+          <a href="/login" className="inline-flex">
+            <Button size="lg">Sign in</Button>
           </a>
-          <a href="/" className={cn(buttonVariants({ variant: "outline" }))}>
-            Back to home
+          <a href="/" className="inline-flex">
+            <Button variant="outline" size="lg">
+              Back to home
+            </Button>
           </a>
         </div>
       </div>
@@ -60,208 +83,260 @@ function RootPage() {
   )
 }
 
-function WorkspaceShell() {
-  const { orgSlug } = orgRoute.useParams()
+type WorkspaceMenuLinkProps = {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  params?: { orgSlug: string }
+  to: "/$orgSlug" | "/$orgSlug/settings/workspace" | "/platform"
+}
+
+function WorkspaceMenuLink({
+  icon: Icon,
+  label,
+  params,
+  to,
+}: WorkspaceMenuLinkProps) {
+  const matchRoute = useMatchRoute()
+  const isActive = Boolean(
+    params
+      ? matchRoute({ fuzzy: true, params, to })
+      : matchRoute({ fuzzy: true, to }),
+  )
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        render={
+          params ? (
+            <Link params={params} preload="intent" to={to} />
+          ) : (
+            <Link preload="intent" to={to} />
+          )
+        }
+        isActive={isActive}
+        tooltip={label}
+      >
+        <Icon />
+        <span>{label}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
+
+function WorkspaceLayout() {
+  const { orgSlug } = workspaceRoute.useParams()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
-    <main className="min-h-svh bg-background text-foreground">
-      <div className="mx-auto flex min-h-svh w-full max-w-7xl flex-col gap-8 px-6 py-8 md:px-10">
-        <header className="flex items-center justify-between gap-4 rounded-[2rem] border border-border/70 bg-card px-5 py-4 shadow-sm">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-primary/12" />
-            <div>
-              <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                Otto
-              </p>
-              <p className="text-sm text-muted-foreground">
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="gap-4 border-b border-sidebar-border/70">
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
+              <SparkleIcon weight="fill" />
+            </div>
+            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+              <p className="text-sm font-medium">Otto</p>
+              <p className="truncate text-xs text-sidebar-foreground/70">
                 {data.currentOrganization.name}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium">{data.user.name}</p>
-              <p className="text-xs text-muted-foreground">{data.user.email}</p>
-            </div>
-            <a
-              href="/auth/sign-out"
-              className={cn(buttonVariants({ variant: "outline" }))}
-            >
-              Sign out
-            </a>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <WorkspaceMenuLink
+                  icon={HouseLineIcon}
+                  label="Overview"
+                  params={{ orgSlug }}
+                  to="/$orgSlug"
+                />
+                <WorkspaceMenuLink
+                  icon={GearIcon}
+                  label="Settings"
+                  params={{ orgSlug }}
+                  to="/$orgSlug/settings/workspace"
+                />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {data.organizations.map((organization) => (
+                  <WorkspaceMenuLink
+                    key={organization.id}
+                    icon={BuildingsIcon}
+                    label={organization.name}
+                    params={{ orgSlug: organization.slug }}
+                    to="/$orgSlug"
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {data.user.isPlatformAdmin ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>Operator</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <WorkspaceMenuLink
+                    icon={BuildingsIcon}
+                    label="Platform"
+                    to="/platform"
+                  />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-sidebar-border/70">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  window.location.assign("/auth/sign-out")
+                }}
+                tooltip="Sign out"
+              >
+                <SignOutIcon />
+                <span>Sign out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset className="bg-background">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur md:px-6">
+          <SidebarTrigger />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {data.currentOrganization.name}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              /{data.currentOrganization.slug}
+            </p>
           </div>
         </header>
 
-        <section className="grid flex-1 gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-          <aside className="rounded-[2rem] border border-border/70 bg-card px-5 py-6 shadow-sm">
-            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              Workspace
-            </p>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-              {data.currentOrganization.name}
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {data.currentOrganization.slug}
-            </p>
-            <nav className="mt-6 flex flex-col gap-2">
-              {[
-                { to: "/$orgSlug/usage", label: "Usage" },
-                { to: "/$orgSlug/settings/workspace", label: "Settings" },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  params={{ orgSlug }}
-                  to={item.to}
-                  className={cn(
-                    buttonVariants({ variant: "outline" }),
-                    "justify-start",
-                  )}
-                  activeProps={{
-                    className: cn(buttonVariants(), "justify-start"),
-                  }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="mt-8 border-t border-border/70 pt-6">
-              <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
-                Workspaces
-              </p>
-              <div className="mt-3 flex flex-col gap-2">
-                {data.organizations.map((organization) => (
-                  <Link
-                    key={organization.id}
-                    params={{ orgSlug: organization.slug }}
-                    to="/$orgSlug/usage"
-                    className={cn(
-                      buttonVariants({ variant: "outline" }),
-                      "justify-start px-3 text-left",
-                    )}
-                  >
-                    <span className="truncate">{organization.name}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </aside>
-
-          <div className="rounded-[2rem] border border-border/70 bg-card px-6 py-6 shadow-sm">
-            <Outlet />
-          </div>
-        </section>
-      </div>
-    </main>
+        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 
-function WorkspaceLandingPage() {
-  const navigate = useNavigate({ from: "/$orgSlug/" })
-  const { orgSlug } = orgRoute.useParams()
-
-  useEffect(() => {
-    void navigate({
-      params: { orgSlug },
-      to: "/$orgSlug/usage",
-    })
-  }, [navigate, orgSlug])
-
-  return (
-    <div className="flex min-h-[20rem] items-center justify-center text-sm text-muted-foreground">
-      Loading workspace…
-    </div>
-  )
-}
-
-function WorkspaceUsagePage() {
-  const search = usageRoute.useSearch()
-  const { orgSlug } = orgRoute.useParams()
-  const normalizedSearch = {
-    ...getDefaultUsageSearch(),
-    ...search,
-  }
-  const { data } = useSuspenseQuery(
-    usageOverviewQueryOptions(orgSlug, normalizedSearch),
-  )
+function WorkspaceHomePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+  const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-          Usage
+          Workspace
         </p>
-        <h2 className="text-3xl font-semibold tracking-tight">
-          Workspace usage overview
-        </h2>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {data.currentOrganization.name}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Read-heavy slice running through the new shell.
+          The SPA shell is now mounted on the real workspace slug route.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Requests", data.summary.totalRequests],
-          ["Input tokens", data.summary.totalInputTokens],
-          ["Output tokens", data.summary.totalOutputTokens],
-          ["Credits burned", data.summary.totalCreditsBurnedMilli / 1000],
-        ].map(([label, value]) => (
-          <div
-            key={label}
-            className="rounded-[1.5rem] border border-border/70 bg-background/60 px-4 py-4"
-          >
-            <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
-              {label}
-            </p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight">
-              {Intl.NumberFormat().format(Number(value))}
-            </p>
-          </div>
-        ))}
-      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm">
+          <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
+            Workspace URL
+          </p>
+          <p className="mt-3 text-2xl font-semibold tracking-tight">
+            /{data.currentOrganization.slug}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Reserved-path handling now leaves this top-level slug to the SPA.
+          </p>
+        </section>
 
-      <div className="rounded-[1.5rem] border border-border/70 bg-background/60">
-        <div className="border-b border-border/70 px-5 py-4">
-          <h3 className="text-lg font-semibold tracking-tight">Top models</h3>
-        </div>
-        <div className="divide-y divide-border/70">
-          {data.usageByModel.length === 0 ? (
-            <div className="px-5 py-8 text-sm text-muted-foreground">
-              No usage data for the selected range.
-            </div>
-          ) : (
-            data.usageByModel.slice(0, 8).map((row) => (
-              <div
-                key={`${row.provider ?? "unknown"}-${row.model}`}
-                className="grid gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_8rem_8rem]"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{row.model}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {row.provider ?? "unknown provider"}
-                  </p>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {Intl.NumberFormat().format(row.requests ?? 0)} requests
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {Intl.NumberFormat().format(row.inputTokens ?? 0)} in
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <section className="rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm">
+          <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
+            Status
+          </p>
+          <p className="mt-3 text-2xl font-semibold tracking-tight">
+            {data.currentOrganization.isReady ? "Ready" : "Setup in progress"}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Settings and navigation now share one persistent workspace layout.
+          </p>
+        </section>
       </div>
     </div>
   )
 }
 
+function WorkspaceSettingsLayout() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+          Settings
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Workspace settings
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          The first nested layout inside the workspace shell.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link params={{ orgSlug }} to="/$orgSlug/settings/workspace">
+          {({ isActive }) => (
+            <Button variant={isActive ? "default" : "outline"}>
+              Workspace
+            </Button>
+          )}
+        </Link>
+      </div>
+
+      <Outlet />
+    </div>
+  )
+}
+
+function WorkspaceSettingsIndexPage() {
+  const navigate = useNavigate({ from: "/$orgSlug/settings/" })
+  const { orgSlug } = workspaceRoute.useParams()
+
+  useEffect(() => {
+    void navigate({
+      params: { orgSlug },
+      replace: true,
+      to: "/$orgSlug/settings/workspace",
+    })
+  }, [navigate, orgSlug])
+
+  return <div className="text-sm text-muted-foreground">Loading settings…</div>
+}
+
 function WorkspaceSettingsPage() {
+  const { orgSlug } = workspaceRoute.useParams()
+  const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const queryClient = useQueryClient()
   const navigate = useNavigate({ from: "/$orgSlug/settings/workspace" })
   const router = useRouter()
-  const { orgSlug } = orgRoute.useParams()
-  const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
   const nameFieldId = useId()
   const slugFieldId = useId()
   const [name, setName] = useState(data.currentOrganization.name)
@@ -298,6 +373,7 @@ function WorkspaceSettingsPage() {
       if (nextOrgSlug !== orgSlug) {
         await navigate({
           params: { orgSlug: nextOrgSlug },
+          replace: true,
           to: "/$orgSlug/settings/workspace",
         })
       }
@@ -310,75 +386,108 @@ function WorkspaceSettingsPage() {
   }, [data.currentOrganization.name, data.currentOrganization.slug])
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-          Settings
-        </p>
-        <h2 className="text-3xl font-semibold tracking-tight">
-          Workspace settings
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Write-heavy slice running through the new shell.
-        </p>
-      </div>
-
-      <div className="grid gap-4">
-        <div className="rounded-[1.5rem] border border-border/70 bg-background/60 px-5 py-5">
+    <div className="grid gap-4">
+      <form
+        className="flex flex-col gap-4 rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault()
+          mutation.mutate({
+            action: "update-name",
+            value: name,
+          })
+        }}
+      >
+        <div className="flex flex-col gap-1">
           <label className="text-sm font-medium" htmlFor={nameFieldId}>
             Workspace name
           </label>
-          <input
-            id={nameFieldId}
-            className="mt-3 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <div className="mt-4 flex justify-end">
-            <Link
-              to="."
-              className={cn(buttonVariants())}
-              onClick={(event) => {
-                event.preventDefault()
-                mutation.mutate({
-                  action: "update-name",
-                  value: name,
-                })
-              }}
-            >
-              {mutation.isPending ? "Saving…" : "Save name"}
-            </Link>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Displayed across the workspace shell and member-facing settings.
+          </p>
         </div>
+        <Input
+          id={nameFieldId}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <div className="flex justify-end">
+          <Button disabled={mutation.isPending} type="submit">
+            {mutation.isPending ? "Saving…" : "Save name"}
+          </Button>
+        </div>
+      </form>
 
-        <div className="rounded-[1.5rem] border border-border/70 bg-background/60 px-5 py-5">
+      <form
+        className="flex flex-col gap-4 rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault()
+          mutation.mutate({
+            action: "update-slug",
+            value: slug,
+          })
+        }}
+      >
+        <div className="flex flex-col gap-1">
           <label className="text-sm font-medium" htmlFor={slugFieldId}>
             Workspace URL slug
           </label>
-          <input
-            id={slugFieldId}
-            className="mt-3 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none"
-            value={slug}
-            onChange={(event) => setSlug(event.target.value)}
-          />
-          <div className="mt-4 flex justify-end">
-            <Link
-              to="."
-              className={cn(buttonVariants())}
-              onClick={(event) => {
-                event.preventDefault()
-                mutation.mutate({
-                  action: "update-slug",
-                  value: slug,
-                })
-              }}
-            >
-              {mutation.isPending ? "Saving…" : "Save slug"}
-            </Link>
+          <p className="text-sm text-muted-foreground">
+            This controls the browser-facing workspace route.
+          </p>
+        </div>
+        <Input
+          id={slugFieldId}
+          value={slug}
+          onChange={(event) => setSlug(event.target.value)}
+        />
+        <div className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          New URL: <span className="font-medium text-foreground">/{slug}</span>
+        </div>
+        <div className="flex justify-end">
+          <Button disabled={mutation.isPending} type="submit">
+            {mutation.isPending ? "Saving…" : "Save URL"}
+          </Button>
+        </div>
+      </form>
+
+      <section className="rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm">
+        <p className="text-sm font-medium">Regional defaults</p>
+        <div className="mt-4 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+          <div className="rounded-xl bg-muted px-4 py-3">
+            Locale:{" "}
+            <span className="font-medium text-foreground">
+              {data.currentOrganization.locale}
+            </span>
+          </div>
+          <div className="rounded-xl bg-muted px-4 py-3">
+            Timezone:{" "}
+            <span className="font-medium text-foreground">
+              {data.currentOrganization.timezone}
+            </span>
+          </div>
+          <div className="rounded-xl bg-muted px-4 py-3">
+            Clock:{" "}
+            <span className="font-medium text-foreground">
+              {data.currentOrganization.timeFormatPreference}
+            </span>
           </div>
         </div>
-      </div>
+      </section>
     </div>
+  )
+}
+
+function PlatformPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-6 py-8 text-sm text-muted-foreground">
+          Loading platform…
+        </div>
+      }
+    >
+      <LazyPlatformPage />
+    </Suspense>
   )
 }
 
@@ -394,9 +503,9 @@ const homeRoute = createRoute({
   path: "/",
 })
 
-const orgRoute = createRoute({
+const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
-  component: WorkspaceShell,
+  component: WorkspaceLayout,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       shellBootstrapQueryOptions(params.orgSlug),
@@ -404,46 +513,49 @@ const orgRoute = createRoute({
   path: "/$orgSlug",
 })
 
-const orgIndexRoute = createRoute({
-  getParentRoute: () => orgRoute,
-  component: WorkspaceLandingPage,
+const workspaceIndexRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  component: WorkspaceHomePage,
   path: "/",
 })
 
-const usageRoute = createRoute({
-  getParentRoute: () => orgRoute,
-  component: WorkspaceUsagePage,
-  loaderDeps: ({ search }) => ({
-    search: {
-      ...getDefaultUsageSearch(),
-      ...search,
-    },
-  }),
-  loader: ({ context, deps, params }) =>
-    context.queryClient.ensureQueryData(
-      usageOverviewQueryOptions(params.orgSlug, deps.search),
-    ),
-  path: "/usage",
-  validateSearch: (search) => usageSearchSchema.parse(search),
+const workspaceSettingsRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  component: WorkspaceSettingsLayout,
+  path: "/settings",
 })
 
-const settingsRoute = createRoute({
-  getParentRoute: () => orgRoute,
+const workspaceSettingsIndexRoute = createRoute({
+  getParentRoute: () => workspaceSettingsRoute,
+  component: WorkspaceSettingsIndexPage,
+  path: "/",
+})
+
+const workspaceSettingsWorkspaceRoute = createRoute({
+  getParentRoute: () => workspaceSettingsRoute,
   component: WorkspaceSettingsPage,
-  loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(
-      shellBootstrapQueryOptions(params.orgSlug),
-    ),
-  path: "/settings/workspace",
+  path: "/workspace",
+})
+
+const platformRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  component: PlatformPage,
+  path: "/platform",
 })
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
-  orgRoute.addChildren([orgIndexRoute, usageRoute, settingsRoute]),
+  workspaceRoute.addChildren([
+    workspaceIndexRoute,
+    workspaceSettingsRoute.addChildren([
+      workspaceSettingsIndexRoute,
+      workspaceSettingsWorkspaceRoute,
+    ]),
+  ]),
+  platformRoute,
 ])
 
 const router = createRouter({
-  basepath: "/app",
   context: {
     queryClient,
   },
@@ -463,7 +575,9 @@ if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
       </QueryClientProvider>
     </StrictMode>,
   )

@@ -60,13 +60,14 @@
 - The first real frontend shell now exists:
   - `apps/web` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
   - `apps/web` now owns the same-origin `/login` entry page for the new shell
+  - `apps/web` now also carries the required shadcn/Vite baseline in merged form: `components.json`, base-ui shadcn primitives, sidebar primitives, and the preset-aligned theme/tooling setup
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
-  - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
+  - the TanStack Router SPA now mounts on real slug and platform routes with a persistent workspace layout, nested workspace settings layout, and a lazy platform surface
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
-  - `/app` should only exist if a temporary migration prefix is explicitly reintroduced, not as the default workspace root
+  - `/app` is now only a compatibility redirect that strips the legacy prefix back to slug or platform paths, not the default workspace root
   - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
 - The apex-domain parallel launch shape is now wired in repo config:
   - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
