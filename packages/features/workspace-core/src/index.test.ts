@@ -92,6 +92,39 @@ describe("workspace core", () => {
     })
   })
 
+  it("returns a stage-specific bootstrap error when workspace loading fails", async () => {
+    const response = await handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: async () => {
+        throw new Error("workspace lookup query failed")
+      },
+      getDashboardOrganizations: async () => {
+        throw new Error("organization projection refresh failed")
+      },
+      hasPlatformAdminRole: async () => false,
+      orgSlug: "otto",
+      syncUserFromSession: async () => undefined,
+      user,
+    })
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      code: "workspace_lookup_failed",
+      failureStage: "load_current_workspace",
+      failures: [
+        {
+          message: "organization projection refresh failed",
+          stage: "load_dashboard_organizations",
+        },
+        {
+          message: "workspace lookup query failed",
+          stage: "load_current_workspace",
+        },
+      ],
+      message:
+        "Failed to load the requested workspace: workspace lookup query failed",
+    })
+  })
+
   it("returns usage overview", async () => {
     const response = await handleWorkspaceUsageRequest({
       getOrganizationTenantForBilling: async () => ({ id: "tenant_1" }),

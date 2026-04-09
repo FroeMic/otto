@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 
 import { WorkspaceSessionAuthError } from "@otto/auth"
 import { Hono } from "hono"
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import {
   registerWorkspaceCoreRoutes,
@@ -81,6 +81,10 @@ function createWorkspaceCoreTestApp(
 }
 
 describe("workspace core native routes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("returns the shell bootstrap payload", async () => {
     const app = createWorkspaceCoreTestApp()
     const response = await app.request(
@@ -225,6 +229,43 @@ describe("workspace core native routes", () => {
     assert.deepEqual(await response.json(), {
       code: "missing_workspace_session",
       message: "Missing workspace session",
+    })
+  })
+
+  it("logs bootstrap failure details when the route fails", async () => {
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined)
+    const app = createWorkspaceCoreTestApp({
+      ...createDependencies(),
+      getCurrentWorkspace: async () => {
+        throw new Error("workspace lookup query failed")
+      },
+      getDashboardOrganizations: async () => {
+        throw new Error("organization projection refresh failed")
+      },
+      hasPlatformAdminRole: async () => false,
+    })
+    const response = await app.request(
+      "http://api.local/api/web/bootstrap/otto",
+    )
+
+    assert.equal(response.status, 400)
+    assert.equal(errorSpy.mock.calls.length, 1)
+    assert.equal(errorSpy.mock.calls[0]?.[0], "[workspace-bootstrap] failed")
+    assert.deepEqual(errorSpy.mock.calls[0]?.[1], {
+      failures: [
+        {
+          message: "organization projection refresh failed",
+          stage: "load_dashboard_organizations",
+        },
+        {
+          message: "workspace lookup query failed",
+          stage: "load_current_workspace",
+        },
+      ],
+      orgSlug: "otto",
+      userId: "user_123",
     })
   })
 })
