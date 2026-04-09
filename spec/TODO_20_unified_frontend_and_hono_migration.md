@@ -838,18 +838,22 @@ Exit criteria:
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
   - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus same-origin `/login`, `/auth/*`, and `/oauth/*` forwarding
-- current browser-facing production split:
-  - landing on `frontend`
-  - workspace on `web`
+- current browser-facing production split in repo config:
+  - apex domain on `frontend`
+  - apex `/api/*` on `api`
+  - apex `/api/internal/runtime/integrations/execute*` on `gateway`
+  - legacy app subdomain on `web`
 - target browser-facing production split:
   - unified `frontend` on one primary origin
   - extracted `api`
   - extracted `gateway`
   - extracted `worker`
 - current recommended next implementation step:
-  - deploy and verify the `integration-gateway` container cutover to
-    `apps/gateway` while keeping the execute URL on
-    `/api/internal/runtime/integrations/execute*`
+  - deploy and verify the apex-domain parallel launch:
+    - `LANDING_PAGE_DOMAIN` on `frontend`
+    - `LANDING_PAGE_DOMAIN/api/*` on `apps/api`
+    - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` on `apps/gateway`
+    - `CONTROL_PLANE_DOMAIN` on legacy `web`
 
 ### Immediate execution order
 
@@ -924,7 +928,7 @@ Current checkpoint:
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
-  - status: parallel port complete, cutover pending
+  - status: parallel port complete, with apex-domain `/api/*` routing now wired in compose and Caddy; deployment verification pending
 - `internal runtime managed-config and managed-skills`:
   - current owner: shared runtime-core package plus thin route wrappers
   - target owner: `apps/api`
@@ -944,7 +948,7 @@ Current checkpoint:
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`
-  - status: production compose cutover wired, deployment verification pending
+  - status: production compose cutover wired, with apex-domain execute routing now wired in Caddy; deployment verification pending
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`

@@ -2,8 +2,8 @@
 
 This deploy target assumes one public control-plane VPS on Hetzner:
 
-- public HTTPS for both the marketing site and the workspace app
-- local Docker Compose services for `caddy`, `www`, `web`, `integration-gateway`, `worker`, and `postgres`
+- public HTTPS for both the apex Otto frontend and the legacy workspace subdomain
+- local Docker Compose services for `caddy`, `frontend`, `api`, `web`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -35,8 +35,8 @@ cp ../www/.env.production.example ../www/.env
 
 Set at least:
 
-- `LANDING_PAGE_DOMAIN`
-- `CONTROL_PLANE_DOMAIN`
+- `LANDING_PAGE_DOMAIN` for the apex Otto domain such as `getyourotto.com`
+- `CONTROL_PLANE_DOMAIN` for the legacy workspace subdomain such as `app.getyourotto.com`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `WORKOS_CLIENT_ID`
@@ -149,17 +149,23 @@ Verify:
 
 - `https://<your-landing-domain>/` returns `200`
 - `https://<your-domain>/healthz` returns `200`
+- `https://<your-landing-domain>/api/workspace/<org-slug>/usage` reaches the extracted API on the apex domain
 - the apex or landing hostname resolves to the same VPS that runs Caddy
-- the `frontend`, `web`, `integration-gateway`, and `worker` containers stay healthy
-- `docker compose -f docker-compose.prod.yml exec caddy sh -lc "cat /etc/caddy/Caddyfile"` shows `reverse_proxy frontend:3000` under `{$LANDING_PAGE_DOMAIN}`
+- the `frontend`, `api`, `web`, `integration-gateway`, and `worker` containers stay healthy
+- `docker compose -f docker-compose.prod.yml exec caddy sh -lc "cat /etc/caddy/Caddyfile"` shows:
+  - `reverse_proxy integration-gateway:3001` for `{$LANDING_PAGE_DOMAIN}/api/internal/runtime/integrations/execute*`
+  - `reverse_proxy api:3002` for `{$LANDING_PAGE_DOMAIN}/api/*`
+  - `reverse_proxy frontend:3000` as the apex default
+  - `reverse_proxy web:3000` under `{$CONTROL_PLANE_DOMAIN}`
 - `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing frontend is deployed
 - Postgres answers on `127.0.0.1:5433` on the host
-- `LANDING_PAGE_DOMAIN` matches the public marketing hostname
-- `CONTROL_PLANE_DOMAIN` matches the public app hostname
+- `LANDING_PAGE_DOMAIN` matches the public apex Otto hostname
+- `CONTROL_PLANE_DOMAIN` matches the legacy app subdomain
 - `WORKOS_REDIRECT_URI` points at the public callback URL
-- `WORKOS_BASE_URL` matches the public app origin
+- `WORKOS_BASE_URL` matches the public apex origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
-- WorkOS and Slack redirect URIs point at the public domain
+- WorkOS, Slack, and Linear redirect URIs point at the apex domain
+- tenant runtimes keep using the current legacy app origin until you explicitly cut over `OTTO_CONTROL_PLANE_BASE_URL`
 
 The legacy `www` container is now rollback-only. It should not run in the
 default production deploy unless you intentionally start the `legacy-www`
