@@ -97,6 +97,7 @@ import {
   slackAgentOperations,
   slackFieldMeanings,
 } from "@/integrations/library/slack/settings-metadata";
+import { getSlackDestructiveChangeError } from "@/integrations/library/slack/update-policy";
 import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
@@ -7650,13 +7651,13 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (
-      input.createdByType === "runtime" &&
-      isSlackPolicyDestructive(effects)
-    ) {
-      throw new Error(
-        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
-      );
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+    });
+
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
     }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
@@ -7764,13 +7765,13 @@ export async function validateTenantSlackPolicyActionForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (
-      input.createdByType === "runtime" &&
-      isSlackPolicyDestructive(effects)
-    ) {
-      throw new Error(
-        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
-      );
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+    });
+
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
     }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
@@ -8027,23 +8028,14 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       tenantId: input.tenantId,
     });
 
-    if (
-      input.createdByType === "runtime" &&
-      isSlackPolicyDestructive(effects)
-    ) {
-      throw new Error(
-        "Runtime-authored Slack policy changes cannot disable direct messages or channel replies. Use a non-destructive Slack policy action instead.",
-      );
-    }
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      allowDestructiveChanges: input.allowDestructiveChanges,
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+    });
 
-    if (
-      input.createdByType === "user" &&
-      isSlackPolicyDestructive(effects) &&
-      !input.allowDestructiveChanges
-    ) {
-      throw new Error(
-        "This Slack settings change would disable direct messages or channel replies. Confirm the destructive change in the dashboard before saving it.",
-      );
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
     }
 
     if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
