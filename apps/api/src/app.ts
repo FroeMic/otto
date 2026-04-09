@@ -1,5 +1,6 @@
 import type { Context } from "hono"
 import { Hono } from "hono"
+import { logger } from "hono/logger"
 
 import { registerAuthRoutes } from "./auth"
 import {
@@ -79,6 +80,8 @@ export function createApiApp(
   routeDefinitions: LegacyRouteDefinition[] = legacyRouteDefinitions,
 ) {
   const app = new Hono()
+
+  app.use("*", logger())
 
   app.get("/healthz", (context) => {
     return context.json(
