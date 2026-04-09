@@ -46,9 +46,12 @@ type WorkerStartDependencies = {
   ) => Promise<void>
 }
 
-const envModulePath = "../../../web/src/lib/env"
-const queueModulePath = "../../../web/src/lib/jobs/queue"
-const workerModulePath = "../../../web/src/lib/jobs/worker"
+const envModulePath =
+  "../../../packages/legacy-control-plane-runtime/src/lib/env"
+const queueModulePath =
+  "../../../packages/legacy-control-plane-runtime/src/lib/jobs/queue"
+const workerModulePath =
+  "../../../packages/legacy-control-plane-runtime/src/lib/jobs/worker"
 const OPENAI_ADMIN_TRANSIENT_STATUS_PATTERN =
   /^OpenAI admin API request failed \((5\d{2})\)(?::.*)?$/
 

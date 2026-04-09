@@ -18,8 +18,10 @@ type ExecuteRuntimeIntegrationInGateway = (input: {
   tenantId: string
 }) => Promise<unknown>
 
-const runtimeAuthModulePath = "../../../web/src/lib/runtime-auth"
-const executeGatewayModulePath = "../../../web/src/integration-gateway/execute"
+const runtimeAuthModulePath =
+  "../../../packages/legacy-control-plane-runtime/src/lib/runtime-auth"
+const executeGatewayModulePath =
+  "../../../packages/legacy-control-plane-runtime/src/integration-gateway/execute"
 
 function json(body: unknown, status = 200) {
   return Response.json(body, {

@@ -317,7 +317,7 @@ Implementation note:
 - `/docs/...`
 - `/login`
 
-These routes go to `frontend`.
+These routes go to `web`.
 
 ### Reserved workspace slug namespaces
 
@@ -338,7 +338,7 @@ Reference list:
 - `/{orgSlug}/...`
 - `/platform/...`
 
-These routes are browser-facing and go to `frontend`, which serves SSR or SPA entrypoints as appropriate.
+These routes are browser-facing and go to `web`, which serves SSR or SPA entrypoints as appropriate.
 
 Routing rule:
 
@@ -610,10 +610,10 @@ Run the new workspace UI in parallel before full replacement.
 
 Deliverables:
 
-- initial workspace shell in the new frontend
+- initial workspace shell in the new web app
 - API-backed auth/session checks
 - one non-trivial workspace slice migrated end to end
-- frontend tests run under Vitest
+- web app tests run under Vitest
 - API and gateway route tests use Hono testing utilities where applicable
 
 Temporary routing options:
@@ -846,6 +846,7 @@ Exit criteria:
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
   - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist for the extracted services
+  - `packages/legacy-control-plane-runtime` now holds a compatibility copy of legacy server/runtime source so `apps/gateway` and `apps/worker` no longer import `web/src` at runtime
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
@@ -862,7 +863,7 @@ Exit criteria:
   - `/auth/*`, `/oauth/*`, and `/api/*` should be treated as edge-routed reserved namespaces
   - non-reserved top-level paths should fall through to the workspace shell as `/{workspaceSlug}` candidates
 - target browser-facing production split:
-  - unified `frontend` on one primary origin
+  - unified `web` on one primary origin
   - extracted `api`
   - extracted `gateway`
   - extracted `worker`
@@ -904,6 +905,7 @@ Current checkpoint:
   - `apps/gateway`
   - `apps/worker`
 - partial in parallel implementation for:
+  - `apps/gateway` and `apps/worker` now use repo-level compatibility copies instead of `web/src`, but production re-verification of the updated images is still pending before phase-complete status
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
   - `apps/api` consumes the extracted shared packages while legacy `web/` keeps local compatibility copies
   - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
@@ -987,7 +989,7 @@ Whenever migration work advances:
 
 - the repo has one explicit migration plan for moving from:
   - separate `www/` and `web/`
-  - to unified `frontend` plus extracted services
+  - to unified `web` plus extracted services
 - the plan allows ongoing product development during migration
 - service replacement order is explicit and low risk
 - the target repo layout is explicit
@@ -1002,8 +1004,8 @@ Whenever migration work advances:
 
 ## Open questions
 
-- Should `frontend` serve built SPA assets directly, or should Caddy serve static SPA assets and only forward SSR routes to `frontend`?
-- Should `apps/api` and `apps/web` share session cookie issuance, or should `frontend` only proxy auth/session bootstrap to `api`?
+- Should `web` serve built SPA assets directly, or should Caddy serve static SPA assets and only forward SSR routes to `web`?
+- Should `apps/api` and `apps/web` share session cookie issuance, or should `web` only proxy auth/session bootstrap to `api`?
 - Should `platform` routes live inside the same SPA shell from the start, or remain temporarily on legacy `web/` until later slice cutover?
 - Should Drizzle migrations move into `packages/db` immediately in Phase 0, or only after API and worker extraction are stable?
-- Is Bun compatible enough with the required SSH, Stripe, and auth stack to standardize the new backend services on Bun, or should Node.js remain the default runtime for `frontend`, `api`, and `worker` first?
+- Is Bun compatible enough with the required SSH, Stripe, and auth stack to standardize the new backend services on Bun, or should Node.js remain the default runtime for `web`, `api`, and `worker` first?

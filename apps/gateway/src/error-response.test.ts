@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
-import { LinearGraphqlError } from "../../../web/src/integrations/library/linear/client"
+import { LinearGraphqlError } from "@/integrations/library/linear/client"
 import { buildExecutionErrorResponse } from "./error-response"
 
 describe("gateway execution error responses", () => {

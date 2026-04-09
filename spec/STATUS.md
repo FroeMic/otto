@@ -29,11 +29,13 @@
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `integration-gateway` from `apps/gateway` while preserving the same internal service name and execute URL
+  - `apps/gateway` no longer loads runtime code from `web/src` at request time; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
   - the legacy gateway remains the rollback target until the new container wiring is deployed and verified
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
+  - `apps/worker` no longer loads env or job runtime code from `web/src`; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
   - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
   - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
   - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
@@ -43,6 +45,7 @@
   - the service boundary is extracted, but the underlying request logic still lives in legacy handlers until cutover and shared-package extraction continue
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
+  - temporary repo-level compatibility copies are acceptable when they remove runtime coupling to legacy `web/` without forcing a large behavior rewrite in the same change
   - `apps/api`, `apps/worker`, and `apps/web` should keep thin feature adapters instead of scattering product logic across generic layer folders
 - The next execution focus is now explicit in the migration spec:
   - Track A: shared-package extraction out of `web/`
@@ -62,15 +65,15 @@
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
-  - `frontend` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
+  - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
   - `/app` should only exist if a temporary migration prefix is explicitly reintroduced, not as the default workspace root
-  - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `frontend`
+  - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
 - The apex-domain parallel launch shape is now wired in repo config:
-  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto frontend
+  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
   - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`
   - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
   - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
-  - for the extracted `frontend` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
+  - for the extracted `web` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
   - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`

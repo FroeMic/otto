@@ -1,4 +1,4 @@
-import { LinearGraphqlError } from "../../../web/src/integrations/library/linear/client"
+import { LinearGraphqlError } from "@/integrations/library/linear/client"
 
 export function buildExecutionErrorResponse(input: {
   commandKey?: string
