@@ -529,7 +529,7 @@
   - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
   - a shared `/api/integrations/[orgSlug]/[providerKey]/disconnect` route now exists, with provider-specific teardown clearing stored credentials and removing runtime projection for Linear
   - no further OAuth substrate expansion is recommended ahead of the next provider; add only the provider-specific pieces and the shared deltas that provider proves necessary
-- WhatsApp integration v1 is now in progress on `codex/whatsapp-integration-v1`:
+- WhatsApp integration v1 is now merged on `main`:
   - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
   - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
   - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
@@ -538,7 +538,10 @@
   - the helper-based link flow now completes real pairing successfully and no longer requires WhatsApp to be pre-installed in `openclaw.json` before showing a QR code
   - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
   - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
-  - the remaining WhatsApp work is concentrated on manual validation, copy polish, and focused tests rather than more architectural churn in the link flow
+  - WhatsApp is now registered in the managed-integrations framework, appears under `/integrations2/whatsapp/...`, and the legacy `/integrations/whatsapp` page is reduced to a redirect
+  - provider-owned WhatsApp UI now lives under `web/src/integrations/library/whatsapp/ui`, while the QR session and lifecycle routes intentionally remain provider-specific
+  - shared runtime settings, connection action, disconnect, capability catalog, and status resolution now understand WhatsApp through the generic managed-integration paths
+  - the remaining WhatsApp work is concentrated on real-tenant validation and any focused follow-up tests or copy polish discovered there rather than more architectural churn in the link flow
 - Brave web search now uses the final managed-integration + proxy shape:
   - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations2/brave/...`
   - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
@@ -614,10 +617,10 @@
   - then add Otto credit grants, ledger entries, and derived balances from Stripe events
   - then convert raw provider usage into billable units and credit debits
   - then ship the workspace billing page, top-ups, soft alerts, and only later hard-stop enforcement
-- Finish the in-flight WhatsApp integration slice on `codex/whatsapp-integration-v1` by:
-  - validating the new pair-first QR link, disable, and post-pair activation flows against a real provisioned tenant runtime
+- Finish the follow-up WhatsApp validation slice by:
+  - validating the new pair-first QR link, disable, reconnect, and post-pair activation flows against a real provisioned tenant runtime
   - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
-  - adding focused tests for WhatsApp schema normalization, destructive-policy detection, desired-state projection, and the new lifecycle routes
+  - adding any still-missing focused tests around the shared WhatsApp runtime settings and connection-action wiring if manual validation finds gaps
   - running the new Drizzle migration in active environments once the implementation is verified locally
 - Then continue `TODO_06_integrations_and_oauth.md` by:
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
