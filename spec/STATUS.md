@@ -29,7 +29,8 @@
 - The next extracted service slice now also exists in parallel:
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
-  - the legacy `integration-gateway` service remains in place as the fallback until cutover work begins
+  - production compose now builds `integration-gateway` from `apps/gateway` while preserving the same internal service name and execute URL
+  - the legacy gateway remains the rollback target until the new container wiring is deployed and verified
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
@@ -57,6 +58,10 @@
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
+- The unified-origin API shape is now explicit in the migration plan:
+  - the long-term public API surface should live under `/api/v1/*`
+  - Otto-internal and runtime-control routes should live under `/api/internal/*`
+  - the integration gateway should stay on the primary origin under `/api/internal/runtime/integrations/execute*`, not under a public `/gateway/*` namespace
 - Landing-page-first cutover now has an explicit reserved-slug rule:
   - `packages/features/workspace-slugs` is the shared source of truth for protected top-level namespaces
   - workspace onboarding, workspace slug updates, and generated slugs must reject reserved public and system paths
