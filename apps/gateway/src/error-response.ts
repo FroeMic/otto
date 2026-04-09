@@ -1,4 +1,4 @@
-import { LinearGraphqlError } from "@/integrations/library/linear/client"
+import { LinearGraphqlError } from "@otto/feature-integrations-runtime/linear-client"
 
 export function buildExecutionErrorResponse(input: {
   commandKey?: string

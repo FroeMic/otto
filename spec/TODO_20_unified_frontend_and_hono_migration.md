@@ -514,6 +514,7 @@ Exit criteria:
 - production execute traffic can run against the new gateway image
 - response shapes and auth behavior remain compatible
 - rollback is one Caddy target or one image tag
+- gateway runtime/auth/execute behavior is ported into durable shared packages or service-local code, not a copied compatibility package derived from legacy `web/src`
 
 Cutover plan:
 
@@ -550,6 +551,7 @@ Exit criteria:
 - stale-job reclaim and lane behavior remain intact
 - one wedged job can only consume one worker slot, not stall an entire lane
 - apply-configuration jobs use an intentionally shorter stale-reclaim window than the global worker default so tenant updates unblock quickly
+- worker env, queue, and execution behavior are ported into durable shared packages or service-local code, not a copied compatibility package derived from legacy `web/src`
 
 ### Phase 3: API extraction
 
@@ -576,6 +578,7 @@ Exit criteria:
 - `web/` can call or proxy the new API during transition if needed
 - API auth and cookie/session handling are production-ready
 - the extracted API has a typed contract story instead of stringly typed ad hoc handlers
+- `apps/api` no longer depends on `web/src` imports, legacy Next route modules, or copied compatibility packages as the runtime owner of API behavior
 
 ### Phase 4: Unified frontend foundation
 
@@ -671,6 +674,7 @@ Working rule:
 - only later replace route wrappers
 - extracted apps should consume shared packages directly
 - old `web/` route files may copy compatibility logic locally during transition, but should not import repo-level shared packages
+- copying legacy `web/src` code into a repo-level compatibility package does not count as extraction complete for gateway, worker, or api; those services must ultimately run on properly ported package or service code
 
 Recommended first feature packages:
 
@@ -902,12 +906,12 @@ Current checkpoint:
 
 - complete in parallel implementation for:
   - `apps/web`
-  - `apps/gateway`
-  - `apps/worker`
+  - service/process boundaries for `apps/gateway`
+  - service/process boundaries for `apps/worker`
 - partial in parallel implementation for:
-  - `apps/gateway` and `apps/worker` now use repo-level compatibility copies instead of `web/src`, but production re-verification of the updated images is still pending before phase-complete status
+  - `apps/gateway` and `apps/worker` currently still depend on repo-level compatibility copies of legacy runtime code, which does not satisfy the actual extraction goal; they still require a proper code port before Phases 1 and 2 can be marked complete
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
-  - `apps/api` consumes the extracted shared packages while legacy `web/` keeps local compatibility copies
+  - `apps/api` consumes extracted shared packages for some slices, but still depends on `web/src` imports and adapter-mounted legacy Next route handlers; this does not yet satisfy the actual extraction goal for Phase 3
   - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
 - cutover still pending
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback

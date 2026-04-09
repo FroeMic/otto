@@ -29,23 +29,23 @@
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `integration-gateway` from `apps/gateway` while preserving the same internal service name and execute URL
-  - `apps/gateway` no longer loads runtime code from `web/src` at request time; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
+  - `apps/gateway` still does not meet the extraction goal while it depends on a repo-level compatibility copy of legacy runtime code; the intended done state is a proper port into durable shared packages or service-local code that is free of legacy Next.js implementation carryover
   - the legacy gateway remains the rollback target until the new container wiring is deployed and verified
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
-  - `apps/worker` no longer loads env or job runtime code from `web/src`; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
+  - `apps/worker` still does not meet the extraction goal while it depends on a repo-level compatibility copy of legacy worker/runtime code; the intended done state is a proper port into durable shared packages or service-local code that is free of legacy Next.js implementation carryover
   - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
   - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
   - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service that now mirrors the current `web/` route-handler surface through adapter-mounted route families, with package-level `format`, `lint`, `test`, and `build` gates
-  - the service boundary is extracted, but the underlying request logic still lives in legacy handlers until cutover and shared-package extraction continue
+  - the service boundary is extracted, but the underlying request logic still lives in legacy handlers and `web/src` imports; Phase 3 is not complete until those handlers are properly ported into durable shared packages or native `apps/api` code without compatibility-copy dependence
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
-  - temporary repo-level compatibility copies are acceptable when they remove runtime coupling to legacy `web/` without forcing a large behavior rewrite in the same change
+  - temporary repo-level compatibility copies may be used only as short-lived staging aids; they do not satisfy extraction goals for `apps/gateway`, `apps/worker`, or `apps/api`, and no phase should be marked complete while those services still depend on copied legacy Next.js implementation code
   - `apps/api`, `apps/worker`, and `apps/web` should keep thin feature adapters instead of scattering product logic across generic layer folders
 - The next execution focus is now explicit in the migration spec:
   - Track A: shared-package extraction out of `web/`

@@ -30,6 +30,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hono/node-server": "^1.19.6",
+        "@otto/feature-integrations-runtime": "workspace:*",
         "hono": "^4.10.5",
       },
       "devDependencies": {
@@ -84,6 +85,22 @@
       "version": "0.1.0",
       "dependencies": {
         "iron-session": "^8.0.4",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
+    "packages/features/integrations-runtime": {
+      "name": "@otto/feature-integrations-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "dotenv": "^17.2.3",
+        "drizzle-orm": "^0.44.6",
+        "postgres": "^3.4.7",
+        "zod": "^4.1.12",
       },
       "devDependencies": {
         "@biomejs/biome": "2.2.0",
@@ -528,6 +545,8 @@
     "@otto/api": ["@otto/api@workspace:apps/api"],
 
     "@otto/auth": ["@otto/auth@workspace:packages/auth"],
+
+    "@otto/feature-integrations-runtime": ["@otto/feature-integrations-runtime@workspace:packages/features/integrations-runtime"],
 
     "@otto/feature-runtime-core": ["@otto/feature-runtime-core@workspace:packages/features/runtime-core"],
 
