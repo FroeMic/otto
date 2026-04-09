@@ -20,7 +20,7 @@ describe("getConnectedMessagingSurfaces", () => {
     assert.deepEqual(surfaces, [
       {
         external: false,
-        href: "/michael/integrations2/slack/status",
+        href: "/michael/integrations/slack/status",
         iconSrc: "/integrations/slack.svg",
         key: "slack",
         label: "Slack",

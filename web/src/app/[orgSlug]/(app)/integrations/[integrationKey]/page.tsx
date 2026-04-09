@@ -4,16 +4,15 @@ import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 
 export const dynamic = "force-dynamic";
 
-export default async function SlackIntegrationPage({
+export default async function IntegrationDetailPage({
   params,
 }: {
-  params: Promise<{ orgSlug: string }>;
+  params: Promise<{ integrationKey: string; orgSlug: string }>;
 }) {
-  const { orgSlug } = await params;
-
+  const { integrationKey, orgSlug } = await params;
   redirect(
     buildIntegrationSectionPath({
-      integrationKey: "slack",
+      integrationKey,
       orgSlug,
       section: "status",
     }),

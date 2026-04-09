@@ -34,7 +34,7 @@ describe("managed integration catalog", () => {
     assert.equal(definition.settings?.label, "Configuration");
     assert.equal(
       definition.settingsPath("michael"),
-      "/michael/integrations2/brave/status",
+      "/michael/integrations/brave/status",
     );
     assert.ok(definition.agentCapabilities.length >= 1);
   });
@@ -48,7 +48,7 @@ describe("managed integration catalog", () => {
     assert.equal(definition.settings, undefined);
     assert.equal(
       definition.settingsPath("michael"),
-      "/michael/integrations2/linear/status",
+      "/michael/integrations/linear/status",
     );
     assert.ok(definition.agentCapabilities.length >= 1);
   });
@@ -68,7 +68,7 @@ describe("managed integration catalog", () => {
     assert.equal(definition.settings?.label, "Configuration");
     assert.equal(
       definition.settingsPath("michael"),
-      "/michael/integrations2/slack/status",
+      "/michael/integrations/slack/status",
     );
     assert.ok(definition.agentCapabilities.length >= 1);
   });

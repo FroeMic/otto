@@ -34,7 +34,7 @@ describe("buildManagedBootstrapFileContent", () => {
     );
     assert.match(
       rendered,
-      /Integrations: https:\/\/app\.getyourotto\.com\/michael\/integrations2/,
+      /Integrations: https:\/\/app\.getyourotto\.com\/michael\/integrations/,
     );
     assert.match(
       rendered,

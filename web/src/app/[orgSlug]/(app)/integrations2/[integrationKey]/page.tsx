@@ -1,20 +1,35 @@
 import { redirect } from "next/navigation";
 
-import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
-
 export const dynamic = "force-dynamic";
 
 export default async function Integration2DetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ integrationKey: string; orgSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { integrationKey, orgSlug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry) {
+          query.append(key, entry);
+        }
+      }
+      continue;
+    }
+
+    if (value) {
+      query.set(key, value);
+    }
+  }
+
+  const queryString = query.toString();
   redirect(
-    buildIntegrationSectionPath({
-      integrationKey,
-      orgSlug,
-      section: "status",
-    }),
+    `/${orgSlug}/integrations/${integrationKey}/status${queryString ? `?${queryString}` : ""}`,
   );
 }
