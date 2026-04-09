@@ -43,6 +43,10 @@
   - Track A: shared-package extraction out of `web/`
   - Track B: native Hono replacement of adapter-mounted API families
   - Track C: real SPA shell and first routed workspace slices against `apps/api`
+- The first shared extraction slice is now real code:
+  - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
+  - `packages/features/runtime-core` owns managed-config and managed-skills route logic
+  - legacy `web/` and new `apps/api` now both consume those shared packages for the first internal runtime family
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

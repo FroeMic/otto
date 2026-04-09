@@ -6,6 +6,7 @@ import {
   type LegacyRouteMethod,
   legacyRouteDefinitions,
 } from "./legacy-routes"
+import { registerRuntimeCoreRoutes } from "./native/runtime-core"
 
 type LegacyRouteHandler = (
   request: Request,
@@ -88,6 +89,8 @@ export function createApiApp(
       },
     )
   })
+
+  registerRuntimeCoreRoutes(app)
 
   for (const route of routeDefinitions) {
     registerLegacyRoute(app, route)

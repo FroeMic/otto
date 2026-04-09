@@ -774,6 +774,7 @@ Exit criteria:
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
+  - `packages/auth` and `packages/features/runtime-core` now exist and are used by both legacy `web/` and `apps/api`
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -817,6 +818,7 @@ Current checkpoint:
   - `apps/worker`
 - partial in parallel implementation for:
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
+  - the managed-config and managed-skills runtime routes now use shared package logic in both `web/` and `apps/api`
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
@@ -857,6 +859,10 @@ Current checkpoint:
   - current owner: legacy Next.js app
   - target owner: `api`
   - status: parallel port complete, cutover pending
+- `internal runtime managed-config and managed-skills`:
+  - current owner: shared runtime-core package plus thin route wrappers
+  - target owner: `apps/api`
+  - status: native Hono ownership started, shared logic extracted
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
