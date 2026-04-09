@@ -39,6 +39,10 @@
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
   - `apps/api`, `apps/worker`, and `apps/frontend` should keep thin feature adapters instead of scattering product logic across generic layer folders
+- The next execution focus is now explicit in the migration spec:
+  - Track A: shared-package extraction out of `web/`
+  - Track B: native Hono replacement of adapter-mounted API families
+  - Track C: real SPA shell and first routed workspace slices against `apps/api`
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

@@ -561,6 +561,169 @@ Exit criteria:
 - one real workspace slice is usable by internal operators
 - the SPA consumes the extracted API instead of legacy page-bound route logic
 
+## Detailed execution plan for next steps
+
+### Track A: Extract shared packages out of `web/`
+
+Goal:
+
+- move reusable logic out of legacy route files so old and new apps can import the same feature packages
+- keep adapter route behavior unchanged while logic moves underneath
+
+Package shape:
+
+- `packages/db`
+  - shared DB client access
+  - Drizzle schema ownership over time
+  - low-level persistence helpers only
+- `packages/auth`
+  - runtime auth
+  - session helpers
+  - cookie and auth utility functions shared by `apps/api` and `apps/frontend`
+- `packages/features/<feature-name>`
+  - feature-specific Zod contracts
+  - feature service logic
+  - feature worker operations
+  - feature query keys, selectors, and view models
+
+Extraction order:
+
+1. runtime auth and common response helpers
+2. env and config accessors that are safe to share
+3. DB access and service functions used by internal runtime and webhook routes
+4. auth and session helpers
+5. Zod request and response schemas
+6. route-family logic, after the lower layers are already shared
+
+Working rule:
+
+- first move pure logic and service functions
+- only later replace route wrappers
+- old `web/` route files should shrink into thin compatibility wrappers during transition
+
+Recommended first feature packages:
+
+1. `packages/features/runtime-core`
+2. `packages/features/webhooks`
+3. `packages/features/sessions`
+4. `packages/features/scheduled-tasks`
+5. `packages/features/integrations`
+6. `packages/features/workspace-settings`
+
+Verification for each extraction slice:
+
+- package-local `format`, `lint`, `test`, and `build`
+- rerun affected app gates after the shared code move
+- keep adapter route behavior unchanged
+- prefer parity tests against current responses for critical routes
+
+Definition of done for Track A:
+
+- at least one shared package is imported by both legacy `web/` and a new app
+- internal runtime and webhook logic no longer live only inside route files
+- legacy route files are measurably thinner than before
+
+### Track B: Replace adapter-mounted API logic family by family
+
+Goal:
+
+- turn `apps/api` from a route-surface mirror into the real owner of request-response behavior
+
+Route-family order:
+
+1. internal runtime routes
+2. webhooks
+3. auth
+4. OAuth
+5. user/profile
+6. runtime-config
+7. workspace APIs
+8. platform APIs
+
+For each route family:
+
+1. move shared logic into `packages/auth` or `packages/features/<feature-name>`
+2. add or refine Zod request and response contracts
+3. implement native Hono handlers in `apps/api`
+4. keep request and response shapes identical to the legacy route family
+5. remove that family's adapter dependency only after tests pass
+
+Testing and verification per family:
+
+- route tests in `apps/api`
+- schema and contract tests close to the feature package
+- parity checks against legacy responses where practical
+- app gates before commit:
+  - `format`
+  - `lint`
+  - `test`
+  - `build`
+
+Cutover rule:
+
+- do not cut traffic for a family until native Hono handlers exist and adapter fallback is no longer needed for that family
+
+Definition of done for Track B:
+
+- `apps/api` owns native behavior for the family
+- legacy route files for that family only remain as temporary wrappers or can be left idle pending deletion
+- the family can be routed to `apps/api` without relying on legacy `web/` route code at request time
+
+### Track C: Build the real workspace SPA against `apps/api`
+
+Goal:
+
+- make `apps/frontend` the real browser-facing app shell before cutting over any meaningful workspace traffic
+
+Foundation work:
+
+1. persistent workspace shell
+2. persistent platform shell
+3. TanStack Router route tree
+4. TanStack Query cache layer
+5. Hono RPC plus Zod contract integration
+6. auth and session bootstrap against `apps/api`
+
+Initial UI migration order:
+
+1. auth and session bootstrap
+2. workspace shell plus navigation
+3. one read-heavy slice such as usage or sessions
+4. one write-heavy slice such as settings or members
+5. integrations and tools after the shell and mutation patterns are proven
+
+State-management rules for this track:
+
+- shell data stays thin and stable
+- route data is owned per feature and per nested route
+- TanStack Query owns server state
+- URL state stays in TanStack Router
+- avoid giant global stores for server-backed data
+
+Verification for each SPA slice:
+
+- `apps/frontend` package gates
+- contract compatibility checks against `apps/api`
+- manual navigation checks for non-remounting shells
+- mutation checks to confirm background refresh and partial loading behavior
+
+Definition of done for Track C:
+
+- the new SPA can authenticate against `apps/api`
+- the shell remains mounted across ordinary navigation
+- at least one read-heavy and one write-heavy slice run end to end against the new API
+
+### Merge readiness for first container replacement
+
+The branch should be considered ready to merge for first-container replacement preparation once all of the following are true:
+
+- `apps/frontend`, `apps/api`, `apps/gateway`, and `apps/worker` all pass package gates
+- at least one shared feature package is used by both legacy `web/` and a new app
+- `apps/api` owns native behavior for the first cutover route family
+- `apps/frontend` has a real auth-aware shell instead of only a placeholder workspace entry
+- infra wiring can boot the new containers in parallel without deleting legacy services
+- the first container replacement target and rollback path are documented in `spec/STATUS.md`
+
 ### Phase 6: Vertical slice cutovers
 
 Replace legacy workspace surfaces one slice at a time.
