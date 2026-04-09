@@ -47,6 +47,10 @@
   - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
   - `packages/features/runtime-core` owns managed-config and managed-skills route logic
   - legacy `web/` and new `apps/api` now both consume those shared packages for the first internal runtime family
+- The first real frontend shell now exists:
+  - `apps/frontend` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
+  - `apps/api` now proxies selected authenticated workspace/frontend families back to legacy `web` as a compatibility bridge
+  - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

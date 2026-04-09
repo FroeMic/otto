@@ -7,6 +7,7 @@ import {
   legacyRouteDefinitions,
 } from "./legacy-routes"
 import { registerRuntimeCoreRoutes } from "./native/runtime-core"
+import { registerCompatibilityProxyRoutes } from "./proxy"
 
 type LegacyRouteHandler = (
   request: Request,
@@ -91,6 +92,7 @@ export function createApiApp(
   })
 
   registerRuntimeCoreRoutes(app)
+  registerCompatibilityProxyRoutes(app)
 
   for (const route of routeDefinitions) {
     registerLegacyRoute(app, route)

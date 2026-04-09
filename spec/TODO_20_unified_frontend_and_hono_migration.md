@@ -775,6 +775,8 @@ Exit criteria:
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
   - `packages/auth` and `packages/features/runtime-core` now exist and are used by both legacy `web/` and `apps/api`
+  - `apps/api` now proxies selected authenticated workspace/frontend families back to legacy `web` so the new shell can use one API origin during transition
+  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -819,6 +821,7 @@ Current checkpoint:
 - partial in parallel implementation for:
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
   - the managed-config and managed-skills runtime routes now use shared package logic in both `web/` and `apps/api`
+  - authenticated workspace/frontend routes still relying on compatibility proxying through `apps/api`
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
@@ -854,7 +857,7 @@ Current checkpoint:
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `frontend`
-  - status: not started
+  - status: in progress, with the new SPA shell and first usage/settings slices now present under `apps/frontend`
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
@@ -863,6 +866,10 @@ Current checkpoint:
   - current owner: shared runtime-core package plus thin route wrappers
   - target owner: `apps/api`
   - status: native Hono ownership started, shared logic extracted
+- `frontend bootstrap and workspace read/write slices`:
+  - current owner: `apps/frontend` via `apps/api`
+  - target owner: `frontend` plus `api`
+  - status: first real shell implemented, still relying on compatibility proxy for authenticated data
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`

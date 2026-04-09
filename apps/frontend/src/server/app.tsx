@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 import { serveStatic } from "@hono/node-server/serve-static"
 import { Hono } from "hono"
 import { logger } from "hono/logger"
+import { proxy } from "hono/proxy"
 import { secureHeaders } from "hono/secure-headers"
 import { renderToString } from "react-dom/server"
 
@@ -114,6 +115,19 @@ export function createApp() {
   )
 
   app.get("/login", (c) => c.redirect(`${env.WORKSPACE_APP_ORIGIN}/login`, 302))
+  app.all("/api/*", (c) =>
+    proxy(
+      `${env.API_ORIGIN}${c.req.path}${c.req.url.includes("?") ? new URL(c.req.url).search : ""}`,
+      {
+        method: c.req.method,
+        headers: c.req.raw.headers,
+        body:
+          c.req.method === "GET" || c.req.method === "HEAD"
+            ? undefined
+            : c.req.raw.body,
+      },
+    ),
+  )
 
   app.get("/", (c) =>
     c.html(
