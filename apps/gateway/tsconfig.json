@@ -15,7 +15,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../../web/src/*"]
+      "@/*": ["../../packages/legacy-control-plane-runtime/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "vite.config.ts"]

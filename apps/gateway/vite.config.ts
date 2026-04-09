@@ -5,7 +5,10 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   resolve: {
     alias: {
-      "@": resolve(__dirname, "../../web/src"),
+      "@": resolve(
+        __dirname,
+        "../../packages/legacy-control-plane-runtime/src",
+      ),
     },
   },
   test: {

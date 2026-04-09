@@ -846,6 +846,7 @@ Exit criteria:
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
   - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist for the extracted services
+  - `packages/legacy-control-plane-runtime` now holds a compatibility copy of legacy server/runtime source so `apps/gateway` and `apps/worker` no longer import `web/src` at runtime
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
@@ -904,6 +905,7 @@ Current checkpoint:
   - `apps/gateway`
   - `apps/worker`
 - partial in parallel implementation for:
+  - `apps/gateway` and `apps/worker` now use repo-level compatibility copies instead of `web/src`, but production re-verification of the updated images is still pending before phase-complete status
   - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
   - `apps/api` consumes the extracted shared packages while legacy `web/` keeps local compatibility copies
   - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted

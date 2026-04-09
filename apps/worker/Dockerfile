@@ -14,19 +14,15 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/legacy-control-plane-runtime/package.json packages/legacy-control-plane-runtime/package.json
 COPY packages/features/runtime-core/package.json packages/features/runtime-core/package.json
 COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
 COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
 RUN bun install --frozen-lockfile
 
-WORKDIR /app/web
-COPY web/package.json web/package-lock.json ./
-RUN npm install --no-package-lock
-
 WORKDIR /app
 COPY apps/worker apps/worker
-COPY web/src web/src
-COPY web/tsconfig.json web/tsconfig.json
+COPY packages/legacy-control-plane-runtime packages/legacy-control-plane-runtime
 
 RUN bun run --cwd apps/worker build
 
@@ -40,11 +36,8 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
-COPY --from=builder /app/web/node_modules ./web/node_modules
-COPY --from=builder /app/web/package.json ./web/package.json
-COPY --from=builder /app/web/package-lock.json ./web/package-lock.json
-COPY --from=builder /app/web/src ./web/src
-COPY --from=builder /app/web/tsconfig.json ./web/tsconfig.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/legacy-control-plane-runtime ./packages/legacy-control-plane-runtime
 
 WORKDIR /app/apps/worker
 
