@@ -6,7 +6,6 @@ USER root
 
 COPY --chown=node:node runtime-plugins/otto-managed-config /app/dist/extensions/otto-managed-config
 COPY --chown=node:node runtime-plugins/otto-managed-skills /app/dist/extensions/otto-managed-skills
-COPY --chown=node:node runtime-plugins/otto-runtime-config /app/dist/extensions/otto-runtime-config
 COPY --chown=node:node runtime-plugins/otto-integrations /app/dist/extensions/otto-integrations
 COPY --chown=node:node runtime-plugins/otto-session-reporter /app/dist/extensions/otto-session-reporter
 COPY --chown=node:node runtime-plugins/otto-ai-provider /app/dist/extensions/otto-ai-provider
@@ -21,8 +20,6 @@ RUN install -d -o node -g node -m 700 /home/node/.openclaw \
  && find /app/dist/extensions/otto-managed-config -type f -exec chmod 644 {} + \
  && find /app/dist/extensions/otto-managed-skills -type d -exec chmod 755 {} + \
  && find /app/dist/extensions/otto-managed-skills -type f -exec chmod 644 {} + \
- && find /app/dist/extensions/otto-runtime-config -type d -exec chmod 755 {} + \
- && find /app/dist/extensions/otto-runtime-config -type f -exec chmod 644 {} + \
  && find /app/dist/extensions/otto-integrations -type d -exec chmod 755 {} + \
  && find /app/dist/extensions/otto-integrations -type f -exec chmod 644 {} + \
  && find /app/dist/extensions/otto-session-reporter -type d -exec chmod 755 {} + \

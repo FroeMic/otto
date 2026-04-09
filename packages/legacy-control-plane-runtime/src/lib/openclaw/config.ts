@@ -1,7 +1,4 @@
-import {
-  normalizeTimeFormatPreference,
-  normalizeTimeZone,
-} from "../date-time";
+import { normalizeTimeFormatPreference, normalizeTimeZone } from "../date-time";
 import { getControlPlaneBaseUrl, getEnv } from "../env";
 import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "../managed-skills/system-skills";
 import { validateOpenClawSlackConfig } from "./slack-schema";
@@ -587,10 +584,6 @@ export function buildOpenClawTenantConfig(input: {
             },
             {
               id: "otto-managed-skills",
-              timeoutMs: 15_000,
-            },
-            {
-              id: "otto-runtime-config",
               timeoutMs: 15_000,
             },
             {

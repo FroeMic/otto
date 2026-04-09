@@ -29,10 +29,6 @@ describe("renderOpenClawConfig", () => {
           timeoutMs: 15_000,
         },
         {
-          id: "otto-runtime-config",
-          timeoutMs: 15_000,
-        },
-        {
           id: "otto-integrations",
           timeoutMs: 15_000,
         },
@@ -51,7 +47,6 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.tools.alsoAllow, [
       "otto-managed-config",
       "otto-managed-skills",
-      "otto-runtime-config",
       "otto-integrations",
       "otto-session-reporter",
     ]);
@@ -66,7 +61,6 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.plugins.allow, [
       "otto-managed-config",
       "otto-managed-skills",
-      "otto-runtime-config",
       "otto-integrations",
       "otto-session-reporter",
     ]);
