@@ -2,8 +2,8 @@
 
 This deploy target assumes one public control-plane VPS on Hetzner:
 
-- public HTTPS for both the apex Otto frontend and the legacy workspace subdomain
-- local Docker Compose services for `caddy`, `frontend`, `api`, `web`, `integration-gateway`, `worker`, and `postgres`
+- public HTTPS for both the apex Otto web app and the legacy workspace subdomain
+- local Docker Compose services for `caddy`, `web`, `api`, `legacy-web`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -58,7 +58,7 @@ Set at least:
 - `STRIPE_WEBHOOK_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
-Set the landing-site browser analytics values you want baked into the frontend
+Set the landing-site browser analytics values you want baked into the web app
 build:
 
 - `NEXT_PUBLIC_POSTHOG_ENABLED`
@@ -130,7 +130,7 @@ For Stripe billing, also configure:
 
 If PostHog browser analytics is enabled on the landing site, make sure those
 `NEXT_PUBLIC_*` values are already present in `.env` before running
-`docker compose ... build`. The frontend build inlines those browser values at
+`docker compose ... build`. The web build inlines those browser values at
 build time.
 
 ```bash
@@ -150,13 +150,13 @@ Verify:
 - `https://<your-domain>/healthz` returns `200`
 - `https://<your-landing-domain>/api/workspace/<org-slug>/usage` reaches the extracted API on the apex domain
 - the apex or landing hostname resolves to the same VPS that runs Caddy
-- the `frontend`, `api`, `web`, `integration-gateway`, and `worker` containers stay healthy
+- the `web`, `api`, `legacy-web`, `integration-gateway`, and `worker` containers stay healthy
 - `docker compose -f docker-compose.prod.yml exec caddy sh -lc "cat /etc/caddy/Caddyfile"` shows:
   - `reverse_proxy integration-gateway:3001` for `{$LANDING_PAGE_DOMAIN}/api/internal/runtime/integrations/execute*`
   - `reverse_proxy api:3002` for `{$LANDING_PAGE_DOMAIN}/api/*`
-  - `reverse_proxy frontend:3000` as the apex default
-  - `reverse_proxy web:3000` under `{$CONTROL_PLANE_DOMAIN}`
-- `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing frontend is deployed
+  - `reverse_proxy web:3000` as the apex default
+  - `reverse_proxy legacy-web:3000` under `{$CONTROL_PLANE_DOMAIN}`
+- `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing web app is deployed
 - Postgres answers on `127.0.0.1:5433` on the host
 - `LANDING_PAGE_DOMAIN` matches the public apex Otto hostname
 - `CONTROL_PLANE_DOMAIN` matches the legacy app subdomain

@@ -45,7 +45,7 @@ services:
     profiles: ["ops"]
     restart: "no"
 
-  web:
+  legacy-web:
     <<: *app-env
     build:
       context: ..
@@ -124,7 +124,7 @@ services:
       timeout: 5s
       retries: 5
 
-  frontend:
+  web:
     environment:
       API_ORIGIN: http://api:3002
       FRONTEND_PORT: 3000
@@ -133,7 +133,7 @@ services:
       WORKSPACE_APP_ORIGIN: https://${LANDING_PAGE_DOMAIN}
     build:
       context: ..
-      dockerfile: apps/frontend/Dockerfile
+      dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     healthcheck:
       test:
@@ -162,11 +162,11 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      frontend:
+      web:
         condition: service_healthy
       integration-gateway:
         condition: service_healthy
-      web:
+      legacy-web:
         condition: service_healthy
     environment:
       LANDING_PAGE_DOMAIN: ${LANDING_PAGE_DOMAIN:?set LANDING_PAGE_DOMAIN in .env}

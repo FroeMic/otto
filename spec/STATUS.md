@@ -18,13 +18,13 @@
   - `www/` and `web/` are now legacy app boundaries during the planned migration rather than the desired steady state
 - The unified frontend migration has now moved from planning into the first implementation slice:
   - Phase 0 has started
-  - the first complete port target is `www/` into `apps/frontend`
+  - the first complete port target is `www/` into `apps/web`
   - the new subpackages must each carry `format`, `lint`, `test`, and `build` gates before their first commit
 - The first new frontend slice now exists in parallel:
-  - `apps/frontend` is a Bun-managed package with Hono SSR, React landing routes, a TanStack Router workspace placeholder, and package-level `format`, `lint`, `test`, and `build` gates
+  - `apps/web` is a Bun-managed package with Hono SSR, React landing routes, a TanStack Router workspace placeholder, and package-level `format`, `lint`, `test`, and `build` gates
   - the current `www/` landing routes have been ported there without deleting `www/`
   - the style-token source for this first port is the current `www/app/globals.css` token set and visual treatment
-  - production compose and Caddy now point the landing domain at `frontend`
+  - production compose and Caddy now point the landing domain at `web`
   - legacy `www` remains in the repo as a migration-era reference app, but it is no longer part of the production compose stack
 - The next extracted service slice now also exists in parallel:
   - Phase 1 gateway extraction has started
@@ -44,7 +44,7 @@
   - the service boundary is extracted, but the underlying request logic still lives in legacy handlers until cutover and shared-package extraction continue
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
-  - `apps/api`, `apps/worker`, and `apps/frontend` should keep thin feature adapters instead of scattering product logic across generic layer folders
+  - `apps/api`, `apps/worker`, and `apps/web` should keep thin feature adapters instead of scattering product logic across generic layer folders
 - The next execution focus is now explicit in the migration spec:
   - Track A: shared-package extraction out of `web/`
   - Track B: native Hono replacement of adapter-mounted API families
@@ -56,8 +56,8 @@
   - the extracted apps consume those shared packages directly
   - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
 - The first real frontend shell now exists:
-  - `apps/frontend` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
-  - `apps/frontend` now owns the same-origin `/login` entry page for the new shell
+  - `apps/web` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
+  - `apps/web` now owns the same-origin `/login` entry page for the new shell
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
@@ -608,7 +608,7 @@
 - In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
 - If the current priority shifts to the unified frontend and service extraction work, start `TODO_20_unified_frontend_and_hono_migration.md` in this order:
   - Bun workspace and repo-level gate scaffolding
-  - fully port `www/` into `apps/frontend` without deleting `www/`
+  - fully port `www/` into `apps/web` without deleting `www/`
   - then continue Phase 1 gateway extraction
   - then Phase 2 worker extraction
   - then Phase 3 API extraction

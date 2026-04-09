@@ -25,8 +25,22 @@
         "vitest": "^3.2.4",
       },
     },
-    "apps/frontend": {
-      "name": "@otto/frontend",
+    "apps/gateway": {
+      "name": "@otto/gateway",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hono/node-server": "^1.19.6",
+        "hono": "^4.10.5",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
+    "apps/web": {
+      "name": "@otto/web",
       "version": "0.1.0",
       "dependencies": {
         "@hono/node-server": "^1.19.6",
@@ -52,20 +66,6 @@
         "@vitejs/plugin-react": "^5.1.0",
         "typescript": "^5.9.3",
         "vite": "^7.1.12",
-        "vitest": "^3.2.4",
-      },
-    },
-    "apps/gateway": {
-      "name": "@otto/gateway",
-      "version": "0.1.0",
-      "dependencies": {
-        "@hono/node-server": "^1.19.6",
-        "hono": "^4.10.5",
-      },
-      "devDependencies": {
-        "@biomejs/biome": "2.2.0",
-        "@types/node": "^24.9.1",
-        "typescript": "^5.9.3",
         "vitest": "^3.2.4",
       },
     },
@@ -263,9 +263,9 @@
 
     "@otto/feature-workspace-slugs": ["@otto/feature-workspace-slugs@workspace:packages/features/workspace-slugs"],
 
-    "@otto/frontend": ["@otto/frontend@workspace:apps/frontend"],
-
     "@otto/gateway": ["@otto/gateway@workspace:apps/gateway"],
+
+    "@otto/web": ["@otto/web@workspace:apps/web"],
 
     "@otto/worker": ["@otto/worker@workspace:apps/worker"],
 

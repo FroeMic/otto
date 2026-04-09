@@ -75,7 +75,7 @@ describe("workspace core native routes", () => {
   it("returns the shell bootstrap payload", async () => {
     const app = createWorkspaceCoreTestApp()
     const response = await app.request(
-      "http://api.local/api/frontend/bootstrap/otto",
+      "http://api.local/api/web/bootstrap/otto",
     )
 
     assert.equal(response.status, 200)
@@ -157,7 +157,7 @@ describe("workspace core native routes", () => {
       },
     })
     const response = await app.request(
-      "http://api.local/api/frontend/bootstrap/otto",
+      "http://api.local/api/web/bootstrap/otto",
     )
 
     assert.equal(response.status, 401)

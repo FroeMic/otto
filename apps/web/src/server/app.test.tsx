@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createApp } from "./app"
 
-describe("frontend app", () => {
+describe("web app", () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -19,7 +19,7 @@ describe("frontend app", () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       ok: true,
-      service: "frontend",
+      service: "web",
     })
   })
 
@@ -49,7 +49,7 @@ describe("frontend app", () => {
     expect(text).toContain("/auth/sign-in?returnTo=%2Fapp")
   })
 
-  it("does not own auth routes at the frontend layer", async () => {
+  it("does not own auth routes at the web layer", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch")
 
     const response = await app.request("http://localhost/auth/sign-in", {

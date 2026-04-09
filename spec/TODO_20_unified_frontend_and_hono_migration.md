@@ -389,7 +389,7 @@ Gateway URL rule:
 
 The long-term target layout should be:
 
-- `apps/frontend`
+- `apps/web`
 - `apps/api`
 - `apps/gateway`
 - `apps/worker`
@@ -406,7 +406,7 @@ The long-term target layout should be:
 - major product areas should be extracted feature-first rather than layer-first
 - product-specific logic should prefer `packages/features/<feature-name>` instead of a generic `packages/domain` dump
 - feature packages should keep related contracts, service logic, worker logic, query keys, and view models close together
-- app-local code in `apps/api`, `apps/worker`, and `apps/frontend` should stay thin and mostly wire feature packages into HTTP routes, worker entrypoints, and UI routes
+- app-local code in `apps/api`, `apps/worker`, and `apps/web` should stay thin and mostly wire feature packages into HTTP routes, worker entrypoints, and UI routes
 - only truly cross-cutting concerns should live outside feature packages, for example:
   - `packages/db`
   - `packages/auth`
@@ -438,7 +438,7 @@ Then keep app integration layers thin:
 
 - `apps/api/src/features/<feature-name>` for Hono route wiring only
 - `apps/worker/src/features/<feature-name>` for job wiring only
-- `apps/frontend/src/features/<feature-name>` for route components, feature hooks, and feature-local UI state
+- `apps/web/src/features/<feature-name>` for route components, feature hooks, and feature-local UI state
 
 Anti-goal:
 
@@ -467,7 +467,7 @@ Once this migration starts in earnest:
 - new shared backend logic should land in shared packages first
 - if legacy `web/` still needs that logic before cutover, copy the compatibility wrapper locally instead of wiring the legacy app to shared packages
 - new API endpoints should prefer `apps/api` unless there is a strong short-term blocker
-- new browser-facing product surfaces should prefer `apps/frontend` once it exists
+- new browser-facing product surfaces should prefer `apps/web` once it exists
 - avoid expanding legacy Next.js-only abstractions if the same work is part of a near-term extraction phase
 
 ## Phase plan
@@ -582,7 +582,7 @@ Introduce the new browser-facing frontend under one primary origin.
 
 Deliverables:
 
-- `apps/frontend`
+- `apps/web`
 - server-rendered landing pages
 - login handoff
 - SPA shell integration
@@ -648,7 +648,7 @@ Package shape:
 - `packages/auth`
   - runtime auth
   - session helpers
-  - cookie and auth utility functions shared by `apps/api` and `apps/frontend`
+  - cookie and auth utility functions shared by `apps/api` and `apps/web`
 - `packages/features/<feature-name>`
   - feature-specific Zod contracts
   - feature service logic
@@ -743,7 +743,7 @@ Definition of done for Track B:
 
 Goal:
 
-- make `apps/frontend` the real browser-facing app shell before cutting over any meaningful workspace traffic
+- make `apps/web` the real browser-facing app shell before cutting over any meaningful workspace traffic
 
 Foundation work:
 
@@ -772,7 +772,7 @@ State-management rules for this track:
 
 Verification for each SPA slice:
 
-- `apps/frontend` package gates
+- `apps/web` package gates
 - contract compatibility checks against `apps/api`
 - manual navigation checks for non-remounting shells
 - mutation checks to confirm background refresh and partial loading behavior
@@ -787,10 +787,10 @@ Definition of done for Track C:
 
 The branch should be considered ready to merge for first-container replacement preparation once all of the following are true:
 
-- `apps/frontend`, `apps/api`, `apps/gateway`, and `apps/worker` all pass package gates
+- `apps/web`, `apps/api`, `apps/gateway`, and `apps/worker` all pass package gates
 - at least one shared feature package is used by both legacy `web/` and a new app
 - `apps/api` owns native behavior for the first cutover route family
-- `apps/frontend` has a real auth-aware shell instead of only a placeholder workspace entry
+- `apps/web` has a real auth-aware shell instead of only a placeholder workspace entry
 - infra wiring can boot the new containers in parallel without deleting legacy services
 - the first container replacement target and rollback path are documented in `spec/STATUS.md`
 
@@ -840,7 +840,7 @@ Exit criteria:
 
 - current state: Phase 0 foundation active, Phase 1 gateway extraction started, Phase 2 worker extraction started, Phase 3 API extraction started
 - current parallel-port progress:
-  - `apps/frontend` exists for legacy `www`
+  - `apps/web` exists for legacy `www`
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
@@ -848,14 +848,14 @@ Exit criteria:
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
-  - `apps/frontend` now has a real routed shell with workspace `usage` and workspace `settings` slices plus a same-origin `/login` entry page
+  - `apps/web` now has a real routed shell with workspace `usage` and workspace `settings` slices plus a same-origin `/login` entry page
 - current browser-facing production split in repo config:
-  - apex domain on `frontend`
+  - apex domain on `web`
   - apex `/auth/*` on `api`
   - apex `/oauth/*` on `api`
   - apex `/api/*` on `api`
   - apex `/api/internal/runtime/integrations/execute*` on `gateway`
-  - legacy app subdomain on `web`
+  - legacy app subdomain on `legacy-web`
 - target apex routing behavior for workspace paths:
   - reserved public and system paths remain explicitly routed
   - `/auth/*`, `/oauth/*`, and `/api/*` should be treated as edge-routed reserved namespaces
@@ -867,18 +867,18 @@ Exit criteria:
   - extracted `worker`
 - current recommended next implementation step:
   - deploy and verify the apex-domain parallel launch:
-    - `LANDING_PAGE_DOMAIN` on `frontend`
+    - `LANDING_PAGE_DOMAIN` on `web`
     - `LANDING_PAGE_DOMAIN/api/*` on `apps/api`
     - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` on `apps/gateway`
-    - `CONTROL_PLANE_DOMAIN` on legacy `web`
+    - `CONTROL_PLANE_DOMAIN` on legacy `legacy-web`
 
 ### Immediate execution order
 
 The first implementation passes should happen in this order:
 
 1. Bun workspace and repo-level gate scaffolding
-2. `apps/frontend` as the first fully ported app
-3. legacy `www` route and style port into `apps/frontend`
+2. `apps/web` as the first fully ported app
+3. legacy `www` route and style port into `apps/web`
 4. then `apps/gateway`
 5. then `apps/worker`
 6. then `apps/api`
@@ -890,7 +890,7 @@ The first complete port target is the current `www/` app.
 
 Definition of done for that target:
 
-- legacy `www` routes are implemented in `apps/frontend`
+- legacy `www` routes are implemented in `apps/web`
 - the new frontend runs through Hono
 - landing routes are server-rendered there
 - the new frontend package has working `format`, `lint`, `test`, and `build` gates
@@ -899,7 +899,7 @@ Definition of done for that target:
 Current checkpoint:
 
 - complete in parallel implementation for:
-  - `apps/frontend`
+  - `apps/web`
   - `apps/gateway`
   - `apps/worker`
 - partial in parallel implementation for:
@@ -936,12 +936,12 @@ Current checkpoint:
 
 - `www`:
   - current owner: legacy marketing app
-  - target owner: `frontend`
+  - target owner: `web`
   - status: production landing cutover complete; legacy `www` remains in-repo only and is no longer part of the production compose stack
 - `web` page rendering:
   - current owner: legacy Next.js app
-  - target owner: `frontend`
-  - status: in progress, with the new SPA shell and first usage/settings slices now present under `apps/frontend`
+  - target owner: `web`
+  - status: in progress, with the new SPA shell and first usage/settings slices now present under `apps/web`
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
@@ -950,9 +950,9 @@ Current checkpoint:
   - current owner: shared runtime-core package plus thin route wrappers
   - target owner: `apps/api`
   - status: native Hono ownership started, shared logic extracted
-- `frontend bootstrap and workspace read/write slices`:
-  - current owner: `apps/frontend` via `apps/api`
-  - target owner: `frontend` plus `api`
+- `web bootstrap and workspace read/write slices`:
+  - current owner: `apps/web` via `apps/api`
+  - target owner: `web` plus `api`
   - status: first real shell implemented, now backed by native `apps/api` routes for bootstrap, usage, and settings
 - `webhooks`:
   - current owner: legacy Next.js app
@@ -961,7 +961,7 @@ Current checkpoint:
 - `auth` and `oauth` routes:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
-  - status: parallel port complete, with same-origin forwarding from `apps/frontend` now in place for login, logout, and OAuth callbacks
+  - status: parallel port complete, with `apps/api` now owning apex-domain auth and OAuth routes directly while `apps/web` owns the same-origin login entry page
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`
@@ -1003,7 +1003,7 @@ Whenever migration work advances:
 ## Open questions
 
 - Should `frontend` serve built SPA assets directly, or should Caddy serve static SPA assets and only forward SSR routes to `frontend`?
-- Should `apps/api` and `apps/frontend` share session cookie issuance, or should `frontend` only proxy auth/session bootstrap to `api`?
+- Should `apps/api` and `apps/web` share session cookie issuance, or should `frontend` only proxy auth/session bootstrap to `api`?
 - Should `platform` routes live inside the same SPA shell from the start, or remain temporarily on legacy `web/` until later slice cutover?
 - Should Drizzle migrations move into `packages/db` immediately in Phase 0, or only after API and worker extraction are stable?
 - Is Bun compatible enough with the required SSH, Stripe, and auth stack to standardize the new backend services on Bun, or should Node.js remain the default runtime for `frontend`, `api`, and `worker` first?
