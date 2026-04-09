@@ -25,7 +25,7 @@
   - the current `www/` landing routes have been ported there without deleting `www/`
   - the style-token source for this first port is the current `www/app/globals.css` token set and visual treatment
   - production compose and Caddy now point the landing domain at `frontend`
-  - legacy `www` remains defined only as a non-default rollback profile and is no longer the active landing container
+  - legacy `www` remains in the repo as a migration-era reference app, but it is no longer part of the production compose stack
 - The next extracted service slice now also exists in parallel:
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates

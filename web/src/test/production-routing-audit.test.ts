@@ -63,14 +63,13 @@ describe("production routing audit", () => {
     );
   });
 
-  it("keeps legacy www behind the rollback-only compose profile", () => {
+  it("does not keep the legacy www service in production compose", () => {
     const compose = readFileSync(COMPOSE_PATH, "utf8");
-    const wwwService = getServiceBlock(compose, "www");
 
-    assert.match(
-      wwwService,
-      /profiles:\s*\["legacy-www"\]/,
-      "Legacy www service must stay behind the legacy-www profile",
+    assert.doesNotMatch(
+      compose,
+      /(^|\n)  www:\n/,
+      "Legacy www service must be removed from production compose",
     );
   });
 

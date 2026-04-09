@@ -920,7 +920,7 @@ Current checkpoint:
 - `www`:
   - current owner: legacy marketing app
   - target owner: `frontend`
-  - status: production landing cutover wired; legacy `www` remains defined behind a non-default compose profile for rollback
+  - status: production landing cutover complete; legacy `www` remains in-repo only and is no longer part of the production compose stack
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `frontend`

@@ -30,7 +30,6 @@ On the host, place the repo and create the production env files:
 
 ```bash
 cp .env.production.example .env
-cp ../www/.env.production.example ../www/.env
 ```
 
 Set at least:
@@ -59,8 +58,8 @@ Set at least:
 - `STRIPE_WEBHOOK_SECRET`
 - `RUNTIME_OPENCLAW_IMAGE` if you want tenant runtimes to use the Otto custom OpenClaw image with bundled Otto plugins
 
-In `../www/.env`, set the landing-site browser analytics values you want baked
-into the public site build:
+Set the landing-site browser analytics values you want baked into the frontend
+build:
 
 - `NEXT_PUBLIC_POSTHOG_ENABLED`
 - `NEXT_PUBLIC_POSTHOG_HOST`
@@ -130,9 +129,9 @@ For Stripe billing, also configure:
 - the Stripe billing portal, with customer-managed payment methods, invoices, cancellation, and plan changes enabled
 
 If PostHog browser analytics is enabled on the landing site, make sure those
-`NEXT_PUBLIC_*` values are already present in `../www/.env` before running
-`docker compose ... build`. Next.js inlines `NEXT_PUBLIC_*` values into the
-browser bundle at build time.
+`NEXT_PUBLIC_*` values are already present in `.env` before running
+`docker compose ... build`. The frontend build inlines those browser values at
+build time.
 
 ```bash
 docker compose -f docker-compose.prod.yml build
@@ -166,10 +165,6 @@ Verify:
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS, Slack, and Linear redirect URIs point at the apex domain
 - tenant runtimes keep using the current legacy app origin until you explicitly cut over `OTTO_CONTROL_PLANE_BASE_URL`
-
-The legacy `www` container is now rollback-only. It should not run in the
-default production deploy unless you intentionally start the `legacy-www`
-profile.
 
 If Brave web search is enabled, also verify a real tenant projection:
 
