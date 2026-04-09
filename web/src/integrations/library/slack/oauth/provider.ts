@@ -1,4 +1,4 @@
-import { getControlPlaneBaseUrl, getSlackOAuthConfig } from "@/lib/env";
+import { getSlackOAuthConfig } from "@/lib/env";
 import type {
   OAuthProviderDefinition,
   OAuthProviderErrorKind,
@@ -28,7 +28,7 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
     const url = new URL(SLACK_AUTHORIZE_URL);
 
     url.searchParams.set("client_id", config.clientId);
-    url.searchParams.set("redirect_uri", getManagedSlackOauthRedirectUri());
+    url.searchParams.set("redirect_uri", config.redirectUri);
     url.searchParams.set("scope", config.botScopes.join(","));
     url.searchParams.set("state", input.state);
 
@@ -75,7 +75,7 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
         client_id: config.clientId,
         client_secret: config.clientSecret,
         code: input.code,
-        redirect_uri: getManagedSlackOauthRedirectUri(),
+        redirect_uri: config.redirectUri,
       }),
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -152,16 +152,4 @@ function createSlackOauthError(message: string, kind: OAuthProviderErrorKind) {
   error.kind = kind;
 
   return error;
-}
-
-function getManagedSlackOauthRedirectUri() {
-  const baseUrl = getControlPlaneBaseUrl();
-
-  if (!baseUrl) {
-    throw new Error(
-      "Slack managed OAuth requires a configured control-plane base URL.",
-    );
-  }
-
-  return new URL("/oauth/callback/integration/slack", baseUrl).toString();
 }
