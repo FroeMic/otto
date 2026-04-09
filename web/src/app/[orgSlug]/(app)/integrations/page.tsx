@@ -7,10 +7,10 @@ import type {
 } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
+import type { AgentCapability } from "@/lib/agent-capabilities";
 import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
 import { isOrganizationUnlocked } from "@/lib/workspace";
 import { getToolDefinition } from "@/tools";
-import type { AgentCapability } from "@/tools/types";
 
 function computeCapabilitySummary(
   capabilities?: AgentCapability[],

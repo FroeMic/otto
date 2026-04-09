@@ -9,7 +9,10 @@ import { DataTable } from "@/components/data-table";
 import { ToolbarSearchInput } from "@/components/toolbar-search-input";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
+import type {
+  AgentCapability,
+  AgentCapabilityDirection,
+} from "@/lib/agent-capabilities";
 
 export type CapabilityRow = AgentCapability & {
   sourceHref?: string | null;

@@ -400,6 +400,7 @@
   - `tenant_runtime_config_entries` now also stores `install_state`, and `tenant_runtime_config_mutations` now records user/agent/system lifecycle and config mutations
   - runtime-authenticated control-plane routes now exist under `/api/internal/runtime/surfaces/...` plus `/api/internal/runtime/slack/policy/...`
   - the new `otto-runtime-config` plugin now exposes `list_configurable_surfaces`, `get_configurable_surface`, `validate_surface_change`, `apply_surface_change`, `set_surface_state`, and `reapply_surface`
+  - the old workspace `/tools` UI has been removed; runtime-surface settings now surface only through integrations and runtime-config APIs
 - Managed integrations architecture planning is now captured in `TODO_17_managed_integrations_architecture.md`:
   - managed outbound integrations should default to an Otto-owned OAuth connected-accounts substrate for first-party integrations
   - runtime execution now has a dedicated `integration-gateway` container boundary, while discovery and status reads still live in `web`

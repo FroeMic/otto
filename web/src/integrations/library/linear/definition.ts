@@ -1,5 +1,5 @@
 import type { IntegrationDefinition } from "@/integrations/framework/types";
-import type { AgentCapabilityDirection } from "@/tools/types";
+import type { AgentCapabilityDirection } from "@/lib/agent-capabilities";
 import { executeLinearAttachmentCreate } from "./commands/attachment/create";
 import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
 import { executeLinearAttachmentGet } from "./commands/attachment/get";

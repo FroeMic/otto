@@ -34,8 +34,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import type {
+  AgentCapability,
+  AgentCapabilityDirection,
+} from "@/lib/agent-capabilities";
 import { getWhatsAppUiPhase } from "@/lib/workspace";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 import { deriveWhatsAppPolicyEffects } from "@/tools/whatsapp/policy";
 
 type WhatsAppRuntimeConfig = {

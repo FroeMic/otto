@@ -1,11 +1,11 @@
-import type { ComponentType } from "react";
 import type { z } from "zod";
+import type { AgentCapability } from "@/lib/agent-capabilities";
 
 export type ToolSurfaceScope = "tenant";
 export type ToolInstallSource = "registry";
 export type ToolInstallState = "installed" | "uninstalled";
-export type ToolSurfaceType = "global" | "integration" | "tool";
-export type ToolSurfaceUiGroup = "integrations" | "tools";
+export type ToolSurfaceType = "global" | "integration";
+export type ToolSurfaceUiGroup = "integrations";
 export type ToolSurfaceAction =
   | "install"
   | "uninstall"
@@ -30,20 +30,6 @@ export type ToolAgentOperation = {
   description: string;
   key: string;
   label: string;
-};
-
-export type AgentCapabilityDirection = "trigger" | "tool" | "read";
-export type AgentCapabilitySource = "base" | "integration" | "conditional";
-
-export type AgentCapability = {
-  conditionNote?: string;
-  description: string;
-  direction: AgentCapabilityDirection;
-  key: string;
-  label: string;
-  openclawTool?: string;
-  source: AgentCapabilitySource;
-  userControllable?: boolean;
 };
 
 export type ToolSurfaceLifecycleState = {
@@ -85,14 +71,6 @@ export type ToolSurfaceResponse<
   uiHints: unknown;
 };
 
-export type ToolSurfacePageProps<
-  Config,
-  Options extends Record<string, unknown> = Record<string, never>,
-> = {
-  orgSlug: string;
-  surface: ToolSurfaceResponse<Config, Options>;
-};
-
 export type ToolSurfaceDefinition<
   Config,
   Patch extends Record<string, unknown>,
@@ -116,7 +94,6 @@ export type ToolSurfaceDefinition<
   label: string;
   parseConfig: (value: unknown) => Config;
   parsePatch: (value: unknown) => Patch;
-  renderPage?: ComponentType<ToolSurfacePageProps<Config, Options>>;
   schema: unknown;
   schemaSource: string;
   schemaVersion: string;

@@ -11,7 +11,6 @@ import {
   Gear,
   Lightning,
   PlugsConnected,
-  Wrench,
 } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -75,11 +74,6 @@ export function AppSidebar({
       href: `/${currentOrganization.slug}/integrations`,
       icon: <PlugsConnected />,
       title: "Integrations",
-    },
-    {
-      href: `/${currentOrganization.slug}/tools`,
-      icon: <Wrench />,
-      title: "Tools",
     },
     {
       href: `/${currentOrganization.slug}/capabilities2`,

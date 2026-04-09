@@ -32,8 +32,8 @@ export type SurfaceEntry = {
   kind: string;
   label: string;
   settingsUrl?: string | null;
-  surfaceType: "global" | "integration" | "tool";
-  uiGroup: "integrations" | "tools";
+  surfaceType: "global" | "integration";
+  uiGroup: "integrations";
 };
 
 type IntegrationsContentProps = {
@@ -50,7 +50,10 @@ const brandIconMap: Record<string, string> = {
 
 function getSurfaceHref(surface: SurfaceEntry, orgSlug: string) {
   if (surface.settingsUrl) return surface.settingsUrl;
-  return `/${orgSlug}/tools/${surface.kind}/${surface.key}`;
+  if (surface.surfaceType === "integration") {
+    return `/${orgSlug}/integrations/${surface.key}`;
+  }
+  return `/${orgSlug}/integrations2`;
 }
 
 function isInstalled(surface: SurfaceEntry) {
