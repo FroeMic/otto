@@ -93,22 +93,9 @@ describe("web app", () => {
     expect(text).toContain("/assets/workspace.js")
   })
 
-  it("redirects legacy /app workspace links to slug-based paths", async () => {
-    const response = await app.request(
-      "http://localhost/app/acme/settings/workspace",
-      { redirect: "manual" },
-    )
+  it("does not serve legacy /app routes", async () => {
+    const response = await app.request("http://localhost/app/platform")
 
-    expect(response.status).toBe(302)
-    expect(response.headers.get("location")).toBe("/acme/settings/workspace")
-  })
-
-  it("redirects legacy /app/platform links to platform", async () => {
-    const response = await app.request("http://localhost/app/platform", {
-      redirect: "manual",
-    })
-
-    expect(response.status).toBe(302)
-    expect(response.headers.get("location")).toBe("/platform")
+    expect(response.status).toBe(404)
   })
 })

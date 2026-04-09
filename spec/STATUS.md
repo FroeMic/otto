@@ -67,8 +67,9 @@
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
-  - `/app` is now only a compatibility redirect that strips the legacy prefix back to slug or platform paths, not the default workspace root
+  - `/app` is no longer served by the new web shell
   - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
+  - workspace bootstrap now falls back to a direct authorized slug lookup so the current workspace can still load when broader org-list projection refresh fails
 - The apex-domain parallel launch shape is now wired in repo config:
   - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
   - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`

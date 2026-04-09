@@ -19,6 +19,15 @@ const user = {
 function createDependencies(): WorkspaceCoreRouteDependencies {
   return {
     authenticateWorkspaceUser: async () => user,
+    getCurrentWorkspace: async () => ({
+      id: "org_1",
+      isReady: true,
+      locale: "en-US",
+      name: "Otto",
+      slug: "otto",
+      timeFormatPreference: "auto",
+      timezone: "UTC",
+    }),
     getDashboardOrganizations: async () => [
       {
         id: "org_1",
@@ -104,6 +113,58 @@ describe("workspace core native routes", () => {
         email: "test@getyourotto.com",
         id: "user_123",
         isPlatformAdmin: true,
+        name: "Test User",
+      },
+    })
+  })
+
+  it("falls back to the current workspace when dashboard organization loading fails", async () => {
+    const app = createWorkspaceCoreTestApp({
+      ...createDependencies(),
+      getCurrentWorkspace: async () => ({
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      }),
+      getDashboardOrganizations: async () => {
+        throw new Error("projection failed")
+      },
+      hasPlatformAdminRole: async () => false,
+    })
+    const response = await app.request(
+      "http://api.local/api/web/bootstrap/otto",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      currentOrganization: {
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      },
+      organizations: [
+        {
+          id: "org_1",
+          isReady: true,
+          locale: "en-US",
+          name: "Otto",
+          slug: "otto",
+          timeFormatPreference: "auto",
+          timezone: "UTC",
+        },
+      ],
+      user: {
+        email: "test@getyourotto.com",
+        id: "user_123",
+        isPlatformAdmin: false,
         name: "Test User",
       },
     })

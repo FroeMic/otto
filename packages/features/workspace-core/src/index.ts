@@ -220,6 +220,10 @@ function getEmptyUsageOverview(): WorkspaceUsageOverview {
 export async function handleWorkspaceBootstrapRequest<
   TUser extends WorkspaceShellUser,
 >(input: {
+  getCurrentWorkspace?: (payload: {
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<WorkspaceSummary | null>
   getDashboardOrganizations: (
     userExternalId: string,
   ) => Promise<WorkspaceSummary[]>
@@ -228,53 +232,95 @@ export async function handleWorkspaceBootstrapRequest<
   syncUserFromSession: (user: TUser) => Promise<unknown>
   user: TUser
 }) {
+  const userName =
+    [input.user.firstName, input.user.lastName].filter(Boolean).join(" ") ||
+    input.user.email
+
+  let organizations: WorkspaceSummary[] = []
+  let isPlatformAdmin = false
+  let bootstrapError: unknown = null
+
   try {
     await input.syncUserFromSession(input.user)
+  } catch (error) {
+    bootstrapError = error
+  }
 
-    const [organizations, isPlatformAdmin] = await Promise.all([
+  const [organizationsResult, isPlatformAdminResult] = await Promise.allSettled(
+    [
       input.getDashboardOrganizations(input.user.id),
       input.hasPlatformAdminRole(input.user.id),
-    ])
+    ],
+  )
 
-    const currentOrganization = organizations.find(
-      (organization) => organization.slug === input.orgSlug,
-    )
+  if (organizationsResult.status === "fulfilled") {
+    organizations = organizationsResult.value
+  } else if (!bootstrapError) {
+    bootstrapError = organizationsResult.reason
+  }
 
-    if (!currentOrganization) {
+  if (isPlatformAdminResult.status === "fulfilled") {
+    isPlatformAdmin = isPlatformAdminResult.value
+  }
+
+  let currentOrganization =
+    organizations.find((organization) => organization.slug === input.orgSlug) ??
+    null
+
+  if (!currentOrganization && input.getCurrentWorkspace) {
+    try {
+      currentOrganization = await input.getCurrentWorkspace({
+        orgSlug: input.orgSlug,
+        userExternalId: input.user.id,
+      })
+    } catch (error) {
+      if (!bootstrapError) {
+        bootstrapError = error
+      }
+    }
+  }
+
+  if (!currentOrganization) {
+    if (bootstrapError) {
       return jsonNoStore(
         {
-          code: "organization_not_found",
-          message: "Organization not found.",
+          code: "bootstrap_failed",
+          message:
+            bootstrapError instanceof Error
+              ? bootstrapError.message
+              : "Failed to load workspace.",
         },
-        404,
+        400,
       )
     }
 
     return jsonNoStore(
-      shellBootstrapSchema.parse({
-        currentOrganization,
-        organizations,
-        user: {
-          email: input.user.email,
-          id: input.user.id,
-          isPlatformAdmin,
-          name:
-            [input.user.firstName, input.user.lastName]
-              .filter(Boolean)
-              .join(" ") || input.user.email,
-        },
-      }),
-    )
-  } catch (error) {
-    return jsonNoStore(
       {
-        code: "bootstrap_failed",
-        message:
-          error instanceof Error ? error.message : "Failed to load workspace.",
+        code: "organization_not_found",
+        message: "Organization not found.",
       },
-      400,
+      404,
     )
   }
+
+  if (
+    !organizations.some((organization) => organization.slug === input.orgSlug)
+  ) {
+    organizations = [currentOrganization, ...organizations]
+  }
+
+  return jsonNoStore(
+    shellBootstrapSchema.parse({
+      currentOrganization,
+      organizations,
+      user: {
+        email: input.user.email,
+        id: input.user.id,
+        isPlatformAdmin,
+        name: userName,
+      },
+    }),
+  )
 }
 
 export async function handleWorkspaceUsageRequest<
