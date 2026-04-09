@@ -437,6 +437,7 @@
   - delete coverage is now implemented for `issue.*`, `project.*`, `document.*`, `initiative.*`, and `customer.*`, and initiatives also now support authored update creation
   - Linear command coverage is now complete across the tracked object families plus the immediate post-coverage cleanup slice
   - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement` is now implemented on `main`
+  - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
   - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
