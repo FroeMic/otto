@@ -71,7 +71,7 @@ async function main() {
           ? listResponse.surfaces.map((surface: { id?: string }) => surface.id)
           : [],
         verificationNotes: [
-          "These responses are fetched with the tenant token against the same internal control-plane endpoints the otto-runtime-config plugin uses.",
+          "These responses are fetched with the tenant token against the same internal workspace endpoints the runtime surface APIs use.",
           "If the custom Otto runtime image is deployed, the runtime plugin should expose matching surface data to the agent.",
         ],
       },
