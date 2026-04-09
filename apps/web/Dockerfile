@@ -8,6 +8,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/features/integrations-runtime/package.json packages/features/integrations-runtime/package.json
 COPY packages/legacy-control-plane-runtime/package.json packages/legacy-control-plane-runtime/package.json
 COPY packages/features/runtime-core/package.json packages/features/runtime-core/package.json
 COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
