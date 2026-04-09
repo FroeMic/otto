@@ -955,7 +955,7 @@ Current checkpoint:
 - `web bootstrap and workspace read/write slices`:
   - current owner: `apps/web` via `apps/api`
   - target owner: `web` plus `api`
-  - status: first real slug-based shell implemented, now backed by native `apps/api` routes for bootstrap and settings with `/app/*` reduced to compatibility redirects
+  - status: first real slug-based shell implemented, now backed by native `apps/api` routes for bootstrap and settings with `/app/*` removed from the new shell surface
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`

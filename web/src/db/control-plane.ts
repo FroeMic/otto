@@ -2620,15 +2620,57 @@ export async function getOrganizationWorkspaceBySlug(input: {
   userExternalId: string;
 }) {
   const organizations = await getDashboardOrganizations(input.userExternalId);
-  const organization = organizations.find(
-    (item) => item.slug === input.orgSlug,
-  );
+  const organization =
+    organizations.find((item) => item.slug === input.orgSlug) ??
+    (await getWorkspaceSummaryBySlugForUser(input));
 
   if (!organization) {
     throw new Error("Organization not found");
   }
 
   return organization;
+}
+
+export async function getWorkspaceSummaryBySlugForUser(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<DashboardOrganization | null> {
+  const db = getDb();
+  const [organization] = await db
+    .select({
+      externalId: organizations.externalId,
+      id: organizations.id,
+      isReady: organizations.isReady,
+      locale: organizations.locale,
+      name: organizations.name,
+      role: memberships.role,
+      slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(users.externalId, input.userExternalId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    )
+    .limit(1);
+
+  if (!organization) {
+    return null;
+  }
+
+  return {
+    ...organization,
+    latestOnboardingSession: null,
+    onboardingDraft: null,
+    slackIntegration: null,
+    tenants: [],
+  };
 }
 
 export async function updateWorkspaceDateTimePreferences(input: {

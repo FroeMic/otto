@@ -41,6 +41,57 @@ describe("workspace core", () => {
     assert.equal(data.user.isPlatformAdmin, true)
   })
 
+  it("falls back to the current workspace when dashboard organizations fail", async () => {
+    const response = await handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: async () => ({
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      }),
+      getDashboardOrganizations: async () => {
+        throw new Error("WorkOS sync is temporarily unavailable")
+      },
+      hasPlatformAdminRole: async () => false,
+      orgSlug: "otto",
+      syncUserFromSession: async () => undefined,
+      user,
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      currentOrganization: {
+        id: "org_1",
+        isReady: true,
+        locale: "en-US",
+        name: "Otto",
+        slug: "otto",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      },
+      organizations: [
+        {
+          id: "org_1",
+          isReady: true,
+          locale: "en-US",
+          name: "Otto",
+          slug: "otto",
+          timeFormatPreference: "auto",
+          timezone: "UTC",
+        },
+      ],
+      user: {
+        email: "test@getyourotto.com",
+        id: "user_123",
+        isPlatformAdmin: false,
+        name: "Test User",
+      },
+    })
+  })
+
   it("returns usage overview", async () => {
     const response = await handleWorkspaceUsageRequest({
       getOrganizationTenantForBilling: async () => ({ id: "tenant_1" }),
