@@ -1,64 +1,6 @@
 import type { DashboardOrganization } from "@/db/control-plane";
 import { buildIntegrationSectionPath } from "@/integrations/framework/routing";
 
-export type WhatsAppUiPhase =
-  | "prepare"
-  | "pairing"
-  | "activating"
-  | "connected"
-  | "attention";
-
-export function getWhatsAppUiPhase(input: {
-  integrationStatus?: string | null;
-  linkSessionStatus?: string | null;
-}): WhatsAppUiPhase {
-  if (
-    input.linkSessionStatus === "queued" ||
-    input.linkSessionStatus === "starting" ||
-    input.linkSessionStatus === "qr_ready" ||
-    input.integrationStatus === "linking"
-  ) {
-    return "pairing";
-  }
-
-  if (input.integrationStatus === "connected") {
-    return "connected";
-  }
-
-  if (
-    input.integrationStatus === "activating" ||
-    input.integrationStatus === "pending_apply" ||
-    input.integrationStatus === "applying"
-  ) {
-    return "activating";
-  }
-
-  if (
-    input.integrationStatus === "apply_failed" ||
-    input.integrationStatus === "link_failed" ||
-    input.linkSessionStatus === "failed"
-  ) {
-    return "attention";
-  }
-
-  return "prepare";
-}
-
-export function getWhatsAppUiPhaseLabel(phase: WhatsAppUiPhase) {
-  switch (phase) {
-    case "prepare":
-      return "Ready to connect";
-    case "pairing":
-      return "Waiting for scan";
-    case "activating":
-      return "Activating";
-    case "connected":
-      return "Connected";
-    case "attention":
-      return "Needs attention";
-  }
-}
-
 export function getPendingAccessPath(orgSlug?: string) {
   if (!orgSlug) {
     return "/onboarding/wait-for-access";
@@ -106,7 +48,7 @@ export type ConnectedMessagingSurface = {
   external?: boolean;
   href: string;
   iconSrc: string;
-  key: "slack" | "whatsapp";
+  key: "slack";
   label: string;
 };
 
@@ -129,19 +71,6 @@ export function getConnectedMessagingSurfaces(
       iconSrc: "/integrations/slack.svg",
       key: "slack",
       label: "Slack",
-    });
-  }
-
-  if (organization.whatsappIntegration?.status === "connected") {
-    surfaces.push({
-      href: buildIntegrationSectionPath({
-        integrationKey: "whatsapp",
-        orgSlug: organization.slug,
-        section: "status",
-      }),
-      iconSrc: "/integrations/whatsapp.png",
-      key: "whatsapp",
-      label: "WhatsApp",
     });
   }
 
@@ -310,32 +239,6 @@ export function getSlackStatusLabel(organization: DashboardOrganization) {
   }
 
   return "Not connected";
-}
-
-export function getWhatsAppStatusLabel(organization: DashboardOrganization) {
-  const status = organization.whatsappIntegration?.status;
-
-  switch (status) {
-    case "pending_apply":
-      return "Preparing";
-    case "applying":
-      return "Applying";
-    case "activating":
-      return "Activating";
-    case "ready_to_link":
-      return "Ready to connect";
-    case "linking":
-      return "Waiting for scan";
-    case "connected":
-      return "Connected";
-    case "apply_failed":
-    case "link_failed":
-      return "Needs attention";
-    case "disconnected":
-      return "Disconnected";
-    default:
-      return organization.whatsappIntegration ? "Pending" : "Not connected";
-  }
 }
 
 export function getRuntimeStatusLabel(organization: DashboardOrganization) {

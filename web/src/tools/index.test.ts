@@ -18,38 +18,26 @@ describe("tool registry", () => {
     assert.equal(surfaceIds.size, definitions.length);
     assert.equal(ids.size, definitions.length);
     assert.equal(getToolDefinition("channel", "slack"), null);
-    assert.ok(getToolDefinition("channel", "whatsapp"));
+    assert.equal(getToolDefinition("channel", "whatsapp"), null);
     assert.equal(getToolDefinition("web", "search"), null);
-    assert.deepEqual(
-      definitions.map((definition) => `${definition.kind}:${definition.key}`),
-      ["channel:whatsapp"],
-    );
+    assert.deepEqual(definitions, []);
   });
 
   it("computes lifecycle actions from current state", () => {
-    const definition = getToolDefinition("channel", "whatsapp");
-
-    assert.ok(definition);
     assert.deepEqual(
-      listAvailableToolActions(definition, {
-        enabled: true,
-        installState: "installed",
-      }),
+      listAvailableToolActions(
+        {
+          supportsConfig: true,
+          supportsEnable: false,
+          supportsInstall: false,
+          supportsReapply: true,
+        } as never,
+        {
+          enabled: true,
+          installState: "installed",
+        },
+      ),
       ["update", "reapply"],
-    );
-    assert.deepEqual(
-      listAvailableToolActions(definition, {
-        enabled: false,
-        installState: "installed",
-      }),
-      ["update", "reapply"],
-    );
-    assert.deepEqual(
-      listAvailableToolActions(definition, {
-        enabled: false,
-        installState: "uninstalled",
-      }),
-      [],
     );
   });
 });

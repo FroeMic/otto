@@ -424,7 +424,7 @@
 - The first `TODO_18_managed_skills.md` increment is now implemented on `main`:
   - `tenant_skills`, `tenant_skill_versions`, `tenant_skill_files`, and `tenant_skill_file_versions` now exist in schema plus migration form as the managed-skills persistence foundation
   - `web/src/lib/managed-skills/package.ts` now validates `SKILL.md`, parses dependency metadata, rejects invalid paths and `state/` writes, and classifies package files into editable managed text, download-only managed files, and local state
-  - dependency validation now checks the real current workspace integration universe, combining the new integration registry with the still-runtime-config-backed Slack and WhatsApp surfaces
+  - dependency validation now checks the real current workspace integration universe, combining the integration registry with the remaining supported runtime-config-backed Slack surface
   - `web/src/db/managed-skills.ts` now provides the initial text-first create/list path for managed skills while leaving binary managed-file persistence intentionally deferred
 - The second `TODO_18_managed_skills.md` increment is now implemented on `main`:
   - desired-state compilation now snapshots managed skill versions under `managedSkills.versions` so apply and reprovision flows can reproduce exact skill-package state
@@ -465,7 +465,7 @@
   - `manage_integration` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
-  - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
+  - the Linear detail page now follows the same single-column settings layout and tab structure as the managed Slack integration pages
   - Increment 4 is now complete for Linear: Otto-owned OAuth connect, reconnect, disconnect, durable connection state, and shared refresh handling are all in place for the first provider
   - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
@@ -529,19 +529,11 @@
   - the worker now proactively refreshes expiring OAuth connections and records durable refresh failure state in Postgres
   - a shared `/api/integrations/[orgSlug]/[providerKey]/disconnect` route now exists, with provider-specific teardown clearing stored credentials and removing runtime projection for Linear
   - no further OAuth substrate expansion is recommended ahead of the next provider; add only the provider-specific pieces and the shared deltas that provider proves necessary
-- WhatsApp integration v1 is now merged on `main`:
-  - `channel/whatsapp` is registered as an integration surface with a dedicated-number-only config schema and destructive-policy warnings
-  - `tenant_integrations` now has WhatsApp-backed install state plus `integration_whatsapp_installations` and `integration_whatsapp_link_sessions`
-  - desired-state compilation now projects WhatsApp policy into tenant config and enables `whatsapp_login` for runtime-local QR auth
-  - worker handlers now exist for WhatsApp QR linking and disconnect, and the workspace has initial WhatsApp integration routes plus a dedicated setup page
-  - WhatsApp QR linking is being moved off OpenClaw's `web.login.start` / `web.login.wait` path and onto an Otto-owned helper shipped in the custom runtime image, because the upstream QR RPC flow does not recover reliably from the post-pairing `515 restart required` branch
-  - the helper-based link flow now completes real pairing successfully and no longer requires WhatsApp to be pre-installed in `openclaw.json` before showing a QR code
-  - WhatsApp now follows a pair-first activation model: QR pairing can start while the runtime surface is uninstalled, successful pairing immediately clears the QR session, and the control plane installs or reapplies the runtime surface afterward
-  - the WhatsApp detail page now derives a small user-facing phase model (`prepare`, `pairing`, `activating`, `connected`, `attention`) so the workspace no longer shows conflicting raw statuses like `disconnected` next to a successful link session
-  - WhatsApp is now registered in the managed-integrations framework, appears under `/integrations2/whatsapp/...`, and the legacy `/integrations/whatsapp` page is reduced to a redirect
-  - provider-owned WhatsApp UI now lives under `web/src/integrations/library/whatsapp/ui`, while the QR session and lifecycle routes intentionally remain provider-specific
-  - shared runtime settings, connection action, disconnect, capability catalog, and status resolution now understand WhatsApp through the generic managed-integration paths
-  - the remaining WhatsApp work is concentrated on real-tenant validation and any focused follow-up tests or copy polish discovered there rather than more architectural churn in the link flow
+- The previously added WhatsApp integration slice has now been removed from `main` and deferred:
+  - the workspace routes, provider-owned UI, API routes, worker handlers, runtime manager helpers, and OpenClaw projection for `channel/whatsapp` are deleted
+  - `integration_whatsapp_installations` and `integration_whatsapp_link_sessions` are dropped by `web/drizzle/0046_remove_whatsapp_integration.sql`, and the migration also clears WhatsApp rows from shared tables such as `tenant_integrations`, `tenant_runtime_config_entries`, `user_channel_identities`, and `job_runs`
+  - `otto-runtime-config` remains in place because it still powers shared runtime-surface management for non-WhatsApp integrations
+  - if a dedicated-number messaging integration returns later, it should be treated as a fresh scope decision rather than reviving the removed partial implementation
 - Brave web search now uses the final managed-integration + proxy shape:
   - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations2/brave/...`
   - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
@@ -617,11 +609,6 @@
   - then add Otto credit grants, ledger entries, and derived balances from Stripe events
   - then convert raw provider usage into billable units and credit debits
   - then ship the workspace billing page, top-ups, soft alerts, and only later hard-stop enforcement
-- Finish the follow-up WhatsApp validation slice by:
-  - validating the new pair-first QR link, disable, reconnect, and post-pair activation flows against a real provisioned tenant runtime
-  - tightening the WhatsApp UI with any missing validation, disabled states, and copy fixes discovered during manual verification
-  - adding any still-missing focused tests around the shared WhatsApp runtime settings and connection-action wiring if manual validation finds gaps
-  - running the new Drizzle migration in active environments once the implementation is verified locally
 - Then continue `TODO_06_integrations_and_oauth.md` by:
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request

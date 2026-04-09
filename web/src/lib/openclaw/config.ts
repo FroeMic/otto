@@ -11,10 +11,6 @@ import {
 } from "@/lib/slack-config";
 import type { OpenClawWebSearchConfig } from "@/lib/web-search-config";
 import { parseWebSearchRuntimeConfig } from "@/lib/web-search-config";
-import {
-  getDefaultWhatsAppRuntimeConfig,
-  parseWhatsAppRuntimeConfig,
-} from "@/lib/whatsapp-config";
 
 export type OpenClawAudioModelConfig = {
   model: string;
@@ -67,16 +63,6 @@ export type OpenClawTenantConfig = {
     requireMentionInChannels: boolean;
     signingSecret?: string;
     webhookPath?: string;
-  };
-  whatsapp?: {
-    ackReactionEnabled: boolean;
-    allowedGroupIds: string[];
-    allowedNumbers: string[];
-    dmPolicy: "pairing" | "allowlist" | "disabled";
-    enabled: boolean;
-    groupAllowedNumbers: string[];
-    groupPolicy: "disabled" | "allowlist";
-    requireMentionInGroups: boolean;
   };
   tenantId: string;
   integrations: string[];
@@ -240,7 +226,6 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         }
       : undefined;
   const slack = config.slack;
-  const whatsapp = config.whatsapp;
   const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0;
   const slackChannelConfig = slack
     ? {
@@ -297,54 +282,6 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   if (slackChannelConfig) {
     validateOpenClawSlackConfig(slackChannelConfig);
   }
-  const whatsappChannelConfig = whatsapp
-    ? (() => {
-        const whatsappGroupAllowedNumbers =
-          whatsapp.groupAllowedNumbers.length > 0
-            ? whatsapp.groupAllowedNumbers
-            : whatsapp.allowedNumbers;
-
-        return {
-          ...(whatsapp.ackReactionEnabled
-            ? {
-                ackReaction: {
-                  direct: true,
-                  emoji: "👀",
-                  group: "mentions",
-                },
-              }
-            : {}),
-          ...(whatsapp.allowedNumbers.length > 0
-            ? {
-                allowFrom: whatsapp.allowedNumbers,
-              }
-            : {}),
-          configWrites: false,
-          dmPolicy: whatsapp.dmPolicy,
-          enabled: whatsapp.enabled,
-          groupPolicy: whatsapp.groupPolicy,
-          ...(whatsapp.groupPolicy === "allowlist" &&
-          whatsappGroupAllowedNumbers.length > 0
-            ? {
-                groupAllowFrom: whatsappGroupAllowedNumbers,
-              }
-            : {}),
-          ...(whatsapp.groupPolicy === "allowlist" &&
-          whatsapp.allowedGroupIds.length > 0
-            ? {
-                groups: Object.fromEntries(
-                  whatsapp.allowedGroupIds.map((groupId) => [
-                    groupId,
-                    {
-                      requireMention: whatsapp.requireMentionInGroups,
-                    },
-                  ]),
-                ),
-              }
-            : {}),
-        };
-      })()
-    : undefined;
   const mediaTools = config.audio
     ? {
         media: {
@@ -397,10 +334,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       security: "full",
     },
   };
-  const gatewayToolsAllow = [
-    "cron",
-    ...(whatsappChannelConfig ? ["whatsapp_login"] : []),
-  ];
+  const gatewayToolsAllow = ["cron"];
 
   return JSON.stringify(
     {
@@ -477,7 +411,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           allow: gatewayToolsAllow,
         },
       },
-      ...(slackChannelConfig || whatsappChannelConfig
+      ...(slackChannelConfig
         ? {
             channels: {
               ...(slackChannelConfig
@@ -488,11 +422,6 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                         enabled: false,
                       },
                     },
-                  }
-                : {}),
-              ...(whatsappChannelConfig
-                ? {
-                    whatsapp: whatsappChannelConfig,
                   }
                 : {}),
             },
@@ -515,7 +444,6 @@ export function buildOpenClawTenantConfig(input: {
   const hasSlackBotToken = Boolean(input.slackBotToken);
   const audio = parseAudioConfig(config.media);
   const slackPolicy = parseSlackPolicy(config.slack);
-  const whatsappPolicy = parseWhatsAppPolicy(config.whatsapp);
   const webSearch = parseWebSearchConfig(config.webSearch);
   const userTimezone = normalizeTimeZone(readOptionalString(config.timezone));
   const timeFormat = normalizeTimeFormatPreference(
@@ -617,20 +545,6 @@ export function buildOpenClawTenantConfig(input: {
             requireMentionInChannels: slackPolicy.requireMentionInChannels,
             signingSecret: env.SLACK_SIGNING_SECRET,
             webhookPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
-          },
-        }
-      : {}),
-    ...(whatsappPolicy
-      ? {
-          whatsapp: {
-            ackReactionEnabled: whatsappPolicy.ackReactionEnabled,
-            allowedGroupIds: whatsappPolicy.allowedGroupIds,
-            allowedNumbers: whatsappPolicy.allowedNumbers,
-            dmPolicy: whatsappPolicy.dmPolicy,
-            enabled: true,
-            groupAllowedNumbers: whatsappPolicy.groupAllowedNumbers,
-            groupPolicy: whatsappPolicy.groupPolicy,
-            requireMentionInGroups: whatsappPolicy.requireMentionInGroups,
           },
         }
       : {}),
@@ -805,44 +719,6 @@ function parseAudioConfig(
       },
     ],
   };
-}
-
-function parseWhatsAppPolicy(value: unknown) {
-  const whatsappConfig = parseRecord(value);
-
-  if (
-    Object.keys(whatsappConfig).length === 0 &&
-    !("dmPolicy" in whatsappConfig) &&
-    !("groupPolicy" in whatsappConfig)
-  ) {
-    return undefined;
-  }
-
-  return parseWhatsAppRuntimeConfig({
-    ackReactionEnabled:
-      typeof whatsappConfig.ackReactionEnabled === "boolean"
-        ? whatsappConfig.ackReactionEnabled
-        : typeof whatsappConfig.ackReaction === "object" &&
-            whatsappConfig.ackReaction !== null
-          ? true
-          : getDefaultWhatsAppRuntimeConfig().ackReactionEnabled,
-    allowedGroupIds: parseStringArray(whatsappConfig.allowedGroupIds),
-    allowedNumbers: parseStringArray(whatsappConfig.allowedNumbers),
-    dmPolicy:
-      whatsappConfig.dmPolicy === "allowlist" ||
-      whatsappConfig.dmPolicy === "disabled"
-        ? whatsappConfig.dmPolicy
-        : getDefaultWhatsAppRuntimeConfig().dmPolicy,
-    groupAllowedNumbers: parseStringArray(whatsappConfig.groupAllowedNumbers),
-    groupPolicy:
-      whatsappConfig.groupPolicy === "allowlist"
-        ? "allowlist"
-        : getDefaultWhatsAppRuntimeConfig().groupPolicy,
-    requireMentionInGroups:
-      typeof whatsappConfig.requireMentionInGroups === "boolean"
-        ? whatsappConfig.requireMentionInGroups
-        : getDefaultWhatsAppRuntimeConfig().requireMentionInGroups,
-  });
 }
 
 function parseWebSearchConfig(

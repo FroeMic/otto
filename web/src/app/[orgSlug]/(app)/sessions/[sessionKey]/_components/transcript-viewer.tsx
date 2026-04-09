@@ -241,7 +241,6 @@ function formatTimestamp(
 
 const providerIcons: Record<string, string> = {
   slack: "/integrations/slack.svg",
-  whatsapp: "/integrations/whatsapp.png",
 };
 
 function ChannelIcon({ channel }: { channel: string | null }) {

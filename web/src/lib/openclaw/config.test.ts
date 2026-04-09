@@ -251,58 +251,6 @@ describe("renderOpenClawConfig", () => {
     });
   });
 
-  it("renders WhatsApp config with the Otto-managed defaults", () => {
-    const config: OpenClawTenantConfig = {
-      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
-      envelopeTimezone: "user",
-      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
-      integrations: ["whatsapp"],
-      prompts: {},
-      tenantId: "tenant_123",
-      timeFormat: "auto",
-      userTimezone: "Europe/Berlin",
-      whatsapp: {
-        ackReactionEnabled: true,
-        allowedGroupIds: ["1234567890@g.us"],
-        allowedNumbers: ["+436641234567"],
-        dmPolicy: "allowlist",
-        enabled: true,
-        groupAllowedNumbers: [],
-        groupPolicy: "allowlist",
-        requireMentionInGroups: true,
-      },
-      workspacePath: "/home/node/.openclaw/workspace",
-    };
-
-    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
-
-    assert.deepEqual(renderedConfig.channels.whatsapp, {
-      ackReaction: {
-        direct: true,
-        emoji: "👀",
-        group: "mentions",
-      },
-      allowFrom: ["+436641234567"],
-      configWrites: false,
-      dmPolicy: "allowlist",
-      enabled: true,
-      groupAllowFrom: ["+436641234567"],
-      groupPolicy: "allowlist",
-      groups: {
-        "1234567890@g.us": {
-          requireMention: true,
-        },
-      },
-    });
-    assert.deepEqual(renderedConfig.gateway.tools.allow, [
-      "cron",
-      "whatsapp_login",
-    ]);
-    assert.equal(renderedConfig.agents.defaults.envelopeTimezone, "user");
-    assert.equal(renderedConfig.agents.defaults.timeFormat, "auto");
-    assert.equal(renderedConfig.agents.defaults.userTimezone, "Europe/Berlin");
-  });
-
   it("renders openai-proxy as a provider plugin-backed model config", () => {
     const config: OpenClawTenantConfig = {
       authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",

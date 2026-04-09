@@ -15,7 +15,6 @@ describe("getConnectedMessagingSurfaces", () => {
       },
       slug: "michael",
       tenants: [],
-      whatsappIntegration: null,
     } as never);
 
     assert.deepEqual(surfaces, [

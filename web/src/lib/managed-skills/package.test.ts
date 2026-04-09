@@ -278,5 +278,5 @@ test("known managed skill dependency keys cover current workspace integrations",
 
   assert.ok(keys.includes("linear"));
   assert.ok(keys.includes("slack"));
-  assert.ok(keys.includes("whatsapp"));
+  assert.ok(!keys.includes("whatsapp"));
 });

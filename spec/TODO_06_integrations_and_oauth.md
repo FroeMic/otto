@@ -324,7 +324,7 @@ The next layer on top of this substrate is now in place as well:
 - tenant desired-state compilation should project Otto-owned web-search proxy config into `tools.web.search` without writing provider API keys into tenant `.env`
 - runtime surface payloads now carry explicit `surfaceType` and `uiGroup` metadata so the same registry can back both `Integrations` and `Tools`
 - the runtime plugin and route contract now use surface-oriented naming consistently
-- the next integration on top of this surface layer is now `channel/whatsapp`, with one dedicated-number install per tenant, QR-based linking through `whatsapp_login`, and control-plane-owned policy defaults
+- a dedicated-number messaging integration is explicitly deferred for now; do not keep WhatsApp-specific runtime, UI, or worker code in the active implementation until that product scope is re-approved
 
 ## Routing strategy plan
 
@@ -476,9 +476,7 @@ Deliverables:
 - [x] add explicit runtime-surface grouping metadata and rename the runtime plugin contract to surface-oriented naming
 - [x] add a channel access mode that can derive allowed channels from Otto's Slack membership
 - [x] add Slack channel join/leave actions in the control plane for public-channel membership management
-- [x] add the first post-Slack integration surface for `channel/whatsapp`
-- [x] add WhatsApp enable, QR-link, and disconnect lifecycle jobs through the worker
-- [x] project WhatsApp runtime policy into desired state and OpenClaw config
+- [ ] decide whether a post-Slack messaging integration should return later, and only then define a fresh provider scope
 - [x] implement shared Slack ingress router
 - [x] render Slack policy from canonical runtime config into desired state
 - [x] trigger apply after connect or token change

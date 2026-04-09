@@ -13,7 +13,6 @@ describe("runtime integration registry", () => {
       "brave",
       "linear",
       "slack",
-      "whatsapp",
     ]);
   });
 
@@ -22,11 +21,10 @@ describe("runtime integration registry", () => {
       "brave",
       "linear",
       "slack",
-      "whatsapp",
       "unknown",
     ]);
 
-    assert.equal(manifest.length, 4);
+    assert.equal(manifest.length, 3);
     assert.equal(manifest[0]?.key, "brave");
     assert.equal(manifest[0]?.toolName, "brave");
     assert.deepEqual(manifest[0]?.commandGroups, []);
@@ -158,10 +156,6 @@ describe("runtime integration registry", () => {
     assert.equal(manifest[2]?.toolName, "slack");
     assert.deepEqual(manifest[2]?.commandGroups, []);
     assert.deepEqual(manifest[2]?.rootCommands, []);
-    assert.equal(manifest[3]?.key, "whatsapp");
-    assert.equal(manifest[3]?.toolName, "whatsapp");
-    assert.deepEqual(manifest[3]?.commandGroups, []);
-    assert.deepEqual(manifest[3]?.rootCommands, []);
   });
 
   it("returns a placeholder response for connected linear issue search", async () => {

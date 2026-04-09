@@ -10,7 +10,6 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 - bundled `otto-integrations` plugin under `/app/dist/extensions/otto-integrations`
 - bundled `otto-session-reporter` plugin under `/app/dist/extensions/otto-session-reporter`
 - bundled `otto-ai-provider` plugin under `/app/dist/extensions/otto-ai-provider`
-- Otto-owned WhatsApp QR helper under `/app/otto-helpers/whatsapp-qr-login.mjs`
 
 OpenClaw `2026.4.8` resolves bundled plugins from `/app/dist/extensions` in the
 published image. Copying Otto-owned plugins into `/app/extensions` leaves them

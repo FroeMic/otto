@@ -127,7 +127,6 @@ Rebuild the authenticated web UI around an organization-scoped app shell with ga
 - `/{orgSlug}/agent`
 - `/{orgSlug}/integrations`
 - `/{orgSlug}/integrations/slack`
-- `/{orgSlug}/integrations/whatsapp`
 - `/{orgSlug}/skills`
 - `/{orgSlug}/scheduled-tasks`
 - `/{orgSlug}/settings`
@@ -203,15 +202,13 @@ Initial content:
 
 Purpose:
 
-- show configured integrations, starting with Slack and the next dedicated-number WhatsApp setup flow
+- show configured integrations, starting with Slack and the currently approved managed integrations
 
 Initial content:
 
 - Slack connection state
 - link to dedicated Slack integration page
 - reconnect / repair path
-- WhatsApp connection state
-- link to a dedicated WhatsApp integration page with setup instructions, QR linking, and policy settings
 
 ### Tools
 
@@ -257,37 +254,6 @@ Initial content:
 - move Slack people and channel management into a dedicated searchable table tab
 - let the channel table add Otto to public channels, remove Otto from joined channels, and explain when private-channel invites still need to happen in Slack
 
-### WhatsApp integration detail
-
-Route:
-
-- `/{orgSlug}/integrations/whatsapp`
-
-Purpose:
-
-- show the actual state of the WhatsApp integration for the organization
-- explain the dedicated-number requirement before QR linking starts
-- provide one place for QR auth, reconnect, disconnect, and policy settings
-
-Initial content:
-
-- enable / connected / disconnected / failed status
-- linked phone number if known
-- render the page as a settings-style detail view with a constrained header and a dedicated WhatsApp logo
-- use top-level tabs for Capabilities, Status, and Configuration
-- keep warnings inside the Status tab and show a status indicator on the tab when attention is required
-- a dedicated-number preparation checklist:
-  - buy a new phone number
-  - activate the SIM or eSIM on the phone
-  - install WhatsApp Business
-  - register and verify the number there before returning to the workspace
-- QR generation plus polling states for waiting, connected, or failed
-- move reconnect, disconnect, disable, and reapply actions into the Status tab
-- a policy editor for:
-  - DM access mode
-  - allowed-number allowlist
-  - group access mode
-  - allowed group IDs
   - allowed group sender numbers
   - require-mention-in-groups
   - ack reaction toggle
@@ -458,7 +424,6 @@ Likely additions during implementation:
 - [x] define onboarding gate and create-organization flow
 - [x] define settings split between user and organization
 - [x] define a dedicated Slack integration state page
-- [ ] define and implement a dedicated WhatsApp integration state page
 - [x] implement a dedicated settings shell with sectioned navigation
 - [x] extend workspace settings with a WorkOS-backed members view and member-management flow
 - [x] extend workspace settings with workspace time and region controls plus a shared workspace date-formatting baseline

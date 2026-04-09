@@ -216,7 +216,7 @@ custom_integrations
 Concrete direction:
 
 - `linear` should not need its own installation table by default.
-- `slack` and `whatsapp` can keep provider-specific tables where they back real directory caches, link sessions, or other query-heavy state.
+- `slack` can keep provider-specific tables where it backs real directory caches or other query-heavy state.
 - New integrations should normally add code registry entries, not tables.
 - Discovery should be first-class in the runtime plugin contract:
   - agents should be able to search for the best integration command from user intent before guessing an integration/command pair
@@ -1608,7 +1608,7 @@ Scope:
 
 - keep Slack OAuth, ingress, and routing control-plane-native
 - move Slack's runtime-facing read and safe-configure surface into `otto-integrations`
-- move the remaining legacy workspace surfaces onto the same registry-driven shape, covering Slack, WhatsApp, and Brave where that fit is appropriate
+- move the remaining legacy workspace surfaces onto the same registry-driven shape, covering Slack and Brave where that fit is appropriate
 - keep `otto-runtime-config` in place for non-integration surfaces
 
 Acceptance criteria:
@@ -1707,7 +1707,7 @@ Implementation status:
 - `otto-runtime-config` no longer registers Slack-specific tools
 - managed integration tabs now use nested routes like `/integrations2/slack/status`, `/integrations2/slack/capabilities`, and `/integrations2/slack/channels`
 - Slack workspace navigation now points at the managed route from the sidebar, setup-flow shell, workspace status rail fallback, Slack OAuth callback redirects, and the legacy Slack tool-detail redirect
-- the legacy `/integrations` index now only carries non-migrated runtime-surface entries such as WhatsApp
+- the legacy `/integrations` index no longer needs a WhatsApp-specific fallback entry
 - Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
 - the shared managed integration callback route now completes Slack OAuth and redirects back to the managed Slack page
 - `manage_integration` for Slack now returns the explicit managed Slack reconnect URL while keeping disconnect routed through the shared provider disconnect endpoint
