@@ -72,7 +72,9 @@ export async function proxyRuntimeWebSearchRequest(input: {
 
   switch (provider) {
     case "brave":
-      if (!getEnv().RUNTIME_BRAVE_API_KEY) {
+      const apiKey = getEnv().RUNTIME_BRAVE_API_KEY;
+
+      if (!apiKey) {
         throw new RuntimeWebSearchProxyError(
           'Managed web search provider "brave" is missing RUNTIME_BRAVE_API_KEY in the workspace app.',
           503,
@@ -81,7 +83,7 @@ export async function proxyRuntimeWebSearchRequest(input: {
 
       return Response.json(
         await executeBraveWebSearchProxy({
-          apiKey: getEnv().RUNTIME_BRAVE_API_KEY,
+          apiKey,
           args,
           searchConfig: resolved.openClawConfig,
         }),
