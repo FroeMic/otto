@@ -34,7 +34,8 @@
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
-  - the legacy `web/src/worker/index.ts` entrypoint remains in place as the fallback until cutover work begins
+  - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
+  - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service that now mirrors the current `web/` route-handler surface through adapter-mounted route families, with package-level `format`, `lint`, `test`, and `build` gates

@@ -952,7 +952,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: parallel port complete, cutover pending
+  - status: production compose cutover wired, deployment verification pending
 
 ### Session update rules
 
