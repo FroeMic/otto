@@ -139,6 +139,13 @@ import {
   slackRuntimeConfigUiHints,
 } from "@/lib/slack-config";
 import {
+  parseWebSearchRuntimeConfig,
+  resolveRuntimeWebSearchConfig,
+  WEB_SEARCH_TOOL_SCHEMA_VERSION as WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+  webSearchRuntimeConfigJsonSchema,
+  webSearchRuntimeConfigUiHints,
+} from "@/lib/web-search-config";
+import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
   WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
