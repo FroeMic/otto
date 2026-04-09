@@ -19,6 +19,7 @@ import {
   getSlackStatusLabel,
 } from "@/lib/workspace";
 
+import { buildSlackWorkspaceOauthStartUrl } from "../oauth-url";
 import { SlackActionsMenu } from "./components/actions-menu";
 import { SlackIntegrationPanel } from "./components/integration-panel";
 
@@ -126,6 +127,7 @@ export async function SlackManagedIntegrationPage({
     await loadOrganizationRouteContext(orgSlug);
 
   const session = getCurrentOnboardingSession(organization);
+  const onboardingSessionId = session?.id ?? null;
   const summary = await getTenantManagedIntegrationSummary({
     orgSlug,
     providerKey: definition.key,
@@ -174,9 +176,10 @@ export async function SlackManagedIntegrationPage({
     organization.slackIntegration?.teamName ?? session?.slackTeamName ?? null;
   const runtimeApplyIsActive =
     integrationStatus === "pending_apply" || integrationStatus === "applying";
-  const connectUrl = hasSlackOAuthConfig()
-    ? `/oauth/start/integration/slack?orgSlug=${encodeURIComponent(orgSlug)}`
-    : null;
+  const connectUrl = buildSlackWorkspaceOauthStartUrl({
+    hasSlackOAuthConfig: hasSlackOAuthConfig(),
+    onboardingSessionId,
+  });
   const connectActionLabel =
     slackIsConnected || connectionError ? "Reconnect Slack" : "Connect Slack";
   const canReconnectSlack = Boolean(connectUrl) && slackIsConnected;
