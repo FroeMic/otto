@@ -8,8 +8,6 @@
  *   agent:main:slack:dm:u0alyk6qz8q                           → Slack DM
  *   agent:main:slack:direct:u0alyk6qz8q                       → Slack DM (per-channel-peer scope)
  *   agent:main:slack:group:g123                                → Slack group
- *   agent:main:whatsapp:group:123456@g.us                     → WhatsApp group
- *   agent:main:whatsapp:dm:+4917656843172                     → WhatsApp DM
  */
 
 export type ParsedSessionKey = {
@@ -59,7 +57,6 @@ export function parseSessionKey(sessionKey: string): ParsedSessionKey {
 
 const providerLabels: Record<string, string> = {
   slack: "Slack",
-  whatsapp: "WhatsApp",
   telegram: "Telegram",
   discord: "Discord",
   cron: "Scheduled Task",
@@ -67,7 +64,6 @@ const providerLabels: Record<string, string> = {
 
 const providerIcons: Record<string, string> = {
   slack: "/integrations/slack.svg",
-  whatsapp: "/integrations/whatsapp.png",
 };
 
 export function getProviderIcon(provider: string | null): string | null {

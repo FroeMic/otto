@@ -13,7 +13,7 @@ describe("managed integration catalog", () => {
       (definition) => definition.key,
     );
 
-    assert.deepEqual(keys, ["brave", "linear", "slack", "whatsapp"]);
+    assert.deepEqual(keys, ["brave", "linear", "slack"]);
   });
 
   it("includes runtime-manifest-backed entries for supported integrations", () => {
@@ -21,7 +21,7 @@ describe("managed integration catalog", () => {
       (definition) => definition.key,
     );
 
-    assert.deepEqual(keys, ["brave", "linear", "slack", "whatsapp"]);
+    assert.deepEqual(keys, ["brave", "linear", "slack"]);
   });
 
   it("returns Brave metadata for the managed integration page", () => {
@@ -69,20 +69,6 @@ describe("managed integration catalog", () => {
     assert.equal(
       definition.settingsPath("michael"),
       "/michael/integrations2/slack/status",
-    );
-    assert.ok(definition.agentCapabilities.length >= 1);
-  });
-
-  it("returns WhatsApp metadata for the managed integration page", () => {
-    const definition = getManagedIntegrationDefinition("whatsapp");
-
-    assert.ok(definition);
-    assert.equal(definition.label, "WhatsApp");
-    assert.equal(definition.runtimeSurface?.toolName, "whatsapp");
-    assert.equal(definition.settings?.label, "Configuration");
-    assert.equal(
-      definition.settingsPath("michael"),
-      "/michael/integrations2/whatsapp/status",
     );
     assert.ok(definition.agentCapabilities.length >= 1);
   });

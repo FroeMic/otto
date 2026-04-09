@@ -14,8 +14,6 @@ export const JOB_TYPES = {
   scheduleBillingAutoTopOffEnqueue: "schedule_billing_auto_top_off_enqueue",
   executeBillingAutoTopOff: "execute_billing_auto_top_off",
   reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
-  whatsappLinkSession: "whatsapp_link_session",
-  whatsappDisconnect: "whatsapp_disconnect",
   resyncSlackUsers: "resync_slack_users",
   resyncSlackChannels: "resync_slack_channels",
   syncTenantSessions: "sync_tenant_sessions",
@@ -114,16 +112,6 @@ export type ReconcileTenantScheduledTasksPayload = {
   tenantId: string;
 };
 
-export type WhatsAppLinkSessionPayload = {
-  linkSessionId: string;
-  tenantId: string;
-};
-
-export type WhatsAppDisconnectPayload = {
-  desiredStateVersion?: number;
-  tenantId: string;
-};
-
 export type ResyncSlackUsersPayload = {
   tenantId: string;
 };
@@ -188,14 +176,6 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.reconcileTenantScheduledTasks;
       payload: ReconcileTenantScheduledTasksPayload;
-    }
-  | {
-      jobType: typeof JOB_TYPES.whatsappLinkSession;
-      payload: WhatsAppLinkSessionPayload;
-    }
-  | {
-      jobType: typeof JOB_TYPES.whatsappDisconnect;
-      payload: WhatsAppDisconnectPayload;
     }
   | {
       jobType: typeof JOB_TYPES.resyncSlackUsers;

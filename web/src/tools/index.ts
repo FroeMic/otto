@@ -1,11 +1,12 @@
 import type {
   ToolInstallState,
   ToolSurfaceAction,
+  ToolSurfaceDefinition,
   ToolSurfaceLifecycleState,
 } from "@/tools/types";
-import { whatsappToolSurfaceDefinition } from "@/tools/whatsapp";
 
-const registry = [whatsappToolSurfaceDefinition] as const;
+const registry: Array<ToolSurfaceDefinition<unknown, Record<string, unknown>>> =
+  [];
 type ToolSurfaceRegistryEntry = (typeof registry)[number];
 const registryIds = new Set<string>();
 const registrySurfaceKeys = new Set<string>();

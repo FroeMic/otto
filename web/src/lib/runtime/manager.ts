@@ -36,16 +36,6 @@ export type ApplyTenantConfigResult = {
   verifyStdout: string;
 };
 
-export type WhatsAppLinkStatus = {
-  linked: boolean;
-  running: boolean;
-  connected: boolean;
-  authAgeMs: number | null;
-  selfE164: string | null;
-  selfJid: string | null;
-  lastError: string | null;
-};
-
 export type ForwardedSlackHttpResponse = {
   body: string;
   headers: Record<string, string>;
@@ -56,7 +46,6 @@ const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000;
 const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000;
 const RUNTIME_START_HELPER_PATH =
   "/app/otto-helpers/start-runtime-with-watchers.mjs";
-const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
 const MANAGED_SKILL_WORKSPACE_ROOT = "/opt/openclaw/home/workspace/skills";
 const MANAGED_SKILL_MANIFEST_PATH =
   "/opt/openclaw/runtime/managed-skills-manifest.json";
@@ -669,65 +658,6 @@ export class RuntimeManager {
     return parseForwardedSlackHttpPayload(result.stdout);
   }
 
-  async startWhatsAppLoginWithQr(
-    connection: SshConnection,
-    input: {
-      force?: boolean;
-      timeoutMs?: number;
-    },
-  ) {
-    const result = await this.invokeWhatsAppQrHelper(connection, {
-      command: "start",
-      helperTimeoutMs: Math.max(input.timeoutMs ?? 0, 60_000),
-      timeoutMs: Math.max((input.timeoutMs ?? 0) + 15_000, 60_000),
-      ...(typeof input.force === "boolean" ? { force: input.force } : {}),
-    });
-
-    return result as {
-      events?: Array<{ at?: string; message?: string }>;
-      message: string;
-      qrDataUrl?: string;
-      self?: {
-        e164?: string | null;
-        jid?: string | null;
-      } | null;
-    };
-  }
-
-  async waitForWhatsAppLogin(
-    connection: SshConnection,
-    input: {
-      timeoutMs?: number;
-    },
-  ) {
-    const result = await this.invokeWhatsAppQrHelper(connection, {
-      command: "wait",
-      helperTimeoutMs: input.timeoutMs,
-      timeoutMs: Math.max((input.timeoutMs ?? 0) + 15_000, 60_000),
-    });
-
-    return result as {
-      connected: boolean;
-      events?: Array<{ at?: string; message?: string }>;
-      message: string;
-      self?: {
-        e164?: string | null;
-        jid?: string | null;
-      } | null;
-    };
-  }
-
-  async readWhatsAppQrHelperStatus(connection: SshConnection) {
-    const result = await this.invokeWhatsAppQrHelper(connection, {
-      command: "status",
-      timeoutMs: 30_000,
-    });
-
-    return result as {
-      state?: Record<string, unknown> | null;
-    };
-  }
-
   async readGatewayStatusJson(connection: SshConnection) {
     const result = await this.execChecked(
       connection,
@@ -736,125 +666,6 @@ export class RuntimeManager {
         "docker exec openclaw-gateway node dist/index.js status --json",
       ]),
       { timeoutMs: 60_000 },
-    );
-
-    return parseJsonObject(result.stdout);
-  }
-
-  async readWhatsAppLinkStatus(
-    connection: SshConnection,
-  ): Promise<WhatsAppLinkStatus> {
-    const result = await this.execChecked(
-      connection,
-      buildShellCommand([
-        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-        "docker exec openclaw-gateway node dist/index.js channels status --json",
-      ]),
-      { timeoutMs: 60_000 },
-    );
-
-    const payload = parseJsonObject(result.stdout);
-    const channels = asRecord(payload.channels);
-    const whatsappChannel = asRecord(channels?.whatsapp);
-    const channelSelf = asRecord(whatsappChannel?.self);
-    const channelAccounts = asRecord(payload.channelAccounts);
-    const rawWhatsAppAccounts = channelAccounts?.whatsapp;
-    const whatsappAccounts = Array.isArray(rawWhatsAppAccounts)
-      ? rawWhatsAppAccounts
-      : [];
-    const rawAccount =
-      whatsappAccounts.find(
-        (account) => asRecord(account)?.accountId === "default",
-      ) ?? whatsappAccounts[0];
-    const account = asRecord(rawAccount);
-    const self = asRecord(account?.self);
-
-    return {
-      authAgeMs:
-        typeof account?.authAgeMs === "number" &&
-        Number.isFinite(account.authAgeMs)
-          ? account.authAgeMs
-          : null,
-      connected: account?.connected === true,
-      lastError:
-        typeof account?.lastError === "string" &&
-        account.lastError.trim().length > 0
-          ? account.lastError.trim()
-          : null,
-      linked: account?.linked === true,
-      running: account?.running === true,
-      selfE164:
-        typeof channelSelf?.e164 === "string" &&
-        channelSelf.e164.trim().length > 0
-          ? channelSelf.e164.trim()
-          : typeof self?.e164 === "string" && self.e164.trim().length > 0
-            ? self.e164.trim()
-            : null,
-      selfJid:
-        typeof channelSelf?.jid === "string" &&
-        channelSelf.jid.trim().length > 0
-          ? channelSelf.jid.trim()
-          : null,
-    };
-  }
-
-  async readWhatsAppSelfId(connection: SshConnection) {
-    const status = await this.readWhatsAppLinkStatus(connection);
-    return {
-      e164: status.selfE164,
-      jid: status.selfJid,
-    };
-  }
-
-  async logoutWhatsApp(connection: SshConnection) {
-    await this.execChecked(
-      connection,
-      buildShellCommand([
-        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-        "docker exec openclaw-gateway node dist/index.js channels logout --channel whatsapp",
-      ]),
-      { timeoutMs: 60_000 },
-    );
-  }
-
-  private async invokeWhatsAppQrHelper(
-    connection: SshConnection,
-    input: {
-      command: "start" | "status" | "wait";
-      force?: boolean;
-      helperTimeoutMs?: number;
-      timeoutMs?: number;
-    },
-  ) {
-    const helperArgs = [
-      shellQuoteForShell(input.command),
-      "--account-id",
-      shellQuoteForShell("default"),
-    ];
-
-    if (input.force) {
-      helperArgs.push("--force");
-    }
-
-    if (typeof input.helperTimeoutMs === "number") {
-      helperArgs.push(
-        "--timeout-ms",
-        shellQuoteForShell(String(input.helperTimeoutMs)),
-      );
-    }
-
-    const result = await this.execChecked(
-      connection,
-      buildShellCommand([
-        "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-        [
-          "docker exec openclaw-gateway",
-          "node",
-          shellQuoteForShell(WHATSAPP_QR_HELPER_PATH),
-          ...helperArgs,
-        ].join(" "),
-      ]),
-      { timeoutMs: input.timeoutMs ?? 60_000 },
     );
 
     return parseJsonObject(result.stdout);
@@ -914,14 +725,6 @@ export class RuntimeManager {
 
 function buildShellCommand(commands: string[]) {
   return `bash -lc ${shellQuote(commands.join(" && "))}`;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as Record<string, unknown>;
 }
 
 function shellQuote(value: string) {

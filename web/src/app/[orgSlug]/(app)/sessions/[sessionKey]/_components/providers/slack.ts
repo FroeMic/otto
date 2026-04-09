@@ -19,8 +19,7 @@ import type { ParsedUserMessage, ProviderParser } from "../transcript-parser";
  *   ...
  *   <<<END_EXTERNAL_UNTRUSTED_CONTENT ...>>>
  *
- * This is the same envelope format used by WhatsApp and other channels
- * (they all go through OpenClaw's buildInboundUserContextPrefix).
+ * This is the same envelope format used by other OpenClaw messaging channels.
  */
 export const tryParseOpenClawEnvelope: ProviderParser = (
   rawText: string,

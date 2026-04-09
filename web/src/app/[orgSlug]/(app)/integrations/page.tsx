@@ -8,9 +8,7 @@ import type {
 import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
 import { listTenantToolConfigSurfaces } from "@/db/control-plane";
 import type { AgentCapability } from "@/lib/agent-capabilities";
-import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "@/lib/whatsapp-config";
 import { isOrganizationUnlocked } from "@/lib/workspace";
-import { getToolDefinition } from "@/tools";
 
 function computeCapabilitySummary(
   capabilities?: AgentCapability[],
@@ -25,26 +23,7 @@ function computeCapabilitySummary(
 
 export const dynamic = "force-dynamic";
 
-/**
- * Legacy integration page entries that still live on the runtime-config-backed
- * surface. WhatsApp now routes into integrations2 even though the underlying
- * settings and lifecycle APIs still reuse the runtime-config substrate.
- */
-const knownIntegrations: SurfaceEntry[] = [
-  {
-    categoryLabel: "Messaging",
-    description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
-    enabled: false,
-    id: "known:channel:whatsapp",
-    installState: "uninstalled",
-    key: "whatsapp",
-    kind: "channel",
-    label: "WhatsApp",
-    settingsUrl: null,
-    surfaceType: "integration",
-    uiGroup: "integrations",
-  },
-];
+const knownIntegrations: SurfaceEntry[] = [];
 
 export default async function IntegrationsPage({
   params,
@@ -72,9 +51,7 @@ export default async function IntegrationsPage({
       availability: surface.availability,
       capabilitySummary: computeCapabilitySummary(surface.agentCapabilities),
       categoryLabel:
-        surface.key === "slack" || surface.key === "whatsapp"
-          ? "Messaging"
-          : "Product Management",
+        surface.key === "slack" ? "Messaging" : "Product Management",
       description: surface.description,
       enabled: surface.config.enabled,
       id: surface.id,
@@ -92,13 +69,9 @@ export default async function IntegrationsPage({
   const entries = knownIntegrations.map((known) => {
     const live = liveSurfacesByKey.get(known.key);
     if (live) return live;
-    // Look up capabilities from the tool definition registry
-    const definition = getToolDefinition(known.kind, known.key);
     return {
       ...known,
-      capabilitySummary: computeCapabilitySummary(
-        definition?.agentCapabilities,
-      ),
+      capabilitySummary: undefined,
       settingsUrl: `/${organization.slug}/integrations2/${known.key}/status`,
     };
   });

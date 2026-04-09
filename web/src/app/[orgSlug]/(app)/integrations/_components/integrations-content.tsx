@@ -45,7 +45,6 @@ const brandIconMap: Record<string, string> = {
   brave: "/integrations/web-search.svg",
   linear: "/integrations/linear.svg",
   slack: "/integrations/slack.svg",
-  whatsapp: "/integrations/whatsapp.png",
 };
 
 function getSurfaceHref(surface: SurfaceEntry, orgSlug: string) {

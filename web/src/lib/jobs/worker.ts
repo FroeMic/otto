@@ -39,10 +39,6 @@ import {
 } from "./slack-sync";
 import type { ClaimedJob } from "./types";
 import { JOB_TYPES } from "./types";
-import {
-  processWhatsAppDisconnectJob,
-  processWhatsAppLinkSessionJob,
-} from "./whatsapp";
 
 export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   console.info(`[worker] claimed job ${job.id} (${job.jobType})`);
@@ -86,12 +82,6 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.provisionTenantServer:
       await processProvisionTenantServerJob(job);
-      return;
-    case JOB_TYPES.whatsappLinkSession:
-      await processWhatsAppLinkSessionJob(job);
-      return;
-    case JOB_TYPES.whatsappDisconnect:
-      await processWhatsAppDisconnectJob(job);
       return;
     case JOB_TYPES.resyncSlackUsers:
       await processResyncSlackUsersJob(job);

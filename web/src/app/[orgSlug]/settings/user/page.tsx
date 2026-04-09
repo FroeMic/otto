@@ -51,14 +51,6 @@ export default async function UserSettingsPage({
     });
   }
 
-  if (currentOrganization.whatsappIntegration?.status === "connected") {
-    connectedIntegrations.push({
-      provider: "whatsapp",
-      label: "WhatsApp",
-      icon: "/integrations/whatsapp.png",
-    });
-  }
-
   return (
     <SettingsPage>
       <div className="flex flex-col gap-8">

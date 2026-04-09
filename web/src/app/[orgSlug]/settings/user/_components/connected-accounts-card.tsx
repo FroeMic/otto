@@ -28,7 +28,6 @@ type ConnectedIntegration = {
 
 const providerMeta: Record<string, { label: string; icon: string }> = {
   slack: { label: "Slack", icon: "/integrations/slack.svg" },
-  whatsapp: { label: "WhatsApp", icon: "/integrations/whatsapp.png" },
 };
 
 function formatIdentityDetail(identity: ChannelIdentity): string {

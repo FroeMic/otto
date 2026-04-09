@@ -14,8 +14,6 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.provisionTenantOpenAiKey]: JOB_LANES.runtime,
   [JOB_TYPES.applyTenantConfig]: JOB_LANES.runtime,
   [JOB_TYPES.refreshRuntimeImage]: JOB_LANES.runtime,
-  [JOB_TYPES.whatsappLinkSession]: JOB_LANES.runtime,
-  [JOB_TYPES.whatsappDisconnect]: JOB_LANES.runtime,
   [JOB_TYPES.scheduleOauthConnectionRefresh]: JOB_LANES.integrations,
   [JOB_TYPES.refreshOauthConnection]: JOB_LANES.integrations,
   [JOB_TYPES.resyncSlackUsers]: JOB_LANES.integrations,
