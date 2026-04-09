@@ -14,8 +14,8 @@ process.env.LINEAR_OAUTH_ACTOR ??= "app";
 process.env.LINEAR_OAUTH_SCOPES ??= "read,write,app:mentionable";
 process.env.SLACK_CLIENT_ID ??= "slack-client-id";
 process.env.SLACK_CLIENT_SECRET ??= "slack-client-secret";
-process.env.SLACK_REDIRECT_URI ??=
-  "https://app.example.com/oauth/callback/slack";
+process.env.SLACK_REDIRECT_URI =
+  "https://app.example.com/oauth/callback/integration/slack";
 process.env.SLACK_BOT_SCOPES ??= "chat:write,channels:read";
 
 import { slackOAuthProvider } from "@/integrations/library/slack/oauth/provider";
