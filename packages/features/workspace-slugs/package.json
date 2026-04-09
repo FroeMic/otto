@@ -1,5 +1,5 @@
 {
-  "name": "@otto/feature-workspace-core",
+  "name": "@otto/feature-workspace-slugs",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,11 +15,6 @@
     "lint": "biome check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@otto/auth": "workspace:*",
-    "@otto/feature-workspace-slugs": "workspace:*",
-    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",

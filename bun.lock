@@ -110,8 +110,19 @@
       "version": "0.1.0",
       "dependencies": {
         "@otto/auth": "workspace:*",
+        "@otto/feature-workspace-slugs": "workspace:*",
         "zod": "^4.1.12",
       },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
+    "packages/features/workspace-slugs": {
+      "name": "@otto/feature-workspace-slugs",
+      "version": "0.1.0",
       "devDependencies": {
         "@biomejs/biome": "2.2.0",
         "@types/node": "^24.9.1",
@@ -248,6 +259,8 @@
     "@otto/feature-runtime-core": ["@otto/feature-runtime-core@workspace:packages/features/runtime-core"],
 
     "@otto/feature-workspace-core": ["@otto/feature-workspace-core@workspace:packages/features/workspace-core"],
+
+    "@otto/feature-workspace-slugs": ["@otto/feature-workspace-slugs@workspace:packages/features/workspace-slugs"],
 
     "@otto/frontend": ["@otto/frontend@workspace:apps/frontend"],
 

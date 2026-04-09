@@ -1,5 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "@otto/feature-workspace-slugs";
 import type {
   Invitation,
   Organization,
@@ -2490,10 +2494,14 @@ export async function createWorkspaceOnboardingDraft(input: {
   const workos = getWorkOS();
   const db = getDb();
   const syncedUser = await syncUserFromSession(input.user);
-  const normalizedSlug = normalizeOrganizationSlug(input.workspaceSlug);
+  const normalizedSlug = normalizeWorkspaceSlug(input.workspaceSlug);
 
   if (!normalizedSlug) {
     throw new Error("Workspace slug is required");
+  }
+
+  if (isReservedWorkspaceSlug(normalizedSlug)) {
+    throw new Error("Workspace slug is reserved");
   }
 
   const [existingOrganization] = await db
@@ -9842,11 +9850,7 @@ function deriveTenantName(name: string) {
 }
 
 function normalizeOrganizationSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return normalizeWorkspaceSlug(value);
 }
 
 async function generateOrganizationSlugFromWorkOS(
@@ -9865,6 +9869,10 @@ async function generateOrganizationSlugFromWorkOS(
   const candidates = [baseSlug, fallbackSlug];
 
   for (const candidate of candidates) {
+    if (isReservedWorkspaceSlug(candidate)) {
+      continue;
+    }
+
     const [existingOrganization] = await db
       .select({
         externalId: organizations.externalId,
@@ -9883,6 +9891,11 @@ async function generateOrganizationSlugFromWorkOS(
 
   for (let index = 2; ; index += 1) {
     const candidate = `${fallbackSlug}-${index}`;
+
+    if (isReservedWorkspaceSlug(candidate)) {
+      continue;
+    }
+
     const [existingOrganization] = await db
       .select({
         externalId: organizations.externalId,

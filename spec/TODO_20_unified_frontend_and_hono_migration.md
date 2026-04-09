@@ -318,6 +318,20 @@ Implementation note:
 
 These routes go to `frontend`.
 
+### Reserved workspace slug namespaces
+
+Workspace slugs must not collide with top-level public or system routes once the landing page and workspace share one primary origin.
+
+The reserved-slug source of truth should live in a shared package and be enforced at:
+
+- workspace onboarding creation
+- workspace slug updates
+- automatic slug generation from external organization names
+
+Reference list:
+
+- [Reserved workspace slugs](./RESERVED_WORKSPACE_SLUGS.md)
+
 ### Workspace routing
 
 - `/{orgSlug}/...`
@@ -915,6 +929,7 @@ Whenever migration work advances:
   - Hono + Zod + Hono RPC for backend contracts
   - Vitest and Hono testing for the new test strategy
   - regular format, lint, test, and build gates during implementation
+  - protected top-level public and system namespaces so workspace slugs cannot collide with landing or API routes
 
 ## Open questions
 

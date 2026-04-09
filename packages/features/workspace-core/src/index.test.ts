@@ -180,4 +180,40 @@ describe("workspace core", () => {
       message: "This URL is already in use",
     })
   })
+
+  it("returns a conflict when a workspace slug is reserved", async () => {
+    const response = await handleWorkspaceSettingsUpdateRequest({
+      getOrganizationWorkspaceBySlug: async () => ({
+        externalId: "ext_org",
+        id: "org_1",
+      }),
+      orgSlug: "otto",
+      renameOrganization: async () => undefined,
+      request: new Request("https://otto.test/api/workspace/otto/settings", {
+        body: JSON.stringify({
+          action: "update-slug",
+          slug: "docs",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      syncUserFromSession: async () => undefined,
+      updateOrganizationSlug: async () => "ok",
+      updateWorkspaceDateTimePreferences: async () => ({
+        applyQueued: false,
+        locale: "en-US",
+        timeFormatPreference: "auto",
+        timezone: "UTC",
+      }),
+      user,
+    })
+
+    assert.equal(response.status, 409)
+    assert.deepEqual(await response.json(), {
+      code: "slug_reserved",
+      message: "This URL is reserved",
+    })
+  })
 })

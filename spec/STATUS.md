@@ -54,6 +54,10 @@
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
   - the TanStack Router SPA now has a persistent org shell plus first `usage` and `settings` slices
+- Landing-page-first cutover now has an explicit reserved-slug rule:
+  - `packages/features/workspace-slugs` is the shared source of truth for protected top-level namespaces
+  - workspace onboarding, workspace slug updates, and generated slugs must reject reserved public and system paths
+  - the reserved namespace list is documented in [spec/RESERVED_WORKSPACE_SLUGS.md](./RESERVED_WORKSPACE_SLUGS.md)
 - `web/` now has initial env, schema, worker, and service scaffolding.
 - Agents should use `bun run ...` by default for `web/` scripts.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.

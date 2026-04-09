@@ -1,4 +1,5 @@
 import { jsonNoStore } from "@otto/auth"
+import { isReservedWorkspaceSlug } from "@otto/feature-workspace-slugs"
 import * as z from "zod"
 
 const DEFAULT_LOCALE = "en-US"
@@ -404,6 +405,13 @@ export async function handleWorkspaceSettingsUpdateRequest(input: {
     }
 
     if (body.action === "update-slug") {
+      if (isReservedWorkspaceSlug(body.slug)) {
+        return jsonNoStore(
+          { code: "slug_reserved", message: "This URL is reserved" },
+          409,
+        )
+      }
+
       const result = await input.updateOrganizationSlug({
         organizationId: organization.id,
         slug: body.slug,
