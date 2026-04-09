@@ -16,7 +16,7 @@ export default definePluginEntry({
   id: "otto-runtime-config",
   name: "Otto Runtime Config",
   description:
-    "Runtime surface configuration and lifecycle tools backed by the workspace app.",
+    "Runtime surface configuration and lifecycle tools backed by the workspace app. Managed integrations such as Slack and Linear are not configured here; use otto-integrations for managed integration settings and lifecycle.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -232,6 +232,8 @@ async function listConfigurableTools(api) {
   }
 
   return {
+    guidance:
+      "Managed integrations such as Slack and Linear are not listed here. Use list_integrations or get_integration from otto-integrations, then configure_integration for settings or manage_integration for connect and reconnect flows.",
     ok: true,
     surfaces: response.data.surfaces,
   };
@@ -244,6 +246,16 @@ async function getConfigurableTool(api, params) {
     return {
       ok: false,
       error: "surfaceKind and surfaceKey must be non-empty strings.",
+    };
+  }
+
+  if (
+    surface.kind === "channel" &&
+    (surface.key === "slack" || surface.key === "linear")
+  ) {
+    return {
+      ok: false,
+      error: `Managed integration settings for ${surface.key} are handled by otto-integrations. Use get_integration with {"integrationKey":"${surface.key}"} and then configure_integration.`,
     };
   }
 

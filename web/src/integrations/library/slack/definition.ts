@@ -1,5 +1,8 @@
 import type { IntegrationDefinition } from "@/integrations/framework";
-import { slackAgentCapabilities } from "./settings-metadata";
+import {
+  slackAgentCapabilities,
+  slackSettingsExamples,
+} from "./settings-metadata";
 
 import { SlackIntegrationListItem } from "./ui/list-item";
 
@@ -24,7 +27,13 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
   settings: {
     description:
       "Manage reply behavior, permissions, and channel access for Slack.",
+    examples: slackSettingsExamples,
     label: "Configuration",
+    recommendedWorkflow: [
+      'Call configure_integration with {"integrationKey":"slack","action":"get"} first to inspect the current Slack settings and the editable fields.',
+      "Use action=validate with a minimal Slack patch before saving it.",
+      "Use action=apply with expectedEntryVersion from the most recent action=get response to persist the Slack change.",
+    ],
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations2/slack/status`,
   showInWorkspaceCatalog: true,
