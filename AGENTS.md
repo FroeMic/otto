@@ -31,7 +31,6 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 - When implementation order changes, update `spec/STATUS.md` and the affected spec files.
 - When a spec is completed, rename it from `TODO_` to `DONE_` and update any references.
 - Do not create side plans in random markdown files unless the user explicitly asks for that.
-- Keep `www/spec/` aligned with the main repo plan until the unified frontend fully replaces the legacy website boundary.
 
 ## Architecture guardrails
 
@@ -50,7 +49,6 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 - `spec/` stores planning state and implementation sequencing.
 - `web/` is the current legacy control-plane app and worker/gateway home.
-- `www/` is the current legacy public site.
 - `runtime-image/` and `runtime-plugins/` are separate runtime concerns and should not be conflated with the browser-app migration.
 - The planned long-term direction is captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - unified frontend
@@ -63,7 +61,6 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 - Bun is the preferred package manager and local task runner for new repo-level work, especially the planned `apps/` and `packages/` layout.
 - For existing `web/` work, use `bun run ...` inside `web/` by default unless a task specifically requires `npm`.
-- For existing `www/` work, use Bun-based commands.
 - During migration, do not treat Bun package-manager adoption and Bun runtime adoption as the same decision:
   - Bun should be the default tooling choice
   - runtime selection can remain service-specific until compatibility is proven

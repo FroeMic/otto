@@ -13,19 +13,18 @@
 ## Current state
 
 - Repository state is still mostly bootstrap.
-- A parallel public-site planning track still exists in `www/spec/`, but the newer long-term direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
+- The newer long-term browser-app direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - the landing page and workspace should converge into one browser-facing frontend over time
-  - `www/` and `web/` are now legacy app boundaries during the planned migration rather than the desired steady state
+  - `web/` remains the legacy Next.js workspace boundary during the planned migration rather than the desired steady state
 - The unified frontend migration has now moved from planning into the first implementation slice:
   - Phase 0 has started
-  - the first complete port target is `www/` into `apps/web`
+  - the first complete port target was the `www/` port into `apps/web`
   - the new subpackages must each carry `format`, `lint`, `test`, and `build` gates before their first commit
 - The first new frontend slice now exists in parallel:
   - `apps/web` is a Bun-managed package with Hono SSR, React landing routes, a TanStack Router workspace placeholder, and package-level `format`, `lint`, `test`, and `build` gates
-  - the current `www/` landing routes have been ported there without deleting `www/`
-  - the style-token source for this first port is the current `www/app/globals.css` token set and visual treatment
+  - the former `www/` landing routes have been ported there and `www/` has now been retired from the repo
+  - the style-token source for this first port was the `www/app/globals.css` token set and visual treatment
   - production compose and Caddy now point the landing domain at `web`
-  - legacy `www` remains in the repo as a migration-era reference app, but it is no longer part of the production compose stack
 - The next extracted service slice now also exists in parallel:
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
@@ -605,10 +604,9 @@
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
   - placing release activation and rollout controls on `/platform/organizations/[orgSlug]` next to gateway access, recent deployment activity, and the queued image-refresh diagnostics
   - keeping rollout auditable through the existing job/event history instead of adding a separate ad hoc operator path
-- In parallel, if the current priority is the public website, use `www/spec/` as the source of truth for that workstream rather than adding marketing scope into the `web/` app plan.
 - If the current priority shifts to the unified frontend and service extraction work, start `TODO_20_unified_frontend_and_hono_migration.md` in this order:
   - Bun workspace and repo-level gate scaffolding
-  - fully port `www/` into `apps/web` without deleting `www/`
+  - fully port the former `www/` surface into `apps/web`
   - then continue Phase 1 gateway extraction
   - then Phase 2 worker extraction
   - then Phase 3 API extraction

@@ -13,7 +13,7 @@ Replace the current split `www/` marketing site and `web/` Next.js control-plane
   - worker
 - define the target repo layout for new apps and shared packages
 - define the production routing model for one primary Otto origin
-- sequence the migration so existing `www/` and `web/` can continue to evolve during the transition
+- sequence the migration so the legacy `web/` app can continue to evolve during the transition while browser-facing slices move into `apps/web`
 - define state tracking for migration phases, cutover readiness, and retirement of legacy services
 
 ## Dependencies
@@ -36,9 +36,10 @@ Replace the current split `www/` marketing site and `web/` Next.js control-plane
   - webhooks
   - internal runtime endpoints
   - shared domain logic
-- the production stack already runs separate service boundaries for:
-  - `www`
-  - `web`
+- the production stack historically ran separate browser-facing and workspace boundaries in `www/` and `web/`
+- the current transition stack now keeps:
+  - `apps/web`
+  - `legacy-web`
   - `integration-gateway`
   - `worker`
   - `caddy`
@@ -303,7 +304,7 @@ The transfer should at minimum audit and intentionally carry over:
 Implementation note:
 
 - do not blindly merge all legacy CSS
-- audit `web/` and `www/` style roots, decide which token set is authoritative, and port the final chosen variables into the new frontend's theme layer
+- audit the legacy browser-facing style roots, decide which token set is authoritative, and port the final chosen variables into the new frontend's theme layer
 - document the chosen source of truth during Phase 4 once the frontend foundation starts
 
 ## Target routing model
@@ -402,7 +403,7 @@ The long-term target layout should be:
 
 ### Layout rules
 
-- new shared business logic must not be added only inside legacy `web/` or `www/` once replacement work begins
+- new shared business logic must not be added only inside legacy `web/` once replacement work begins
 - major product areas should be extracted feature-first rather than layer-first
 - product-specific logic should prefer `packages/features/<feature-name>` instead of a generic `packages/domain` dump
 - feature packages should keep related contracts, service logic, worker logic, query keys, and view models close together
@@ -411,9 +412,9 @@ The long-term target layout should be:
   - `packages/db`
   - `packages/auth`
 - Drizzle schema and DB helpers should move toward `packages/db`
-- legacy `web/` and `www/` should remain self-contained during the transition
+- legacy `web/` should remain self-contained during the transition
 - shared packages are for extracted apps and future cutover targets, not as a runtime dependency of the legacy `web/` production image
-- `web/` and `www/` remain present until their replacements are proven and cut over
+- the legacy browser-facing `www/` app is now retired from the repo; remaining transition work is centered on legacy `web/`
 
 ### Feature co-location rule
 
@@ -463,7 +464,7 @@ Anti-goal:
 
 Once this migration starts in earnest:
 
-- bug fixes may still land in `web/` and `www/` as needed
+- bug fixes may still land in legacy `web/` as needed
 - new shared backend logic should land in shared packages first
 - if legacy `web/` still needs that logic before cutover, copy the compatibility wrapper locally instead of wiring the legacy app to shared packages
 - new API endpoints should prefer `apps/api` unless there is a strong short-term blocker
@@ -598,8 +599,8 @@ Cutover approach:
 
 Exit criteria:
 
-- primary landing routes are served from `frontend`
-- old `www/` becomes legacy-only or can be retired
+- primary landing routes are served from `web`
+- the old `www/` app is retired
 - same-origin routing works with the new API service
 - app-shell navigation does not rely on broad blocking reload behavior
 
@@ -840,7 +841,7 @@ Exit criteria:
 
 - current state: Phase 0 foundation active, Phase 1 gateway extraction started, Phase 2 worker extraction started, Phase 3 API extraction started
 - current parallel-port progress:
-  - `apps/web` exists for legacy `www`
+  - `apps/web` now owns the former `www` landing surface
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
@@ -886,7 +887,7 @@ The first implementation passes should happen in this order:
 
 ### First port target
 
-The first complete port target is the current `www/` app.
+The first complete port target was the former `www/` app.
 
 Definition of done for that target:
 
@@ -894,7 +895,7 @@ Definition of done for that target:
 - the new frontend runs through Hono
 - landing routes are server-rendered there
 - the new frontend package has working `format`, `lint`, `test`, and `build` gates
-- `www/` remains in the repo unchanged as the legacy fallback until a later retirement phase
+- `www/` is retired from the repo after the landing port was verified
 
 Current checkpoint:
 
@@ -907,7 +908,6 @@ Current checkpoint:
   - `apps/api` consumes the extracted shared packages while legacy `web/` keeps local compatibility copies
   - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
 - cutover still pending
-- the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
 - the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
 - the legacy `web/` route handlers remain present and untouched as the API fallback
@@ -935,9 +935,9 @@ Current checkpoint:
 ### Service cutover tracker
 
 - `www`:
-  - current owner: legacy marketing app
+  - current owner: retired legacy marketing app
   - target owner: `web`
-  - status: production landing cutover complete; legacy `www` remains in-repo only and is no longer part of the production compose stack
+  - status: retired; the browser-facing landing surface now lives in `apps/web`
 - `web` page rendering:
   - current owner: legacy Next.js app
   - target owner: `web`
@@ -981,7 +981,7 @@ Whenever migration work advances:
   - active phase
   - the branch or workstream in progress
   - the next recommended migration step
-- update or retire `www/spec/` assumptions once the frontend replacement becomes active work
+- retire the old `www` assumptions now that the browser-facing landing app lives in `apps/web`
 
 ## Acceptance criteria
 
