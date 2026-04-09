@@ -156,7 +156,7 @@
   - signed-in users with no provisioned tenants now land in an onboarding UI instead of immediate provisioning
   - workspace creation now creates an onboarding draft instead of provisioning a tenant immediately
   - provisioning remains intentionally blocked until the Slack OAuth step exists
-- Slack OAuth routes now exist under `/oauth/start/slack` and `/oauth/callback/slack`, and the callback can complete onboarding by storing the tenant bot token and starting provisioning.
+- Slack onboarding and managed reconnect now both use the generic managed integration OAuth routes under `/oauth/start/integration/slack` and `/oauth/callback/integration/slack`.
 - The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
 - Slack control-plane state is now more durable:
   - `tenant_integrations`, `integration_slack_installations`, and `integration_credentials` now persist the canonical Slack installation state
@@ -654,6 +654,7 @@
   - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
   - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
   - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`
+  - a follow-up cleanup branch now removes the legacy Slack-only OAuth routes and moves onboarding onto the same canonical `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` flow as managed Slack reconnect
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user

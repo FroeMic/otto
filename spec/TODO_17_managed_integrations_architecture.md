@@ -1710,6 +1710,7 @@ Implementation status:
 - Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
 - the shared managed integration callback route now completes Slack OAuth and redirects back to the managed Slack page
 - `manage_integration` for Slack now returns the explicit managed Slack reconnect URL while keeping disconnect routed through the shared provider disconnect endpoint
+- Slack onboarding now also uses the generic managed OAuth route family, so `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` are the canonical Slack OAuth entrypoints
 - Slack now declares `platform_managed` ingress metadata in the managed integration definition
 - Slack provider-owned ingress parsing and request handling now live under `web/src/integrations/library/slack/ingress`
 - the generic provider-keyed route family now exists at `/api/webhooks/integrations/[provider]/[endpointKey]`
