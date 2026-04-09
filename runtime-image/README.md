@@ -6,7 +6,6 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 ## Current contents
 
 - bundled `otto-managed-config` plugin under `/app/dist/extensions/otto-managed-config`
-- bundled `otto-runtime-config` plugin under `/app/dist/extensions/otto-runtime-config`
 - bundled `otto-integrations` plugin under `/app/dist/extensions/otto-integrations`
 - bundled `otto-session-reporter` plugin under `/app/dist/extensions/otto-session-reporter`
 - bundled `otto-ai-provider` plugin under `/app/dist/extensions/otto-ai-provider`
