@@ -576,7 +576,7 @@ Exit criteria:
   - `apps/frontend` exists for legacy `www`
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
-  - `apps/api` exists for extracted internal runtime, webhook, auth, and OAuth route families
+  - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
 - current browser-facing production split:
   - landing on `www`
   - workspace on `web`
@@ -586,7 +586,7 @@ Exit criteria:
   - extracted `gateway`
   - extracted `worker`
 - current recommended next implementation step:
-  - expand `apps/api` into workspace and platform route families without deleting the legacy handlers
+  - begin routing real traffic toward `apps/api` and continue extracting shared logic out of legacy Next route handlers without deleting them
 
 ### Immediate execution order
 
@@ -619,9 +619,7 @@ Current checkpoint:
   - `apps/gateway`
   - `apps/worker`
 - partial in parallel implementation for:
-  - `apps/api` internal runtime routes
-  - `apps/api` webhook routes
-  - `apps/api` auth and OAuth routes
+  - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
 - cutover still pending
 - the legacy `www/` app remains present and untouched as the frontend fallback
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
@@ -661,7 +659,7 @@ Current checkpoint:
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
-  - status: in progress, with internal runtime route families now mounted in `apps/api`
+  - status: parallel port complete, cutover pending
 - `webhooks`:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
@@ -669,7 +667,7 @@ Current checkpoint:
 - `auth` and `oauth` routes:
   - current owner: legacy Next.js app
   - target owner: `apps/api`
-  - status: in progress, with adapter-mounted routes now present in `apps/api`
+  - status: parallel port complete, cutover pending
 - `integration-gateway`:
   - current owner: legacy gateway service
   - target owner: `apps/gateway`
