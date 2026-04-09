@@ -44,6 +44,11 @@ describe("managed integration catalog", () => {
     assert.ok(definition);
     assert.equal(definition.label, "Slack");
     assert.equal(definition.oauth?.provider.key, "slack");
+    assert.equal(definition.ingress?.setupMode, "platform_managed");
+    assert.deepEqual(
+      definition.ingress?.endpoints.map((endpoint) => endpoint.endpointKey),
+      ["events", "commands", "interactivity"],
+    );
     assert.equal(definition.runtimeSurface?.toolName, "slack");
     assert.equal(definition.settings?.label, "Configuration");
     assert.equal(

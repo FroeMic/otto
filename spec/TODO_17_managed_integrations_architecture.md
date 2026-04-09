@@ -573,6 +573,134 @@ Over time, `integration-gateway` should also own:
 
 This means `Class C` integrations and webhook-driven integrations are the same conceptual family.
 
+## Full Webhook Support
+
+The long-term direction should treat inbound webhook transport as a first-class part of the managed integrations framework, not a one-off Slack subsystem.
+
+The immediate implementation scope should stay narrower:
+
+- build only what Slack needs right now
+- keep the current shared Slack ingress behavior working
+- shape the implementation so additional webhook-capable providers can later reuse the same framework hooks
+
+The design goal is to avoid two bad outcomes:
+
+- baking more Slack-only control-plane routes and metadata into unrelated parts of the app
+- prematurely forcing every future provider into one identical single-endpoint webhook abstraction
+
+### Framework model
+
+Each integration definition may eventually declare optional inbound transport metadata in addition to OAuth, commands, settings, and lifecycle.
+
+That inbound transport model should support:
+
+- one or more provider-owned inbound endpoints per integration
+- provider-specific request parsing and verification
+- tenant resolution through the shared tenant integration registry
+- persisted ingress deliveries and errors
+- handoff to the existing async execution and worker path where needed
+
+The framework should describe inbound endpoint ownership with explicit setup modes:
+
+- `platform_managed`
+  - configured once by the control plane for one shared provider app or shared provider account
+  - example: the shared Slack app used by every Otto workspace
+- `provider_managed`
+  - configured by the control plane through the provider API, usually per tenant, account, project, repo, or similar external resource
+  - example: a future GitHub or Jira webhook created by the control plane during connect/setup
+- `workspace_managed`
+  - owned entirely inside Otto-managed infrastructure, with no external provider-side registration step
+- `manual`
+  - the control plane exposes the endpoint and setup instructions, but a human must register it in the external provider UI
+
+### Slack-first implementation boundary
+
+Slack should be the first provider implemented in this model, but only to the extent needed by the current shared Slack app architecture.
+
+For Slack specifically:
+
+- inbound transport is `platform_managed`
+- the control plane owns the shared Slack app webhook configuration once for the whole product
+- individual workspaces connect to the shared Slack app, but do not configure inbound Slack webhooks themselves
+- tenant runtimes continue to receive forwarded Slack traffic and do not own provider-side webhook registration
+
+That means the workspace should not present Slack webhook setup as a per-workspace manual configuration task.
+
+Instead, the Slack integration should eventually surface read-only ingress health and setup state such as:
+
+- shared app ingress is active
+- last successful delivery
+- last delivery error
+- whether reconnect is needed for the workspace connection
+
+### Route shape
+
+The long-term public route family should be framework-owned and provider-keyed, for example:
+
+- `/api/webhooks/integrations/[provider]/[endpointKey]`
+
+For Slack this would map to:
+
+- `/api/webhooks/integrations/slack/events`
+- `/api/webhooks/integrations/slack/commands`
+- `/api/webhooks/integrations/slack/interactivity`
+
+During migration, keep the current public Slack routes as compatibility wrappers:
+
+- `/api/integrations/slack/events`
+- `/api/integrations/slack/commands`
+- `/api/integrations/slack/interactivity`
+
+Those wrappers should call the same provider-owned ingress handler, not maintain a separate Slack-only control-plane code path indefinitely.
+
+### Provider ownership
+
+The generic framework should own routing and registration concepts, but provider-specific inbound behavior should live under the provider library.
+
+For Slack, that means moving toward provider-owned modules under `web/src/integrations/library/slack` for:
+
+- endpoint definitions
+- request parsing
+- signature verification behavior
+- team/workspace resolution helpers
+- direct challenge or `ssl_check` responses
+- forwarded header construction
+- setup and health copy shown in the workspace UI
+
+The route handlers themselves can remain in Next.js route files, but they should become thin wrappers around provider-owned framework helpers.
+
+### Persistence and operations
+
+Slack already persists ingress audit rows in `slack_ingress_deliveries`.
+
+That should remain the current implementation for the Slack slice, but the framework direction should be:
+
+- start from the current Slack delivery audit model
+- keep new Slack work compatible with a later generic `integration_ingress_deliveries` model
+- avoid baking Slack-specific assumptions into higher-level framework interfaces
+
+If later providers need dynamic inbound registrations, the control plane should also persist per-registration state such as:
+
+- tenant integration ownership
+- endpoint key
+- registration mode
+- verification material or provider webhook id when relevant
+- active or degraded status
+- last success and last error
+
+This does not require generic user-authored webhook logic yet. For the current phase, provider-owned behavior remains the correct model.
+
+### Near-term acceptance criteria
+
+The Slack-only implementation should count as aligned with the full webhook direction if it does all of the following:
+
+- keeps Slack ingress control-plane-native
+- keeps Slack on the existing shared-app routing model by `team_id`
+- moves provider-owned ingress logic toward `web/src/integrations/library/slack`
+- preserves compatibility with the current public Slack endpoints during migration
+- leaves a clear route to a framework-owned provider-keyed webhook family later
+- avoids introducing new Slack-only ingress concepts outside the integration framework unless they are strictly transport shims
+
 ## Linear Example
 
 Linear is the first recommended managed outbound integration.
@@ -1459,6 +1587,7 @@ Scope:
 - add integration transport metadata for outbound-only, inbound-only, and hybrid integrations
 - add webhook ingress ownership to `integration-gateway`
 - persist and route webhook events through the shared integration model
+- use the `Full Webhook Support` chapter above as the architectural shape, while keeping the first concrete implementation Slack-first and compatible with the current shared Slack ingress routes
 
 Why this should wait:
 
@@ -1581,6 +1710,11 @@ Implementation status:
 - Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
 - the shared managed integration callback route now completes Slack OAuth and redirects back to the managed Slack page
 - `manage_integration` for Slack now returns the explicit managed Slack reconnect URL while keeping disconnect routed through the shared provider disconnect endpoint
+- Slack now declares `platform_managed` ingress metadata in the managed integration definition
+- Slack provider-owned ingress parsing and request handling now live under `web/src/integrations/library/slack/ingress`
+- the generic provider-keyed route family now exists at `/api/webhooks/integrations/[provider]/[endpointKey]`
+- the current public `/api/integrations/slack/*` routes remain as compatibility wrappers over the same Slack provider-owned ingress handler
+- Slack ingress delivery persistence now uses the generic `integration_ingress_deliveries` table with normalized external workspace/account columns plus `provider_metadata`, and the old `slack_ingress_deliveries` table is migrated away
 
 Completion plan from the current partial migration state:
 

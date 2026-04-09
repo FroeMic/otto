@@ -647,6 +647,9 @@
   - add framework-native integration settings storage and runtime contract first
   - port Slack's safe config fields and diagnostics into a provider-owned Slack integration definition
   - keep Slack OAuth and shared HTTP ingress control-plane-native while cutting runtime-facing settings from `otto-runtime-config` over to `otto-integrations`
+  - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
+  - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
+  - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user

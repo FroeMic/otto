@@ -31,6 +31,7 @@ import {
 import { getTenantOpenAiProviderSummary } from "@/db/provider-accounts";
 import {
   integrationCredentials,
+  integrationIngressDeliveries,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
@@ -43,7 +44,6 @@ import {
   jobRuns,
   memberships,
   organizations,
-  slackIngressDeliveries,
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
@@ -10067,17 +10067,19 @@ export async function forwardSlackIngressForTeam(input: {
   }
 
   const [delivery] = await db
-    .insert(slackIngressDeliveries)
+    .insert(integrationIngressDeliveries)
     .values({
-      enterpriseId: input.enterpriseId ?? null,
+      endpointKey: input.requestType,
+      externalAccountId: input.enterpriseId ?? null,
+      externalWorkspaceId: input.teamId,
+      providerKey: SLACK_PROVIDER_KEY,
+      providerMetadata: {},
       requestPath: input.requestPath,
-      requestType: input.requestType,
       status: "forwarding",
-      teamId: input.teamId,
       tenantIntegrationId: target.tenantIntegrationId,
     })
     .returning({
-      id: slackIngressDeliveries.id,
+      id: integrationIngressDeliveries.id,
     });
 
   try {
@@ -10096,13 +10098,13 @@ export async function forwardSlackIngressForTeam(input: {
 
     await db.transaction(async (tx) => {
       await tx
-        .update(slackIngressDeliveries)
+        .update(integrationIngressDeliveries)
         .set({
           finishedAt,
           responseStatus: response.status,
           status: "forwarded",
         })
-        .where(eq(slackIngressDeliveries.id, delivery.id));
+        .where(eq(integrationIngressDeliveries.id, delivery.id));
 
       await tx
         .update(tenantIntegrations)
@@ -10124,13 +10126,13 @@ export async function forwardSlackIngressForTeam(input: {
 
     await db.transaction(async (tx) => {
       await tx
-        .update(slackIngressDeliveries)
+        .update(integrationIngressDeliveries)
         .set({
           error: message,
           finishedAt,
           status: "failed",
         })
-        .where(eq(slackIngressDeliveries.id, delivery.id));
+        .where(eq(integrationIngressDeliveries.id, delivery.id));
 
       await tx
         .update(tenantIntegrations)
