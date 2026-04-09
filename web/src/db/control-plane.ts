@@ -141,7 +141,7 @@ import {
 import {
   parseWebSearchRuntimeConfig,
   resolveRuntimeWebSearchConfig,
-  WEB_SEARCH_TOOL_SCHEMA_VERSION as WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+  WEB_SEARCH_CONFIG_SCHEMA_VERSION,
   webSearchRuntimeConfigJsonSchema,
   webSearchRuntimeConfigUiHints,
 } from "@/lib/web-search-config";
