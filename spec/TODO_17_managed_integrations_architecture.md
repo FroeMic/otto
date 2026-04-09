@@ -1314,8 +1314,8 @@ Introduce the first real product-facing integration shell in the workspace, but 
 Status:
 
 - done on `main`
-- the canonical Linear workspace surface now lives under `/integrations2`
-- the legacy `/integrations` page no longer carries Linear
+- the canonical Linear workspace surface now lives under `/integrations`
+- the older `/integrations2` namespace is now a compatibility redirect
 
 Scope:
 
@@ -1421,7 +1421,7 @@ Status:
 - functionally done on `main`
 - `integration-gateway` now resolves and enforces command capability state before execution
 - workspace users can review and toggle user-controllable command capabilities in:
-  - `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - `/[orgSlug]/integrations/[integrationKey]/capabilities`
   - `/[orgSlug]/capabilities2`
 - provider-unavailable Linear commands now resolve as disabled with a clear reason instead of relying only on usage-note copy
 
@@ -1438,7 +1438,7 @@ Scope:
 - treat integration commands and triggers as capability rows, with commands marked as `read` or `write`
 - add tenant-scoped capability policy records with a default-allow model
 - surface resolved capability state in the workspace UI and the runtime detail path
-- add per-integration capability inventory under `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+- add per-integration capability inventory under `/[orgSlug]/integrations/[integrationKey]/capabilities`
 - add a global workspace capability inventory under `/[orgSlug]/capabilities2`
 - enforce capability policy and provider/runtime availability at `integration-gateway` before command execution
 
@@ -1493,7 +1493,7 @@ Examples:
 UI:
 
 - per-integration capability page:
-  - route: `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - route: `/[orgSlug]/integrations/[integrationKey]/capabilities`
   - sortable data table
   - default sort: triggers first, then commands, then label
   - actions column with a three-dot menu for `Enable` / `Disable` when the capability is user-controllable
@@ -1531,7 +1531,7 @@ Acceptance criteria:
 - blocked capabilities fail clearly at `integration-gateway`
 - provider-unavailable capabilities remain visible and disabled with a clear reason
 - provider-unavailable capabilities are not user-toggleable
-- `/integrations2/[integrationKey]/capabilities` shows resolved capability rows for that integration
+- `/integrations/[integrationKey]/capabilities` shows resolved capability rows for that integration
 - `/capabilities2` shows workspace-wide capability inventory across installed integrations and Otto core tools
 
 ### Increment 8: First Linear write capability
@@ -1703,9 +1703,9 @@ Implementation status:
 - completed on `main`
 - Slack capability policy now renders through the shared managed capability inventory table
 - Slack lifecycle/status UI is provider-owned under `web/src/integrations/library/slack`
-- the legacy `/integrations/slack` page is now a redirect into `/integrations2/slack/status`
+- the older `/integrations2/slack` paths are now compatibility redirects into `/integrations/slack/status`
 - `otto-runtime-config` no longer registers Slack-specific tools
-- managed integration tabs now use nested routes like `/integrations2/slack/status`, `/integrations2/slack/capabilities`, and `/integrations2/slack/channels`
+- managed integration tabs now use nested routes like `/integrations/slack/status`, `/integrations/slack/capabilities`, and `/integrations/slack/channels`
 - Slack workspace navigation now points at the managed route from the sidebar, setup-flow shell, workspace status rail fallback, Slack OAuth callback redirects, and the legacy Slack tool-detail redirect
 - the legacy `/integrations` index no longer needs a WhatsApp-specific fallback entry
 - Slack is now registered in the generic managed OAuth provider registry, and workspace Slack connect/reconnect starts through `/oauth/start/integration/slack?orgSlug=...`
@@ -1745,8 +1745,8 @@ Completion plan from the current partial migration state:
    - fix the current Slack save bar layout shift by rendering it outside normal page flow and positioning it higher on the viewport
    - reuse the same shared save treatment for future editable integrations so Linear, Slack, and later providers do not drift
 7. Replace query-param tabs with real nested routes for managed integration detail pages.
-   - stop using `?tab=` as the primary navigation shape for `integrations2`
-   - move to routes such as `/integrations2/slack/status`, `/integrations2/slack/capabilities`, `/integrations2/slack/configuration`, and provider-specific child routes like `/integrations2/slack/channels`
+   - stop using `?tab=` as the primary navigation shape for managed integrations
+   - move to routes such as `/integrations/slack/status`, `/integrations/slack/capabilities`, `/integrations/slack/configuration`, and provider-specific child routes like `/integrations/slack/channels`
    - make the integration framework own tab routing at the page-shell level so every provider follows the same URL semantics
 
 Definition of done for the full Slack migration:
@@ -1756,7 +1756,7 @@ Definition of done for the full Slack migration:
 - Slack settings, page shell, and provider-specific UI all live under `web/src/integrations/library/slack`
 - `otto-runtime-config` no longer exposes any Slack-specific tools or Slack inventory entries
 - Slack managed integration pages use route-based tabs rather than query-param tabs
-- the remaining legacy `/integrations/slack` page is either removed or reduced to a redirect into `/integrations2/slack/...`
+- the older `/integrations2/slack/...` paths are reduced to compatibility redirects into `/integrations/slack/...`
 
 Verification checklist:
 
@@ -1788,7 +1788,7 @@ Current direction:
    - platform-managed integrations must not advertise user-disable or
      uninstall behavior
 2. Port Brave into `web/src/integrations/library/brave`.
-   - Brave should appear in `/integrations2` instead of only under the legacy
+   - Brave should appear in `/integrations` instead of only under the legacy
      `Tools` surface
    - the provider-owned page should reuse the current read-only Brave config
      visibility, capability inventory, and status reporting

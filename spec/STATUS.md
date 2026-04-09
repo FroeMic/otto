@@ -486,8 +486,8 @@
   - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
   - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
   - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
-  - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations2/[integrationKey]`, and the legacy `/integrations` page no longer carries a separate Linear implementation
-  - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
+  - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations/[integrationKey]`, and the older `/integrations2` namespace is now a compatibility redirect
+  - `/integrations` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
   - runtime command validation now runs in the framework before provider execution using the advertised command schema plus provider-specific normalization
   - runtime integration summary and detail responses are now built from framework-native command/group DTOs instead of the older flat function shapes
   - progressive discovery is now the preferred pattern: semantic command search returns compact hits, `get_integration` stays summary-only, and `get_integration_details` loads one command group or one command schema on demand
@@ -514,13 +514,13 @@
   - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement` is now implemented on `main`
   - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
   - Slack HTTP ingress is now live on `main`, and `TODO_17` Increment 11 now includes a concrete Slack migration plan from the legacy runtime-surface system into `otto-integrations`
-  - Slack is now registered in the managed-integrations catalog with a dedicated `/integrations2/slack` page, and `otto-integrations` now exposes `configure_integration` for provider-owned settings reads and writes
+  - Slack is now registered in the managed-integrations catalog with a dedicated `/integrations/slack` page, and `otto-integrations` now exposes `configure_integration` for provider-owned settings reads and writes
   - the full Slack managed-integration migration is now implemented:
     - Slack capability policy now uses the shared managed capability inventory table and policy endpoint flow
     - Slack lifecycle/status UI now lives under `web/src/integrations/library/slack`, with the legacy `/integrations/slack` page reduced to a redirect
     - `otto-runtime-config` no longer exposes Slack-specific tools
-    - managed integration detail tabs now use route paths like `/integrations2/slack/status` and `/integrations2/slack/channels` instead of `?tab=`
-    - Slack workspace navigation now resolves to `/integrations2/slack/status` from the sidebar, setup flow shell, workspace status rail fallback, Slack OAuth callback success/error redirects, and the legacy tool-detail redirect
+    - managed integration detail tabs now use route paths like `/integrations/slack/status` and `/integrations/slack/channels` instead of `?tab=`
+    - Slack workspace navigation now resolves to `/integrations/slack/status` from the sidebar, setup flow shell, workspace status rail fallback, Slack OAuth callback success/error redirects, and the legacy tool-detail redirect
     - the legacy `/integrations` index no longer advertises Slack as a runtime-surface-backed entry
     - Slack is now registered as a real managed OAuth provider in the framework, and workspace Slack connect/reconnect now starts from `/oauth/start/integration/slack?orgSlug=...`
     - the shared `/oauth/callback/integration/[provider]` callback path now completes Slack OAuth as well, while the older onboarding-only Slack OAuth route remains in place only for the setup flow
@@ -542,7 +542,7 @@
   - `otto-runtime-config` remains in place because it still powers shared runtime-surface management for non-WhatsApp integrations
   - if a dedicated-number messaging integration returns later, it should be treated as a fresh scope decision rather than reviving the removed partial implementation
 - Brave web search now uses the final managed-integration + proxy shape:
-  - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations2/brave/...`
+  - Brave lives under `web/src/integrations/library/brave` as a platform-managed integration and appears only under `/integrations/brave/...`
   - the legacy `web/search` runtime surface, old Tools entry, and old tools page path have been removed
   - the managed integration framework now supports `platform_managed` definitions that resolve installed/enabled status without a `tenant_integrations` row
   - desired-state compilation now renders `tools.web.search.provider = "otto-web-search"` plus the `otto-web-provider` runtime plugin instead of enabling bundled Brave search plugins directly

@@ -1,80 +1,170 @@
 import { redirect } from "next/navigation";
 
 import { loadOrganizationRouteContext } from "@/app/[orgSlug]/_lib/organization-context";
-import type {
-  CapabilitySummary,
-  SurfaceEntry,
-} from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
-import { IntegrationsContent } from "@/app/[orgSlug]/(app)/integrations/_components/integrations-content";
-import { listTenantToolConfigSurfaces } from "@/db/control-plane";
-import type { AgentCapability } from "@/lib/agent-capabilities";
+import {
+  SettingsCard,
+  SettingsPage,
+  SettingsSection,
+  SettingsSectionDescription,
+  SettingsSectionTitle,
+} from "@/app/[orgSlug]/settings/_components/settings-layout";
+import { getTenantManagedIntegrationSummary } from "@/db/control-plane";
+import {
+  buildIntegrationOverviewEntry,
+  isPlatformManagedIntegration,
+  listWorkspaceIntegrationDefinitions,
+  resolvePlatformManagedIntegrationStatus,
+} from "@/integrations/framework";
 import { isOrganizationUnlocked } from "@/lib/workspace";
-
-function computeCapabilitySummary(
-  capabilities?: AgentCapability[],
-): CapabilitySummary | undefined {
-  if (!capabilities || capabilities.length === 0) return undefined;
-  return {
-    reads: capabilities.filter((c) => c.direction === "read").length,
-    tools: capabilities.filter((c) => c.direction === "tool").length,
-    triggers: capabilities.filter((c) => c.direction === "trigger").length,
-  };
-}
+import { Integrations2SearchInput } from "../integrations2/_components/integrations2-search-input";
 
 export const dynamic = "force-dynamic";
 
-const knownIntegrations: SurfaceEntry[] = [];
+function categorize<
+  T extends {
+    categoryLabel: string;
+    key: string;
+  },
+>(entries: T[]) {
+  const grouped = new Map<string, T[]>();
+
+  for (const entry of entries) {
+    const current = grouped.get(entry.categoryLabel) ?? [];
+    current.push(entry);
+    grouped.set(entry.categoryLabel, current);
+  }
+
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, group]) => ({
+      entries: group.sort((left, right) => left.key.localeCompare(right.key)),
+      label,
+    }));
+}
 
 export default async function IntegrationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ orgSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { orgSlug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const { currentOrganization: organization, user } =
     await loadOrganizationRouteContext(orgSlug);
+  const searchQuery = Array.isArray(resolvedSearchParams.q)
+    ? (resolvedSearchParams.q[0] ?? "")
+    : (resolvedSearchParams.q ?? "");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
   if (!isOrganizationUnlocked(organization)) {
     redirect(`/${organization.slug}/onboarding`);
   }
 
-  const surfaces = await listTenantToolConfigSurfaces({
-    orgSlug,
-    userExternalId: user.id,
-  });
+  const definitions = listWorkspaceIntegrationDefinitions();
+  const summaries = await Promise.all(
+    definitions.map((definition) => {
+      if (isPlatformManagedIntegration(definition)) {
+        return Promise.resolve(null);
+      }
 
-  // Build entries from live surfaces (integrations only)
-  const liveSurfacesByKey = new Map<string, SurfaceEntry>();
-  for (const surface of surfaces) {
-    if (surface.uiGroup !== "integrations") continue;
-    liveSurfacesByKey.set(surface.key, {
-      availability: surface.availability,
-      capabilitySummary: computeCapabilitySummary(surface.agentCapabilities),
-      categoryLabel:
-        surface.key === "slack" ? "Messaging" : "Product Management",
-      description: surface.description,
-      enabled: surface.config.enabled,
-      id: surface.id,
-      installState: surface.config.installState,
-      key: surface.key,
-      kind: surface.kind,
-      label: surface.label,
-      settingsUrl: surface.settingsUrl,
-      surfaceType: surface.surfaceType,
-      uiGroup: surface.uiGroup,
-    });
-  }
+      return getTenantManagedIntegrationSummary({
+        orgSlug,
+        providerKey: definition.key,
+        userExternalId: user.id,
+      });
+    }),
+  );
 
-  // Merge: use live data when available, fall back to known static entry
-  const entries = knownIntegrations.map((known) => {
-    const live = liveSurfacesByKey.get(known.key);
-    if (live) return live;
-    return {
-      ...known,
-      capabilitySummary: undefined,
-      settingsUrl: `/${organization.slug}/integrations2/${known.key}/status`,
-    };
-  });
+  const entries = definitions
+    .map((definition, index) => {
+      const summary = summaries[index] ?? null;
+      const OverviewItem = definition.ui?.overviewItem;
 
-  return <IntegrationsContent orgSlug={organization.slug} surfaces={entries} />;
+      if (!OverviewItem) {
+        return null;
+      }
+
+      const entry = buildIntegrationOverviewEntry({
+        connected: isPlatformManagedIntegration(definition)
+          ? (resolvePlatformManagedIntegrationStatus(definition)?.connected ??
+            false)
+          : Boolean(summary?.connectedAt && !summary?.disconnectedAt),
+        definition,
+        needsAttention: isPlatformManagedIntegration(definition)
+          ? (resolvePlatformManagedIntegrationStatus(definition)
+              ?.needsAttention ?? false)
+          : Boolean(summary?.lastError || summary?.status === "error"),
+        orgSlug: organization.slug,
+      });
+
+      if (
+        normalizedQuery &&
+        !entry.label.toLowerCase().includes(normalizedQuery) &&
+        !entry.description.toLowerCase().includes(normalizedQuery)
+      ) {
+        return null;
+      }
+
+      return {
+        definition,
+        entry,
+      };
+    })
+    .filter((item) => item !== null);
+
+  const sections = categorize(
+    entries.map((item) => ({
+      categoryLabel: item.entry.categoryLabel,
+      key: item.entry.key,
+      ...item,
+    })),
+  );
+
+  return (
+    <SettingsPage className="mx-0 flex max-w-3xl flex-1 flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Integrations
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Connect the tools your team already uses to Otto.
+          </p>
+        </div>
+        <Integrations2SearchInput initialValue={searchQuery} />
+      </div>
+
+      {sections.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No integrations match your search.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-8">
+          {sections.map((section) => (
+            <SettingsSection key={section.label}>
+              <SettingsSectionTitle>{section.label}</SettingsSectionTitle>
+              <SettingsSectionDescription>
+                {section.label === "Messaging"
+                  ? "Connect the channels where your team already works with Otto."
+                  : "Connect the product tools Otto can use to plan, summarize, and follow up on work."}
+              </SettingsSectionDescription>
+              <SettingsCard>
+                {section.entries.map(({ definition, entry }) => {
+                  const OverviewItem = definition.ui?.overviewItem;
+
+                  if (!OverviewItem) {
+                    return null;
+                  }
+
+                  return <OverviewItem key={entry.key} entry={entry} />;
+                })}
+              </SettingsCard>
+            </SettingsSection>
+          ))}
+        </div>
+      )}
+    </SettingsPage>
+  );
 }

@@ -41,7 +41,7 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
       "Use action=apply with expectedEntryVersion from the most recent action=get response to persist the Slack change.",
     ],
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/slack/status`,
+  settingsPath: (orgSlug) => `/${orgSlug}/integrations/slack/status`,
   showInWorkspaceCatalog: true,
   ui: {
     loadDetailPage: () =>

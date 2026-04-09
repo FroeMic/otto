@@ -345,7 +345,7 @@ export function buildManagedBootstrapSystemContent(
     "",
     `- Workspace home: ${ottoBaseUrl}/${workspaceSlug}`,
     `- Skills: ${ottoBaseUrl}/${workspaceSlug}/skills`,
-    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations2`,
+    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations`,
     `- Otto settings: ${ottoBaseUrl}/${workspaceSlug}/agent`,
     `- Scheduled tasks: ${ottoBaseUrl}/${workspaceSlug}/scheduled-tasks`,
     `- Workspace settings: ${ottoBaseUrl}/${workspaceSlug}/settings/workspace`,

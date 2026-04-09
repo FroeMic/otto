@@ -254,7 +254,7 @@ function buildSuccessRedirect(
   const definition = getIntegrationDefinition(providerKey);
   const path = definition
     ? definition.settingsPath(orgSlug)
-    : `/${orgSlug}/integrations2/${providerKey}/status`;
+    : `/${orgSlug}/integrations/${providerKey}/status`;
 
   return new URL(`${path}?${providerKey}_connected=1`, requestUrl);
 }
@@ -270,7 +270,7 @@ function buildFailureRedirect(
     orgSlug && definition
       ? definition.settingsPath(orgSlug)
       : orgSlug
-        ? `/${orgSlug}/integrations2/${providerKey}/status`
+        ? `/${orgSlug}/integrations/${providerKey}/status`
         : null;
 
   return new URL(
