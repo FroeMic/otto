@@ -1,9 +1,9 @@
+import type { AgentCapability } from "@/lib/agent-capabilities";
 import type {
   ToolActionMeaning,
   ToolAgentOperation,
   ToolFieldMeaning,
 } from "@/tools/types";
-import type { AgentCapability } from "@/lib/agent-capabilities";
 
 export const slackFieldMeanings: ToolFieldMeaning[] = [
   {

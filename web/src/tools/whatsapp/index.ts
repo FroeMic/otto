@@ -1,3 +1,4 @@
+import type { AgentCapability } from "@/lib/agent-capabilities";
 import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
@@ -12,7 +13,6 @@ import {
   whatsappRuntimeConfigPatchSchema,
   whatsappRuntimeConfigUiHints,
 } from "@/lib/whatsapp-config";
-import type { AgentCapability } from "@/lib/agent-capabilities";
 import type {
   ToolActionMeaning,
   ToolAgentOperation,

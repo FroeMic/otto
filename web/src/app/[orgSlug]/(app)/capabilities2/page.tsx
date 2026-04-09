@@ -6,8 +6,8 @@ import {
   CapabilityInventoryTable,
 } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import { listWorkspaceManagedIntegrationCapabilities } from "@/db/control-plane";
-import { isOrganizationUnlocked } from "@/lib/workspace";
 import { baseAgentCapabilities } from "@/lib/base-agent-capabilities";
+import { isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
