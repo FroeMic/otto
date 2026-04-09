@@ -7654,6 +7654,7 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
     const destructiveChangeError = getSlackDestructiveChangeError({
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
     });
 
     if (destructiveChangeError) {
@@ -7768,6 +7769,7 @@ export async function validateTenantSlackPolicyActionForTenant(input: {
     const destructiveChangeError = getSlackDestructiveChangeError({
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
     });
 
     if (destructiveChangeError) {
@@ -8032,6 +8034,7 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       allowDestructiveChanges: input.allowDestructiveChanges,
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
     });
 
     if (destructiveChangeError) {

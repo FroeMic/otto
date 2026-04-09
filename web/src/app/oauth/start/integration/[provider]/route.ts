@@ -2,7 +2,11 @@ import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 
 import { getTenantManagedIntegrationConnectContext } from "@/db/control-plane";
-import { hasLinearOAuthConfig, hasSlackOAuthConfig } from "@/lib/env";
+import {
+  getControlPlaneBaseUrl,
+  hasLinearOAuthConfig,
+  hasSlackOAuthConfig,
+} from "@/lib/env";
 import { createManagedIntegrationOauthAuthorizationUrl } from "@/lib/oauth/service";
 
 export async function GET(
@@ -15,6 +19,7 @@ export async function GET(
 ) {
   const { user } = await withAuth({ ensureSignedIn: true });
   const url = new URL(request.url);
+  const redirectBaseUrl = getControlPlaneBaseUrl() || request.url;
   const { provider } = await context.params;
   const providerKey = provider.trim().toLowerCase();
   const orgSlug = url.searchParams.get("orgSlug");
@@ -62,7 +67,7 @@ export async function GET(
     return NextResponse.redirect(
       new URL(
         `${fallbackPath}?${providerKey}_error=${encodeURIComponent(getErrorMessage(error))}`,
-        request.url,
+        redirectBaseUrl,
       ),
     );
   }

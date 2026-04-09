@@ -14,13 +14,29 @@ const slackChannelAccessModeSchema = z.enum([
   "member_of_channels",
 ]);
 
+const slackRuntimeConfigFieldSchemas = {
+  ackReactionEnabled: z.boolean(),
+  allowedChannelIds: z.array(slackIdSchema),
+  allowedUserIds: z.array(slackIdSchema),
+  answerInThreads: z.boolean(),
+  channelAccessMode: slackChannelAccessModeSchema,
+  requireMentionInChannels: z.boolean(),
+} as const;
+
 const slackRuntimeConfigObjectSchema = z.object({
-  ackReactionEnabled: z.boolean().default(false),
-  allowedChannelIds: z.array(slackIdSchema).default([]),
-  allowedUserIds: z.array(slackIdSchema).default([]),
-  answerInThreads: z.boolean().default(true),
-  channelAccessMode: slackChannelAccessModeSchema.default("manual_allowlist"),
-  requireMentionInChannels: z.boolean().default(true),
+  ackReactionEnabled:
+    slackRuntimeConfigFieldSchemas.ackReactionEnabled.default(false),
+  allowedChannelIds: slackRuntimeConfigFieldSchemas.allowedChannelIds.default(
+    [],
+  ),
+  allowedUserIds: slackRuntimeConfigFieldSchemas.allowedUserIds.default([]),
+  answerInThreads: slackRuntimeConfigFieldSchemas.answerInThreads.default(true),
+  channelAccessMode:
+    slackRuntimeConfigFieldSchemas.channelAccessMode.default(
+      "manual_allowlist",
+    ),
+  requireMentionInChannels:
+    slackRuntimeConfigFieldSchemas.requireMentionInChannels.default(true),
 });
 
 export const slackRuntimeConfigSchema = slackRuntimeConfigObjectSchema
@@ -36,9 +52,39 @@ export const slackRuntimeConfigSchema = slackRuntimeConfigObjectSchema
 
 export type SlackRuntimeConfig = z.infer<typeof slackRuntimeConfigSchema>;
 
-export const slackRuntimeConfigPatchSchema = slackRuntimeConfigObjectSchema
+export const slackRuntimeConfigPatchSchema = z
+  .object(slackRuntimeConfigFieldSchemas)
   .partial()
-  .strict();
+  .strict()
+  .transform((value) => {
+    const patch: Partial<SlackRuntimeConfig> = {};
+
+    if ("ackReactionEnabled" in value) {
+      patch.ackReactionEnabled = value.ackReactionEnabled;
+    }
+
+    if ("allowedChannelIds" in value) {
+      patch.allowedChannelIds = [...new Set(value.allowedChannelIds ?? [])];
+    }
+
+    if ("allowedUserIds" in value) {
+      patch.allowedUserIds = [...new Set(value.allowedUserIds ?? [])];
+    }
+
+    if ("answerInThreads" in value) {
+      patch.answerInThreads = value.answerInThreads;
+    }
+
+    if ("channelAccessMode" in value) {
+      patch.channelAccessMode = value.channelAccessMode;
+    }
+
+    if ("requireMentionInChannels" in value) {
+      patch.requireMentionInChannels = value.requireMentionInChannels;
+    }
+
+    return patch;
+  });
 
 export const slackRuntimeConfigJsonSchema = {
   additionalProperties: false,
