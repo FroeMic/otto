@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { LinearGraphqlError } from "@/integrations/library/linear/client";
 import { searchLinearIssues } from "@/lib/managed-integrations/linear";
 
 describe("searchLinearIssues", () => {
@@ -51,10 +52,11 @@ describe("searchLinearIssues", () => {
       query: "oauth",
     });
 
+    assert.equal(result.commandKey, "issue.search");
     assert.equal(result.integrationKey, "linear");
     assert.equal(result.source, "linear");
     assert.equal(result.totalMatched, 1);
-    assert.equal(result.items[0]?.id, "ENG-123");
+    assert.equal(result.items[0]?.identifier, "ENG-123");
     assert.equal(result.items[0]?.project, "Core");
     assert.equal(result.items[0]?.state, "In Progress");
     assert.match(requestBody, /searchIssues/);
@@ -85,6 +87,77 @@ describe("searchLinearIssues", () => {
           query: "oauth",
         }),
       /Invalid token/,
+    );
+  });
+
+  it("captures raw provider response details for debugging", async () => {
+    globalThis.fetch = (async () =>
+      new Response("<html>gateway timeout</html>", {
+        headers: {
+          "Content-Type": "text/html",
+        },
+        status: 504,
+      })) as typeof fetch;
+
+    await assert.rejects(
+      () =>
+        searchLinearIssues({
+          accessToken: "token",
+          query: "oauth",
+        }),
+      (error) => {
+        assert.ok(error instanceof LinearGraphqlError);
+        assert.equal(error.status, 504);
+        assert.equal(error.operationName, "OttoLinearIssueSearch");
+        assert.match(error.rawResponseSnippet ?? "", /gateway timeout/);
+        assert.match(error.variableSummary ?? "", /"term":"oauth"/);
+        return true;
+      },
+    );
+  });
+
+  it("prefers Linear user-presentable messages when available", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          errors: [
+            {
+              extensions: {
+                code: "FORBIDDEN",
+                userPresentableMessage:
+                  "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+              },
+              message: "Access denied",
+            },
+          ],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      )) as typeof fetch;
+
+    await assert.rejects(
+      () =>
+        searchLinearIssues({
+          accessToken: "token",
+          query: "oauth",
+        }),
+      (error) => {
+        assert.ok(error instanceof LinearGraphqlError);
+        assert.equal(error.code, "FORBIDDEN");
+        assert.equal(
+          error.message,
+          "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+        );
+        assert.equal(
+          error.userPresentableMessage,
+          "You have reached the limit of teams allowed in your current plan. Please upgrade to create more teams.",
+        );
+        return true;
+      },
     );
   });
 });

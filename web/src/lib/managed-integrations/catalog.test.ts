@@ -29,7 +29,8 @@ describe("managed integration catalog", () => {
 
     assert.ok(definition);
     assert.equal(definition.label, "Linear");
-    assert.equal(definition.runtimeTool?.toolName, "linear");
+    assert.equal(definition.runtimeSurface?.toolName, "linear");
+    assert.equal(definition.settings, undefined);
     assert.ok(definition.agentCapabilities.length >= 1);
   });
 });

@@ -127,10 +127,12 @@
 - The monorepo now also contains the first Otto-owned OpenClaw plugin layer:
   - `runtime-plugins/otto-managed-config` contains a native OpenClaw plugin that exposes `list_managed_files`, `read_managed_file`, and `patch_managed_file`
   - `runtime-plugins/otto-runtime-config` now contains a second native OpenClaw plugin that exposes generic runtime-surface read, validate, apply, lifecycle, and reapply tools backed by the control plane
-  - `runtime-image/Dockerfile` now layers both Otto plugins into `/app/extensions/`
+  - `runtime-image/Dockerfile` now layers Otto plugins into `/app/dist/extensions/`, matching the bundled plugin root used by the published OpenClaw image
+  - the runtime image now seeds `/home/node/.openclaw` with restrictive defaults, and tenant runtime apply now enforces `700` on the runtime home plus `600` on `openclaw.json`
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
+  - rendered tenant runtime config now also emits explicit `enabled: false` entries for non-selected bundled provider and memory plugins, so managed runtimes do not inherit OpenClaw's upstream provider defaults accidentally
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
-  - the plugin packaging is now aligned with the released OpenClaw `2026.4.5` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
+  - the plugin packaging is now aligned with the released OpenClaw `2026.4.8` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
 - Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:
   - replace `RUNTIME_OPENCLAW_IMAGE` with a DB-backed active runtime release
   - add a migration-backed runtime release model plus tenant applied desired-state tracking
@@ -249,6 +251,10 @@
   - request-time reconciliation now updates additions, role changes, inactive memberships, and removals
   - dashboard org lists and workspace route access now only trust locally projected `active` memberships
   - an optional WorkOS webhook endpoint can now fast-forward membership and organization-name updates into the local projection
+  - signed-in workspace and platform loads now use a cached-first membership projection with a 5-minute freshness window instead of forcing a WorkOS refresh on every request
+  - when a refresh fails but Otto already has local membership state, the request now logs the failure and falls back to the cached projection instead of hard-blocking the user
+  - platform operator action menus now surface missing `jobId` and non-JSON API responses instead of silently doing nothing
+  - request-path diagnostics now log auth middleware entry/exit, signed-in page/load step timings, apply desired-state compilation/enqueue timings, and Caddy access logs so production hangs can be localized to proxy/auth/DB/apply boundaries
 
 ## Active architectural decision
 
@@ -346,9 +352,41 @@
   - the current forwarding hop still uses the existing runtime connection path to reach the loopback-only tenant gateway, so the next hardening step is about transport and lifecycle robustness rather than basic routing capability
 - Managed skills planning is now captured in `TODO_18_managed_skills.md`:
   - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
-  - `SKILL.md` is the only required file; additional managed package content is optional; `state/` is reserved for local runtime state
-  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain owned by `TODO_17`
-  - the workspace should expose a dedicated `Skills` area with managed editing, while the general file browser remains a lower-level filesystem surface
+  - `SKILL.md` is the only Otto-managed file in a skill package
+  - `references/`, `scripts/`, and `state/` should be durable runtime-local writable directories, not managed source of truth
+  - only `SKILL.md` should be editable through Otto's managed-skills surface; local skill directories should remain non-editable there in `v1`
+  - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain outside the skills surface
+  - the workspace should expose a dedicated `Skills` area with a package viewer and explicit editing for `SKILL.md`, while the general file browser remains a lower-level filesystem surface
+  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, local-directory visibility, bundled skill policy, then integration-linked starter skills
+- The first `TODO_18_managed_skills.md` increment is now implemented on `main`:
+  - `tenant_skills`, `tenant_skill_versions`, `tenant_skill_files`, and `tenant_skill_file_versions` now exist in schema plus migration form as the managed-skills persistence foundation
+  - `web/src/lib/managed-skills/package.ts` now validates `SKILL.md`, parses dependency metadata, rejects invalid paths and `state/` writes, and classifies package files into editable managed text, download-only managed files, and local state
+  - dependency validation now checks the real current workspace integration universe, combining the new integration registry with the still-runtime-config-backed Slack and WhatsApp surfaces
+  - `web/src/db/managed-skills.ts` now provides the initial text-first create/list path for managed skills while leaving binary managed-file persistence intentionally deferred
+- The second `TODO_18_managed_skills.md` increment is now implemented on `main`:
+  - desired-state compilation now snapshots managed skill versions under `managedSkills.versions` so apply and reprovision flows can reproduce exact skill-package state
+  - provisioning and config-apply now read those exact versions and project managed skill text files into `workspace/skills/<skill-key>/` on the tenant runtime
+  - runtime projection now maintains a `managed-skills-manifest.json` file so removed managed files are pruned safely while unknown local `references/`, `scripts/`, and `state/` contents remain untouched
+  - projection now also creates `references/`, `scripts/`, and `state/` for each skill and keeps those directories writable by the tenant runtime
+  - focused tests now cover managed-skill manifest normalization and prune safety
+- The third `TODO_18_managed_skills.md` increment is now implemented on `main` for the current text-first slice:
+  - the workspace now exposes `/[orgSlug]/skills` as a real managed-skills list instead of a placeholder card
+  - `/[orgSlug]/skills/[skillKey]` now provides a detail view with URL-backed `Files` and `Status` tabs, package-file browsing, dependency badges, and status visibility modeled on the newer integration detail pages
+  - users can now create a first skill from `SKILL.md` in the workspace and then edit `SKILL.md` there, with each save creating a new skill version and reusing the desired-state/apply pipeline
+  - binary managed-file persistence is still deferred, so the current viewer surfaces non-text metadata but does not yet represent a fully general binary package flow
+- A managed-skill dependency graph slice is now implemented on `main`:
+  - `SKILL.md` now supports `metadata.dependsOn.skills` alongside `metadata.dependsOn.integrations`
+  - create and update now validate referenced managed skill keys against the current workspace skill set and reject self-dependencies and dependency cycles
+  - the Skills workspace surface now lets users declare managed-skill prerequisites during create and edit, and the status view renders both prerequisite lists as the basis for a dependency tree
+- A runtime-authenticated managed-skills slice is now implemented on `main`:
+  - `/api/internal/runtime/managed-skills` now exposes tenant-token-authenticated list, detail, file-read, and file-patch operations for managed skills
+  - the new `otto-managed-skills` runtime plugin now gives Otto a first-class tool surface for inspecting and updating managed skill packages
+  - patch operations reuse the existing managed skill versioning and desired-state/apply pipeline, with version checks and `SKILL.md`-only edit restrictions matching the workspace UI
+- A bundled-skill policy and Otto system-skill override slice is now implemented on `main`:
+  - Otto now renders an explicit bundled-skill allowlist into tenant OpenClaw config so unwanted upstream bundled skills such as `healthcheck`, `node-connect`, and `weather` are not exposed by default
+  - managed-skill seeding now installs an Otto-owned `skill-creator` system skill into each workspace with higher precedence than the bundled OpenClaw copy
+  - the Otto `skill-creator` override is visible in the Skills UI and available to Otto, but it is system-managed and non-editable through the workspace or runtime-managed skills surface
+  - the next recommended slice is Increment 5: add read-only workspace visibility for runtime-local `references/`, `scripts/`, and `state/` contents
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
@@ -359,8 +397,9 @@
   - runtime discovery and detail remain in `web`, but execute now routes through the dedicated `integration-gateway` service
   - the tenant runtime now discovers integration metadata from runtime-authenticated control-plane routes instead of from a projected per-tenant manifest in `openclaw.json`
   - `openclaw plugins inspect otto-integrations` now reliably shows the static tool contract in every runtime because registration no longer depends on tenant config being loaded into the plugin
-  - the current metatool set is `find_integration_functions`, `list_integrations`, `list_integrations_catalog`, `get_integration`, `get_integration_status`, `manage_integration_connection`, and `execute_integration_function`
-  - `manage_integration_connection` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
+  - the current metatool set is `find_integration_commands`, `list_integrations`, `get_integration`, `get_integration_details`, `manage_integration`, and `execute_integration_command`
+  - `list_integrations` now distinguishes installed vs available inventory through `scope` instead of a separate catalog/status tool pair
+  - `manage_integration` now returns workspace and connect URLs plus a recommended next action so Otto can guide users into the real workspace-owned connect or reconnect flow
 - The next `TODO_17_managed_integrations_architecture.md` increments are now implemented on `main`:
   - the workspace integrations index now includes a dedicated Linear entry in `Product Management`
   - the Linear detail page now follows the same single-column settings layout and tab structure as the existing Slack and WhatsApp integration pages
@@ -368,17 +407,43 @@
   - the old hosted Nango Linear path has been removed; Linear now uses the shared Otto-owned OAuth substrate
   - successful Linear connect and reconnect events now version desired state and queue runtime apply when the tenant runtime is already ready
   - runtime integration status and detail responses now reflect Linear connection state directly from the control plane
-  - runtime `linear.search_issues` now performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - runtime Linear now exposes grouped commands such as `workspace.get_viewer`, `workspace.get_organization`, `workspace.list_teams`, `workspace.list_users`, `workspace.list_workflow_states`, `workspace.list_project_statuses`, `issue.search`, `issue.get`, `issue.list`, `issue.create`, `issue.update`, `issue.archive`, `issue.batch_update`, `issue.list_comments`, `issue.list_attachments`, `issue.list_documents`, `issue.list_relations`, `issue.add_label`, `issue.remove_label`, `comment.list`, `comment.get`, `comment.create`, `comment.update`, and `comment.delete`
+  - `issue.search` performs a live read-only GraphQL query through Otto-owned OAuth credentials and returns normalized issue search results
+  - the full planned `issue.*` slice is now implemented end to end, including reads, writes, nested issue resources, label mutations, and inline image insertion/upload helpers
   - request-time Linear auth failures now move the connection into a reconnect-needed state instead of returning only an opaque provider error
-  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits` rows recorded for success and failure
+  - runtime integration execution now goes through `integration-gateway`, with persisted `integration_execution_audits.command_key` rows recorded for success and failure
 - The next managed-integrations refactor slice is now in progress on `main`:
   - managed integrations now have a first framework-backed registry under `web/src/integrations/framework`
   - provider-owned integration code is starting to move under `web/src/integrations/library/<provider>`
   - Linear is now the first provider on that new shape, including registry metadata, OAuth binding, runtime execution wiring, provider-owned detail UI, and a provider-owned overview list item
   - Increment 3 is now complete: Linear's canonical workspace surface lives under `/integrations2/[integrationKey]`, and the legacy `/integrations` page no longer carries a separate Linear implementation
   - `/integrations2` now renders provider-owned overview items from the registry instead of the older generic integrations index composition
-  - runtime operation validation now runs in the framework before provider execution using the advertised operation schema plus provider-specific normalization
-  - runtime integration catalog and detail responses are now built from framework-native DTOs instead of the older managed-integration compatibility shapes
+  - runtime command validation now runs in the framework before provider execution using the advertised command schema plus provider-specific normalization
+  - runtime integration summary and detail responses are now built from framework-native command/group DTOs instead of the older flat function shapes
+  - progressive discovery is now the preferred pattern: semantic command search returns compact hits, `get_integration` stays summary-only, and `get_integration_details` loads one command group or one command schema on demand
+  - `TODO_17` now includes an object-first Linear coverage tracker so future command work can be implemented and checked off object by object instead of expanding ad hoc
+  - the Linear workspace foundation is now complete through `workspace.get_organization` and `workspace.list_project_statuses`
+  - the `comment.*` slice is now implemented end to end for issue-thread comments
+  - the full `project.*` slice is now implemented end to end, including project reads, writes, nested issue/document/milestone/label reads, and authored project updates
+  - the full `cycle.*` slice is now implemented end to end, including cycle reads, writes, archive, and nested issue reads
+  - the full `user.*` slice is now implemented end to end, including direct user reads plus assigned-issue, created-issue, and team-membership lookups
+  - the full `document.*` slice is now implemented end to end, including document reads, search, create, and update
+  - the full `label.*` slice is now implemented end to end across both issue labels and project labels, including create/update/delete/restore/retire flows
+  - the full `project_milestone.*` slice is now implemented end to end, including create/update/delete/move flows
+  - the full `project_status.*` slice is now implemented end to end, including list/get/create/update
+  - the full `initiative.*` slice is now implemented end to end, including list/get/create/update/archive plus related project/update reads
+  - the full `customer_status.*` slice is now implemented end to end, including list/get/create/update/delete
+  - the full `customer_tier.*` slice is now implemented end to end, including list/get/create/update/delete
+  - the full `customer.*` slice is now implemented end to end, including list/get/create/update plus `customer.list_needs`
+  - the full `customer_need.*` slice is now implemented end to end, including list/get/create/update/archive/unarchive/delete plus attachment-derived creation
+  - the full `attachment.*` slice is now implemented end to end, including workspace attachment reads, URL lookup, attachment create/update, low-level signed upload URL preparation via `attachment.request_upload_url`, and high-level server-side file upload via `attachment.upload_file`
+  - the full `team.*` slice is now implemented end to end, including direct team reads and writes, team delete/unarchive, team membership add/update/remove, and team-scoped cycle, workflow-state, label, project, and issue reads
+  - the new `workspace_member.*` slice is now implemented end to end, including workspace invite create/update/cancel/resend plus accepted-user profile updates
+  - delete coverage is now implemented for `issue.*`, `project.*`, `document.*`, `initiative.*`, and `customer.*`, and initiatives also now support authored update creation
+  - Linear command coverage is now complete across the tracked object families plus the immediate post-coverage cleanup slice
+  - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement` is now implemented on `main`
+  - integration definitions now carry optional settings metadata; the Linear workspace page hides the `Configuration` tab until Linear has real managed settings defined instead of placeholder rows
+  - the next recommended managed-integrations step is now `Increment 9: Integration-linked skill projection`
 - The metatool direction is now the preferred managed-integrations architecture:
   - static runtime contracts plus control-plane discovery have proven cleaner operationally than projecting a per-tenant manifest into `openclaw.json`
   - the OAuth foundation is far enough along to freeze here until the next real provider arrives; expand the shared rollout only when a concrete new provider forces a missing capability

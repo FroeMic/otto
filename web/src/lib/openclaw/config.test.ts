@@ -25,6 +25,10 @@ describe("renderOpenClawConfig", () => {
           timeoutMs: 15_000,
         },
         {
+          id: "otto-managed-skills",
+          timeoutMs: 15_000,
+        },
+        {
           id: "otto-runtime-config",
           timeoutMs: 15_000,
         },
@@ -46,6 +50,7 @@ describe("renderOpenClawConfig", () => {
 
     assert.deepEqual(renderedConfig.tools.alsoAllow, [
       "otto-managed-config",
+      "otto-managed-skills",
       "otto-runtime-config",
       "otto-integrations",
       "otto-session-reporter",
@@ -55,17 +60,37 @@ describe("renderOpenClawConfig", () => {
       host: "gateway",
       security: "full",
     });
+    assert.deepEqual(renderedConfig.tools.experimental, {
+      planTool: false,
+    });
     assert.deepEqual(renderedConfig.plugins.allow, [
       "otto-managed-config",
+      "otto-managed-skills",
       "otto-runtime-config",
       "otto-integrations",
       "otto-session-reporter",
     ]);
+    assert.deepEqual(renderedConfig.skills, {
+      allowBundled: ["slack"],
+    });
     assert.deepEqual(renderedConfig.plugins.entries["otto-integrations"], {
       config: {
         timeoutMs: 15_000,
       },
       enabled: true,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.openai, {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.kimi, {
+      enabled: false,
+    });
+    assert.equal(renderedConfig.plugins.entries["kimi-coding"], undefined);
+    assert.deepEqual(renderedConfig.plugins.entries["memory-core"], {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.vydra, {
+      enabled: false,
     });
     assert.deepEqual(renderedConfig.tools.media.audio, {
       enabled: true,
@@ -178,10 +203,54 @@ describe("renderOpenClawConfig", () => {
       timeoutSeconds: 30,
     });
     assert.deepEqual(renderedConfig.plugins.allow, ["brave"]);
+    assert.deepEqual(renderedConfig.skills, {
+      allowBundled: ["slack"],
+    });
     assert.equal(renderedConfig.plugins.entries.brave.enabled, true);
     assert.deepEqual(renderedConfig.plugins.entries.brave.config.webSearch, {
       mode: "web",
     });
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      enabled: false,
+    });
+    assert.deepEqual(renderedConfig.plugins.entries.vydra, {
+      enabled: false,
+    });
+  });
+
+  it("renders Gemini web search config into OpenClaw tools", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      webSearch: {
+        enabled: true,
+        gemini: {
+          model: "gemini-2.5-pro",
+        },
+        provider: "gemini",
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.tools.web.search, {
+      enabled: true,
+      provider: "gemini",
+    });
+    assert.deepEqual(renderedConfig.plugins.allow, ["google"]);
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      config: {
+        webSearch: {
+          model: "gemini-2.5-pro",
+        },
+      },
+      enabled: true,
+    });
+    assert.equal(renderedConfig.plugins.entries.brave, undefined);
   });
 
   it("renders WhatsApp config with the Otto-managed defaults", () => {
@@ -274,6 +343,9 @@ describe("renderOpenClawConfig", () => {
       renderedConfig.plugins.entries["otto-ai-provider"].enabled,
       true,
     );
+    assert.deepEqual(renderedConfig.plugins.entries.openai, {
+      enabled: false,
+    });
     assert.deepEqual(renderedConfig.models.providers["openai-proxy"], {
       api: "openai-responses",
       // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
@@ -284,6 +356,36 @@ describe("renderOpenClawConfig", () => {
       models: [],
     });
     assert.equal(renderedConfig.tools.alsoAllow, undefined);
+  });
+
+  it("re-enables a web search plugin when Otto selects it", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: [],
+      prompts: {},
+      tenantId: "tenant_123",
+      webSearch: {
+        enabled: true,
+        gemini: {
+          model: "gemini-2.5-flash",
+        },
+        provider: "gemini",
+      },
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.deepEqual(renderedConfig.plugins.allow, ["google"]);
+    assert.deepEqual(renderedConfig.plugins.entries.google, {
+      config: {
+        webSearch: {
+          model: "gemini-2.5-flash",
+        },
+      },
+      enabled: true,
+    });
   });
 
   it("routes audio transcription through openai-proxy when the proxy provider is configured", () => {

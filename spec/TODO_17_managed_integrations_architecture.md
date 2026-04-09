@@ -100,13 +100,13 @@ The important principle is that the `control plane` remains the authority. Hoste
 Use the following language consistently:
 
 - `Integration`: a workspace-scoped connection to an external third-party system.
-- `Capability`: a runtime-callable operation exposed by that integration.
+- `Capability`: a runtime-callable command exposed by that integration.
 - `Skill`: text-based business guidance that may depend on one or more integrations.
 
 Examples:
 
 - Linear is an `integration`.
-- `search_issues` and `create_issue` are `capabilities`.
+- `issue.search` and `issue.create` are `capabilities`.
 - "Use team ENG, label customer bugs as `cust-bug`, create issues in project Core" is a `skill`.
 
 Internally, integrations fall into four classes.
@@ -219,7 +219,7 @@ Concrete direction:
 - `slack` and `whatsapp` can keep provider-specific tables where they back real directory caches, link sessions, or other query-heavy state.
 - New integrations should normally add code registry entries, not tables.
 - Discovery should be first-class in the runtime plugin contract:
-  - agents should be able to search for the best integration function from user intent before guessing an integration/function pair
+  - agents should be able to search for the best integration command from user intent before guessing an integration/command pair
   - integration detail responses should include exact execution guides and example calls, not only raw parameter schemas
   - the plugin-level metatool contract should explicitly teach the discovery -> inspect -> connect -> execute workflow
 
@@ -329,7 +329,7 @@ IntegrationDefinition
 - category metadata
 - workspace visibility metadata
 - agent capability metadata
-- runtime operations and schemas
+- runtime command groups, commands, and schemas
 - optional OAuth binding
 - provider execute handler
 ```
@@ -344,24 +344,24 @@ The registry should be the single source of truth for:
 
 This replaces the older split where catalog metadata, runtime manifest metadata, and OAuth provider registration lived in separate parallel registries.
 
-Suggested near-term metatools:
+Suggested metatools:
 
+- `find_integration_commands`
+  Semantic discovery for the best installed or available commands for a user request.
 - `list_integrations`
-  Installed integrations for the current tenant.
-- `list_integrations_catalog`
-  All integrations Otto knows how to offer, including not-yet-installed ones.
+  Deterministic workspace inventory, with `scope=installed` by default and optional `available` / `all`.
 - `get_integration`
-  Full metadata, functions, schema, and current state for one integration.
-- `get_integration_status`
-  Small status-only read for one integration.
-- `execute_integration_function`
-  Execute one integration function through Otto.
-- `manage_integration_connection`
+  Summary-only read for one integration, including top-level command groups and root commands.
+- `get_integration_details`
+  Full detail for one command group or one command, including schema, usage notes, and example calls.
+- `execute_integration_command`
+  Execute one integration command through Otto.
+- `manage_integration`
   Initiate connect, reconnect, disconnect, or account-selection flows.
 
 Near-term v1 behavior:
 
-- `manage_integration_connection` may initially return workspace URLs, connect URLs, and a recommended next action instead of performing every lifecycle mutation directly from the runtime.
+- `manage_integration` may initially return workspace URLs, connect URLs, and a recommended next action instead of performing every lifecycle mutation directly from the runtime.
 - That still satisfies the product goal as long as Otto can move the user into the real workspace-owned connect or reconnect flow without guessing URLs.
 
 Registration flow:
@@ -371,21 +371,22 @@ Registration flow:
 2. otto-integrations plugin registers a fixed metatool set from its static plugin contract
 3. The model sees those metatools in the active runtime tool list
 4. When the model needs integration context, the plugin authenticates to the control plane
-5. The control plane reads from the canonical integration registry plus tenant state
-6. The control plane returns installed integrations, catalog entries, and per-integration detail/status dynamically
-7. The plugin executes integration functions through Otto's runtime execution path
+5. The model uses `find_integration_commands` or `list_integrations` to narrow the target
+6. The control plane reads from the canonical integration registry plus tenant state
+7. The control plane returns summary-only integration reads or one targeted command/group detail dynamically
+8. The plugin executes integration commands through Otto's runtime execution path
 ```
 
 Control-plane structure:
 
 ```text
 agent
-  -> execute_integration_function("linear", "search_issues", args)
+  -> execute_integration_command("linear", "issue.search", args)
   -> otto-integrations metatool
   -> control-plane execute route
   -> integrations/framework/registry.ts resolves "linear"
-  -> integrations/framework/execute.ts resolves auth + dispatches operation
-  -> integrations/library/linear/runtime/... calls Linear
+  -> integrations/framework/execute.ts resolves auth + dispatches command
+  -> integrations/library/linear/commands/... calls Linear
   -> normalized result returns to Otto
 ```
 
@@ -395,26 +396,14 @@ Conceptually:
 GET /api/internal/runtime/integrations
 
 Response:
-- installed integrations sorted deterministically
-- each installed integration includes:
-  - key
-  - label
-  - status
-  - function summaries
-  - capability hints
-  - recommended next action
-```
-
-```text
-GET /api/internal/runtime/integrations/catalog
-
-Response:
-- all supported integrations sorted deterministically
+- integrations sorted deterministically for the requested scope
 - each entry includes:
   - key
   - label
-  - current install/connect state for this tenant
-  - short capability summary
+  - status
+  - installed / available flags
+  - top-level command-group summaries
+  - root-command summaries
 ```
 
 ```text
@@ -422,16 +411,32 @@ GET /api/internal/runtime/integrations/:key
 
 Response:
 - one integration
-- full function list
-- input schema
+- summary only
 - current status
-- account / connection guidance
+- top-level command groups
+- root commands
 ```
 
-For Linear, `get_integration("linear")` would return function metadata such as:
+```text
+POST /api/internal/runtime/integrations/:key/details
 
-- `search_issues`
-- `get_issue`
+Response:
+- one command group or one command
+- full arguments schema when detailType=command
+- usage notes
+- example call
+```
+
+For Linear, `get_integration("linear")` returns top-level groups such as:
+
+- `workspace`
+- `issue`
+
+Then `get_integration_details("linear", "command_group", "issue")` would return commands such as:
+
+- `issue.search`
+- `issue.get`
+- `issue.list`
 - `create_issue`
 - `add_comment`
 - `update_issue_state`
@@ -441,8 +446,8 @@ The model learns the input shape by calling the metatools, not by receiving tena
 The important schema rule is:
 
 - static metatool schemas are advertised directly by the runtime plugin
-- provider operation schemas are advertised dynamically in metatool responses such as `get_integration("linear")`
-- Otto should never receive one dynamic top-level runtime tool per provider operation
+- provider command schemas are advertised dynamically in metatool responses such as `get_integration_details("linear", "command", "issue.search")`
+- Otto should never receive one dynamic top-level runtime tool per provider command
 
 So the schema flow should be:
 
@@ -453,15 +458,17 @@ runtime startup
 
 model needs Linear details
   -> get_integration("linear")
-  -> response includes operation list + parameter schema
-  -> model calls execute_integration_function(...)
+  -> response includes group summaries + root command summaries
+  -> get_integration_details("linear", "command", "issue.search")
+  -> response includes command schema + example call
+  -> model calls execute_integration_command(...)
 ```
 
 This keeps prompt caching stable while still letting Otto discover the exact provider-specific input shape at runtime.
 
 ## OAuth Substrate Integration
 
-The integration framework should treat OAuth as a shared substrate, not something each provider re-invents inside each operation handler.
+The integration framework should treat OAuth as a shared substrate, not something each provider re-invents inside each command handler.
 
 Provider definitions may declare an OAuth binding:
 
@@ -509,7 +516,7 @@ Therefore this is a hard requirement:
 Implementation rules:
 
 - keep the metatool registry static
-- sort integrations and functions by stable key in control-plane responses
+- sort integrations and commands by stable key in control-plane responses
 - render schemas canonically and deterministically
 - never rely on database insertion order or async completion order
 - keep prompt hints stable unless the effective integration state changed
@@ -527,9 +534,9 @@ runtime metatool -> integration-gateway -> Otto OAuth credentials -> provider ->
 Detailed flow:
 
 ```text
-1. The model calls `execute_integration_function`
-2. The otto-integrations plugin sends the request to integration-gateway with integration key and function key
-3. integration-gateway validates tenant, integration, operation, and policy
+1. The model calls `execute_integration_command`
+2. The otto-integrations plugin sends the request to integration-gateway with integration key and command key
+3. integration-gateway validates tenant, integration, command, and policy
 4. integration-gateway resolves the Otto-managed connected account
 5. integration-gateway executes the request through the provider API
 6. integration-gateway emits audit events
@@ -586,13 +593,15 @@ workspace connect -> provider consent -> Otto OAuth state -> runtime metatools d
 
 Suggested Linear capabilities:
 
-- `search_issues`
-- `get_issue`
-- `list_projects`
-- `list_cycles`
-- `create_issue`
-- `add_comment`
-- `update_issue_state`
+- `workspace.get_viewer`
+- `workspace.list_teams`
+- `workspace.list_users`
+- `workspace.list_workflow_states`
+- `issue.search`
+- `issue.get`
+- `issue.list`
+- `issue.create`
+- `comment.create`
 
 Suggested safe settings:
 
@@ -608,6 +617,428 @@ Suggested integration-linked skill:
 - how to categorize bugs
 - which project to use
 - how to write issue titles
+
+### Linear Coverage Tracker
+
+Build Linear object first, not schema first.
+
+Rules:
+
+- keep `linear` as one integration
+- keep one shared execution surface
+- organize commands by object group such as `workspace`, `issue`, or `project`
+- prefer curated business objects over full GraphQL parity
+- isolate file upload under `attachment.*`
+- defer raw binary download until there is a concrete agent use case
+
+Current shipped Linear commands:
+
+- `workspace.get_viewer`
+- `workspace.get_organization`
+- `workspace.list_teams`
+- `workspace.list_users`
+- `workspace.list_workflow_states`
+- `workspace.list_project_statuses`
+- `team.list`
+- `team.get`
+- `team.create`
+- `team.update`
+- `team.delete`
+- `team.unarchive`
+- `team.members_add`
+- `team.members_update`
+- `team.members_remove`
+- `team.list_cycles`
+- `team.list_workflow_states`
+- `team.list_labels`
+- `team.list_projects`
+- `team.list_issues`
+- `workspace_member.invite`
+- `workspace_member.invite_update`
+- `workspace_member.invite_cancel`
+- `workspace_member.invite_resend`
+- `workspace_member.update`
+- `issue.list`
+- `issue.get`
+- `issue.search`
+- `issue.create`
+- `issue.update`
+- `issue.delete`
+- `issue.archive`
+- `issue.batch_update`
+- `issue.list_comments`
+- `issue.list_attachments`
+- `issue.list_documents`
+- `issue.list_relations`
+- `issue.add_label`
+- `issue.remove_label`
+- `comment.list`
+- `comment.get`
+- `comment.create`
+- `comment.update`
+- `comment.delete`
+- `project.list`
+- `project.get`
+- `project.search`
+- `project.create`
+- `project.update`
+- `project.delete`
+- `project.archive`
+- `project.list_issues`
+- `project.list_updates`
+- `project.create_update`
+- `project.list_documents`
+- `project.list_milestones`
+- `project.list_labels`
+- `document.list`
+- `document.get`
+- `document.search`
+- `document.create`
+- `document.update`
+- `document.delete`
+- `label.list_issue_labels`
+- `label.get_issue_label`
+- `label.create_issue_label`
+- `label.update_issue_label`
+- `label.delete_issue_label`
+- `label.restore_issue_label`
+- `label.retire_issue_label`
+- `label.list_project_labels`
+- `label.get_project_label`
+- `label.create_project_label`
+- `label.update_project_label`
+- `label.delete_project_label`
+- `label.restore_project_label`
+- `label.retire_project_label`
+- `project_milestone.list`
+- `project_milestone.get`
+- `project_milestone.create`
+- `project_milestone.update`
+- `project_milestone.delete`
+- `project_milestone.move`
+- `project_status.list`
+- `project_status.get`
+- `project_status.create`
+- `project_status.update`
+- `initiative.list`
+- `initiative.get`
+- `initiative.create`
+- `initiative.update`
+- `initiative.create_update`
+- `initiative.delete`
+- `initiative.archive`
+- `initiative.list_projects`
+- `initiative.list_updates`
+- `customer.list`
+- `customer.get`
+- `customer.create`
+- `customer.update`
+- `customer.delete`
+- `customer.list_needs`
+- `customer_need.list`
+- `customer_need.get`
+- `customer_need.create`
+- `customer_need.create_from_attachment`
+- `customer_need.update`
+- `customer_need.archive`
+- `customer_need.unarchive`
+- `customer_need.delete`
+- `customer_status.list`
+- `customer_status.get`
+- `customer_status.create`
+- `customer_status.update`
+- `customer_status.delete`
+- `customer_tier.list`
+- `customer_tier.get`
+- `customer_tier.create`
+- `customer_tier.update`
+- `customer_tier.delete`
+
+Recommended implementation order:
+
+1. `workspace`
+2. `issue`
+3. `comment`
+4. `project`
+5. `cycle`
+6. `team`
+7. `attachment`
+8. `document`
+9. `label`
+10. `project_milestone`
+11. `project_status`
+12. `initiative`
+13. `customer`
+14. `customer_need`
+15. `customer_status`
+16. `customer_tier`
+
+Tracker:
+
+- `workspace`
+  - `[x]` `workspace.get_viewer`
+  - `[x]` `workspace.list_teams`
+  - `[x]` `workspace.list_users`
+  - `[x]` `workspace.list_workflow_states`
+  - `[x]` `workspace.get_organization`
+  - `[x]` `workspace.list_project_statuses`
+  - `[ ]` `workspace.search_issues`
+  - `[ ]` `workspace.search_projects`
+  - `[ ]` `workspace.search_documents`
+
+- `issue`
+  - `[x]` `issue.list`
+  - `[x]` `issue.get`
+  - `[x]` `issue.search`
+  - `[x]` `issue.create`
+  - `[x]` `issue.update`
+  - `[x]` `issue.delete`
+  - `[x]` `issue.insert_inline_image`
+  - `[x]` `issue.upload_inline_image`
+  - `[x]` `issue.archive`
+  - `[x]` `issue.batch_update`
+  - `[x]` `issue.list_comments`
+  - `[x]` `issue.list_attachments`
+  - `[x]` `issue.list_documents`
+  - `[x]` `issue.list_relations`
+  - `[x]` `issue.add_label`
+  - `[x]` `issue.remove_label`
+
+- `comment`
+  - `[x]` `comment.list`
+  - `[x]` `comment.get`
+  - `[x]` `comment.create`
+  - `[x]` `comment.update`
+  - `[x]` `comment.delete`
+
+- `project`
+  - `[x]` `project.list`
+  - `[x]` `project.get`
+  - `[x]` `project.search`
+  - `[x]` `project.create`
+  - `[x]` `project.update`
+  - `[x]` `project.delete`
+  - `[x]` `project.archive`
+  - `[x]` `project.list_issues`
+  - `[x]` `project.list_updates`
+  - `[x]` `project.create_update`
+  - `[x]` `project.list_documents`
+  - `[x]` `project.list_milestones`
+  - `[x]` `project.list_labels`
+
+- `cycle`
+  - `[x]` `cycle.list`
+  - `[x]` `cycle.get`
+  - `[x]` `cycle.create`
+  - `[x]` `cycle.update`
+  - `[x]` `cycle.archive`
+  - `[x]` `cycle.list_issues`
+
+- `team`
+  - `[x]` `team.list`
+  - `[x]` `team.get`
+  - `[x]` `team.create`
+  - `[x]` `team.update`
+  - `[x]` `team.delete`
+  - `[x]` `team.unarchive`
+  - `[x]` `team.members_add`
+  - `[x]` `team.members_update`
+  - `[x]` `team.members_remove`
+  - `[x]` `team.list_cycles`
+  - `[x]` `team.list_workflow_states`
+  - `[x]` `team.list_labels`
+  - `[x]` `team.list_projects`
+  - `[x]` `team.list_issues`
+  - Later testing plan:
+    - verify `team.list` returns all accessible teams with stable key/id/displayName metadata
+    - verify `team.get` by both team key and canonical team id
+    - verify `team.list_cycles` against a team with an active cycle and one with historical cycles only
+    - verify `team.list_workflow_states` against a team with inherited and custom workflow states
+    - verify `team.list_labels` against a team with active and retired issue labels
+    - verify `team.list_projects` against a team with multiple projects in different statuses
+    - verify `team.list_issues` against a team with active backlog and completed work
+    - verify `team.create` and `team.update` in a workspace where the connected Linear actor has sufficient team-management permissions
+
+- `workspace_member`
+  - `[x]` `workspace_member.invite`
+  - `[x]` `workspace_member.invite_update`
+  - `[x]` `workspace_member.invite_cancel`
+  - `[x]` `workspace_member.invite_resend`
+  - `[x]` `workspace_member.update`
+  - Later testing plan:
+    - verify workspace-member invite create/update/cancel/resend against a pending invite that includes explicit `teamIds`
+    - verify workspace-member update against an accepted human user with mutable profile fields such as display name, status label, and timezone
+    - verify invite resend works by both canonical invite id and raw invite email address
+
+- `user`
+  - `[x]` `user.get`
+  - `[x]` `user.list`
+  - `[x]` `user.list_assigned_issues`
+  - `[x]` `user.list_created_issues`
+  - `[x]` `user.list_team_memberships`
+  - Later testing plan:
+    - use `workspace.list_users` to fetch canonical user ids for live smoke tests
+    - verify `user.get` against one active human user and one app user if available
+    - verify `user.list` includes normalized display-name fallbacks when `name` is blank
+    - verify `user.list_assigned_issues` against a user with active workload and a user with zero assigned issues
+    - verify `user.list_created_issues` against a user who has opened issues recently
+    - verify `user.list_team_memberships` against a user who belongs to multiple teams and confirm owner flags map correctly
+
+- `attachment`
+  - `[x]` `attachment.list`
+  - `[x]` `attachment.get`
+  - `[x]` `attachment.list_for_url`
+  - `[x]` `attachment.request_upload_url`
+  - `[x]` `attachment.upload_file`
+  - `[x]` `attachment.create`
+  - `[x]` `attachment.create_from_uploaded_file`
+  - `[x]` `attachment.update`
+  - Later testing plan:
+    - verify `attachment.list` against a workspace with a mix of rich external links and uploaded assets
+    - verify `attachment.get` on one attachment linked to an issue and one moved attachment with `originalIssue` populated
+    - verify `attachment.list_for_url` returns all issue links for the same external URL
+    - verify `attachment.request_upload_url` returns usable signed upload metadata, then complete the signed upload and follow with `attachment.create_from_uploaded_file`
+    - verify `attachment.upload_file` performs the full server-side upload and attachment-create flow without requiring a separate follow-up command
+    - verify `attachment.create` against both a fresh external URL and a repeated URL to confirm Linear updates the existing attachment record
+    - verify `attachment.update` for title, subtitle, icon, and metadata changes on an existing attachment
+
+- `document`
+  - `[x]` `document.list`
+  - `[x]` `document.get`
+  - `[x]` `document.search`
+  - `[x]` `document.create`
+  - `[x]` `document.update`
+  - `[x]` `document.delete`
+  - Later testing plan:
+    - verify `document.list` against a workspace with both project-linked and issue-linked documents
+    - verify `document.get` on a document that has creator, updatedBy, project, issue, and team associations populated
+    - verify `document.search` returns relevant matches for title-only and content-only terms
+    - verify `document.create` with only `title`, then again with project/team linkage and markdown content
+    - verify `document.update` for title/content edits plus toggling `trashed` and changing linked project or issue context
+    - verify `document.delete` removes a document from follow-up list/get calls and returns the deleted document id
+
+- `label`
+  - `[x]` `label.list_issue_labels`
+  - `[x]` `label.get_issue_label`
+  - `[x]` `label.create_issue_label`
+  - `[x]` `label.update_issue_label`
+  - `[x]` `label.delete_issue_label`
+  - `[x]` `label.restore_issue_label`
+  - `[x]` `label.retire_issue_label`
+  - `[x]` `label.list_project_labels`
+  - `[x]` `label.get_project_label`
+  - `[x]` `label.create_project_label`
+  - `[x]` `label.update_project_label`
+  - `[x]` `label.delete_project_label`
+  - `[x]` `label.restore_project_label`
+  - `[x]` `label.retire_project_label`
+  - Later testing plan:
+    - verify issue-label list/get on both workspace-level and team-level issue labels
+    - verify issue-label create/update with `replaceTeamLabels=true` against a workspace that already has matching team labels
+    - verify issue-label delete/restore/retire transitions and confirm the returned label state changes as expected
+    - verify project-label list/get against a workspace with grouped project labels
+    - verify project-label create/update/delete/restore/retire against at least one active project label and one archived/retired label
+
+- `project_milestone`
+  - `[x]` `project_milestone.list`
+  - `[x]` `project_milestone.get`
+  - `[x]` `project_milestone.create`
+  - `[x]` `project_milestone.update`
+  - `[x]` `project_milestone.delete`
+  - `[x]` `project_milestone.move`
+  - Later testing plan:
+    - verify milestone list/get against a project with multiple milestones in different statuses
+    - verify milestone create/update for description, target date, and sort-order changes
+    - verify milestone delete returns the deleted milestone id and removes it from subsequent list calls
+    - verify milestone move across projects, including one case that requires `addIssueTeamToProject` or `newIssueTeamId`
+
+- `project_status`
+  - `[x]` `project_status.list`
+  - `[x]` `project_status.get`
+  - `[x]` `project_status.create`
+  - `[x]` `project_status.update`
+  - Later testing plan:
+    - verify status list/get against a workspace with custom project statuses beyond the defaults
+    - verify status create with each relevant `ProjectStatusType` used in the workspace flow
+    - verify status update for color, position, and `indefinite` transitions
+
+- `initiative`
+  - `[x]` `initiative.list`
+  - `[x]` `initiative.get`
+  - `[x]` `initiative.create`
+  - `[x]` `initiative.update`
+  - `[x]` `initiative.create_update`
+  - `[x]` `initiative.delete`
+  - `[x]` `initiative.archive`
+  - `[x]` `initiative.list_projects`
+  - `[x]` `initiative.list_updates`
+  - Later testing plan:
+    - verify initiative list/get against a workspace with multiple active and completed initiatives
+    - verify initiative create/update for owner, status, target date, and markdown content changes
+    - verify initiative create_update against an initiative with historical updates and check returned health/diff metadata
+    - verify initiative delete returns the deleted initiative id and removes it from subsequent list calls
+    - verify initiative archive removes the initiative from normal active planning views
+    - verify initiative list_projects against an initiative linked to multiple projects
+    - verify initiative list_updates against an initiative with multiple historical updates and different health states
+
+- `customer`
+  - `[x]` `customer.list`
+  - `[x]` `customer.get`
+  - `[x]` `customer.create`
+  - `[x]` `customer.update`
+  - `[x]` `customer.delete`
+  - `[x]` `customer.list_needs`
+  - Later testing plan:
+    - verify customer list/get against a workspace with customers spanning different statuses and tiers
+    - verify customer create/update for domain arrays, external ids, owner, status, tier, revenue, and size changes
+    - verify customer delete returns the deleted customer id and removes it from subsequent list/get calls
+    - verify customer list_needs against a customer with multiple linked needs across issues and projects
+
+- `customer_need`
+  - `[x]` `customer_need.list`
+  - `[x]` `customer_need.get`
+  - `[x]` `customer_need.create`
+  - `[x]` `customer_need.create_from_attachment`
+  - `[x]` `customer_need.update`
+  - `[x]` `customer_need.archive`
+  - `[x]` `customer_need.unarchive`
+  - `[x]` `customer_need.delete`
+  - Later testing plan:
+    - verify customer-need list/get against a workspace with active and archived customer needs
+    - verify customer-need create/update for customer, issue, project, and attachment linkage plus priority propagation
+    - verify customer-need create_from_attachment against a real existing Linear attachment
+    - verify customer-need archive/unarchive transitions and confirm archived needs only appear when explicitly requested
+    - verify customer-need delete with both `keepAttachment=true` and `keepAttachment=false`
+
+- `customer_status`
+  - `[x]` `customer_status.list`
+  - `[x]` `customer_status.get`
+  - `[x]` `customer_status.create`
+  - `[x]` `customer_status.update`
+  - `[x]` `customer_status.delete`
+  - Later testing plan:
+    - verify customer-status list/get against a workspace with multiple custom customer-flow states
+    - verify customer-status create/update for color, displayName, and position changes
+    - verify customer-status delete succeeds only after the status is no longer referenced by active customers
+
+- `customer_tier`
+  - `[x]` `customer_tier.list`
+  - `[x]` `customer_tier.get`
+  - `[x]` `customer_tier.create`
+  - `[x]` `customer_tier.update`
+  - `[x]` `customer_tier.delete`
+  - Later testing plan:
+    - verify customer-tier list/get against a workspace with multiple account tiers
+    - verify customer-tier create/update for color, displayName, and position changes
+    - verify customer-tier delete succeeds only after the tier is no longer referenced by active customers
+
+Immediate next recommended slice:
+
+- Linear command coverage is complete through the post-coverage cleanup slice, including team membership management, workspace-member invite/update flows, and delete coverage for issue, project, document, initiative, and customer.
+- next recommended work:
+  - `Increment 7: Capability policy, capability inventory UI, and gateway enforcement`
+  - `Increment 8: First Linear write capability` is already satisfied by the current `issue.create` path through `integration-gateway`; the remaining policy/defaults work now belongs under Increment 7
+  - then `Increment 9: Integration-linked skill projection`
 
 ## Slack Example
 
@@ -703,10 +1134,10 @@ Build the smallest end-to-end capability injection path with a narrow real provi
 Scope:
 
 - add a minimal control-plane integration registry path for one real provider such as `linear`
-- add tenant-scoped internal routes for installed integrations, catalog integrations, and one-integration detail in deterministic order
+- add tenant-scoped internal routes for scoped integration inventory, one-integration summary, and one targeted command/group detail in deterministic order
 - add the first `otto-integrations` runtime plugin
 - register a fixed metatool set from the plugin contract
-- keep the first executable surface intentionally narrow, such as `search_issues`
+- keep the first executable surface intentionally narrow, such as `issue.search`
 
 Why this comes first:
 
@@ -717,10 +1148,11 @@ Why this comes first:
 Acceptance criteria:
 
 - the runtime always exposes the same metatools
-- `list_integrations` returns only integrations installed for the tenant
-- `list_integrations_catalog` returns the full supported set in deterministic order
-- `get_integration` returns function metadata and schemas for one integration
-- invoking `execute_integration_function` reaches the control plane and returns a real result for the narrow shipped operation
+- `list_integrations(scope=installed)` returns only integrations installed for the tenant
+- `list_integrations(scope=available)` returns the full supported set in deterministic order
+- `get_integration` returns summary metadata for one integration without dumping every command schema
+- `get_integration_details` returns one command group or one command schema on demand
+- invoking `execute_integration_command` reaches the control plane and returns a real result for the narrow shipped command
 
 ### Increment 2: Stable execution path through `integration-gateway`
 
@@ -813,7 +1245,7 @@ Ship one useful, low-risk capability end to end.
 
 Scope:
 
-- implement `linear.search_issues`
+- implement `linear.issue.search`
 - add provider adapter logic in `integration-gateway` that calls Linear through Otto-owned OAuth credentials
 - normalize response payloads for the runtime
 - keep the tool schema and ordering deterministic
@@ -826,7 +1258,7 @@ Why this should be isolated:
 
 Acceptance criteria:
 
-- `execute_integration_function` can execute `linear.search_issues`
+- `execute_integration_command` can execute `linear.issue.search`
 - requests flow runtime -> integration-gateway -> Otto OAuth credentials -> Linear
 - results come back normalized and usable by the model
 - failed auth produces a clear `attention needed` path instead of opaque provider errors
@@ -852,38 +1284,142 @@ Acceptance criteria:
 - Otto can return a workspace connect link for the tenant
 - after the user completes connect, the runtime status/detail responses reflect the updated Linear state without changing the static tool registry
 
-### Increment 7: Safe Linear settings with validation
+### Increment 7: Capability policy, capability inventory UI, and gateway enforcement
 
-Allow Otto and users to configure non-sensitive integration behavior.
+Introduce a first-class capability control layer on top of managed integrations.
+
+Status:
+
+- functionally done on `main`
+- `integration-gateway` now resolves and enforces command capability state before execution
+- workspace users can review and toggle user-controllable command capabilities in:
+  - `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - `/[orgSlug]/capabilities2`
+- provider-unavailable Linear commands now resolve as disabled with a clear reason instead of relying only on usage-note copy
+
+Product intent:
+
+- `Integrations` remain the workspace-managed connections to external systems.
+- `Capabilities` are the commands and triggers those integrations expose to Otto.
+- Users should be able to see all capabilities in the workspace, understand whether they are usable, and block individual ones when appropriate.
+- The runtime and `integration-gateway` must enforce those capability controls, not just the UI.
 
 Scope:
 
-- add provider-specific safe settings for Linear
-- add validation and apply endpoints
-- classify settings into restricted, user-managed, and agent-manageable
-- expose those settings in the workspace UI and to the runtime plugin
+- derive canonical capability definitions from the integration registry instead of maintaining a second hand-written capability catalog
+- treat integration commands and triggers as capability rows, with commands marked as `read` or `write`
+- add tenant-scoped capability policy records with a default-allow model
+- surface resolved capability state in the workspace UI and the runtime detail path
+- add per-integration capability inventory under `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+- add a global workspace capability inventory under `/[orgSlug]/capabilities2`
+- enforce capability policy and provider/runtime availability at `integration-gateway` before command execution
 
-Suggested initial safe settings:
+Data model:
 
-- default team
-- default project
-- label mapping
-- issue creation mode such as draft-only vs direct-create
+- add `tenant_integration_capability_states`
+- store `policy_json` with a v1 shape of:
+
+```json
+{
+  "policy": "allow" | "block"
+}
+```
+
+- no row means allow by default
+- keep policy storage generic so richer policies can be added later without reworking the schema
+
+Capability model:
+
+- capabilities are derived from the integration registry
+- commands and triggers are both capability types
+- commands carry:
+  - `effect: "read" | "write"`
+- capability definitions may also carry:
+  - `userControllable`
+  - provider-owned availability notes for cases where a capability should remain visible but not be executable by Otto in the current provider/actor shape
+
+Resolved capability state:
+
+- the runtime and agent-facing surface should use:
+  - `status: "enabled" | "disabled" | "needs_attention"`
+  - `reason?: string`
+- the workspace UI may additionally read:
+  - `policy`
+  - `userControllable`
+- disabled capability rows must remain visible in discovery and UI instead of being hidden
+
+Examples:
+
+- user blocks `linear.issue.delete`
+  - UI shows the capability as `disabled`
+  - `reason = "Disabled by workspace policy."`
+  - execution fails in `integration-gateway`
+- provider/actor limitation such as `team.delete`
+  - UI still shows the capability as `disabled`
+  - `reason = "Not available for Otto's current Linear actor in this workspace."`
+  - the row is not user-toggleable
+- disconnected integration
+  - capability resolves as `needs_attention`
+  - `reason = "Integration disconnected."`
+
+UI:
+
+- per-integration capability page:
+  - route: `/[orgSlug]/integrations2/[integrationKey]/capabilities`
+  - sortable data table
+  - default sort: triggers first, then commands, then label
+  - actions column with a three-dot menu for `Enable` / `Disable` when the capability is user-controllable
+- global capability page:
+  - route: `/[orgSlug]/capabilities2`
+  - includes installed integration capabilities plus Otto core capabilities such as file read/write
+  - filter dropdown with:
+    - `All`
+    - `Triggers`
+    - `Commands`
+
+Runtime and enforcement:
+
+- `get_integration_details(command)` should include resolved capability state for the selected command
+- disabled capabilities stay discoverable so Otto can explain why a capability exists but cannot be used
+- `integration-gateway` must resolve capability state before executing a command and reject:
+  - workspace-blocked capabilities
+  - provider-unavailable capabilities
+  - integrations in a `needs_attention` state
+
+Initial provider-owned disabled examples for Linear:
+
+- `workspace_member.invite_update`
+- `workspace_member.invite_resend`
+- `workspace_member.invite_cancel`
+- `team.delete`
+- `team.unarchive`
 
 Acceptance criteria:
 
-- workspace users can edit safe Linear settings
-- Otto can read safe settings metadata
-- Otto can validate and apply only agent-manageable settings
-- restricted settings remain blocked from the runtime path
+- every managed integration command resolves to a capability row
+- command capabilities are classified as `read` or `write`
+- workspace users can block and re-allow user-controllable capabilities
+- blocked capabilities remain visible in the capability tables and integration details
+- blocked capabilities fail clearly at `integration-gateway`
+- provider-unavailable capabilities remain visible and disabled with a clear reason
+- provider-unavailable capabilities are not user-toggleable
+- `/integrations2/[integrationKey]/capabilities` shows resolved capability rows for that integration
+- `/capabilities2` shows workspace-wide capability inventory across installed integrations and Otto core tools
 
 ### Increment 8: First Linear write capability
 
-After the settings model exists, add one write operation that benefits from those defaults.
+After the settings model exists, add one write command that benefits from those defaults.
+
+Status:
+
+- functionally done on `main`
+- `linear.issue.create` exists and executes through `integration-gateway`
+- execution is audited already
+- the remaining capability-policy enforcement belongs to Increment 7
 
 Scope:
 
-- implement `linear.create_issue`
+- implement `linear.issue.create`
 - enforce settings and policy at `integration-gateway`
 - audit the mutation path
 

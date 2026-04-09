@@ -1,4 +1,5 @@
 import { executeRuntimeIntegrationInGateway } from "@/integration-gateway/execute";
+import { LinearGraphqlError } from "@/integrations/library/linear/client";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 function json(body: unknown, status = 200) {
@@ -10,7 +11,25 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function buildExecutionErrorResponse(message: string) {
+function clipForLog(value: string, max = 1000) {
+  const trimmed = value.trim();
+
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, max)}…`;
+}
+
+export function buildExecutionErrorResponse(input: {
+  commandKey?: string;
+  error: unknown;
+}) {
+  const message =
+    input.error instanceof Error
+      ? input.error.message
+      : "Managed integration execution failed";
+
   if (message.includes("needs attention. Reconnect")) {
     const integrationLabel = message.split(" needs attention")[0]?.trim();
     const integrationKey = integrationLabel?.toLowerCase();
@@ -21,7 +40,7 @@ function buildExecutionErrorResponse(message: string) {
         ? {
             integrationKey,
             recommendedAction: "reconnect",
-            toolName: "manage_integration_connection",
+            toolName: "manage_integration",
           }
         : null,
     };
@@ -30,11 +49,34 @@ function buildExecutionErrorResponse(message: string) {
   if (
     message.includes("requires the") ||
     message.includes("does not accept the") ||
+    message.includes("requires ") ||
     message.includes("requires query to be at least")
   ) {
     return {
       error: message,
-      hint: "Call find_integration_functions or get_integration before retrying, then use the operation parametersSchema and executionGuide.",
+      hint: "Call find_integration_commands, then inspect the chosen command with get_integration_details before retrying.",
+    };
+  }
+
+  if (
+    input.error instanceof LinearGraphqlError &&
+    input.error.code === "FORBIDDEN" &&
+    input.commandKey?.startsWith("team.") &&
+    input.commandKey !== "team.create"
+  ) {
+    if (
+      input.commandKey === "team.delete" ||
+      input.commandKey === "team.unarchive"
+    ) {
+      return {
+        error: message,
+        hint: "Otto's current Linear actor may need workspace-admin or team-owner permissions before retrying this team command.",
+      };
+    }
+
+    return {
+      error: message,
+      hint: "Otto may need to be added to that Linear team before retrying this team command.",
     };
   }
 
@@ -43,7 +85,92 @@ function buildExecutionErrorResponse(message: string) {
   };
 }
 
-function handleRouteError(error: unknown) {
+async function handleExecuteRequest(request: Request) {
+  let tenantId: string | null = null;
+  let integrationKey = "";
+  let commandKey = "unknown";
+  let rawBodyText = "";
+
+  try {
+    const auth = await authenticateTenantRuntimeRequest(request);
+    tenantId = auth.tenantId;
+
+    rawBodyText = await request.text();
+    let parsedBody: unknown;
+
+    try {
+      parsedBody = JSON.parse(rawBodyText);
+    } catch {
+      console.error(
+        `[integration-gateway] execute tenant=${tenantId ?? "unknown"} integration=unknown command=unknown invalid-json body=${clipForLog(rawBodyText)}`,
+      );
+      throw new Error("Failed to parse JSON");
+    }
+
+    const body =
+      parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody)
+        ? (parsedBody as Record<string, unknown>)
+        : null;
+
+    if (!body) {
+      throw new Error("Execute request body must be a JSON object.");
+    }
+
+    integrationKey =
+      typeof body.integrationKey === "string" ? body.integrationKey : "";
+    const providedCommandKey =
+      typeof body.commandKey === "string" ? body.commandKey : "";
+    const argumentsObject =
+      body.arguments &&
+      typeof body.arguments === "object" &&
+      !Array.isArray(body.arguments)
+        ? (body.arguments as Record<string, unknown>)
+        : null;
+    const commandPath =
+      Array.isArray(body.commandPath) &&
+      body.commandPath.every((entry: unknown) => typeof entry === "string")
+        ? (body.commandPath as string[])
+        : null;
+    commandKey = providedCommandKey || commandPath?.join(".") || "unknown";
+
+    if (!integrationKey.trim()) {
+      throw new Error("integrationKey is required.");
+    }
+
+    if (!argumentsObject) {
+      throw new Error("arguments must be an object.");
+    }
+
+    if (
+      !providedCommandKey.trim() &&
+      (!commandPath || commandPath.length === 0)
+    ) {
+      throw new Error("commandKey or commandPath is required.");
+    }
+
+    const result = await executeRuntimeIntegrationInGateway({
+      arguments: argumentsObject,
+      commandKey: providedCommandKey || undefined,
+      commandPath: commandPath ?? undefined,
+      integrationKey,
+      tenantId,
+    });
+
+    console.info(
+      `[integration-gateway] execute tenant=${tenantId} integration=${integrationKey} command=${commandKey} ok=true`,
+    );
+
+    return json(result);
+  } catch (error) {
+    console.error(
+      `[integration-gateway] execute tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} command=${commandKey} failed`,
+      error,
+    );
+    return handleRouteErrorWithCommand(error, commandKey);
+  }
+}
+
+function handleRouteErrorWithCommand(error: unknown, commandKey?: string) {
   if (error instanceof Error) {
     if (
       error.message === "Missing runtime bearer token" ||
@@ -57,7 +184,13 @@ function handleRouteError(error: unknown) {
       );
     }
 
-    return json(buildExecutionErrorResponse(error.message), 400);
+    return json(
+      buildExecutionErrorResponse({
+        commandKey,
+        error,
+      }),
+      400,
+    );
   }
 
   return json(
@@ -66,55 +199,6 @@ function handleRouteError(error: unknown) {
     },
     500,
   );
-}
-
-async function handleExecuteRequest(request: Request) {
-  let tenantId: string | null = null;
-  let integrationKey = "";
-  let operation = "unknown";
-
-  try {
-    const auth = await authenticateTenantRuntimeRequest(request);
-    tenantId = auth.tenantId;
-
-    const body = await request.json();
-    integrationKey =
-      typeof body?.integrationKey === "string" ? body.integrationKey : "";
-    const params =
-      body?.params &&
-      typeof body.params === "object" &&
-      !Array.isArray(body.params)
-        ? (body.params as Record<string, unknown>)
-        : null;
-    operation =
-      typeof params?.operation === "string" ? params.operation : "unknown";
-
-    if (!integrationKey.trim()) {
-      throw new Error("integrationKey is required.");
-    }
-
-    if (!params) {
-      throw new Error("params must be an object.");
-    }
-
-    const result = await executeRuntimeIntegrationInGateway({
-      integrationKey,
-      params,
-      tenantId,
-    });
-
-    console.info(
-      `[integration-gateway] execute tenant=${tenantId} integration=${integrationKey} operation=${operation} ok=true`,
-    );
-
-    return json(result);
-  } catch (error) {
-    console.error(
-      `[integration-gateway] execute tenant=${tenantId ?? "unknown"} integration=${integrationKey || "unknown"} operation=${operation} failed`,
-      error,
-    );
-    return handleRouteError(error);
-  }
 }
 
 export async function handleIntegrationGatewayRequest(request: Request) {

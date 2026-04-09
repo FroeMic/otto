@@ -31,7 +31,19 @@ export function DataTableColumnHeader<TData, TValue>({
         sortDirection && "bg-muted text-foreground",
         className,
       )}
-      onClick={() => column.toggleSorting(sortDirection === "asc")}
+      onClick={() => {
+        if (sortDirection === "asc") {
+          column.toggleSorting(true);
+          return;
+        }
+
+        if (sortDirection === "desc") {
+          column.toggleSorting(false);
+          return;
+        }
+
+        column.toggleSorting(false);
+      }}
       size="sm"
       type="button"
       variant="ghost"

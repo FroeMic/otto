@@ -1,7 +1,10 @@
-import { getTenantManagedIntegrationSummary } from "@/db/control-plane";
+import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
+import {
+  getTenantManagedIntegrationSummary,
+  listManagedIntegrationCapabilitiesForOrganization,
+} from "@/db/control-plane";
 import { getIntegrationDefinition } from "@/integrations/framework";
 import { hasLinearOAuthConfig } from "@/lib/env";
-
 import { LinearIntegrationPanel } from "./components/integration-panel";
 
 type LinearIntegrationUiState =
@@ -74,6 +77,29 @@ export async function LinearIntegrationPage({
     providerKey: definition.key,
     userExternalId,
   });
+  const capabilityRows = (
+    await listManagedIntegrationCapabilitiesForOrganization({
+      orgSlug,
+      providerKey: definition.key,
+      userExternalId,
+    })
+  ).map(
+    (row): CapabilityInventoryRow => ({
+      ...row,
+      policyEndpoint: `/api/integrations/${orgSlug}/${definition.key}/capabilities/${encodeURIComponent(row.capabilityKey)}/policy`,
+      reason: row.capabilityState.reason ?? null,
+      searchText: [
+        row.label,
+        row.description,
+        row.commandGroup ?? "",
+        row.commandKey,
+        row.capabilityState.reason ?? "",
+      ]
+        .join(" ")
+        .toLowerCase(),
+      status: row.capabilityState.status,
+    }),
+  );
   const uiState = getUiState({
     connectedAt: summary?.connectedAt ?? null,
     disconnectedAt: summary?.disconnectedAt ?? null,
@@ -83,10 +109,11 @@ export async function LinearIntegrationPage({
 
   return (
     <LinearIntegrationPanel
-      agentCapabilities={definition.agentCapabilities}
       canConnect={hasLinearOAuthConfig()}
+      capabilityRows={capabilityRows}
       connectActionLabel={getConnectActionLabel(uiState)}
       connectUrl={`/oauth/start/integration/linear?orgSlug=${encodeURIComponent(orgSlug)}`}
+      hasConfiguration={Boolean(definition.settings)}
       iconSrc={definition.iconSrc}
       orgSlug={orgSlug}
       pageDescription={definition.pageDescription}

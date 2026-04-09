@@ -231,6 +231,7 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "## Managed Instruction Files",
       "",
       "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md`.",
+      "- Use `list_managed_skills`, `get_managed_skill`, `read_managed_skill_file`, and `patch_managed_skill_file` for workspace-managed skills under `workspace/skills/`.",
       "- Use normal file and exec tools for everything else in the local workspace.",
       "- Do not use managed-file tools for secrets, gateway auth, sandbox settings, or operator-only policy.",
     ].join("\n"),
@@ -342,10 +343,13 @@ export function buildManagedBootstrapSystemContent(
     "",
     "### Known Workspace URLs",
     "",
-    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations`,
-    `- Slack settings: ${ottoBaseUrl}/${workspaceSlug}/integrations/slack`,
-    `- Tools: ${ottoBaseUrl}/${workspaceSlug}/tools`,
-    `- Web Search settings: ${ottoBaseUrl}/${workspaceSlug}/tools/web/search`,
+    `- Workspace home: ${ottoBaseUrl}/${workspaceSlug}`,
+    `- Skills: ${ottoBaseUrl}/${workspaceSlug}/skills`,
+    `- Integrations: ${ottoBaseUrl}/${workspaceSlug}/integrations2`,
+    `- Otto settings: ${ottoBaseUrl}/${workspaceSlug}/agent`,
+    `- Scheduled tasks: ${ottoBaseUrl}/${workspaceSlug}/scheduled-tasks`,
+    `- Workspace settings: ${ottoBaseUrl}/${workspaceSlug}/settings/workspace`,
+    `- User settings: ${ottoBaseUrl}/${workspaceSlug}/settings/user`,
   ].join("\n");
 }
 

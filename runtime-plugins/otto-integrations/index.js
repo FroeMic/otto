@@ -16,31 +16,36 @@ export default definePluginEntry({
   id: "otto-integrations",
   name: "Otto Integrations",
   description:
-    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_functions when you know the user's goal but not the exact function, use get_integration to inspect operations and parameter schemas, use manage_integration_connection when an integration needs attention, then execute with execute_integration_function using integrationKey, functionKey, and arguments.",
+    "Managed integration tools backed by the workspace app. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups, use get_integration_details to inspect one command or command group in detail, use manage_integration when an integration needs attention, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
-    console.info(
-      "[otto-integrations] register staticTools=find_integration_functions,list_integrations,list_integrations_catalog,get_integration,get_integration_status,manage_integration_connection,execute_integration_function",
-    );
-
     api.registerTool(
       {
-        name: "find_integration_functions",
+        name: "find_integration_commands",
         description:
-          "Find the best Otto-managed integration function for a user request. Use this first when you know the user's goal but not the exact integration or function key. The result is a compact ranked candidate list with integration/function keys, connection state, a match reason, and example arguments. Use get_integration on the chosen integration to inspect the full parametersSchema, executionGuide, and usageNotes before execution.",
+          "Find the best Otto-managed integration commands for a user request. Use this first when you know the user's goal but not the exact integration or command key. The result is a compact ranked candidate list with integration keys, command keys, connection state, a match reason, and example arguments. After choosing a candidate, call get_integration or get_integration_details before execution.",
         parameters: {
           type: "object",
           additionalProperties: false,
           properties: {
+            limit: {
+              type: "integer",
+              minimum: 1,
+              maximum: 50,
+            },
             query: {
               type: "string",
               minLength: 1,
+            },
+            scope: {
+              type: "string",
+              enum: ["installed", "available", "all"],
             },
           },
           required: ["query"],
         },
         async execute(_id, params) {
-          return buildToolResult(await findIntegrationFunctions(api, params));
+          return buildToolResult(await findIntegrationCommands(api, params));
         },
       },
       { optional: true },
@@ -50,31 +55,19 @@ export default definePluginEntry({
       {
         name: "list_integrations",
         description:
-          "List Otto-managed integrations available to this runtime, including capability summaries and connection state.",
+          "List Otto-managed integrations available to this runtime. Use scope=installed by default to inspect integrations already present in the workspace. Use scope=available or scope=all when you want the broader catalog rather than only installed integrations.",
         parameters: {
           type: "object",
           additionalProperties: false,
-          properties: {},
+          properties: {
+            scope: {
+              type: "string",
+              enum: ["installed", "available", "all"],
+            },
+          },
         },
-        async execute() {
-          return buildToolResult(await listIntegrations(api));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "list_integrations_catalog",
-        description:
-          "List the full Otto-managed integration catalog, including integrations that are supported but not installed in this runtime yet.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {},
-        },
-        async execute() {
-          return buildToolResult(await listIntegrationsCatalog(api));
+        async execute(_id, params) {
+          return buildToolResult(await listIntegrations(api, params));
         },
       },
       { optional: true },
@@ -84,7 +77,7 @@ export default definePluginEntry({
       {
         name: "get_integration",
         description:
-          "Read one Otto-managed integration, including its available functions, parameter schema, execution guides, usage notes, and current connection state. Use this before executing unfamiliar functions.",
+          "Read one Otto-managed integration summary, including connection state, top-level command groups, root commands, and the recommended discovery workflow. Use this when you know the integration but do not want the full schema for every command.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -98,7 +91,7 @@ export default definePluginEntry({
         },
         async execute(_id, params) {
           return buildToolResult(
-            await getIntegration(api, params.integrationKey),
+            await getIntegration(api, normalizeString(params.integrationKey)),
           );
         },
       },
@@ -107,24 +100,30 @@ export default definePluginEntry({
 
     api.registerTool(
       {
-        name: "get_integration_status",
+        name: "get_integration_details",
         description:
-          "Read just the current connection and enablement status for one Otto-managed integration.",
+          "Read one command group or one command in detail for an Otto-managed integration. Use detailType=command_group to browse one group slice. Use detailType=command to fetch the full argumentsSchema, usage notes, and example call for a specific command before execution.",
         parameters: {
           type: "object",
           additionalProperties: false,
           properties: {
+            detailKey: {
+              type: "string",
+              minLength: 1,
+            },
+            detailType: {
+              type: "string",
+              enum: ["command_group", "command"],
+            },
             integrationKey: {
               type: "string",
               minLength: 1,
             },
           },
-          required: ["integrationKey"],
+          required: ["detailKey", "detailType", "integrationKey"],
         },
         async execute(_id, params) {
-          return buildToolResult(
-            await getIntegrationStatus(api, params.integrationKey),
-          );
+          return buildToolResult(await getIntegrationDetails(api, params));
         },
       },
       { optional: true },
@@ -132,7 +131,7 @@ export default definePluginEntry({
 
     api.registerTool(
       {
-        name: "manage_integration_connection",
+        name: "manage_integration",
         description:
           "Get the right workspace URL and recommended next action to connect, reconnect, or review an Otto-managed integration. Use this when an integration response says needsAttention=true or connected=false.",
         parameters: {
@@ -141,7 +140,7 @@ export default definePluginEntry({
           properties: {
             action: {
               type: "string",
-              enum: ["connect", "open_workspace", "reconnect"],
+              enum: ["connect", "disconnect", "open_workspace", "reconnect"],
             },
             integrationKey: {
               type: "string",
@@ -151,7 +150,7 @@ export default definePluginEntry({
           required: ["integrationKey"],
         },
         async execute(_id, params) {
-          return buildToolResult(await manageIntegrationConnection(api, params));
+          return buildToolResult(await manageIntegration(api, params));
         },
       },
       { optional: true },
@@ -159,9 +158,9 @@ export default definePluginEntry({
 
     api.registerTool(
       {
-        name: "execute_integration_function",
+        name: "execute_integration_command",
         description:
-          "Execute one function on an Otto-managed integration through the workspace app. Use functionKey values returned by get_integration or find_integration_functions. Pass operation-specific inputs in arguments. Example: {\"integrationKey\":\"linear\",\"functionKey\":\"search_issues\",\"arguments\":{\"query\":\"credit\",\"limit\":5}}",
+          "Execute one command on an Otto-managed integration through the workspace app. Use commandKey values returned by find_integration_commands or get_integration_details. Pass command-specific inputs in arguments. Example: {\"integrationKey\":\"linear\",\"commandKey\":\"issue.search\",\"arguments\":{\"query\":\"credit\",\"limit\":5}}",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -170,9 +169,17 @@ export default definePluginEntry({
               type: "object",
               additionalProperties: true,
             },
-            functionKey: {
+            commandKey: {
               type: "string",
               minLength: 1,
+            },
+            commandPath: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+              },
+              minItems: 1,
             },
             integrationKey: {
               type: "string",
@@ -183,10 +190,10 @@ export default definePluginEntry({
               additionalProperties: true,
             },
           },
-          required: ["functionKey", "integrationKey"],
+          required: ["integrationKey"],
         },
         async execute(_id, params) {
-          return buildToolResult(await executeIntegrationFunction(api, params));
+          return buildToolResult(await executeIntegrationCommand(api, params));
         },
       },
       { optional: true },
@@ -205,66 +212,62 @@ function buildToolResult(payload) {
   };
 }
 
-async function listIntegrations(api) {
+async function listIntegrations(api, params) {
+  const scope = normalizeScope(params.scope);
   const response = await requestControlPlane(api, {
     method: "GET",
-    path: "/api/internal/runtime/integrations",
+    path: `/api/internal/runtime/integrations?scope=${encodeURIComponent(scope)}`,
   });
 
   if (!response.ok) {
     console.warn(
-      `[otto-integrations] list failed code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+      `[otto-integrations] list failed scope=${scope} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
     );
     return response;
   }
 
   console.info(
-    `[otto-integrations] list succeeded count=${Array.isArray(response.data?.integrations) ? response.data.integrations.length : 0}`,
+    `[otto-integrations] list succeeded scope=${scope} count=${Array.isArray(response.data?.integrations) ? response.data.integrations.length : 0}`,
   );
 
   return response.data;
 }
 
-async function findIntegrationFunctions(api, params) {
+async function findIntegrationCommands(api, params) {
   const query = normalizeString(params.query);
+  const scope = normalizeScope(params.scope);
+  const limit = normalizePositiveInteger(params.limit, 10);
   const response = await requestControlPlane(api, {
     method: "POST",
     path: "/api/internal/runtime/integrations/find",
     body: {
+      limit,
       query,
+      scope,
     },
   });
 
   if (!response.ok) {
     console.warn(
-      `[otto-integrations] find failed query=${JSON.stringify(query)} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+      `[otto-integrations] find failed query=${JSON.stringify(query)} scope=${scope} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
     );
     return response;
   }
 
   console.info(
-    `[otto-integrations] find succeeded query=${JSON.stringify(query)} matches=${Array.isArray(response.data?.matches) ? response.data.matches.length : 0}`,
+    `[otto-integrations] find succeeded query=${JSON.stringify(query)} scope=${scope} matches=${Array.isArray(response.data?.matches) ? response.data.matches.length : 0}`,
   );
 
-  return response.data;
-}
-
-async function listIntegrationsCatalog(api) {
-  const response = await requestControlPlane(api, {
-    method: "GET",
-    path: "/api/internal/runtime/integrations/catalog",
-  });
-
-  if (!response.ok) {
-    console.warn(
-      `[otto-integrations] catalog failed code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
-    );
-    return response;
+  if (
+    Array.isArray(response.data?.matches) &&
+    Number.isInteger(limit) &&
+    response.data.matches.length > limit
+  ) {
+    return {
+      ...response.data,
+      matches: response.data.matches.slice(0, limit),
+    };
   }
-
-  console.info(
-    `[otto-integrations] catalog succeeded count=${Array.isArray(response.data?.integrations) ? response.data.integrations.length : 0}`,
-  );
 
   return response.data;
 }
@@ -289,21 +292,37 @@ async function getIntegration(api, integrationKey) {
   return response.data;
 }
 
-async function getIntegrationStatus(api, integrationKey) {
-  const detail = await getIntegration(api, integrationKey);
+async function getIntegrationDetails(api, params) {
+  const integrationKey = normalizeString(params.integrationKey);
+  const detailType =
+    params.detailType === "command" || params.detailType === "command_group"
+      ? params.detailType
+      : "";
+  const detailKey = normalizeString(params.detailKey);
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: `${buildIntegrationDetailPath(integrationKey)}/details`,
+    body: {
+      detailKey,
+      detailType,
+    },
+  });
 
-  if (!detail?.integration) {
-    return detail;
+  if (!response.ok) {
+    console.warn(
+      `[otto-integrations] get-details failed integration=${integrationKey} detailType=${detailType || "unknown"} detailKey=${detailKey || "unknown"} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+    );
+    return response;
   }
 
-  return {
-    integrationKey: detail.integration.key,
-    label: detail.integration.label,
-    status: detail.integration.status,
-  };
+  console.info(
+    `[otto-integrations] get-details succeeded integration=${integrationKey} detailType=${detailType} detailKey=${detailKey}`,
+  );
+
+  return response.data;
 }
 
-async function manageIntegrationConnection(api, params) {
+async function manageIntegration(api, params) {
   const integrationKey = normalizeString(params.integrationKey);
   const action = normalizeString(params.action);
   const response = await requestControlPlane(api, {
@@ -314,7 +333,7 @@ async function manageIntegrationConnection(api, params) {
 
   if (!response.ok) {
     console.warn(
-      `[otto-integrations] manage-connection failed integration=${integrationKey} action=${action || "auto"} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+      `[otto-integrations] manage failed integration=${integrationKey} action=${action || "auto"} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
     );
     return response;
   }
@@ -323,15 +342,20 @@ async function manageIntegrationConnection(api, params) {
     response.data?.connectionAction?.selectedAction || action || "auto";
 
   console.info(
-    `[otto-integrations] manage-connection succeeded integration=${integrationKey} action=${selectedAction}`,
+    `[otto-integrations] manage succeeded integration=${integrationKey} action=${selectedAction}`,
   );
 
   return response.data;
 }
 
-async function executeIntegrationFunction(api, params) {
+async function executeIntegrationCommand(api, params) {
   const integrationKey = normalizeString(params.integrationKey);
-  const functionKey = normalizeString(params.functionKey);
+  const commandKey = normalizeString(params.commandKey);
+  const commandPath = Array.isArray(params.commandPath)
+    ? params.commandPath
+        .map((entry) => normalizeString(entry))
+        .filter(Boolean)
+    : [];
   const argumentsObject =
     params.arguments &&
     typeof params.arguments === "object" &&
@@ -341,29 +365,28 @@ async function executeIntegrationFunction(api, params) {
           typeof params.params === "object" &&
           !Array.isArray(params.params)
         ? params.params
-      : {};
+        : {};
 
   const response = await requestControlPlane(api, {
     method: "POST",
     path: "/api/internal/runtime/integrations/execute",
     body: {
+      arguments: argumentsObject,
+      ...(commandKey ? { commandKey } : {}),
+      ...(commandPath.length > 0 ? { commandPath } : {}),
       integrationKey,
-      params: {
-        ...argumentsObject,
-        operation: functionKey,
-      },
     },
   });
 
   if (!response.ok) {
     console.warn(
-      `[otto-integrations] execute failed integration=${integrationKey} function=${functionKey} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
+      `[otto-integrations] execute failed integration=${integrationKey} command=${commandKey || commandPath.join(".") || "unknown"} code=${response.code ?? "unknown"} status=${response.status ?? "n/a"} error=${response.error ?? "unknown"}`,
     );
     return response;
   }
 
   console.info(
-    `[otto-integrations] execute succeeded integration=${integrationKey} function=${functionKey}`,
+    `[otto-integrations] execute succeeded integration=${integrationKey} command=${commandKey || commandPath.join(".")}`,
   );
 
   return {
@@ -378,6 +401,19 @@ function buildIntegrationDetailPath(integrationKey) {
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeScope(value) {
+  return value === "available" || value === "all" ? value : "installed";
+}
+
+function normalizePositiveInteger(value, fallback) {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 50
+    ? value
+    : fallback;
 }
 
 function resolveControlPlaneBaseUrl() {

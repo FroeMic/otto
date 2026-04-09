@@ -7,13 +7,24 @@ import type {
   Role,
   User,
 } from "@workos-inc/node";
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
 } from "@/db/credit-ledger";
+import {
+  getTenantIntegrationCapabilityPolicy,
+  listTenantIntegrationCapabilityPolicies,
+  upsertTenantIntegrationCapabilityPolicy,
+} from "@/db/integration-capability-policies";
+import {
+  createTenantManagedSkillForTenant,
+  ensureTenantSystemManagedSkillsForTenantTx,
+  listLatestTenantManagedSkillVersionMapTx,
+  updateTenantManagedSkillTextFileForTenantTx,
+} from "@/db/managed-skills";
 import {
   appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
@@ -52,14 +63,23 @@ import {
   users,
 } from "@/db/schema";
 import {
+  buildResolvedIntegrationCommandCapability,
+  buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationManifestForKeys,
-  buildRuntimeIntegrationResponse,
-  findIntegrationFunctionMatches,
+  buildRuntimeIntegrationSummaryResponse,
+  findIntegrationCommandMatches,
   getIntegrationDefinition,
+  type IntegrationRuntimeCommandDefinition,
+  type IntegrationRuntimeCommandGroupDefinition,
+  isCommandUserControllable,
+  listIntegrationCommands,
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
-  type RuntimeIntegrationFunctionMatch,
+  type ResolvedIntegrationCommandCapability,
+  type RuntimeIntegrationCommandMatch,
+  type RuntimeIntegrationDetailsResponse,
   type RuntimeIntegrationManifestEntry,
+  type RuntimeIntegrationSummaryResponse,
 } from "@/integrations/framework";
 import {
   decryptControlPlaneSecret,
@@ -155,6 +175,7 @@ const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
 const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
 const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
 const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
+const WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS = 5 * 60_000;
 const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
   listSupportedRuntimeIntegrationKeys();
 const runtimeManager = new RuntimeManager();
@@ -454,6 +475,10 @@ type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0];
 
+const DESIRED_STATE_LOCK_TIMEOUT = "5s";
+const DESIRED_STATE_STATEMENT_TIMEOUT = "20s";
+const DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT = "20s";
+
 export type DashboardOrganization = {
   id: string;
   externalId: string;
@@ -717,8 +742,10 @@ export type WorkspaceMemberDirectory = {
 export async function syncUserFromSession(user: User) {
   const syncedUser = await upsertLocalUser(user);
 
-  await reconcileWorkspaceMembershipsFromWorkOS({
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
     localUserId: syncedUser.id,
+    reason: "session-sync",
     userExternalId: user.id,
   });
 
@@ -803,7 +830,11 @@ export async function getDashboardOrganizations(
   userExternalId: string,
 ): Promise<DashboardOrganization[]> {
   const db = getDb();
-  await backfillOrganizationsFromWorkOS(userExternalId);
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "dashboard-organizations",
+    userExternalId,
+  });
 
   const organizationRows = await getDashboardOrganizationRows(userExternalId);
 
@@ -1050,7 +1081,7 @@ export async function getDashboardOrganizations(
     latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
   }
 
-  return organizationRows.map((organization) => {
+  const organizationsForUser = organizationRows.map((organization) => {
     const organizationTenants = tenantRows
       .filter((tenant) => tenant.organizationId === organization.organizationId)
       .map((tenant) => ({
@@ -1099,6 +1130,8 @@ export async function getDashboardOrganizations(
       tenants: organizationTenants,
     };
   });
+
+  return organizationsForUser;
 }
 
 export async function listPlatformOrganizationSlugs(input: {
@@ -1641,7 +1674,12 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
   userExternalId: string;
 }): Promise<AuthorizedWorkspaceMembershipContext> {
   const db = getDb();
-  await backfillOrganizationsFromWorkOS(input.userExternalId);
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "authorized-workspace-membership",
+    requireFreshProjectionOnFailure: true,
+    userExternalId: input.userExternalId,
+  });
 
   const [authorizedMembership] = await db
     .select({
@@ -1863,14 +1901,97 @@ function getWorkspaceMemberSortOrder(entry: WorkspaceMemberDirectoryEntry) {
   return 3;
 }
 
-async function backfillOrganizationsFromWorkOS(
+type WorkspaceMembershipProjectionSnapshot = {
+  activeMembershipCount: number;
+  hasAnyMemberships: boolean;
+  localUserId: string | null;
+  newestSyncAt: Date | null;
+};
+
+async function getWorkspaceMembershipProjectionSnapshot(
   userExternalId: string,
-  localUserId?: string,
+): Promise<WorkspaceMembershipProjectionSnapshot> {
+  const db = getDb();
+  const [localUser] = await db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.externalId, userExternalId))
+    .limit(1);
+
+  if (!localUser) {
+    return {
+      activeMembershipCount: 0,
+      hasAnyMemberships: false,
+      localUserId: null,
+      newestSyncAt: null,
+    };
+  }
+
+  const membershipRows = await db
+    .select({
+      lastSyncedAt: memberships.lastSyncedAt,
+      status: memberships.status,
+    })
+    .from(memberships)
+    .where(eq(memberships.userId, localUser.id))
+    .orderBy(desc(memberships.lastSyncedAt));
+
+  return {
+    activeMembershipCount: membershipRows.filter(
+      (membership) => membership.status === ACTIVE_WORKSPACE_MEMBERSHIP_STATUS,
+    ).length,
+    hasAnyMemberships: membershipRows.length > 0,
+    localUserId: localUser.id,
+    newestSyncAt: membershipRows[0]?.lastSyncedAt ?? null,
+  };
+}
+
+function getWorkspaceMembershipProjectionAgeMs(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
 ) {
-  await reconcileWorkspaceMembershipsFromWorkOS({
-    localUserId,
-    userExternalId,
-  });
+  return snapshot.newestSyncAt
+    ? Date.now() - snapshot.newestSyncAt.getTime()
+    : null;
+}
+
+function isWorkspaceMembershipProjectionFresh(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
+) {
+  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot);
+  return ageMs !== null && ageMs < WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS;
+}
+
+async function ensureWorkspaceMembershipProjection(input: {
+  allowStaleFallback: boolean;
+  localUserId?: string;
+  reason: string;
+  requireFreshProjectionOnFailure?: boolean;
+  userExternalId: string;
+}) {
+  const snapshot = await getWorkspaceMembershipProjectionSnapshot(
+    input.userExternalId,
+  );
+
+  if (isWorkspaceMembershipProjectionFresh(snapshot)) {
+    return;
+  }
+
+  try {
+    await reconcileWorkspaceMembershipsFromWorkOS({
+      localUserId: input.localUserId ?? snapshot.localUserId ?? undefined,
+      userExternalId: input.userExternalId,
+    });
+  } catch (error) {
+    if (input.allowStaleFallback && snapshot.hasAnyMemberships) {
+      return;
+    }
+
+    if (input.requireFreshProjectionOnFailure || !input.allowStaleFallback) {
+      throw error;
+    }
+  }
 }
 
 async function reconcileWorkspaceMembershipsFromWorkOS(input: {
@@ -4306,6 +4427,141 @@ export async function updateTenantManagedFileSharedContent(input: {
   });
 }
 
+export async function updateTenantManagedSkillTextFile(input: {
+  contentText: string;
+  expectedVersion?: number;
+  orgSlug: string;
+  relativePath: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantManagedSkillTextFileForTenant({
+    contentText: input.contentText,
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    relativePath: input.relativePath,
+    skillKey: input.skillKey,
+    summary: `Updated ${input.skillKey}/${input.relativePath}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantManagedSkillTextFileForTenant(input: {
+  contentText: string;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  expectedVersion?: number;
+  relativePath: string;
+  skillKey: string;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
+      contentText: input.contentText,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      expectedVersion: input.expectedVersion,
+      relativePath: input.relativePath,
+      skillKey: input.skillKey,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+
+    if (!updatedSkill.changed) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentVersion: updatedSkill.currentVersion,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentVersion: updatedSkill.currentVersion,
+      desiredStateVersion,
+      skillKey: updatedSkill.skillKey,
+    };
+  });
+
+  if (result.applyQueued && result.changed && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function createTenantManagedSkill(input: {
+  orgSlug: string;
+  skillContent: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const createdSkill = await createTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    files: [
+      {
+        contentText: input.skillContent,
+        path: "SKILL.md",
+      },
+    ],
+    skillKey: input.skillKey,
+    sourceType: "user",
+    status: "ready",
+    summary: `Created ${input.skillKey}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: authorizedTenant.tenantId,
+  });
+
+  if (authorizedTenant.isRuntimeReady) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: desiredState.version,
+      tenantId: authorizedTenant.tenantId,
+    });
+  }
+
+  return {
+    applyQueued: authorizedTenant.isRuntimeReady,
+    desiredStateVersion: desiredState.version,
+    skillKey: createdSkill.skillKey,
+    version: createdSkill.version,
+  };
+}
+
 export async function getTenantSlackRuntimeConfig(input: {
   orgSlug: string;
   userExternalId: string;
@@ -4435,8 +4691,7 @@ export async function listRuntimeIntegrationManifestForTenant(input: {
   });
 }
 
-export type RuntimeTenantIntegration =
-  import("@/integrations/framework").RuntimeIntegrationResponse;
+export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
   tx: DbTransaction,
@@ -4456,6 +4711,7 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
       disconnectedAt: tenantIntegrations.disconnectedAt,
       integrationStatus: tenantIntegrations.status,
       providerKey: tenantIntegrations.providerKey,
+      tenantIntegrationId: tenantIntegrations.id,
     })
     .from(tenantIntegrations)
     .leftJoin(
@@ -4475,19 +4731,25 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
 
 function buildRuntimeTenantIntegrations(input: {
   definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  installedProviderKeys?: string[];
   rows: Array<{
     connectedAt: Date | null;
     connectionStatus: string | null;
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
 
   return definitionsWithStatus.map(({ definition, status }) =>
-    buildRuntimeIntegrationResponse({
+    buildRuntimeIntegrationSummaryResponse({
+      available: true,
       definition,
+      installed:
+        input.installedProviderKeys?.includes(definition.key) ??
+        status.connected,
       status,
     }),
   );
@@ -4501,6 +4763,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
     disconnectedAt: Date | null;
     integrationStatus: string | null;
     providerKey: string;
+    tenantIntegrationId: string;
   }>;
 }) {
   const statusByProviderKey = new Map<
@@ -4510,6 +4773,7 @@ function buildRuntimeDefinitionsWithStatus(input: {
       connectionStatus: string | null;
       disconnectedAt: Date | null;
       integrationStatus: string | null;
+      tenantIntegrationId: string;
     }
   >();
 
@@ -4540,9 +4804,11 @@ function buildRuntimeDefinitionsWithStatus(input: {
         enabled: connected,
         integrationStatus,
         needsAttention:
+          integrationStatus === "error" ||
           integrationStatus === "needs_attention" ||
           connectionStatus === "needs_attention",
       },
+      tenantIntegrationId: row?.tenantIntegrationId ?? null,
     };
   });
 }
@@ -4564,10 +4830,10 @@ export async function listRuntimeIntegrationsForTenant(input: {
         (
           definition,
         ): definition is NonNullable<typeof definition> & {
-          runtimeTool: NonNullable<
-            NonNullable<typeof definition>["runtimeTool"]
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
           >;
-        } => Boolean(definition?.runtimeTool),
+        } => Boolean(definition?.runtimeSurface),
       );
 
     if (definitions.length === 0) {
@@ -4576,6 +4842,7 @@ export async function listRuntimeIntegrationsForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
+      installedProviderKeys: installedKeys,
       rows,
     });
   });
@@ -4594,10 +4861,10 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
         (
           definition,
         ): definition is NonNullable<typeof definition> & {
-          runtimeTool: NonNullable<
-            NonNullable<typeof definition>["runtimeTool"]
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
           >;
-        } => Boolean(definition?.runtimeTool),
+        } => Boolean(definition?.runtimeSurface),
       );
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: supportedKeys,
@@ -4606,6 +4873,7 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
 
     return buildRuntimeTenantIntegrations({
       definitions,
+      installedProviderKeys: rows.map((row) => row.providerKey),
       rows,
     });
   });
@@ -4626,10 +4894,170 @@ export async function getRuntimeIntegrationForTenant(input: {
   );
 }
 
-export async function findRuntimeIntegrationFunctionsForTenant(input: {
+function findRuntimeCommandByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  commandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  const normalizedKey = commandKey.trim().toLowerCase();
+
+  for (const command of surface.rootCommands) {
+    if (command.commandKey.toLowerCase() === normalizedKey) {
+      return command;
+    }
+  }
+
+  for (const group of surface.commandGroups) {
+    const command = findRuntimeCommandByKeyInGroup(group, normalizedKey);
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedCommandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  for (const command of group.commands ?? []) {
+    if (command.commandKey.toLowerCase() === normalizedCommandKey) {
+      return command;
+    }
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const command = findRuntimeCommandByKeyInGroup(
+      childGroup,
+      normalizedCommandKey,
+    );
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  groupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  const normalizedKey = groupKey.trim().toLowerCase();
+
+  for (const group of surface.commandGroups) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      group,
+      normalizedKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedGroupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  if (group.groupKey.toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  if (group.groupPath.join(".").toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      childGroup,
+      normalizedGroupKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+export async function getRuntimeIntegrationDetailsForTenant(input: {
+  detailKey: string;
+  detailType: "command" | "command_group";
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationDetailsResponse | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const detailKey = input.detailKey.trim();
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const definition = definitions.find(
+      (entry) => entry.key === integrationKey,
+    );
+
+    if (!definition) {
+      return null;
+    }
+
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [integrationKey],
+      tenantId: input.tenantId,
+    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [definition],
+        rows,
+      },
+    );
+
+    const detail =
+      input.detailType === "command"
+        ? findRuntimeCommandByKey(definition.runtimeSurface, detailKey)
+        : findRuntimeCommandGroupByKey(definition.runtimeSurface, detailKey);
+
+    if (!detail) {
+      return null;
+    }
+
+    const policy =
+      input.detailType === "command" && tenantIntegrationId
+        ? await getTenantIntegrationCapabilityPolicy({
+            capabilityKey: (detail as IntegrationRuntimeCommandDefinition)
+              .commandKey,
+            tenantIntegrationId,
+          })
+        : null;
+
+    return buildRuntimeIntegrationDetailsResponse({
+      definition,
+      detail,
+      detailType: input.detailType,
+      policy,
+      status,
+    });
+  });
+}
+
+export async function findRuntimeIntegrationCommandsForTenant(input: {
   query: string;
   tenantId: string;
-}): Promise<{ matches: RuntimeIntegrationFunctionMatch[]; query: string }> {
+}): Promise<{ matches: RuntimeIntegrationCommandMatch[]; query: string }> {
   const db = getDb();
   const normalizedQuery = input.query.trim();
 
@@ -4652,7 +5080,7 @@ export async function findRuntimeIntegrationFunctionsForTenant(input: {
     });
 
     return {
-      matches: findIntegrationFunctionMatches({
+      matches: findIntegrationCommandMatches({
         definitions: definitionsWithStatus.map(({ definition, status }) => ({
           ...definition,
           status,
@@ -4806,6 +5234,284 @@ export async function getTenantManagedIntegrationSummary(input: {
     .limit(1);
 
   return integration ?? null;
+}
+
+export type ManagedIntegrationCapabilityRow =
+  ResolvedIntegrationCommandCapability & {
+    sourceHref: string | null;
+    sourceIcon: string | null;
+    sourceKey: string;
+    sourceLabel: string;
+    sourceType: "integration";
+  };
+
+function sortManagedIntegrationCapabilityRows(
+  rows: ManagedIntegrationCapabilityRow[],
+) {
+  return [...rows].sort((left, right) => {
+    if (left.capabilityType !== right.capabilityType) {
+      return left.capabilityType === "trigger" ? -1 : 1;
+    }
+
+    if (left.label !== right.label) {
+      return left.label.localeCompare(right.label);
+    }
+
+    return left.commandKey.localeCompare(right.commandKey);
+  });
+}
+
+function buildManagedIntegrationCapabilityRows(input: {
+  definition: NonNullable<ReturnType<typeof getIntegrationDefinition>> & {
+    runtimeSurface: NonNullable<
+      NonNullable<ReturnType<typeof getIntegrationDefinition>>["runtimeSurface"]
+    >;
+  };
+  orgSlug: string;
+  policies: Map<string, { policy: "allow" | "block" }>;
+  status: {
+    connected: boolean;
+    connectionStatus: string | null;
+    enabled: boolean;
+    integrationStatus: string | null;
+    needsAttention: boolean;
+  };
+}): ManagedIntegrationCapabilityRow[] {
+  return sortManagedIntegrationCapabilityRows(
+    listIntegrationCommands({
+      definition: input.definition,
+    }).map((command) => {
+      const resolved = buildResolvedIntegrationCommandCapability({
+        command,
+        definition: input.definition,
+        policy: input.policies.get(command.commandKey) ?? null,
+        status: input.status,
+      });
+
+      return {
+        ...resolved,
+        sourceHref: `/${input.orgSlug}/integrations2/${input.definition.key}?tab=capabilities`,
+        sourceIcon: input.definition.iconSrc,
+        sourceKey: input.definition.key,
+        sourceLabel: input.definition.label,
+        sourceType: "integration",
+      };
+    }),
+  );
+}
+
+export async function listManagedIntegrationCapabilitiesForOrganization(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    return [];
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [runtimeDefinition.key],
+      tenantId: authorizedTenant.tenantId,
+    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [runtimeDefinition],
+        rows,
+      },
+    );
+    const policies = tenantIntegrationId
+      ? await listTenantIntegrationCapabilityPolicies({
+          tenantIntegrationId,
+        })
+      : new Map();
+
+    return buildManagedIntegrationCapabilityRows({
+      definition: runtimeDefinition,
+      orgSlug: input.orgSlug,
+      policies,
+      status,
+    });
+  });
+}
+
+export async function listWorkspaceManagedIntegrationCapabilities(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: authorizedTenant.tenantId,
+    });
+    const installedProviderKeys = [
+      ...new Set(rows.map((row) => row.providerKey)),
+    ].sort((left, right) => left.localeCompare(right));
+    const definitions = installedProviderKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
+          >;
+        } => Boolean(definition?.runtimeSurface),
+      );
+
+    const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+    const capabilityRows = await Promise.all(
+      resolvedDefinitions.map(
+        async ({ definition, status, tenantIntegrationId }) => {
+          const policies = tenantIntegrationId
+            ? await listTenantIntegrationCapabilityPolicies({
+                tenantIntegrationId,
+              })
+            : new Map();
+
+          return buildManagedIntegrationCapabilityRows({
+            definition,
+            orgSlug: input.orgSlug,
+            policies,
+            status,
+          });
+        },
+      ),
+    );
+
+    return capabilityRows.flat().sort((left, right) => {
+      if (left.sourceLabel !== right.sourceLabel) {
+        return left.sourceLabel.localeCompare(right.sourceLabel);
+      }
+
+      if (left.capabilityType !== right.capabilityType) {
+        return left.capabilityType === "trigger" ? -1 : 1;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  });
+}
+
+export async function updateManagedIntegrationCapabilityPolicy(input: {
+  capabilityKey: string;
+  orgSlug: string;
+  policy: { policy: "allow" | "block" };
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Workspace is not available.");
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    throw new Error(
+      `Managed integration ${input.providerKey} is not available.`,
+    );
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const command = listIntegrationCommands({
+    definition: runtimeDefinition,
+  }).find((entry) => entry.commandKey === input.capabilityKey);
+
+  if (!command) {
+    throw new Error(
+      `${definition.label} does not expose the ${input.capabilityKey} capability.`,
+    );
+  }
+
+  if (!isCommandUserControllable(command)) {
+    throw new Error(
+      `${definition.label} does not allow workspace policy changes for ${command.commandKey}.`,
+    );
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(tenantIntegrations.providerKey, runtimeDefinition.key),
+      ),
+    )
+    .limit(1);
+
+  if (!integration) {
+    throw new Error(
+      `${definition.label} must be connected before capability policy can be updated.`,
+    );
+  }
+
+  await upsertTenantIntegrationCapabilityPolicy({
+    capabilityKey: command.commandKey,
+    policy: input.policy,
+    tenantIntegrationId: integration.id,
+  });
+
+  const rows = await listManagedIntegrationCapabilitiesForOrganization({
+    orgSlug: input.orgSlug,
+    providerKey: runtimeDefinition.key,
+    userExternalId: input.userExternalId,
+  });
+  const row = rows.find((entry) => entry.commandKey === command.commandKey);
+
+  if (!row) {
+    throw new Error(
+      "Capability policy was updated but the capability could not be reloaded.",
+    );
+  }
+
+  return row;
 }
 
 export async function getTenantManagedIntegrationConnectContext(input: {
@@ -7633,7 +8339,6 @@ export async function ensureCurrentTenantDesiredStateVersion(input: {
   tenantId: string;
 }) {
   const db = getDb();
-
   return db.transaction(async (tx) =>
     ensureCurrentTenantDesiredStateVersionTx(tx, {
       tenantId: input.tenantId,
@@ -8149,6 +8854,7 @@ async function ensureCurrentTenantDesiredStateVersionTx(
     tenantId: string;
   },
 ) {
+  await configureDesiredStateTransactionTimeouts(tx);
   const [latestDesiredState] = await tx
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -8199,6 +8905,15 @@ async function compileTenantDesiredStateConfig(
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
   });
+  await ensureTenantSystemManagedSkillsForTenantTx(tx, {
+    tenantId,
+  });
+  const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(
+    tx,
+    {
+      tenantId,
+    },
+  );
   const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
     tx
       .select({
@@ -8245,6 +8960,9 @@ async function compileTenantDesiredStateConfig(
     integrations: [],
     locale: workspace?.locale ?? "en-US",
     managedConfigVersion: managedConfig.version,
+    managedSkills: {
+      versions: managedSkillVersionMap,
+    },
     media: {},
     prompts: {},
     timeFormat: workspace?.timeFormatPreference ?? "auto",
@@ -8362,6 +9080,18 @@ async function compileTenantDesiredStateConfig(
   }
 
   return config;
+}
+
+async function configureDesiredStateTransactionTimeouts(tx: DbTransaction) {
+  await tx.execute(
+    sql`select set_config('lock_timeout', ${DESIRED_STATE_LOCK_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('statement_timeout', ${DESIRED_STATE_STATEMENT_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('idle_in_transaction_session_timeout', ${DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT}, true)`,
+  );
 }
 
 async function getOrCreateTenantSlackRuntimeConfigEntry(
@@ -9555,6 +10285,38 @@ export function getManagedConfigVersionFromConfigJson(configJson: unknown) {
   }
 
   return managedConfigVersion;
+}
+
+export function getManagedSkillVersionMapFromConfigJson(configJson: unknown) {
+  const config = parseRecord(configJson);
+  const managedSkills =
+    config.managedSkills &&
+    typeof config.managedSkills === "object" &&
+    !Array.isArray(config.managedSkills)
+      ? (config.managedSkills as Record<string, unknown>)
+      : null;
+  const versions =
+    managedSkills?.versions &&
+    typeof managedSkills.versions === "object" &&
+    !Array.isArray(managedSkills.versions)
+      ? (managedSkills.versions as Record<string, unknown>)
+      : null;
+
+  if (!versions) {
+    return null;
+  }
+
+  const parsedVersions: Record<string, number> = {};
+
+  for (const [skillKey, value] of Object.entries(versions)) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      continue;
+    }
+
+    parsedVersions[skillKey] = value;
+  }
+
+  return parsedVersions;
 }
 
 function createManagedFileChecksum(input: {

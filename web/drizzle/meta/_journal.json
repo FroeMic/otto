@@ -288,6 +288,27 @@
       "when": 1775567280840,
       "tag": "0040_blue_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1775570400000,
+      "tag": "0041_command_key_audits",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1775572548000,
+      "tag": "0042_managed_skills_increment_1",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1775606400000,
+      "tag": "0043_capability_policy",
+      "breakpoints": true
     }
   ]
 }

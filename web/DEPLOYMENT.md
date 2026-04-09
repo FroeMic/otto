@@ -93,7 +93,7 @@ IMAGE_REVISION=1 ./publish-runtime-image.sh
 Then set:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.5.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.8.1
 ```
 
 on the control-plane host before rebuilding the production stack.

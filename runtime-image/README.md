@@ -5,10 +5,20 @@ upstream OpenClaw image with Otto-specific runtime plugins.
 
 ## Current contents
 
-- bundled `otto-managed-config` plugin under `/app/extensions/otto-managed-config`
-- bundled `otto-runtime-config` plugin under `/app/extensions/otto-runtime-config`
-- bundled `otto-integrations` plugin under `/app/extensions/otto-integrations`
+- bundled `otto-managed-config` plugin under `/app/dist/extensions/otto-managed-config`
+- bundled `otto-runtime-config` plugin under `/app/dist/extensions/otto-runtime-config`
+- bundled `otto-integrations` plugin under `/app/dist/extensions/otto-integrations`
+- bundled `otto-session-reporter` plugin under `/app/dist/extensions/otto-session-reporter`
+- bundled `otto-ai-provider` plugin under `/app/dist/extensions/otto-ai-provider`
 - Otto-owned WhatsApp QR helper under `/app/otto-helpers/whatsapp-qr-login.mjs`
+
+OpenClaw `2026.4.8` resolves bundled plugins from `/app/dist/extensions` in the
+published image. Copying Otto-owned plugins into `/app/extensions` leaves them
+undiscoverable at runtime.
+
+The image also creates `/home/node/.openclaw` with restrictive defaults, and
+Otto's runtime apply path hardens the mounted runtime home to match doctor
+expectations (`700` on the state dir, `600` on `openclaw.json`).
 
 ## Build
 
@@ -29,15 +39,15 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
-  -t ghcr.io/froemic/otto-openclaw:2026.4.5.1 .
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.8 \
+  -t ghcr.io/froemic/otto-openclaw:2026.4.8.1 .
 ```
 
 With the helper:
 
 ```bash
 IMAGE_REVISION=1 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.5 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.8 \
 ./publish-runtime-image.sh
 ```
 
@@ -72,7 +82,7 @@ IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 Point the control plane at the published custom image:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.5.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.8.1
 ```
 
 Tenant provisioning and later `apply_tenant_config` runs will then pull this

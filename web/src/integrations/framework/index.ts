@@ -1,4 +1,12 @@
-export { executeRegisteredIntegrationFunction } from "./execute";
+export type { ResolvedIntegrationCommandCapability } from "./capabilities";
+export {
+  buildResolvedIntegrationCommandCapability,
+  getCommandEffect,
+  isCommandUserControllable,
+  listIntegrationCommands,
+  resolveCommandCapabilityState,
+} from "./capabilities";
+export { executeRegisteredIntegrationCommand } from "./execute";
 export { buildRuntimeIntegrationManifestForKeys } from "./manifest";
 export {
   getIntegrationDefinition,
@@ -10,24 +18,39 @@ export {
 } from "./registry";
 export {
   buildIntegrationOverviewEntry,
-  buildRuntimeIntegrationFunctionMatch,
-  buildRuntimeIntegrationResponse,
+  buildRuntimeIntegrationCommandMatch,
+  buildRuntimeIntegrationDetailsResponse,
+  buildRuntimeIntegrationSummaryResponse,
 } from "./runtime-response";
-export { findIntegrationFunctionMatches } from "./search";
+export { collectCommands, findIntegrationCommandMatches } from "./search";
 export type {
+  IntegrationCapabilityPolicy,
+  IntegrationCommandDefinition,
+  IntegrationCommandEffect,
+  IntegrationCommandExecute,
+  IntegrationCommandGroupDefinition,
+  IntegrationCommandInputMode,
+  IntegrationCommandResultMode,
+  IntegrationCommandValidate,
   IntegrationDefinition,
   IntegrationExecutionContext,
   IntegrationOauthBinding,
-  IntegrationOperationDefinition,
   IntegrationOverviewEntry,
   IntegrationOverviewItemProps,
   IntegrationPageProps,
-  IntegrationRuntimeToolDefinition,
-  RuntimeIntegrationFunctionMatch,
+  IntegrationRuntimeCommandDefinition,
+  IntegrationRuntimeCommandGroupDefinition,
+  IntegrationRuntimeSurfaceDefinition,
+  IntegrationSettingsDefinition,
+  RuntimeCapabilityState,
+  RuntimeIntegrationCommandDetails,
+  RuntimeIntegrationCommandGroupDetails,
+  RuntimeIntegrationCommandGroupSummary,
+  RuntimeIntegrationCommandMatch,
+  RuntimeIntegrationCommandSummary,
+  RuntimeIntegrationDetailsResponse,
   RuntimeIntegrationManifestEntry,
-  RuntimeIntegrationOperationExecutionGuide,
-  RuntimeIntegrationOperationResponse,
-  RuntimeIntegrationResponse,
   RuntimeIntegrationStatus,
+  RuntimeIntegrationSummaryResponse,
   RuntimeIntegrationUsageGuide,
 } from "./types";

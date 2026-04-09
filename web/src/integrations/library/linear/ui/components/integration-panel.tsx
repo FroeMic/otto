@@ -7,8 +7,10 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
+import type { CapabilityInventoryRow } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
+import { CapabilityInventoryTable } from "@/app/[orgSlug]/(app)/capabilities2/_components/capability-inventory-table";
 import {
   SettingsCard,
   SettingsPage,
@@ -24,7 +26,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AgentCapability, AgentCapabilityDirection } from "@/tools/types";
 
 import { LinearConnectButton } from "./connect-button";
 
@@ -42,10 +43,11 @@ type LinearIntegrationSummary = {
 };
 
 type Props = {
-  agentCapabilities: AgentCapability[];
   canConnect: boolean;
+  capabilityRows: CapabilityInventoryRow[];
   connectActionLabel: string;
   connectUrl: string;
+  hasConfiguration: boolean;
   iconSrc: string | null;
   orgSlug: string;
   pageDescription: string;
@@ -53,31 +55,6 @@ type Props = {
   summary: LinearIntegrationSummary | null;
   uiState: LinearIntegrationUiState;
 };
-
-const capabilityDirectionConfig: Record<
-  AgentCapabilityDirection,
-  { label: string; order: number }
-> = {
-  trigger: { label: "Session triggers", order: 0 },
-  tool: { label: "Tools", order: 1 },
-  read: { label: "Read access", order: 2 },
-};
-
-function groupCapabilities(capabilities: AgentCapability[]) {
-  const groups = new Map<AgentCapabilityDirection, AgentCapability[]>();
-
-  for (const capability of capabilities) {
-    const current = groups.get(capability.direction) ?? [];
-    current.push(capability);
-    groups.set(capability.direction, current);
-  }
-
-  return [...groups.entries()].sort(
-    ([left], [right]) =>
-      capabilityDirectionConfig[left].order -
-      capabilityDirectionConfig[right].order,
-  );
-}
 
 function updateQueryString(
   pathname: string,
@@ -146,14 +123,6 @@ function getStatusAlert(input: {
   return null;
 }
 
-function getConfigurationSummary(state: LinearIntegrationUiState) {
-  if (state === "connected") {
-    return "Manage the defaults Otto should use when it searches Linear and prepares issue follow-up work.";
-  }
-
-  return "Connect Linear to choose workspace defaults for issue search, project context, and issue creation.";
-}
-
 async function readJson(response: Response) {
   try {
     return (await response.json()) as Record<string, unknown>;
@@ -164,10 +133,11 @@ async function readJson(response: Response) {
 
 export function LinearIntegrationPanel(props: Props) {
   const {
-    agentCapabilities,
     canConnect,
+    capabilityRows,
     connectActionLabel,
     connectUrl,
+    hasConfiguration,
     iconSrc,
     orgSlug,
     pageDescription,
@@ -183,14 +153,11 @@ export function LinearIntegrationPanel(props: Props) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
   const transientConnectError = searchParams.get("linear_error");
-  const currentTab: "capabilities" | "status" | "configuration" =
-    tabParam === "status" || tabParam === "configuration"
+  const currentTab =
+    tabParam === "capabilities" ||
+    (hasConfiguration && tabParam === "configuration")
       ? tabParam
-      : "capabilities";
-  const capabilityGroups = useMemo(
-    () => groupCapabilities(agentCapabilities),
-    [agentCapabilities],
-  );
+      : "status";
   const statusAlert = getStatusAlert({
     error: transientConnectError ?? summary?.lastError ?? null,
     state: uiState,
@@ -201,14 +168,14 @@ export function LinearIntegrationPanel(props: Props) {
       tabParam &&
       tabParam !== "capabilities" &&
       tabParam !== "status" &&
-      tabParam !== "configuration"
+      (!hasConfiguration || tabParam !== "configuration")
     ) {
       router.replace(
-        updateQueryString(pathname, searchParams, { tab: "capabilities" }),
+        updateQueryString(pathname, searchParams, { tab: "status" }),
         { scroll: false },
       );
     }
-  }, [pathname, router, searchParams, tabParam]);
+  }, [hasConfiguration, pathname, router, searchParams, tabParam]);
 
   async function postJson(url: string, body: Record<string, unknown>) {
     const response = await fetch(url, {
@@ -261,6 +228,10 @@ export function LinearIntegrationPanel(props: Props) {
   }
 
   function setTopLevelTab(value: "capabilities" | "status" | "configuration") {
+    if (value === "configuration" && !hasConfiguration) {
+      return;
+    }
+
     router.replace(
       updateQueryString(pathname, searchParams, {
         tab: value,
@@ -270,8 +241,8 @@ export function LinearIntegrationPanel(props: Props) {
   }
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6 pb-12">
-      <section className="flex flex-col gap-4">
+    <div className="flex w-full max-w-none flex-col gap-6 pb-12">
+      <section className="flex max-w-3xl flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
@@ -315,48 +286,24 @@ export function LinearIntegrationPanel(props: Props) {
 
       <Tabs onValueChange={setTopLevelTab} value={currentTab}>
         <TabsList>
-          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+          {hasConfiguration ? (
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="capabilities">
-          <SettingsPage className="mx-0 max-w-none">
-            <div className="flex flex-col gap-8">
-              {capabilityGroups.map(([direction, capabilities]) => (
-                <SettingsSection key={direction}>
-                  <SettingsSectionTitle>
-                    {capabilityDirectionConfig[direction].label}
-                  </SettingsSectionTitle>
-                  <SettingsSectionDescription>
-                    {direction === "read"
-                      ? "What Otto can read from Linear."
-                      : direction === "tool"
-                        ? "What Otto can do in Linear."
-                        : "How Otto can react when Linear is connected."}
-                  </SettingsSectionDescription>
-                  <SettingsCard>
-                    {capabilities.map((capability) => (
-                      <SettingsRow key={capability.key}>
-                        <SettingsRowLabel>
-                          <SettingsRowTitle>
-                            {capability.label}
-                          </SettingsRowTitle>
-                          <SettingsRowDescription>
-                            {capability.description}
-                          </SettingsRowDescription>
-                        </SettingsRowLabel>
-                      </SettingsRow>
-                    ))}
-                  </SettingsCard>
-                </SettingsSection>
-              ))}
-            </div>
-          </SettingsPage>
+          <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
+            <CapabilityInventoryTable
+              rows={capabilityRows}
+              showSource={false}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="status">
-          <SettingsPage className="mx-0 max-w-none">
+          <SettingsPage className="mx-0 mt-4 max-w-3xl">
             <div className="flex flex-col gap-8">
               <SettingsSection>
                 <SettingsSectionTitle>Connection</SettingsSectionTitle>
@@ -454,55 +401,7 @@ export function LinearIntegrationPanel(props: Props) {
           </SettingsPage>
         </TabsContent>
 
-        <TabsContent value="configuration">
-          <SettingsPage className="mx-0 max-w-none">
-            <div className="flex flex-col gap-8">
-              <SettingsSection>
-                <SettingsSectionTitle>Workspace defaults</SettingsSectionTitle>
-                <SettingsSectionDescription>
-                  {getConfigurationSummary(uiState)}
-                </SettingsSectionDescription>
-                <SettingsCard>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Default team</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Choose the Linear team Otto should prefer for new work.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Default project</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Set the project Otto should use when it drafts issue
-                        follow-up.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Issue creation mode</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Decide whether Otto drafts work for review or creates
-                        issues directly.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant="secondary">
-                      Available after connection
-                    </Badge>
-                  </SettingsRow>
-                </SettingsCard>
-              </SettingsSection>
-            </div>
-          </SettingsPage>
-        </TabsContent>
+        {hasConfiguration ? <TabsContent value="configuration" /> : null}
       </Tabs>
     </div>
   );

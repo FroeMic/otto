@@ -1,11 +1,13 @@
-import { buildRuntimeIntegrationFunctionMatch } from "./runtime-response";
+import { buildRuntimeIntegrationCommandMatch } from "./runtime-response";
 import type {
   IntegrationDefinition,
-  RuntimeIntegrationFunctionMatch,
+  IntegrationRuntimeCommandDefinition,
+  IntegrationRuntimeCommandGroupDefinition,
+  RuntimeIntegrationCommandMatch,
 } from "./types";
 
 type RuntimeDefinitionWithStatus = IntegrationDefinition & {
-  runtimeTool: NonNullable<IntegrationDefinition["runtimeTool"]>;
+  runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
   status: {
     connected: boolean;
     connectionStatus: string | null;
@@ -15,17 +17,17 @@ type RuntimeDefinitionWithStatus = IntegrationDefinition & {
   };
 };
 
-type ScoredOperationMatch = {
+type ScoredCommandMatch = {
+  command: IntegrationRuntimeCommandDefinition;
   definition: RuntimeDefinitionWithStatus;
-  operation: RuntimeDefinitionWithStatus["runtimeTool"]["operations"][number];
   reason: string;
   score: number;
 };
 
-export function findIntegrationFunctionMatches(input: {
+export function findIntegrationCommandMatches(input: {
   definitions: RuntimeDefinitionWithStatus[];
   query: string;
-}): RuntimeIntegrationFunctionMatch[] {
+}): RuntimeIntegrationCommandMatch[] {
   const normalizedQuery = input.query.trim().toLowerCase();
 
   if (!normalizedQuery) {
@@ -33,13 +35,13 @@ export function findIntegrationFunctionMatches(input: {
   }
 
   const queryTokens = tokenize(normalizedQuery);
-  const matches: ScoredOperationMatch[] = [];
+  const matches: ScoredCommandMatch[] = [];
 
   for (const definition of input.definitions) {
-    for (const operation of definition.runtimeTool.operations) {
-      const scored = scoreOperationMatch({
+    for (const command of collectCommands(definition.runtimeSurface)) {
+      const scored = scoreCommandMatch({
+        command,
         definition,
-        operation,
         query: normalizedQuery,
         tokens: queryTokens,
       });
@@ -62,24 +64,44 @@ export function findIntegrationFunctionMatches(input: {
         return left.definition.key.localeCompare(right.definition.key);
       }
 
-      return left.operation.key.localeCompare(right.operation.key);
+      return left.command.commandKey.localeCompare(right.command.commandKey);
     })
     .map((match) =>
-      buildRuntimeIntegrationFunctionMatch({
+      buildRuntimeIntegrationCommandMatch({
+        command: match.command,
         definition: match.definition,
-        operation: match.operation,
         reason: match.reason,
         status: match.definition.status,
       }),
     );
 }
 
-function scoreOperationMatch(input: {
+export function collectCommands(surface: {
+  commandGroups: IntegrationRuntimeCommandGroupDefinition[];
+  rootCommands: IntegrationRuntimeCommandDefinition[];
+}): IntegrationRuntimeCommandDefinition[] {
+  return [
+    ...surface.rootCommands,
+    ...surface.commandGroups.flatMap(collectCommandsFromGroup),
+  ];
+}
+
+function collectCommandsFromGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+): IntegrationRuntimeCommandDefinition[] {
+  return [
+    ...(group.commands ?? []),
+    ...((group.childGroups ?? []).flatMap(collectCommandsFromGroup) ?? []),
+  ];
+}
+
+function scoreCommandMatch(input: {
+  command: IntegrationRuntimeCommandDefinition;
   definition: RuntimeDefinitionWithStatus;
-  operation: RuntimeDefinitionWithStatus["runtimeTool"]["operations"][number];
   query: string;
   tokens: string[];
-}): ScoredOperationMatch {
+}): ScoredCommandMatch {
+  const groupPathText = input.command.commandPath.slice(0, -1).join(" ");
   const searchableFields = [
     {
       text: input.definition.key,
@@ -102,29 +124,35 @@ function scoreOperationMatch(input: {
       reason: `${input.definition.label} catalog description matches the request.`,
     },
     {
-      text: input.operation.key,
-      weight: 16,
-      reason: `${input.operation.key} matches the requested function.`,
-    },
-    {
-      text: input.operation.label,
+      text: input.command.commandKey,
       weight: 18,
-      reason: `${input.operation.label} is the best matching function.`,
+      reason: `${input.command.commandKey} matches the requested command.`,
     },
     {
-      text: input.operation.description,
+      text: groupPathText,
+      weight: 10,
+      reason: `${groupPathText || input.definition.label} is the best matching command group.`,
+    },
+    {
+      text: input.command.label,
+      weight: 18,
+      reason: `${input.command.label} is the best matching command.`,
+    },
+    {
+      text: input.command.description,
       weight: 14,
-      reason: input.operation.description,
+      reason: input.command.description,
     },
   ];
 
   const keywordTexts = [
-    ...(input.operation.intentKeywords ?? []),
-    ...(input.operation.usageNotes ?? []),
+    ...(input.command.intentKeywords ?? []),
+    ...(input.command.usageNotes ?? []),
+    ...input.command.commandPath,
   ];
 
   let score = 0;
-  let bestReason = `${input.definition.label} ${input.operation.label} matches the request.`;
+  let bestReason = `${input.definition.label} ${input.command.label} matches the request.`;
 
   for (const field of searchableFields) {
     const normalizedField = field.text.trim().toLowerCase();
@@ -167,7 +195,7 @@ function scoreOperationMatch(input: {
 
     if (normalizedKeyword === input.query) {
       score += 18;
-      bestReason = `${input.operation.label} is tagged for this kind of request.`;
+      bestReason = `${input.command.label} is tagged for this kind of request.`;
       continue;
     }
 
@@ -179,13 +207,13 @@ function scoreOperationMatch(input: {
       )
     ) {
       score += 10;
-      bestReason = `${input.operation.label} is tagged for this kind of request.`;
+      bestReason = `${input.command.label} is tagged for this kind of request.`;
     }
   }
 
   return {
+    command: input.command,
     definition: input.definition,
-    operation: input.operation,
     reason: bestReason,
     score,
   };

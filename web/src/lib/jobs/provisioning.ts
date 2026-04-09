@@ -7,9 +7,14 @@ import {
   getLatestTenantDesiredState,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
+  getManagedSkillVersionMapFromConfigJson,
   getTenantManagedConfigByVersion,
   getTenantSlackBotToken,
 } from "@/db/control-plane";
+import {
+  listLatestTenantManagedSkillVersionMapForTenant,
+  listProjectedManagedSkillFilesForTenant,
+} from "@/db/managed-skills";
 import {
   getProviderAccountByTenantAndKey,
   getTenantOpenAiApiKey,
@@ -478,6 +483,15 @@ async function bootstrapRuntime(
           version: managedConfigVersion,
         })
       : await getLatestTenantManagedConfig(payload.tenantId);
+    const managedSkillVersionMap =
+      getManagedSkillVersionMapFromConfigJson(desiredState.configJson) ??
+      (await listLatestTenantManagedSkillVersionMapForTenant({
+        tenantId: payload.tenantId,
+      }));
+    const managedSkillFiles = await listProjectedManagedSkillFilesForTenant({
+      tenantId: payload.tenantId,
+      versionMap: managedSkillVersionMap,
+    });
 
     await runtimeManager.bootstrapTenantRuntime(
       {
@@ -492,6 +506,10 @@ async function bootstrapRuntime(
         managedBootstrapFiles: managedConfig.files.map((file) => ({
           contents: file.renderedContent,
           filename: file.path,
+        })),
+        managedSkillFiles: managedSkillFiles.map((file) => ({
+          contents: file.contents,
+          filename: file.relativePath,
         })),
         openClawConfig: buildOpenClawTenantConfig({
           configJson: desiredState.configJson,

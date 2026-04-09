@@ -3,6 +3,7 @@ import {
   normalizeTimeZone,
 } from "@/lib/date-time";
 import { getControlPlaneBaseUrl, getEnv } from "@/lib/env";
+import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "@/lib/managed-skills/system-skills";
 import { validateOpenClawSlackConfig } from "@/lib/openclaw/slack-schema";
 import {
   getDefaultSlackRuntimeConfig,
@@ -52,6 +53,7 @@ export type OpenClawTenantConfig = {
   ottoProviderPlugins?: Array<{
     id: string;
   }>;
+  bundledSkillAllowlist?: string[];
   primaryModel?: string;
   timeFormat?: "12" | "24" | "auto";
   slack?: {
@@ -91,6 +93,52 @@ export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events";
 
 const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
+const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
+  "amazon-bedrock",
+  "amazon-bedrock-mantle",
+  "anthropic",
+  "anthropic-vertex",
+  "arcee",
+  "byteplus",
+  "chutes",
+  "cloudflare-ai-gateway",
+  "comfy",
+  "copilot-proxy",
+  "deepseek",
+  "fal",
+  "fireworks",
+  "github-copilot",
+  "google",
+  "huggingface",
+  "kilocode",
+  "kimi",
+  "litellm",
+  "memory-core",
+  "microsoft-foundry",
+  "minimax",
+  "mistral",
+  "moonshot",
+  "nvidia",
+  "ollama",
+  "openai",
+  "opencode",
+  "opencode-go",
+  "openrouter",
+  "qianfan",
+  "qwen",
+  "sglang",
+  "stepfun",
+  "synthetic",
+  "together",
+  "venice",
+  "vercel-ai-gateway",
+  "vllm",
+  "volcengine",
+  "vydra",
+  "xai",
+  "xiaomi",
+  "zai",
+] as const;
 
 function buildWebSearchPluginEntries(
   webSearch: OpenClawWebSearchConfig | undefined,
@@ -176,7 +224,24 @@ function normalizeProviderId(value: string) {
   return value.trim().toLowerCase();
 }
 
+function buildDefaultDisabledPluginEntries(): Record<
+  string,
+  {
+    enabled: false;
+  }
+> {
+  return Object.fromEntries(
+    DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS.map((pluginId) => [
+      pluginId,
+      { enabled: false as const },
+    ]),
+  );
+}
+
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
+  const bundledSkillAllowlist = config.bundledSkillAllowlist ?? [
+    ...DEFAULT_BUNDLED_SKILL_ALLOWLIST,
+  ];
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
   const ottoToolPluginEntries = Object.fromEntries(
@@ -202,6 +267,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   );
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
+  const defaultDisabledPluginEntries = buildDefaultDisabledPluginEntries();
   const pluginIds = [
     ...new Set([
       ...ottoToolPluginIds,
@@ -210,6 +276,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ]),
   ];
   const pluginEntries = {
+    ...defaultDisabledPluginEntries,
     ...ottoToolPluginEntries,
     ...ottoProviderPluginEntries,
     ...webSearchPluginEntries,
@@ -412,6 +479,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           workspace: config.workspacePath,
         },
       },
+      skills: {
+        allowBundled: bundledSkillAllowlist,
+      },
       ...(config.modelProviders
         ? {
             models: {
@@ -434,6 +504,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
       tools: {
         ...(pluginTools ?? {}),
         ...execTools,
+        experimental: {
+          planTool: false,
+        },
         ...(mediaTools ?? {}),
         ...(webTools ?? {}),
       },
@@ -520,10 +593,13 @@ export function buildOpenClawTenantConfig(input: {
       : [],
     ...(proxyModelConfig
       ? {
+          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
           modelProviders: proxyModelConfig.modelProviders,
           ottoProviderPlugins: proxyModelConfig.plugins,
         }
-      : {}),
+      : {
+          bundledSkillAllowlist: [...DEFAULT_BUNDLED_SKILL_ALLOWLIST],
+        }),
     primaryModel,
     prompts: parseStringRecord(config.prompts),
     timeFormat,
@@ -532,6 +608,10 @@ export function buildOpenClawTenantConfig(input: {
           ottoPlugins: [
             {
               id: "otto-managed-config",
+              timeoutMs: 15_000,
+            },
+            {
+              id: "otto-managed-skills",
               timeoutMs: 15_000,
             },
             {

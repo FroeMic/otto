@@ -1,5 +1,8 @@
 import { getIntegrationDefinition } from "./registry";
-import type { RuntimeIntegrationManifestEntry } from "./types";
+import type {
+  IntegrationRuntimeCommandGroupDefinition,
+  RuntimeIntegrationManifestEntry,
+} from "./types";
 
 export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
   const manifest: RuntimeIntegrationManifestEntry[] = [];
@@ -14,29 +17,44 @@ export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
 
     const definition = getIntegrationDefinition(key);
 
-    if (!definition?.runtimeTool) {
+    if (!definition?.runtimeSurface) {
       continue;
     }
 
     seen.add(key);
     manifest.push({
+      commandGroups: definition.runtimeSurface.commandGroups.map((group) => ({
+        commandCount: countCommandsInGroup(group),
+        groupKey: group.groupKey,
+        groupPath: [...group.groupPath],
+        label: group.label,
+      })),
       description: definition.description,
       key: definition.key,
       label: definition.label,
-      operations: definition.runtimeTool.operations.map((operation) => ({
-        description: operation.description,
-        key: operation.key,
-        label: operation.label,
-        parametersSchema: JSON.parse(
-          JSON.stringify(operation.parametersSchema),
-        ),
+      rootCommands: definition.runtimeSurface.rootCommands.map((command) => ({
+        commandKey: command.commandKey,
+        commandPath: [...command.commandPath],
+        label: command.label,
       })),
-      toolDescription: definition.runtimeTool.toolDescription,
-      toolName: definition.runtimeTool.toolName,
+      toolDescription: definition.runtimeSurface.toolDescription,
+      toolName: definition.runtimeSurface.toolName,
     });
   }
 
   manifest.sort((left, right) => left.key.localeCompare(right.key));
 
   return manifest;
+}
+
+function countCommandsInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+): number {
+  return (
+    (group.commands?.length ?? 0) +
+    (group.childGroups?.reduce(
+      (total, childGroup) => total + countCommandsInGroup(childGroup),
+      0,
+    ) ?? 0)
+  );
 }

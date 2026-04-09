@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { listRuntimeIntegrationsForTenant } from "@/db/control-plane";
+import {
+  listRuntimeIntegrationCatalogForTenant,
+  listRuntimeIntegrationsForTenant,
+} from "@/db/control-plane";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
@@ -8,19 +11,29 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const integrations = await listRuntimeIntegrationsForTenant({
-      tenantId,
-    });
+    const url = new URL(request.url);
+    const scope = (url.searchParams.get("scope") ?? "installed")
+      .trim()
+      .toLowerCase();
+    const integrations =
+      scope === "available" || scope === "all"
+        ? await listRuntimeIntegrationCatalogForTenant({
+            tenantId,
+          })
+        : await listRuntimeIntegrationsForTenant({
+            tenantId,
+          });
 
     console.info(
-      `[runtime-integrations] list-installed tenant=${tenantId} count=${integrations.length} keys=${integrations.map((integration) => integration.key).join(",") || "none"}`,
+      `[runtime-integrations] list tenant=${tenantId} scope=${scope} count=${integrations.length} keys=${integrations.map((integration) => integration.key).join(",") || "none"}`,
     );
 
     return json({
       integrations,
+      scope,
     });
   } catch (error) {
-    console.error("[runtime-integrations] list-installed failed", error);
+    console.error("[runtime-integrations] list failed", error);
     return handleRuntimeRouteError(error);
   }
 }

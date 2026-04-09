@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { getWorkOSAuthConfig, hasWorkOSConfig } from "@/lib/workos";
 
-export function proxy(request: NextRequest, event: NextFetchEvent) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
   if (!hasWorkOSConfig()) {
     return NextResponse.next();
   }
@@ -12,8 +12,9 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
   const authMiddleware = authkitMiddleware({
     redirectUri: getWorkOSAuthConfig().redirectUri,
   });
+  const response = await authMiddleware(request, event);
 
-  return authMiddleware(request, event);
+  return response ?? NextResponse.next();
 }
 
 export const config = {

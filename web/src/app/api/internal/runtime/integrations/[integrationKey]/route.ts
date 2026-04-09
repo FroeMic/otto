@@ -37,7 +37,7 @@ export async function GET(
     }
 
     console.info(
-      `[runtime-integrations] get tenant=${tenantId} integration=${integration.key} enabled=${integration.status.enabled} connected=${integration.status.connected}`,
+      `[runtime-integrations] get-summary tenant=${tenantId} integration=${integration.key} enabled=${integration.status.enabled} connected=${integration.status.connected}`,
     );
 
     return json({

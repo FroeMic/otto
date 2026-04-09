@@ -21,26 +21,144 @@ describe("runtime integration registry", () => {
     assert.equal(manifest.length, 1);
     assert.equal(manifest[0]?.key, "linear");
     assert.equal(manifest[0]?.toolName, "linear");
-    assert.equal(manifest[0]?.operations[0]?.key, "search_issues");
+    assert.deepEqual(
+      manifest[0]?.commandGroups.map((group) => group.groupKey),
+      [
+        "attachment",
+        "customer_need",
+        "customer",
+        "customer_tier",
+        "customer_status",
+        "initiative",
+        "cycle",
+        "workspace",
+        "team",
+        "workspace_member",
+        "user",
+        "document",
+        "label",
+        "project_milestone",
+        "project_status",
+        "issue",
+        "project",
+        "comment",
+      ],
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "attachment",
+      )?.commandCount,
+      8,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "workspace")
+        ?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "team")
+        ?.commandCount,
+      14,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "workspace_member",
+      )?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "user")
+        ?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "document")
+        ?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "label")
+        ?.commandCount,
+      14,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_status",
+      )?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "project_milestone",
+      )?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "project_status",
+      )?.commandCount,
+      4,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_tier",
+      )?.commandCount,
+      5,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "customer_need",
+      )?.commandCount,
+      8,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "customer")
+        ?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find(
+        (group) => group.groupKey === "initiative",
+      )?.commandCount,
+      9,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "issue")
+        ?.commandCount,
+      16,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "project")
+        ?.commandCount,
+      13,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "cycle")
+        ?.commandCount,
+      6,
+    );
+    assert.equal(
+      manifest[0]?.commandGroups.find((group) => group.groupKey === "comment")
+        ?.commandCount,
+      5,
+    );
   });
 
-  it("returns a placeholder response for connected linear search", async () => {
+  it("returns a placeholder response for connected linear issue search", async () => {
     const result = (await executeRuntimeIntegrationStub({
-      integrationKey: "linear",
-      params: {
-        operation: "search_issues",
+      arguments: {
         query: "bug",
       },
+      commandKey: "issue.search",
+      integrationKey: "linear",
     })) as {
+      commandKey: string;
       integrationKey: string;
-      operation: string;
       source: string;
-      totalMatched: number;
     };
 
     assert.equal(result.integrationKey, "linear");
-    assert.equal(result.operation, "search_issues");
+    assert.equal(result.commandKey, "issue.search");
     assert.equal(result.source, "stub");
-    assert.equal(result.totalMatched, 0);
   });
 });

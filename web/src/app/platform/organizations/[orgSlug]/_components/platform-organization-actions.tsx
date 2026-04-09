@@ -77,7 +77,12 @@ export function PlatformOrganizationActions({
 
     try {
       const response = await fetch(endpoint, { method: "POST" });
-      const body = (await response.json().catch(() => null)) as {
+      const contentType = response.headers.get("content-type") ?? "";
+      const body = (
+        contentType.includes("application/json")
+          ? await response.json().catch(() => null)
+          : null
+      ) as {
         jobId?: string;
         message?: string;
       } | null;
@@ -89,14 +94,20 @@ export function PlatformOrganizationActions({
         );
       }
 
-      if (body?.jobId) {
-        setSyncMessage(
-          action === "provision-openai-key" && hasTenantOpenAiProvider
-            ? "Rotating OpenAI API Key"
-            : ACTION_LABELS[action],
+      if (!body?.jobId) {
+        throw new Error(
+          contentType.includes("application/json")
+            ? "Platform action returned no job id."
+            : "Platform action returned a non-JSON response.",
         );
-        setSyncJobId(body.jobId);
       }
+
+      setSyncMessage(
+        action === "provision-openai-key" && hasTenantOpenAiProvider
+          ? "Rotating OpenAI API Key"
+          : ACTION_LABELS[action],
+      );
+      setSyncJobId(body.jobId);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Platform action failed.",
