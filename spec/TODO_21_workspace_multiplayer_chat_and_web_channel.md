@@ -192,7 +192,11 @@ Current implementation status for Increment 1:
   - the dispatch path uses the `otto-workspace-chat` channel with a stable `workspace:<conversationId>` target and `--deliver`
 - the `otto-workspace-chat` runtime plugin now posts assistant completions back to the existing runtime callback route instead of throwing
 - the managed tenant OpenClaw config now enables `otto-workspace-chat` alongside the other Otto-owned plugins when the workspace base URL is available
-- `apps/web` UI work for workspace chat has not started yet and should remain paused until the backend slice is reviewed
+- the first `apps/web` workspace-chat UI slice now exists on the new app surface only:
+  - the conversation route is `/{workspaceSlug}/c/{conversationId}`
+  - `apps/web/src/features/workspace-chat` now owns the first feature-local UI files for API access, sidebar history, conversation detail, and message composition
+  - the workspace shell now shows a first conversation history section and create-conversation action
+  - the first browser path is polling-based and intentionally stops short of realtime fanout or streaming
 
 ## Frameworks And Packages To Use
 
@@ -926,7 +930,10 @@ Acceptance criteria:
 Implementation note:
 
 - before implementing this increment, read the current data architecture and confirm how `tenant_sessions`, `tenant_runtime_*`, and current OpenClaw session routing already work
-- current non-UI progress for this increment is limited to shared contracts, native `apps/api` route scaffolding, and the initial `otto-workspace-chat` plugin scaffold; persistence, tenant-bridge wiring, and all `apps/web` UI remain outstanding
+- Increment 1 now has a first complete non-streaming path in code:
+  - shared contracts, persisted `apps/api` conversation and message routes, tenant-runtime dispatch, and the initial `otto-workspace-chat` callback path all exist
+  - `apps/web` now has a first conversation route, detail page, message composer, and sidebar history section on the new app surface
+  - browser updates currently rely on TanStack Query polling rather than the planned realtime transport
 
 ### Increment 2: Shared history and sidebar
 
@@ -1171,7 +1178,8 @@ Implementation note:
 - [ ] define the Control Plane conversation schema and DB access layer
 - [ ] define the browser realtime protocol
 - [ ] define the tenant bridge protocol and auth model
-- [ ] implement the Control Plane conversation history and conversation detail routes
+- [x] implement the Control Plane conversation history and conversation detail routes
+- [x] implement the first `apps/web` conversation route and detail page at `/{workspaceSlug}/c/{conversationId}`
 - [ ] implement Control Plane browser fanout and replay
 - [ ] implement durable named conversation create, rename, favorite, and delivery-target flows
 - [ ] implement Slack and external surface reconciliation onto conversations

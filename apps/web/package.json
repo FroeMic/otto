@@ -24,6 +24,7 @@
     "@hono/node-server": "^1.19.6",
     "@otto/feature-billing": "workspace:*",
     "@otto/feature-user-profile": "workspace:*",
+    "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
     "@otto/feature-workspace-members": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",

@@ -26,6 +26,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
+import { ConversationHistorySidebarSection } from "@/features/workspace-chat/components/ConversationHistorySidebarSection"
 import { WorkspaceSwitcher } from "@/client/app/app-shell/WorkspaceSwitcher"
 
 export interface WorkspaceShellProps extends PropsWithChildren {
@@ -120,6 +121,8 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          <ConversationHistorySidebarSection orgSlug={orgSlug} />
 
           <SidebarGroup>
             <SidebarGroupLabel>Workspaces</SidebarGroupLabel>

@@ -233,7 +233,11 @@
     - `apps/api` now persists a workspace message and dispatches a first real tenant-runtime turn over SSH using `openclaw agent --deliver`
     - `runtime-plugins/otto-workspace-chat` now posts assistant completions back to `/api/internal/runtime/workspace-chat/messages/complete`
     - managed OpenClaw config now enables `otto-workspace-chat` in tenant runtimes when the workspace base URL is available
-    - no `apps/web` UI work has started yet; the next review point is still before any workspace chat UI is added
+  - the first `apps/web` chat UI slice now also exists on the new app surface:
+    - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
+    - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree
+    - the workspace shell now includes a first conversation history section with create-conversation and recency display
+    - the current browser path uses TanStack Query polling for freshness; realtime fanout and streaming are still the next slices
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.

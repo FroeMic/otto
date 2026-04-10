@@ -102,6 +102,7 @@ export async function handleWorkspaceChatConversationListRequest<
 export async function handleWorkspaceChatConversationCreateRequest<
   TUser extends WorkspaceChatUser,
 >(input: {
+  body?: WorkspaceChatConversationCreateRequest
   createConversation: (payload: {
     kind: WorkspaceChatConversationCreateRequest["kind"]
     orgSlug: string
@@ -120,9 +121,11 @@ export async function handleWorkspaceChatConversationCreateRequest<
   try {
     await input.syncUserFromSession(input.user)
 
-    const conversation = workspaceChatConversationCreateRequestSchema.parse(
-      await input.request.json(),
-    )
+    const conversation = input.body
+      ? workspaceChatConversationCreateRequestSchema.parse(input.body)
+      : workspaceChatConversationCreateRequestSchema.parse(
+          await input.request.json(),
+        )
     const result = await input.createConversation({
       kind: conversation.kind,
       orgSlug: input.orgSlug,
@@ -185,6 +188,7 @@ export async function handleWorkspaceChatConversationDetailRequest<
 export async function handleWorkspaceChatMessageCreateRequest<
   TUser extends WorkspaceChatUser,
 >(input: {
+  body?: WorkspaceChatMessageCreateRequest
   conversationId: string
   createMessage: (payload: {
     clientMessageId?: string
@@ -202,9 +206,9 @@ export async function handleWorkspaceChatMessageCreateRequest<
   try {
     await input.syncUserFromSession(input.user)
 
-    const message = workspaceChatMessageCreateRequestSchema.parse(
-      await input.request.json(),
-    )
+    const message = input.body
+      ? workspaceChatMessageCreateRequestSchema.parse(input.body)
+      : workspaceChatMessageCreateRequestSchema.parse(await input.request.json())
     const result = await input.createMessage({
       clientMessageId: message.clientMessageId,
       conversationId: input.conversationId,

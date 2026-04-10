@@ -84,6 +84,15 @@ describe("web app", () => {
     expect(text).toContain("/assets/workspace.js")
   })
 
+  it("serves workspace conversation routes from the same SPA entry", async () => {
+    const response = await app.request("http://localhost/acme/c/conv_123")
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain('id="root"')
+    expect(text).toContain("/assets/workspace.js")
+  })
+
   it("serves the platform route from the SPA entry", async () => {
     const response = await app.request("http://localhost/platform")
     const text = await response.text()

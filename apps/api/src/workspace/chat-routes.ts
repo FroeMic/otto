@@ -15,6 +15,8 @@ import {
   type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
   type WorkspaceChatUser,
+  workspaceChatConversationCreateRequestSchema,
+  workspaceChatMessageCreateRequestSchema,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -129,6 +131,7 @@ export function createWorkspaceChatRouter(
     .post(
       "/api/workspace/:orgSlug/chat/conversations",
       zValidator("param", workspaceParamsSchema),
+      zValidator("json", workspaceChatConversationCreateRequestSchema),
       async (context) => {
         const authResult = await authenticateUser(context.req.raw)
 
@@ -137,6 +140,7 @@ export function createWorkspaceChatRouter(
         }
 
         return handleWorkspaceChatConversationCreateRequest({
+          body: context.req.valid("json"),
           createConversation: dependencies.createConversation,
           orgSlug: context.req.valid("param").orgSlug,
           request: context.req.raw,
@@ -169,6 +173,7 @@ export function createWorkspaceChatRouter(
     .post(
       "/api/workspace/:orgSlug/chat/conversations/:conversationId/messages",
       zValidator("param", workspaceConversationParamsSchema),
+      zValidator("json", workspaceChatMessageCreateRequestSchema),
       async (context) => {
         const authResult = await authenticateUser(context.req.raw)
 
@@ -179,6 +184,7 @@ export function createWorkspaceChatRouter(
         const { conversationId, orgSlug } = context.req.valid("param")
 
         return handleWorkspaceChatMessageCreateRequest({
+          body: context.req.valid("json"),
           conversationId,
           createMessage: dependencies.createMessage,
           orgSlug,
