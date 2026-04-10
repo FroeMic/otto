@@ -27,6 +27,7 @@ const routeTitles: Record<string, string> = {
   integrations: "Integrations",
   tools: "Tools",
   skills: "Skills",
+  files: "Files",
   sessions: "Sessions",
   "scheduled-tasks": "Scheduled Tasks",
   settings: "Settings",
