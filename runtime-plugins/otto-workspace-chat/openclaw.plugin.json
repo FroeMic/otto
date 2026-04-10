@@ -1,0 +1,11 @@
+{
+  "id": "otto-workspace-chat",
+  "name": "Otto Workspace Chat",
+  "description": "Workspace chat channel scaffold for Otto-managed tenant runtimes.",
+  "channels": ["otto-workspace-chat"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

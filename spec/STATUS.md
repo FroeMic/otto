@@ -220,6 +220,16 @@
   - Otto should store full session transcripts in the control plane, not just summaries
   - an Otto-owned runtime plugin should be the primary sync path, using lifecycle hooks plus transcript-update events
   - a narrow reconciliation job should repair missed updates and stale terminal state, not replace the primary callback model
+- Workspace multiplayer chat and web-channel planning now lives in `TODO_21_workspace_multiplayer_chat_and_web_channel.md`:
+  - the workspace app should be the only browser-facing chat surface, with browsers talking only to the Control Plane
+  - the Control Plane should own canonical conversation state, multiplayer fanout, durable named conversations, uploads, and replay
+  - one workspace conversation may contain many OpenClaw session segments over time, with external surfaces such as Slack reconciled by canonical surface key
+  - the tenant server should remain the runtime-side bridge, and a dedicated `otto-workspace-chat` OpenClaw channel plugin should be the preferred runtime transport seam
+  - the first new-app-surface non-UI slice now exists:
+    - `packages/features/workspace-chat` owns the initial conversation and message request/response contracts plus native handler functions
+    - `apps/api` now mounts authenticated native workspace-chat routes for conversation list/create/detail/message-create
+    - `runtime-plugins/otto-workspace-chat` now exists as the initial bundled-channel scaffold and is layered into the runtime image
+    - no `apps/web` UI work has started yet; the next review point is before any workspace chat UI is added
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
@@ -690,6 +700,12 @@
   - shipping an `otto-session-reporter` runtime plugin that pushes lifecycle and transcript updates to the workspace app
   - adding a reconciliation worker job that repairs missed transcript or terminal-state updates
   - replacing the sessions placeholder route with real history and detail views
+- When workspace chat becomes active work, implement `TODO_21_workspace_multiplayer_chat_and_web_channel.md` by:
+  - finishing Increment 1 from the new-app-surface backend slice by adding the Control Plane conversation schema plus real persistence behind the existing `apps/api` workspace-chat routes
+  - adding the tenant bridge protocol, auth model, and local Gateway relay so the existing `otto-workspace-chat` plugin scaffold can deliver real runtime traffic
+  - only after that, start `apps/web` UI work for the first conversation detail slice
+  - then add the browser realtime protocol and multiplayer fanout layer
+  - then implement durable named conversations, delivery targets, and favorites support
 
 ## Open questions
 

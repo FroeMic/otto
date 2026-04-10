@@ -10,6 +10,7 @@ COPY --chown=node:node runtime-plugins/otto-integrations /app/dist/extensions/ot
 COPY --chown=node:node runtime-plugins/otto-session-reporter /app/dist/extensions/otto-session-reporter
 COPY --chown=node:node runtime-plugins/otto-ai-provider /app/dist/extensions/otto-ai-provider
 COPY --chown=node:node runtime-plugins/otto-web-provider /app/dist/extensions/otto-web-provider
+COPY --chown=node:node runtime-plugins/otto-workspace-chat /app/dist/extensions/otto-workspace-chat
 COPY --chown=node:node runtime-image/helpers /app/otto-helpers
 
 RUN install -d -o node -g node -m 700 /home/node/.openclaw \
@@ -28,6 +29,8 @@ RUN install -d -o node -g node -m 700 /home/node/.openclaw \
  && find /app/dist/extensions/otto-ai-provider -type f -exec chmod 644 {} + \
  && find /app/dist/extensions/otto-web-provider -type d -exec chmod 755 {} + \
  && find /app/dist/extensions/otto-web-provider -type f -exec chmod 644 {} + \
+ && find /app/dist/extensions/otto-workspace-chat -type d -exec chmod 755 {} + \
+ && find /app/dist/extensions/otto-workspace-chat -type f -exec chmod 644 {} + \
  && find /app/otto-helpers -type d -exec chmod 755 {} + \
  && find /app/otto-helpers -type f -exec chmod 755 {} +
 
