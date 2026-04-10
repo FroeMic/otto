@@ -26,6 +26,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
+import { WorkspaceSwitcher } from "@/client/app/app-shell/WorkspaceSwitcher"
 
 export interface WorkspaceShellProps extends PropsWithChildren {
   orgSlug: string
@@ -83,10 +84,20 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
             <div className="min-w-0 group-data-[collapsible=icon]:hidden">
               <p className="text-sm font-medium">Otto</p>
               <p className="truncate text-xs text-sidebar-foreground/70">
-                {data.currentOrganization.name}
+                Workspace app
               </p>
             </div>
           </div>
+          <WorkspaceSwitcher
+            currentOrganization={{
+              name: data.currentOrganization.name,
+              slug: data.currentOrganization.slug,
+            }}
+            organizations={data.organizations.map((organization) => ({
+              name: organization.name,
+              slug: organization.slug,
+            }))}
+          />
         </SidebarHeader>
 
         <SidebarContent>
