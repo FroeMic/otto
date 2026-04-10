@@ -30,6 +30,13 @@ import { cn } from "@/lib/utils"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 
 import {
+  getPreviousBillingCycleRange,
+  getUsagePresetDefinitions,
+  getUsagePresetRanges,
+  type UsageDatePresetDefinition,
+  type UsageRangePresetKey,
+} from "@/features/usage/date-ranges"
+import {
   getDefaultUsageSearch,
   loadUsageOverview,
 } from "../api/usage"
@@ -44,6 +51,9 @@ interface DateRangeDropdownProps {
   activeLabel: string
   customRange: DateRange | undefined
   onCustomRangeChange: (range: DateRange | undefined) => void
+  onPresetSelect: (key: Exclude<UsageRangePresetKey, "custom">) => void
+  presets: UsageDatePresetDefinition[]
+  selectedPreset: UsageRangePresetKey
 }
 
 const creditsChartConfig = {
@@ -149,7 +159,37 @@ export function WorkspaceUsageContent({
     billingOverview.subscription?.currentPeriodEnd,
     billingOverview.subscription?.currentPeriodStart,
   ])
+  const currentCycleStart = billingOverview.subscription?.currentPeriodStart
+    ? new Date(billingOverview.subscription.currentPeriodStart)
+    : new Date(initialRange.from ?? new Date())
+  const currentCycleEnd = billingOverview.subscription?.currentPeriodEnd
+    ? new Date(billingOverview.subscription.currentPeriodEnd)
+    : initialRange.to
+      ? new Date(initialRange.to)
+      : null
+  const previousCycleRange = useMemo(() => {
+    return getPreviousBillingCycleRange({
+      currentPeriodEnd: currentCycleEnd,
+      currentPeriodStart: currentCycleStart,
+    })
+  }, [currentCycleEnd, currentCycleStart])
+  const presetList = useMemo(() => {
+    return getUsagePresetDefinitions({
+      hasBillingCycle: true,
+      hasPreviousBillingCycle: previousCycleRange !== null,
+    })
+  }, [previousCycleRange])
+  const presetRanges = useMemo(() => {
+    return getUsagePresetRanges({
+      currentCycleEnd,
+      currentCycleStart,
+      previousCycleEnd: previousCycleRange?.to ?? null,
+      previousCycleStart: previousCycleRange?.from ?? null,
+    })
+  }, [currentCycleEnd, currentCycleStart, previousCycleRange])
   const [dateRange, setDateRange] = useState<DateRange>(initialRange)
+  const [selectedPreset, setSelectedPreset] =
+    useState<UsageRangePresetKey>("current_cycle")
   const [overview, setOverview] = useState<UsageOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -208,16 +248,32 @@ export function WorkspaceUsageContent({
     dateRange.from && dateRange.to && currentOverview
       ? buildChartData(currentOverview.timeSeries, dateRange)
       : []
+  const activeLabel =
+    selectedPreset !== "custom"
+      ? (presetList.find((preset) => preset.key === selectedPreset)?.label ??
+        "Select range")
+      : formatDateRangeLabel(dateRange, locale)
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
         <DateRangeDropdown
-          activeLabel={formatDateRangeLabel(dateRange, locale)}
+          activeLabel={activeLabel}
           customRange={dateRange}
+          onPresetSelect={(key) => {
+            setSelectedPreset(key)
+            const nextRange = presetRanges[key]
+
+            if (nextRange) {
+              setDateRange(nextRange)
+            }
+          }}
+          presets={presetList}
+          selectedPreset={selectedPreset}
           onCustomRangeChange={(nextRange) => {
             if (nextRange?.from && nextRange.to) {
+              setSelectedPreset("custom")
               setDateRange(nextRange)
             }
           }}
@@ -357,29 +413,70 @@ function DateRangeDropdown({
   activeLabel,
   customRange,
   onCustomRangeChange,
+  onPresetSelect,
+  presets,
+  selectedPreset,
 }: DateRangeDropdownProps) {
   const [open, setOpen] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        if (!nextOpen) {
+          setShowCalendar(false)
+        }
+      }}
+    >
       <PopoverTrigger className="inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/80">
         <CalendarBlank className="size-3.5" weight="bold" />
         {activeLabel}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto p-0">
-        <Calendar
-          defaultMonth={customRange?.from}
-          mode="range"
-          numberOfMonths={2}
-          selected={customRange}
-          onSelect={(range) => {
-            onCustomRangeChange(range)
+        {showCalendar ? (
+          <Calendar
+            defaultMonth={customRange?.from}
+            mode="range"
+            numberOfMonths={2}
+            selected={customRange}
+            onSelect={(range) => {
+              onCustomRangeChange(range)
 
-            if (range?.from && range.to) {
-              setOpen(false)
-            }
-          }}
-        />
+              if (range?.from && range.to) {
+                setOpen(false)
+                setShowCalendar(false)
+              }
+            }}
+          />
+        ) : (
+          <div className="flex flex-col py-1">
+            {presets.map((preset) => (
+              <button
+                key={preset.key}
+                className={cn(
+                  "px-4 py-1.5 text-left text-sm transition-colors hover:bg-muted",
+                  selectedPreset === preset.key ? "bg-muted" : undefined,
+                )}
+                type="button"
+                onClick={() => {
+                  onPresetSelect(preset.key)
+                  setOpen(false)
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              className="px-4 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              type="button"
+              onClick={() => setShowCalendar(true)}
+            >
+              Custom range
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )

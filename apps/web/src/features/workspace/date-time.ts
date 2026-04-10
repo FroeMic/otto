@@ -187,19 +187,10 @@ export function formatShortDate(
   value: Date,
   input: WorkspaceDateTimePreferences,
 ) {
-  const timeFormatPreference = normalizeTimeFormatPreference(
-    input.timeFormatPreference,
-  )
-
   return new Intl.DateTimeFormat(input.locale, {
-    dateStyle: "medium",
-    hour: "numeric",
-    minute: "2-digit",
+    day: "numeric",
+    month: "short",
     timeZone: input.timeZone,
-    ...(timeFormatPreference === "12"
-      ? { hour12: true }
-      : timeFormatPreference === "24"
-        ? { hour12: false }
-        : {}),
+    year: "numeric",
   }).format(value)
 }
