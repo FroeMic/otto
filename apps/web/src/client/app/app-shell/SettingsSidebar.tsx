@@ -247,8 +247,34 @@ export function SettingsSidebar({
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      params={{ orgSlug: currentOrganization.slug }}
+                      to="/$orgSlug/settings/workspace"
+                    />
+                  }
+                >
+                  <Gear />
+                  Workspace settings
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={
+                <Link
+                  params={{ orgSlug: currentOrganization.slug }}
+                  to="/$orgSlug"
+                />
+              }
+              size="lg"
+            >
+              <ArrowLeft />
+              <span>Back to Otto</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

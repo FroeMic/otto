@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useTheme } from "next-themes"
 
 import {
   Select,
@@ -22,7 +23,12 @@ const themeOptions = [
 ] as const
 
 export function ThemeSettingsCard() {
-  const [theme, setTheme] = useState("system")
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <SettingsCard>
@@ -33,18 +39,25 @@ export function ThemeSettingsCard() {
             Choose how Otto looks for you
           </SettingsRowDescription>
         </SettingsRowLabel>
-        <Select value={theme} onValueChange={(value) => setTheme(value ?? "system")}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {themeOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {mounted ? (
+          <Select
+            value={theme ?? "system"}
+            onValueChange={(value) => setTheme(value ?? "system")}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {themeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-44 animate-pulse rounded-3xl bg-input/50" />
+        )}
       </SettingsRow>
     </SettingsCard>
   )
