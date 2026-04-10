@@ -7,7 +7,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-
+import { ManagedSkillFilesTab } from "@/app/[orgSlug]/(app)/skills/_components/managed-skill-files-tab";
 import {
   SettingsCard,
   SettingsPage,
@@ -182,8 +182,12 @@ export function ManagedSkillDetailPanel({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const tabParam = searchParams.get("tab");
   const fileParam = searchParams.get("file");
-  const currentTab: "files" | "status" =
-    tabParam === "status" ? "status" : "files";
+  const currentTab: "files" | "package" | "status" =
+    tabParam === "package"
+      ? "package"
+      : tabParam === "status"
+        ? "status"
+        : "files";
   const selectedFile =
     detail.files.find((file) => file.path === fileParam) ??
     detail.files[0] ??
@@ -222,7 +226,12 @@ export function ManagedSkillDetailPanel({
   useEffect(() => {
     const nextFilePath = selectedFile?.path ?? null;
 
-    if (tabParam && tabParam !== "files" && tabParam !== "status") {
+    if (
+      tabParam &&
+      tabParam !== "files" &&
+      tabParam !== "package" &&
+      tabParam !== "status"
+    ) {
       router.replace(
         updateQueryString(pathname, searchParams, {
           file: nextFilePath,
@@ -383,16 +392,31 @@ export function ManagedSkillDetailPanel({
       <Tabs onValueChange={handleTabChange} value={currentTab}>
         <TabsList className="h-auto justify-start overflow-x-auto p-1">
           <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="package">Package</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
         </TabsList>
 
         <TabsContent value="files">
+          <SettingsSection>
+            <SettingsSectionTitle>Runtime files</SettingsSectionTitle>
+            <SettingsSectionDescription>
+              Explore the projected skill directory exactly as Otto sees it in
+              the workspace runtime. This viewer is read-only for now.
+            </SettingsSectionDescription>
+            <ManagedSkillFilesTab
+              orgSlug={orgSlug}
+              skillKey={detail.skillKey}
+            />
+          </SettingsSection>
+        </TabsContent>
+
+        <TabsContent value="package">
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
             <SettingsSection>
               <SettingsSectionTitle>Package files</SettingsSectionTitle>
               <SettingsSectionDescription>
-                Select a file to inspect it. Only SKILL.md is edited through the
-                workspace; references/, scripts/, and state/ stay runtime local.
+                Review the managed package stored for this skill. Only SKILL.md
+                is edited through the workspace.
               </SettingsSectionDescription>
               <SettingsCard className="overflow-hidden">
                 <ScrollArea className="max-h-[34rem]">
