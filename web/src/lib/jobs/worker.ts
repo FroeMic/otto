@@ -29,6 +29,7 @@ import {
   enqueueJob,
   hasQueuedOrRunningJobOfType,
   markJobFailed,
+  reclaimStaleRunningJobsForLane,
 } from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
@@ -138,9 +139,30 @@ export async function ensureWorkerSchedulerJobsSeeded() {
 }
 
 export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
-  const jobs = await claimAvailableJobsForLane({
+  return await runWorkerLaneIterationWithDependencies(lane, {
+    claimAvailableJobsForLane,
+    getLaneConcurrency,
+    processClaimedJob,
+    reclaimStaleRunningJobsForLane,
+  });
+}
+
+export async function runWorkerLaneIterationWithDependencies(
+  lane: JobLane,
+  dependencies: {
+    claimAvailableJobsForLane: typeof claimAvailableJobsForLane;
+    getLaneConcurrency: typeof getLaneConcurrency;
+    processClaimedJob: typeof processClaimedJob;
+    reclaimStaleRunningJobsForLane: typeof reclaimStaleRunningJobsForLane;
+  },
+): Promise<number> {
+  await dependencies.reclaimStaleRunningJobsForLane({
     lane,
-    limit: getLaneConcurrency(lane),
+  });
+
+  const jobs = await dependencies.claimAvailableJobsForLane({
+    lane,
+    limit: dependencies.getLaneConcurrency(lane),
   });
 
   if (jobs.length === 0) {
@@ -150,7 +172,7 @@ export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
   const results = await Promise.allSettled(
     jobs.map(async (job) => {
       try {
-        await processClaimedJob(job);
+        await dependencies.processClaimedJob(job);
       } catch (error) {
         console.error(
           `[worker] job ${job.id} failed: ${getErrorMessage(error)}`,
