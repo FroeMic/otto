@@ -251,9 +251,17 @@ describe("workspace core native routes", () => {
     )
 
     assert.equal(response.status, 400)
-    assert.equal(errorSpy.mock.calls.length, 1)
-    assert.equal(errorSpy.mock.calls[0]?.[0], "[workspace-bootstrap] failed")
-    assert.deepEqual(errorSpy.mock.calls[0]?.[1], {
+    assert.equal(errorSpy.mock.calls.length, 3)
+    assert.deepEqual(errorSpy.mock.calls[0], [
+      "[workspace-bootstrap] load_dashboard_organizations",
+      new Error("organization projection refresh failed"),
+    ])
+    assert.deepEqual(errorSpy.mock.calls[1], [
+      "[workspace-bootstrap] load_current_workspace",
+      new Error("workspace lookup query failed"),
+    ])
+    assert.equal(errorSpy.mock.calls[2]?.[0], "[workspace-bootstrap] failed")
+    assert.deepEqual(errorSpy.mock.calls[2]?.[1], {
       failures: [
         {
           message: "organization projection refresh failed",
