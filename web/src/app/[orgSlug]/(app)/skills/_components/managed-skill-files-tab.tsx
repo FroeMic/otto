@@ -10,6 +10,7 @@ type Props = {
 export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
   return (
     <RuntimeFileBrowser
+      downloadPath={`/api/workspace/${encodeURIComponent(orgSlug)}/skills/${encodeURIComponent(skillKey)}/files/download`}
       emptyDirectoryMessage="This skill directory is currently empty."
       explorerLabel={skillKey}
       fetchPath={`/api/workspace/${encodeURIComponent(orgSlug)}/skills/${encodeURIComponent(skillKey)}/files`}

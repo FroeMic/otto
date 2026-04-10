@@ -3,18 +3,20 @@
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   File,
   Folder,
   FolderOpen,
   RefreshCw,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
@@ -67,18 +69,24 @@ type MutableExplorerDirectoryNode = {
 };
 
 type Props = {
+  downloadPath: string;
   emptyDirectoryMessage?: string;
   explorerLabel: string;
   fetchPath: string;
+  hiddenPathPrefixes?: string[];
+  hiddenPaths?: string[];
   loadingMessage?: string;
   missingRootMessage: string;
   rootPathFallback: string;
 };
 
 export function RuntimeFileBrowser({
+  downloadPath,
   emptyDirectoryMessage = "This directory is currently empty.",
   explorerLabel,
   fetchPath,
+  hiddenPathPrefixes = [],
+  hiddenPaths = [],
   loadingMessage = "Loading files…",
   missingRootMessage,
   rootPathFallback,
@@ -92,11 +100,17 @@ export function RuntimeFileBrowser({
   const [snapshot, setSnapshot] = useState<RuntimeDirectorySnapshot | null>(
     null,
   );
-  const tree = buildExplorerTree(snapshot?.files ?? []);
+  const visibleFiles = (snapshot?.files ?? []).filter(
+    (file) =>
+      !hiddenPaths.includes(file.path) &&
+      !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
+  );
+  const tree = buildExplorerTree(visibleFiles);
   const selectedFile =
-    snapshot?.files.find((file) => file.path === selectedFilePath) ??
-    snapshot?.files.find((file) => file.storageEncoding === "utf8_text") ??
-    snapshot?.files[0] ??
+    visibleFiles.find((file) => file.path === selectedFilePath) ??
+    visibleFiles.find((file) => isPreviewableImage(file)) ??
+    visibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
+    visibleFiles[0] ??
     null;
 
   useEffect(() => {
@@ -128,9 +142,11 @@ export function RuntimeFileBrowser({
           collectExpandedDirectories(payload.snapshot.files),
         );
         setSelectedFilePath(
-          payload.snapshot.files.find(
-            (file) => file.storageEncoding === "utf8_text",
-          )?.path ??
+          payload.snapshot.files.find((file) => isPreviewableImage(file))
+            ?.path ??
+            payload.snapshot.files.find(
+              (file) => file.storageEncoding === "utf8_text",
+            )?.path ??
             payload.snapshot.files[0]?.path ??
             null,
         );
@@ -164,18 +180,19 @@ export function RuntimeFileBrowser({
 
     if (
       selectedFilePath &&
-      snapshot.files.some((file) => file.path === selectedFilePath)
+      visibleFiles.some((file) => file.path === selectedFilePath)
     ) {
       return;
     }
 
     setSelectedFilePath(
-      snapshot.files.find((file) => file.storageEncoding === "utf8_text")
-        ?.path ??
-        snapshot.files[0]?.path ??
+      visibleFiles.find((file) => isPreviewableImage(file))?.path ??
+        visibleFiles.find((file) => file.storageEncoding === "utf8_text")
+          ?.path ??
+        visibleFiles[0]?.path ??
         null,
     );
-  }, [selectedFilePath, snapshot]);
+  }, [selectedFilePath, visibleFiles, snapshot]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
@@ -211,6 +228,7 @@ export function RuntimeFileBrowser({
         }
 
         return (
+          nextSnapshot.files.find((file) => isPreviewableImage(file))?.path ??
           nextSnapshot.files.find(
             (file) => file.storageEncoding === "utf8_text",
           )?.path ??
@@ -282,8 +300,8 @@ export function RuntimeFileBrowser({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">
-              {snapshot?.files.length ?? 0}{" "}
-              {snapshot?.files.length === 1 ? "file" : "files"}
+              {visibleFiles.length}{" "}
+              {visibleFiles.length === 1 ? "file" : "files"}
             </Badge>
             <Button
               disabled={isRefreshing}
@@ -304,7 +322,7 @@ export function RuntimeFileBrowser({
           <div className="flex h-[38rem] items-center justify-center px-6 text-center text-sm text-muted-foreground">
             {missingRootMessage}
           </div>
-        ) : snapshot.files.length === 0 ? (
+        ) : visibleFiles.length === 0 ? (
           <div className="flex h-[38rem] items-center justify-center px-6 text-center text-sm text-muted-foreground">
             {emptyDirectoryMessage}
           </div>
@@ -313,6 +331,7 @@ export function RuntimeFileBrowser({
             <div className="hidden h-[42rem] min-h-0 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="min-h-0 border-r border-border">
                 <ExplorerPane
+                  downloadPath={downloadPath}
                   expandedDirectories={expandedDirectories}
                   explorerLabel={explorerLabel}
                   onDirectoryToggle={handleDirectoryToggle}
@@ -323,6 +342,7 @@ export function RuntimeFileBrowser({
               </div>
               <div className="min-h-0 overflow-hidden">
                 <EditorPane
+                  downloadPath={downloadPath}
                   selectedFile={selectedFile}
                   theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
                 />
@@ -332,6 +352,7 @@ export function RuntimeFileBrowser({
             <div className="flex flex-col gap-4 p-4 lg:hidden">
               <div className="overflow-hidden rounded-xl border border-border">
                 <ExplorerPane
+                  downloadPath={downloadPath}
                   expandedDirectories={expandedDirectories}
                   explorerLabel={explorerLabel}
                   onDirectoryToggle={handleDirectoryToggle}
@@ -342,6 +363,7 @@ export function RuntimeFileBrowser({
               </div>
               <div className="overflow-hidden rounded-xl border border-border">
                 <EditorPane
+                  downloadPath={downloadPath}
                   selectedFile={selectedFile}
                   theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
                 />
@@ -355,6 +377,7 @@ export function RuntimeFileBrowser({
 }
 
 function ExplorerPane(input: {
+  downloadPath: string;
   expandedDirectories: string[];
   explorerLabel: string;
   onDirectoryToggle: (path: string) => void;
@@ -379,6 +402,7 @@ function ExplorerPane(input: {
               expandedDirectories={input.expandedDirectories}
               key={node.path}
               node={node}
+              downloadPath={input.downloadPath}
               onDirectoryToggle={input.onDirectoryToggle}
               onFileSelect={input.onFileSelect}
               selectedFilePath={input.selectedFilePath}
@@ -391,6 +415,7 @@ function ExplorerPane(input: {
 }
 
 function ExplorerNode(input: {
+  downloadPath: string;
   expandedDirectories: string[];
   node: ExplorerTreeNode;
   onDirectoryToggle: (path: string) => void;
@@ -405,6 +430,7 @@ function ExplorerNode(input: {
 
 function renderExplorerNode(input: {
   depth: number;
+  downloadPath: string;
   expandedDirectories: string[];
   node: ExplorerTreeNode;
   onDirectoryToggle: (path: string) => void;
@@ -413,27 +439,47 @@ function renderExplorerNode(input: {
 }): JSX.Element {
   if (input.node.kind === "directory") {
     const isExpanded = input.expandedDirectories.includes(input.node.path);
+    const downloadHref = buildDownloadHref({
+      downloadPath: input.downloadPath,
+      kind: "directory",
+      path: input.node.path,
+    });
 
     return (
       <div key={input.node.path}>
-        <button
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/60"
-          onClick={() => input.onDirectoryToggle(input.node.path)}
+        <div
+          className="group flex items-center gap-2 rounded-lg pr-1 transition-colors hover:bg-muted/60"
           style={{ paddingLeft: `${input.depth * 16 + 8}px` }}
-          type="button"
         >
-          {isExpanded ? (
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          {isExpanded ? (
-            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <Folder className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="truncate">{input.node.name}</span>
-        </button>
+          <button
+            className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
+            onClick={() => input.onDirectoryToggle(input.node.path)}
+            type="button"
+          >
+            {isExpanded ? (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            )}
+            {isExpanded ? (
+              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <Folder className="size-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate">{input.node.name}</span>
+          </button>
+          <a
+            aria-label={`Download ${input.node.name} as zip`}
+            className={cn(
+              buttonVariants({ size: "icon", variant: "ghost" }),
+              "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
+            )}
+            href={downloadHref}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Download className="size-4" />
+          </a>
+        </div>
 
         {isExpanded
           ? input.node.children.map((child) =>
@@ -449,25 +495,46 @@ function renderExplorerNode(input: {
   }
 
   const isSelected = input.selectedFilePath === input.node.path;
+  const downloadHref = buildDownloadHref({
+    downloadPath: input.downloadPath,
+    kind: "file",
+    path: input.node.path,
+  });
 
   return (
-    <button
+    <div
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
+        "group flex items-center gap-2 rounded-lg pr-1 transition-colors",
         isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/60",
       )}
       key={input.node.path}
-      onClick={() => input.onFileSelect(input.node.path)}
       style={{ paddingLeft: `${input.depth * 16 + 28}px` }}
-      type="button"
     >
-      <File className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate">{input.node.name}</span>
-    </button>
+      <button
+        className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
+        onClick={() => input.onFileSelect(input.node.path)}
+        type="button"
+      >
+        <File className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{input.node.name}</span>
+      </button>
+      <a
+        aria-label={`Download ${input.node.name}`}
+        className={cn(
+          buttonVariants({ size: "icon", variant: "ghost" }),
+          "opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
+        )}
+        href={downloadHref}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Download className="size-4" />
+      </a>
+    </div>
   );
 }
 
 function EditorPane(input: {
+  downloadPath: string;
   selectedFile: RuntimeDirectoryFileSnapshot | null;
   theme: "vs" | "vs-dark";
 }) {
@@ -481,6 +548,9 @@ function EditorPane(input: {
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col overflow-hidden">
+      <div className="sr-only">
+        Selected file preview for {input.selectedFile.path}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="truncate font-mono text-sm text-foreground">
@@ -503,17 +573,46 @@ function EditorPane(input: {
           <Badge variant="outline">
             {formatFileSize(input.selectedFile.sizeBytes)}
           </Badge>
+          <a
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href={buildDownloadHref({
+              downloadPath: input.downloadPath,
+              kind: "file",
+              path: input.selectedFile.path,
+            })}
+          >
+            <Download className="size-4" />
+            Download
+          </a>
         </div>
       </div>
 
-      {input.selectedFile.truncated ? (
+      {input.selectedFile.truncated &&
+      input.selectedFile.storageEncoding === "utf8_text" &&
+      !isPreviewableImage(input.selectedFile) ? (
         <div className="border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-muted-foreground">
           Preview truncated to the first 256 KB.
         </div>
       ) : null}
 
-      {input.selectedFile.storageEncoding === "utf8_text" &&
-      input.selectedFile.contentText !== null ? (
+      {isPreviewableImage(input.selectedFile) ? (
+        <div className="flex h-full min-h-[24rem] items-center justify-center overflow-auto bg-muted/10 p-6">
+          <Image
+            alt={input.selectedFile.path}
+            className="max-h-full max-w-full rounded-lg border border-border bg-background object-contain shadow-sm"
+            src={buildDownloadHref({
+              disposition: "inline",
+              downloadPath: input.downloadPath,
+              kind: "file",
+              path: input.selectedFile.path,
+            })}
+            height={1400}
+            unoptimized
+            width={1400}
+          />
+        </div>
+      ) : input.selectedFile.storageEncoding === "utf8_text" &&
+        input.selectedFile.contentText !== null ? (
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <MonacoEditor
             height="100%"
@@ -537,11 +636,40 @@ function EditorPane(input: {
         </div>
       ) : (
         <div className="flex h-full min-h-[24rem] items-center justify-center px-6 text-center text-sm text-muted-foreground">
-          This file is not available as UTF-8 text, so the workspace shows
-          metadata only for now.
+          This file cannot be previewed in the workspace yet. Download it to
+          inspect it locally.
         </div>
       )}
     </div>
+  );
+}
+
+function buildDownloadHref(input: {
+  disposition?: "attachment" | "inline";
+  downloadPath: string;
+  kind: "directory" | "file";
+  path: string;
+}) {
+  const params = new URLSearchParams({
+    kind: input.kind,
+    path: input.path,
+  });
+
+  if (input.disposition === "inline") {
+    params.set("disposition", "inline");
+  }
+
+  return `${input.downloadPath}?${params.toString()}`;
+}
+
+function isPreviewableImage(file: RuntimeDirectoryFileSnapshot) {
+  if (file.contentType?.startsWith("image/")) {
+    return true;
+  }
+
+  const extension = file.path.split(".").pop()?.toLowerCase();
+  return ["avif", "gif", "jpeg", "jpg", "png", "svg", "webp"].includes(
+    extension ?? "",
   );
 }
 
