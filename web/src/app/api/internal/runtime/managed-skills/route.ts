@@ -1,21 +1,73 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { updateTenantManagedSkillTextFileForTenant } from "@/db/control-plane";
+import {
+  createTenantManagedSkillForTenant,
+  deleteTenantManagedSkillForTenant,
+  updateTenantManagedSkillForTenant,
+} from "@/db/control-plane";
 import {
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
   ManagedSkillVersionConflictError,
 } from "@/db/managed-skills";
-import { MANAGED_SKILL_ENTRY_FILE_PATH } from "@/lib/managed-skills/package";
 import { authenticateTenantRuntimeRequest } from "@/lib/runtime-auth";
 
 export const dynamic = "force-dynamic";
 
-const patchSchema = z.object({
-  contentText: z.string(),
-  expectedVersion: z.number().int().positive().optional(),
-  filePath: z.string().trim().min(1),
+const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md";
+
+const createSchema = z
+  .object({
+    contentText: z.string().optional(),
+    description: z.string().trim().min(1).optional(),
+    integrationKeys: z.array(z.string().trim().min(1)).optional(),
+    skillBody: z.string().optional(),
+    skillKey: z.string().trim().min(1),
+    skillKeys: z.array(z.string().trim().min(1)).optional(),
+    summary: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine(
+    (value) =>
+      typeof value.contentText === "string" ||
+      typeof value.description === "string" ||
+      typeof value.skillBody === "string",
+    {
+      message:
+        "Provide contentText or structured skill fields when creating a managed skill.",
+      path: ["contentText"],
+    },
+  );
+
+const updateSchema = z
+  .object({
+    contentText: z.string().optional(),
+    description: z.string().trim().min(1).optional(),
+    enabled: z.boolean().optional(),
+    expectedVersion: z.number().int().positive().optional(),
+    integrationKeys: z.array(z.string().trim().min(1)).optional(),
+    skillBody: z.string().optional(),
+    skillKey: z.string().trim().min(1),
+    skillKeys: z.array(z.string().trim().min(1)).optional(),
+    summary: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine(
+    (value) =>
+      typeof value.contentText === "string" ||
+      typeof value.description === "string" ||
+      typeof value.skillBody === "string" ||
+      Array.isArray(value.integrationKeys) ||
+      Array.isArray(value.skillKeys) ||
+      typeof value.enabled === "boolean",
+    {
+      message:
+        "Provide at least one managed skill patch field when updating a managed skill.",
+      path: ["contentText"],
+    },
+  );
+
+const deleteSchema = z.object({
+  expectedVersion: z.number().int().positive(),
   skillKey: z.string().trim().min(1),
   summary: z.string().trim().min(1).max(500).optional(),
 });
@@ -27,20 +79,11 @@ export async function GET(request: Request) {
     const skillKey = url.searchParams.get("skillKey")?.trim();
     const filePath = url.searchParams.get("filePath")?.trim();
 
-    if (filePath && !skillKey) {
-      return json(
-        {
-          error: "filePath requires skillKey.",
-        },
-        400,
-      );
-    }
-
-    if (filePath && filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
+    if (filePath) {
       return json(
         {
           error:
-            "Only SKILL.md can be read through the runtime-managed skills surface.",
+            "filePath is no longer supported on the runtime-managed skills surface. Use get_managed_skill for SKILL.md content and normal file tools for local skill directories.",
         },
         400,
       );
@@ -70,91 +113,63 @@ export async function GET(request: Request) {
       );
     }
 
-    if (!filePath) {
-      return json({
-        skill: {
-          ...detail,
-          files: detail.files.map((file) => ({
-            contentType: file.contentType,
-            editability: file.editability,
-            path: file.path,
-            storageEncoding: file.storageEncoding,
-          })),
-        },
-      });
-    }
-
-    const file = detail.files.find((entry) => entry.path === filePath);
-
-    if (!file) {
-      return json(
-        {
-          error: `Managed skill file not found: ${skillKey}/${filePath}`,
-        },
-        404,
-      );
-    }
-
-    if (file.editability === "local_state") {
-      return json(
-        {
-          error:
-            "state/ files are not exposed through the runtime-managed skills surface in this slice.",
-        },
-        400,
-      );
-    }
-
-    if (file.storageEncoding !== "utf8_text" || file.contentText === null) {
-      return json(
-        {
-          error:
-            "Only managed UTF-8 text files can be read through the runtime-managed skills surface in this slice.",
-        },
-        400,
-      );
-    }
+    const entryFile =
+      detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+      null;
 
     return json({
-      file: {
-        contentText: file.contentText,
-        contentType: file.contentType,
-        editability: file.editability,
-        path: file.path,
-        storageEncoding: file.storageEncoding,
+      skill: {
+        ...detail,
+        contentText:
+          entryFile?.storageEncoding === "utf8_text" ? entryFile.contentText : null,
+        files: detail.files.map((file) => ({
+          contentType: file.contentType,
+          editability: file.editability,
+          path: file.path,
+          storageEncoding: file.storageEncoding,
+        })),
       },
-      version: detail.version,
     });
   } catch (error) {
     return handleRuntimeRouteError(error);
   }
 }
 
-export async function PATCH(request: Request) {
+export async function POST(request: Request) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(request);
-    const body = patchSchema.parse(await request.json());
+    const body = createSchema.parse(await request.json());
 
-    if (body.filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
-      return json(
-        {
-          error:
-            "Only SKILL.md can be patched through the runtime-managed skills surface.",
-        },
-        400,
-      );
-    }
-
-    const result = await updateTenantManagedSkillTextFileForTenant({
-      contentText: body.contentText,
+    const result = await createTenantManagedSkillForTenant({
+      ...(typeof body.contentText === "string"
+        ? {
+            contentText: body.contentText,
+          }
+        : {}),
       createdByExternalId: null,
       createdByType: "runtime",
-      expectedVersion: body.expectedVersion,
-      relativePath: body.filePath,
+      ...(typeof body.description === "string"
+        ? {
+            description: body.description,
+          }
+        : {}),
+      ...(Array.isArray(body.integrationKeys)
+        ? {
+            integrationKeys: body.integrationKeys,
+          }
+        : {}),
+      ...(typeof body.skillBody === "string"
+        ? {
+            skillBody: body.skillBody,
+          }
+        : {}),
       skillKey: body.skillKey,
-      summary:
-        body.summary ??
-        `Runtime updated managed skill file ${body.skillKey}/${body.filePath}`,
+      ...(Array.isArray(body.skillKeys)
+        ? {
+            skillKeys: body.skillKeys,
+          }
+        : {}),
+      summary: body.summary ?? `Runtime created managed skill ${body.skillKey}`,
       tenantId,
     });
 
@@ -163,7 +178,99 @@ export async function PATCH(request: Request) {
     if (error instanceof z.ZodError) {
       return json(
         {
-          error: "Invalid managed skills payload",
+          error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      );
+    }
+
+    return handleRuntimeRouteError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { tenantId } = await authenticateTenantRuntimeRequest(request);
+    const body = updateSchema.parse(await request.json());
+
+    const result = await updateTenantManagedSkillForTenant({
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: body.expectedVersion,
+      patch: {
+        ...(typeof body.contentText === "string"
+          ? {
+              contentText: body.contentText,
+            }
+          : {}),
+        ...(typeof body.description === "string"
+          ? {
+              description: body.description,
+            }
+          : {}),
+        ...(typeof body.enabled === "boolean"
+          ? {
+              enabled: body.enabled,
+            }
+          : {}),
+        ...(Array.isArray(body.integrationKeys)
+          ? {
+              integrationKeys: body.integrationKeys,
+            }
+          : {}),
+        ...(typeof body.skillBody === "string"
+          ? {
+              skillBody: body.skillBody,
+            }
+          : {}),
+        ...(Array.isArray(body.skillKeys)
+          ? {
+              skillKeys: body.skillKeys,
+            }
+          : {}),
+      },
+      skillKey: body.skillKey,
+      summary: body.summary ?? `Runtime updated managed skill ${body.skillKey}`,
+      tenantId,
+    });
+
+    return json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return json(
+        {
+          error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      );
+    }
+
+    return handleRuntimeRouteError(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { tenantId } = await authenticateTenantRuntimeRequest(request);
+    const body = deleteSchema.parse(await request.json());
+
+    const result = await deleteTenantManagedSkillForTenant({
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: body.expectedVersion,
+      skillKey: body.skillKey,
+      summary: body.summary ?? `Runtime deleted managed skill ${body.skillKey}`,
+      tenantId,
+    });
+
+    return json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return json(
+        {
+          error: "Invalid managed skill payload",
           issues: error.issues,
         },
         400,

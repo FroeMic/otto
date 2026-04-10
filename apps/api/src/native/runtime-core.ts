@@ -2,8 +2,10 @@ import { jsonNoStore } from "@otto/auth"
 import {
   handleManagedConfigGetRequest,
   handleManagedConfigPatchRequest,
+  handleManagedSkillsDeleteRequest,
   handleManagedSkillsGetRequest,
-  handleManagedSkillsPatchRequest,
+  handleManagedSkillsPostRequest,
+  handleManagedSkillsUpdateRequest,
   type ManagedConfigVersionConflictLike,
   type ManagedSkillVersionConflictLike,
 } from "@otto/feature-runtime-core"
@@ -28,11 +30,12 @@ import {
   updateTenantManagedFileSharedContentForTenant,
 } from "../runtime/managed-config-data"
 import {
+  createTenantManagedSkillForTenant,
+  deleteTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
-  MANAGED_SKILL_ENTRY_FILE_PATH,
   ManagedSkillVersionConflictError,
-  updateTenantManagedSkillTextFileForTenant,
+  updateTenantManagedSkillForTenant,
 } from "../runtime/managed-skills-data"
 import {
   OpenAiProxyError,
@@ -453,21 +456,39 @@ export function registerRuntimeCoreRoutes(app: Hono) {
       authenticateTenantRuntimeRequest,
       getLatestTenantManagedSkillDetailForTenant,
       listTenantManagedSkillsForTenant,
-      managedSkillEntryFilePath: MANAGED_SKILL_ENTRY_FILE_PATH,
+      request: context.req.raw,
+    })
+  })
+
+  app.post("/api/internal/runtime/managed-skills", async (context) => {
+    return handleManagedSkillsPostRequest({
+      authenticateTenantRuntimeRequest,
+      createTenantManagedSkillForTenant,
       request: context.req.raw,
     })
   })
 
   app.patch("/api/internal/runtime/managed-skills", async (context) => {
-    return handleManagedSkillsPatchRequest({
+    return handleManagedSkillsUpdateRequest({
       authenticateTenantRuntimeRequest,
       isVersionConflictError: (
         error,
       ): error is ManagedSkillVersionConflictLike =>
         error instanceof ManagedSkillVersionConflictError,
-      managedSkillEntryFilePath: MANAGED_SKILL_ENTRY_FILE_PATH,
       request: context.req.raw,
-      updateTenantManagedSkillTextFileForTenant,
+      updateTenantManagedSkillForTenant,
+    })
+  })
+
+  app.delete("/api/internal/runtime/managed-skills", async (context) => {
+    return handleManagedSkillsDeleteRequest({
+      authenticateTenantRuntimeRequest,
+      deleteTenantManagedSkillForTenant,
+      isVersionConflictError: (
+        error,
+      ): error is ManagedSkillVersionConflictLike =>
+        error instanceof ManagedSkillVersionConflictError,
+      request: context.req.raw,
     })
   })
 

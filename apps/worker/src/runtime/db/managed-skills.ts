@@ -8,6 +8,7 @@ import {
   tenantSkillVersions,
 } from "./schema";
 import {
+  buildManagedSkillMarkdown,
   listKnownManagedSkillDependencyIntegrationKeys,
   MANAGED_SKILL_ENTRY_FILE_PATH,
   type ManagedSkillFileEditability,
@@ -15,6 +16,7 @@ import {
   type ManagedSkillSourceType,
   type ManagedSkillStatus,
   normalizeManagedSkillKey,
+  parseManagedSkillMarkdown,
   validateManagedSkillPackage,
 } from "../lib/managed-skills/package";
 import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "../lib/managed-skills/system-skills";
@@ -53,6 +55,15 @@ export type TenantManagedSkillDetail = {
   summary: string | null;
   updatedAt: Date;
   version: number;
+};
+
+export type TenantManagedSkillPatch = {
+  contentText?: string;
+  description?: string;
+  enabled?: boolean;
+  integrationKeys?: string[];
+  skillBody?: string;
+  skillKeys?: string[];
 };
 
 export class ManagedSkillVersionConflictError extends Error {
@@ -757,6 +768,139 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
   };
 }
 
+export async function updateTenantManagedSkillForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    createdByExternalId?: string | null;
+    createdByType: "runtime" | "system" | "user";
+    expectedVersion?: number;
+    patch: TenantManagedSkillPatch;
+    skillKey: string;
+    summary?: string;
+    tenantId: string;
+  },
+) {
+  const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!detail) {
+    throw new Error(
+      `Managed skill ${input.skillKey} does not exist for this workspace.`,
+    );
+  }
+
+  if (
+    input.expectedVersion !== undefined &&
+    detail.version !== input.expectedVersion
+  ) {
+    throw new ManagedSkillVersionConflictError(
+      input.expectedVersion,
+      detail.version,
+    );
+  }
+
+  if (detail.sourceType === "system" && input.createdByType !== "system") {
+    throw new Error(
+      "System-managed skills cannot be edited through the managed-skills surface.",
+    );
+  }
+
+  const currentContent = getManagedSkillEntryContent(detail);
+  const nextContent = buildNextManagedSkillContent({
+    currentContent,
+    patch: input.patch,
+  });
+
+  let changed = false;
+  let currentVersion = detail.version;
+
+  if (nextContent !== currentContent) {
+    const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
+      contentText: nextContent,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      expectedVersion: currentVersion,
+      relativePath: MANAGED_SKILL_ENTRY_FILE_PATH,
+      skillKey: detail.skillKey,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+
+    changed = changed || updatedSkill.changed;
+    currentVersion = updatedSkill.currentVersion;
+  }
+
+  const nextEnabled = input.patch.enabled ?? detail.enabled;
+
+  if (nextEnabled !== detail.enabled) {
+    await tx
+      .update(tenantSkills)
+      .set({
+        enabled: nextEnabled,
+        status: nextEnabled ? "ready" : "disabled",
+        updatedAt: new Date(),
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantSkills.id, detail.skillId));
+
+    changed = true;
+  }
+
+  return {
+    changed,
+    currentVersion,
+    enabled: nextEnabled,
+    skillKey: detail.skillKey,
+  };
+}
+
+export async function deleteTenantManagedSkillForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    createdByType: "runtime" | "system" | "user";
+    expectedVersion?: number;
+    skillKey: string;
+    tenantId: string;
+  },
+) {
+  const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!detail) {
+    throw new Error(
+      `Managed skill ${input.skillKey} does not exist for this workspace.`,
+    );
+  }
+
+  if (
+    input.expectedVersion !== undefined &&
+    detail.version !== input.expectedVersion
+  ) {
+    throw new ManagedSkillVersionConflictError(
+      input.expectedVersion,
+      detail.version,
+    );
+  }
+
+  if (detail.sourceType === "system" && input.createdByType !== "system") {
+    throw new Error(
+      "System-managed skills cannot be deleted through the managed-skills surface.",
+    );
+  }
+
+  await tx.delete(tenantSkills).where(eq(tenantSkills.id, detail.skillId));
+
+  return {
+    deleted: true,
+    skillKey: detail.skillKey,
+  };
+}
+
 function normalizeManagedSkillDependencies(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {
@@ -937,4 +1081,57 @@ function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {
     default:
       return "invalid";
   }
+}
+
+function getManagedSkillEntryContent(detail: TenantManagedSkillDetail) {
+  const entryFile = detail.files.find(
+    (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+  );
+
+  if (
+    !entryFile ||
+    entryFile.storageEncoding !== "utf8_text" ||
+    typeof entryFile.contentText !== "string"
+  ) {
+    throw new Error(
+      `Managed skill ${detail.skillKey} is missing a readable SKILL.md entry file.`,
+    );
+  }
+
+  return entryFile.contentText;
+}
+
+function buildNextManagedSkillContent(input: {
+  currentContent: string;
+  patch: TenantManagedSkillPatch;
+}) {
+  const hasStructuredPatch =
+    typeof input.patch.description === "string" ||
+    typeof input.patch.skillBody === "string" ||
+    Array.isArray(input.patch.integrationKeys) ||
+    Array.isArray(input.patch.skillKeys);
+
+  if (typeof input.patch.contentText === "string" && hasStructuredPatch) {
+    throw new Error(
+      "contentText cannot be combined with structured managed skill patch fields.",
+    );
+  }
+
+  if (typeof input.patch.contentText === "string") {
+    return input.patch.contentText;
+  }
+
+  if (!hasStructuredPatch) {
+    return input.currentContent;
+  }
+
+  const current = parseManagedSkillMarkdown(input.currentContent);
+
+  return buildManagedSkillMarkdown({
+    description: input.patch.description ?? current.description,
+    integrationKeys: input.patch.integrationKeys ?? current.integrationKeys,
+    name: current.name,
+    skillBody: input.patch.skillBody ?? current.skillBody,
+    skillKeys: input.patch.skillKeys ?? current.skillKeys,
+  });
 }
