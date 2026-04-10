@@ -15,6 +15,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@otto/feature-worker-runtime": "workspace:*"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@types/node": "^24.9.1",

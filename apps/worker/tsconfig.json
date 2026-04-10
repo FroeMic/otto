@@ -11,11 +11,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../../packages/legacy-control-plane-runtime/src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"]
 }

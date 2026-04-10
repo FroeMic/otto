@@ -1,0 +1,11770 @@
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import type {
+  Invitation,
+  Organization,
+  OrganizationMembership,
+  Role,
+  User,
+} from "@workos-inc/node";
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { getDb } from "./client";
+import {
+  createManualCreditGrant,
+  getTenantCreditBalanceSummary,
+} from "./credit-ledger";
+import {
+  getTenantIntegrationCapabilityPolicy,
+  listTenantIntegrationCapabilityPolicies,
+  upsertTenantIntegrationCapabilityPolicy,
+} from "./integration-capability-policies";
+import {
+  createTenantManagedSkillForTenant,
+  ensureTenantSystemManagedSkillsForTenantTx,
+  listLatestTenantManagedSkillVersionMapTx,
+  updateTenantManagedSkillTextFileForTenantTx,
+} from "./managed-skills";
+import {
+  appendIntegrationOauthEventTx,
+  markIntegrationOauthSessionConsumedTx,
+  upsertOauthConnectionForTenantIntegrationTx,
+} from "./oauth";
+import { getTenantOpenAiProviderSummary } from "./provider-accounts";
+import {
+  integrationIngressDeliveries,
+  integrationMessagingConversations,
+  integrationMessagingWorkspaceMembers,
+  integrationMessagingWorkspaces,
+  integrationOauthConnections,
+  integrationOauthCredentials,
+  integrationWhatsAppInstallations,
+  integrationWhatsAppLinkSessions,
+  jobEvents,
+  jobRuns,
+  memberships,
+  organizations,
+  tenantApplyRuns,
+  tenantDesiredStates,
+  tenantIntegrations,
+  tenantManagedConfigVersions,
+  tenantManagedFileVersions,
+  tenantOnboardingSessions,
+  tenantRuntimeConfigEntries,
+  tenantRuntimeConfigMutations,
+  tenantRuntimeSecrets,
+  tenantServers,
+  tenantSessions,
+  tenants,
+  userChannelIdentities,
+  userPlatformRoles,
+  users,
+} from "./schema";
+import {
+  buildResolvedIntegrationAgentCapability,
+  buildResolvedIntegrationCommandCapability,
+  buildRuntimeIntegrationDetailsResponse,
+  buildRuntimeIntegrationManifestForKeys,
+  buildRuntimeIntegrationSettingsContract,
+  buildRuntimeIntegrationSummaryResponse,
+  findIntegrationCommandMatches,
+  getIntegrationDefinition,
+  type IntegrationRuntimeCommandDefinition,
+  type IntegrationRuntimeCommandGroupDefinition,
+  isAgentCapabilityUserControllable,
+  isCommandUserControllable,
+  isPlatformManagedIntegration,
+  listIntegrationCommands,
+  listRuntimeIntegrationDefinitions,
+  listSupportedRuntimeIntegrationKeys,
+  type ResolvedIntegrationAgentCapability,
+  type ResolvedIntegrationCommandCapability,
+  type RuntimeIntegrationCommandMatch,
+  type RuntimeIntegrationDetailsResponse,
+  type RuntimeIntegrationManifestEntry,
+  type RuntimeIntegrationSettingsContract,
+  type RuntimeIntegrationSummaryResponse,
+  resolveRuntimeIntegrationStatus,
+} from "../integrations/framework";
+import { buildIntegrationSectionPath } from "../integrations/framework/routing";
+import { braveFieldMeanings } from "../integrations/library/brave/settings-metadata";
+import { buildSlackConnectionProfile } from "../integrations/library/slack/oauth-metadata";
+import {
+  applySlackPolicyAction,
+  isSlackPolicyDestructive,
+  type SlackPolicyAction,
+  type SlackPolicyDerivedEffects,
+} from "../integrations/library/slack/policy";
+import {
+  slackActionMeanings,
+  slackAgentCapabilities,
+  slackAgentOperations,
+  slackFieldMeanings,
+} from "../integrations/library/slack/settings-metadata";
+import { getSlackDestructiveChangeError } from "../integrations/library/slack/update-policy";
+import {
+  decryptControlPlaneSecret,
+  encryptControlPlaneSecret,
+} from "../lib/crypto";
+import { getControlPlaneBaseUrl, getEnv } from "../lib/env";
+import { enqueueJob } from "../lib/jobs/queue";
+import { JOB_STATUSES, JOB_TYPES } from "../lib/jobs/types";
+import { getStaleDirectoryIds } from "../lib/messaging-directory";
+import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types";
+import {
+  buildManagedBootstrapFileContent,
+  buildManagedBootstrapSystemContent,
+  getManagedBootstrapFileDefinitions,
+  type ManagedBootstrapFilePath,
+  normalizeManagedBootstrapFilePath,
+} from "../lib/openclaw/managed-config";
+import { getTenantRuntimeConnection } from "../lib/runtime/connection";
+import { RuntimeManager } from "../lib/runtime/manager";
+import {
+  fetchSlackMessagingDirectory,
+  joinSlackChannel,
+  leaveSlackChannel,
+} from "../lib/slack";
+import {
+  getDefaultSlackRuntimeConfig,
+  parseSlackRuntimeConfig,
+  SLACK_RUNTIME_CONFIG_DESCRIPTION,
+  SLACK_RUNTIME_CONFIG_LABEL,
+  SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+  SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+  SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+  type SlackRuntimeConfig,
+  slackRuntimeConfigJsonSchema,
+  slackRuntimeConfigPatchSchema,
+  slackRuntimeConfigUiHints,
+} from "../lib/slack-config";
+import {
+  parseWebSearchRuntimeConfig,
+  resolveRuntimeWebSearchConfig,
+  WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+  webSearchRuntimeConfigJsonSchema,
+  webSearchRuntimeConfigUiHints,
+} from "../lib/web-search-config";
+import {
+  getDefaultWhatsAppRuntimeConfig,
+  parseWhatsAppRuntimeConfig,
+  WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+  WHATSAPP_RUNTIME_CONFIG_LABEL,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+  type WhatsAppRuntimeConfig,
+  whatsappRuntimeConfigJsonSchema,
+  whatsappRuntimeConfigPatchSchema,
+  whatsappRuntimeConfigUiHints,
+} from "../lib/whatsapp-config";
+import { getWorkOS } from "../lib/workos";
+import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "../lib/workspace-slugs";
+import {
+  getToolDefinition,
+  getToolSurfaceId,
+  listAvailableToolActions,
+  listToolDefinitions,
+  normalizeInstallState,
+} from "../tools";
+import { evaluateSlackPolicyForTenant } from "../tools/server";
+import type {
+  ToolInstallState,
+  ToolSurfaceAction,
+  ToolSurfaceResponse,
+} from "../tools/types";
+import {
+  deriveWhatsAppPolicyEffects,
+  type WhatsAppPolicyDerivedEffects,
+} from "../tools/whatsapp/policy";
+
+const SLACK_PROVIDER_KEY = "slack";
+const LINEAR_PROVIDER_KEY = "linear";
+const WHATSAPP_PROVIDER_KEY = "whatsapp";
+const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
+const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
+const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
+const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
+const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
+const WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS = 5 * 60_000;
+const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
+  listSupportedRuntimeIntegrationKeys();
+const runtimeManager = new RuntimeManager();
+
+function normalizeWorkspaceMembershipStatus(status: string) {
+  return status.trim().toLowerCase();
+}
+
+function isSlackSurface(surfaceKind: string, surfaceKey: string) {
+  return (
+    surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
+    surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
+  );
+}
+
+function getSlackSurfaceAllowedActions(input: {
+  enabled: boolean;
+  installState: ToolInstallState;
+}): ToolSurfaceAction[] {
+  if (input.installState === "uninstalled") {
+    return ["install"];
+  }
+
+  return [
+    "update",
+    input.enabled ? "disable" : "enable",
+    "uninstall",
+    "reapply",
+  ];
+}
+
+function isWhatsAppSurface(surfaceKind: string, surfaceKey: string) {
+  return (
+    surfaceKind === WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND &&
+    surfaceKey === WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY
+  );
+}
+
+function getSurfaceConfigMutationError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsConfig: boolean;
+}) {
+  if (definition.supportsConfig) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and cannot be edited from the UI or runtime.`
+    : `${definition.label} does not support direct config edits.`;
+}
+
+function getSurfaceLifecycleMutationError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsEnable: boolean;
+  supportsInstall: boolean;
+}) {
+  if (definition.supportsEnable || definition.supportsInstall) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and cannot be enabled, disabled, installed, or uninstalled from the UI or runtime.`
+    : `${definition.label} does not support install or enable lifecycle changes.`;
+}
+
+function getSurfaceReapplyError(definition: {
+  label: string;
+  surfaceType: "global" | "integration" | "tool";
+  supportsReapply: boolean;
+}) {
+  if (definition.supportsReapply) {
+    return null;
+  }
+
+  return definition.surfaceType === "global"
+    ? `${definition.label} is managed by Otto and does not support manual reapply.`
+    : `${definition.label} does not support manual reapply.`;
+}
+
+type OnboardingSessionSummary = {
+  createdAt: Date;
+  id: string;
+  slackConnectedAt: Date | null;
+  slackOauthError: string | null;
+  slackOauthErrorAt: Date | null;
+  slackTeamName: string | null;
+  status: string;
+  tenantName: string;
+};
+
+type SlackIntegrationSummary = {
+  connectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  status: string;
+  teamId: string | null;
+  teamName: string | null;
+};
+
+export type SlackIngressRequestType = "events" | "commands" | "interactivity";
+
+type WhatsAppIntegrationSummary = {
+  connectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  selfE164: string | null;
+  status: string;
+};
+
+type TenantApplyRunSummary = {
+  desiredStateVersion: number;
+  error: string | null;
+  finishedAt: Date | null;
+  startedAt: Date | null;
+  status: string;
+};
+
+export type TenantManagedConfigFile = {
+  checksum: string;
+  description: string;
+  label: string;
+  path: ManagedBootstrapFilePath;
+  renderedContent: string;
+  sharedContent: string;
+  systemContent: string;
+};
+
+export type TenantManagedConfig = {
+  createdAt: Date;
+  createdByExternalId: string | null;
+  createdByType: string;
+  files: TenantManagedConfigFile[];
+  summary: string | null;
+  version: number;
+};
+
+type MessagingDirectoryMemberInput = {
+  avatarUrl: string | null;
+  displayName: string | null;
+  email: string | null;
+  externalMemberId: string;
+  fullName: string | null;
+  isDeleted: boolean;
+  memberType: string;
+  profileJson: unknown;
+  username: string | null;
+};
+
+type MessagingConversationInput = {
+  conversationType: string;
+  externalConversationId: string;
+  isArchived: boolean;
+  metadataJson: unknown;
+  name: string | null;
+  purpose: string | null;
+  topic: string | null;
+};
+
+export type TenantSlackRuntimeConfig = {
+  ackReactionEnabled: boolean;
+  allowedChannelIds: string[];
+  allowedUserIds: string[];
+  answerInThreads: boolean;
+  channelAccessMode: "manual_allowlist" | "member_of_channels";
+  enabled: boolean;
+  entryVersion: number;
+  installState: ToolInstallState;
+  requireMentionInChannels: boolean;
+  schemaVersion: string;
+};
+
+export type TenantWhatsAppRuntimeConfig = {
+  ackReactionEnabled: boolean;
+  allowedGroupIds: string[];
+  allowedNumbers: string[];
+  dmPolicy: "pairing" | "allowlist" | "disabled";
+  enabled: boolean;
+  entryVersion: number;
+  groupAllowedNumbers: string[];
+  groupPolicy: "disabled" | "allowlist";
+  installState: ToolInstallState;
+  requireMentionInGroups: boolean;
+  schemaVersion: string;
+};
+
+export type SlackRuntimeConfigDirectoryOption = {
+  memberCount?: number | null;
+  description: string | null;
+  id: string;
+  isArchived?: boolean;
+  isMember?: boolean;
+  label: string;
+  secondaryLabel: string | null;
+  visibility?: "private" | "public" | null;
+};
+
+export type TenantSlackRuntimeConfigSurface = {
+  agentOperations?: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  availableChannels: SlackRuntimeConfigDirectoryOption[];
+  availableUsers: SlackRuntimeConfigDirectoryOption[];
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit?: boolean;
+  canUserEdit?: boolean;
+  config: TenantSlackRuntimeConfig;
+  description: string;
+  derivedEffects?: SlackPolicyDerivedEffects;
+  fieldMeanings: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  key: string;
+  kind: string;
+  label: string;
+  actionMeanings: Array<{
+    action: ToolSurfaceAction;
+    description: string;
+    label: string;
+  }>;
+  allowedActions: ToolSurfaceAction[];
+  id: string;
+  schema: typeof slackRuntimeConfigJsonSchema;
+  settingsUrl?: string | null;
+  setupUrl?: string | null;
+  surfaceType: "integration";
+  uiGroup: "integrations";
+  uiHints: typeof slackRuntimeConfigUiHints;
+};
+
+export type TenantWhatsAppRuntimeConfigSurface = {
+  agentOperations?: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  availability?: "available" | "blocked";
+  blockingReason?: string | null;
+  canAgentEdit?: boolean;
+  canUserEdit?: boolean;
+  config: TenantWhatsAppRuntimeConfig;
+  description: string;
+  derivedEffects?: WhatsAppPolicyDerivedEffects;
+  fieldMeanings: Array<{
+    description: string;
+    key: string;
+    label: string;
+  }>;
+  key: string;
+  kind: string;
+  label: string;
+  actionMeanings: Array<{
+    action: ToolSurfaceAction;
+    description: string;
+    label: string;
+  }>;
+  allowedActions: ToolSurfaceAction[];
+  id: string;
+  schema: typeof whatsappRuntimeConfigJsonSchema;
+  settingsUrl?: string | null;
+  setupUrl?: string | null;
+  surfaceType: "integration";
+  uiGroup: "integrations";
+  uiHints: typeof whatsappRuntimeConfigUiHints;
+};
+
+export type TenantWhatsAppLinkSession = {
+  completedAt: Date | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+  forceRelink: boolean;
+  id: string;
+  lastError: string | null;
+  qrDataUrl: string | null;
+  status: string;
+  updatedAt: Date;
+};
+
+export type TenantToolConfigSurface = ToolSurfaceResponse<
+  Record<string, unknown>,
+  Record<string, unknown>
+>;
+
+export class ManagedConfigVersionConflictError extends Error {
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Managed config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
+    );
+  }
+}
+
+export class TenantRuntimeConfigVersionConflictError extends Error {
+  constructor(
+    readonly expectedVersion: number,
+    readonly currentVersion: number,
+  ) {
+    super(
+      `Runtime config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
+    );
+  }
+}
+
+type DbTransaction = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
+
+const DESIRED_STATE_LOCK_TIMEOUT = "5s";
+const DESIRED_STATE_STATEMENT_TIMEOUT = "20s";
+const DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT = "20s";
+
+export type DashboardOrganization = {
+  id: string;
+  externalId: string;
+  isReady: boolean;
+  latestOnboardingSession: OnboardingSessionSummary | null;
+  locale: string;
+  onboardingDraft: OnboardingSessionSummary | null;
+  name: string;
+  role: string;
+  slackIntegration: SlackIntegrationSummary | null;
+  timeFormatPreference: string;
+  timezone: string;
+  whatsappIntegration: WhatsAppIntegrationSummary | null;
+  slug: string;
+  tenants: Array<{
+    createdAt: Date;
+    id: string;
+    ipv4: string | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
+    name: string;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
+    status: string;
+    serverStatus: string | null;
+  }>;
+};
+
+export type PlatformOrganization = {
+  configuredRuntimeImage: string;
+  configuredRuntimeImageVersion: string | null;
+  id: string;
+  isReady: boolean;
+  locale: string;
+  name: string;
+  observedRuntimeImage: string | null;
+  observedRuntimeImageVersion: string | null;
+  slackIntegration: SlackIntegrationSummary | null;
+  slug: string;
+  timeFormatPreference: string;
+  timezone: string;
+  tenant: {
+    id: string;
+    ipv4: string | null;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
+    name: string;
+    serverStatus: string | null;
+    status: string;
+  } | null;
+};
+
+export type PlatformOrganizationDetail = {
+  configuredRuntimeImage: string;
+  configuredRuntimeImageVersion: string | null;
+  id: string;
+  isReady: boolean;
+  locale: string;
+  name: string;
+  observedRuntimeImage: string | null;
+  observedRuntimeImageVersion: string | null;
+  slackIntegration: SlackIntegrationSummary | null;
+  slug: string;
+  timeFormatPreference: string;
+  timezone: string;
+  tenant: {
+    id: string;
+    ipv4: string | null;
+    latestApplyRun: {
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      startedAt: Date | null;
+      status: string;
+    } | null;
+    latestDesiredStateVersion: number | null;
+    latestJob: {
+      attempt: number;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    } | null;
+    name: string;
+    openAiProvider: {
+      activeApiKeyId: string | null;
+      activeCredentialCount: number;
+      activeServiceAccountId: string | null;
+      latestCredentialCreatedAt: Date | null;
+      projectId: string | null;
+      status: string;
+      totalCredentialCount: number;
+    } | null;
+    recentApplyRuns: Array<{
+      createdAt: Date;
+      desiredStateVersion: number;
+      error: string | null;
+      finishedAt: Date | null;
+      id: string;
+      restartStderr: string | null;
+      restartStdout: string | null;
+      startedAt: Date | null;
+      status: string;
+      verifyStderr: string | null;
+      verifyStdout: string | null;
+    }>;
+    recentJobs: Array<{
+      attempt: number;
+      createdAt: Date;
+      error: string | null;
+      events: Array<{
+        createdAt: Date;
+        eventType: string;
+        message: string;
+      }>;
+      finishedAt: Date | null;
+      id: string;
+      jobType: string;
+      result: {
+        host: string | null;
+        image: string | null;
+        note: string | null;
+        restartStderr: string | null;
+        restartStdout: string | null;
+        verifyStderr: string | null;
+        verifyStdout: string | null;
+      } | null;
+      startedAt: Date | null;
+      status: string;
+      step: string | null;
+    }>;
+    recentEvents: Array<{
+      createdAt: Date;
+      eventType: string;
+      jobRunId: string;
+      jobStatus: string;
+      jobType: string;
+      message: string;
+      step: string | null;
+    }>;
+    serverStatus: string | null;
+    status: string;
+  } | null;
+};
+
+export type PlatformTenantTarget = {
+  ipv4: string | null;
+  organizationId: string;
+  orgSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantName: string;
+  tenantStatus: string;
+};
+
+export type TenantManagedIntegrationSummary = {
+  connectedAt: Date | null;
+  disconnectedAt: Date | null;
+  lastError: string | null;
+  lastErrorAt: Date | null;
+  providerKey: string;
+  status: string;
+};
+
+export type TenantManagedIntegrationConnectContext = {
+  integrationStatus: string | null;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  serverStatus: string | null;
+  tenantId: string;
+  tenantIntegrationId: string | null;
+  tenantStatus: string;
+  userEmail: string;
+  userId: string;
+};
+
+export type WorkspaceMemberDirectoryEntry = {
+  avatarUrl: string | null;
+  canManageRole: boolean;
+  canReactivate: boolean;
+  canResendInvitation: boolean;
+  canRevokeInvitation: boolean;
+  canSuspend: boolean;
+  email: string;
+  id: string;
+  invitationId: string | null;
+  isCurrentUser: boolean;
+  joinedAt: Date | null;
+  lastSeenAt: Date | null;
+  membershipId: string | null;
+  name: string;
+  role: string | null;
+  roleName: string | null;
+  rowType: "invitation" | "member";
+  searchText: string;
+  status: string;
+  subtitle: string | null;
+};
+
+export type WorkspaceMemberRoleOption = {
+  description: string | null;
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type WorkspaceMemberDirectory = {
+  activeMemberCount: number;
+  availableRoles: WorkspaceMemberRoleOption[];
+  canManageMembers: boolean;
+  entries: WorkspaceMemberDirectoryEntry[];
+  invitationCount: number;
+  organizationName: string;
+  organizationSlug: string;
+};
+
+export async function syncUserFromSession(user: User) {
+  const syncedUser = await upsertLocalUser(user);
+
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    localUserId: syncedUser.id,
+    reason: "session-sync",
+    userExternalId: user.id,
+  });
+
+  return syncedUser;
+}
+
+export async function reconcileWorkspaceMembershipProjectionForUser(
+  userExternalId: string,
+) {
+  await reconcileWorkspaceMembershipsFromWorkOS({
+    userExternalId,
+  });
+}
+
+export async function syncOrganizationProjectionFromWorkOS(input: {
+  organization: Pick<Organization, "id" | "name">;
+}) {
+  const db = getDb();
+
+  await db
+    .update(organizations)
+    .set({
+      name: input.organization.name,
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.externalId, input.organization.id));
+}
+
+async function upsertLocalUser(user: Pick<User, "email" | "id">) {
+  const db = getDb();
+
+  const [upsertedUser] = await db
+    .insert(users)
+    .values({
+      externalId: user.id,
+      email: user.email,
+    })
+    .onConflictDoUpdate({
+      target: users.externalId,
+      set: {
+        email: user.email,
+        updatedAt: new Date(),
+      },
+    })
+    .returning({
+      id: users.id,
+      externalId: users.externalId,
+      email: users.email,
+    });
+
+  return upsertedUser;
+}
+
+export async function hasPlatformAdminRole(userExternalId: string) {
+  const db = getDb();
+  const [role] = await db
+    .select({
+      role: userPlatformRoles.role,
+    })
+    .from(userPlatformRoles)
+    .innerJoin(users, eq(userPlatformRoles.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, userExternalId),
+        eq(userPlatformRoles.role, PLATFORM_ADMIN_ROLE),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(role);
+}
+
+async function requirePlatformAdmin(userExternalId: string) {
+  const isPlatformAdmin = await hasPlatformAdminRole(userExternalId);
+
+  if (!isPlatformAdmin) {
+    throw new Error("Platform admin access required");
+  }
+}
+
+export async function getDashboardOrganizations(
+  userExternalId: string,
+): Promise<DashboardOrganization[]> {
+  const db = getDb();
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "dashboard-organizations",
+    userExternalId,
+  });
+
+  const organizationRows = await getDashboardOrganizationRows(userExternalId);
+
+  if (organizationRows.length === 0) {
+    return [];
+  }
+
+  const organizationIds = organizationRows.map((row) => row.organizationId);
+
+  const onboardingRows = await db
+    .select({
+      createdAt: tenantOnboardingSessions.createdAt,
+      id: tenantOnboardingSessions.id,
+      organizationId: tenantOnboardingSessions.organizationId,
+      slackOauthError: tenantOnboardingSessions.slackOauthError,
+      slackOauthErrorAt: tenantOnboardingSessions.slackOauthErrorAt,
+      slackTeamName: tenantOnboardingSessions.slackTeamName,
+      slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
+      status: tenantOnboardingSessions.status,
+      tenantId: tenantOnboardingSessions.tenantId,
+      tenantName: tenantOnboardingSessions.tenantName,
+      userId: tenantOnboardingSessions.userId,
+    })
+    .from(tenantOnboardingSessions)
+    .innerJoin(users, eq(tenantOnboardingSessions.userId, users.id))
+    .where(
+      and(
+        inArray(tenantOnboardingSessions.organizationId, organizationIds),
+        eq(users.externalId, userExternalId),
+      ),
+    )
+    .orderBy(desc(tenantOnboardingSessions.createdAt));
+
+  const onboardingByOrganization = new Map<
+    string,
+    (typeof onboardingRows)[number]
+  >();
+  const latestOnboardingByOrganization = new Map<
+    string,
+    (typeof onboardingRows)[number]
+  >();
+
+  for (const onboarding of onboardingRows) {
+    if (!latestOnboardingByOrganization.has(onboarding.organizationId)) {
+      latestOnboardingByOrganization.set(onboarding.organizationId, onboarding);
+    }
+
+    if (onboarding.status === "completed") {
+      continue;
+    }
+
+    if (!onboardingByOrganization.has(onboarding.organizationId)) {
+      onboardingByOrganization.set(onboarding.organizationId, onboarding);
+    }
+  }
+
+  const tenantRows = await db
+    .select({
+      createdAt: tenants.createdAt,
+      id: tenants.id,
+      ipv4: tenantServers.ipv4,
+      organizationId: tenants.organizationId,
+      name: tenants.name,
+      status: tenants.status,
+      serverStatus: tenantServers.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(inArray(tenants.organizationId, organizationIds))
+    .orderBy(desc(tenants.createdAt));
+
+  const tenantIds = tenantRows.map((tenant) => tenant.id);
+  const slackIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            externalAccountId: integrationOauthConnections.externalAccountId,
+            externalAccountLabel:
+              integrationOauthConnections.externalAccountLabel,
+            grantedScopesCsv: integrationOauthConnections.grantedScopesCsv,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            providerMetadataJson:
+              integrationOauthConnections.providerMetadataJson,
+            status: tenantIntegrations.status,
+            tenantIntegrationId: tenantIntegrations.id,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            integrationOauthConnections,
+            eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+            ),
+          );
+  const whatsappIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            selfE164: integrationWhatsAppInstallations.selfE164,
+            status: tenantIntegrations.status,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            integrationWhatsAppInstallations,
+            eq(
+              integrationWhatsAppInstallations.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+            ),
+          );
+
+  const slackIntegrationsByTenant = new Map<
+    string,
+    SlackIntegrationSummary & { tenantId: string }
+  >();
+  const whatsappIntegrationsByTenant = new Map<
+    string,
+    (typeof whatsappIntegrationRows)[number]
+  >();
+
+  for (const integration of slackIntegrationRows) {
+    if (slackIntegrationsByTenant.has(integration.tenantId)) {
+      continue;
+    }
+
+    const slackProfile = buildSlackConnectionProfile({
+      externalAccountId: integration.externalAccountId,
+      externalAccountLabel: integration.externalAccountLabel,
+      grantedScopesCsv: integration.grantedScopesCsv,
+      providerMetadataJson: integration.providerMetadataJson,
+      tenantIntegrationId: integration.tenantIntegrationId,
+    });
+
+    slackIntegrationsByTenant.set(integration.tenantId, {
+      ...integration,
+      teamId: slackProfile?.teamId ?? null,
+      teamName: slackProfile?.teamName ?? null,
+    });
+  }
+
+  for (const integration of whatsappIntegrationRows) {
+    if (whatsappIntegrationsByTenant.has(integration.tenantId)) {
+      continue;
+    }
+
+    whatsappIntegrationsByTenant.set(integration.tenantId, integration);
+  }
+
+  const latestJobRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            attempt: jobRuns.attempt,
+            createdAt: jobRuns.createdAt,
+            error: jobRuns.error,
+            finishedAt: jobRuns.finishedAt,
+            id: jobRuns.id,
+            payloadJson: jobRuns.payloadJson,
+            startedAt: jobRuns.startedAt,
+            status: jobRuns.status,
+            tenantId: jobRuns.tenantId,
+          })
+          .from(jobRuns)
+          .where(inArray(jobRuns.tenantId, tenantIds))
+          .orderBy(desc(jobRuns.createdAt));
+
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+
+  for (const job of latestJobRows) {
+    if (!job.tenantId || latestJobsByTenant.has(job.tenantId)) {
+      continue;
+    }
+
+    latestJobsByTenant.set(job.tenantId, job);
+  }
+
+  const latestJobIds = Array.from(latestJobsByTenant.values()).map(
+    (job) => job.id,
+  );
+
+  const jobEventRows =
+    latestJobIds.length === 0
+      ? []
+      : await db
+          .select({
+            createdAt: jobEvents.createdAt,
+            eventType: jobEvents.eventType,
+            jobRunId: jobEvents.jobRunId,
+            message: jobEvents.message,
+          })
+          .from(jobEvents)
+          .where(inArray(jobEvents.jobRunId, latestJobIds))
+          .orderBy(desc(jobEvents.createdAt));
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
+
+  const latestApplyRunRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+            error: tenantApplyRuns.error,
+            finishedAt: tenantApplyRuns.finishedAt,
+            startedAt: tenantApplyRuns.startedAt,
+            status: tenantApplyRuns.status,
+            tenantId: tenantApplyRuns.tenantId,
+          })
+          .from(tenantApplyRuns)
+          .where(inArray(tenantApplyRuns.tenantId, tenantIds))
+          .orderBy(desc(tenantApplyRuns.createdAt));
+
+  const latestApplyRunsByTenant = new Map<
+    string,
+    (typeof latestApplyRunRows)[number]
+  >();
+
+  for (const applyRun of latestApplyRunRows) {
+    if (latestApplyRunsByTenant.has(applyRun.tenantId)) {
+      continue;
+    }
+
+    latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+  }
+
+  const organizationsForUser = organizationRows.map((organization) => {
+    const organizationTenants = tenantRows
+      .filter((tenant) => tenant.organizationId === organization.organizationId)
+      .map((tenant) => ({
+        createdAt: tenant.createdAt,
+        id: tenant.id,
+        ipv4: tenant.ipv4,
+        latestApplyRun: buildTenantApplyRunSummary(
+          latestApplyRunsByTenant.get(tenant.id) ?? null,
+        ),
+        latestJob: buildLatestJobSummary(
+          latestJobsByTenant.get(tenant.id) ?? null,
+          jobEventsByJobRunId,
+        ),
+        name: tenant.name,
+        status: tenant.status,
+        serverStatus: tenant.serverStatus,
+      }));
+    const primaryTenant = organizationTenants[0] ?? null;
+
+    return {
+      id: organization.organizationId,
+      externalId: organization.organizationExternalId,
+      isReady: organization.organizationIsReady,
+      latestOnboardingSession: buildOnboardingDraftSummary(
+        latestOnboardingByOrganization.get(organization.organizationId) ?? null,
+      ),
+      locale: organization.organizationLocale,
+      onboardingDraft: buildOnboardingDraftSummary(
+        onboardingByOrganization.get(organization.organizationId) ?? null,
+      ),
+      name: organization.organizationName,
+      role: organization.role,
+      slackIntegration: buildSlackIntegrationSummary(
+        primaryTenant
+          ? (slackIntegrationsByTenant.get(primaryTenant.id) ?? null)
+          : null,
+      ),
+      timeFormatPreference: organization.organizationTimeFormatPreference,
+      timezone: organization.organizationTimezone,
+      whatsappIntegration: buildWhatsAppIntegrationSummary(
+        primaryTenant
+          ? (whatsappIntegrationsByTenant.get(primaryTenant.id) ?? null)
+          : null,
+      ),
+      slug: organization.organizationSlug,
+      tenants: organizationTenants,
+    };
+  });
+
+  return organizationsForUser;
+}
+
+export async function listPlatformOrganizationSlugs(input: {
+  userExternalId: string;
+}): Promise<Array<{ name: string; slug: string }>> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  return db
+    .select({ name: organizations.name, slug: organizations.slug })
+    .from(organizations)
+    .orderBy(asc(organizations.name), asc(organizations.slug));
+}
+
+export async function listPlatformOrganizations(input: {
+  userExternalId: string;
+}): Promise<PlatformOrganization[]> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  const organizationRows = await db
+    .select({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      locale: organizations.locale,
+      name: organizations.name,
+      slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
+    })
+    .from(organizations)
+    .orderBy(asc(organizations.name), asc(organizations.slug));
+
+  if (organizationRows.length === 0) {
+    return [];
+  }
+
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  );
+  const organizationIds = organizationRows.map(
+    (organization) => organization.id,
+  );
+
+  const tenantRows = await db
+    .select({
+      createdAt: tenants.createdAt,
+      id: tenants.id,
+      ipv4: tenantServers.ipv4,
+      organizationId: tenants.organizationId,
+      name: tenants.name,
+      serverStatus: tenantServers.status,
+      status: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(inArray(tenants.organizationId, organizationIds))
+    .orderBy(desc(tenants.createdAt));
+
+  const latestTenantsByOrganization = new Map<
+    string,
+    (typeof tenantRows)[number]
+  >();
+
+  for (const tenant of tenantRows) {
+    if (!latestTenantsByOrganization.has(tenant.organizationId)) {
+      latestTenantsByOrganization.set(tenant.organizationId, tenant);
+    }
+  }
+
+  const tenantIds = Array.from(latestTenantsByOrganization.values()).map(
+    (tenant) => tenant.id,
+  );
+  const observedRuntimeImagesByTenant = await getObservedRuntimeImagesByTenant(
+    Array.from(latestTenantsByOrganization.values()),
+  );
+
+  const slackIntegrationRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            connectedAt: tenantIntegrations.connectedAt,
+            externalAccountId: integrationOauthConnections.externalAccountId,
+            externalAccountLabel:
+              integrationOauthConnections.externalAccountLabel,
+            grantedScopesCsv: integrationOauthConnections.grantedScopesCsv,
+            lastError: tenantIntegrations.lastError,
+            lastErrorAt: tenantIntegrations.lastErrorAt,
+            providerMetadataJson:
+              integrationOauthConnections.providerMetadataJson,
+            status: tenantIntegrations.status,
+            tenantIntegrationId: tenantIntegrations.id,
+            tenantId: tenantIntegrations.tenantId,
+          })
+          .from(tenantIntegrations)
+          .leftJoin(
+            integrationOauthConnections,
+            eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+          )
+          .where(
+            and(
+              inArray(tenantIntegrations.tenantId, tenantIds),
+              eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+            ),
+          );
+
+  const slackIntegrationsByTenant = new Map<
+    string,
+    SlackIntegrationSummary & { tenantId: string }
+  >();
+
+  for (const integration of slackIntegrationRows) {
+    if (!slackIntegrationsByTenant.has(integration.tenantId)) {
+      const slackProfile = buildSlackConnectionProfile({
+        externalAccountId: integration.externalAccountId,
+        externalAccountLabel: integration.externalAccountLabel,
+        grantedScopesCsv: integration.grantedScopesCsv,
+        providerMetadataJson: integration.providerMetadataJson,
+        tenantIntegrationId: integration.tenantIntegrationId,
+      });
+
+      slackIntegrationsByTenant.set(integration.tenantId, {
+        ...integration,
+        teamId: slackProfile?.teamId ?? null,
+        teamName: slackProfile?.teamName ?? null,
+      });
+    }
+  }
+
+  const latestApplyRunRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+            error: tenantApplyRuns.error,
+            finishedAt: tenantApplyRuns.finishedAt,
+            startedAt: tenantApplyRuns.startedAt,
+            status: tenantApplyRuns.status,
+            tenantId: tenantApplyRuns.tenantId,
+          })
+          .from(tenantApplyRuns)
+          .where(inArray(tenantApplyRuns.tenantId, tenantIds))
+          .orderBy(desc(tenantApplyRuns.createdAt));
+
+  const latestApplyRunsByTenant = new Map<
+    string,
+    (typeof latestApplyRunRows)[number]
+  >();
+
+  for (const applyRun of latestApplyRunRows) {
+    if (!latestApplyRunsByTenant.has(applyRun.tenantId)) {
+      latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+    }
+  }
+
+  const latestJobRows =
+    tenantIds.length === 0
+      ? []
+      : await db
+          .select({
+            attempt: jobRuns.attempt,
+            createdAt: jobRuns.createdAt,
+            error: jobRuns.error,
+            finishedAt: jobRuns.finishedAt,
+            id: jobRuns.id,
+            payloadJson: jobRuns.payloadJson,
+            startedAt: jobRuns.startedAt,
+            status: jobRuns.status,
+            tenantId: jobRuns.tenantId,
+          })
+          .from(jobRuns)
+          .where(inArray(jobRuns.tenantId, tenantIds))
+          .orderBy(desc(jobRuns.createdAt));
+
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+
+  for (const job of latestJobRows) {
+    if (job.tenantId && !latestJobsByTenant.has(job.tenantId)) {
+      latestJobsByTenant.set(job.tenantId, job);
+    }
+  }
+
+  const latestJobIds = Array.from(latestJobsByTenant.values()).map(
+    (job) => job.id,
+  );
+
+  const jobEventRows =
+    latestJobIds.length === 0
+      ? []
+      : await db
+          .select({
+            createdAt: jobEvents.createdAt,
+            eventType: jobEvents.eventType,
+            jobRunId: jobEvents.jobRunId,
+            message: jobEvents.message,
+          })
+          .from(jobEvents)
+          .where(inArray(jobEvents.jobRunId, latestJobIds))
+          .orderBy(desc(jobEvents.createdAt));
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
+
+  return organizationRows.map((organization) => {
+    const tenant = latestTenantsByOrganization.get(organization.id) ?? null;
+
+    return {
+      configuredRuntimeImage,
+      configuredRuntimeImageVersion,
+      id: organization.id,
+      isReady: organization.isReady,
+      locale: organization.locale,
+      name: organization.name,
+      observedRuntimeImage: tenant
+        ? (observedRuntimeImagesByTenant.get(tenant.id) ?? null)
+        : null,
+      observedRuntimeImageVersion: tenant
+        ? extractRuntimeImageVersionOrNull(
+            observedRuntimeImagesByTenant.get(tenant.id) ?? null,
+          )
+        : null,
+      slackIntegration: tenant
+        ? buildSlackIntegrationSummary(
+            slackIntegrationsByTenant.get(tenant.id) ?? null,
+          )
+        : null,
+      slug: organization.slug,
+      timeFormatPreference: organization.timeFormatPreference,
+      timezone: organization.timezone,
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            ipv4: tenant.ipv4,
+            latestApplyRun: buildTenantApplyRunSummary(
+              latestApplyRunsByTenant.get(tenant.id) ?? null,
+            ),
+            latestJob: buildLatestJobSummary(
+              latestJobsByTenant.get(tenant.id) ?? null,
+              jobEventsByJobRunId,
+            ),
+            name: tenant.name,
+            serverStatus: tenant.serverStatus,
+            status: tenant.status,
+          }
+        : null,
+    };
+  });
+}
+
+export async function getPlatformOrganizationDetail(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<PlatformOrganizationDetail | null> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  const db = getDb();
+  const [organization] = await db
+    .select({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      locale: organizations.locale,
+      name: organizations.name,
+      slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, input.orgSlug))
+    .limit(1);
+
+  if (!organization) {
+    return null;
+  }
+
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  );
+
+  const [tenant] = await db
+    .select({
+      createdAt: tenants.createdAt,
+      id: tenants.id,
+      ipv4: tenantServers.ipv4,
+      name: tenants.name,
+      serverStatus: tenantServers.status,
+      status: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, organization.id))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return {
+      configuredRuntimeImage,
+      configuredRuntimeImageVersion,
+      id: organization.id,
+      isReady: organization.isReady,
+      locale: organization.locale,
+      name: organization.name,
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
+      slackIntegration: null,
+      slug: organization.slug,
+      timeFormatPreference: organization.timeFormatPreference,
+      timezone: organization.timezone,
+      tenant: null,
+    };
+  }
+
+  const [
+    slackIntegrationRows,
+    recentApplyRunRows,
+    { recentJobRows, jobEventRows },
+    recentEventRows,
+    latestDesiredStateVersion,
+    observedRuntimeImage,
+    openAiProvider,
+  ] = await Promise.all([
+    // Slack integration
+    db
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        externalAccountId: integrationOauthConnections.externalAccountId,
+        externalAccountLabel: integrationOauthConnections.externalAccountLabel,
+        grantedScopesCsv: integrationOauthConnections.grantedScopesCsv,
+        lastError: tenantIntegrations.lastError,
+        lastErrorAt: tenantIntegrations.lastErrorAt,
+        providerMetadataJson: integrationOauthConnections.providerMetadataJson,
+        status: tenantIntegrations.status,
+        tenantIntegrationId: tenantIntegrations.id,
+      })
+      .from(tenantIntegrations)
+      .leftJoin(
+        integrationOauthConnections,
+        eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      )
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, tenant.id),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1),
+
+    // Recent apply runs
+    db
+      .select({
+        createdAt: tenantApplyRuns.createdAt,
+        desiredStateVersion: tenantApplyRuns.desiredStateVersion,
+        error: tenantApplyRuns.error,
+        finishedAt: tenantApplyRuns.finishedAt,
+        id: tenantApplyRuns.id,
+        restartStderr: tenantApplyRuns.restartStderr,
+        restartStdout: tenantApplyRuns.restartStdout,
+        startedAt: tenantApplyRuns.startedAt,
+        status: tenantApplyRuns.status,
+        verifyStderr: tenantApplyRuns.verifyStderr,
+        verifyStdout: tenantApplyRuns.verifyStdout,
+      })
+      .from(tenantApplyRuns)
+      .where(eq(tenantApplyRuns.tenantId, tenant.id))
+      .orderBy(desc(tenantApplyRuns.createdAt))
+      .limit(8),
+
+    // Recent jobs + their events (chained, but parallel with other queries)
+    (async () => {
+      const recentJobRows = await db
+        .select({
+          attempt: jobRuns.attempt,
+          createdAt: jobRuns.createdAt,
+          error: jobRuns.error,
+          finishedAt: jobRuns.finishedAt,
+          id: jobRuns.id,
+          jobType: jobRuns.jobType,
+          payloadJson: jobRuns.payloadJson,
+          resultJson: jobRuns.resultJson,
+          startedAt: jobRuns.startedAt,
+          status: jobRuns.status,
+        })
+        .from(jobRuns)
+        .where(eq(jobRuns.tenantId, tenant.id))
+        .orderBy(desc(jobRuns.createdAt))
+        .limit(50);
+
+      const recentJobIds = recentJobRows.map((job) => job.id);
+      const jobEventRows =
+        recentJobIds.length === 0
+          ? []
+          : await db
+              .select({
+                createdAt: jobEvents.createdAt,
+                eventType: jobEvents.eventType,
+                jobRunId: jobEvents.jobRunId,
+                message: jobEvents.message,
+              })
+              .from(jobEvents)
+              .where(inArray(jobEvents.jobRunId, recentJobIds))
+              .orderBy(desc(jobEvents.createdAt))
+              .limit(500);
+
+      return { recentJobRows, jobEventRows };
+    })(),
+
+    // Recent events
+    db
+      .select({
+        createdAt: jobEvents.createdAt,
+        eventType: jobEvents.eventType,
+        jobRunId: jobEvents.jobRunId,
+        jobStatus: jobRuns.status,
+        jobType: jobRuns.jobType,
+        message: jobEvents.message,
+        payloadJson: jobRuns.payloadJson,
+      })
+      .from(jobEvents)
+      .innerJoin(jobRuns, eq(jobRuns.id, jobEvents.jobRunId))
+      .where(eq(jobRuns.tenantId, tenant.id))
+      .orderBy(desc(jobEvents.createdAt))
+      .limit(200),
+
+    // Latest desired state version
+    getLatestTenantDesiredState(tenant.id)
+      .then((state) => state.version)
+      .catch(() => null),
+
+    // Observed runtime image (SSH call — runs in parallel, no longer blocks)
+    getObservedRuntimeImageForTenant(tenant),
+
+    // OpenAI provider summary
+    getTenantOpenAiProviderSummary(tenant.id),
+  ]);
+
+  const slackIntegrationRow = slackIntegrationRows[0] ?? null;
+  const slackIntegrationProfile = slackIntegrationRow
+    ? buildSlackConnectionProfile({
+        externalAccountId: slackIntegrationRow.externalAccountId,
+        externalAccountLabel: slackIntegrationRow.externalAccountLabel,
+        grantedScopesCsv: slackIntegrationRow.grantedScopesCsv,
+        providerMetadataJson: slackIntegrationRow.providerMetadataJson,
+        tenantIntegrationId: slackIntegrationRow.tenantIntegrationId,
+      })
+    : null;
+  const slackIntegration = slackIntegrationRow
+    ? {
+        ...slackIntegrationRow,
+        teamId: slackIntegrationProfile?.teamId ?? null,
+        teamName: slackIntegrationProfile?.teamName ?? null,
+      }
+    : null;
+
+  const jobEventsByJobRunId = new Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >();
+
+  for (const event of jobEventRows) {
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    existingEvents.push({
+      createdAt: event.createdAt,
+      eventType: event.eventType,
+      message: event.message,
+    });
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+  }
+
+  return {
+    configuredRuntimeImage,
+    configuredRuntimeImageVersion,
+    id: organization.id,
+    isReady: organization.isReady,
+    locale: organization.locale,
+    name: organization.name,
+    observedRuntimeImage,
+    observedRuntimeImageVersion:
+      extractRuntimeImageVersionOrNull(observedRuntimeImage),
+    slackIntegration: buildSlackIntegrationSummary(slackIntegration ?? null),
+    slug: organization.slug,
+    timeFormatPreference: organization.timeFormatPreference,
+    timezone: organization.timezone,
+    tenant: {
+      id: tenant.id,
+      ipv4: tenant.ipv4,
+      latestApplyRun: buildTenantApplyRunSummary(recentApplyRunRows[0] ?? null),
+      latestDesiredStateVersion,
+      latestJob: buildLatestJobSummary(
+        recentJobRows[0] ?? null,
+        jobEventsByJobRunId,
+      ),
+      name: tenant.name,
+      openAiProvider,
+      recentApplyRuns: recentApplyRunRows.map(buildTenantApplyRunDetail),
+      recentJobs: recentJobRows.map((job) =>
+        buildPlatformJobHistoryEntry(job, jobEventsByJobRunId),
+      ),
+      recentEvents: recentEventRows.map((event) =>
+        buildPlatformJobEventHistoryEntry(event),
+      ),
+      serverStatus: tenant.serverStatus,
+      status: tenant.status,
+    },
+  };
+}
+
+async function getDashboardOrganizationRows(userExternalId: string) {
+  const db = getDb();
+
+  return db
+    .select({
+      organizationId: organizations.id,
+      organizationExternalId: organizations.externalId,
+      organizationIsReady: organizations.isReady,
+      organizationLocale: organizations.locale,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      organizationTimeFormatPreference: organizations.timeFormatPreference,
+      organizationTimezone: organizations.timezone,
+      role: memberships.role,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(
+      and(
+        eq(users.externalId, userExternalId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    );
+}
+
+type AuthorizedWorkspaceMembershipContext = {
+  currentMembershipId: string;
+  currentRoleSlug: string;
+  organizationExternalId: string;
+  organizationId: string;
+  organizationLocale: string;
+  organizationName: string;
+  organizationSlug: string;
+  organizationTimeFormatPreference: string;
+  organizationTimezone: string;
+};
+
+async function getAuthorizedWorkspaceMembershipContext(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<AuthorizedWorkspaceMembershipContext> {
+  const db = getDb();
+  await ensureWorkspaceMembershipProjection({
+    allowStaleFallback: true,
+    reason: "authorized-workspace-membership",
+    requireFreshProjectionOnFailure: true,
+    userExternalId: input.userExternalId,
+  });
+
+  const [authorizedMembership] = await db
+    .select({
+      localMembershipExternalId: memberships.externalId,
+      localMembershipId: memberships.id,
+      localRole: memberships.role,
+      organizationExternalId: organizations.externalId,
+      organizationId: organizations.id,
+      organizationLocale: organizations.locale,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      organizationTimeFormatPreference: organizations.timeFormatPreference,
+      organizationTimezone: organizations.timezone,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(users.externalId, input.userExternalId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    )
+    .limit(1);
+
+  if (!authorizedMembership) {
+    throw new Error("You do not have access to this organization");
+  }
+
+  if (!authorizedMembership.localMembershipExternalId) {
+    throw new Error("Workspace membership is missing WorkOS sync state");
+  }
+
+  return {
+    currentMembershipId: authorizedMembership.localMembershipExternalId,
+    currentRoleSlug: authorizedMembership.localRole,
+    organizationExternalId: authorizedMembership.organizationExternalId,
+    organizationId: authorizedMembership.organizationId,
+    organizationLocale: authorizedMembership.organizationLocale,
+    organizationName: authorizedMembership.organizationName,
+    organizationSlug: authorizedMembership.organizationSlug,
+    organizationTimeFormatPreference:
+      authorizedMembership.organizationTimeFormatPreference,
+    organizationTimezone: authorizedMembership.organizationTimezone,
+  };
+}
+
+function canManageWorkspaceMembers(role: string) {
+  return role === "admin" || role === "owner";
+}
+
+function isWorkspaceAdminRoleSlug(roleSlug: string | null | undefined) {
+  return roleSlug === "admin" || roleSlug === "owner";
+}
+
+function parseWorkOsTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value);
+
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+}
+
+function buildWorkspaceMemberSearchText(input: {
+  email: string;
+  name: string;
+  roleName: string | null;
+  role: string | null;
+  status: string;
+  subtitle: string | null;
+}) {
+  return [
+    input.name,
+    input.email,
+    input.subtitle,
+    input.role,
+    input.roleName,
+    input.status,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function buildWorkspaceRoleOption(role: Role): WorkspaceMemberRoleOption {
+  return {
+    description: role.description,
+    id: role.id,
+    name: role.name,
+    slug: role.slug,
+  };
+}
+
+function buildFallbackWorkspaceRoleOption(roleSlug: string) {
+  return {
+    description: null,
+    id: roleSlug,
+    name: roleSlug,
+    slug: roleSlug,
+  } satisfies WorkspaceMemberRoleOption;
+}
+
+function buildWorkspaceMemberEntry(input: {
+  canManageRole: boolean;
+  canReactivate: boolean;
+  canSuspend: boolean;
+  isCurrentUser: boolean;
+  membership: OrganizationMembership;
+  roleName: string | null;
+  user: User | null;
+}): WorkspaceMemberDirectoryEntry {
+  const fullName = [input.user?.firstName, input.user?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const email =
+    input.user?.email ??
+    `${input.membership.userId.slice(0, 8)}@workos-user.invalid`;
+  const name = fullName || email;
+  const subtitle =
+    input.user?.email && fullName
+      ? input.user.email.split("@")[0] || null
+      : input.membership.directoryManaged
+        ? "Directory-managed member"
+        : null;
+
+  return {
+    avatarUrl: input.user?.profilePictureUrl ?? null,
+    canManageRole: input.canManageRole,
+    canReactivate: input.canReactivate,
+    canResendInvitation: false,
+    canRevokeInvitation: false,
+    canSuspend: input.canSuspend,
+    email,
+    id: input.membership.id,
+    invitationId: null,
+    isCurrentUser: input.isCurrentUser,
+    joinedAt: parseWorkOsTimestamp(input.membership.createdAt),
+    lastSeenAt: parseWorkOsTimestamp(input.user?.lastSignInAt),
+    membershipId: input.membership.id,
+    name,
+    role: input.membership.role.slug,
+    roleName: input.roleName,
+    rowType: "member",
+    searchText: buildWorkspaceMemberSearchText({
+      email,
+      name,
+      roleName: input.roleName,
+      role: input.membership.role.slug,
+      status: input.membership.status,
+      subtitle,
+    }),
+    status: input.membership.status,
+    subtitle,
+  };
+}
+
+function buildWorkspaceInvitationEntry(input: {
+  canResendInvitation: boolean;
+  canRevokeInvitation: boolean;
+  invitation: Invitation;
+  membershipId?: string | null;
+  role: WorkspaceMemberRoleOption | null;
+}): WorkspaceMemberDirectoryEntry {
+  const subtitle =
+    input.invitation.state === "pending"
+      ? "Invitation pending"
+      : input.invitation.state === "expired"
+        ? "Invitation expired"
+        : "Invitation revoked";
+
+  return {
+    avatarUrl: null,
+    canManageRole: false,
+    canReactivate: false,
+    canResendInvitation: input.canResendInvitation,
+    canRevokeInvitation: input.canRevokeInvitation,
+    canSuspend: false,
+    email: input.invitation.email,
+    id: input.invitation.id,
+    invitationId: input.invitation.id,
+    isCurrentUser: false,
+    joinedAt: parseWorkOsTimestamp(input.invitation.createdAt),
+    lastSeenAt: null,
+    membershipId: input.membershipId ?? null,
+    name: input.invitation.email,
+    role: input.role?.slug ?? null,
+    roleName: input.role?.name ?? null,
+    rowType: "invitation",
+    searchText: buildWorkspaceMemberSearchText({
+      email: input.invitation.email,
+      name: input.invitation.email,
+      role: input.role?.slug ?? null,
+      roleName: input.role?.name ?? null,
+      status: input.invitation.state,
+      subtitle,
+    }),
+    status: input.invitation.state,
+    subtitle,
+  };
+}
+
+function getWorkspaceMemberSortOrder(entry: WorkspaceMemberDirectoryEntry) {
+  if (entry.rowType === "member" && entry.status === "active") {
+    return 0;
+  }
+
+  if (entry.rowType === "member") {
+    return 1;
+  }
+
+  if (entry.status === "pending") {
+    return 2;
+  }
+
+  return 3;
+}
+
+type WorkspaceMembershipProjectionSnapshot = {
+  activeMembershipCount: number;
+  hasAnyMemberships: boolean;
+  localUserId: string | null;
+  newestSyncAt: Date | null;
+};
+
+async function getWorkspaceMembershipProjectionSnapshot(
+  userExternalId: string,
+): Promise<WorkspaceMembershipProjectionSnapshot> {
+  const db = getDb();
+  const [localUser] = await db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.externalId, userExternalId))
+    .limit(1);
+
+  if (!localUser) {
+    return {
+      activeMembershipCount: 0,
+      hasAnyMemberships: false,
+      localUserId: null,
+      newestSyncAt: null,
+    };
+  }
+
+  const membershipRows = await db
+    .select({
+      lastSyncedAt: memberships.lastSyncedAt,
+      status: memberships.status,
+    })
+    .from(memberships)
+    .where(eq(memberships.userId, localUser.id))
+    .orderBy(desc(memberships.lastSyncedAt));
+
+  return {
+    activeMembershipCount: membershipRows.filter(
+      (membership) => membership.status === ACTIVE_WORKSPACE_MEMBERSHIP_STATUS,
+    ).length,
+    hasAnyMemberships: membershipRows.length > 0,
+    localUserId: localUser.id,
+    newestSyncAt: membershipRows[0]?.lastSyncedAt ?? null,
+  };
+}
+
+function getWorkspaceMembershipProjectionAgeMs(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
+) {
+  return snapshot.newestSyncAt
+    ? Date.now() - snapshot.newestSyncAt.getTime()
+    : null;
+}
+
+function isWorkspaceMembershipProjectionFresh(
+  snapshot: WorkspaceMembershipProjectionSnapshot,
+) {
+  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot);
+  return ageMs !== null && ageMs < WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS;
+}
+
+async function ensureWorkspaceMembershipProjection(input: {
+  allowStaleFallback: boolean;
+  localUserId?: string;
+  reason: string;
+  requireFreshProjectionOnFailure?: boolean;
+  userExternalId: string;
+}) {
+  const snapshot = await getWorkspaceMembershipProjectionSnapshot(
+    input.userExternalId,
+  );
+
+  if (isWorkspaceMembershipProjectionFresh(snapshot)) {
+    return;
+  }
+
+  try {
+    await reconcileWorkspaceMembershipsFromWorkOS({
+      localUserId: input.localUserId ?? snapshot.localUserId ?? undefined,
+      userExternalId: input.userExternalId,
+    });
+  } catch (error) {
+    if (input.allowStaleFallback && snapshot.hasAnyMemberships) {
+      return;
+    }
+
+    if (input.requireFreshProjectionOnFailure || !input.allowStaleFallback) {
+      throw error;
+    }
+  }
+}
+
+async function reconcileWorkspaceMembershipsFromWorkOS(input: {
+  localUserId?: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const workos = getWorkOS();
+  const now = new Date();
+  const localUser =
+    input.localUserId !== undefined
+      ? { id: input.localUserId }
+      : await upsertLocalUser(
+          await workos.userManagement.getUser(input.userExternalId),
+        );
+  const workosMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      userId: input.userExternalId,
+    })
+  ).autoPagination();
+  const externalOrganizationIds = Array.from(
+    new Set(workosMemberships.map((membership) => membership.organizationId)),
+  );
+  const existingOrganizations =
+    externalOrganizationIds.length === 0
+      ? []
+      : await db
+          .select({
+            externalId: organizations.externalId,
+            id: organizations.id,
+            name: organizations.name,
+          })
+          .from(organizations)
+          .where(inArray(organizations.externalId, externalOrganizationIds));
+  const organizationsByExternalId = new Map(
+    existingOrganizations.map((organization) => [
+      organization.externalId,
+      organization,
+    ]),
+  );
+  const existingMembershipRows = await db
+    .select({
+      externalId: memberships.externalId,
+      id: memberships.id,
+      organizationId: memberships.organizationId,
+      role: memberships.role,
+      status: memberships.status,
+    })
+    .from(memberships)
+    .where(eq(memberships.userId, localUser.id));
+  const existingMembershipsByOrgId = new Map(
+    existingMembershipRows.map((membership) => [
+      membership.organizationId,
+      membership,
+    ]),
+  );
+
+  const seenOrganizationIds = new Set<string>();
+
+  for (const membership of workosMemberships) {
+    let localOrganization = organizationsByExternalId.get(
+      membership.organizationId,
+    );
+
+    if (!localOrganization) {
+      const slug = await generateOrganizationSlugFromWorkOS(
+        membership.organizationName,
+        membership.organizationId,
+      );
+      const [createdOrganization] = await db
+        .insert(organizations)
+        .values({
+          externalId: membership.organizationId,
+          isReady: false,
+          name: membership.organizationName,
+          slug,
+        })
+        .returning({
+          externalId: organizations.externalId,
+          id: organizations.id,
+          name: organizations.name,
+        });
+
+      localOrganization = createdOrganization;
+      organizationsByExternalId.set(
+        createdOrganization.externalId,
+        createdOrganization,
+      );
+    } else if (localOrganization.name !== membership.organizationName) {
+      await db
+        .update(organizations)
+        .set({
+          name: membership.organizationName,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizations.id, localOrganization.id));
+    }
+
+    const existingMembership = existingMembershipsByOrgId.get(
+      localOrganization.id,
+    );
+    const nextStatus = normalizeWorkspaceMembershipStatus(membership.status);
+
+    if (existingMembership) {
+      seenOrganizationIds.add(localOrganization.id);
+
+      if (
+        existingMembership.externalId !== membership.id ||
+        existingMembership.role !== membership.role.slug ||
+        existingMembership.status !== nextStatus
+      ) {
+        await db
+          .update(memberships)
+          .set({
+            externalId: membership.id,
+            lastSyncedAt: now,
+            role: membership.role.slug,
+            removedAt: null,
+            status: nextStatus,
+            updatedAt: now,
+          })
+          .where(eq(memberships.id, existingMembership.id));
+      } else {
+        await db
+          .update(memberships)
+          .set({
+            lastSyncedAt: now,
+          })
+          .where(eq(memberships.id, existingMembership.id));
+      }
+
+      continue;
+    }
+
+    await db.insert(memberships).values({
+      externalId: membership.id,
+      lastSyncedAt: now,
+      organizationId: localOrganization.id,
+      removedAt: null,
+      role: membership.role.slug,
+      status: nextStatus,
+      updatedAt: now,
+      userId: localUser.id,
+    });
+    existingMembershipsByOrgId.set(localOrganization.id, {
+      externalId: membership.id,
+      id: `pending-${localOrganization.id}`,
+      organizationId: localOrganization.id,
+      role: membership.role.slug,
+      status: nextStatus,
+    });
+    seenOrganizationIds.add(localOrganization.id);
+  }
+
+  const removedMembershipIds = existingMembershipRows
+    .filter((membership) => !seenOrganizationIds.has(membership.organizationId))
+    .map((membership) => membership.id);
+
+  if (removedMembershipIds.length > 0) {
+    await db
+      .update(memberships)
+      .set({
+        lastSyncedAt: now,
+        removedAt: now,
+        status: REMOVED_WORKSPACE_MEMBERSHIP_STATUS,
+        updatedAt: now,
+      })
+      .where(inArray(memberships.id, removedMembershipIds));
+  }
+}
+
+async function listWorkspaceRoleOptions(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const roleList = await workos.organizations.listOrganizationRoles({
+    organizationId: organizationExternalId,
+  });
+
+  return roleList.data.map(buildWorkspaceRoleOption);
+}
+
+function getWorkspaceRoleOptionBySlug(
+  availableRoles: WorkspaceMemberRoleOption[],
+  roleSlug: string,
+) {
+  return availableRoles.find((role) => role.slug === roleSlug) ?? null;
+}
+
+async function listWorkspaceUsersById(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const usersForOrganization = await (
+    await workos.userManagement.listUsers({
+      organizationId: organizationExternalId,
+    })
+  ).autoPagination();
+  const usersById = new Map(
+    usersForOrganization.map((user) => [user.id, user]),
+  );
+
+  return usersById;
+}
+
+async function hydrateWorkspaceUsersByMemberships(input: {
+  membershipsForOrganization: OrganizationMembership[];
+  organizationExternalId: string;
+}) {
+  const workos = getWorkOS();
+  const usersById = await listWorkspaceUsersById(input.organizationExternalId);
+  const missingUserIds = Array.from(
+    new Set(
+      input.membershipsForOrganization
+        .map((membership) => membership.userId)
+        .filter((userId) => !usersById.has(userId)),
+    ),
+  );
+
+  if (missingUserIds.length > 0) {
+    const missingUsers = await Promise.all(
+      missingUserIds.map((userId) => workos.userManagement.getUser(userId)),
+    );
+
+    for (const user of missingUsers) {
+      usersById.set(user.id, user);
+    }
+  }
+
+  return usersById;
+}
+
+function getPendingMembershipsByEmail(input: {
+  membershipsForOrganization: OrganizationMembership[];
+  usersById: Map<string, User>;
+}) {
+  const membershipsByEmail = new Map<string, OrganizationMembership[]>();
+
+  for (const membership of input.membershipsForOrganization) {
+    if (membership.status !== "pending") {
+      continue;
+    }
+
+    const email = input.usersById.get(membership.userId)?.email?.toLowerCase();
+
+    if (!email) {
+      continue;
+    }
+
+    const existingMemberships = membershipsByEmail.get(email) ?? [];
+    existingMemberships.push(membership);
+    membershipsByEmail.set(email, existingMemberships);
+  }
+
+  return membershipsByEmail;
+}
+
+function takePendingMembershipForEmail(
+  membershipsByEmail: Map<string, OrganizationMembership[]>,
+  email: string,
+) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const matchingMemberships = membershipsByEmail.get(normalizedEmail);
+
+  if (!matchingMemberships || matchingMemberships.length === 0) {
+    return null;
+  }
+
+  return matchingMemberships.shift() ?? null;
+}
+
+async function getWorkspaceMembershipForMutation(input: {
+  context: AuthorizedWorkspaceMembershipContext;
+  membershipId: string;
+}) {
+  const workos = getWorkOS();
+  const membership = await workos.userManagement.getOrganizationMembership(
+    input.membershipId,
+  );
+
+  if (membership.organizationId !== input.context.organizationExternalId) {
+    throw new Error("Workspace member not found");
+  }
+
+  return membership;
+}
+
+async function getWorkspaceInvitationForMutation(input: {
+  context: AuthorizedWorkspaceMembershipContext;
+  invitationId: string;
+}) {
+  const workos = getWorkOS();
+  const invitation = await workos.userManagement.getInvitation(
+    input.invitationId,
+  );
+
+  if (invitation.organizationId !== input.context.organizationExternalId) {
+    throw new Error("Workspace invitation not found");
+  }
+
+  return invitation;
+}
+
+async function getActiveWorkspaceAdminCount(organizationExternalId: string) {
+  const workos = getWorkOS();
+  const membershipsForOrganization = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: organizationExternalId,
+      statuses: ["active"],
+    })
+  ).autoPagination();
+
+  return membershipsForOrganization.filter((membership) =>
+    isWorkspaceAdminRoleSlug(membership.role.slug),
+  ).length;
+}
+
+async function buildWorkspaceMemberEntryFromMembership(input: {
+  actingUserExternalId: string;
+  availableRoles: WorkspaceMemberRoleOption[];
+  canManageMembers: boolean;
+  currentMembershipId: string;
+  membership: OrganizationMembership;
+}) {
+  const workos = getWorkOS();
+  const user = await workos.userManagement
+    .getUser(input.membership.userId)
+    .catch(() => {
+      return null;
+    });
+  const isCurrentUser =
+    input.membership.id === input.currentMembershipId ||
+    input.membership.userId === input.actingUserExternalId;
+
+  return buildWorkspaceMemberEntry({
+    canManageRole: input.canManageMembers && !isCurrentUser,
+    canReactivate:
+      input.canManageMembers &&
+      !isCurrentUser &&
+      input.membership.status === "inactive",
+    canSuspend:
+      input.canManageMembers &&
+      !isCurrentUser &&
+      input.membership.status === "active",
+    isCurrentUser,
+    membership: input.membership,
+    roleName:
+      getWorkspaceRoleOptionBySlug(
+        input.availableRoles,
+        input.membership.role.slug,
+      )?.name ?? input.membership.role.slug,
+    user,
+  });
+}
+
+function buildOnboardingDraftSummary(
+  onboarding: OnboardingSessionSummary | null,
+) {
+  if (!onboarding) {
+    return null;
+  }
+
+  return {
+    createdAt: onboarding.createdAt,
+    id: onboarding.id,
+    slackOauthError: onboarding.slackOauthError,
+    slackOauthErrorAt: onboarding.slackOauthErrorAt,
+    slackTeamName: onboarding.slackTeamName,
+    slackConnectedAt: onboarding.slackConnectedAt,
+    status: onboarding.status,
+    tenantName: onboarding.tenantName,
+  };
+}
+
+function buildSlackIntegrationSummary(
+  integration: SlackIntegrationSummary | null,
+) {
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    connectedAt: integration.connectedAt,
+    lastError: integration.lastError,
+    lastErrorAt: integration.lastErrorAt,
+    status: integration.status,
+    teamId: integration.teamId,
+    teamName: integration.teamName,
+  };
+}
+
+function buildWhatsAppIntegrationSummary(
+  integration: WhatsAppIntegrationSummary | null,
+) {
+  if (!integration) {
+    return null;
+  }
+
+  return {
+    connectedAt: integration.connectedAt,
+    lastError: integration.lastError,
+    lastErrorAt: integration.lastErrorAt,
+    selfE164: integration.selfE164,
+    status: integration.status,
+  };
+}
+
+function buildTenantApplyRunSummary(applyRun: TenantApplyRunSummary | null) {
+  if (!applyRun) {
+    return null;
+  }
+
+  return {
+    desiredStateVersion: applyRun.desiredStateVersion,
+    error: applyRun.error,
+    finishedAt: applyRun.finishedAt,
+    startedAt: applyRun.startedAt,
+    status: applyRun.status,
+  };
+}
+
+function buildTenantApplyRunDetail(applyRun: {
+  createdAt: Date;
+  desiredStateVersion: number;
+  error: string | null;
+  finishedAt: Date | null;
+  id: string;
+  restartStderr: string | null;
+  restartStdout: string | null;
+  startedAt: Date | null;
+  status: string;
+  verifyStderr: string | null;
+  verifyStdout: string | null;
+}) {
+  return {
+    createdAt: applyRun.createdAt,
+    desiredStateVersion: applyRun.desiredStateVersion,
+    error: applyRun.error,
+    finishedAt: applyRun.finishedAt,
+    id: applyRun.id,
+    restartStderr: applyRun.restartStderr,
+    restartStdout: applyRun.restartStdout,
+    startedAt: applyRun.startedAt,
+    status: applyRun.status,
+    verifyStderr: applyRun.verifyStderr,
+    verifyStdout: applyRun.verifyStdout,
+  };
+}
+
+function buildLatestJobSummary(
+  job: {
+    attempt: number;
+    error: string | null;
+    finishedAt: Date | null;
+    id: string;
+    payloadJson: unknown;
+    startedAt: Date | null;
+    status: string;
+  } | null,
+  jobEventsByJobRunId: Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >,
+) {
+  if (!job) {
+    return null;
+  }
+
+  const payload = parseRecord(job.payloadJson);
+  const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse();
+  const step =
+    typeof payload.step === "string"
+      ? payload.step
+      : deriveJobStepFromEvents(events);
+
+  return {
+    attempt: job.attempt,
+    error: job.error,
+    events,
+    finishedAt: job.finishedAt,
+    id: job.id,
+    startedAt: job.startedAt,
+    status: job.status,
+    step,
+  };
+}
+
+function buildPlatformJobHistoryEntry(
+  job: {
+    attempt: number;
+    createdAt: Date;
+    error: string | null;
+    finishedAt: Date | null;
+    id: string;
+    jobType: string;
+    payloadJson: unknown;
+    resultJson: unknown;
+    startedAt: Date | null;
+    status: string;
+  },
+  jobEventsByJobRunId: Map<
+    string,
+    Array<{
+      createdAt: Date;
+      eventType: string;
+      message: string;
+    }>
+  >,
+) {
+  const summary = buildLatestJobSummary(job, jobEventsByJobRunId);
+
+  if (!summary) {
+    throw new Error("Expected job summary to exist");
+  }
+
+  return {
+    ...summary,
+    createdAt: job.createdAt,
+    jobType: job.jobType,
+    result: buildPlatformJobResult(job.resultJson),
+  };
+}
+
+function buildPlatformJobEventHistoryEntry(event: {
+  createdAt: Date;
+  eventType: string;
+  jobRunId: string;
+  jobStatus: string;
+  jobType: string;
+  message: string;
+  payloadJson: unknown;
+}) {
+  const payload = parseRecord(event.payloadJson);
+  const step =
+    typeof payload.step === "string" ? payload.step : event.eventType;
+
+  return {
+    createdAt: event.createdAt,
+    eventType: event.eventType,
+    jobRunId: event.jobRunId,
+    jobStatus: event.jobStatus,
+    jobType: event.jobType,
+    message: event.message,
+    step,
+  };
+}
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function deriveJobStepFromEvents(
+  events: Array<{
+    createdAt: Date;
+    eventType: string;
+    message: string;
+  }>,
+) {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const eventType = events[index]?.eventType;
+
+    if (!eventType || isGenericJobEventType(eventType)) {
+      continue;
+    }
+
+    return eventType;
+  }
+
+  return null;
+}
+
+function isGenericJobEventType(eventType: string) {
+  return (
+    eventType === JOB_STATUSES.queued || eventType === JOB_STATUSES.running
+  );
+}
+
+function buildPlatformJobResult(value: unknown) {
+  const result = parseRecord(value);
+
+  if (Object.keys(result).length === 0) {
+    return null;
+  }
+
+  return {
+    host: typeof result.host === "string" ? result.host : null,
+    image: typeof result.image === "string" ? result.image : null,
+    note: typeof result.note === "string" ? result.note : null,
+    restartStderr:
+      typeof result.restartStderr === "string" ? result.restartStderr : null,
+    restartStdout:
+      typeof result.restartStdout === "string" ? result.restartStdout : null,
+    verifyStderr:
+      typeof result.verifyStderr === "string" ? result.verifyStderr : null,
+    verifyStdout:
+      typeof result.verifyStdout === "string" ? result.verifyStdout : null,
+  };
+}
+
+export async function createWorkspaceOnboardingDraft(input: {
+  workspaceName: string;
+  workspaceSlug: string;
+  user: User;
+}) {
+  const workos = getWorkOS();
+  const db = getDb();
+  const syncedUser = await syncUserFromSession(input.user);
+  const normalizedSlug = normalizeWorkspaceSlug(input.workspaceSlug);
+
+  if (!normalizedSlug) {
+    throw new Error("Workspace slug is required");
+  }
+
+  if (isReservedWorkspaceSlug(normalizedSlug)) {
+    throw new Error("Workspace slug is reserved");
+  }
+
+  const [existingOrganization] = await db
+    .select({
+      id: organizations.id,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, normalizedSlug))
+    .limit(1);
+
+  if (existingOrganization) {
+    throw new Error("Workspace slug is already in use");
+  }
+
+  const organization = await workos.organizations.createOrganization({
+    name: input.workspaceName,
+  });
+
+  const ownerMembership =
+    await workos.userManagement.createOrganizationMembership({
+      organizationId: organization.id,
+      userId: input.user.id,
+    });
+
+  await db.transaction(async (tx) => {
+    const [createdOrganization] = await tx
+      .insert(organizations)
+      .values({
+        externalId: organization.id,
+        isReady: false,
+        name: organization.name,
+        slug: normalizedSlug,
+      })
+      .returning({
+        id: organizations.id,
+        name: organizations.name,
+      });
+
+    await tx.insert(memberships).values({
+      externalId: ownerMembership.id,
+      lastSyncedAt: new Date(),
+      organizationId: createdOrganization.id,
+      removedAt: null,
+      role: ownerMembership.role.slug,
+      status: normalizeWorkspaceMembershipStatus(ownerMembership.status),
+      updatedAt: new Date(),
+      userId: syncedUser.id,
+    });
+
+    await tx.insert(tenantOnboardingSessions).values({
+      organizationId: createdOrganization.id,
+      status: "draft",
+      tenantName: deriveTenantName(createdOrganization.name),
+      userId: syncedUser.id,
+    });
+
+    return {
+      organizationId: createdOrganization.id,
+    };
+  });
+}
+
+export async function createOnboardingDraftForOrganization(input: {
+  organizationId: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+
+  const authorizedMembership = await db
+    .select({
+      organizationId: memberships.organizationId,
+      organizationIsReady: organizations.isReady,
+      organizationName: organizations.name,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(
+      and(
+        eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    );
+
+  if (authorizedMembership.length === 0) {
+    throw new Error("You do not have access to this organization");
+  }
+
+  if (!authorizedMembership[0].organizationIsReady) {
+    throw new Error("Organization is not ready for setup yet");
+  }
+
+  const existingDraft = await db
+    .select({
+      id: tenantOnboardingSessions.id,
+    })
+    .from(tenantOnboardingSessions)
+    .where(
+      and(
+        eq(tenantOnboardingSessions.organizationId, input.organizationId),
+        eq(tenantOnboardingSessions.userId, authorizedMembership[0].userId),
+      ),
+    )
+    .orderBy(desc(tenantOnboardingSessions.createdAt))
+    .limit(1);
+
+  if (existingDraft[0]) {
+    await db
+      .update(tenantOnboardingSessions)
+      .set({
+        slackOauthError: null,
+        slackOauthErrorAt: null,
+        status: "draft",
+        tenantName: deriveTenantName(authorizedMembership[0].organizationName),
+        updatedAt: new Date(),
+      })
+      .where(eq(tenantOnboardingSessions.id, existingDraft[0].id));
+
+    return;
+  }
+
+  await db.insert(tenantOnboardingSessions).values({
+    organizationId: input.organizationId,
+    status: "draft",
+    tenantName: deriveTenantName(authorizedMembership[0].organizationName),
+    userId: authorizedMembership[0].userId,
+  });
+}
+
+export async function getOrganizationWorkspaceBySlug(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const organizations = await getDashboardOrganizations(input.userExternalId);
+  const organization = organizations.find(
+    (item) => item.slug === input.orgSlug,
+  );
+
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  return organization;
+}
+
+export async function updateWorkspaceDateTimePreferences(input: {
+  organizationId: string;
+  locale?: string;
+  timeFormatPreference?: string;
+  timezone?: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    const [currentOrganization] = await tx
+      .select({
+        locale: organizations.locale,
+        timeFormatPreference: organizations.timeFormatPreference,
+        timezone: organizations.timezone,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, input.organizationId))
+      .limit(1);
+
+    if (!currentOrganization) {
+      throw new Error("Organization not found");
+    }
+
+    const nextLocale = input.locale ?? currentOrganization.locale;
+    const nextTimeFormatPreference =
+      input.timeFormatPreference ?? currentOrganization.timeFormatPreference;
+    const nextTimezone = input.timezone ?? currentOrganization.timezone;
+    const runtimeSettingsChanged =
+      nextTimeFormatPreference !== currentOrganization.timeFormatPreference ||
+      nextTimezone !== currentOrganization.timezone;
+
+    await tx
+      .update(organizations)
+      .set({
+        locale: nextLocale,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+        updatedAt: now,
+      })
+      .where(eq(organizations.id, input.organizationId));
+
+    if (!runtimeSettingsChanged) {
+      return {
+        applyQueued: false,
+        desiredStateVersion: null as number | null,
+        locale: nextLocale,
+        tenantId: null as string | null,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+      };
+    }
+
+    const [tenant] = await tx
+      .select({
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(tenants)
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(tenants.organizationId, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!tenant) {
+      return {
+        applyQueued: false,
+        desiredStateVersion: null as number | null,
+        locale: nextLocale,
+        tenantId: null as string | null,
+        timeFormatPreference: nextTimeFormatPreference,
+        timezone: nextTimezone,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: tenant.tenantId,
+      })
+    ).version;
+    const applyQueued =
+      tenant.tenantStatus === "ready" && tenant.serverStatus === "ready";
+
+    return {
+      applyQueued,
+      desiredStateVersion,
+      locale: nextLocale,
+      tenantId: tenant.tenantId,
+      timeFormatPreference: nextTimeFormatPreference,
+      timezone: nextTimezone,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion && result.tenantId) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function listWorkspaceMembers(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<WorkspaceMemberDirectory> {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const workos = getWorkOS();
+  const [availableRoles, membershipsForOrganization, invitations] =
+    await Promise.all([
+      listWorkspaceRoleOptions(context.organizationExternalId),
+      (
+        await workos.userManagement.listOrganizationMemberships({
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+      (
+        await workos.userManagement.listInvitations({
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+    ]);
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization,
+    usersById,
+  });
+  const canManageMembers = canManageWorkspaceMembers(context.currentRoleSlug);
+  const activeAdminCount = membershipsForOrganization.filter((membership) => {
+    return (
+      membership.status === "active" &&
+      isWorkspaceAdminRoleSlug(membership.role.slug)
+    );
+  }).length;
+
+  const memberEntries = membershipsForOrganization
+    .filter((membership) => membership.status !== "pending")
+    .map((membership) => {
+      const isCurrentUser =
+        membership.id === context.currentMembershipId ||
+        membership.userId === input.userExternalId;
+      const isLastActiveAdmin =
+        membership.status === "active" &&
+        isWorkspaceAdminRoleSlug(membership.role.slug) &&
+        activeAdminCount <= 1;
+
+      return buildWorkspaceMemberEntry({
+        canManageRole: canManageMembers && !isCurrentUser && !isLastActiveAdmin,
+        canReactivate:
+          canManageMembers &&
+          !isCurrentUser &&
+          membership.status === "inactive",
+        canSuspend:
+          canManageMembers &&
+          !isCurrentUser &&
+          membership.status === "active" &&
+          !isLastActiveAdmin,
+        isCurrentUser,
+        membership,
+        roleName:
+          getWorkspaceRoleOptionBySlug(availableRoles, membership.role.slug)
+            ?.name ?? membership.role.slug,
+        user: usersById.get(membership.userId) ?? null,
+      });
+    })
+    .filter(Boolean) as WorkspaceMemberDirectoryEntry[];
+  const invitationEntries = invitations
+    .filter((invitation) => invitation.state !== "accepted")
+    .map((invitation) => {
+      const pendingMembership = takePendingMembershipForEmail(
+        pendingMembershipsByEmail,
+        invitation.email,
+      );
+      const pendingRole = pendingMembership
+        ? (getWorkspaceRoleOptionBySlug(
+            availableRoles,
+            pendingMembership.role.slug,
+          ) ?? buildFallbackWorkspaceRoleOption(pendingMembership.role.slug))
+        : null;
+
+      return buildWorkspaceInvitationEntry({
+        canResendInvitation:
+          canManageMembers &&
+          (invitation.state === "pending" || invitation.state === "expired"),
+        canRevokeInvitation:
+          canManageMembers &&
+          (invitation.state === "pending" || invitation.state === "expired"),
+        invitation,
+        membershipId: pendingMembership?.id ?? null,
+        role: pendingRole,
+      });
+    });
+  const entries = [...memberEntries, ...invitationEntries].sort(
+    (left, right) => {
+      const orderDifference =
+        getWorkspaceMemberSortOrder(left) - getWorkspaceMemberSortOrder(right);
+
+      if (orderDifference !== 0) {
+        return orderDifference;
+      }
+
+      return left.name.localeCompare(right.name);
+    },
+  );
+
+  return {
+    activeMemberCount: memberEntries.filter(
+      (entry) => entry.status === "active",
+    ).length,
+    availableRoles,
+    canManageMembers,
+    entries,
+    invitationCount: invitationEntries.length,
+    organizationName: context.organizationName,
+    organizationSlug: context.organizationSlug,
+  };
+}
+
+export async function inviteWorkspaceMembers(input: {
+  emails: string[];
+  orgSlug: string;
+  roleSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const workos = getWorkOS();
+  const normalizedEmails = Array.from(
+    new Set(
+      input.emails.map((email) => email.trim().toLowerCase()).filter(Boolean),
+    ),
+  );
+
+  if (normalizedEmails.length === 0) {
+    throw new Error("At least one email is required");
+  }
+
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const selectedRole = getWorkspaceRoleOptionBySlug(
+    availableRoles,
+    input.roleSlug,
+  );
+
+  if (!selectedRole) {
+    throw new Error("Selected role is not available for this workspace");
+  }
+
+  const membershipsForOrganization = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization,
+    usersById,
+  });
+
+  const invitedEntries: WorkspaceMemberDirectoryEntry[] = [];
+  const results: Array<{
+    action: "resent" | "sent";
+    email: string;
+    invitationId: string;
+    state: string;
+  }> = [];
+  const skipped: Array<{
+    email: string;
+    message: string;
+  }> = [];
+
+  for (const email of normalizedEmails) {
+    const [existingUsers, existingInvitations] = await Promise.all([
+      (
+        await workos.userManagement.listUsers({
+          email,
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+      (
+        await workos.userManagement.listInvitations({
+          email,
+          organizationId: context.organizationExternalId,
+        })
+      ).autoPagination(),
+    ]);
+
+    if (existingUsers.length > 0) {
+      skipped.push({
+        email,
+        message: "That email already has access to this workspace",
+      });
+      continue;
+    }
+
+    const pendingMembership = takePendingMembershipForEmail(
+      pendingMembershipsByEmail,
+      email,
+    );
+    const pendingInvitation = existingInvitations.find(
+      (invitation) => invitation.state === "pending",
+    );
+    const invitation = pendingInvitation
+      ? await (async () => {
+          if (
+            pendingMembership &&
+            pendingMembership.role.slug !== selectedRole.slug
+          ) {
+            await workos.userManagement.updateOrganizationMembership(
+              pendingMembership.id,
+              {
+                roleSlug: selectedRole.slug,
+              },
+            );
+          }
+
+          return workos.userManagement.resendInvitation(pendingInvitation.id);
+        })()
+      : await workos.userManagement.sendInvitation({
+          email,
+          inviterUserId: input.userExternalId,
+          organizationId: context.organizationExternalId,
+          roleSlug: selectedRole.slug,
+        });
+
+    invitedEntries.push(
+      buildWorkspaceInvitationEntry({
+        canResendInvitation: true,
+        canRevokeInvitation: true,
+        invitation,
+        membershipId: pendingMembership?.id ?? null,
+        role: selectedRole,
+      }),
+    );
+    results.push({
+      action: pendingInvitation ? "resent" : "sent",
+      email: invitation.email,
+      invitationId: invitation.id,
+      state: invitation.state,
+    });
+  }
+
+  if (results.length === 0) {
+    throw new Error(skipped[0]?.message ?? "Workspace invite failed");
+  }
+
+  return {
+    invited: invitedEntries,
+    results,
+    skipped,
+  };
+}
+
+export async function updateWorkspaceMemberRole(input: {
+  membershipId: string;
+  orgSlug: string;
+  roleSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+
+  if (!getWorkspaceRoleOptionBySlug(availableRoles, input.roleSlug)) {
+    throw new Error("Selected role is not available for this workspace");
+  }
+
+  const workos = getWorkOS();
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
+
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot change your own role from this page");
+  }
+
+  if (
+    membership.status === "active" &&
+    isWorkspaceAdminRoleSlug(membership.role.slug) &&
+    !isWorkspaceAdminRoleSlug(input.roleSlug)
+  ) {
+    const activeAdminCount = await getActiveWorkspaceAdminCount(
+      context.organizationExternalId,
+    );
+
+    if (activeAdminCount <= 1) {
+      throw new Error("This workspace must keep at least one active admin");
+    }
+  }
+
+  const updatedMembership =
+    await workos.userManagement.updateOrganizationMembership(membership.id, {
+      roleSlug: input.roleSlug,
+    });
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+    availableRoles,
+  });
+
+  return {
+    entry,
+  };
+}
+
+export async function suspendWorkspaceMember(input: {
+  membershipId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
+
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot suspend your own access");
+  }
+
+  if (
+    membership.status === "active" &&
+    isWorkspaceAdminRoleSlug(membership.role.slug)
+  ) {
+    const activeAdminCount = await getActiveWorkspaceAdminCount(
+      context.organizationExternalId,
+    );
+
+    if (activeAdminCount <= 1) {
+      throw new Error("This workspace must keep at least one active admin");
+    }
+  }
+
+  const workos = getWorkOS();
+  const updatedMembership =
+    await workos.userManagement.deactivateOrganizationMembership(membership.id);
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    availableRoles: await listWorkspaceRoleOptions(
+      context.organizationExternalId,
+    ),
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+  });
+
+  return {
+    entry,
+  };
+}
+
+export async function reactivateWorkspaceMember(input: {
+  membershipId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const membership = await getWorkspaceMembershipForMutation({
+    context,
+    membershipId: input.membershipId,
+  });
+
+  if (
+    membership.id === context.currentMembershipId ||
+    membership.userId === input.userExternalId
+  ) {
+    throw new Error("You cannot reactivate your own access from this page");
+  }
+
+  const workos = getWorkOS();
+  const updatedMembership =
+    await workos.userManagement.reactivateOrganizationMembership(membership.id);
+  const entry = await buildWorkspaceMemberEntryFromMembership({
+    actingUserExternalId: input.userExternalId,
+    availableRoles: await listWorkspaceRoleOptions(
+      context.organizationExternalId,
+    ),
+    canManageMembers: true,
+    currentMembershipId: context.currentMembershipId,
+    membership: updatedMembership,
+  });
+
+  return {
+    entry,
+  };
+}
+
+export async function resendWorkspaceInvitation(input: {
+  invitationId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const invitation = await getWorkspaceInvitationForMutation({
+    context,
+    invitationId: input.invitationId,
+  });
+  const workos = getWorkOS();
+  const pendingMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+      statuses: ["pending"],
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization: pendingMemberships,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization: pendingMemberships,
+    usersById,
+  });
+  const pendingMembership = takePendingMembershipForEmail(
+    pendingMembershipsByEmail,
+    invitation.email,
+  );
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const updatedInvitation = await workos.userManagement.resendInvitation(
+    invitation.id,
+  );
+
+  return {
+    entry: buildWorkspaceInvitationEntry({
+      canResendInvitation: true,
+      canRevokeInvitation: true,
+      invitation: updatedInvitation,
+      membershipId: pendingMembership?.id ?? null,
+      role:
+        pendingMembership &&
+        (getWorkspaceRoleOptionBySlug(
+          availableRoles,
+          pendingMembership.role.slug,
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+    }),
+  };
+}
+
+export async function revokeWorkspaceInvitation(input: {
+  invitationId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const context = await getAuthorizedWorkspaceMembershipContext(input);
+
+  if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
+    throw new Error("Workspace admin access required");
+  }
+
+  const invitation = await getWorkspaceInvitationForMutation({
+    context,
+    invitationId: input.invitationId,
+  });
+  const workos = getWorkOS();
+  const pendingMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      organizationId: context.organizationExternalId,
+      statuses: ["pending"],
+    })
+  ).autoPagination();
+  const usersById = await hydrateWorkspaceUsersByMemberships({
+    membershipsForOrganization: pendingMemberships,
+    organizationExternalId: context.organizationExternalId,
+  });
+  const pendingMembershipsByEmail = getPendingMembershipsByEmail({
+    membershipsForOrganization: pendingMemberships,
+    usersById,
+  });
+  const pendingMembership = takePendingMembershipForEmail(
+    pendingMembershipsByEmail,
+    invitation.email,
+  );
+  const availableRoles = await listWorkspaceRoleOptions(
+    context.organizationExternalId,
+  );
+  const updatedInvitation = await workos.userManagement.revokeInvitation(
+    invitation.id,
+  );
+
+  return {
+    entry: buildWorkspaceInvitationEntry({
+      canResendInvitation: false,
+      canRevokeInvitation: false,
+      invitation: updatedInvitation,
+      membershipId: pendingMembership?.id ?? null,
+      role:
+        pendingMembership &&
+        (getWorkspaceRoleOptionBySlug(
+          availableRoles,
+          pendingMembership.role.slug,
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+    }),
+  };
+}
+
+export async function getOnboardingDraftForUser(input: {
+  onboardingSessionId: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+
+  const [session] = await db
+    .select({
+      id: tenantOnboardingSessions.id,
+      organizationId: tenantOnboardingSessions.organizationId,
+      organizationIsReady: organizations.isReady,
+      organizationSlug: organizations.slug,
+      slackConnectedAt: tenantOnboardingSessions.slackConnectedAt,
+      slackOauthError: tenantOnboardingSessions.slackOauthError,
+      slackTeamId: tenantOnboardingSessions.slackTeamId,
+      serverStatus: tenantServers.status,
+      status: tenantOnboardingSessions.status,
+      tenantId: tenantOnboardingSessions.tenantId,
+      tenantName: tenantOnboardingSessions.tenantName,
+      tenantStatus: tenants.status,
+      userId: users.id,
+    })
+    .from(tenantOnboardingSessions)
+    .innerJoin(users, eq(tenantOnboardingSessions.userId, users.id))
+    .innerJoin(
+      organizations,
+      eq(tenantOnboardingSessions.organizationId, organizations.id),
+    )
+    .leftJoin(tenants, eq(tenantOnboardingSessions.tenantId, tenants.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(
+      and(
+        eq(tenantOnboardingSessions.id, input.onboardingSessionId),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .limit(1);
+
+  if (!session) {
+    throw new Error("Onboarding draft not found");
+  }
+
+  return session;
+}
+
+export async function completeSlackOnboardingAndProvision(input: {
+  botToken: string;
+  installerUserId: string | null;
+  onboardingSessionId: string;
+  scopeCsv: string;
+  slackBotUserId: string | null;
+  slackTeamId: string;
+  slackTeamName: string | null;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const authorizedSession = await getOnboardingDraftForUser({
+    onboardingSessionId: input.onboardingSessionId,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedSession.organizationIsReady) {
+    throw new Error("Organization is not ready for Slack or provisioning yet");
+  }
+
+  if (authorizedSession.tenantId) {
+    const tenantId = authorizedSession.tenantId;
+    const now = new Date();
+    let tenantIntegrationId = "";
+    let desiredStateVersion = 0;
+    const shouldEnqueueApply =
+      authorizedSession.tenantStatus === "ready" &&
+      authorizedSession.serverStatus === "ready";
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tenantOnboardingSessions)
+        .set({
+          slackBotTokenCiphertext: encryptControlPlaneSecret(input.botToken),
+          slackBotUserId: input.slackBotUserId,
+          slackConnectedAt: now,
+          slackInstalledAt: now,
+          slackOauthError: null,
+          slackOauthErrorAt: null,
+          slackScopeCsv: input.scopeCsv,
+          slackTeamId: input.slackTeamId,
+          slackTeamName: input.slackTeamName,
+          updatedAt: now,
+        })
+        .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+      tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
+        now,
+        tenantId,
+      });
+      await upsertOauthConnectionForTenantIntegrationTx(tx, {
+        actorType: "app",
+        eventType: "connect",
+        externalAccountId: input.slackTeamId,
+        externalAccountLabel: input.slackTeamName,
+        now,
+        providerKey: SLACK_PROVIDER_KEY,
+        requestedScopes: splitScopeCsvValue(input.scopeCsv),
+        tenantIntegrationId,
+        tokenResult: buildSlackOnboardingTokenResult(input),
+      });
+
+      desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId,
+        })
+      ).version;
+
+      if (shouldEnqueueApply) {
+        await markSlackIntegrationPendingApply(tx, {
+          now,
+          tenantId,
+        });
+      }
+    });
+
+    if (shouldEnqueueApply) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion,
+        tenantId,
+      });
+    }
+
+    return {
+      organizationSlug: authorizedSession.organizationSlug,
+      applyQueued: shouldEnqueueApply,
+      tenantIntegrationId,
+      tenantId,
+    };
+  }
+
+  const now = new Date();
+
+  const createdTenant = await db.transaction(async (tx) => {
+    const finalTenantName = deriveTenantName(
+      input.slackTeamName || authorizedSession.tenantName,
+    );
+
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        slackBotTokenCiphertext: encryptControlPlaneSecret(input.botToken),
+        slackBotUserId: input.slackBotUserId,
+        slackConnectedAt: now,
+        slackInstalledAt: now,
+        slackOauthError: null,
+        slackOauthErrorAt: null,
+        slackScopeCsv: input.scopeCsv,
+        slackTeamId: input.slackTeamId,
+        slackTeamName: input.slackTeamName,
+        status: "slack_connected",
+        tenantName: finalTenantName,
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    const [tenant] = await tx
+      .insert(tenants)
+      .values({
+        organizationId: authorizedSession.organizationId,
+        name: finalTenantName,
+        status: "provisioning",
+      })
+      .returning({
+        id: tenants.id,
+      });
+
+    const tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
+      now,
+      tenantId: tenant.id,
+    });
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: "app",
+      eventType: "connect",
+      externalAccountId: input.slackTeamId,
+      externalAccountLabel: input.slackTeamName,
+      now,
+      providerKey: SLACK_PROVIDER_KEY,
+      requestedScopes: splitScopeCsvValue(input.scopeCsv),
+      tenantIntegrationId,
+      tokenResult: buildSlackOnboardingTokenResult(input),
+    });
+
+    await tx.insert(tenantServers).values({
+      tenantId: tenant.id,
+      provider: "hetzner",
+      sshUsername: "openclaw",
+      status: "creating",
+    });
+
+    await createNextDesiredStateVersion(tx, {
+      tenantId: tenant.id,
+    });
+
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        completedAt: now,
+        status: "completed",
+        tenantId: tenant.id,
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    return {
+      id: tenant.id,
+      tenantIntegrationId,
+    };
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.provisionTenantServer,
+    payload: {
+      tenantId: createdTenant.id,
+      step: "create_server",
+    },
+  });
+
+  return {
+    applyQueued: false,
+    organizationSlug: authorizedSession.organizationSlug,
+    tenantId: createdTenant.id,
+    tenantIntegrationId: createdTenant.tenantIntegrationId,
+  };
+}
+
+export async function recordSlackOauthFailure(input: {
+  error: string;
+  onboardingSessionId: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const authorizedSession = await getOnboardingDraftForUser({
+    onboardingSessionId: input.onboardingSessionId,
+    userExternalId: input.userExternalId,
+  });
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(tenantOnboardingSessions)
+      .set({
+        slackOauthError: input.error,
+        slackOauthErrorAt: now,
+        updatedAt: now,
+      })
+      .where(eq(tenantOnboardingSessions.id, input.onboardingSessionId));
+
+    if (!authorizedSession.tenantId) {
+      return;
+    }
+
+    await recordSlackIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedSession.tenantId,
+    });
+  });
+}
+
+export async function syncMessagingDirectoryForTenantIntegration(input: {
+  conversations: MessagingConversationInput[];
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  members: MessagingDirectoryMemberInput[];
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const member of input.members) {
+      if (!member.externalMemberId) {
+        continue;
+      }
+
+      await tx
+        .insert(integrationMessagingWorkspaceMembers)
+        .values({
+          avatarUrl: member.avatarUrl,
+          displayName: member.displayName,
+          email: member.email,
+          externalMemberId: member.externalMemberId,
+          fullName: member.fullName,
+          isDeleted: member.isDeleted,
+          lastSyncedAt: now,
+          memberType: member.memberType,
+          messagingWorkspaceId,
+          profileJson: normalizeJsonValue(member.profileJson),
+          username: member.username,
+        })
+        .onConflictDoUpdate({
+          target: [
+            integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+            integrationMessagingWorkspaceMembers.externalMemberId,
+          ],
+          set: {
+            avatarUrl: member.avatarUrl,
+            displayName: member.displayName,
+            email: member.email,
+            fullName: member.fullName,
+            isDeleted: member.isDeleted,
+            lastSyncedAt: now,
+            memberType: member.memberType,
+            profileJson: normalizeJsonValue(member.profileJson),
+            updatedAt: now,
+            username: member.username,
+          },
+        });
+    }
+
+    await removeStaleMessagingWorkspaceMembers(tx, {
+      messagingWorkspaceId,
+      syncedExternalMemberIds: input.members.map(
+        (member) => member.externalMemberId,
+      ),
+    });
+
+    for (const conversation of input.conversations) {
+      if (!conversation.externalConversationId) {
+        continue;
+      }
+
+      await tx
+        .insert(integrationMessagingConversations)
+        .values({
+          conversationType: conversation.conversationType,
+          externalConversationId: conversation.externalConversationId,
+          isArchived: conversation.isArchived,
+          lastSyncedAt: now,
+          messagingWorkspaceId,
+          metadataJson: normalizeJsonValue(conversation.metadataJson),
+          name: conversation.name,
+          purpose: conversation.purpose,
+          topic: conversation.topic,
+        })
+        .onConflictDoUpdate({
+          target: [
+            integrationMessagingConversations.messagingWorkspaceId,
+            integrationMessagingConversations.externalConversationId,
+          ],
+          set: {
+            conversationType: conversation.conversationType,
+            isArchived: conversation.isArchived,
+            lastSyncedAt: now,
+            metadataJson: normalizeJsonValue(conversation.metadataJson),
+            name: conversation.name,
+            purpose: conversation.purpose,
+            topic: conversation.topic,
+            updatedAt: now,
+          },
+        });
+    }
+
+    await removeStaleMessagingConversations(tx, {
+      messagingWorkspaceId,
+      syncedExternalConversationIds: input.conversations.map(
+        (conversation) => conversation.externalConversationId,
+      ),
+    });
+
+    await tx
+      .update(integrationMessagingWorkspaces)
+      .set({
+        lastSyncError: null,
+        lastSyncErrorAt: null,
+        lastSyncedAt: now,
+        syncStatus: "succeeded",
+        updatedAt: now,
+      })
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
+  });
+
+  // Resolve user channel identities from the freshly synced directory
+  try {
+    const [integration] = await db
+      .select({ organizationId: tenants.organizationId })
+      .from(tenantIntegrations)
+      .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
+      .limit(1);
+
+    if (integration) {
+      await resolveUserChannelIdentitiesFromDirectory({
+        organizationId: integration.organizationId,
+      });
+    }
+  } catch {
+    // Identity resolution is best-effort; don't fail the directory sync
+  }
+}
+
+export async function syncSlackUsersForTenantIntegration(input: {
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  members: MessagingDirectoryMemberInput[];
+}): Promise<{ synced: number }> {
+  const db = getDb();
+  const now = new Date();
+  let synced = 0;
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const member of input.members) {
+      if (!member.externalMemberId) continue;
+
+      await tx
+        .insert(integrationMessagingWorkspaceMembers)
+        .values({
+          avatarUrl: member.avatarUrl,
+          displayName: member.displayName,
+          email: member.email,
+          externalMemberId: member.externalMemberId,
+          fullName: member.fullName,
+          isDeleted: member.isDeleted,
+          lastSyncedAt: now,
+          memberType: member.memberType,
+          messagingWorkspaceId,
+          profileJson: normalizeJsonValue(member.profileJson),
+          username: member.username,
+        })
+        .onConflictDoUpdate({
+          target: [
+            integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+            integrationMessagingWorkspaceMembers.externalMemberId,
+          ],
+          set: {
+            avatarUrl: member.avatarUrl,
+            displayName: member.displayName,
+            email: member.email,
+            fullName: member.fullName,
+            isDeleted: member.isDeleted,
+            lastSyncedAt: now,
+            memberType: member.memberType,
+            profileJson: normalizeJsonValue(member.profileJson),
+            updatedAt: now,
+            username: member.username,
+          },
+        });
+      synced++;
+    }
+
+    await removeStaleMessagingWorkspaceMembers(tx, {
+      messagingWorkspaceId,
+      syncedExternalMemberIds: input.members.map(
+        (member) => member.externalMemberId,
+      ),
+    });
+  });
+
+  return { synced };
+}
+
+export async function syncSlackChannelsForTenantIntegration(input: {
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+  conversations: MessagingConversationInput[];
+}): Promise<{ synced: number }> {
+  const db = getDb();
+  const now = new Date();
+  let synced = 0;
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    for (const conversation of input.conversations) {
+      if (!conversation.externalConversationId) continue;
+
+      await tx
+        .insert(integrationMessagingConversations)
+        .values({
+          conversationType: conversation.conversationType,
+          externalConversationId: conversation.externalConversationId,
+          isArchived: conversation.isArchived,
+          lastSyncedAt: now,
+          messagingWorkspaceId,
+          metadataJson: normalizeJsonValue(conversation.metadataJson),
+          name: conversation.name,
+          purpose: conversation.purpose,
+          topic: conversation.topic,
+        })
+        .onConflictDoUpdate({
+          target: [
+            integrationMessagingConversations.messagingWorkspaceId,
+            integrationMessagingConversations.externalConversationId,
+          ],
+          set: {
+            conversationType: conversation.conversationType,
+            isArchived: conversation.isArchived,
+            lastSyncedAt: now,
+            metadataJson: normalizeJsonValue(conversation.metadataJson),
+            name: conversation.name,
+            purpose: conversation.purpose,
+            topic: conversation.topic,
+            updatedAt: now,
+          },
+        });
+      synced++;
+    }
+
+    await removeStaleMessagingConversations(tx, {
+      messagingWorkspaceId,
+      syncedExternalConversationIds: input.conversations.map(
+        (conversation) => conversation.externalConversationId,
+      ),
+    });
+  });
+
+  return { synced };
+}
+
+export async function recordMessagingWorkspaceSyncFailure(input: {
+  error: string;
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
+      externalWorkspaceId: input.externalWorkspaceId,
+      now,
+      tenantIntegrationId: input.tenantIntegrationId,
+      workspaceDisplayName: input.workspaceDisplayName,
+    });
+
+    await tx
+      .update(integrationMessagingWorkspaces)
+      .set({
+        lastSyncError: input.error,
+        lastSyncErrorAt: now,
+        syncStatus: "failed",
+        updatedAt: now,
+      })
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
+  });
+}
+
+export async function getTenantSlackBotToken(tenantId: string) {
+  const db = getDb();
+  const [oauthCredential] = await db
+    .select({
+      accessTokenCiphertext: integrationOauthCredentials.accessTokenCiphertext,
+    })
+    .from(tenantIntegrations)
+    .innerJoin(
+      integrationOauthConnections,
+      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .innerJoin(
+      integrationOauthCredentials,
+      eq(
+        integrationOauthCredentials.connectionId,
+        integrationOauthConnections.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationOauthConnections.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationOauthConnections.status, "connected"),
+      ),
+    )
+    .orderBy(desc(integrationOauthConnections.updatedAt))
+    .limit(1);
+
+  if (!oauthCredential?.accessTokenCiphertext) {
+    return null;
+  }
+
+  return decryptControlPlaneSecret(oauthCredential.accessTokenCiphertext);
+}
+
+export async function getLatestTenantDesiredState(tenantId: string) {
+  const db = getDb();
+  const [desiredState] = await db
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  if (!desiredState) {
+    throw new Error(`No desired state found for tenant ${tenantId}`);
+  }
+
+  return desiredState;
+}
+
+function extractRuntimeImageVersion(image: string) {
+  const digestSeparatorIndex = image.indexOf("@");
+
+  if (digestSeparatorIndex >= 0) {
+    return image.slice(digestSeparatorIndex + 1);
+  }
+
+  const lastColonIndex = image.lastIndexOf(":");
+  const lastSlashIndex = image.lastIndexOf("/");
+
+  if (lastColonIndex > lastSlashIndex) {
+    return image.slice(lastColonIndex + 1);
+  }
+
+  return null;
+}
+
+function extractRuntimeImageVersionOrNull(image: string | null) {
+  if (!image) {
+    return null;
+  }
+
+  return extractRuntimeImageVersion(image);
+}
+
+async function getObservedRuntimeImagesByTenant(
+  tenantsToInspect: Array<{
+    id: string;
+    serverStatus: string | null;
+    status: string;
+  }>,
+) {
+  const observedImages = await Promise.all(
+    tenantsToInspect.map(async (tenant) => {
+      const image = await getObservedRuntimeImageForTenant(tenant);
+
+      return [tenant.id, image] as const;
+    }),
+  );
+
+  return new Map(observedImages);
+}
+
+async function getObservedRuntimeImageForTenant(input: {
+  id: string;
+  serverStatus: string | null;
+  status: string;
+}) {
+  if (input.status !== "ready" || input.serverStatus !== "ready") {
+    return null;
+  }
+
+  try {
+    const runtimeConnection = await getTenantRuntimeConnection(
+      input.id,
+      "platform runtime image inspection",
+    );
+
+    return await runtimeManager.inspectGatewayImage(runtimeConnection);
+  } catch {
+    return null;
+  }
+}
+
+async function getLatestTenantForOrganizationSlug(
+  orgSlug: string,
+): Promise<PlatformTenantTarget | null> {
+  const db = getDb();
+  const [tenant] = await db
+    .select({
+      ipv4: tenantServers.ipv4,
+      organizationId: organizations.id,
+      orgSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantName: tenants.name,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(organizations.slug, orgSlug))
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenant) {
+    return null;
+  }
+
+  return tenant;
+}
+
+export async function getPlatformTenantTarget(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<PlatformTenantTarget | null> {
+  await requirePlatformAdmin(input.userExternalId);
+
+  return getLatestTenantForOrganizationSlug(input.orgSlug);
+}
+
+export async function triggerPlatformOrganizationApply(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationDeployRuntime(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: tenant.tenantId,
+  });
+  const jobId = await enqueueTenantConfigApply({
+    desiredStateVersion: desiredState.version,
+    pullImageFirst: true,
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    desiredStateChanged: desiredState.changed,
+    desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationProvisionOpenAiKey(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const existingProvider = await getTenantOpenAiProviderSummary(
+    tenant.tenantId,
+  );
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.provisionTenantOpenAiKey,
+    payload: {
+      tenantId: tenant.tenantId,
+    },
+  });
+
+  return {
+    action: existingProvider ? "rotate" : "provision",
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function triggerPlatformOrganizationRefreshImage(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.refreshRuntimeImage,
+    payload: {
+      tenantId: tenant.tenantId,
+    },
+  });
+
+  return {
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function grantPlatformOrganizationCredits(input: {
+  credits: number;
+  note: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const tenant = await getPlatformTenantTarget(input);
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const credits = Number(input.credits);
+  const creditsDeltaMilli = Math.round(credits * 1_000);
+  const note = input.note.trim();
+
+  if (!Number.isFinite(credits) || credits <= 0 || creditsDeltaMilli <= 0) {
+    throw new Error("Credits must be a positive number.");
+  }
+
+  if (note.length === 0) {
+    throw new Error("A reason is required for manual credit grants.");
+  }
+
+  const grant = await createManualCreditGrant({
+    creditsDeltaMilli,
+    description: `Manual credit grant by ${input.userExternalId}: ${note}`,
+    tenantId: tenant.tenantId,
+  });
+  const balance = await getTenantCreditBalanceSummary({
+    tenantId: tenant.tenantId,
+  });
+
+  return {
+    balanceCreditsMilli: balance.currentBalanceCreditsMilli,
+    grantedCreditsMilli: grant.creditsDeltaMilli,
+    ledgerEntryId: grant.id,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  };
+}
+
+export async function getLatestTenantManagedConfig(
+  tenantId: string,
+): Promise<TenantManagedConfig> {
+  const db = getDb();
+  const latestVersion = await db.transaction(async (tx) =>
+    ensureLatestTenantManagedConfigVersion(tx, {
+      tenantId,
+    }),
+  );
+
+  return getTenantManagedConfigByVersion({
+    tenantId,
+    version: latestVersion.version,
+  });
+}
+
+export async function getTenantManagedConfigByVersion(input: {
+  tenantId: string;
+  version: number;
+}): Promise<TenantManagedConfig> {
+  const db = getDb();
+  const organizationSlugPromise = getOrganizationSlugForTenant(input.tenantId);
+  const [configVersion] = await db
+    .select({
+      createdAt: tenantManagedConfigVersions.createdAt,
+      createdByExternalId: tenantManagedConfigVersions.createdByExternalId,
+      createdByType: tenantManagedConfigVersions.createdByType,
+      id: tenantManagedConfigVersions.id,
+      summary: tenantManagedConfigVersions.summary,
+      version: tenantManagedConfigVersions.version,
+    })
+    .from(tenantManagedConfigVersions)
+    .where(
+      and(
+        eq(tenantManagedConfigVersions.tenantId, input.tenantId),
+        eq(tenantManagedConfigVersions.version, input.version),
+      ),
+    )
+    .limit(1);
+
+  if (!configVersion) {
+    throw new Error(
+      `Managed config version ${input.version} not found for tenant ${input.tenantId}`,
+    );
+  }
+
+  const fileRows = await db
+    .select({
+      checksum: tenantManagedFileVersions.checksum,
+      path: tenantManagedFileVersions.path,
+      sharedContent: tenantManagedFileVersions.sharedContent,
+      systemContent: tenantManagedFileVersions.systemContent,
+    })
+    .from(tenantManagedFileVersions)
+    .where(
+      eq(
+        tenantManagedFileVersions.tenantManagedConfigVersionId,
+        configVersion.id,
+      ),
+    );
+
+  const normalizedFileRows = normalizeManagedFileRows(fileRows);
+
+  const runtimeContext = {
+    ottoBaseUrl: getControlPlaneBaseUrl(),
+    workspaceSlug: await organizationSlugPromise,
+  };
+
+  const files = getManagedBootstrapFileDefinitions().map((definition) => {
+    const fileRow = normalizedFileRows.get(definition.path);
+    const sharedContent =
+      fileRow?.sharedContent ?? definition.defaultSharedContent;
+    const systemContent = definition.systemContent;
+    const effectiveSystemContent = buildManagedBootstrapSystemContent({
+      path: definition.path,
+      runtimeContext,
+      systemContent,
+    });
+
+    return {
+      checksum: createManagedFileChecksum({
+        path: definition.path,
+        sharedContent,
+        systemContent,
+      }),
+      description: definition.description,
+      label: definition.label,
+      path: definition.path,
+      renderedContent: buildManagedBootstrapFileContent({
+        path: definition.path,
+        runtimeContext,
+        sharedContent,
+        systemContent,
+      }),
+      sharedContent,
+      systemContent: effectiveSystemContent,
+    };
+  });
+
+  return {
+    createdAt: configVersion.createdAt,
+    createdByExternalId: configVersion.createdByExternalId,
+    createdByType: configVersion.createdByType,
+    files,
+    summary: configVersion.summary,
+    version: configVersion.version,
+  };
+}
+
+export async function getTenantDesiredStateByVersion(input: {
+  tenantId: string;
+  version: number;
+}) {
+  const db = getDb();
+  const [desiredState] = await db
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(
+      and(
+        eq(tenantDesiredStates.tenantId, input.tenantId),
+        eq(tenantDesiredStates.version, input.version),
+      ),
+    )
+    .limit(1);
+
+  if (!desiredState) {
+    throw new Error(
+      `Desired state version ${input.version} not found for tenant ${input.tenantId}`,
+    );
+  }
+
+  return desiredState;
+}
+
+export async function updateTenantManagedFileSharedContent(input: {
+  expectedVersion?: number;
+  filePath: ManagedBootstrapFilePath;
+  orgSlug: string;
+  sharedContent: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantManagedFileSharedContentForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    filePath: input.filePath,
+    sharedContent: input.sharedContent,
+    summary: `Updated ${input.filePath}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantManagedSkillTextFile(input: {
+  contentText: string;
+  expectedVersion?: number;
+  orgSlug: string;
+  relativePath: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantManagedSkillTextFileForTenant({
+    contentText: input.contentText,
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    relativePath: input.relativePath,
+    skillKey: input.skillKey,
+    summary: `Updated ${input.skillKey}/${input.relativePath}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantManagedSkillTextFileForTenant(input: {
+  contentText: string;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  expectedVersion?: number;
+  relativePath: string;
+  skillKey: string;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
+      contentText: input.contentText,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      expectedVersion: input.expectedVersion,
+      relativePath: input.relativePath,
+      skillKey: input.skillKey,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+
+    if (!updatedSkill.changed) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentVersion: updatedSkill.currentVersion,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentVersion: updatedSkill.currentVersion,
+      desiredStateVersion,
+      skillKey: updatedSkill.skillKey,
+    };
+  });
+
+  if (result.applyQueued && result.changed && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function createTenantManagedSkill(input: {
+  orgSlug: string;
+  skillContent: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const createdSkill = await createTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    files: [
+      {
+        contentText: input.skillContent,
+        path: "SKILL.md",
+      },
+    ],
+    skillKey: input.skillKey,
+    sourceType: "user",
+    status: "ready",
+    summary: `Created ${input.skillKey}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+  const desiredState = await ensureCurrentTenantDesiredStateVersion({
+    tenantId: authorizedTenant.tenantId,
+  });
+
+  if (authorizedTenant.isRuntimeReady) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: desiredState.version,
+      tenantId: authorizedTenant.tenantId,
+    });
+  }
+
+  return {
+    applyQueued: authorizedTenant.isRuntimeReady,
+    desiredStateVersion: desiredState.version,
+    skillKey: createdSkill.skillKey,
+    version: createdSkill.version,
+  };
+}
+
+export async function getTenantSlackRuntimeConfig(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantSlackRuntimeConfig | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!slackIntegration) {
+      return null;
+    }
+
+    const slackConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    return buildTenantSlackRuntimeConfig(slackConfig);
+  });
+}
+
+export async function getTenantSlackRuntimeConfigSurface(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantSlackRuntimeConfigSurface | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  return getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function refreshTenantSlackDirectory(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return {
+      error: "Organization tenant not found",
+      refreshed: false,
+    };
+  }
+
+  return refreshTenantSlackDirectoryForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function listTenantRuntimeConfigSurfaces(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  return listTenantToolConfigSurfaces(input);
+}
+
+export async function listTenantToolConfigSurfaces(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantToolConfigSurface[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  return listTenantToolConfigSurfacesForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function listTenantToolConfigSurfacesForTenant(input: {
+  tenantId: string;
+}): Promise<TenantToolConfigSurface[]> {
+  const surfaces = await Promise.all(
+    listToolDefinitions().map((definition) =>
+      getTenantToolConfigSurfaceForTenant({
+        surfaceKey: definition.key,
+        surfaceKind: definition.kind,
+        tenantId: input.tenantId,
+      }),
+    ),
+  );
+
+  return surfaces.filter((surface): surface is TenantToolConfigSurface =>
+    Boolean(surface),
+  );
+}
+
+export async function listRuntimeIntegrationManifestForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeIntegrationManifestEntry[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const providerKeys =
+      await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
+        tenantId: input.tenantId,
+      });
+
+    return buildRuntimeIntegrationManifestForKeys(providerKeys);
+  });
+}
+
+export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
+export type RuntimeIntegrationSettingsResponse = {
+  contract: RuntimeIntegrationSettingsContract;
+  integration: Pick<
+    RuntimeIntegrationSummaryResponse,
+    "key" | "label" | "settings" | "status"
+  >;
+  surface: Record<string, unknown>;
+};
+
+async function listRuntimeIntegrationStatusRowsForTenantTx(
+  tx: DbTransaction,
+  input: {
+    providerKeys: string[];
+    tenantId: string;
+  },
+) {
+  if (input.providerKeys.length === 0) {
+    return [];
+  }
+
+  return tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      connectionStatus: integrationOauthConnections.status,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      integrationStatus: tenantIntegrations.status,
+      providerKey: tenantIntegrations.providerKey,
+      tenantIntegrationId: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      integrationOauthConnections,
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(tenantIntegrations.providerKey, input.providerKeys),
+      ),
+    );
+}
+
+function buildRuntimeTenantIntegrations(input: {
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+    tenantIntegrationId: string;
+  }>;
+}) {
+  const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
+
+  return definitionsWithStatus.map(({ definition, installed, status }) =>
+    buildRuntimeIntegrationSummaryResponse({
+      available: true,
+      definition,
+      installed,
+      status,
+    }),
+  );
+}
+
+function buildRuntimeDefinitionsWithStatus(input: {
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  rows: Array<{
+    connectedAt: Date | null;
+    connectionStatus: string | null;
+    disconnectedAt: Date | null;
+    integrationStatus: string | null;
+    providerKey: string;
+    tenantIntegrationId: string;
+  }>;
+}) {
+  const statusByProviderKey = new Map<
+    string,
+    {
+      connectedAt: Date | null;
+      connectionStatus: string | null;
+      disconnectedAt: Date | null;
+      integrationStatus: string | null;
+      tenantIntegrationId: string;
+    }
+  >();
+
+  for (const row of input.rows) {
+    const existing = statusByProviderKey.get(row.providerKey);
+
+    if (!existing) {
+      statusByProviderKey.set(row.providerKey, row);
+      continue;
+    }
+
+    if (!existing.connectionStatus && row.connectionStatus) {
+      statusByProviderKey.set(row.providerKey, row);
+    }
+  }
+
+  return input.definitions.map((definition) => {
+    const row = statusByProviderKey.get(definition.key) ?? null;
+    const resolved = resolveRuntimeIntegrationStatus({
+      definition,
+      row,
+    });
+
+    return {
+      definition,
+      installed: resolved.installed,
+      status: resolved.status,
+      tenantIntegrationId: resolved.tenantIntegrationId,
+    };
+  });
+}
+
+export async function listRuntimeIntegrationsForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const installedKeys = rows.map((row) => row.providerKey).sort();
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
+
+    if (definitions.length === 0) {
+      return [];
+    }
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function listRuntimeIntegrationCatalogForTenant(input: {
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration[]> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const supportedKeys = listSupportedRuntimeIntegrationKeys();
+    const definitions = supportedKeys
+      .map((key) => getIntegrationDefinition(key))
+      .filter(
+        (
+          definition,
+        ): definition is NonNullable<typeof definition> & {
+          runtimeSurface: NonNullable<
+            NonNullable<typeof definition>["runtimeSurface"]
+          >;
+        } => Boolean(definition?.runtimeSurface),
+      );
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: supportedKeys,
+      tenantId: input.tenantId,
+    });
+
+    return buildRuntimeTenantIntegrations({
+      definitions,
+      rows,
+    });
+  });
+}
+
+export async function getRuntimeIntegrationForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeTenantIntegration | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrations = await listRuntimeIntegrationCatalogForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return (
+    integrations.find((integration) => integration.key === integrationKey) ??
+    null
+  );
+}
+
+export async function getRuntimeIntegrationSettingsForTenant(input: {
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationSettingsResponse | null> {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "brave": {
+      const definition = getIntegrationDefinition("brave");
+
+      if (!definition?.settings) {
+        return null;
+      }
+
+      const resolved = resolveRuntimeWebSearchConfig();
+      const config = {
+        ...parseWebSearchRuntimeConfig(resolved.surfaceConfig),
+        enabled: true,
+        entryVersion: 1,
+        installState: "installed",
+        schemaVersion: WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+      };
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: config as Record<string, unknown>,
+          fieldMeanings: [...braveFieldMeanings],
+          patchSchema: webSearchRuntimeConfigJsonSchema,
+          settingsExamples:
+            definition.settings.examples?.map((example) => ({
+              call: {
+                action: example.action,
+                expectedEntryVersion: example.expectedEntryVersion,
+                integrationKey: definition.key,
+                patch: example.patch,
+                summary: example.summary,
+              },
+              description: example.description,
+            })) ?? [],
+          settingsLabel: definition.settings.label,
+          uiFields:
+            (webSearchRuntimeConfigUiHints.fields as Record<string, unknown>) ??
+            {},
+          workflow: definition.settings.recommendedWorkflow ?? [],
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface: {
+          actionMeanings: [],
+          agentOperations: [],
+          allowedActions: [],
+          availability: resolved.enabled ? "available" : "blocked",
+          blockingReason: resolved.reason,
+          canAgentEdit: false,
+          canUserEdit: false,
+          config,
+          description: definition.pageDescription,
+          fieldMeanings: [...braveFieldMeanings],
+          id: "brave",
+          key: "brave",
+          kind: "integration",
+          label: definition.label,
+          schema: webSearchRuntimeConfigJsonSchema,
+          settingsUrl: null,
+          surfaceType: "integration",
+          uiGroup: "integrations",
+          uiHints: webSearchRuntimeConfigUiHints,
+        },
+      };
+    }
+    case "slack": {
+      const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+        tenantId: input.tenantId,
+      });
+
+      if (!surface) {
+        return null;
+      }
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: surface.config as Record<string, unknown>,
+          fieldMeanings: surface.fieldMeanings,
+          patchSchema: surface.schema,
+          settingsExamples: integration.settings.examples,
+          settingsLabel: integration.settings.label,
+          uiFields:
+            typeof surface.uiHints === "object" &&
+            surface.uiHints &&
+            "fields" in surface.uiHints
+              ? ((surface.uiHints as { fields?: Record<string, unknown> })
+                  .fields ?? {})
+              : {},
+          workflow: integration.settings.recommendedWorkflow,
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface,
+      };
+    }
+    case "whatsapp": {
+      const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+        tenantId: input.tenantId,
+      });
+
+      if (!surface) {
+        return null;
+      }
+
+      return {
+        contract: buildRuntimeIntegrationSettingsContract({
+          config: surface.config as Record<string, unknown>,
+          fieldMeanings: surface.fieldMeanings,
+          patchSchema: surface.schema,
+          settingsExamples: integration.settings.examples,
+          settingsLabel: integration.settings.label,
+          uiFields:
+            typeof surface.uiHints === "object" &&
+            surface.uiHints &&
+            "fields" in surface.uiHints
+              ? ((surface.uiHints as { fields?: Record<string, unknown> })
+                  .fields ?? {})
+              : {},
+          workflow: integration.settings.recommendedWorkflow,
+        }),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+          settings: integration.settings,
+          status: integration.status,
+        },
+        surface,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+export async function validateRuntimeIntegrationSettingsForTenant(input: {
+  integrationKey: string;
+  patch: Record<string, unknown>;
+  tenantId: string;
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
+    case "slack": {
+      const validation = await validateTenantSlackRuntimeConfigChangeForTenant({
+        createdByType: "runtime",
+        patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: validation.validation,
+      };
+    }
+    case "whatsapp": {
+      const validation =
+        await validateTenantWhatsAppRuntimeConfigChangeForTenant({
+          createdByType: "runtime",
+          patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
+          tenantId: input.tenantId,
+        });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        effects: validation.effects,
+        integration: settings.integration,
+        nextConfig: validation.nextConfig,
+        surface: settings.surface,
+        validation: validation.validation,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+export async function applyRuntimeIntegrationSettingsForTenant(input: {
+  expectedEntryVersion?: number;
+  integrationKey: string;
+  patch: Record<string, unknown>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration?.settings) {
+    return null;
+  }
+
+  switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      );
+    case "slack": {
+      const result = await updateTenantSlackRuntimeConfigForTenant({
+        createdByType: "runtime",
+        expectedEntryVersion: input.expectedEntryVersion,
+        patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+        summary: input.summary,
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        ...result,
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: {
+          ok: true,
+          warnings: result.effects?.warnings ?? [],
+        },
+      };
+    }
+    case "whatsapp": {
+      const result = await updateTenantWhatsAppRuntimeConfigForTenant({
+        createdByType: "runtime",
+        expectedEntryVersion: input.expectedEntryVersion,
+        patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
+        summary: input.summary,
+        tenantId: input.tenantId,
+      });
+      const settings = await getRuntimeIntegrationSettingsForTenant({
+        integrationKey: integration.key,
+        tenantId: input.tenantId,
+      });
+
+      if (!settings) {
+        return null;
+      }
+
+      return {
+        ...result,
+        integration: settings.integration,
+        surface: settings.surface,
+        validation: {
+          ok: true,
+          warnings: result.effects?.warnings ?? [],
+        },
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function findRuntimeCommandByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  commandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  const normalizedKey = commandKey.trim().toLowerCase();
+
+  for (const command of surface.rootCommands) {
+    if (command.commandKey.toLowerCase() === normalizedKey) {
+      return command;
+    }
+  }
+
+  for (const group of surface.commandGroups) {
+    const command = findRuntimeCommandByKeyInGroup(group, normalizedKey);
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedCommandKey: string,
+): IntegrationRuntimeCommandDefinition | null {
+  for (const command of group.commands ?? []) {
+    if (command.commandKey.toLowerCase() === normalizedCommandKey) {
+      return command;
+    }
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const command = findRuntimeCommandByKeyInGroup(
+      childGroup,
+      normalizedCommandKey,
+    );
+
+    if (command) {
+      return command;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKey(
+  surface: NonNullable<
+    ReturnType<
+      typeof listRuntimeIntegrationDefinitions
+    >[number]["runtimeSurface"]
+  >,
+  groupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  const normalizedKey = groupKey.trim().toLowerCase();
+
+  for (const group of surface.commandGroups) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      group,
+      normalizedKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+function findRuntimeCommandGroupByKeyInGroup(
+  group: IntegrationRuntimeCommandGroupDefinition,
+  normalizedGroupKey: string,
+): IntegrationRuntimeCommandGroupDefinition | null {
+  if (group.groupKey.toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  if (group.groupPath.join(".").toLowerCase() === normalizedGroupKey) {
+    return group;
+  }
+
+  for (const childGroup of group.childGroups ?? []) {
+    const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
+      childGroup,
+      normalizedGroupKey,
+    );
+
+    if (matchedGroup) {
+      return matchedGroup;
+    }
+  }
+
+  return null;
+}
+
+export async function getRuntimeIntegrationDetailsForTenant(input: {
+  detailKey: string;
+  detailType: "command" | "command_group";
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationDetailsResponse | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const detailKey = input.detailKey.trim();
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const definition = definitions.find(
+      (entry) => entry.key === integrationKey,
+    );
+
+    if (!definition) {
+      return null;
+    }
+
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [integrationKey],
+      tenantId: input.tenantId,
+    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [definition],
+        rows,
+      },
+    );
+
+    const detail =
+      input.detailType === "command"
+        ? findRuntimeCommandByKey(definition.runtimeSurface, detailKey)
+        : findRuntimeCommandGroupByKey(definition.runtimeSurface, detailKey);
+
+    if (!detail) {
+      return null;
+    }
+
+    const policy =
+      input.detailType === "command" && tenantIntegrationId
+        ? await getTenantIntegrationCapabilityPolicy({
+            capabilityKey: (detail as IntegrationRuntimeCommandDefinition)
+              .commandKey,
+            tenantIntegrationId,
+          })
+        : null;
+
+    return buildRuntimeIntegrationDetailsResponse({
+      definition,
+      detail,
+      detailType: input.detailType,
+      policy,
+      status,
+    });
+  });
+}
+
+export async function findRuntimeIntegrationCommandsForTenant(input: {
+  query: string;
+  tenantId: string;
+}): Promise<{ matches: RuntimeIntegrationCommandMatch[]; query: string }> {
+  const db = getDb();
+  const normalizedQuery = input.query.trim();
+
+  if (!normalizedQuery) {
+    return {
+      matches: [],
+      query: normalizedQuery,
+    };
+  }
+
+  return db.transaction(async (tx) => {
+    const definitions = listRuntimeIntegrationDefinitions();
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: input.tenantId,
+    });
+    const definitionsWithStatus = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+
+    return {
+      matches: findIntegrationCommandMatches({
+        definitions: definitionsWithStatus.map(({ definition, status }) => ({
+          ...definition,
+          status,
+        })),
+        query: normalizedQuery,
+      }),
+      query: normalizedQuery,
+    };
+  });
+}
+
+export type RuntimeIntegrationConnectionAction = {
+  availableActions: string[];
+  connectUrl: string | null;
+  integrationKey: string;
+  label: string;
+  message: string;
+  recommendedAction: string;
+  requiresUserAction: boolean;
+  selectedAction: string;
+  status: RuntimeTenantIntegration["status"];
+  workspaceUrl: string | null;
+};
+
+export async function getRuntimeIntegrationConnectionActionForTenant(input: {
+  action?: string | null;
+  integrationKey: string;
+  tenantId: string;
+}): Promise<RuntimeIntegrationConnectionAction | null> {
+  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!integration) {
+    return null;
+  }
+
+  const db = getDb();
+  const [tenantContext] = await db
+    .select({
+      organizationSlug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  if (!tenantContext) {
+    throw new Error(`Tenant ${input.tenantId} is not available.`);
+  }
+
+  const baseUrl = getControlPlaneBaseUrl();
+  const definition = getIntegrationDefinition(integration.key);
+  const workspaceUrl =
+    baseUrl && definition
+      ? `${baseUrl}${definition.settingsPath(tenantContext.organizationSlug)}`
+      : null;
+
+  let connectUrl: string | null = null;
+  let recommendedAction = "none";
+  let message = `${integration.label} is available.`;
+
+  switch (integration.key) {
+    case "brave": {
+      recommendedAction = "open_workspace";
+      message =
+        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults.";
+      break;
+    }
+    case "linear": {
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Linear needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Linear is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it.";
+      }
+      break;
+    }
+    case "slack": {
+      connectUrl = baseUrl
+        ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
+        : null;
+
+      if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "Slack needs attention. Ask the user to reconnect it in the workspace.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "Slack is not connected yet. Ask the user to connect it in the workspace.";
+      } else if (!integration.status.enabled) {
+        recommendedAction = "open_workspace";
+        message =
+          "Slack is connected but not active. Open the workspace integration page to review its status and settings.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it.";
+      }
+      break;
+    }
+    case "whatsapp": {
+      connectUrl = workspaceUrl;
+
+      if (
+        integration.status.integrationStatus === "linking" ||
+        integration.status.integrationStatus === "pending_apply" ||
+        integration.status.integrationStatus === "applying" ||
+        integration.status.integrationStatus === "activating"
+      ) {
+        recommendedAction = "open_workspace";
+        message =
+          "WhatsApp setup is already in progress. Open the workspace integration page to follow pairing or activation.";
+      } else if (integration.status.needsAttention) {
+        recommendedAction = "reconnect";
+        message =
+          "WhatsApp needs attention. Ask the user to reopen the workspace integration page and pair the number again.";
+      } else if (!integration.status.connected) {
+        recommendedAction = "connect";
+        message =
+          "WhatsApp is not connected yet. Ask the user to connect it in the workspace.";
+      } else {
+        recommendedAction = "open_workspace";
+        message =
+          "WhatsApp is connected. Open the workspace integration page to review settings, pair a new number, or disconnect it.";
+      }
+      break;
+    }
+    default: {
+      recommendedAction = "open_workspace";
+      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
+      break;
+    }
+  }
+
+  const requestedAction = (input.action ?? "").trim().toLowerCase();
+  const availableActions = [
+    workspaceUrl ? "open_workspace" : null,
+    connectUrl ? "connect" : null,
+    connectUrl ? "reconnect" : null,
+    (integration.key === "slack" || integration.key === "whatsapp") &&
+    workspaceUrl
+      ? "disconnect"
+      : null,
+  ].filter((action): action is string => Boolean(action));
+  const selectedAction =
+    requestedAction && availableActions.includes(requestedAction)
+      ? requestedAction
+      : recommendedAction;
+
+  return {
+    availableActions,
+    connectUrl,
+    integrationKey: integration.key,
+    label: integration.label,
+    message,
+    recommendedAction,
+    requiresUserAction:
+      selectedAction === "connect" || selectedAction === "reconnect",
+    selectedAction,
+    status: integration.status,
+    workspaceUrl,
+  };
+}
+
+export async function getTenantManagedIntegrationSummary(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationSummary | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      providerKey: tenantIntegrations.providerKey,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(
+          tenantIntegrations.providerKey,
+          input.providerKey.trim().toLowerCase(),
+        ),
+      ),
+    )
+    .limit(1);
+
+  return integration ?? null;
+}
+
+export type ManagedIntegrationCapabilityRow = (
+  | ResolvedIntegrationAgentCapability
+  | ResolvedIntegrationCommandCapability
+) & {
+  sourceHref: string | null;
+  sourceIcon: string | null;
+  sourceKey: string;
+  sourceLabel: string;
+  sourceType: "integration";
+};
+
+function sortManagedIntegrationCapabilityRows(
+  rows: ManagedIntegrationCapabilityRow[],
+) {
+  return [...rows].sort((left, right) => {
+    if (left.capabilityType !== right.capabilityType) {
+      return left.capabilityType === "trigger" ? -1 : 1;
+    }
+
+    if (left.label !== right.label) {
+      return left.label.localeCompare(right.label);
+    }
+
+    return left.commandKey.localeCompare(right.commandKey);
+  });
+}
+
+function buildManagedIntegrationCapabilityRows(input: {
+  definition: NonNullable<ReturnType<typeof getIntegrationDefinition>> & {
+    runtimeSurface: NonNullable<
+      NonNullable<ReturnType<typeof getIntegrationDefinition>>["runtimeSurface"]
+    >;
+  };
+  orgSlug: string;
+  policies: Map<string, { policy: "allow" | "block" }>;
+  status: {
+    connected: boolean;
+    connectionStatus: string | null;
+    enabled: boolean;
+    integrationStatus: string | null;
+    needsAttention: boolean;
+  };
+}): ManagedIntegrationCapabilityRow[] {
+  const commandRows = listIntegrationCommands({
+    definition: input.definition,
+  }).map((command) => {
+    const resolved = buildResolvedIntegrationCommandCapability({
+      command,
+      definition: input.definition,
+      policy: input.policies.get(command.commandKey) ?? null,
+      status: input.status,
+    });
+
+    return {
+      ...resolved,
+      sourceHref: buildIntegrationSectionPath({
+        integrationKey: input.definition.key,
+        orgSlug: input.orgSlug,
+        section: "capabilities",
+      }),
+      sourceIcon: input.definition.iconSrc,
+      sourceKey: input.definition.key,
+      sourceLabel: input.definition.label,
+      sourceType: "integration" as const,
+    };
+  });
+  const providerCapabilityRows = input.definition.agentCapabilities
+    .filter(
+      (capability) =>
+        !commandRows.some((row) => row.capabilityKey === capability.key),
+    )
+    .map((capability) => {
+      const resolved = buildResolvedIntegrationAgentCapability({
+        capability,
+        definition: input.definition,
+        policy: input.policies.get(capability.key) ?? null,
+        status: input.status,
+      });
+
+      return {
+        ...resolved,
+        sourceHref: buildIntegrationSectionPath({
+          integrationKey: input.definition.key,
+          orgSlug: input.orgSlug,
+          section: "capabilities",
+        }),
+        sourceIcon: input.definition.iconSrc,
+        sourceKey: input.definition.key,
+        sourceLabel: input.definition.label,
+        sourceType: "integration" as const,
+      };
+    });
+
+  return sortManagedIntegrationCapabilityRows([
+    ...commandRows,
+    ...providerCapabilityRows,
+  ]);
+}
+
+export async function listManagedIntegrationCapabilitiesForOrganization(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    return [];
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: [runtimeDefinition.key],
+      tenantId: authorizedTenant.tenantId,
+    });
+    const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
+      {
+        definitions: [runtimeDefinition],
+        rows,
+      },
+    );
+    const policies = tenantIntegrationId
+      ? await listTenantIntegrationCapabilityPolicies({
+          tenantIntegrationId,
+        })
+      : new Map();
+
+    return buildManagedIntegrationCapabilityRows({
+      definition: runtimeDefinition,
+      orgSlug: input.orgSlug,
+      policies,
+      status,
+    });
+  });
+}
+
+export async function listWorkspaceManagedIntegrationCapabilities(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow[]> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return [];
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
+      providerKeys: listSupportedRuntimeIntegrationKeys(),
+      tenantId: authorizedTenant.tenantId,
+    });
+    const installedProviderKeys = [
+      ...new Set(rows.map((row) => row.providerKey)),
+    ].sort((left, right) => left.localeCompare(right));
+    const definitions = listRuntimeIntegrationDefinitions().filter(
+      (definition) =>
+        installedProviderKeys.includes(definition.key) ||
+        isPlatformManagedIntegration(definition),
+    );
+
+    const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
+      definitions,
+      rows,
+    });
+    const capabilityRows = await Promise.all(
+      resolvedDefinitions.map(
+        async ({ definition, status, tenantIntegrationId }) => {
+          const policies = tenantIntegrationId
+            ? await listTenantIntegrationCapabilityPolicies({
+                tenantIntegrationId,
+              })
+            : new Map();
+
+          return buildManagedIntegrationCapabilityRows({
+            definition,
+            orgSlug: input.orgSlug,
+            policies,
+            status,
+          });
+        },
+      ),
+    );
+
+    return capabilityRows.flat().sort((left, right) => {
+      if (left.sourceLabel !== right.sourceLabel) {
+        return left.sourceLabel.localeCompare(right.sourceLabel);
+      }
+
+      if (left.capabilityType !== right.capabilityType) {
+        return left.capabilityType === "trigger" ? -1 : 1;
+      }
+
+      return left.label.localeCompare(right.label);
+    });
+  });
+}
+
+export async function updateManagedIntegrationCapabilityPolicy(input: {
+  capabilityKey: string;
+  orgSlug: string;
+  policy: { policy: "allow" | "block" };
+  providerKey: string;
+  userExternalId: string;
+}): Promise<ManagedIntegrationCapabilityRow> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Workspace is not available.");
+  }
+
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  );
+
+  if (!definition?.runtimeSurface) {
+    throw new Error(
+      `Managed integration ${input.providerKey} is not available.`,
+    );
+  }
+
+  const runtimeDefinition = definition as typeof definition & {
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+  };
+
+  const command = listIntegrationCommands({
+    definition: runtimeDefinition,
+  }).find((entry) => entry.commandKey === input.capabilityKey);
+  const providerCapability = runtimeDefinition.agentCapabilities.find(
+    (entry) => entry.key === input.capabilityKey,
+  );
+
+  if (!command && !providerCapability) {
+    throw new Error(
+      `${definition.label} does not expose the ${input.capabilityKey} capability.`,
+    );
+  }
+
+  if (command && !isCommandUserControllable(command)) {
+    throw new Error(
+      `${definition.label} does not allow workspace policy changes for ${command.commandKey}.`,
+    );
+  }
+
+  if (
+    providerCapability &&
+    !isAgentCapabilityUserControllable(providerCapability)
+  ) {
+    throw new Error(
+      `${definition.label} does not allow workspace policy changes for ${providerCapability.key}.`,
+    );
+  }
+
+  const resolvedCapabilityKey =
+    command?.commandKey ?? providerCapability?.key ?? null;
+
+  if (!resolvedCapabilityKey) {
+    throw new Error(
+      `${definition.label} does not expose the ${input.capabilityKey} capability.`,
+    );
+  }
+
+  const db = getDb();
+  const [integration] = await db
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+        eq(tenantIntegrations.providerKey, runtimeDefinition.key),
+      ),
+    )
+    .limit(1);
+
+  if (!integration) {
+    throw new Error(
+      `${definition.label} must be connected before capability policy can be updated.`,
+    );
+  }
+
+  await upsertTenantIntegrationCapabilityPolicy({
+    capabilityKey: resolvedCapabilityKey,
+    policy: input.policy,
+    tenantIntegrationId: integration.id,
+  });
+
+  const rows = await listManagedIntegrationCapabilitiesForOrganization({
+    orgSlug: input.orgSlug,
+    providerKey: runtimeDefinition.key,
+    userExternalId: input.userExternalId,
+  });
+  const row = rows.find((entry) => entry.commandKey === resolvedCapabilityKey);
+
+  if (!row) {
+    throw new Error(
+      "Capability policy was updated but the capability could not be reloaded.",
+    );
+  }
+
+  return row;
+}
+
+export async function getTenantManagedIntegrationConnectContext(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}): Promise<TenantManagedIntegrationConnectContext | null> {
+  const db = getDb();
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const [row] = await db
+    .select({
+      integrationStatus: tenantIntegrations.status,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantIntegrationId: tenantIntegrations.id,
+      tenantStatus: tenants.status,
+      userEmail: users.email,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .leftJoin(
+      tenantIntegrations,
+      and(
+        eq(tenantIntegrations.tenantId, tenants.id),
+        eq(tenantIntegrations.providerKey, normalizedProviderKey),
+      ),
+    )
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  if (
+    normalizedProviderKey !== LINEAR_PROVIDER_KEY &&
+    normalizedProviderKey !== SLACK_PROVIDER_KEY
+  ) {
+    throw new Error(
+      `Managed integration ${input.providerKey} does not support connect sessions yet.`,
+    );
+  }
+
+  return row;
+}
+
+export async function completeLinearOauthConnection(input: {
+  actorType: string | null;
+  externalAccountId?: string | null;
+  externalAccountLabel?: string | null;
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+    const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
+      now,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.externalAccountId ?? null,
+      externalAccountLabel: input.externalAccountLabel ?? null,
+      now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+  });
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
+export async function completeSlackOauthConnection(input: {
+  mode: "connect" | "reconnect";
+  organizationId: string;
+  requestedScopes: string[];
+  sessionId: string;
+  tokenResult: OAuthTokenExchangeResult;
+}) {
+  const metadata = input.tokenResult.identity?.providerMetadata ?? {};
+  const slackTeamId =
+    input.tokenResult.identity?.externalAccountId ??
+    getStringMetadataValue(metadata, "slackTeamId");
+  const slackTeamName =
+    input.tokenResult.identity?.externalAccountLabel ??
+    getNullableStringMetadataValue(metadata, "slackTeamName");
+
+  if (!slackTeamId) {
+    throw new Error("Slack workspace id is missing from the OAuth response.");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+  let tenantId = "";
+  let organizationSlug = "";
+  let tenantIntegrationId = "";
+  let shouldEnqueueApply = false;
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        organizationSlug: organizations.slug,
+        serverStatus: tenantServers.status,
+        tenantId: tenants.id,
+        tenantStatus: tenants.status,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack connection could not be matched to a workspace.",
+      );
+    }
+
+    tenantId = authorizedTenant.tenantId;
+    organizationSlug = authorizedTenant.organizationSlug;
+    shouldEnqueueApply =
+      authorizedTenant.tenantStatus === "ready" &&
+      authorizedTenant.serverStatus === "ready";
+
+    tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
+      now,
+      tenantId,
+    });
+
+    await upsertOauthConnectionForTenantIntegrationTx(tx, {
+      actorType: input.tokenResult.actorType,
+      eventType: input.mode === "reconnect" ? "reconnect" : "connect",
+      externalAccountId: input.tokenResult.identity?.externalAccountId ?? null,
+      externalAccountLabel:
+        input.tokenResult.identity?.externalAccountLabel ?? null,
+      now,
+      providerKey: SLACK_PROVIDER_KEY,
+      requestedScopes: input.requestedScopes,
+      tenantIntegrationId,
+      tokenResult: input.tokenResult,
+    });
+
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId,
+      })
+    ).version;
+
+    if (shouldEnqueueApply) {
+      await markSlackIntegrationPendingApply(tx, {
+        now,
+        tenantId,
+      });
+    }
+  });
+
+  try {
+    await refreshSlackDirectoryForInstallation({
+      botToken: input.tokenResult.accessToken,
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  } catch (directoryError) {
+    await recordMessagingWorkspaceSyncFailure({
+      error: getUnknownErrorMessage(directoryError),
+      externalWorkspaceId: slackTeamId,
+      tenantIntegrationId,
+      workspaceDisplayName: slackTeamName,
+    });
+  }
+
+  if (shouldEnqueueApply) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId,
+    });
+  }
+
+  return {
+    applyQueued: shouldEnqueueApply,
+    organizationSlug,
+    tenantId,
+  };
+}
+
+export async function disconnectTenantManagedIntegration(input: {
+  orgSlug: string;
+  providerKey: string;
+  userExternalId: string;
+}) {
+  const providerKey = input.providerKey.trim().toLowerCase();
+
+  switch (providerKey) {
+    case LINEAR_PROVIDER_KEY:
+      return disconnectTenantLinearIntegration(input);
+    case SLACK_PROVIDER_KEY:
+      return disconnectTenantSlackIntegration(input);
+    case WHATSAPP_PROVIDER_KEY:
+      return disconnectTenantWhatsApp(input);
+    default:
+      throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
+  }
+}
+
+export async function recordLinearOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Linear refresh failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordLinearIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
+export async function recordSlackManagedOauthFailure(input: {
+  error: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    const [authorizedTenant] = await tx
+      .select({
+        tenantId: tenants.id,
+      })
+      .from(organizations)
+      .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+      .where(eq(organizations.id, input.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1);
+
+    if (!authorizedTenant) {
+      throw new Error(
+        "The Slack OAuth failure could not be matched to a workspace.",
+      );
+    }
+
+    await recordSlackIntegrationError(tx, {
+      error: input.error,
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+  });
+}
+
+export async function getTenantToolConfigSurface(input: {
+  orgSlug: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  userExternalId: string;
+}): Promise<TenantToolConfigSurface | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  return getTenantToolConfigSurfaceForTenant({
+    surfaceKey: input.surfaceKey,
+    surfaceKind: input.surfaceKind,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function getTenantToolConfigSurfaceForTenant(input: {
+  surfaceKey: string;
+  surfaceKind: string;
+  tenantId: string;
+}): Promise<TenantToolConfigSurface | null> {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    return null;
+  }
+
+  if (
+    input.surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
+    input.surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
+  ) {
+    return getTenantSlackRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    }) as Promise<TenantToolConfigSurface | null>;
+  }
+
+  if (
+    input.surfaceKind === WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND &&
+    input.surfaceKey === WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY
+  ) {
+    return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    }) as Promise<TenantToolConfigSurface | null>;
+  }
+
+  return null;
+}
+
+export async function validateTenantToolConfigChange(input: {
+  createdByType?: "runtime" | "system" | "user";
+  orgSlug: string;
+  patch: Record<string, unknown>;
+  surfaceKey: string;
+  surfaceKind: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return validateTenantToolConfigChangeForTenant({
+    createdByType: input.createdByType,
+    patch: input.patch,
+    surfaceKey: input.surfaceKey,
+    surfaceKind: input.surfaceKind,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function validateTenantToolConfigChangeForTenant(input: {
+  createdByType?: "runtime" | "system" | "user";
+  patch: Record<string, unknown>;
+  surfaceKey: string;
+  surfaceKind: string;
+  tenantId: string;
+}) {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
+    if (input.createdByType === "runtime") {
+      throw new Error(
+        "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
+      );
+    }
+
+    return validateTenantSlackRuntimeConfigChangeForTenant({
+      createdByType: input.createdByType ?? "user",
+      patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
+      tenantId: input.tenantId,
+    });
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    return validateTenantWhatsAppRuntimeConfigChangeForTenant({
+      createdByType: input.createdByType ?? "user",
+      patch: definition.parsePatch(
+        input.patch,
+      ) as Partial<WhatsAppRuntimeConfig>,
+      tenantId: input.tenantId,
+    });
+  }
+
+  const mutationError = getSurfaceConfigMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  throw new Error("Unsupported tool config surface");
+}
+
+export async function applyTenantToolConfigChange(input: {
+  allowDestructiveChanges?: boolean;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  orgSlug: string;
+  patch: Record<string, unknown>;
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  userExternalId?: string;
+}) {
+  const actorExternalId =
+    input.createdByType === "user"
+      ? (input.userExternalId ?? input.createdByExternalId ?? null)
+      : (input.createdByExternalId ?? null);
+  const authorizedTenant =
+    input.createdByType === "user"
+      ? await getAuthorizedLatestTenantForOrganization({
+          orgSlug: input.orgSlug,
+          userExternalId: input.userExternalId ?? "",
+        })
+      : null;
+
+  if (input.createdByType === "user" && !authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return applyTenantToolConfigChangeForTenant({
+    allowDestructiveChanges: input.allowDestructiveChanges,
+    createdByExternalId: actorExternalId,
+    createdByType: input.createdByType,
+    expectedEntryVersion: input.expectedEntryVersion,
+    patch: input.patch,
+    summary: input.summary,
+    surfaceKey: input.surfaceKey,
+    surfaceKind: input.surfaceKind,
+    tenantId: authorizedTenant?.tenantId,
+  });
+}
+
+export async function applyTenantToolConfigChangeForTenant(input: {
+  allowDestructiveChanges?: boolean;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  patch: Record<string, unknown>;
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  tenantId?: string;
+}) {
+  if (!input.tenantId) {
+    throw new Error("Tenant runtime config target is missing");
+  }
+
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
+    if (input.createdByType === "runtime") {
+      throw new Error(
+        "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
+      );
+    }
+
+    const result = await updateTenantSlackRuntimeConfigForTenant({
+      allowDestructiveChanges: input.allowDestructiveChanges,
+      createdByExternalId: input.createdByExternalId,
+      createdByType: input.createdByType,
+      expectedEntryVersion: input.expectedEntryVersion,
+      patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+    const surface = await getTenantToolConfigSurfaceForTenant({
+      surfaceKey: input.surfaceKey,
+      surfaceKind: input.surfaceKind,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      ...result,
+      surface,
+      validation: {
+        ok: true,
+      },
+    };
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    const result = await updateTenantWhatsAppRuntimeConfigForTenant({
+      allowDestructiveChanges: input.allowDestructiveChanges,
+      createdByExternalId: input.createdByExternalId,
+      createdByType: input.createdByType,
+      expectedEntryVersion: input.expectedEntryVersion,
+      patch: definition.parsePatch(
+        input.patch,
+      ) as Partial<WhatsAppRuntimeConfig>,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+    const surface = await getTenantToolConfigSurfaceForTenant({
+      surfaceKey: input.surfaceKey,
+      surfaceKind: input.surfaceKind,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      ...result,
+      surface,
+      validation: {
+        ok: true,
+      },
+    };
+  }
+
+  const mutationError = getSurfaceConfigMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  throw new Error("Unsupported tool config surface");
+}
+
+export async function setTenantToolInstallState(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  enabled?: boolean;
+  expectedEntryVersion?: number;
+  installState: ToolInstallState;
+  orgSlug: string;
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return setTenantToolInstallStateForTenant({
+    createdByExternalId: input.createdByExternalId ?? input.userExternalId,
+    createdByType: input.createdByType,
+    enabled: input.enabled,
+    expectedEntryVersion: input.expectedEntryVersion,
+    installState: input.installState,
+    summary: input.summary,
+    surfaceKey: input.surfaceKey,
+    surfaceKind: input.surfaceKind,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function reapplyTenantToolSurface(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  orgSlug: string;
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return reapplyTenantToolSurfaceForTenant({
+    createdByExternalId: input.createdByExternalId ?? input.userExternalId,
+    createdByType: input.createdByType,
+    summary: input.summary,
+    surfaceKey: input.surfaceKey,
+    surfaceKind: input.surfaceKind,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
+  tenantId: string;
+}): Promise<TenantSlackRuntimeConfigSurface | null> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const [slackConfig, directory, slackIntegration, organizationSlug] =
+      await Promise.all([
+        getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+          tenantId: input.tenantId,
+        }),
+        getSlackDirectoryOptions(tx, {
+          tenantId: input.tenantId,
+        }),
+        getConnectedSlackIntegrationForTenant(tx, {
+          tenantId: input.tenantId,
+        }),
+        getOrganizationSlugForTenantTx(tx, {
+          tenantId: input.tenantId,
+        }),
+      ]);
+
+    const allowedActions = getSlackSurfaceAllowedActions({
+      enabled: slackConfig.enabled,
+      installState: slackConfig.installState,
+    });
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: slackConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      agentCapabilities: slackAgentCapabilities,
+      agentOperations: slackAgentOperations,
+      availableChannels: directory.channels,
+      availableUsers: directory.users,
+      actionMeanings: slackActionMeanings,
+      allowedActions,
+      availability: slackIntegration ? "available" : "blocked",
+      blockingReason: slackIntegration
+        ? null
+        : "Connect Slack before changing Slack runtime behavior.",
+      canAgentEdit: Boolean(slackIntegration),
+      canUserEdit: true,
+      config: buildTenantSlackRuntimeConfig(slackConfig),
+      description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
+      derivedEffects: effects,
+      fieldMeanings: slackFieldMeanings,
+      id: getToolSurfaceId(
+        SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+        SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+      ),
+      key: SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+      kind: SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+      label: SLACK_RUNTIME_CONFIG_LABEL,
+      schema: slackRuntimeConfigJsonSchema,
+      settingsUrl: organizationSlug
+        ? buildIntegrationSectionPath({
+            integrationKey: "slack",
+            orgSlug: organizationSlug,
+            section: "status",
+          })
+        : null,
+      setupUrl: organizationSlug
+        ? buildIntegrationSectionPath({
+            integrationKey: "slack",
+            orgSlug: organizationSlug,
+            section: "status",
+          })
+        : null,
+      surfaceType: "integration",
+      uiGroup: "integrations",
+      uiHints: slackRuntimeConfigUiHints,
+    };
+  });
+}
+
+export async function getTenantWhatsAppRuntimeConfigSurface(input: {
+  orgSlug: string;
+  userExternalId: string;
+}): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
+  tenantId: string;
+}): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
+  const db = getDb();
+  const definition = getToolDefinition(
+    WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+    WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  );
+
+  return db.transaction(async (tx) => {
+    const [whatsAppIntegration, organizationSlug] = await Promise.all([
+      getWhatsAppIntegrationForTenant(tx, {
+        tenantId: input.tenantId,
+      }),
+      getOrganizationSlugForTenantTx(tx, {
+        tenantId: input.tenantId,
+      }),
+    ]);
+
+    if (!whatsAppIntegration) {
+      return null;
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+    const allowedActions = definition
+      ? listAvailableToolActions(definition, {
+          enabled: currentConfig.enabled,
+          installState: currentConfig.installState,
+        })
+      : [];
+    const effects = deriveWhatsAppPolicyEffects({
+      config: currentConfig.config,
+    });
+    const isBlocked =
+      whatsAppIntegration.status === "pending_apply" ||
+      whatsAppIntegration.status === "applying" ||
+      whatsAppIntegration.status === "activating";
+
+    return {
+      actionMeanings: definition?.actionMeanings ?? [],
+      agentCapabilities: definition?.agentCapabilities ?? [],
+      agentOperations: definition?.agentOperations ?? [],
+      allowedActions,
+      availability: isBlocked ? "blocked" : "available",
+      blockingReason: isBlocked
+        ? "Otto is still preparing WhatsApp. Finish the latest apply before changing these settings."
+        : null,
+      canAgentEdit: true,
+      canUserEdit: true,
+      config: buildTenantWhatsAppRuntimeConfig(currentConfig),
+      description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+      derivedEffects: effects,
+      fieldMeanings: definition?.fieldMeanings ?? [],
+      id: getToolSurfaceId(
+        WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+        WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      ),
+      key: WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      kind: WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+      label: WHATSAPP_RUNTIME_CONFIG_LABEL,
+      schema: whatsappRuntimeConfigJsonSchema,
+      settingsUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/whatsapp`
+        : null,
+      setupUrl: organizationSlug
+        ? `/${organizationSlug}/integrations/whatsapp`
+        : null,
+      surfaceType: "integration",
+      uiGroup: "integrations",
+      uiHints: whatsappRuntimeConfigUiHints,
+    };
+  });
+}
+
+export async function enableTenantWhatsAppIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const existingIntegration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (existingIntegration) {
+      const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+        tx,
+        {
+          tenantId: authorizedTenant.tenantId,
+        },
+      );
+
+      if (currentConfig.installState === "installed" && currentConfig.enabled) {
+        return {
+          applyQueued: false,
+          changed: false,
+          desiredStateVersion: null as number | null,
+          tenantId: authorizedTenant.tenantId,
+        };
+      }
+
+      const now = new Date();
+      const nextEntryVersion = currentConfig.entryVersion + 1;
+
+      await tx
+        .update(tenantRuntimeConfigEntries)
+        .set({
+          changeSummary: "Installed WhatsApp runtime surface",
+          enabled: true,
+          entryVersion: nextEntryVersion,
+          installState: "installed",
+          lastValidatedAt: now,
+          lastValidationError: null,
+          schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+          updatedAt: now,
+          updatedByExternalId: input.userExternalId,
+          updatedByType: "user",
+        })
+        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+      const desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: authorizedTenant.tenantId,
+        })
+      ).version;
+      const tenantRuntime = await getTenantRuntimeState(
+        tx,
+        authorizedTenant.tenantId,
+      );
+
+      await tx.insert(tenantRuntimeConfigMutations).values({
+        actorExternalId: input.userExternalId,
+        actorType: "user",
+        desiredStateVersion,
+        mutationType: "install",
+        resultJson: {
+          enabled: true,
+          installState: "installed",
+        },
+        resultingEntryVersion: nextEntryVersion,
+        tenantId: authorizedTenant.tenantId,
+        tenantRuntimeConfigEntryId: currentConfig.id,
+      });
+
+      await markWhatsAppIntegrationPendingApply(tx, {
+        now,
+        tenantId: authorizedTenant.tenantId,
+      });
+
+      return {
+        applyQueued: tenantRuntime.isRuntimeReady,
+        changed: true,
+        desiredStateVersion,
+        tenantId: authorizedTenant.tenantId,
+      };
+    }
+
+    const now = new Date();
+    await upsertWhatsAppIntegrationForTenant(tx, {
+      now,
+      statusWhenNotConnected: "pending_apply",
+      tenantId: authorizedTenant.tenantId,
+    });
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: authorizedTenant.tenantId,
+      },
+    );
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: "Installed WhatsApp runtime surface",
+        enabled: true,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.userExternalId,
+        updatedByType: "user",
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    await markWhatsAppIntegrationPendingApply(tx, {
+      now,
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.userExternalId,
+      actorType: "user",
+      desiredStateVersion,
+      mutationType: "install",
+      resultJson: {
+        enabled: true,
+        installState: "installed",
+      },
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: authorizedTenant.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      desiredStateVersion,
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return {
+    ...result,
+    surface: await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: result.tenantId,
+    }),
+  };
+}
+
+async function disconnectTenantLinearIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration) {
+      throw new Error("Linear is not connected in this workspace.");
+    }
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: LINEAR_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
+}
+
+async function disconnectTenantSlackIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const now = new Date();
+  let desiredStateVersion = 0;
+
+  const result = await db.transaction(async (tx) => {
+    const [integration] = await tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        id: tenantIntegrations.id,
+        status: tenantIntegrations.status,
+      })
+      .from(tenantIntegrations)
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, authorizedTenant.tenantId),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1);
+
+    if (!integration?.connectedAt || integration.disconnectedAt) {
+      throw new Error("Slack is not connected in this workspace.");
+    }
+
+    const [oauthConnection] = await tx
+      .select({
+        id: integrationOauthConnections.id,
+        status: integrationOauthConnections.status,
+      })
+      .from(integrationOauthConnections)
+      .where(
+        eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+      )
+      .limit(1);
+
+    if (oauthConnection) {
+      await tx
+        .delete(integrationOauthCredentials)
+        .where(
+          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+        );
+
+      await tx
+        .update(integrationOauthConnections)
+        .set({
+          credentialsExpiresAt: null,
+          lastError: null,
+          lastErrorAt: null,
+          lastRefreshFailedAt: null,
+          refreshAttemptCount: 0,
+          refreshRetryAfter: null,
+          refreshTokenExpiresAt: null,
+          status: "disconnected",
+          updatedAt: now,
+        })
+        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+
+      await appendIntegrationOauthEventTx(tx, {
+        connectionId: oauthConnection.id,
+        details: {
+          disconnectedBy: input.userExternalId,
+        },
+        eventType: "disconnect",
+        providerKey: SLACK_PROVIDER_KEY,
+        statusAfter: "disconnected",
+        statusBefore: oauthConnection.status,
+        tenantIntegrationId: integration.id,
+      });
+    }
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: now,
+        lastError: null,
+        lastErrorAt: null,
+        status: "disconnected",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: authorizedTenant.tenantId,
+      })
+    ).version;
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      status: "disconnected",
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.applyQueued) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion,
+      tenantId: result.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function disableTenantWhatsAppIntegration(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp is not enabled for this workspace");
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: authorizedTenant.tenantId,
+      },
+    );
+    const [session] = await tx
+      .select({
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
+      })
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
+      .limit(1);
+    const now = new Date();
+
+    if (
+      session &&
+      (session.status === "queued" ||
+        session.status === "starting" ||
+        session.status === "qr_ready")
+    ) {
+      await tx
+        .update(integrationWhatsAppLinkSessions)
+        .set({
+          completedAt: now,
+          expiresAt: null,
+          lastError: null,
+          qrDataUrl: null,
+          status: "dismissed",
+          updatedAt: now,
+        })
+        .where(eq(integrationWhatsAppLinkSessions.id, session.id));
+    }
+
+    let desiredStateVersion: number | null = null;
+
+    if (currentConfig.installState !== "uninstalled" || currentConfig.enabled) {
+      const nextEntryVersion = currentConfig.entryVersion + 1;
+
+      await tx
+        .update(tenantRuntimeConfigEntries)
+        .set({
+          changeSummary: "Uninstalled WhatsApp runtime surface",
+          enabled: false,
+          entryVersion: nextEntryVersion,
+          installState: "uninstalled",
+          lastValidatedAt: now,
+          lastValidationError: null,
+          schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+          updatedAt: now,
+          updatedByExternalId: input.userExternalId,
+          updatedByType: "user",
+        })
+        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+      desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: authorizedTenant.tenantId,
+        })
+      ).version;
+
+      await tx.insert(tenantRuntimeConfigMutations).values({
+        actorExternalId: input.userExternalId,
+        actorType: "user",
+        desiredStateVersion,
+        mutationType: "uninstall",
+        resultJson: {
+          enabled: false,
+          installState: "uninstalled",
+        },
+        resultingEntryVersion: nextEntryVersion,
+        tenantId: authorizedTenant.tenantId,
+        tenantRuntimeConfigEntryId: currentConfig.id,
+      });
+    }
+
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    return {
+      desiredStateVersion,
+      disconnectQueued: tenantRuntime.isRuntimeReady,
+      linkSession: buildTenantWhatsAppLinkSession(
+        session &&
+          (session.status === "queued" ||
+            session.status === "starting" ||
+            session.status === "qr_ready")
+          ? {
+              ...session,
+              completedAt: now,
+              expiresAt: null,
+              lastError: null,
+              qrDataUrl: null,
+              status: "dismissed",
+              updatedAt: now,
+            }
+          : (session ?? null),
+      ),
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  if (result.disconnectQueued) {
+    await enqueueJob({
+      jobType: JOB_TYPES.whatsappDisconnect,
+      payload: {
+        desiredStateVersion: result.desiredStateVersion ?? undefined,
+        tenantId: result.tenantId,
+      },
+    });
+  }
+
+  return {
+    ...result,
+    surface: await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: result.tenantId,
+    }),
+  };
+}
+
+export async function activateTenantWhatsAppAfterPairing(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp integration not found");
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState === "installed" && currentConfig.enabled) {
+      return {
+        applyQueued: false,
+        changed: false,
+        desiredStateVersion: null as number | null,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: "Installed WhatsApp runtime surface after pairing",
+        enabled: true,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: null,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "activating",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, input.tenantId),
+          eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+        ),
+      );
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      mutationType: "install",
+      resultJson: {
+        enabled: true,
+        installState: "installed",
+      },
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      desiredStateVersion,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function createTenantWhatsAppLinkSession(input: {
+  forceRelink?: boolean;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const tenantRuntime = await getTenantRuntimeState(
+      tx,
+      authorizedTenant.tenantId,
+    );
+
+    if (!tenantRuntime.isRuntimeReady) {
+      throw new Error("WhatsApp linking requires a ready workspace runtime");
+    }
+
+    let integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      const now = new Date();
+      const integrationId = await upsertWhatsAppIntegrationForTenant(tx, {
+        now,
+        statusWhenNotConnected: "ready_to_link",
+        tenantId: authorizedTenant.tenantId,
+      });
+      integration = {
+        connectedAt: null,
+        disconnectedAt: null,
+        id: integrationId,
+        lastError: null,
+        lastErrorAt: null,
+        selfE164: null,
+        selfJid: null,
+        status: "ready_to_link",
+      };
+    }
+
+    await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (
+      integration.status === "pending_apply" ||
+      integration.status === "applying" ||
+      integration.status === "activating"
+    ) {
+      throw new Error(
+        "Otto is still applying WhatsApp. Wait for the latest update to finish before generating a QR code.",
+      );
+    }
+
+    if (integration.status === "apply_failed") {
+      throw new Error(
+        "WhatsApp setup is not applied on the tenant runtime yet. Reapply the WhatsApp settings before generating a QR code.",
+      );
+    }
+
+    const now = new Date();
+    const [linkSession] = await tx
+      .insert(integrationWhatsAppLinkSessions)
+      .values({
+        expiresAt: new Date(now.getTime() + 3 * 60_000),
+        forceRelink: Boolean(input.forceRelink),
+        startedByExternalId: input.userExternalId,
+        status: "queued",
+        tenantIntegrationId: integration.id,
+      })
+      .returning({
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
+      });
+
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        lastError: null,
+        lastErrorAt: null,
+        status: "linking",
+        updatedAt: now,
+      })
+      .where(eq(tenantIntegrations.id, integration.id));
+
+    return {
+      linkSession: buildTenantWhatsAppLinkSession(linkSession),
+      tenantId: authorizedTenant.tenantId,
+    };
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.whatsappLinkSession,
+    payload: {
+      linkSessionId: result.linkSession?.id ?? "",
+      tenantId: result.tenantId,
+    },
+  });
+
+  return result;
+}
+
+export async function getCurrentTenantWhatsAppLinkSession(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    return null;
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      return null;
+    }
+
+    const [session] = await tx
+      .select({
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
+      })
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
+      .limit(1);
+
+    return buildTenantWhatsAppLinkSession(session ?? null);
+  });
+}
+
+export async function disconnectTenantWhatsApp(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+  const tenantId = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp is not enabled for this workspace");
+    }
+
+    return authorizedTenant.tenantId;
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.whatsappDisconnect,
+    payload: {
+      tenantId,
+    },
+  });
+
+  return {
+    disconnectQueued: true,
+    tenantId,
+  };
+}
+
+export async function clearCurrentTenantWhatsAppLinkSession(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: authorizedTenant.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error("WhatsApp is not enabled for this workspace");
+    }
+
+    const [session] = await tx
+      .select({
+        id: integrationWhatsAppLinkSessions.id,
+        status: integrationWhatsAppLinkSessions.status,
+      })
+      .from(integrationWhatsAppLinkSessions)
+      .where(
+        eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
+      )
+      .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
+      .limit(1);
+
+    if (!session) {
+      return {
+        cleared: false,
+        linkSession: null,
+      };
+    }
+
+    const now = new Date();
+
+    await tx
+      .update(integrationWhatsAppLinkSessions)
+      .set({
+        completedAt: now,
+        expiresAt: null,
+        lastError: null,
+        qrDataUrl: null,
+        status: "dismissed",
+        updatedAt: now,
+      })
+      .where(eq(integrationWhatsAppLinkSessions.id, session.id));
+
+    if (integration.status === "linking") {
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: null,
+          lastErrorAt: null,
+          status: "ready_to_link",
+          updatedAt: now,
+        })
+        .where(eq(tenantIntegrations.id, integration.id));
+    }
+
+    const [updatedSession] = await tx
+      .select({
+        completedAt: integrationWhatsAppLinkSessions.completedAt,
+        createdAt: integrationWhatsAppLinkSessions.createdAt,
+        expiresAt: integrationWhatsAppLinkSessions.expiresAt,
+        forceRelink: integrationWhatsAppLinkSessions.forceRelink,
+        id: integrationWhatsAppLinkSessions.id,
+        lastError: integrationWhatsAppLinkSessions.lastError,
+        qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
+        status: integrationWhatsAppLinkSessions.status,
+        updatedAt: integrationWhatsAppLinkSessions.updatedAt,
+      })
+      .from(integrationWhatsAppLinkSessions)
+      .where(eq(integrationWhatsAppLinkSessions.id, session.id))
+      .limit(1);
+
+    return {
+      cleared: true,
+      linkSession: buildTenantWhatsAppLinkSession(updatedSession ?? null),
+    };
+  });
+}
+
+export async function updateTenantSlackChannelMembership(input: {
+  action: "join" | "leave";
+  channelId: string;
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantSlackChannelMembershipForTenant({
+    action: input.action,
+    channelId: input.channelId,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function updateTenantSlackChannelMembershipForTenant(input: {
+  action: "join" | "leave";
+  channelId: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const installation = await db.transaction(async (tx) => {
+    const slackInstallation = await getConnectedSlackInstallationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!slackInstallation) {
+      throw new Error(
+        "Slack must be connected before Otto can join or leave channels",
+      );
+    }
+
+    const runtimeConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    return {
+      channelAccessMode: runtimeConfig.config.channelAccessMode,
+      slackInstallation,
+    };
+  });
+  const botToken = await getTenantSlackBotToken(input.tenantId);
+
+  if (!botToken) {
+    throw new Error(
+      "Slack bot token is unavailable, so Otto cannot update channel membership",
+    );
+  }
+
+  if (input.action === "join") {
+    await joinSlackChannel({
+      botToken,
+      channelId: input.channelId,
+    });
+  } else {
+    await leaveSlackChannel({
+      botToken,
+      channelId: input.channelId,
+    });
+  }
+
+  await refreshSlackDirectoryForInstallation({
+    botToken,
+    externalWorkspaceId: installation.slackInstallation.slackTeamId,
+    tenantIntegrationId: installation.slackInstallation.tenantIntegrationId,
+    workspaceDisplayName: installation.slackInstallation.slackTeamName,
+  });
+
+  let applyQueued = false;
+
+  if (installation.channelAccessMode === "member_of_channels") {
+    const applyResult = await db.transaction(async (tx) => {
+      const desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: input.tenantId,
+        })
+      ).version;
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+      return {
+        applyQueued: tenantRuntime.isRuntimeReady,
+        desiredStateVersion,
+      };
+    });
+
+    if (applyResult.applyQueued) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion: applyResult.desiredStateVersion,
+        tenantId: input.tenantId,
+      });
+      applyQueued = true;
+    }
+  }
+
+  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: input.tenantId,
+  });
+
+  if (!surface) {
+    throw new Error(
+      "Slack runtime config surface not found after channel update",
+    );
+  }
+
+  return {
+    applyQueued,
+    surface,
+  };
+}
+
+export async function updateTenantSlackRuntimeConfig(input: {
+  allowDestructiveChanges?: boolean;
+  expectedEntryVersion?: number;
+  orgSlug: string;
+  patch: Partial<SlackRuntimeConfig>;
+  summary?: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return updateTenantSlackRuntimeConfigForTenant({
+    allowDestructiveChanges: input.allowDestructiveChanges,
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedEntryVersion: input.expectedEntryVersion,
+    patch: slackRuntimeConfigPatchSchema.parse(input.patch),
+    summary: input.summary,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
+  createdByType: "runtime" | "system" | "user";
+  patch: Partial<SlackRuntimeConfig>;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
+    }
+
+    const nextConfig = parseSlackRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+
+    await validateSlackRuntimeConfigSemantics(tx, {
+      config: nextConfig,
+      tenantId: input.tenantId,
+    });
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
+    });
+
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
+    }
+
+    const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+
+    return {
+      effects,
+      nextConfig,
+      surface,
+      validation: {
+        ok: true,
+        warnings: effects.warnings,
+      },
+    };
+  });
+}
+
+export async function validateTenantWhatsAppRuntimeConfigChangeForTenant(input: {
+  createdByType: "runtime" | "system" | "user";
+  patch: Partial<WhatsAppRuntimeConfig>;
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error(
+        "WhatsApp must be enabled before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "WhatsApp config must be installed before it can be updated",
+      );
+    }
+
+    const nextConfig = parseWhatsAppRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+    const effects = deriveWhatsAppPolicyEffects({
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+    });
+    const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+
+    return {
+      effects,
+      nextConfig,
+      surface,
+      validation: {
+        ok: true,
+        warnings: effects.warnings,
+      },
+    };
+  });
+}
+
+export async function validateTenantSlackPolicyActionForTenant(input: {
+  action: SlackPolicyAction;
+  createdByType: "runtime" | "system" | "user";
+  tenantId: string;
+}) {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
+    }
+
+    const nextConfig = applySlackPolicyAction(
+      currentConfig.config,
+      input.action,
+    );
+
+    await validateSlackRuntimeConfigSemantics(tx, {
+      config: nextConfig,
+      tenantId: input.tenantId,
+    });
+
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
+    });
+
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
+    }
+
+    const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+      tenantId: input.tenantId,
+    });
+
+    return {
+      action: input.action,
+      effects,
+      nextConfig,
+      surface,
+      validation: {
+        ok: true,
+        warnings: effects.warnings,
+      },
+    };
+  });
+}
+
+export async function applyTenantSlackPolicyActionForTenant(input: {
+  action: SlackPolicyAction;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  summary?: string;
+  tenantId: string;
+}) {
+  const validation = await validateTenantSlackPolicyActionForTenant({
+    action: input.action,
+    createdByType: input.createdByType,
+    tenantId: input.tenantId,
+  });
+
+  const result = await updateTenantSlackRuntimeConfigForTenant({
+    allowDestructiveChanges: false,
+    createdByExternalId: input.createdByExternalId,
+    createdByType: input.createdByType,
+    expectedEntryVersion: input.expectedEntryVersion,
+    patch: validation.nextConfig,
+    summary:
+      input.summary ??
+      `Applied Slack policy action: ${input.action.type.replaceAll("_", " ")}`,
+    tenantId: input.tenantId,
+  });
+  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
+    tenantId: input.tenantId,
+  });
+
+  return {
+    ...result,
+    action: input.action,
+    surface,
+    validation: {
+      ok: true,
+      warnings: validation.effects.warnings,
+    },
+  };
+}
+
+export async function updateTenantManagedFileSharedContentForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  expectedVersion?: number;
+  filePath: ManagedBootstrapFilePath;
+  sharedContent: string;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const normalizedSharedContent = input.sharedContent.trim();
+
+  if (!normalizedSharedContent) {
+    throw new Error("Shared managed content cannot be empty");
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const latestConfig = await ensureLatestTenantManagedConfigVersion(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (
+      input.expectedVersion !== undefined &&
+      latestConfig.version !== input.expectedVersion
+    ) {
+      throw new ManagedConfigVersionConflictError(
+        input.expectedVersion,
+        latestConfig.version,
+      );
+    }
+
+    const latestFiles = await tx
+      .select({
+        path: tenantManagedFileVersions.path,
+        sharedContent: tenantManagedFileVersions.sharedContent,
+        systemContent: tenantManagedFileVersions.systemContent,
+      })
+      .from(tenantManagedFileVersions)
+      .where(
+        eq(
+          tenantManagedFileVersions.tenantManagedConfigVersionId,
+          latestConfig.id,
+        ),
+      );
+
+    const normalizedLatestFiles = normalizeManagedFileRows(latestFiles);
+
+    const completeLatestFiles = getManagedBootstrapFileDefinitions().map(
+      (definition) => {
+        const existingFile = normalizedLatestFiles.get(definition.path);
+
+        return {
+          path: definition.path,
+          sharedContent:
+            existingFile?.sharedContent ?? definition.defaultSharedContent,
+          systemContent: definition.systemContent,
+        };
+      },
+    );
+
+    const targetFile = completeLatestFiles.find(
+      (file) => file.path === input.filePath,
+    );
+
+    if (!targetFile) {
+      throw new Error(`Managed file ${input.filePath} is missing`);
+    }
+
+    if (targetFile.sharedContent === normalizedSharedContent) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentVersion: latestConfig.version,
+      };
+    }
+
+    const [createdVersion] = await tx
+      .insert(tenantManagedConfigVersions)
+      .values({
+        createdByExternalId: input.createdByExternalId ?? null,
+        createdByType: input.createdByType,
+        summary: input.summary ?? `Updated ${input.filePath}`,
+        tenantId: input.tenantId,
+        version: latestConfig.version + 1,
+      })
+      .returning({
+        id: tenantManagedConfigVersions.id,
+        version: tenantManagedConfigVersions.version,
+      });
+
+    await tx.insert(tenantManagedFileVersions).values(
+      completeLatestFiles.map((file) => {
+        const sharedContent =
+          file.path === input.filePath
+            ? normalizedSharedContent
+            : file.sharedContent;
+
+        return {
+          checksum: createManagedFileChecksum({
+            path: assertManagedBootstrapFilePath(file.path),
+            sharedContent,
+            systemContent: file.systemContent,
+          }),
+          path: file.path,
+          sharedContent,
+          systemContent: file.systemContent,
+          tenantManagedConfigVersionId: createdVersion.id,
+        };
+      }),
+    );
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentVersion: createdVersion.version,
+      desiredStateVersion,
+      managedConfigVersion: createdVersion.version,
+    };
+  });
+
+  if (!result.changed) {
+    return result;
+  }
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function updateTenantSlackRuntimeConfigForTenant(input: {
+  allowDestructiveChanges?: boolean;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  patch: Partial<SlackRuntimeConfig>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!slackIntegration) {
+      throw new Error(
+        "Slack must be connected before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "Slack config must be installed before it can be updated",
+      );
+    }
+
+    if (
+      typeof input.expectedEntryVersion === "number" &&
+      currentConfig.entryVersion !== input.expectedEntryVersion
+    ) {
+      throw new TenantRuntimeConfigVersionConflictError(
+        input.expectedEntryVersion,
+        currentConfig.entryVersion,
+      );
+    }
+
+    const nextConfig = parseSlackRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+
+    await validateSlackRuntimeConfigSemantics(tx, {
+      config: nextConfig,
+      tenantId: input.tenantId,
+    });
+    const effects = await evaluateSlackPolicyForTenant(tx, {
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+      tenantId: input.tenantId,
+    });
+
+    const destructiveChangeError = getSlackDestructiveChangeError({
+      allowDestructiveChanges: input.allowDestructiveChanges,
+      createdByType: input.createdByType,
+      isDestructive: isSlackPolicyDestructive(effects),
+      wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
+    });
+
+    if (destructiveChangeError) {
+      throw new Error(destructiveChangeError);
+    }
+
+    if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentEntryVersion: currentConfig.entryVersion,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: input.summary ?? "Updated Slack runtime config",
+        configJson: nextConfig,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      expectedEntryVersion: input.expectedEntryVersion ?? null,
+      mutationType: "update",
+      patchJson: input.patch,
+      resultJson: nextConfig,
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: nextEntryVersion,
+      desiredStateVersion,
+      effects,
+      installState: "installed" as const,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
+  allowDestructiveChanges?: boolean;
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  expectedEntryVersion?: number;
+  patch: Partial<WhatsAppRuntimeConfig>;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const integration = await getWhatsAppIntegrationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (!integration) {
+      throw new Error(
+        "WhatsApp must be enabled before its runtime config can be updated",
+      );
+    }
+
+    const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+      tx,
+      {
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "WhatsApp config must be installed before it can be updated",
+      );
+    }
+
+    if (
+      typeof input.expectedEntryVersion === "number" &&
+      currentConfig.entryVersion !== input.expectedEntryVersion
+    ) {
+      throw new TenantRuntimeConfigVersionConflictError(
+        input.expectedEntryVersion,
+        currentConfig.entryVersion,
+      );
+    }
+
+    const nextConfig = parseWhatsAppRuntimeConfig({
+      ...currentConfig.config,
+      ...input.patch,
+    });
+    const effects = deriveWhatsAppPolicyEffects({
+      config: nextConfig,
+      currentConfig: currentConfig.config,
+    });
+
+    if (
+      input.createdByType === "user" &&
+      effects.wouldFullyLockOutWhatsApp &&
+      !input.allowDestructiveChanges
+    ) {
+      throw new Error(
+        "This WhatsApp settings change would fully lock Otto out of WhatsApp. Confirm the destructive change in the workspace before saving it.",
+      );
+    }
+
+    if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentEntryVersion: currentConfig.entryVersion,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary: input.summary ?? "Updated WhatsApp runtime config",
+        configJson: nextConfig,
+        entryVersion: nextEntryVersion,
+        installState: "installed",
+        lastValidatedAt: now,
+        lastValidationError: null,
+        schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      expectedEntryVersion: input.expectedEntryVersion ?? null,
+      mutationType: "update",
+      patchJson: input.patch,
+      resultJson: nextConfig,
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: nextEntryVersion,
+      desiredStateVersion,
+      effects,
+      installState: "installed" as const,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function setTenantToolInstallStateForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  enabled?: boolean;
+  expectedEntryVersion?: number;
+  installState: ToolInstallState;
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  tenantId: string;
+}) {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const mutationError = getSurfaceLifecycleMutationError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (
+      typeof input.expectedEntryVersion === "number" &&
+      currentConfig.entryVersion !== input.expectedEntryVersion
+    ) {
+      throw new TenantRuntimeConfigVersionConflictError(
+        input.expectedEntryVersion,
+        currentConfig.entryVersion,
+      );
+    }
+
+    if (input.installState === "installed") {
+      const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
+        tenantId: input.tenantId,
+      });
+
+      if (!slackIntegration) {
+        throw new Error(
+          "Slack must be connected before its runtime surface can be installed",
+        );
+      }
+    }
+
+    if (
+      input.installState === "uninstalled" &&
+      typeof input.enabled === "boolean" &&
+      input.enabled
+    ) {
+      throw new Error("An uninstalled runtime surface cannot be enabled");
+    }
+
+    const nextEnabled =
+      input.installState === "uninstalled"
+        ? false
+        : typeof input.enabled === "boolean"
+          ? input.enabled
+          : currentConfig.installState === "uninstalled"
+            ? true
+            : currentConfig.enabled;
+
+    if (
+      currentConfig.installState === input.installState &&
+      currentConfig.enabled === nextEnabled
+    ) {
+      const surface = await getTenantToolConfigSurfaceForTenant({
+        surfaceKey: input.surfaceKey,
+        surfaceKind: input.surfaceKind,
+        tenantId: input.tenantId,
+      });
+
+      return {
+        applyQueued: false,
+        changed: false,
+        currentEntryVersion: currentConfig.entryVersion,
+        desiredStateVersion: undefined,
+        surface,
+      };
+    }
+
+    const now = new Date();
+    const nextEntryVersion = currentConfig.entryVersion + 1;
+    const mutationType =
+      currentConfig.installState !== input.installState
+        ? input.installState === "installed"
+          ? "install"
+          : "uninstall"
+        : nextEnabled
+          ? "enable"
+          : "disable";
+
+    await tx
+      .update(tenantRuntimeConfigEntries)
+      .set({
+        changeSummary:
+          input.summary ??
+          (mutationType === "install"
+            ? "Installed runtime surface"
+            : mutationType === "uninstall"
+              ? "Uninstalled runtime surface"
+              : mutationType === "enable"
+                ? "Enabled runtime surface"
+                : "Disabled runtime surface"),
+        enabled: nextEnabled,
+        entryVersion: nextEntryVersion,
+        installState: input.installState,
+        lastValidatedAt: now,
+        lastValidationError: null,
+        updatedAt: now,
+        updatedByExternalId: input.createdByExternalId ?? null,
+        updatedByType: input.createdByType,
+      })
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      expectedEntryVersion: input.expectedEntryVersion ?? null,
+      mutationType,
+      resultJson: {
+        enabled: nextEnabled,
+        installState: input.installState,
+      },
+      resultingEntryVersion: nextEntryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    const surface = await getTenantToolConfigSurfaceForTenant({
+      surfaceKey: input.surfaceKey,
+      surfaceKind: input.surfaceKind,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: nextEntryVersion,
+      desiredStateVersion,
+      surface,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function reapplyTenantToolSurfaceForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "system" | "user";
+  summary?: string;
+  surfaceKey: string;
+  surfaceKind: string;
+  tenantId: string;
+}) {
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+
+  if (!definition) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const mutationError = getSurfaceReapplyError(definition);
+
+  if (mutationError) {
+    throw new Error(mutationError);
+  }
+
+  if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
+    const db = getDb();
+    const result = await db.transaction(async (tx) => {
+      const integration = await getWhatsAppIntegrationForTenant(tx, {
+        tenantId: input.tenantId,
+      });
+
+      if (!integration) {
+        throw new Error(
+          "WhatsApp must be enabled before its runtime surface can be reapplied",
+        );
+      }
+
+      const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
+        tx,
+        {
+          tenantId: input.tenantId,
+        },
+      );
+
+      if (currentConfig.installState !== "installed") {
+        throw new Error(
+          "Tool surface must be installed before it can be reapplied",
+        );
+      }
+
+      const desiredStateVersion = (
+        await createNextDesiredStateVersion(tx, {
+          tenantId: input.tenantId,
+        })
+      ).version;
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+      await tx.insert(tenantRuntimeConfigMutations).values({
+        actorExternalId: input.createdByExternalId ?? null,
+        actorType: input.createdByType,
+        desiredStateVersion,
+        mutationType: "reapply",
+        resultJson: {
+          summary: input.summary ?? "Reapplied runtime surface",
+        },
+        resultingEntryVersion: currentConfig.entryVersion,
+        tenantId: input.tenantId,
+        tenantRuntimeConfigEntryId: currentConfig.id,
+      });
+
+      const surface = await getTenantToolConfigSurfaceForTenant({
+        surfaceKey: input.surfaceKey,
+        surfaceKind: input.surfaceKind,
+        tenantId: input.tenantId,
+      });
+
+      return {
+        applyQueued: tenantRuntime.isRuntimeReady,
+        changed: true,
+        currentEntryVersion: currentConfig.entryVersion,
+        desiredStateVersion,
+        surface,
+      };
+    });
+
+    if (result.applyQueued && result.desiredStateVersion) {
+      await enqueueTenantConfigApply({
+        desiredStateVersion: result.desiredStateVersion,
+        tenantId: input.tenantId,
+      });
+    }
+
+    return result;
+  }
+
+  if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
+    throw new Error("Unsupported tool config surface");
+  }
+
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
+      tenantId: input.tenantId,
+    });
+
+    if (currentConfig.installState !== "installed") {
+      throw new Error(
+        "Tool surface must be installed before it can be reapplied",
+      );
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    await tx.insert(tenantRuntimeConfigMutations).values({
+      actorExternalId: input.createdByExternalId ?? null,
+      actorType: input.createdByType,
+      desiredStateVersion,
+      mutationType: "reapply",
+      resultJson: {
+        summary: input.summary ?? "Reapplied runtime surface",
+      },
+      resultingEntryVersion: currentConfig.entryVersion,
+      tenantId: input.tenantId,
+      tenantRuntimeConfigEntryId: currentConfig.id,
+    });
+
+    const surface = await getTenantToolConfigSurfaceForTenant({
+      surfaceKey: input.surfaceKey,
+      surfaceKind: input.surfaceKind,
+      tenantId: input.tenantId,
+    });
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentEntryVersion: currentConfig.entryVersion,
+      desiredStateVersion,
+      surface,
+    };
+  });
+
+  if (result.applyQueued && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
+export async function getTenantRuntimeGatewayToken(tenantId: string) {
+  return getTenantRuntimeSecretValue({
+    secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
+    tenantId,
+  });
+}
+
+export async function ensureTenantRuntimeGatewayToken(tenantId: string) {
+  const existingToken = await getTenantRuntimeGatewayToken(tenantId);
+
+  if (existingToken) {
+    return existingToken;
+  }
+
+  const gatewayToken = buildGatewayToken();
+  await storeTenantRuntimeGatewayToken({
+    gatewayToken,
+    tenantId,
+  });
+
+  return gatewayToken;
+}
+
+export async function storeTenantRuntimeGatewayToken(input: {
+  gatewayToken: string;
+  tenantId: string;
+}) {
+  await storeTenantRuntimeSecretValue({
+    plaintext: input.gatewayToken,
+    secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
+    tenantId: input.tenantId,
+  });
+}
+
+export async function getTenantRuntimeTenantToken(tenantId: string) {
+  return getTenantRuntimeSecretValue({
+    secretType: TENANT_TOKEN_SECRET_TYPE,
+    tenantId,
+  });
+}
+
+export async function ensureTenantRuntimeTenantToken(tenantId: string) {
+  const existingToken = await getTenantRuntimeTenantToken(tenantId);
+
+  if (existingToken) {
+    return existingToken;
+  }
+
+  const tenantToken = buildTenantToken();
+  await storeTenantRuntimeTenantToken({
+    tenantId,
+    tenantToken,
+  });
+
+  return tenantToken;
+}
+
+export async function storeTenantRuntimeTenantToken(input: {
+  tenantId: string;
+  tenantToken: string;
+}) {
+  await storeTenantRuntimeSecretValue({
+    lookupHash: createTokenLookupHash(input.tenantToken),
+    plaintext: input.tenantToken,
+    secretType: TENANT_TOKEN_SECRET_TYPE,
+    tenantId: input.tenantId,
+  });
+}
+
+export async function getTenantByTenantToken(tenantToken: string) {
+  const db = getDb();
+  const lookupHash = createTokenLookupHash(tenantToken);
+  const [secret] = await db
+    .select({
+      ciphertext: tenantRuntimeSecrets.ciphertext,
+      tenantId: tenantRuntimeSecrets.tenantId,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.secretType, TENANT_TOKEN_SECRET_TYPE),
+        eq(tenantRuntimeSecrets.lookupHash, lookupHash),
+      ),
+    )
+    .limit(1);
+
+  if (!secret?.ciphertext) {
+    return null;
+  }
+
+  const storedToken = decryptControlPlaneSecret(secret.ciphertext);
+
+  if (!tokensMatch(storedToken, tenantToken)) {
+    return null;
+  }
+
+  return {
+    tenantId: secret.tenantId,
+  };
+}
+
+export async function enqueueTenantConfigApply(input: {
+  desiredStateVersion: number;
+  pullImageFirst?: boolean;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.applyTenantConfig,
+    payload: {
+      desiredStateVersion: input.desiredStateVersion,
+      ...(input.pullImageFirst === true ? { pullImageFirst: true } : {}),
+      tenantId: input.tenantId,
+    },
+  });
+
+  await db.insert(tenantApplyRuns).values({
+    desiredStateVersion: input.desiredStateVersion,
+    jobRunId: jobId,
+    status: "queued",
+    tenantId: input.tenantId,
+  });
+
+  return jobId;
+}
+
+export async function ensureCurrentTenantDesiredStateVersion(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+  return db.transaction(async (tx) =>
+    ensureCurrentTenantDesiredStateVersionTx(tx, {
+      tenantId: input.tenantId,
+    }),
+  );
+}
+
+async function upsertMessagingWorkspace(
+  tx: DbTransaction,
+  input: {
+    externalWorkspaceId: string;
+    now: Date;
+    tenantIntegrationId: string;
+    workspaceDisplayName: string | null;
+  },
+) {
+  const [existingWorkspace] = await tx
+    .select({
+      id: integrationMessagingWorkspaces.id,
+    })
+    .from(integrationMessagingWorkspaces)
+    .where(
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        input.tenantIntegrationId,
+      ),
+    )
+    .limit(1);
+
+  if (existingWorkspace) {
+    await tx
+      .update(integrationMessagingWorkspaces)
+      .set({
+        displayName: input.workspaceDisplayName,
+        externalWorkspaceId: input.externalWorkspaceId,
+        updatedAt: input.now,
+      })
+      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id));
+
+    return existingWorkspace.id;
+  }
+
+  const [workspace] = await tx
+    .insert(integrationMessagingWorkspaces)
+    .values({
+      displayName: input.workspaceDisplayName,
+      externalWorkspaceId: input.externalWorkspaceId,
+      syncStatus: "pending",
+      tenantIntegrationId: input.tenantIntegrationId,
+    })
+    .returning({
+      id: integrationMessagingWorkspaces.id,
+    });
+
+  return workspace.id;
+}
+
+async function removeStaleMessagingWorkspaceMembers(
+  tx: DbTransaction,
+  input: {
+    messagingWorkspaceId: string;
+    syncedExternalMemberIds: string[];
+  },
+) {
+  const existingMembers = await tx
+    .select({
+      externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+    })
+    .from(integrationMessagingWorkspaceMembers)
+    .where(
+      eq(
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+        input.messagingWorkspaceId,
+      ),
+    );
+
+  const staleMemberIds = getStaleDirectoryIds({
+    currentIds: existingMembers.map((member) => member.externalMemberId),
+    syncedIds: input.syncedExternalMemberIds,
+  });
+
+  if (staleMemberIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .delete(integrationMessagingWorkspaceMembers)
+    .where(
+      and(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          input.messagingWorkspaceId,
+        ),
+        inArray(
+          integrationMessagingWorkspaceMembers.externalMemberId,
+          staleMemberIds,
+        ),
+      ),
+    );
+}
+
+async function removeStaleMessagingConversations(
+  tx: DbTransaction,
+  input: {
+    messagingWorkspaceId: string;
+    syncedExternalConversationIds: string[];
+  },
+) {
+  const existingConversations = await tx
+    .select({
+      externalConversationId:
+        integrationMessagingConversations.externalConversationId,
+    })
+    .from(integrationMessagingConversations)
+    .where(
+      eq(
+        integrationMessagingConversations.messagingWorkspaceId,
+        input.messagingWorkspaceId,
+      ),
+    );
+
+  const staleConversationIds = getStaleDirectoryIds({
+    currentIds: existingConversations.map(
+      (conversation) => conversation.externalConversationId,
+    ),
+    syncedIds: input.syncedExternalConversationIds,
+  });
+
+  if (staleConversationIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .delete(integrationMessagingConversations)
+    .where(
+      and(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          input.messagingWorkspaceId,
+        ),
+        inArray(
+          integrationMessagingConversations.externalConversationId,
+          staleConversationIds,
+        ),
+      ),
+    );
+}
+
+async function upsertSlackIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: SLACK_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  return tenantIntegrationId;
+}
+
+async function upsertLinearIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  let tenantIntegrationId = existingIntegration?.id ?? null;
+
+  if (tenantIntegrationId) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        connectedAt: input.now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+  } else {
+    const [createdIntegration] = await tx
+      .insert(tenantIntegrations)
+      .values({
+        connectedAt: input.now,
+        providerKey: LINEAR_PROVIDER_KEY,
+        status: "connected",
+        tenantId: input.tenantId,
+      })
+      .returning({
+        id: tenantIntegrations.id,
+      });
+
+    tenantIntegrationId = createdIntegration.id;
+  }
+
+  return tenantIntegrationId;
+}
+
+async function upsertWhatsAppIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    statusWhenNotConnected?: string;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (existingIntegration) {
+    await tx
+      .update(tenantIntegrations)
+      .set({
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status:
+          existingIntegration.status === "connected"
+            ? "connected"
+            : (input.statusWhenNotConnected ?? "pending_apply"),
+        updatedAt: input.now,
+      })
+      .where(eq(tenantIntegrations.id, existingIntegration.id));
+
+    return existingIntegration.id;
+  }
+
+  const [createdIntegration] = await tx
+    .insert(tenantIntegrations)
+    .values({
+      providerKey: WHATSAPP_PROVIDER_KEY,
+      status: input.statusWhenNotConnected ?? "pending_apply",
+      tenantId: input.tenantId,
+    })
+    .returning({
+      id: tenantIntegrations.id,
+    });
+
+  return createdIntegration.id;
+}
+
+async function recordSlackIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: SLACK_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function recordLinearIntegrationError(
+  tx: DbTransaction,
+  input: {
+    error: string;
+    now: Date;
+    tenantId: string;
+  },
+) {
+  const [existingIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      id: tenantIntegrations.id,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!existingIntegration) {
+    await tx.insert(tenantIntegrations).values({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      providerKey: LINEAR_PROVIDER_KEY,
+      status: "error",
+      tenantId: input.tenantId,
+    });
+    return;
+  }
+
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: input.error,
+      lastErrorAt: input.now,
+      status: existingIntegration.connectedAt
+        ? existingIntegration.status
+        : "error",
+      updatedAt: input.now,
+    })
+    .where(eq(tenantIntegrations.id, existingIntegration.id));
+}
+
+async function createNextDesiredStateVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [latestDesiredState] = await tx
+    .select({
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, input.tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+
+  const [createdDesiredState] = await tx
+    .insert(tenantDesiredStates)
+    .values({
+      configJson,
+      tenantId: input.tenantId,
+      version: nextVersion,
+    })
+    .returning({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    });
+
+  return createdDesiredState;
+}
+
+async function ensureCurrentTenantDesiredStateVersionTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  await configureDesiredStateTransactionTimeouts(tx);
+  const [latestDesiredState] = await tx
+    .select({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    })
+    .from(tenantDesiredStates)
+    .where(eq(tenantDesiredStates.tenantId, input.tenantId))
+    .orderBy(desc(tenantDesiredStates.version))
+    .limit(1);
+
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+
+  if (
+    latestDesiredState &&
+    JSON.stringify(latestDesiredState.configJson) === JSON.stringify(configJson)
+  ) {
+    return {
+      changed: false,
+      configJson: latestDesiredState.configJson,
+      version: latestDesiredState.version,
+    };
+  }
+
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const [createdDesiredState] = await tx
+    .insert(tenantDesiredStates)
+    .values({
+      configJson,
+      tenantId: input.tenantId,
+      version: nextVersion,
+    })
+    .returning({
+      configJson: tenantDesiredStates.configJson,
+      version: tenantDesiredStates.version,
+    });
+
+  return {
+    changed: true,
+    configJson: createdDesiredState.configJson,
+    version: createdDesiredState.version,
+  };
+}
+
+async function compileTenantDesiredStateConfig(
+  tx: DbTransaction,
+  tenantId: string,
+) {
+  const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
+    tenantId,
+  });
+  await ensureTenantSystemManagedSkillsForTenantTx(tx, {
+    tenantId,
+  });
+  const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(
+    tx,
+    {
+      tenantId,
+    },
+  );
+  const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
+    tx
+      .select({
+        locale: organizations.locale,
+        timeFormatPreference: organizations.timeFormatPreference,
+        timezone: organizations.timezone,
+      })
+      .from(tenants)
+      .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
+      .where(eq(tenants.id, tenantId))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    tx
+      .select({
+        connectedAt: tenantIntegrations.connectedAt,
+        disconnectedAt: tenantIntegrations.disconnectedAt,
+        externalAccountId: integrationOauthConnections.externalAccountId,
+        externalAccountLabel: integrationOauthConnections.externalAccountLabel,
+        grantedScopesCsv: integrationOauthConnections.grantedScopesCsv,
+        providerMetadataJson: integrationOauthConnections.providerMetadataJson,
+        tenantIntegrationId: tenantIntegrations.id,
+      })
+      .from(tenantIntegrations)
+      .leftJoin(
+        integrationOauthConnections,
+        eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      )
+      .where(
+        and(
+          eq(tenantIntegrations.tenantId, tenantId),
+          eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    getWhatsAppIntegrationForTenant(tx, {
+      tenantId,
+    }),
+  ]);
+  const slackProfile = slackIntegration
+    ? buildSlackConnectionProfile({
+        externalAccountId: slackIntegration.externalAccountId,
+        externalAccountLabel: slackIntegration.externalAccountLabel,
+        grantedScopesCsv: slackIntegration.grantedScopesCsv,
+        providerMetadataJson: slackIntegration.providerMetadataJson,
+        tenantIntegrationId: slackIntegration.tenantIntegrationId,
+      })
+    : null;
+
+  const config: Record<string, unknown> = {
+    integrations: [],
+    locale: workspace?.locale ?? "en-US",
+    managedConfigVersion: managedConfig.version,
+    managedSkills: {
+      versions: managedSkillVersionMap,
+    },
+    media: {},
+    prompts: {},
+    timeFormat: workspace?.timeFormatPreference ?? "auto",
+    timezone: workspace?.timezone ?? "UTC",
+  };
+  const webSearch = resolveRuntimeWebSearchConfig();
+
+  if (webSearch.openClawConfig) {
+    config.webSearch = webSearch.surfaceConfig;
+  }
+
+  if (
+    slackIntegration?.connectedAt &&
+    !slackIntegration.disconnectedAt &&
+    slackProfile &&
+    slackProfile.teamId
+  ) {
+    const slackRuntimeConfig = await getOrCreateTenantSlackRuntimeConfigEntry(
+      tx,
+      {
+        tenantId,
+      },
+    );
+
+    if (
+      slackRuntimeConfig.installState === "installed" &&
+      slackRuntimeConfig.enabled
+    ) {
+      config.integrations = ["slack"];
+      const effectiveAllowedChannelIds =
+        slackRuntimeConfig.config.channelAccessMode === "member_of_channels"
+          ? await getSlackMemberChannelIds(tx, {
+              tenantId,
+            })
+          : slackRuntimeConfig.config.allowedChannelIds;
+
+      config.slack = {
+        ackReactionEnabled: slackRuntimeConfig.config.ackReactionEnabled,
+        allowedChannelIds: effectiveAllowedChannelIds,
+        allowedUserIds: slackRuntimeConfig.config.allowedUserIds,
+        answerInThreads: slackRuntimeConfig.config.answerInThreads,
+        channelAccessMode: slackRuntimeConfig.config.channelAccessMode,
+        installerUserId: slackProfile.installerUserId,
+        requireMentionInChannels:
+          slackRuntimeConfig.config.requireMentionInChannels,
+        slackBotUserId: slackProfile.slackBotUserId,
+        teamId: slackProfile.teamId,
+        teamName: slackProfile.teamName,
+      };
+    }
+
+    config.media = {
+      audio: {
+        attachmentsMode: "first",
+        echoTranscript: false,
+        enabled: true,
+        maxBytes: 20 * 1024 * 1024,
+        model: "gpt-4o-mini-transcribe",
+        provider: "openai",
+      },
+    };
+  }
+
+  if (whatsAppIntegration) {
+    const whatsAppRuntimeConfig =
+      await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
+        tenantId,
+      });
+
+    if (
+      whatsAppRuntimeConfig.installState === "installed" &&
+      whatsAppRuntimeConfig.enabled
+    ) {
+      const integrations = Array.isArray(config.integrations)
+        ? [...config.integrations]
+        : [];
+
+      if (!integrations.includes("whatsapp")) {
+        integrations.push("whatsapp");
+      }
+
+      config.integrations = integrations;
+      config.whatsapp = {
+        ackReactionEnabled: whatsAppRuntimeConfig.config.ackReactionEnabled,
+        allowedGroupIds: whatsAppRuntimeConfig.config.allowedGroupIds,
+        allowedNumbers: whatsAppRuntimeConfig.config.allowedNumbers,
+        dmPolicy: whatsAppRuntimeConfig.config.dmPolicy,
+        groupAllowedNumbers:
+          whatsAppRuntimeConfig.config.groupAllowedNumbers.length > 0
+            ? whatsAppRuntimeConfig.config.groupAllowedNumbers
+            : whatsAppRuntimeConfig.config.allowedNumbers,
+        groupPolicy: whatsAppRuntimeConfig.config.groupPolicy,
+        requireMentionInGroups:
+          whatsAppRuntimeConfig.config.requireMentionInGroups,
+      };
+    }
+  }
+
+  const managedRuntimeIntegrationKeys =
+    await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
+      tenantId,
+    });
+
+  if (managedRuntimeIntegrationKeys.length > 0) {
+    const integrations = Array.isArray(config.integrations)
+      ? [...config.integrations]
+      : [];
+
+    for (const providerKey of managedRuntimeIntegrationKeys) {
+      if (!integrations.includes(providerKey)) {
+        integrations.push(providerKey);
+      }
+    }
+
+    config.integrations = integrations;
+  }
+
+  return config;
+}
+
+async function configureDesiredStateTransactionTimeouts(tx: DbTransaction) {
+  await tx.execute(
+    sql`select set_config('lock_timeout', ${DESIRED_STATE_LOCK_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('statement_timeout', ${DESIRED_STATE_STATEMENT_TIMEOUT}, true)`,
+  );
+  await tx.execute(
+    sql`select set_config('idle_in_transaction_session_timeout', ${DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT}, true)`,
+  );
+}
+
+async function getOrCreateTenantSlackRuntimeConfigEntry(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingEntry] = await tx
+    .select({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    })
+    .from(tenantRuntimeConfigEntries)
+    .where(
+      and(
+        eq(tenantRuntimeConfigEntries.tenantId, input.tenantId),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKind,
+          SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+        ),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKey,
+          SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+        ),
+      ),
+    )
+    .limit(1);
+
+  if (existingEntry) {
+    return {
+      config: parseSlackRuntimeConfig(existingEntry.configJson),
+      entryVersion: existingEntry.entryVersion,
+      enabled: existingEntry.enabled,
+      id: existingEntry.id,
+      installState: normalizeInstallState(existingEntry.installState),
+      schemaVersion: existingEntry.schemaVersion,
+    };
+  }
+
+  const now = new Date();
+  const defaultConfig = getDefaultSlackRuntimeConfig();
+  const [createdEntry] = await tx
+    .insert(tenantRuntimeConfigEntries)
+    .values({
+      changeSummary: "Seeded default Slack runtime config",
+      configJson: defaultConfig,
+      createdByType: "system",
+      enabled: true,
+      installState: "installed",
+      lastValidatedAt: now,
+      schemaSource: SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
+      schemaVersion: SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+      surfaceKey: SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+      surfaceKind: SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+      tenantId: input.tenantId,
+      updatedAt: now,
+      updatedByType: "system",
+    })
+    .returning({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    });
+
+  return {
+    config: parseSlackRuntimeConfig(createdEntry.configJson),
+    entryVersion: createdEntry.entryVersion,
+    enabled: createdEntry.enabled,
+    id: createdEntry.id,
+    installState: normalizeInstallState(createdEntry.installState),
+    schemaVersion: createdEntry.schemaVersion,
+  };
+}
+
+async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingEntry] = await tx
+    .select({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    })
+    .from(tenantRuntimeConfigEntries)
+    .where(
+      and(
+        eq(tenantRuntimeConfigEntries.tenantId, input.tenantId),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKind,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+        ),
+        eq(
+          tenantRuntimeConfigEntries.surfaceKey,
+          WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+        ),
+      ),
+    )
+    .limit(1);
+
+  if (existingEntry) {
+    return {
+      config: parseWhatsAppRuntimeConfig(existingEntry.configJson),
+      entryVersion: existingEntry.entryVersion,
+      enabled: existingEntry.enabled,
+      id: existingEntry.id,
+      installState: normalizeInstallState(existingEntry.installState),
+      schemaVersion: existingEntry.schemaVersion,
+    };
+  }
+
+  const now = new Date();
+  const defaultConfig = getDefaultWhatsAppRuntimeConfig();
+  const [createdEntry] = await tx
+    .insert(tenantRuntimeConfigEntries)
+    .values({
+      changeSummary: "Seeded default WhatsApp runtime config",
+      configJson: defaultConfig,
+      createdByType: "system",
+      enabled: false,
+      installState: "uninstalled",
+      lastValidatedAt: now,
+      schemaSource: WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
+      schemaVersion: WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+      surfaceKey: WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+      surfaceKind: WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+      tenantId: input.tenantId,
+      updatedAt: now,
+      updatedByType: "system",
+    })
+    .returning({
+      entryVersion: tenantRuntimeConfigEntries.entryVersion,
+      id: tenantRuntimeConfigEntries.id,
+      configJson: tenantRuntimeConfigEntries.configJson,
+      enabled: tenantRuntimeConfigEntries.enabled,
+      installState: tenantRuntimeConfigEntries.installState,
+      schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
+    });
+
+  return {
+    config: parseWhatsAppRuntimeConfig(createdEntry.configJson),
+    entryVersion: createdEntry.entryVersion,
+    enabled: createdEntry.enabled,
+    id: createdEntry.id,
+    installState: normalizeInstallState(createdEntry.installState),
+    schemaVersion: createdEntry.schemaVersion,
+  };
+}
+
+async function getConnectedSlackIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [slackIntegration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!slackIntegration?.connectedAt || slackIntegration.disconnectedAt) {
+    return null;
+  }
+
+  return slackIntegration;
+}
+
+async function getEnabledManagedRuntimeIntegrationKeysForTenantTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  if (MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS.length === 0) {
+    return [];
+  }
+
+  const rows = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        inArray(
+          tenantIntegrations.providerKey,
+          MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS,
+        ),
+      ),
+    );
+
+  return rows
+    .filter((row) => row.connectedAt && !row.disconnectedAt)
+    .map((row) => row.providerKey)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+async function getWhatsAppIntegrationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [integration] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      id: tenantIntegrations.id,
+      lastError: tenantIntegrations.lastError,
+      lastErrorAt: tenantIntegrations.lastErrorAt,
+      selfE164: integrationWhatsAppInstallations.selfE164,
+      selfJid: integrationWhatsAppInstallations.selfJid,
+      status: tenantIntegrations.status,
+    })
+    .from(tenantIntegrations)
+    .leftJoin(
+      integrationWhatsAppInstallations,
+      eq(
+        integrationWhatsAppInstallations.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  return integration ?? null;
+}
+
+async function getOrganizationSlugForTenant(tenantId: string) {
+  const db = getDb();
+
+  const [organization] = await db
+    .select({
+      slug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  return organization?.slug ?? null;
+}
+
+async function getOrganizationSlugForTenantTx(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [organization] = await tx
+    .select({
+      slug: organizations.slug,
+    })
+    .from(tenants)
+    .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
+    .where(eq(tenants.id, input.tenantId))
+    .limit(1);
+
+  return organization?.slug ?? null;
+}
+
+async function getConnectedSlackInstallationForTenant(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [slackInstallation] = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      slackTeamId: integrationOauthConnections.externalAccountId,
+      slackTeamName: integrationOauthConnections.externalAccountLabel,
+      tenantIntegrationId: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .innerJoin(
+      integrationOauthConnections,
+      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationOauthConnections.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!slackInstallation?.connectedAt || slackInstallation.disconnectedAt) {
+    return null;
+  }
+
+  if (!slackInstallation.slackTeamId) {
+    return null;
+  }
+
+  return {
+    ...slackInstallation,
+    slackTeamId: slackInstallation.slackTeamId,
+  };
+}
+
+export async function getSlackInstallationForTenant(tenantId: string) {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTenant(tx, { tenantId });
+  });
+}
+
+async function getConnectedSlackInstallationForTeam(
+  tx: DbTransaction,
+  input: {
+    teamId: string;
+  },
+) {
+  const matches = await tx
+    .select({
+      connectedAt: tenantIntegrations.connectedAt,
+      disconnectedAt: tenantIntegrations.disconnectedAt,
+      slackTeamId: integrationOauthConnections.externalAccountId,
+      slackTeamName: integrationOauthConnections.externalAccountLabel,
+      tenantId: tenantIntegrations.tenantId,
+      tenantIntegrationId: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .innerJoin(
+      integrationOauthConnections,
+      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationOauthConnections.providerKey, SLACK_PROVIDER_KEY),
+        eq(integrationOauthConnections.externalAccountId, input.teamId),
+      ),
+    )
+    .orderBy(desc(tenantIntegrations.connectedAt))
+    .limit(2);
+
+  const connectedMatches = matches.filter(
+    (match) => match.connectedAt && !match.disconnectedAt && match.slackTeamId,
+  );
+
+  if (connectedMatches.length === 0) {
+    return null;
+  }
+
+  if (connectedMatches.length > 1) {
+    throw new Error(
+      `Multiple tenants are connected to Slack team ${input.teamId}.`,
+    );
+  }
+
+  const match = connectedMatches[0];
+
+  if (!match?.slackTeamId) {
+    return null;
+  }
+
+  return {
+    ...match,
+    slackTeamId: match.slackTeamId,
+  };
+}
+
+export async function forwardSlackIngressForTeam(input: {
+  body: string;
+  enterpriseId?: string | null;
+  headers: Record<string, string>;
+  requestPath: string;
+  requestType: SlackIngressRequestType;
+  teamId: string;
+}) {
+  const db = getDb();
+  const target = await db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTeam(tx, {
+      teamId: input.teamId,
+    });
+  });
+
+  if (!target) {
+    throw new Error(
+      `No connected Slack installation was found for team ${input.teamId}.`,
+    );
+  }
+
+  const [delivery] = await db
+    .insert(integrationIngressDeliveries)
+    .values({
+      endpointKey: input.requestType,
+      externalAccountId: input.enterpriseId ?? null,
+      externalWorkspaceId: input.teamId,
+      providerKey: SLACK_PROVIDER_KEY,
+      providerMetadata: {},
+      requestPath: input.requestPath,
+      status: "forwarding",
+      tenantIntegrationId: target.tenantIntegrationId,
+    })
+    .returning({
+      id: integrationIngressDeliveries.id,
+    });
+
+  try {
+    const runtimeConnection = await getTenantRuntimeConnection(
+      target.tenantId,
+      `Slack ${input.requestType} ingress`,
+    );
+    const response = await runtimeManager.forwardSlackHttpRequest(
+      runtimeConnection,
+      {
+        body: input.body,
+        headers: input.headers,
+      },
+    );
+    const finishedAt = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(integrationIngressDeliveries)
+        .set({
+          finishedAt,
+          responseStatus: response.status,
+          status: "forwarded",
+        })
+        .where(eq(integrationIngressDeliveries.id, delivery.id));
+
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: null,
+          lastErrorAt: null,
+          updatedAt: finishedAt,
+        })
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
+    });
+
+    return response;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Slack ingress forwarding failed";
+    const finishedAt = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(integrationIngressDeliveries)
+        .set({
+          error: message,
+          finishedAt,
+          status: "failed",
+        })
+        .where(eq(integrationIngressDeliveries.id, delivery.id));
+
+      await tx
+        .update(tenantIntegrations)
+        .set({
+          lastError: message,
+          lastErrorAt: finishedAt,
+          updatedAt: finishedAt,
+        })
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
+    });
+
+    throw new Error(message);
+  }
+}
+
+async function refreshTenantSlackDirectoryForTenant(input: {
+  tenantId: string;
+}) {
+  const db = getDb();
+  const slackInstallation = await db.transaction(async (tx) => {
+    return getConnectedSlackInstallationForTenant(tx, {
+      tenantId: input.tenantId,
+    });
+  });
+
+  if (!slackInstallation) {
+    return {
+      error: null,
+      refreshed: false,
+    };
+  }
+
+  const botToken = await getTenantSlackBotToken(input.tenantId);
+
+  if (!botToken) {
+    const error =
+      "Slack bot token is unavailable, so the Slack directory could not be refreshed";
+
+    await recordMessagingWorkspaceSyncFailure({
+      error,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error,
+      refreshed: false,
+    };
+  }
+
+  try {
+    await refreshSlackDirectoryForInstallation({
+      botToken,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error: null,
+      refreshed: true,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown Slack refresh failure";
+
+    await recordMessagingWorkspaceSyncFailure({
+      error: message,
+      externalWorkspaceId: slackInstallation.slackTeamId,
+      tenantIntegrationId: slackInstallation.tenantIntegrationId,
+      workspaceDisplayName: slackInstallation.slackTeamName,
+    });
+
+    return {
+      error: message,
+      refreshed: false,
+    };
+  }
+}
+
+async function refreshSlackDirectoryForInstallation(input: {
+  botToken: string;
+  externalWorkspaceId: string;
+  tenantIntegrationId: string;
+  workspaceDisplayName: string | null;
+}) {
+  const directory = await fetchSlackMessagingDirectory(input.botToken);
+
+  await syncMessagingDirectoryForTenantIntegration({
+    conversations: directory.conversations,
+    externalWorkspaceId: input.externalWorkspaceId,
+    members: directory.members,
+    tenantIntegrationId: input.tenantIntegrationId,
+    workspaceDisplayName: input.workspaceDisplayName,
+  });
+}
+
+async function validateSlackRuntimeConfigSemantics(
+  tx: DbTransaction,
+  input: {
+    config: SlackRuntimeConfig;
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: integrationMessagingWorkspaces.id,
+    })
+    .from(integrationMessagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    if (
+      input.config.allowedChannelIds.length === 0 &&
+      input.config.allowedUserIds.length === 0
+    ) {
+      return;
+    }
+
+    throw new Error(
+      "Slack directory is unavailable, so Slack allowlists cannot be updated yet",
+    );
+  }
+
+  const [members, conversations] = await Promise.all([
+    tx
+      .select({
+        externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+      })
+      .from(integrationMessagingWorkspaceMembers)
+      .where(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
+    tx
+      .select({
+        externalConversationId:
+          integrationMessagingConversations.externalConversationId,
+        isArchived: integrationMessagingConversations.isArchived,
+      })
+      .from(integrationMessagingConversations)
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
+  ]);
+
+  const validUserIds = new Set(
+    members.map((member) => member.externalMemberId),
+  );
+  const conversationsById = new Map(
+    conversations.map((conversation) => [
+      conversation.externalConversationId,
+      conversation,
+    ]),
+  );
+
+  const missingUserIds = input.config.allowedUserIds.filter(
+    (userId) => !validUserIds.has(userId),
+  );
+
+  if (missingUserIds.length > 0) {
+    throw new Error(
+      `Unknown Slack user IDs in allowlist: ${missingUserIds.join(", ")}`,
+    );
+  }
+
+  if (input.config.channelAccessMode === "member_of_channels") {
+    return;
+  }
+
+  const missingChannelIds = input.config.allowedChannelIds.filter(
+    (channelId) => !conversationsById.has(channelId),
+  );
+
+  if (missingChannelIds.length > 0) {
+    throw new Error(
+      `Unknown Slack channel IDs in allowlist: ${missingChannelIds.join(", ")}`,
+    );
+  }
+
+  const archivedChannelIds = input.config.allowedChannelIds.filter(
+    (channelId) => conversationsById.get(channelId)?.isArchived,
+  );
+
+  if (archivedChannelIds.length > 0) {
+    throw new Error(
+      `Archived Slack channels cannot be allowlisted: ${archivedChannelIds.join(", ")}`,
+    );
+  }
+}
+
+async function getSlackDirectoryOptions(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: integrationMessagingWorkspaces.id,
+    })
+    .from(integrationMessagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    return {
+      channels: [] as SlackRuntimeConfigDirectoryOption[],
+      users: [] as SlackRuntimeConfigDirectoryOption[],
+    };
+  }
+
+  const [members, conversations] = await Promise.all([
+    tx
+      .select({
+        displayName: integrationMessagingWorkspaceMembers.displayName,
+        externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+        fullName: integrationMessagingWorkspaceMembers.fullName,
+        isDeleted: integrationMessagingWorkspaceMembers.isDeleted,
+        username: integrationMessagingWorkspaceMembers.username,
+      })
+      .from(integrationMessagingWorkspaceMembers)
+      .where(
+        eq(
+          integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+          workspace.id,
+        ),
+      )
+      .orderBy(
+        integrationMessagingWorkspaceMembers.displayName,
+        integrationMessagingWorkspaceMembers.username,
+      ),
+    tx
+      .select({
+        conversationType: integrationMessagingConversations.conversationType,
+        externalConversationId:
+          integrationMessagingConversations.externalConversationId,
+        isArchived: integrationMessagingConversations.isArchived,
+        metadataJson: integrationMessagingConversations.metadataJson,
+        name: integrationMessagingConversations.name,
+        purpose: integrationMessagingConversations.purpose,
+        topic: integrationMessagingConversations.topic,
+      })
+      .from(integrationMessagingConversations)
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      )
+      .orderBy(integrationMessagingConversations.name),
+  ]);
+
+  return {
+    channels: conversations.map((conversation) => ({
+      description: conversation.topic ?? conversation.purpose ?? null,
+      id: conversation.externalConversationId,
+      isArchived: conversation.isArchived,
+      isMember: getSlackChannelMembership(conversation.metadataJson),
+      label: conversation.name
+        ? `#${conversation.name}`
+        : conversation.externalConversationId,
+      memberCount: getSlackChannelMemberCount(conversation.metadataJson),
+      secondaryLabel: conversation.externalConversationId,
+      visibility: getSlackChannelVisibility(conversation.conversationType),
+    })),
+    users: members
+      .filter((member) => !member.isDeleted)
+      .map((member) => ({
+        description: member.fullName ?? null,
+        id: member.externalMemberId,
+        label:
+          member.displayName ??
+          member.fullName ??
+          member.username ??
+          member.externalMemberId,
+        secondaryLabel: member.username ? `@${member.username}` : null,
+      })),
+  };
+}
+
+async function getSlackMemberChannelIds(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [workspace] = await tx
+    .select({
+      id: integrationMessagingWorkspaces.id,
+    })
+    .from(integrationMessagingWorkspaces)
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (!workspace) {
+    return [];
+  }
+
+  const conversations = await tx
+    .select({
+      externalConversationId:
+        integrationMessagingConversations.externalConversationId,
+      isArchived: integrationMessagingConversations.isArchived,
+      metadataJson: integrationMessagingConversations.metadataJson,
+    })
+    .from(integrationMessagingConversations)
+    .where(
+      eq(integrationMessagingConversations.messagingWorkspaceId, workspace.id),
+    )
+    .orderBy(integrationMessagingConversations.name);
+
+  return conversations
+    .filter(
+      (conversation) =>
+        !conversation.isArchived &&
+        getSlackChannelMembership(conversation.metadataJson),
+    )
+    .map((conversation) => conversation.externalConversationId);
+}
+
+function getSlackChannelVisibility(conversationType: string) {
+  if (conversationType === "private_channel") {
+    return "private" as const;
+  }
+
+  if (conversationType === "channel") {
+    return "public" as const;
+  }
+
+  return null;
+}
+
+function getSlackChannelMemberCount(metadataJson: unknown) {
+  if (!metadataJson || typeof metadataJson !== "object") {
+    return null;
+  }
+
+  const numMembers = (metadataJson as { num_members?: unknown }).num_members;
+
+  return typeof numMembers === "number" ? numMembers : null;
+}
+
+function getSlackChannelMembership(metadataJson: unknown) {
+  if (!metadataJson || typeof metadataJson !== "object") {
+    return false;
+  }
+
+  return Boolean((metadataJson as { is_member?: unknown }).is_member);
+}
+
+function buildTenantSlackRuntimeConfig(input: {
+  config: SlackRuntimeConfig;
+  enabled: boolean;
+  entryVersion: number;
+  installState: ToolInstallState;
+  schemaVersion: string;
+}): TenantSlackRuntimeConfig {
+  return {
+    ...input.config,
+    enabled: input.enabled,
+    entryVersion: input.entryVersion,
+    installState: input.installState,
+    schemaVersion: input.schemaVersion,
+  };
+}
+
+function buildTenantWhatsAppRuntimeConfig(input: {
+  config: WhatsAppRuntimeConfig;
+  enabled: boolean;
+  entryVersion: number;
+  installState: ToolInstallState;
+  schemaVersion: string;
+}): TenantWhatsAppRuntimeConfig {
+  return {
+    ...input.config,
+    enabled: input.enabled,
+    entryVersion: input.entryVersion,
+    installState: input.installState,
+    schemaVersion: input.schemaVersion,
+  };
+}
+
+function buildTenantWhatsAppLinkSession(
+  session: {
+    completedAt: Date | null;
+    createdAt: Date;
+    expiresAt: Date | null;
+    forceRelink: boolean;
+    id: string;
+    lastError: string | null;
+    qrDataUrl: string | null;
+    status: string;
+    updatedAt: Date;
+  } | null,
+): TenantWhatsAppLinkSession | null {
+  if (!session) {
+    return null;
+  }
+
+  return {
+    completedAt: session.completedAt,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
+    forceRelink: session.forceRelink,
+    id: session.id,
+    lastError: session.lastError,
+    qrDataUrl: session.qrDataUrl,
+    status: session.status,
+    updatedAt: session.updatedAt,
+  };
+}
+
+async function ensureLatestTenantManagedConfigVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [existingVersion] = await tx
+    .select({
+      id: tenantManagedConfigVersions.id,
+      version: tenantManagedConfigVersions.version,
+    })
+    .from(tenantManagedConfigVersions)
+    .where(eq(tenantManagedConfigVersions.tenantId, input.tenantId))
+    .orderBy(desc(tenantManagedConfigVersions.version))
+    .limit(1);
+
+  if (existingVersion) {
+    return existingVersion;
+  }
+
+  return createInitialTenantManagedConfigVersion(tx, {
+    tenantId: input.tenantId,
+  });
+}
+
+async function createInitialTenantManagedConfigVersion(
+  tx: DbTransaction,
+  input: {
+    tenantId: string;
+  },
+) {
+  const [createdVersion] = await tx
+    .insert(tenantManagedConfigVersions)
+    .values({
+      createdByType: "system",
+      summary: "Seeded initial managed bootstrap files",
+      tenantId: input.tenantId,
+      version: 1,
+    })
+    .returning({
+      id: tenantManagedConfigVersions.id,
+      version: tenantManagedConfigVersions.version,
+    });
+
+  await tx.insert(tenantManagedFileVersions).values(
+    getManagedBootstrapFileDefinitions().map((definition) => ({
+      checksum: createManagedFileChecksum({
+        path: definition.path,
+        sharedContent: definition.defaultSharedContent,
+        systemContent: definition.systemContent,
+      }),
+      path: definition.path,
+      sharedContent: definition.defaultSharedContent,
+      systemContent: definition.systemContent,
+      tenantManagedConfigVersionId: createdVersion.id,
+    })),
+  );
+
+  return createdVersion;
+}
+
+async function getAuthorizedLatestTenantForOrganization(input: {
+  orgSlug: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+  const [tenantRow] = await db
+    .select({
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantStatus: tenants.status,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    )
+    .orderBy(desc(tenants.createdAt))
+    .limit(1);
+
+  if (!tenantRow) {
+    return null;
+  }
+
+  return buildTenantRuntimeState(tenantRow);
+}
+
+async function markSlackIntegrationPendingApply(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      lastError: null,
+      lastErrorAt: null,
+      status: "pending_apply",
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
+      ),
+    );
+}
+
+async function markWhatsAppIntegrationPendingApply(
+  tx: DbTransaction,
+  input: {
+    now: Date;
+    tenantId: string;
+  },
+) {
+  await tx
+    .update(tenantIntegrations)
+    .set({
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      status: "pending_apply",
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
+      ),
+    );
+}
+
+async function getTenantRuntimeSecretValue(input: {
+  secretType: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const [secret] = await db
+    .select({
+      ciphertext: tenantRuntimeSecrets.ciphertext,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
+        eq(tenantRuntimeSecrets.secretType, input.secretType),
+      ),
+    )
+    .limit(1);
+
+  if (!secret?.ciphertext) {
+    return null;
+  }
+
+  return decryptControlPlaneSecret(secret.ciphertext);
+}
+
+async function storeTenantRuntimeSecretValue(input: {
+  tenantId: string;
+  secretType: string;
+  plaintext: string;
+  lookupHash?: string | null;
+}) {
+  const db = getDb();
+  const now = new Date();
+  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+
+  const [existingSecret] = await db
+    .select({
+      id: tenantRuntimeSecrets.id,
+    })
+    .from(tenantRuntimeSecrets)
+    .where(
+      and(
+        eq(tenantRuntimeSecrets.tenantId, input.tenantId),
+        eq(tenantRuntimeSecrets.secretType, input.secretType),
+      ),
+    )
+    .limit(1);
+
+  if (existingSecret) {
+    await db
+      .update(tenantRuntimeSecrets)
+      .set({
+        ciphertext,
+        lookupHash: input.lookupHash ?? null,
+        rotatedAt: now,
+      })
+      .where(eq(tenantRuntimeSecrets.id, existingSecret.id));
+
+    return;
+  }
+
+  await db.insert(tenantRuntimeSecrets).values({
+    ciphertext,
+    lookupHash: input.lookupHash ?? null,
+    secretType: input.secretType,
+    tenantId: input.tenantId,
+  });
+}
+
+function buildGatewayToken() {
+  return randomBytes(24).toString("base64url");
+}
+
+function buildTenantToken() {
+  return randomBytes(24).toString("base64url");
+}
+
+function createTokenLookupHash(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+async function getTenantRuntimeState(tx: DbTransaction, tenantId: string) {
+  const [tenantRow] = await tx
+    .select({
+      serverStatus: tenantServers.status,
+      tenantId: tenants.id,
+      tenantStatus: tenants.status,
+    })
+    .from(tenants)
+    .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+
+  if (!tenantRow) {
+    throw new Error(`Tenant ${tenantId} not found`);
+  }
+
+  return buildTenantRuntimeState(tenantRow);
+}
+
+function buildTenantRuntimeState(tenantRow: {
+  serverStatus: string | null;
+  tenantId: string;
+  tenantStatus: string;
+}) {
+  return {
+    isRuntimeReady:
+      tenantRow.tenantStatus === "ready" && tenantRow.serverStatus === "ready",
+    tenantId: tenantRow.tenantId,
+  };
+}
+
+export function getManagedConfigVersionFromConfigJson(configJson: unknown) {
+  const config = parseRecord(configJson);
+  const managedConfigVersion = config.managedConfigVersion;
+
+  if (
+    typeof managedConfigVersion !== "number" ||
+    !Number.isInteger(managedConfigVersion) ||
+    managedConfigVersion < 1
+  ) {
+    return null;
+  }
+
+  return managedConfigVersion;
+}
+
+export function getManagedSkillVersionMapFromConfigJson(configJson: unknown) {
+  const config = parseRecord(configJson);
+  const managedSkills =
+    config.managedSkills &&
+    typeof config.managedSkills === "object" &&
+    !Array.isArray(config.managedSkills)
+      ? (config.managedSkills as Record<string, unknown>)
+      : null;
+  const versions =
+    managedSkills?.versions &&
+    typeof managedSkills.versions === "object" &&
+    !Array.isArray(managedSkills.versions)
+      ? (managedSkills.versions as Record<string, unknown>)
+      : null;
+
+  if (!versions) {
+    return null;
+  }
+
+  const parsedVersions: Record<string, number> = {};
+
+  for (const [skillKey, value] of Object.entries(versions)) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      continue;
+    }
+
+    parsedVersions[skillKey] = value;
+  }
+
+  return parsedVersions;
+}
+
+function createManagedFileChecksum(input: {
+  path: ManagedBootstrapFilePath;
+  sharedContent: string;
+  systemContent: string;
+}) {
+  return createHash("sha256")
+    .update(
+      buildManagedBootstrapFileContent({
+        path: input.path,
+        sharedContent: input.sharedContent,
+        systemContent: input.systemContent,
+      }),
+    )
+    .digest("hex");
+}
+
+function assertManagedBootstrapFilePath(
+  value: string,
+): ManagedBootstrapFilePath {
+  const normalizedValue = normalizeManagedBootstrapFilePath(value);
+
+  if (!normalizedValue) {
+    throw new Error(`Unsupported managed bootstrap file path: ${value}`);
+  }
+
+  return normalizedValue;
+}
+
+function normalizeManagedFileRows<
+  T extends {
+    path: string;
+    sharedContent: string;
+    systemContent: string;
+  },
+>(rows: T[]) {
+  const normalizedRows = new Map<
+    ManagedBootstrapFilePath,
+    {
+      path: ManagedBootstrapFilePath;
+      sharedContent: string;
+      systemContent: string;
+    }
+  >();
+
+  for (const row of rows) {
+    const normalizedPath = normalizeManagedBootstrapFilePath(row.path);
+
+    if (!normalizedPath) {
+      continue;
+    }
+
+    const existingRow = normalizedRows.get(normalizedPath);
+
+    if (!existingRow || row.path === normalizedPath) {
+      normalizedRows.set(normalizedPath, {
+        path: normalizedPath,
+        sharedContent: row.sharedContent,
+        systemContent: row.systemContent,
+      });
+    }
+  }
+
+  return normalizedRows;
+}
+
+function tokensMatch(left: string, right: string) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function normalizeJsonValue(value: unknown) {
+  if (value === undefined) {
+    return null;
+  }
+
+  return value;
+}
+
+function deriveTenantName(name: string) {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "tenant";
+}
+
+function normalizeOrganizationSlug(value: string) {
+  return normalizeWorkspaceSlug(value);
+}
+
+async function generateOrganizationSlugFromWorkOS(
+  organizationName: string,
+  organizationExternalId: string,
+) {
+  const db = getDb();
+  const baseSlug = normalizeOrganizationSlug(organizationName) || "workspace";
+  const externalIdSuffix = organizationExternalId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(-8);
+  const fallbackSlug = externalIdSuffix
+    ? `${baseSlug}-${externalIdSuffix}`
+    : `${baseSlug}-workspace`;
+  const candidates = [baseSlug, fallbackSlug];
+
+  for (const candidate of candidates) {
+    if (isReservedWorkspaceSlug(candidate)) {
+      continue;
+    }
+
+    const [existingOrganization] = await db
+      .select({
+        externalId: organizations.externalId,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, candidate))
+      .limit(1);
+
+    if (
+      !existingOrganization ||
+      existingOrganization.externalId === organizationExternalId
+    ) {
+      return candidate;
+    }
+  }
+
+  for (let index = 2; ; index += 1) {
+    const candidate = `${fallbackSlug}-${index}`;
+
+    if (isReservedWorkspaceSlug(candidate)) {
+      continue;
+    }
+
+    const [existingOrganization] = await db
+      .select({
+        externalId: organizations.externalId,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, candidate))
+      .limit(1);
+
+    if (
+      !existingOrganization ||
+      existingOrganization.externalId === organizationExternalId
+    ) {
+      return candidate;
+    }
+  }
+}
+
+export async function createTenantForOrganization(input: {
+  organizationId: string;
+  tenantName: string;
+  userExternalId: string;
+}) {
+  const db = getDb();
+
+  const authorizedMembership = await db
+    .select({
+      organizationId: memberships.organizationId,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(
+      and(
+        eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+        eq(users.externalId, input.userExternalId),
+      ),
+    );
+
+  if (authorizedMembership.length === 0) {
+    throw new Error("You do not have access to this organization");
+  }
+
+  const createdTenant = await db.transaction(async (tx) => {
+    const [tenant] = await tx
+      .insert(tenants)
+      .values({
+        organizationId: input.organizationId,
+        name: input.tenantName,
+        status: "provisioning",
+      })
+      .returning({
+        id: tenants.id,
+      });
+
+    await tx.insert(tenantServers).values({
+      tenantId: tenant.id,
+      provider: "hetzner",
+      sshUsername: "openclaw",
+      status: "creating",
+    });
+
+    await createNextDesiredStateVersion(tx, {
+      tenantId: tenant.id,
+    });
+
+    return tenant;
+  });
+
+  await enqueueJob({
+    jobType: JOB_TYPES.provisionTenantServer,
+    payload: {
+      tenantId: createdTenant.id,
+      step: "create_server",
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tenant sessions
+// ---------------------------------------------------------------------------
+
+export type TenantSessionUpsertInput = {
+  sessionKey: string;
+  externalSessionId?: string | null;
+  displayName?: string | null;
+  label?: string | null;
+  subject?: string | null;
+  channel?: string | null;
+  channelProvider?: string | null;
+  chatType?: string | null;
+  originFrom?: string | null;
+  originTo?: string | null;
+  originAccountId?: string | null;
+  originThreadId?: string | null;
+  status: string;
+  startedAt?: number | null;
+  endedAt?: number | null;
+  runtimeMs?: number | null;
+  model?: string | null;
+  modelProvider?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  cacheReadTokens?: number | null;
+  cacheWriteTokens?: number | null;
+  totalTokens?: number | null;
+  estimatedCostUsd?: string | null;
+  transcriptJsonl?: string | null;
+  transcriptHash?: string | null;
+  messageCount?: number | null;
+  lastMessageAt?: number | null;
+  parentSessionKey?: string | null;
+  spawnDepth?: number | null;
+  subagentRole?: string | null;
+  sessionUpdatedAt?: number | null;
+  syncSource: string;
+};
+
+/**
+ * Extract the session start timestamp from the transcript JSONL.
+ * Checks the session header line timestamp, then the first message timestamp.
+ */
+function extractStartedAtFromTranscript(
+  transcriptJsonl: string | null | undefined,
+): number | null {
+  if (!transcriptJsonl) return null;
+
+  const lines = transcriptJsonl.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const parsed = JSON.parse(line);
+      // Session header has ISO timestamp
+      if (parsed.type === "session" && parsed.timestamp) {
+        const ts = new Date(parsed.timestamp).getTime();
+        if (Number.isFinite(ts)) return ts;
+      }
+      // Message lines have epoch ms timestamp
+      if (parsed.type === "message" && parsed.message?.timestamp) {
+        const ts = parsed.message.timestamp;
+        if (typeof ts === "number" && Number.isFinite(ts)) return ts;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+export async function upsertTenantSessionBatch(
+  tenantId: string,
+  sessions: TenantSessionUpsertInput[],
+) {
+  if (sessions.length === 0) return;
+
+  const db = getDb();
+  const now = new Date();
+
+  for (const session of sessions) {
+    // When startedAt is missing, derive it from the transcript
+    const effectiveStartedAt =
+      session.startedAt ??
+      extractStartedAtFromTranscript(session.transcriptJsonl);
+
+    await db
+      .insert(tenantSessions)
+      .values({
+        tenantId,
+        sessionKey: session.sessionKey,
+        externalSessionId: session.externalSessionId ?? "unknown",
+        displayName: session.displayName ?? null,
+        label: session.label ?? null,
+        subject: session.subject ?? null,
+        channel: session.channel ?? null,
+        channelProvider: session.channelProvider ?? null,
+        chatType: session.chatType ?? null,
+        originFrom: session.originFrom ?? null,
+        originTo: session.originTo ?? null,
+        originAccountId: session.originAccountId ?? null,
+        originThreadId: session.originThreadId ?? null,
+        status: session.status,
+        startedAt: effectiveStartedAt ? new Date(effectiveStartedAt) : null,
+        endedAt: session.endedAt ? new Date(session.endedAt) : null,
+        runtimeMs: session.runtimeMs ?? null,
+        model: session.model ?? null,
+        modelProvider: session.modelProvider ?? null,
+        inputTokens: session.inputTokens ?? null,
+        outputTokens: session.outputTokens ?? null,
+        cacheReadTokens: session.cacheReadTokens ?? null,
+        cacheWriteTokens: session.cacheWriteTokens ?? null,
+        totalTokens: session.totalTokens ?? null,
+        estimatedCostUsd: session.estimatedCostUsd ?? null,
+        transcriptJsonl: session.transcriptJsonl ?? null,
+        transcriptHash: session.transcriptHash ?? null,
+        messageCount: session.messageCount ?? null,
+        lastMessageAt: session.lastMessageAt ?? null,
+        parentSessionKey: session.parentSessionKey ?? null,
+        spawnDepth: session.spawnDepth ?? 0,
+        subagentRole: session.subagentRole ?? null,
+        sessionUpdatedAt: session.sessionUpdatedAt ?? null,
+        lastSyncedAt: now,
+        lastSyncError: null,
+        syncSource: session.syncSource,
+      })
+      .onConflictDoUpdate({
+        target: [
+          tenantSessions.tenantId,
+          tenantSessions.sessionKey,
+          tenantSessions.externalSessionId,
+        ],
+        set: {
+          displayName: session.displayName ?? undefined,
+          label: session.label ?? undefined,
+          subject: session.subject ?? undefined,
+          channel: session.channel ?? undefined,
+          channelProvider: session.channelProvider ?? undefined,
+          chatType: session.chatType ?? undefined,
+          originFrom: session.originFrom ?? undefined,
+          originTo: session.originTo ?? undefined,
+          originAccountId: session.originAccountId ?? undefined,
+          originThreadId: session.originThreadId ?? undefined,
+          status: session.status,
+          startedAt: effectiveStartedAt
+            ? new Date(effectiveStartedAt)
+            : undefined,
+          endedAt: session.endedAt ? new Date(session.endedAt) : undefined,
+          runtimeMs: session.runtimeMs ?? undefined,
+          model: session.model ?? undefined,
+          modelProvider: session.modelProvider ?? undefined,
+          inputTokens: session.inputTokens ?? undefined,
+          outputTokens: session.outputTokens ?? undefined,
+          cacheReadTokens: session.cacheReadTokens ?? undefined,
+          cacheWriteTokens: session.cacheWriteTokens ?? undefined,
+          totalTokens: session.totalTokens ?? undefined,
+          estimatedCostUsd: session.estimatedCostUsd ?? undefined,
+          transcriptJsonl: session.transcriptJsonl ?? undefined,
+          transcriptHash: session.transcriptHash ?? undefined,
+          messageCount: session.messageCount ?? undefined,
+          lastMessageAt: session.lastMessageAt ?? undefined,
+          parentSessionKey: session.parentSessionKey ?? undefined,
+          spawnDepth: session.spawnDepth ?? undefined,
+          subagentRole: session.subagentRole ?? undefined,
+          sessionUpdatedAt: session.sessionUpdatedAt ?? undefined,
+          lastSyncedAt: now,
+          lastSyncError: null,
+          syncSource: session.syncSource,
+          updatedAt: now,
+        },
+      });
+  }
+}
+
+export async function listTenantSessions(input: {
+  tenantId: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = getDb();
+  const limit = input.limit ?? 100;
+  const offset = input.offset ?? 0;
+
+  return db
+    .select({
+      id: tenantSessions.id,
+      sessionKey: tenantSessions.sessionKey,
+      externalSessionId: tenantSessions.externalSessionId,
+      displayName: tenantSessions.displayName,
+      label: tenantSessions.label,
+      subject: tenantSessions.subject,
+      channel: tenantSessions.channel,
+      channelProvider: tenantSessions.channelProvider,
+      chatType: tenantSessions.chatType,
+      originFrom: tenantSessions.originFrom,
+      status: tenantSessions.status,
+      startedAt: tenantSessions.startedAt,
+      endedAt: tenantSessions.endedAt,
+      runtimeMs: tenantSessions.runtimeMs,
+      model: tenantSessions.model,
+      modelProvider: tenantSessions.modelProvider,
+      inputTokens: tenantSessions.inputTokens,
+      outputTokens: tenantSessions.outputTokens,
+      totalTokens: tenantSessions.totalTokens,
+      estimatedCostUsd: tenantSessions.estimatedCostUsd,
+      messageCount: tenantSessions.messageCount,
+      lastMessageAt: tenantSessions.lastMessageAt,
+      parentSessionKey: tenantSessions.parentSessionKey,
+      spawnDepth: tenantSessions.spawnDepth,
+      subagentRole: tenantSessions.subagentRole,
+      sessionUpdatedAt: tenantSessions.sessionUpdatedAt,
+      lastSyncedAt: tenantSessions.lastSyncedAt,
+      createdAt: tenantSessions.createdAt,
+    })
+    .from(tenantSessions)
+    .where(eq(tenantSessions.tenantId, input.tenantId))
+    .orderBy(desc(tenantSessions.lastMessageAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getTenantSession(input: {
+  tenantId: string;
+  sessionKey: string;
+}) {
+  const db = getDb();
+
+  const [session] = await db
+    .select()
+    .from(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, input.tenantId),
+        eq(tenantSessions.sessionKey, input.sessionKey),
+      ),
+    )
+    .orderBy(desc(tenantSessions.createdAt))
+    .limit(1);
+
+  return session ?? null;
+}
+
+export async function deleteStaleTenantSessions(
+  tenantId: string,
+  activeSessionKeys: string[],
+) {
+  if (activeSessionKeys.length === 0) return 0;
+
+  const db = getDb();
+  const result = await db
+    .delete(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, tenantId),
+        notInArray(tenantSessions.sessionKey, activeSessionKeys),
+      ),
+    )
+    .returning({ id: tenantSessions.id });
+
+  return result.length;
+}
+
+// ---------------------------------------------------------------------------
+// User channel identities
+// ---------------------------------------------------------------------------
+
+export async function getUserChannelIdentities(input: {
+  userExternalId: string;
+  organizationId: string;
+}) {
+  const db = getDb();
+
+  return db
+    .select({
+      id: userChannelIdentities.id,
+      provider: userChannelIdentities.provider,
+      externalId: userChannelIdentities.externalId,
+      displayName: userChannelIdentities.displayName,
+      fullName: userChannelIdentities.fullName,
+      username: userChannelIdentities.username,
+      avatarUrl: userChannelIdentities.avatarUrl,
+      resolvedAt: userChannelIdentities.resolvedAt,
+      resolutionSource: userChannelIdentities.resolutionSource,
+    })
+    .from(userChannelIdentities)
+    .innerJoin(users, eq(userChannelIdentities.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, input.userExternalId),
+        eq(userChannelIdentities.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(asc(userChannelIdentities.provider));
+}
+
+export async function getUserExternalIds(input: {
+  userExternalId: string;
+  organizationId: string;
+}): Promise<string[]> {
+  const db = getDb();
+
+  const rows = await db
+    .select({ externalId: userChannelIdentities.externalId })
+    .from(userChannelIdentities)
+    .innerJoin(users, eq(userChannelIdentities.userId, users.id))
+    .where(
+      and(
+        eq(users.externalId, input.userExternalId),
+        eq(userChannelIdentities.organizationId, input.organizationId),
+      ),
+    );
+
+  return rows.map((r) => r.externalId);
+}
+
+export async function upsertUserChannelIdentity(input: {
+  userId: string;
+  organizationId: string;
+  provider: string;
+  externalId: string;
+  displayName?: string | null;
+  fullName?: string | null;
+  username?: string | null;
+  avatarUrl?: string | null;
+  resolutionSource: string;
+}) {
+  const db = getDb();
+  const now = new Date();
+
+  await db
+    .insert(userChannelIdentities)
+    .values({
+      userId: input.userId,
+      organizationId: input.organizationId,
+      provider: input.provider,
+      externalId: input.externalId,
+      displayName: input.displayName ?? null,
+      fullName: input.fullName ?? null,
+      username: input.username ?? null,
+      avatarUrl: input.avatarUrl ?? null,
+      resolvedAt: now,
+      resolutionSource: input.resolutionSource,
+    })
+    .onConflictDoUpdate({
+      target: [
+        userChannelIdentities.organizationId,
+        userChannelIdentities.provider,
+        userChannelIdentities.externalId,
+      ],
+      set: {
+        userId: input.userId,
+        displayName: input.displayName ?? undefined,
+        fullName: input.fullName ?? undefined,
+        username: input.username ?? undefined,
+        avatarUrl: input.avatarUrl ?? undefined,
+        resolvedAt: now,
+        resolutionSource: input.resolutionSource,
+        updatedAt: now,
+      },
+    });
+}
+
+export async function resolveUserChannelIdentitiesFromDirectory(input: {
+  organizationId: string;
+}): Promise<{ resolved: number; skipped: number }> {
+  const db = getDb();
+
+  // Get all Otto users in this org
+  const orgMembers = await db
+    .select({
+      userId: users.id,
+      email: users.email,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(
+      and(
+        eq(memberships.organizationId, input.organizationId),
+        eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
+      ),
+    );
+
+  if (orgMembers.length === 0) {
+    return { resolved: 0, skipped: 0 };
+  }
+
+  // Get all messaging workspace members for this org's integrations
+  const workspaceMembers = await db
+    .select({
+      externalMemberId: integrationMessagingWorkspaceMembers.externalMemberId,
+      email: integrationMessagingWorkspaceMembers.email,
+      displayName: integrationMessagingWorkspaceMembers.displayName,
+      fullName: integrationMessagingWorkspaceMembers.fullName,
+      username: integrationMessagingWorkspaceMembers.username,
+      avatarUrl: integrationMessagingWorkspaceMembers.avatarUrl,
+      providerKey: tenantIntegrations.providerKey,
+    })
+    .from(integrationMessagingWorkspaceMembers)
+    .innerJoin(
+      integrationMessagingWorkspaces,
+      eq(
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
+      ),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  // Build email → workspace member lookup
+  const membersByEmail = new Map<string, (typeof workspaceMembers)[number][]>();
+  for (const member of workspaceMembers) {
+    if (!member.email) continue;
+    const key = member.email.toLowerCase();
+    const existing = membersByEmail.get(key) ?? [];
+    existing.push(member);
+    membersByEmail.set(key, existing);
+  }
+
+  let resolved = 0;
+  let skipped = 0;
+
+  for (const orgMember of orgMembers) {
+    const matches = membersByEmail.get(orgMember.email.toLowerCase()) ?? [];
+    if (matches.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    for (const match of matches) {
+      await upsertUserChannelIdentity({
+        userId: orgMember.userId,
+        organizationId: input.organizationId,
+        provider: match.providerKey,
+        externalId: match.externalMemberId,
+        displayName: match.displayName,
+        fullName: match.fullName,
+        username: match.username,
+        avatarUrl: match.avatarUrl,
+        resolutionSource: "directory_sync",
+      });
+      resolved++;
+    }
+  }
+
+  return { resolved, skipped };
+}
+
+// ---------------------------------------------------------------------------
+// Messaging conversation name lookup
+// ---------------------------------------------------------------------------
+
+export async function getConversationNameMap(input: {
+  organizationId: string;
+}): Promise<Map<string, string>> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      externalId: integrationMessagingConversations.externalConversationId,
+      name: integrationMessagingConversations.name,
+    })
+    .from(integrationMessagingConversations)
+    .innerJoin(
+      integrationMessagingWorkspaces,
+      eq(
+        integrationMessagingConversations.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
+      ),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    if (row.name) {
+      map.set(row.externalId, row.name);
+      map.set(row.externalId.toLowerCase(), row.name);
+    }
+  }
+  return map;
+}
+
+export async function getMemberNameMap(input: {
+  organizationId: string;
+}): Promise<Map<string, string>> {
+  const db = getDb();
+
+  const rows = await db
+    .select({
+      externalId: integrationMessagingWorkspaceMembers.externalMemberId,
+      displayName: integrationMessagingWorkspaceMembers.displayName,
+      fullName: integrationMessagingWorkspaceMembers.fullName,
+    })
+    .from(integrationMessagingWorkspaceMembers)
+    .innerJoin(
+      integrationMessagingWorkspaces,
+      eq(
+        integrationMessagingWorkspaceMembers.messagingWorkspaceId,
+        integrationMessagingWorkspaces.id,
+      ),
+    )
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
+    )
+    .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
+    .where(eq(tenants.organizationId, input.organizationId));
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    const name = row.displayName ?? row.fullName;
+    if (name) {
+      map.set(row.externalId, name);
+      map.set(row.externalId.toLowerCase(), name);
+    }
+  }
+  return map;
+}
+
+function getUnknownErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function buildSlackOnboardingTokenResult(input: {
+  botToken: string;
+  installerUserId: string | null;
+  scopeCsv: string;
+  slackBotUserId: string | null;
+  slackTeamId: string;
+  slackTeamName: string | null;
+}): OAuthTokenExchangeResult {
+  return {
+    accessToken: input.botToken,
+    actorType: "app",
+    expiresAt: null,
+    grantedScopes: splitScopeCsvValue(input.scopeCsv),
+    identity: {
+      externalAccountId: input.slackTeamId,
+      externalAccountLabel: input.slackTeamName,
+      providerMetadata: {
+        installerUserId: input.installerUserId,
+        scopeCsv: input.scopeCsv,
+        slackBotUserId: input.slackBotUserId,
+      },
+    },
+    idToken: null,
+    raw: {},
+    refreshToken: null,
+    refreshTokenExpiresAt: null,
+    tokenType: "bot",
+  };
+}
+
+function splitScopeCsvValue(csv: string | null) {
+  return (csv ?? "")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+}
+
+function getStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getNullableStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const value = metadata[key];
+
+  return typeof value === "string" ? value : null;
+}

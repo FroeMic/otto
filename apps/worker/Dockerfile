@@ -5,19 +5,15 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 ENV NODE_ENV=production
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
-COPY package.json bun.lock ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY apps/gateway/package.json apps/gateway/package.json
-COPY apps/worker/package.json apps/worker/package.json
-COPY packages packages
+COPY . .
 RUN bun install --frozen-lockfile --filter @otto/worker
-
-WORKDIR /app
-COPY apps/worker apps/worker
 
 RUN bun run --cwd apps/worker build
 
@@ -32,7 +28,7 @@ COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/legacy-control-plane-runtime ./packages/legacy-control-plane-runtime
+COPY --from=builder /app/packages/features/worker-runtime ./packages/features/worker-runtime
 
 WORKDIR /app/apps/worker
 
