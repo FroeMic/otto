@@ -201,6 +201,10 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request
   tenantId: string
 }) {
+  console.log("[audio-proxy:api] request received", {
+    contentType: input.request.headers.get("content-type"),
+  })
+
   const [apiKey, balanceCreditsMilli] = await Promise.all([
     getTenantOpenAiApiKey(input.tenantId),
     getTenantCreditBalanceMilli(input.tenantId),
