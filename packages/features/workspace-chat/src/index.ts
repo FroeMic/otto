@@ -227,9 +227,12 @@ export type {
   WorkspaceChatConversationCreateRequest,
   WorkspaceChatConversationDetailResponse,
   WorkspaceChatConversationSummary,
+  WorkspaceChatMessage,
   WorkspaceChatMessageCreateRequest,
   WorkspaceChatMessageCreateResponse,
   WorkspaceChatMessagePart,
+  WorkspaceChatRuntimeMessageCompleteRequest,
+  WorkspaceChatRuntimeMessageCompleteResponse,
 } from "./schemas"
 export {
   workspaceChatConversationCreateRequestSchema,
@@ -243,4 +246,7 @@ export {
   workspaceChatMessageCreateResponseSchema,
   workspaceChatMessagePartSchema,
   workspaceChatMessageSchema,
+  workspaceChatRuntimeMessageCompleteRequestSchema,
+  workspaceChatRuntimeMessageCompleteResponseSchema,
+  workspaceChatRuntimeSessionStatusSchema,
 } from "./schemas"

@@ -61,10 +61,13 @@ import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,
 } from "./web-search"
+import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
 import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 
 export function registerRuntimeRoutes(app: Hono) {
+  registerWorkspaceChatRuntimeRoutes(app)
+
   app.get("/api/internal/runtime/integrations", async (context) => {
     try {
       const { tenantId } = await authenticateTenantRuntimeRequest(

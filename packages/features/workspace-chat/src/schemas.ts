@@ -115,6 +115,35 @@ export const workspaceChatMessageCreateResponseSchema = z.object({
   message: workspaceChatMessageSchema,
 })
 
+export const workspaceChatRuntimeSessionStatusSchema = z.enum([
+  "active",
+  "completed",
+  "failed",
+])
+
+export const workspaceChatRuntimeMessageCompleteRequestSchema = z.object({
+  assistantDisplayName: z.string().trim().min(1).optional(),
+  conversationId: z.string().trim().min(1),
+  message: z.object({
+    parts: z.array(workspaceChatMessagePartSchema).min(1),
+  }),
+  session: z.object({
+    endedAt: z.string().trim().min(1).optional(),
+    externalSessionId: z.string().trim().min(1).optional(),
+    sessionKey: z.string().trim().min(1),
+    startedAt: z.string().trim().min(1).optional(),
+    status: workspaceChatRuntimeSessionStatusSchema,
+  }),
+})
+
+export const workspaceChatRuntimeMessageCompleteResponseSchema = z.object({
+  conversationId: z.string().trim().min(1),
+  messageId: z.string().trim().min(1),
+  ok: z.literal(true),
+  runtimeSegmentId: z.string().trim().min(1),
+  tenantId: z.string().trim().min(1),
+})
+
 export type WorkspaceChatConversationSummary = z.infer<
   typeof workspaceChatConversationSummarySchema
 >
@@ -133,4 +162,10 @@ export type WorkspaceChatMessageCreateResponse = z.infer<
 >
 export type WorkspaceChatMessagePart = z.infer<
   typeof workspaceChatMessagePartSchema
+>
+export type WorkspaceChatRuntimeMessageCompleteRequest = z.infer<
+  typeof workspaceChatRuntimeMessageCompleteRequestSchema
+>
+export type WorkspaceChatRuntimeMessageCompleteResponse = z.infer<
+  typeof workspaceChatRuntimeMessageCompleteResponseSchema
 >

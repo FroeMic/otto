@@ -182,7 +182,13 @@ Current implementation status for Increment 1:
 
 - the shared workspace-chat contract package now exists in `packages/features/workspace-chat`
 - native non-UI workspace chat routes now exist in `apps/api`
+- the first persisted backend slice now exists:
+  - `apps/api` workspace-chat routes now use real conversation and message persistence instead of `501` placeholders
+  - shared conversation tables now exist in `packages/features/integrations-runtime/src/db/schema.ts`
+  - the initial migration now exists in `web/drizzle/0048_workspace_chat_increment_1.sql`
+  - a tenant-authenticated runtime callback route now exists for assistant message completion and runtime-segment linkage
 - the `otto-workspace-chat` runtime plugin scaffold now exists under `runtime-plugins/`
+- the outbound tenant bridge and real plugin delivery loop are still open
 - `apps/web` UI work for workspace chat has not started yet and should remain paused until the backend slice is reviewed
 
 ## Frameworks And Packages To Use

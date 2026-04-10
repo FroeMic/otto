@@ -698,9 +698,12 @@
   - adding a reconciliation worker job that repairs missed transcript or terminal-state updates
   - replacing the sessions placeholder route with real history and detail views
 - When workspace chat becomes active work, implement `TODO_21_workspace_multiplayer_chat_and_web_channel.md` by:
-  - finishing Increment 1 from the new-app-surface backend slice by adding the Control Plane conversation schema plus real persistence behind the existing `apps/api` workspace-chat routes
-  - adding the tenant bridge protocol, auth model, and local Gateway relay so the existing `otto-workspace-chat` plugin scaffold can deliver real runtime traffic
-  - only after that, start `apps/web` UI work for the first conversation detail slice
+  - treat the first backend half of Increment 1 as now in place:
+    - conversation, message, message-part, and runtime-segment tables now exist in the shared schema
+    - `apps/api` workspace-chat routes now persist conversations and messages instead of returning `501`
+    - `apps/api` now also exposes a tenant-authenticated workspace-chat assistant-completion callback route
+  - next, add the tenant bridge protocol, auth model, and local Gateway relay so the existing `otto-workspace-chat` plugin scaffold can deliver real runtime traffic
+  - only after that checkpoint, start `apps/web` UI work for the first conversation detail slice
   - then add the browser realtime protocol and multiplayer fanout layer
   - then implement durable named conversations, delivery targets, and favorites support
 

@@ -14,12 +14,17 @@ import {
   type WorkspaceChatConversationSummary,
   type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
-  WorkspaceChatNotImplementedError,
   type WorkspaceChatUser,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import { z } from "zod"
 
+import {
+  createWorkspaceChatConversation,
+  createWorkspaceChatMessage,
+  getWorkspaceChatConversationDetail,
+  listWorkspaceChatConversations,
+} from "./chat-data"
 import { syncUserFromSession } from "./data"
 
 const workspaceParamsSchema = z.object({
@@ -62,30 +67,14 @@ export type WorkspaceChatRouteDependencies = {
   syncUserFromSession: (user: WorkspaceChatUser) => Promise<unknown>
 }
 
-function notImplemented<T>(message: string): Promise<T> {
-  throw new WorkspaceChatNotImplementedError(message)
-}
-
 function createDefaultWorkspaceChatRouteDependencies(): WorkspaceChatRouteDependencies {
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
-    createConversation: async () =>
-      await notImplemented(
-        "Workspace chat conversation persistence is not implemented in apps/api yet",
-      ),
-    createMessage: async () =>
-      await notImplemented(
-        "Workspace chat runtime dispatch is not implemented in apps/api yet",
-      ),
-    getConversationDetail: async () =>
-      await notImplemented(
-        "Workspace chat conversation detail loading is not implemented in apps/api yet",
-      ),
-    listConversations: async () =>
-      await notImplemented(
-        "Workspace chat conversation listing is not implemented in apps/api yet",
-      ),
+    createConversation: createWorkspaceChatConversation,
+    createMessage: createWorkspaceChatMessage,
+    getConversationDetail: getWorkspaceChatConversationDetail,
+    listConversations: listWorkspaceChatConversations,
     syncUserFromSession:
       syncUserFromSession as WorkspaceChatRouteDependencies["syncUserFromSession"],
   }
