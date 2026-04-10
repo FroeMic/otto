@@ -99,6 +99,7 @@ const envSchema = z.object({
     .positive()
     .default(300000),
   RUNTIME_SSH_USERNAME: z.string().default("root"),
+  LANDING_PAGE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
