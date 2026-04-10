@@ -27,7 +27,6 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
-COPY --from=builder /app/node_modules ./node_modules
 
 WORKDIR /app/apps/worker
 
