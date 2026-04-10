@@ -45,6 +45,25 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
   - do not redesign job execution around inbound HTTP requests
 - Keep the application architecture independent of Cloudflare-specific runtime features unless a later spec explicitly adopts them.
 
+## Code organization philosophy
+
+- Organize code by bounded context first, then by execution surface.
+- Prefer domain-first homes such as `billing`, `workspace`, `integrations`, `runtime`, `auth`, and `platform` over repo-wide catch-all buckets like `db`, `lib`, or `utils`.
+- Keep `apps/*` thin:
+  - `apps/api` should primarily own HTTP handlers and API-specific adapters
+  - `apps/worker` should primarily own worker jobs and worker-only orchestration
+  - `apps/web` should primarily own browser UI, route loaders, and client behavior
+- Put shared domain logic in `packages/features/<domain>` only when that logic is genuinely used by more than one execution surface.
+- Keep worker-only logic inside `apps/worker`; do not move worker-owned code into `packages/` unless it becomes truly shared.
+- Keep browser-only UI code inside `apps/web`; do not leave React components or page-specific UI in backend/runtime packages.
+- Within a domain package, split by capability and role, for example `contracts`, `data`, `services`, `policies`, and `types`, rather than allowing a single `index.ts`, `db.ts`, or `lib.ts` file to become a monolith.
+- Treat `lib` as a last resort name, not the default home for unrelated code.
+- Before creating a new file, decide explicitly:
+  - which bounded context owns this behavior
+  - which execution surface runs it
+  - whether it is truly shared or surface-specific
+- If related code for one domain is spread across multiple apps/packages, favor pulling shared domain logic into one coherent `packages/features/<domain>` home and leaving only thin adapters in the apps.
+
 ## Repository shape
 
 - `spec/` stores planning state and implementation sequencing.
@@ -108,6 +127,11 @@ Highlight these skills when relevant:
 - Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
 - Push committed work to `origin` regularly so progress is not stranded only in the local workspace.
+- Before creating a PR, review the branch against the spec and the code-organization philosophy above:
+  - confirm code is placed in the correct bounded context
+  - confirm shared code is actually shared and surface-specific code stayed in the app
+  - confirm new files did not introduce fresh catch-all `lib` or cross-domain sprawl
+  - note any intentional deviations explicitly in the PR description
 
 ## GitHub workflow expectation
 

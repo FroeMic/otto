@@ -7,6 +7,11 @@ This folder is the source of truth for implementation planning and session-to-se
 - `TODO_XX_name.md` means planned or in progress work.
 - `DONE_XX_name.md` means the spec has been implemented and verified enough to retire from the active queue.
 - Lower numbers should usually be completed first unless a spec explicitly says otherwise.
+- Code organization should follow a domain-first model:
+  - organize by bounded context first, then by execution surface
+  - keep `apps/*` thin and surface-specific
+  - keep genuinely shared domain logic in `packages/features/<domain>`
+  - avoid catch-all growth in repo-wide `lib`, `db`, or utility buckets
 - Every spec should include:
   - goal
   - scope
@@ -22,6 +27,7 @@ This folder is the source of truth for implementation planning and session-to-se
 - Update `STATUS.md` whenever priorities, blockers, or the next recommended step change.
 - When work on a spec starts, note that in `STATUS.md`.
 - When a spec is finished, rename it from `TODO_` to `DONE_` and update `STATUS.md`.
+- Before opening a PR, review the branch against the relevant spec and confirm the implementation still follows the repo's domain-first code organization model.
 
 ## Current implementation order
 
