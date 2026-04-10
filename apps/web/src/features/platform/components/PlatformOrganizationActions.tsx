@@ -36,11 +36,26 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
+import { PlatformSyncNotification } from "./PlatformSyncNotification"
+
 export interface PlatformOrganizationActionsProps {
   hasTenant: boolean
   hasTenantOpenAiProvider: boolean
   orgSlug: string
   runtimeReady: boolean
+}
+
+type OrganizationAction =
+  | "apply"
+  | "deploy-runtime"
+  | "provision-openai-key"
+  | "refresh-image"
+
+const ACTION_LABELS: Record<OrganizationAction, string> = {
+  apply: "Applying Config",
+  "deploy-runtime": "Pulling Image and Applying Config",
+  "provision-openai-key": "Provisioning OpenAI API Key",
+  "refresh-image": "Pulling and Restarting Image",
 }
 
 export function PlatformOrganizationActions({
@@ -54,6 +69,8 @@ export function PlatformOrganizationActions({
   const [grantCreditsValue, setGrantCreditsValue] = useState("100000")
   const [grantNote, setGrantNote] = useState("")
   const [isPending, setIsPending] = useState(false)
+  const [syncJobId, setSyncJobId] = useState<string | null>(null)
+  const [syncMessage, setSyncMessage] = useState("")
 
   async function invalidate() {
     await Promise.all([
@@ -66,25 +83,25 @@ export function PlatformOrganizationActions({
     ])
   }
 
-  async function runAction(
-    action:
-      | "apply"
-      | "deploy-runtime"
-      | "provision-openai-key"
-      | "refresh-image",
-  ) {
+  async function runAction(action: OrganizationAction) {
     setIsPending(true)
 
     try {
-      if (action === "apply") {
-        await applyPlatformOrganization(orgSlug)
-      } else if (action === "deploy-runtime") {
-        await deployPlatformRuntime(orgSlug)
-      } else if (action === "provision-openai-key") {
-        await provisionPlatformOpenAiKey(orgSlug)
-      } else {
-        await refreshPlatformRuntimeImage(orgSlug)
-      }
+      const result =
+        action === "apply"
+          ? await applyPlatformOrganization(orgSlug)
+          : action === "deploy-runtime"
+            ? await deployPlatformRuntime(orgSlug)
+            : action === "provision-openai-key"
+              ? await provisionPlatformOpenAiKey(orgSlug)
+              : await refreshPlatformRuntimeImage(orgSlug)
+
+      setSyncJobId(result.jobId)
+      setSyncMessage(
+        action === "provision-openai-key" && hasTenantOpenAiProvider
+          ? "Rotating OpenAI API Key"
+          : ACTION_LABELS[action],
+      )
 
       toast.success(
         action === "apply"
@@ -97,6 +114,7 @@ export function PlatformOrganizationActions({
                 : "Queued OpenAI key provisioning."
               : "Queued runtime image refresh.",
       )
+
       await invalidate()
     } catch (error) {
       toast.error(
@@ -154,6 +172,17 @@ export function PlatformOrganizationActions({
 
   return (
     <>
+      {syncJobId ? (
+        <PlatformSyncNotification
+          jobId={syncJobId}
+          message={syncMessage}
+          onDone={() => {
+            setSyncJobId(null)
+            setSyncMessage("")
+          }}
+          orgSlug={orgSlug}
+        />
+      ) : null}
       <Dialog open={isGrantDialogOpen} onOpenChange={setIsGrantDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -211,9 +240,9 @@ export function PlatformOrganizationActions({
           render={
             <Button
               aria-label="Open organization actions"
+              disabled={isPending || syncJobId !== null}
               size="icon-sm"
               variant="ghost"
-              disabled={isPending}
             />
           }
         >
@@ -222,28 +251,28 @@ export function PlatformOrganizationActions({
         <DropdownMenuContent align="end" className="min-w-60">
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || isPending}
+            disabled={!hasTenant || isPending || syncJobId !== null}
             onClick={() => setIsGrantDialogOpen(true)}
           >
             Grant credits
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending}
+            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
             onClick={() => runAction("deploy-runtime")}
           >
             Pull new image and apply config
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending}
+            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
             onClick={() => runAction("apply")}
           >
             Apply tenant config
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || isPending}
+            disabled={!hasTenant || isPending || syncJobId !== null}
             onClick={() => runAction("provision-openai-key")}
           >
             {hasTenantOpenAiProvider
@@ -252,7 +281,7 @@ export function PlatformOrganizationActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending}
+            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
             onClick={() => runAction("refresh-image")}
           >
             Pull and restart image

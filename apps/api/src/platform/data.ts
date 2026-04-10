@@ -35,8 +35,10 @@ import {
 
 import { enqueueJob } from "../jobs/queue"
 import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
+import { getWorkspaceBillingOverview } from "../billing/data"
 import { getApiEnv } from "../env"
 import type { WorkspaceSummary } from "../workspace/data"
+import { inspectObservedRuntimeImageForTenant } from "./runtime"
 
 const OPENAI_PROVIDER_KEY = "openai"
 const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token"
@@ -92,8 +94,20 @@ function extractRuntimeImageVersion(image: string | null) {
     return null
   }
 
-  const tag = image.split(":")[1]
-  return tag && tag.length > 0 ? tag : null
+  const digestSeparatorIndex = image.indexOf("@")
+
+  if (digestSeparatorIndex >= 0) {
+    return image.slice(digestSeparatorIndex + 1)
+  }
+
+  const lastColonIndex = image.lastIndexOf(":")
+  const lastSlashIndex = image.lastIndexOf("/")
+
+  if (lastColonIndex > lastSlashIndex) {
+    return image.slice(lastColonIndex + 1)
+  }
+
+  return null
 }
 
 function buildSlackIntegrationSummary(
@@ -225,45 +239,23 @@ function buildJobSummary(
 async function getObservedRuntimeImagesByTenant(
   tenantRows: Array<{
     id: string
-    name: string
+    serverStatus: string | null
+    status: string
   }>,
 ) {
-  const db = getDb()
-  const rows =
-    tenantRows.length === 0
-      ? []
-      : await db
-          .select({
-            configuredImage: tenantDesiredStates.configJson,
-            tenantId: tenantDesiredStates.tenantId,
-          })
-          .from(tenantDesiredStates)
-          .where(inArray(tenantDesiredStates.tenantId, tenantRows.map((row) => row.id)))
-          .orderBy(desc(tenantDesiredStates.version))
+  const observedImages = await Promise.all(
+    tenantRows.map(async (tenant) => {
+      const image = await inspectObservedRuntimeImageForTenant({
+        serverStatus: tenant.serverStatus,
+        status: tenant.status,
+        tenantId: tenant.id,
+      })
 
-  const images = new Map<string, string | null>()
+      return [tenant.id, image] as const
+    }),
+  )
 
-  for (const row of rows) {
-    if (images.has(row.tenantId)) {
-      continue
-    }
-
-    const configJson =
-      row.configuredImage && typeof row.configuredImage === "object"
-        ? (row.configuredImage as Record<string, unknown>)
-        : null
-    const runtimeImage =
-      configJson &&
-      typeof configJson.runtime === "object" &&
-      configJson.runtime &&
-      typeof (configJson.runtime as Record<string, unknown>).image === "string"
-        ? ((configJson.runtime as Record<string, unknown>).image as string)
-        : null
-
-    images.set(row.tenantId, runtimeImage)
-  }
-
-  return images
+  return new Map(observedImages)
 }
 
 async function getTenantOpenAiProviderSummary(tenantId: string) {
@@ -423,7 +415,8 @@ export async function getPlatformOrganizations(input: {
   const observedRuntimeImagesByTenant = await getObservedRuntimeImagesByTenant(
     Array.from(latestTenantByOrganizationId.values()).map((tenant) => ({
       id: tenant.id,
-      name: tenant.name,
+      serverStatus: tenant.serverStatus,
+      status: tenant.status,
     })),
   )
 
@@ -647,6 +640,7 @@ export async function getPlatformOrganizationDetail(input: {
 
   if (!tenant) {
     return {
+      billing: null,
       configuredRuntimeImage,
       configuredRuntimeImageVersion,
       id: organization.id,
@@ -671,6 +665,7 @@ export async function getPlatformOrganizationDetail(input: {
     latestDesiredStateVersion,
     openAiProvider,
     observedRuntimeImagesByTenant,
+    billingOverview,
   ] = await Promise.all([
     db
       .select({
@@ -748,7 +743,16 @@ export async function getPlatformOrganizationDetail(input: {
       .limit(200),
     getLatestDesiredStateVersion(tenant.id),
     getTenantOpenAiProviderSummary(tenant.id),
-    getObservedRuntimeImagesByTenant([{ id: tenant.id, name: tenant.name }]),
+    getObservedRuntimeImagesByTenant([
+      {
+        id: tenant.id,
+        serverStatus: tenant.serverStatus,
+        status: tenant.status,
+      },
+    ]),
+    getWorkspaceBillingOverview({
+      organizationId: organization.id,
+    }),
   ])
 
   const recentJobIds = recentJobRows.map((job) => job.id)
@@ -791,6 +795,19 @@ export async function getPlatformOrganizationDetail(input: {
   const observedRuntimeImage = observedRuntimeImagesByTenant.get(tenant.id) ?? null
 
   return {
+    billing: tenant
+      ? {
+          currentBalanceCreditsMilli:
+            billingOverview.balance.currentBalanceCreditsMilli,
+          currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
+          currentPeriodStart:
+            billingOverview.subscription?.currentPeriodStart ?? null,
+          totalDebitedCreditsMilli:
+            billingOverview.balance.totalDebitedCreditsMilli,
+          totalGrantedCreditsMilli:
+            billingOverview.balance.totalGrantedCreditsMilli,
+        }
+      : null,
     configuredRuntimeImage,
     configuredRuntimeImageVersion,
     id: organization.id,

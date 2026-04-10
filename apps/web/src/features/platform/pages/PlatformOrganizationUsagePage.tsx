@@ -1,25 +1,14 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 
-import {
-  platformOrganizationDetailQueryOptions,
-  platformUsageQueryOptions,
-} from "@/features/platform/api/platform"
-import {
-  SettingsCard,
-  SettingsPage,
-  SettingsRow,
-  SettingsRowLabel,
-  SettingsRowTitle,
-  SettingsSection,
-  SettingsSectionDescription,
-  SettingsSectionTitle,
-} from "@/client/app/app-shell/SettingsLayout"
+import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
+import { PlatformUsageContent } from "@/features/platform/components/PlatformUsageContent"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { getPreviousBillingCycleRange } from "@/features/usage/date-ranges"
 
 export interface PlatformOrganizationUsagePageProps {
   orgSlug: string
@@ -31,7 +20,8 @@ export function PlatformOrganizationUsagePage({
   const { data: detail } = useSuspenseQuery(
     platformOrganizationDetailQueryOptions(orgSlug),
   )
-  const tenant = detail.organization.tenant
+  const organization = detail.organization
+  const tenant = organization.tenant
 
   if (!tenant) {
     return (
@@ -65,87 +55,34 @@ export function PlatformOrganizationUsagePage({
     )
   }
 
-  const to = new Date()
-  const from = new Date(to)
-  from.setDate(from.getDate() - 30)
-  const { data } = useQuery(
-    platformUsageQueryOptions({
-      from: from.toISOString(),
-      orgSlug,
-      to: to.toISOString(),
-    }),
-  )
+  const currentPeriodStart = organization.billing?.currentPeriodStart
+    ? new Date(organization.billing.currentPeriodStart)
+    : null
+  const currentPeriodEnd = organization.billing?.currentPeriodEnd
+    ? new Date(organization.billing.currentPeriodEnd)
+    : null
+  const previousCycleRange = getPreviousBillingCycleRange({
+    currentPeriodEnd,
+    currentPeriodStart,
+  })
 
   return (
-    <div className="px-4 pb-6 md:px-6">
-      <SettingsPage className="mx-0 max-w-4xl">
-        <div className="flex flex-col gap-10">
-          <SettingsSection>
-            <SettingsSectionTitle>Usage summary</SettingsSectionTitle>
-            <SettingsSectionDescription>
-              Provider usage over the last 30 days.
-            </SettingsSectionDescription>
-            <SettingsCard>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Requests</SettingsRowTitle>
-                </SettingsRowLabel>
-                <div className="text-sm text-foreground">
-                  {data?.summary.totalRequests ?? 0}
-                </div>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Input tokens</SettingsRowTitle>
-                </SettingsRowLabel>
-                <div className="text-sm text-foreground">
-                  {data?.summary.totalInputTokens ?? 0}
-                </div>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Output tokens</SettingsRowTitle>
-                </SettingsRowLabel>
-                <div className="text-sm text-foreground">
-                  {data?.summary.totalOutputTokens ?? 0}
-                </div>
-              </SettingsRow>
-              <SettingsRow>
-                <SettingsRowLabel>
-                  <SettingsRowTitle>Credits burned</SettingsRowTitle>
-                </SettingsRowLabel>
-                <div className="text-sm text-foreground">
-                  {data?.summary.totalCreditsBurnedMilli ?? 0}
-                </div>
-              </SettingsRow>
-            </SettingsCard>
-          </SettingsSection>
-
-          <SettingsSection>
-            <SettingsSectionTitle>Usage by model</SettingsSectionTitle>
-            <SettingsCard>
-              {data?.usageByModel.length ? (
-                data.usageByModel.map((row) => (
-                  <SettingsRow key={`${row.usageType}:${row.model}`}>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>{row.model || row.usageType}</SettingsRowTitle>
-                    </SettingsRowLabel>
-                    <div className="text-sm text-foreground">
-                      {row.requestCount} requests · {row.totalTokens} tokens
-                    </div>
-                  </SettingsRow>
-                ))
-              ) : (
-                <SettingsRow>
-                  <div className="text-sm text-muted-foreground">
-                    No usage data for this period.
-                  </div>
-                </SettingsRow>
-              )}
-            </SettingsCard>
-          </SettingsSection>
-        </div>
-      </SettingsPage>
-    </div>
+    <PlatformUsageContent
+      creditBalance={{
+        currentBalanceCreditsMilli:
+          organization.billing?.currentBalanceCreditsMilli ?? 0,
+        totalDebitedCreditsMilli:
+          organization.billing?.totalDebitedCreditsMilli ?? 0,
+        totalGrantedCreditsMilli:
+          organization.billing?.totalGrantedCreditsMilli ?? 0,
+      }}
+      currentCycleEndIso={organization.billing?.currentPeriodEnd ?? null}
+      currentCycleStartIso={organization.billing?.currentPeriodStart ?? null}
+      locale={organization.locale}
+      orgSlug={orgSlug}
+      previousCycleEndIso={previousCycleRange?.to.toISOString() ?? null}
+      previousCycleStartIso={previousCycleRange?.from.toISOString() ?? null}
+      timezone={organization.timezone}
+    />
   )
 }
