@@ -849,10 +849,12 @@ Exit criteria:
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now owns the currently shipped native route surface directly instead of delegating through adapter-mounted legacy route families
-  - `packages/auth`, `packages/features/runtime-core`, `packages/features/workspace-core`, `packages/features/integrations-runtime`, and `packages/features/worker-runtime` now exist for the extracted services
+  - `packages/auth`, `packages/features/runtime-core`, `packages/features/workspace-core`, and `packages/features/integrations-runtime` now exist for the extracted services
+  - `packages/legacy-control-plane-runtime` has been retired and deleted because no extracted service still depends on it
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - `apps/api` now also owns the current apex-domain auth, webhook, and internal runtime routes natively
+  - `packages/features/integrations-runtime` is now constrained to backend/runtime code only; dormant browser-facing integration UI files were removed instead of being carried in the shared runtime package
   - `apps/web` now has a real routed shell with workspace `usage` and workspace `settings` slices plus a same-origin `/login` entry page
 - current browser-facing production split in repo config:
   - apex domain on `web`
@@ -974,7 +976,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: production compose cutover wired with worker env/queue/execution behavior now owned by `packages/features/worker-runtime`; deployment verification pending
+  - status: production compose cutover wired with worker env/queue/execution behavior now owned directly by `apps/worker/src/runtime`; deployment verification pending
 
 ### Session update rules
 

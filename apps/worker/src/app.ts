@@ -1,8 +1,18 @@
-type WorkerLane = string
+import { getEnv, getRuntimeSshAuthSource } from "./runtime/lib/env"
+import type { JobLane } from "./runtime/lib/jobs/lanes"
+import {
+  claimAvailableJobsForLane,
+  reclaimStaleRunningJobsForLane,
+} from "./runtime/lib/jobs/queue"
+import type { ClaimedJob } from "./runtime/lib/jobs/types"
+import {
+  ensureWorkerSchedulerJobsSeeded,
+  getLaneConcurrency,
+  getWorkerLanes,
+  processClaimedJob,
+} from "./runtime/lib/jobs/worker"
 
-type ClaimedJob = {
-  id: string
-}
+type WorkerLane = JobLane
 
 type WorkerEnv = {
   WORKER_POLL_INTERVAL_MS: number
@@ -46,9 +56,6 @@ type WorkerStartDependencies = {
   ) => Promise<void>
 }
 
-const envModulePath = "@otto/feature-worker-runtime/lib/env"
-const queueModulePath = "@otto/feature-worker-runtime/lib/jobs/queue"
-const workerModulePath = "@otto/feature-worker-runtime/lib/jobs/worker"
 const OPENAI_ADMIN_TRANSIENT_STATUS_PATTERN =
   /^OpenAI admin API request failed \((5\d{2})\)(?::.*)?$/
 
@@ -98,28 +105,15 @@ export async function runWorkerLaneLoop(
 }
 
 export async function loadWorkerRuntime(): Promise<WorkerRuntime> {
-  const [envModule, queueModule, workerModule] = await Promise.all([
-    import(envModulePath),
-    import(queueModulePath),
-    import(workerModulePath),
-  ])
-
   return {
-    claimAvailableJobsForLane:
-      queueModule.claimAvailableJobsForLane as WorkerRuntime["claimAvailableJobsForLane"],
-    ensureWorkerSchedulerJobsSeeded:
-      workerModule.ensureWorkerSchedulerJobsSeeded as WorkerRuntime["ensureWorkerSchedulerJobsSeeded"],
-    getEnv: envModule.getEnv as WorkerRuntime["getEnv"],
-    getLaneConcurrency:
-      workerModule.getLaneConcurrency as WorkerRuntime["getLaneConcurrency"],
-    getRuntimeSshAuthSource:
-      envModule.getRuntimeSshAuthSource as WorkerRuntime["getRuntimeSshAuthSource"],
-    getWorkerLanes:
-      workerModule.getWorkerLanes as WorkerRuntime["getWorkerLanes"],
-    processClaimedJob:
-      workerModule.processClaimedJob as WorkerRuntime["processClaimedJob"],
-    reclaimStaleRunningJobsForLane:
-      queueModule.reclaimStaleRunningJobsForLane as WorkerRuntime["reclaimStaleRunningJobsForLane"],
+    claimAvailableJobsForLane,
+    ensureWorkerSchedulerJobsSeeded,
+    getEnv,
+    getLaneConcurrency,
+    getRuntimeSshAuthSource,
+    getWorkerLanes,
+    processClaimedJob,
+    reclaimStaleRunningJobsForLane,
   }
 }
 

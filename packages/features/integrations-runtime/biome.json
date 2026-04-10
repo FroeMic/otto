@@ -7,9 +7,7 @@
       "!src/**/*.test.ts",
       "!src/**/*.tsx",
       "!src/integrations/framework/ingress.ts",
-      "!src/integrations/framework/ui/**",
       "!src/integrations/library/slack/ingress/**",
-      "!src/integrations/library/whatsapp/**",
       "!dist"
     ]
   },

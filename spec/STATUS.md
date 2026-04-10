@@ -35,7 +35,7 @@
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
-  - `apps/worker` now loads env, queue, and execution behavior from `packages/features/worker-runtime`, a backend-only package that is free of `web/src`, legacy compatibility-package imports, and browser/Next-only dependencies
+  - `apps/worker` now owns its env, queue, and execution behavior directly under `apps/worker/src/runtime`, so worker-only runtime logic no longer lives in a repo-level shared package
   - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
   - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
   - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
@@ -56,10 +56,10 @@
   - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
   - `packages/features/runtime-core` owns managed-config and managed-skills route logic
   - `packages/features/workspace-core` now owns workspace shell bootstrap, usage, and workspace settings route logic
-  - `packages/features/integrations-runtime` now owns gateway runtime auth and execute behavior
-  - `packages/features/worker-runtime` now owns worker env, queue, and execution behavior
-  - the extracted apps consume those shared packages directly
+  - `packages/features/integrations-runtime` now owns shared gateway and API runtime auth, execute, registry, and integration command behavior without carrying dormant browser UI files
+  - the extracted apps consume shared packages only where the logic is actually shared
   - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
+  - `packages/legacy-control-plane-runtime` has been deleted now that no extracted service depends on it
 - The first real frontend shell now exists:
   - `apps/web` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
   - `apps/web` now owns the same-origin `/login` entry page for the new shell
