@@ -201,10 +201,6 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request
   tenantId: string
 }) {
-  console.log("[audio-proxy:api] request received", {
-    contentType: input.request.headers.get("content-type"),
-  })
-
   const [apiKey, balanceCreditsMilli] = await Promise.all([
     getTenantOpenAiApiKey(input.tenantId),
     getTenantCreditBalanceMilli(input.tenantId),
@@ -236,14 +232,9 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     if (firstLine.startsWith("--")) {
       const boundary = firstLine.slice(2)
       contentType = `multipart/form-data; boundary=${boundary}`
-      console.log("[audio-proxy:api] fixed Content-Type from incoming", {
-        original: incomingContentType,
-        detected: contentType,
-      })
     } else {
-      console.error("[audio-proxy:api] body does not look like multipart", {
+      console.error("[audio-proxy] unexpected body encoding", {
         contentType: incomingContentType,
-        firstBytes: firstLine.slice(0, 60),
       })
     }
   }
@@ -267,9 +258,11 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     )
   }
 
-  console.log("[audio-proxy:api] upstream response", {
-    status: upstreamResponse.status,
-  })
+  if (!upstreamResponse.ok) {
+    console.error("[audio-proxy] upstream error", {
+      status: upstreamResponse.status,
+    })
+  }
 
   return new Response(upstreamResponse.body, {
     headers: buildOpenAiResponseHeaders(upstreamResponse.headers),

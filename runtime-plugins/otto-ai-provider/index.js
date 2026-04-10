@@ -1,8 +1,6 @@
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { transcribeOpenAiCompatibleAudio } from "openclaw/plugin-sdk/media-understanding";
-import { createSubsystemLogger } from "openclaw/plugin-sdk/logging-core";
 
-const log = createSubsystemLogger("otto-ai-provider");
 const PROVIDER_ID = "openai-proxy";
 const PROVIDER_LABEL = "OpenAI Proxy";
 const DEFAULT_CONTEXT_TOKENS = 272_000;
@@ -67,49 +65,19 @@ export default defineSingleProviderPluginEntry({
       normalizeModelId(modelId).startsWith("gpt-5"),
   },
   register(api) {
-    log.info("Registering media-understanding provider for audio transcription");
     api.registerMediaUnderstandingProvider({
       id: PROVIDER_ID,
       capabilities: ["audio"],
       transcribeAudio: async (params) => {
-        log.info("transcribeAudio called", {
-          hasBaseUrl: params.baseUrl != null,
-          baseUrlPreview: params.baseUrl
-            ? `${params.baseUrl.slice(0, 40)}...`
-            : "(undefined)",
-          model: params.model,
-          hasApiKey: params.apiKey != null,
-          mime: params.mime,
-          fileName: params.fileName,
+        const baseUrl = resolveProxyBaseUrl(params.baseUrl);
+
+        return transcribeOpenAiCompatibleAudio({
+          ...params,
+          baseUrl,
+          defaultBaseUrl: baseUrl,
+          defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
+          provider: PROVIDER_ID,
         });
-
-        try {
-          const baseUrl = resolveProxyBaseUrl(params.baseUrl);
-          log.info("Resolved transcription baseUrl", {
-            resolvedBaseUrl: `${baseUrl.slice(0, 40)}...`,
-            source: params.baseUrl ? "pipeline" : "env-fallback",
-          });
-
-          const result = await transcribeOpenAiCompatibleAudio({
-            ...params,
-            baseUrl,
-            defaultBaseUrl: baseUrl,
-            defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
-            provider: PROVIDER_ID,
-          });
-
-          log.info("transcribeAudio succeeded", {
-            model: result.model,
-            textLength: result.text?.length,
-          });
-
-          return result;
-        } catch (err) {
-          log.error("transcribeAudio failed", {
-            error: String(err),
-          });
-          throw err;
-        }
       },
     });
   },

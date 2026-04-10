@@ -73,14 +73,9 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     if (firstLine.startsWith("--")) {
       const boundary = firstLine.slice(2);
       contentType = `multipart/form-data; boundary=${boundary}`;
-      console.log("[audio-proxy:web] fixed Content-Type from incoming", {
-        original: incomingContentType,
-        detected: contentType,
-      });
     } else {
-      console.error("[audio-proxy:web] body does not look like multipart", {
+      console.error("[audio-proxy] unexpected body encoding", {
         contentType: incomingContentType,
-        firstBytes: firstLine.slice(0, 60),
       });
     }
   }
@@ -104,9 +99,11 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     );
   }
 
-  console.log("[audio-proxy:web] upstream response", {
-    status: upstreamResponse.status,
-  });
+  if (!upstreamResponse.ok) {
+    console.error("[audio-proxy] upstream error", {
+      status: upstreamResponse.status,
+    });
+  }
 
   return new Response(upstreamResponse.body, {
     headers: buildOpenAiResponseHeaders(upstreamResponse.headers),
