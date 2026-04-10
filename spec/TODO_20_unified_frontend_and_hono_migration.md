@@ -848,12 +848,11 @@ Exit criteria:
   - `apps/web` now owns the former `www` landing surface
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
-  - `apps/api` now mirrors the current route-handler surface from `web/` through adapter-mounted route families
-  - `packages/auth`, `packages/features/runtime-core`, and `packages/features/workspace-core` now exist for the extracted services
-  - `packages/legacy-control-plane-runtime` now holds a compatibility copy of legacy server/runtime source so `apps/gateway` and `apps/worker` no longer import `web/src` at runtime
+  - `apps/api` now owns the currently shipped native route surface directly instead of delegating through adapter-mounted legacy route families
+  - `packages/auth`, `packages/features/runtime-core`, `packages/features/workspace-core`, `packages/features/integrations-runtime`, and `packages/features/worker-runtime` now exist for the extracted services
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
-  - the compatibility proxy in `apps/api` is narrowed to remaining legacy user-profile routes
+  - `apps/api` now also owns the current apex-domain auth, webhook, and internal runtime routes natively
   - `apps/web` now has a real routed shell with workspace `usage` and workspace `settings` slices plus a same-origin `/login` entry page
 - current browser-facing production split in repo config:
   - apex domain on `web`
@@ -906,18 +905,18 @@ Current checkpoint:
 
 - complete in parallel implementation for:
   - `apps/web`
-  - service/process boundaries for `apps/gateway`
-  - service/process boundaries for `apps/worker`
+  - service/process and code boundaries for `apps/gateway`
+  - service/process and code boundaries for `apps/worker`
+  - current native route ownership in `apps/api` for auth, webhooks, workspace bootstrap/settings/usage, and internal runtime routes
 - partial in parallel implementation for:
-  - `apps/gateway` and `apps/worker` currently still depend on repo-level compatibility copies of legacy runtime code, which does not satisfy the actual extraction goal; they still require a proper code port before Phases 1 and 2 can be marked complete
-  - legacy business logic still residing under `web/src/app/**/route.ts` while `apps/api` delegates to it
-  - `apps/api` consumes extracted shared packages for some slices, but still depends on `web/src` imports and adapter-mounted legacy Next route handlers; this does not yet satisfy the actual extraction goal for Phase 3
-  - other authenticated workspace and platform families still adapter-mounted or proxied until their feature packages are extracted
+  - production verification is still pending before Phases 1 and 2 can be marked complete
+  - `apps/api` is now free of `web/src` imports and legacy route adapters, but broader workspace, user/profile, OAuth follow-on, and platform/operator families remain intentionally unported until the corresponding `apps/web` slices land
+  - other authenticated workspace and platform families remain intentionally absent from `apps/api` until they have a migrated caller in the new shell
 - cutover still pending
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
 - the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
-- the legacy `web/` route handlers remain present and untouched as the API fallback
-- next implementation targets are expanding `apps/web` slice coverage on top of the new slug-based shell and continuing `apps/api` native route coverage
+- the legacy `web/` route handlers remain present and untouched as the legacy app fallback on `legacy-web`
+- next implementation targets are expanding `apps/web` slice coverage on top of the new slug-based shell and only porting the next `apps/api` families that the migrated shell actually needs
 
 ### Phase checklist
 
@@ -951,7 +950,7 @@ Current checkpoint:
 - `web` route handlers:
   - current owner: legacy Next.js app
   - target owner: `api`
-  - status: parallel port complete, with apex-domain `/api/*` routing now wired in compose and Caddy; deployment verification pending
+  - status: parallel port complete for the currently shipped route surface, with apex-domain `/api/*` routing wired in compose and Caddy and no legacy route adapters left in `apps/api`; broader route families will be added natively only as new shell slices require them
 - `internal runtime managed-config and managed-skills`:
   - current owner: shared runtime-core package plus thin route wrappers
   - target owner: `apps/api`
@@ -975,7 +974,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: production compose cutover wired, deployment verification pending
+  - status: production compose cutover wired with worker env/queue/execution behavior now owned by `packages/features/worker-runtime`; deployment verification pending
 
 ### Session update rules
 
