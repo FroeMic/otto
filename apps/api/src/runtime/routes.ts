@@ -14,7 +14,7 @@ import { z } from "zod"
 
 import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
-import { authenticateTenantRuntimeRequest } from "../runtime/auth"
+import { authenticateTenantRuntimeRequest } from "./auth"
 import {
   findRuntimeIntegrationCommandsForTenant,
   getRuntimeIntegrationConnectionActionForTenant,
@@ -22,13 +22,13 @@ import {
   getRuntimeIntegrationForTenant,
   getRuntimeIntegrationSettingsForTenant,
   listRuntimeIntegrationsForTenant,
-} from "../runtime/integrations"
+} from "./integrations"
 import {
   getLatestTenantManagedConfig,
   ManagedConfigVersionConflictError,
   normalizeManagedBootstrapFilePath,
   updateTenantManagedFileSharedContentForTenant,
-} from "../runtime/managed-config-data"
+} from "./managed-config-data"
 import {
   createTenantManagedSkillForTenant,
   deleteTenantManagedSkillForTenant,
@@ -36,35 +36,35 @@ import {
   listTenantManagedSkillsForTenant,
   ManagedSkillVersionConflictError,
   updateTenantManagedSkillForTenant,
-} from "../runtime/managed-skills-data"
+} from "./managed-skills-data"
 import {
   OpenAiProxyError,
   proxyOpenAiAudioTranscriptionsRequest,
   proxyOpenAiResponsesRequest,
-} from "../runtime/openai-proxy"
+} from "./openai-proxy"
 import {
   listTenantScheduledTasks,
   replaceTenantScheduledTasksSnapshot,
   upsertTenantScheduledTaskRuns,
-} from "../runtime/scheduled-tasks-data"
+} from "./scheduled-tasks-data"
 import {
   normalizeRuntimeRun,
   normalizeRuntimeTask,
   type RuntimeCronJob,
   type RuntimeCronRun,
-} from "../runtime/scheduled-tasks-sync"
+} from "./scheduled-tasks-sync"
 import {
   type TenantSessionUpsertInput,
   upsertTenantSessionBatch,
-} from "../runtime/sessions"
+} from "./sessions"
 import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,
-} from "../runtime/web-search"
+} from "./web-search"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
 import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 
-export function registerRuntimeCoreRoutes(app: Hono) {
+export function registerRuntimeRoutes(app: Hono) {
   app.get("/api/internal/runtime/integrations", async (context) => {
     try {
       const { tenantId } = await authenticateTenantRuntimeRequest(

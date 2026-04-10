@@ -7,9 +7,9 @@ import {
   ChartPieSliceIcon,
   GearIcon,
 } from "@phosphor-icons/react"
+import type { ShellBootstrap } from "@otto/feature-workspace-core"
 import { Link, useMatchRoute } from "@tanstack/react-router"
 
-import type { ShellBootstrap } from "@/client/api"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {

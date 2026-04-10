@@ -5,9 +5,9 @@ import { Hono } from "hono"
 import { afterEach, describe, it, vi } from "vitest"
 
 import {
-  registerWorkspaceCoreRoutes,
-  type WorkspaceCoreRouteDependencies,
-} from "./workspace-core"
+  registerWorkspaceRoutes,
+  type WorkspaceRouteDependencies,
+} from "./routes"
 
 const user = {
   email: "test@getyourotto.com",
@@ -16,7 +16,7 @@ const user = {
   lastName: "User",
 }
 
-function createDependencies(): WorkspaceCoreRouteDependencies {
+function createDependencies(): WorkspaceRouteDependencies {
   return {
     authenticateWorkspaceUser: async () => user,
     getCurrentWorkspace: async () => ({
@@ -71,22 +71,22 @@ function createDependencies(): WorkspaceCoreRouteDependencies {
   }
 }
 
-function createWorkspaceCoreTestApp(
-  dependencies: WorkspaceCoreRouteDependencies = createDependencies(),
+function createWorkspaceTestApp(
+  dependencies: WorkspaceRouteDependencies = createDependencies(),
 ) {
   const app = new Hono()
-  registerWorkspaceCoreRoutes(app, dependencies)
+  registerWorkspaceRoutes(app, dependencies)
 
   return app
 }
 
-describe("workspace core native routes", () => {
+describe("workspace routes", () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
   it("returns the shell bootstrap payload", async () => {
-    const app = createWorkspaceCoreTestApp()
+    const app = createWorkspaceTestApp()
     const response = await app.request(
       "http://api.local/api/web/bootstrap/otto",
     )
@@ -123,7 +123,7 @@ describe("workspace core native routes", () => {
   })
 
   it("falls back to the current workspace when dashboard organization loading fails", async () => {
-    const app = createWorkspaceCoreTestApp({
+    const app = createWorkspaceTestApp({
       ...createDependencies(),
       getCurrentWorkspace: async () => ({
         id: "org_1",
@@ -175,7 +175,7 @@ describe("workspace core native routes", () => {
   })
 
   it("returns usage through the native workspace route", async () => {
-    const app = createWorkspaceCoreTestApp()
+    const app = createWorkspaceTestApp()
     const response = await app.request(
       "http://api.local/api/workspace/otto/usage?from=2026-01-01T00:00:00.000Z&to=2026-01-31T00:00:00.000Z",
     )
@@ -190,7 +190,7 @@ describe("workspace core native routes", () => {
   })
 
   it("updates workspace settings through the native workspace route", async () => {
-    const app = createWorkspaceCoreTestApp()
+    const app = createWorkspaceTestApp()
     const response = await app.request(
       "http://api.local/api/workspace/otto/settings",
       {
@@ -212,7 +212,7 @@ describe("workspace core native routes", () => {
   })
 
   it("returns 401 when the workspace session is missing", async () => {
-    const app = createWorkspaceCoreTestApp({
+    const app = createWorkspaceTestApp({
       ...createDependencies(),
       authenticateWorkspaceUser: async () => {
         throw new WorkspaceSessionAuthError(
@@ -236,7 +236,7 @@ describe("workspace core native routes", () => {
     const errorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined)
-    const app = createWorkspaceCoreTestApp({
+    const app = createWorkspaceTestApp({
       ...createDependencies(),
       getCurrentWorkspace: async () => {
         throw new Error("workspace lookup query failed")

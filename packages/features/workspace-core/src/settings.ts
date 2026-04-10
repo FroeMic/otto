@@ -5,12 +5,14 @@ import * as z from "zod"
 import type { WorkspaceShellUser } from "./bootstrap"
 import {
   workspaceSettingsSuccessSchema,
+  type WorkspaceSettingsUpdate,
   workspaceSettingsUpdateSchema,
 } from "./schemas"
 
 export async function handleWorkspaceSettingsUpdateRequest<
   TUser extends WorkspaceShellUser,
 >(input: {
+  body: WorkspaceSettingsUpdate
   getOrganizationWorkspaceBySlug: (payload: {
     orgSlug: string
     userExternalId: string
@@ -21,7 +23,6 @@ export async function handleWorkspaceSettingsUpdateRequest<
     name: string
     organizationId: string
   }) => Promise<void>
-  request: Request
   syncUserFromSession: (user: TUser) => Promise<unknown>
   updateOrganizationSlug: (payload: {
     organizationId: string
@@ -42,7 +43,7 @@ export async function handleWorkspaceSettingsUpdateRequest<
 }) {
   try {
     await input.syncUserFromSession(input.user)
-    const body = workspaceSettingsUpdateSchema.parse(await input.request.json())
+    const body = workspaceSettingsUpdateSchema.parse(input.body)
     const organization = await input.getOrganizationWorkspaceBySlug({
       orgSlug: input.orgSlug,
       userExternalId: input.user.id,

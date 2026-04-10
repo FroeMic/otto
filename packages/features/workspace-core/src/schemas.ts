@@ -29,6 +29,7 @@ export const shellBootstrapSchema = z.object({
 
 export const usageTimeSeriesEntrySchema = z.object({
   bucketStart: z.string().optional().nullable(),
+  creditsBurnedMilli: z.number().optional().nullable(),
   inputTokens: z.number().optional().nullable(),
   outputTokens: z.number().optional().nullable(),
   requests: z.number().optional().nullable(),
@@ -139,6 +140,7 @@ export const usageSearchSchema = z.object({
 })
 
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>
+export type ShellBootstrap = z.infer<typeof shellBootstrapSchema>
 export type WorkspaceUsageOverview = z.infer<typeof usageOverviewSchema>
 export type WorkspaceSettingsUpdate = z.infer<
   typeof workspaceSettingsUpdateSchema
