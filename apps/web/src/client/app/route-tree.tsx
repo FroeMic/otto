@@ -4,6 +4,7 @@ import {
   createRoute,
   Outlet,
 } from "@tanstack/react-router"
+import { z } from "zod"
 
 import { SettingsShell } from "@/client/app/app-shell/SettingsShell"
 import { WorkspaceShell } from "@/client/app/app-shell/WorkspaceShell"
@@ -51,6 +52,24 @@ function WorkspaceUserSettingsRoutePage() {
   return <UserProfilePage orgSlug={orgSlug} />
 }
 
+function WorkspaceUsageRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <UsagePage orgSlug={orgSlug} />
+}
+
+function WorkspaceBillingRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <BillingPage orgSlug={orgSlug} />
+}
+
+function WorkspaceBillingPlansRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <BillingPlansPage orgSlug={orgSlug} />
+}
+
 function WorkspaceSettingsRedirectRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
@@ -61,6 +80,10 @@ export const rootRoute = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   component: Outlet,
+})
+
+const billingSearchSchema = z.object({
+  checkout: z.enum(["success", "canceled"]).optional(),
 })
 
 const homeRoute = createRoute({
@@ -116,19 +139,20 @@ const workspaceSettingsMembersRoute = createRoute({
 })
 
 const workspaceSettingsUsageRoute = createRoute({
-  component: UsagePage,
+  component: WorkspaceUsageRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   path: "/workspace/usage",
 })
 
 const workspaceSettingsBillingRoute = createRoute({
-  component: BillingPage,
+  component: WorkspaceBillingRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   path: "/workspace/billing",
+  validateSearch: (search) => billingSearchSchema.parse(search),
 })
 
 const workspaceSettingsBillingPlansRoute = createRoute({
-  component: BillingPlansPage,
+  component: WorkspaceBillingPlansRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   path: "/workspace/billing/plans",
 })

@@ -2,6 +2,10 @@ import { Hono } from "hono"
 import { logger } from "hono/logger"
 
 import { registerAuthRoutes } from "./auth"
+import {
+  createBillingRouter,
+  type BillingRouteDependencies,
+} from "./billing/routes"
 import { registerRuntimeCoreRoutes } from "./native/runtime-core"
 import { createWorkspaceCoreRouter } from "./native/workspace-core"
 import {
@@ -10,6 +14,7 @@ import {
 } from "./user/routes"
 
 export type CreateApiAppOptions = {
+  billingRoutes?: BillingRouteDependencies
   userRoutes?: UserRouteDependencies
 }
 
@@ -29,6 +34,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       )
     })
     .route("/", createWorkspaceCoreRouter())
+    .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createUserRouter(options.userRoutes))
 
   registerAuthRoutes(app)

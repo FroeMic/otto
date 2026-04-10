@@ -198,4 +198,180 @@ describe("api app", () => {
       ],
     })
   })
+
+  it("exposes workspace billing overview natively", async () => {
+    const app = createApiApp({
+      billingRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getBillingOverview: async () => ({
+          autoTopOff: {
+            latestRun: null,
+          },
+          balance: {
+            currentBalanceCreditsMilli: 42_000,
+            latestEntryCreatedAt: null,
+            totalDebitedCreditsMilli: 1_000,
+            totalGrantedCreditsMilli: 43_000,
+          },
+          billingConfigured: true,
+          currentCycleSpendCents: 1_200,
+          customer: null,
+          invoices: [],
+          invoicesError: null,
+          nextAutoReloadChargeCents: null,
+          organization: {
+            id: "org_1",
+            name: "Otto",
+            slug: "otto",
+          },
+          plans: [
+            {
+              creditsIncluded: 10_000,
+              key: "basic_monthly",
+              monthlyPriceUsd: 20,
+              name: "Basic",
+            },
+          ],
+          preferences: {
+            autoTopOffEnabled: false,
+            minimumBalanceCredits: 1_000,
+            monthlySpendLimitCents: 25_000,
+            topOffAmountCents: 2_000,
+          },
+          subscription: null,
+          tenant: null,
+        }),
+      },
+      userRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getConnectedAccounts: async () => [],
+        getUserProfile: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          lastName: "Frohlich",
+        }),
+        updateUserProfile: async ({ firstName, lastName }) => ({
+          email: "michael@getyourotto.com",
+          firstName,
+          lastName,
+        }),
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/billing/overview",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      autoTopOff: {
+        latestRun: null,
+      },
+      balance: {
+        currentBalanceCreditsMilli: 42_000,
+        latestEntryCreatedAt: null,
+        totalDebitedCreditsMilli: 1_000,
+        totalGrantedCreditsMilli: 43_000,
+      },
+      billingConfigured: true,
+      currentCycleSpendCents: 1_200,
+      customer: null,
+      invoices: [],
+      invoicesError: null,
+      nextAutoReloadChargeCents: null,
+      organization: {
+        id: "org_1",
+        name: "Otto",
+        slug: "otto",
+      },
+      plans: [
+        {
+          creditsIncluded: 10_000,
+          key: "basic_monthly",
+          monthlyPriceUsd: 20,
+          name: "Basic",
+        },
+      ],
+      preferences: {
+        autoTopOffEnabled: false,
+        minimumBalanceCredits: 1_000,
+        monthlySpendLimitCents: 25_000,
+        topOffAmountCents: 2_000,
+      },
+      subscription: null,
+      tenant: null,
+    })
+  })
+
+  it("updates billing preferences natively", async () => {
+    const app = createApiApp({
+      billingRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getBillingOverview: async () => {
+          throw new Error("not used")
+        },
+        updateBillingPreferences: async ({ preferences }) => ({
+          ...preferences,
+        }),
+      },
+      userRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getConnectedAccounts: async () => [],
+        getUserProfile: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          lastName: "Frohlich",
+        }),
+        updateUserProfile: async ({ firstName, lastName }) => ({
+          email: "michael@getyourotto.com",
+          firstName,
+          lastName,
+        }),
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/billing/preferences",
+      {
+        body: JSON.stringify({
+          autoTopOffEnabled: true,
+          minimumBalanceCredits: 500,
+          monthlySpendLimitCents: 50_000,
+          topOffAmountCents: 5_000,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      preferences: {
+        autoTopOffEnabled: true,
+        minimumBalanceCredits: 500,
+        monthlySpendLimitCents: 50_000,
+        topOffAmountCents: 5_000,
+      },
+    })
+  })
 })

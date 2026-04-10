@@ -1,11 +1,24 @@
-export function UsagePage() {
+import { useSuspenseQuery } from "@tanstack/react-query"
+
+import { SettingsPage } from "@/client/app/app-shell/SettingsLayout"
+import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
+import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
+
+import { WorkspaceUsageContent } from "../components/WorkspaceUsageContent"
+
+export interface UsagePageProps {
+  orgSlug: string
+}
+
+export function UsagePage({ orgSlug }: UsagePageProps) {
+  const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+
   return (
-    <div className="rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm">
-      <p className="text-sm font-medium">Usage</p>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Usage remains available through the native API and will move into the
-        new shell in the next pass.
-      </p>
-    </div>
+    <SettingsPage>
+      <WorkspaceUsageContent
+        locale={shellData.currentOrganization.locale}
+        orgSlug={orgSlug}
+      />
+    </SettingsPage>
   )
 }

@@ -172,6 +172,8 @@ export async function getOrganizationWorkspaceBySlug(input: {
     .select({
       externalId: organizations.externalId,
       id: organizations.id,
+      name: organizations.name,
+      slug: organizations.slug,
     })
     .from(memberships)
     .innerJoin(users, eq(memberships.userId, users.id))
@@ -352,6 +354,7 @@ export async function getTenantProviderUsageOverview(input: {
       db
         .select({
           bucketStart: bucketTruncExpression,
+          creditsBurnedMilli: creditsBurnedMilliExpression,
           inputTokens: sql`coalesce(sum(${providerUsageBuckets.inputTokens}), 0)`,
           outputTokens: sql`coalesce(sum(${providerUsageBuckets.outputTokens}), 0)`,
           requests: requestCountExpression,
@@ -418,6 +421,7 @@ export async function getTenantProviderUsageOverview(input: {
       bucketStart:
         dateFromValue(row.bucketStart)?.toISOString() ??
         new Date(0).toISOString(),
+      creditsBurnedMilli: numberFromValue(row.creditsBurnedMilli),
       inputTokens: numberFromValue(row.inputTokens),
       outputTokens: numberFromValue(row.outputTokens),
       requests: numberFromValue(row.requests),

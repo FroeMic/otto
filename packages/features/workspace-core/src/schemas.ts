@@ -29,6 +29,7 @@ export const shellBootstrapSchema = z.object({
 
 export const usageTimeSeriesEntrySchema = z.object({
   bucketStart: z.string().optional().nullable(),
+  creditsBurnedMilli: z.number().optional().nullable(),
   inputTokens: z.number().optional().nullable(),
   outputTokens: z.number().optional().nullable(),
   requests: z.number().optional().nullable(),

@@ -46,6 +46,27 @@ export function usageOverviewQueryOptions(
   })
 }
 
+export async function loadUsageOverview(input: {
+  orgSlug: string
+  search: Required<UsageSearch>
+}) {
+  const response = await apiClient.api.workspace[":orgSlug"].usage.$get({
+    param: {
+      orgSlug: input.orgSlug,
+    },
+    query: input.search,
+  })
+  const data = (await response.json()) as {
+    message?: string
+  } & UsageOverview
+
+  if (!response.ok) {
+    throw new Error(data.message ?? "Request failed")
+  }
+
+  return usageOverviewSchema.parse(data) as UsageOverview
+}
+
 export {
   usageOverviewSchema,
   usageSearchSchema,

@@ -3,13 +3,15 @@ import {
   billingAutoTopOffRuns,
   billingCheckoutSessions,
   billingCustomers,
+  billingPreferences,
   billingSubscriptions,
   billingWebhookEvents,
   creditGrants,
   creditLedgerEntries,
+  organizations,
   tenants,
 } from "@otto/feature-integrations-runtime/db/schema"
-import { eq } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 
 import {
   CREDIT_LEDGER_ENTRY_TYPES,
@@ -19,7 +21,37 @@ import {
   type BillingPlanKey,
   getAutoTopOffPackByLookupKey,
   getBillingPlanByKey,
+  getBillingPlans,
 } from "./plans"
+
+export type BillingPreferencesRecord = {
+  autoTopOffEnabled: boolean
+  minimumBalanceCredits: number
+  monthlySpendLimitCents: number
+  topOffAmountCents: number
+}
+
+export const DEFAULT_BILLING_PREFERENCES: BillingPreferencesRecord = {
+  autoTopOffEnabled: false,
+  minimumBalanceCredits: 2_000,
+  monthlySpendLimitCents: 20_000,
+  topOffAmountCents: 2_000,
+}
+
+export type BillingAutoTopOffRunSummary = {
+  completedAt: Date | null
+  createdAt: Date
+  creditsGrantedMilli: number
+  failureReason: string | null
+  status: string
+  stripeInvoiceId: string | null
+  topOffAmountCents: number
+}
+
+export type BillingCycleWindow = {
+  end: Date | null
+  start: Date
+}
 
 type StripeCustomerRecordInput = {
   defaultCurrency?: string | null
@@ -44,6 +76,63 @@ function normalizeDate(value: Date | null | undefined) {
   return value ?? null
 }
 
+function startOfMonth(date: Date) {
+  const next = new Date(date)
+  next.setDate(1)
+  next.setHours(0, 0, 0, 0)
+  return next
+}
+
+function numberFromValue(value: unknown) {
+  if (typeof value === "number") {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  return 0
+}
+
+function dateFromValue(value: unknown) {
+  if (value instanceof Date) {
+    return value
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  return null
+}
+
+async function getTenantCreditBalanceSummary(input: { tenantId: string }) {
+  const db = getDb()
+  const [summary] = await db
+    .select({
+      currentBalanceCreditsMilli: sql`coalesce(sum(${creditLedgerEntries.creditsDeltaMilli}), 0)`,
+      latestEntryCreatedAt: sql<Date | null>`max(${creditLedgerEntries.createdAt})`,
+      totalDebitedCreditsMilli: sql`coalesce(sum(case when ${creditLedgerEntries.creditsDeltaMilli} < 0 then -${creditLedgerEntries.creditsDeltaMilli} else 0 end), 0)`,
+      totalGrantedCreditsMilli: sql`coalesce(sum(case when ${creditLedgerEntries.creditsDeltaMilli} > 0 then ${creditLedgerEntries.creditsDeltaMilli} else 0 end), 0)`,
+    })
+    .from(creditLedgerEntries)
+    .where(eq(creditLedgerEntries.tenantId, input.tenantId))
+
+  return {
+    currentBalanceCreditsMilli: numberFromValue(
+      summary?.currentBalanceCreditsMilli,
+    ),
+    latestEntryCreatedAt: dateFromValue(summary?.latestEntryCreatedAt),
+    totalDebitedCreditsMilli: numberFromValue(summary?.totalDebitedCreditsMilli),
+    totalGrantedCreditsMilli: numberFromValue(
+      summary?.totalGrantedCreditsMilli,
+    ),
+  }
+}
+
 async function getOrganizationTenantForBilling(organizationId: string) {
   const db = getDb()
   const [tenant] = await db
@@ -56,6 +145,167 @@ async function getOrganizationTenantForBilling(organizationId: string) {
     .limit(1)
 
   return tenant ?? null
+}
+
+export function getBillingCycleWindow(input: {
+  currentPeriodEnd?: Date | null
+  currentPeriodStart?: Date | null
+  now?: Date
+}): BillingCycleWindow {
+  const now = input.now ?? new Date()
+
+  if (input.currentPeriodStart) {
+    return {
+      end: input.currentPeriodEnd ?? null,
+      start: input.currentPeriodStart,
+    }
+  }
+
+  return {
+    end: null,
+    start: startOfMonth(now),
+  }
+}
+
+export async function findBillingCustomerByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb()
+  const [customer] = await db
+    .select()
+    .from(billingCustomers)
+    .where(eq(billingCustomers.organizationId, organizationId))
+    .limit(1)
+
+  return customer ?? null
+}
+
+export async function findBillingSubscriptionByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb()
+  const [subscription] = await db
+    .select()
+    .from(billingSubscriptions)
+    .where(eq(billingSubscriptions.organizationId, organizationId))
+    .limit(1)
+
+  return subscription ?? null
+}
+
+export async function getBillingPreferencesByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb()
+  const [preferences] = await db
+    .select()
+    .from(billingPreferences)
+    .where(eq(billingPreferences.organizationId, organizationId))
+    .limit(1)
+
+  return preferences ?? null
+}
+
+export async function upsertBillingPreferences(input: {
+  organizationId: string
+  preferences: BillingPreferencesRecord
+}) {
+  const db = getDb()
+  const now = new Date()
+  const [record] = await db
+    .insert(billingPreferences)
+    .values({
+      autoTopOffEnabled: input.preferences.autoTopOffEnabled,
+      minimumBalanceCredits: input.preferences.minimumBalanceCredits,
+      monthlySpendLimitCents: input.preferences.monthlySpendLimitCents,
+      organizationId: input.organizationId,
+      topOffAmountCents: input.preferences.topOffAmountCents,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        autoTopOffEnabled: input.preferences.autoTopOffEnabled,
+        minimumBalanceCredits: input.preferences.minimumBalanceCredits,
+        monthlySpendLimitCents: input.preferences.monthlySpendLimitCents,
+        topOffAmountCents: input.preferences.topOffAmountCents,
+        updatedAt: now,
+      },
+      target: billingPreferences.organizationId,
+    })
+    .returning()
+
+  return record ?? null
+}
+
+export async function findLatestBillingAutoTopOffRunByOrganizationId(
+  organizationId: string,
+) {
+  const db = getDb()
+  const [run] = await db
+    .select({
+      completedAt: billingAutoTopOffRuns.completedAt,
+      createdAt: billingAutoTopOffRuns.createdAt,
+      creditsGrantedMilli: billingAutoTopOffRuns.creditsGrantedMilli,
+      failureReason: billingAutoTopOffRuns.failureReason,
+      status: billingAutoTopOffRuns.status,
+      stripeInvoiceId: billingAutoTopOffRuns.stripeInvoiceId,
+      topOffAmountCents: billingAutoTopOffRuns.topOffAmountCents,
+    })
+    .from(billingAutoTopOffRuns)
+    .where(eq(billingAutoTopOffRuns.organizationId, organizationId))
+    .orderBy(desc(billingAutoTopOffRuns.createdAt))
+    .limit(1)
+
+  return (run ?? null) as BillingAutoTopOffRunSummary | null
+}
+
+export async function getWorkspaceBillingOverview(input: {
+  organizationId: string
+}) {
+  const db = getDb()
+
+  const [organization, subscription, customer, preferences, tenant] =
+    await Promise.all([
+      db
+        .select({
+          id: organizations.id,
+          name: organizations.name,
+          slug: organizations.slug,
+        })
+        .from(organizations)
+        .where(eq(organizations.id, input.organizationId))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      findBillingSubscriptionByOrganizationId(input.organizationId),
+      findBillingCustomerByOrganizationId(input.organizationId),
+      getBillingPreferencesByOrganizationId(input.organizationId),
+      getOrganizationTenantForBilling(input.organizationId),
+    ])
+
+  const balance = tenant
+    ? await getTenantCreditBalanceSummary({ tenantId: tenant.id })
+    : {
+        currentBalanceCreditsMilli: 0,
+        latestEntryCreatedAt: null,
+        totalDebitedCreditsMilli: 0,
+        totalGrantedCreditsMilli: 0,
+      }
+
+  const latestAutoTopOffRun =
+    await findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId)
+
+  return {
+    autoTopOff: {
+      latestRun: latestAutoTopOffRun,
+    },
+    balance,
+    customer,
+    organization,
+    plans: getBillingPlans(),
+    preferences: preferences ?? DEFAULT_BILLING_PREFERENCES,
+    subscription,
+    tenant,
+  }
 }
 
 export async function findOrganizationIdByStripeCustomerId(
