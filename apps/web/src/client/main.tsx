@@ -1,11 +1,4 @@
 import {
-  BuildingsIcon,
-  GearIcon,
-  HouseLineIcon,
-  SignOutIcon,
-  SparkleIcon,
-} from "@phosphor-icons/react"
-import {
   QueryClient,
   QueryClientProvider,
   useMutation,
@@ -26,22 +19,21 @@ import {
 import { lazy, StrictMode, Suspense, useEffect, useId, useState } from "react"
 import { createRoot } from "react-dom/client"
 
+import { AppSidebar } from "@/components/app-sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
+  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -83,153 +75,56 @@ function RootPage() {
   )
 }
 
-type WorkspaceMenuLinkProps = {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  params?: { orgSlug: string }
-  to: "/$orgSlug" | "/$orgSlug/settings/workspace" | "/platform"
-}
-
-function WorkspaceMenuLink({
-  icon: Icon,
-  label,
-  params,
-  to,
-}: WorkspaceMenuLinkProps) {
-  const matchRoute = useMatchRoute()
-  const isActive = Boolean(
-    params
-      ? matchRoute({ fuzzy: true, params, to })
-      : matchRoute({ fuzzy: true, to }),
-  )
-
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        render={
-          params ? (
-            <Link params={params} preload="intent" to={to} />
-          ) : (
-            <Link preload="intent" to={to} />
-          )
-        }
-        isActive={isActive}
-        tooltip={label}
-      >
-        <Icon />
-        <span>{label}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  )
-}
-
 function WorkspaceLayout() {
   const { orgSlug } = workspaceRoute.useParams()
+  const matchRoute = useMatchRoute()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const isSettingsRoute = Boolean(
+    matchRoute({
+      fuzzy: true,
+      params: { orgSlug },
+      to: "/$orgSlug/settings/workspace",
+    }),
+  )
+  const breadcrumbLabel = isSettingsRoute ? "Workspace settings" : "Overview"
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="gap-4 border-b border-sidebar-border/70">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
-              <SparkleIcon weight="fill" />
-            </div>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="text-sm font-medium">Otto</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">
-                {data.currentOrganization.name}
-              </p>
-            </div>
-          </div>
-        </SidebarHeader>
+      <AppSidebar data={data} orgSlug={orgSlug} />
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <WorkspaceMenuLink
-                  icon={HouseLineIcon}
-                  label="Overview"
-                  params={{ orgSlug }}
-                  to="/$orgSlug"
-                />
-                <WorkspaceMenuLink
-                  icon={GearIcon}
-                  label="Settings"
-                  params={{ orgSlug }}
-                  to="/$orgSlug/settings/workspace"
-                />
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {data.organizations.map((organization) => (
-                  <WorkspaceMenuLink
-                    key={organization.id}
-                    icon={BuildingsIcon}
-                    label={organization.name}
-                    params={{ orgSlug: organization.slug }}
-                    to="/$orgSlug"
-                  />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {data.user.isPlatformAdmin ? (
-            <SidebarGroup>
-              <SidebarGroupLabel>Operator</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <WorkspaceMenuLink
-                    icon={BuildingsIcon}
-                    label="Platform"
-                    to="/platform"
-                  />
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ) : null}
-        </SidebarContent>
-
-        <SidebarFooter className="border-t border-sidebar-border/70">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  window.location.assign("/auth/sign-out")
-                }}
-                tooltip="Sign out"
-              >
-                <SignOutIcon />
-                <span>Sign out</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-
-      <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur md:px-6">
-          <SidebarTrigger />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {data.currentOrganization.name}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              /{data.currentOrganization.slug}
-            </p>
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <SidebarSeparator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        params={{ orgSlug }}
+                        preload="intent"
+                        to="/$orgSlug"
+                      />
+                    }
+                  >
+                    {data.currentOrganization.name}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           <Outlet />
         </div>
       </SidebarInset>
