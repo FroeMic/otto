@@ -44,12 +44,6 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request;
   tenantId: string;
 }) {
-  const incomingContentType = input.request.headers.get("content-type");
-  console.log("[audio-proxy:web] request received", {
-    contentType: incomingContentType,
-    method: input.request.method,
-  });
-
   const apiKey = await getTenantOpenAiApiKey(input.tenantId);
   const balanceCreditsMilli = await getTenantCreditBalanceMilli(input.tenantId);
 
@@ -65,45 +59,41 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     );
   }
 
-  // Try FormData parsing first; fall back to raw buffer if it fails.
-  let upstreamBody: BodyInit;
-  let upstreamHeaders: HeadersInit;
+  // The OpenClaw runtime sends multipart/form-data bodies but an upstream
+  // fetch quirk can set the Content-Type header to text/plain instead of
+  // multipart/form-data. The raw body IS correctly multipart-encoded — only
+  // the header is wrong. Detect the boundary from the body and reconstruct
+  // the correct Content-Type before forwarding to OpenAI.
+  const bodyBuffer = Buffer.from(await input.request.arrayBuffer());
+  const incomingContentType = input.request.headers.get("content-type");
+  let contentType = incomingContentType ?? "";
 
-  try {
-    const formData = await input.request.formData();
-    console.log("[audio-proxy:web] formData parsed", {
-      keys: [...formData.keys()],
-      hasModel: formData.has("model"),
-      hasFile: formData.has("file"),
-    });
-    upstreamBody = formData;
-    upstreamHeaders = { Authorization: `Bearer ${apiKey}` };
-  } catch (parseErr) {
-    console.error(
-      "[audio-proxy:web] formData parse failed, falling back to raw buffer",
-      String(parseErr),
-    );
-    // Fallback: re-read body as raw buffer and forward with original Content-Type
-    const bodyBuffer = Buffer.from(await input.request.arrayBuffer());
-    console.log("[audio-proxy:web] raw buffer fallback", {
-      bodySize: bodyBuffer.length,
-      contentType: incomingContentType,
-    });
-    upstreamBody = bodyBuffer;
-    const headers = new Headers();
-    if (incomingContentType) {
-      headers.set("Content-Type", incomingContentType);
+  if (!contentType.startsWith("multipart/form-data")) {
+    const firstLine = bodyBuffer.subarray(0, 200).toString("utf-8").split("\r\n")[0];
+    if (firstLine.startsWith("--")) {
+      const boundary = firstLine.slice(2);
+      contentType = `multipart/form-data; boundary=${boundary}`;
+      console.log("[audio-proxy:web] fixed Content-Type from incoming", {
+        original: incomingContentType,
+        detected: contentType,
+      });
+    } else {
+      console.error("[audio-proxy:web] body does not look like multipart", {
+        contentType: incomingContentType,
+        firstBytes: firstLine.slice(0, 60),
+      });
     }
-    headers.set("Authorization", `Bearer ${apiKey}`);
-    upstreamHeaders = headers;
   }
 
   let upstreamResponse: Response;
   try {
     upstreamResponse = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
       method: "POST",
-      headers: upstreamHeaders,
-      body: upstreamBody,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": contentType,
+      },
+      body: bodyBuffer,
     });
   } catch (error) {
     throw new OpenAiProxyError(
