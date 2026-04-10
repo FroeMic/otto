@@ -2,35 +2,20 @@ import { QueryClient } from "@tanstack/react-query"
 import {
   createRootRouteWithContext,
   createRoute,
+  lazyRouteComponent,
   Outlet,
 } from "@tanstack/react-router"
 import { z } from "zod"
 
 import { SettingsShell } from "@/client/app/app-shell/SettingsShell"
-import { PlatformShell } from "@/client/app/app-shell/PlatformShell"
 import { WorkspaceShell } from "@/client/app/app-shell/WorkspaceShell"
-import { PlatformOrganizationRedirectPage } from "@/client/app/pages/PlatformOrganizationRedirectPage"
 import { PlatformAuthRequiredPage } from "@/client/app/pages/PlatformAuthRequiredPage"
-import { PlatformRedirectPage } from "@/client/app/pages/PlatformRedirectPage"
 import { RootPage } from "@/client/app/pages/RootPage"
 import { WorkspaceAuthRequiredPage } from "@/client/app/pages/WorkspaceAuthRequiredPage"
 import { WorkspaceSettingsRedirectPage } from "@/client/app/pages/WorkspaceSettingsRedirectPage"
 import { BillingPage } from "@/features/billing/pages/BillingPage"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
-import {
-  platformBootstrapQueryOptions,
-  platformOrganizationDetailQueryOptions,
-  platformOrganizationsQueryOptions,
-} from "@/features/platform/api/platform"
-import { PlatformOrganizationAccessPage } from "@/features/platform/pages/PlatformOrganizationAccessPage"
-import { PlatformOrganizationEventsPage } from "@/features/platform/pages/PlatformOrganizationEventsPage"
-import { PlatformOrganizationJobsPage } from "@/features/platform/pages/PlatformOrganizationJobsPage"
-import { PlatformOrganizationLayoutPage } from "@/features/platform/pages/PlatformOrganizationLayoutPage"
-import { PlatformOrganizationLogsPage } from "@/features/platform/pages/PlatformOrganizationLogsPage"
-import { PlatformOrganizationOverviewPage } from "@/features/platform/pages/PlatformOrganizationOverviewPage"
-import { PlatformOrganizationsPage } from "@/features/platform/pages/PlatformOrganizationsPage"
-import { PlatformOrganizationUsagePage } from "@/features/platform/pages/PlatformOrganizationUsagePage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import {
   ApiResponseError,
@@ -50,6 +35,10 @@ function WorkspaceRouteOutlet() {
 
 function PlatformRouteOutlet() {
   return <Outlet />
+}
+
+async function importPlatformApiModule() {
+  return import("@/features/platform/api/platform")
 }
 
 function WorkspaceShellRoute() {
@@ -133,14 +122,6 @@ function WorkspaceRouteErrorPage(props: { error: unknown }) {
   throw props.error
 }
 
-function PlatformShellRoute() {
-  return (
-    <PlatformShell>
-      <Outlet />
-    </PlatformShell>
-  )
-}
-
 function PlatformRouteErrorPage(props: { error: unknown }) {
   if (props.error instanceof ApiResponseError) {
     if (props.error.status === 401) {
@@ -164,62 +145,6 @@ function PlatformRouteErrorPage(props: { error: unknown }) {
   }
 
   throw props.error
-}
-
-function PlatformOrganizationsRoutePage() {
-  return <PlatformOrganizationsPage />
-}
-
-function PlatformOrganizationLayoutRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationLayoutPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationOverviewRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationOverviewPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationUsageRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationUsagePage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationAccessRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationAccessPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationJobsRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationJobsPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationEventsRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationEventsPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformOrganizationLogsRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationLogsPage orgSlug={platformOrgSlug} />
-}
-
-function PlatformRedirectRoutePage() {
-  return <PlatformRedirectPage />
-}
-
-function PlatformOrganizationRedirectRoutePage() {
-  const { platformOrgSlug } = platformOrganizationRoute.useParams()
-
-  return <PlatformOrganizationRedirectPage orgSlug={platformOrgSlug} />
 }
 
 export const rootRoute = createRootRouteWithContext<{
@@ -327,79 +252,124 @@ const platformRoute = createRoute({
   component: PlatformRouteOutlet,
   errorComponent: PlatformRouteErrorPage,
   getParentRoute: () => rootRoute,
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(platformBootstrapQueryOptions()),
+  loader: async ({ context }) => {
+    const { platformBootstrapQueryOptions } = await importPlatformApiModule()
+
+    return context.queryClient.ensureQueryData(platformBootstrapQueryOptions())
+  },
   path: "/platform",
 })
 
 const platformShellRoute = createRoute({
-  component: PlatformShellRoute,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformShellRoute",
+  ),
   getParentRoute: () => platformRoute,
   path: "/",
 })
 
 const platformIndexRoute = createRoute({
-  component: PlatformRedirectRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformRedirectRoutePage",
+  ),
   getParentRoute: () => platformShellRoute,
   path: "/",
 })
 
 const platformOrganizationsRoute = createRoute({
-  component: PlatformOrganizationsRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationsRoutePage",
+  ),
   getParentRoute: () => platformShellRoute,
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(platformOrganizationsQueryOptions()),
+  loader: async ({ context }) => {
+    const { platformOrganizationsQueryOptions } = await importPlatformApiModule()
+
+    return context.queryClient.ensureQueryData(
+      platformOrganizationsQueryOptions(),
+    )
+  },
   path: "/organizations",
 })
 
 const platformOrganizationRoute = createRoute({
-  component: PlatformOrganizationLayoutRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationLayoutRoutePage",
+  ),
   getParentRoute: () => platformShellRoute,
-  loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(
+  loader: async ({ context, params }) => {
+    const { platformOrganizationDetailQueryOptions } =
+      await importPlatformApiModule()
+
+    return context.queryClient.ensureQueryData(
       platformOrganizationDetailQueryOptions(params.platformOrgSlug),
-    ),
+    )
+  },
   path: "/organizations/$platformOrgSlug",
 })
 
 const platformOrganizationIndexRoute = createRoute({
-  component: PlatformOrganizationRedirectRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationRedirectRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/",
 })
 
 const platformOrganizationOverviewRoute = createRoute({
-  component: PlatformOrganizationOverviewRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationOverviewRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/overview",
 })
 
 const platformOrganizationUsageRoute = createRoute({
-  component: PlatformOrganizationUsageRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationUsageRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/usage",
 })
 
 const platformOrganizationAccessRoute = createRoute({
-  component: PlatformOrganizationAccessRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationAccessRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/access",
 })
 
 const platformOrganizationJobsRoute = createRoute({
-  component: PlatformOrganizationJobsRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationJobsRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/jobs",
 })
 
 const platformOrganizationEventsRoute = createRoute({
-  component: PlatformOrganizationEventsRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationEventsRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/events",
 })
 
 const platformOrganizationLogsRoute = createRoute({
-  component: PlatformOrganizationLogsRoutePage,
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformOrganizationLogsRoutePage",
+  ),
   getParentRoute: () => platformOrganizationRoute,
   path: "/logs",
 })
