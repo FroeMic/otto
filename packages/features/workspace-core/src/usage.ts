@@ -23,6 +23,7 @@ function getEmptyUsageOverview(): WorkspaceUsageOverview {
 export async function handleWorkspaceUsageRequest<
   TUser extends WorkspaceShellUser,
 >(input: {
+  from: Date
   getOrganizationTenantForBilling: (organizationId: string) => Promise<{
     id: string
   } | null>
@@ -36,25 +37,13 @@ export async function handleWorkspaceUsageRequest<
     to: Date
   }) => Promise<WorkspaceUsageOverview>
   orgSlug: string
-  request: Request
   syncUserFromSession: (user: TUser) => Promise<unknown>
+  to: Date
   user: TUser
 }) {
   try {
     await input.syncUserFromSession(input.user)
-    const url = new URL(input.request.url)
-    const fromParam = url.searchParams.get("from")
-    const toParam = url.searchParams.get("to")
-
-    if (!fromParam || !toParam) {
-      return jsonNoStore(
-        { code: "bad_request", message: "Missing from/to params" },
-        400,
-      )
-    }
-
-    const from = new Date(fromParam)
-    const to = new Date(toParam)
+    const { from, to } = input
 
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
       return jsonNoStore(

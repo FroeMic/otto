@@ -3,29 +3,36 @@ import { logger } from "hono/logger"
 
 import { registerAuthRoutes } from "./auth"
 import { registerRuntimeCoreRoutes } from "./native/runtime-core"
-import { registerWorkspaceCoreRoutes } from "./native/workspace-core"
-export function createApiApp() {
+import { createWorkspaceCoreRouter } from "./native/workspace-core"
+import {
+  createUserRouter,
+  type UserRouteDependencies,
+} from "./user/routes"
+
+export type CreateApiAppOptions = {
+  userRoutes?: UserRouteDependencies
+}
+
+export function createApiApp(options: CreateApiAppOptions = {}) {
   const app = new Hono()
-
-  app.use("*", logger())
-
-  app.get("/healthz", (context) => {
-    return context.json(
-      {
-        ok: true,
-        service: "api",
-      },
-      200,
-      {
-        "Cache-Control": "no-store",
-      },
-    )
-  })
+    .use("*", logger())
+    .get("/healthz", (context) => {
+      return context.json(
+        {
+          ok: true,
+          service: "api",
+        },
+        200,
+        {
+          "Cache-Control": "no-store",
+        },
+      )
+    })
+    .route("/", createWorkspaceCoreRouter())
+    .route("/", createUserRouter(options.userRoutes))
 
   registerAuthRoutes(app)
   registerRuntimeCoreRoutes(app)
-  registerWorkspaceCoreRoutes(app)
-
   app.notFound((context) => {
     return context.json(
       {
@@ -40,3 +47,5 @@ export function createApiApp() {
 
   return app
 }
+
+export type AppType = ReturnType<typeof createApiApp>

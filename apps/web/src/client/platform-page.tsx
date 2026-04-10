@@ -24,7 +24,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-export default function PlatformPage() {
+export function PlatformPage() {
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">

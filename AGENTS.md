@@ -70,6 +70,19 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
   - which execution surface runs it
   - whether it is truly shared or surface-specific
 - If related code for one domain is spread across multiple apps/packages, favor pulling shared domain logic into one coherent `packages/features/<domain>` home and leaving only thin adapters in the apps.
+- For the SPA in `apps/web`:
+  - keep route registration centralized in a dedicated routing module such as `src/client/app/route-tree.tsx`
+  - keep global shell code such as app shell, sidebar, header, settings shell, and index-route helpers under a dedicated app-shell area such as `src/client/app/app-shell/`
+  - organize feature code under `src/features/<feature>/`
+  - treat `settings` as a shell and navigation area, not as a bounded context for domain logic
+  - current preferred feature grouping is `workspace`, `usage`, and `billing`
+  - keep one page component per file
+- For React component files:
+  - define props in the same file near the top
+  - use an exported `interface` for props definitions
+  - export components as named exports only
+  - do not use default exports for components
+  - prefer named imports over namespace imports for local application code
 
 ## Repository shape
 
@@ -139,6 +152,8 @@ Highlight these skills when relevant:
   - confirm shared code is actually shared and surface-specific code stayed in the app
   - confirm new files did not introduce fresh catch-all `lib` or cross-domain sprawl
   - confirm new `apps/api` to `apps/web` routes use Hono RPC unless they fall under the tenant/runtime/plugin exception
+  - confirm SPA routes are still centralized and new pages live under the correct feature group
+  - confirm component files use local exported props interfaces, named exports, and named imports
   - note any intentional deviations explicitly in the PR description
 
 ## GitHub workflow expectation

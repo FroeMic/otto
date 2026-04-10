@@ -104,4 +104,98 @@ describe("api app", () => {
       error: "Missing Stripe signature header.",
     })
   })
+
+  it("exposes user profile update natively", async () => {
+    const app = createApiApp({
+      userRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getConnectedAccounts: async () => [],
+        getUserProfile: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          lastName: "Frohlich",
+        }),
+        updateUserProfile: async ({ firstName, lastName }) => ({
+          email: "michael@getyourotto.com",
+          firstName,
+          lastName,
+        }),
+      },
+    })
+    const response = await app.request("http://api.local/api/user/profile", {
+      body: JSON.stringify({
+        firstName: "Michael",
+        lastName: "Otto",
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      email: "michael@getyourotto.com",
+      firstName: "Michael",
+      lastName: "Otto",
+      name: "Michael Otto",
+    })
+  })
+
+  it("exposes connected accounts natively", async () => {
+    const app = createApiApp({
+      userRoutes: {
+        authenticateWorkspaceUser: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          id: "user_123",
+          lastName: "Frohlich",
+        }),
+        getConnectedAccounts: async () => [
+          {
+            avatarUrl: null,
+            displayName: "michael",
+            externalId: "U123",
+            fullName: "Michael Frohlich",
+            id: "identity_1",
+            provider: "slack",
+            username: "michael",
+          },
+        ],
+        getUserProfile: async () => ({
+          email: "michael@getyourotto.com",
+          firstName: "Michael",
+          lastName: "Frohlich",
+        }),
+        updateUserProfile: async ({ firstName, lastName }) => ({
+          email: "michael@getyourotto.com",
+          firstName,
+          lastName,
+        }),
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/connected-accounts",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      connectedAccounts: [
+        {
+          avatarUrl: null,
+          displayName: "michael",
+          externalId: "U123",
+          fullName: "Michael Frohlich",
+          id: "identity_1",
+          provider: "slack",
+          username: "michael",
+        },
+      ],
+    })
+  })
 })

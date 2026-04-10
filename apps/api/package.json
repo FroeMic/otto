@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.6",
+    "@hono/zod-validator": "^0.7.4",
     "@otto/auth": "workspace:*",
     "@otto/feature-integrations-runtime": "workspace:*",
     "@otto/feature-runtime-core": "workspace:*",

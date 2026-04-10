@@ -12,6 +12,19 @@ This folder is the source of truth for implementation planning and session-to-se
   - keep `apps/*` thin and surface-specific
   - keep genuinely shared domain logic in `packages/features/<domain>`
   - avoid catch-all growth in repo-wide `lib`, `db`, or utility buckets
+- For the SPA in `apps/web`:
+  - keep route registration centralized in a dedicated routing module
+  - keep shell code in a dedicated app-shell area
+  - organize domain code under feature groups
+  - current preferred feature groups are `workspace`, `usage`, and `billing`
+  - treat `settings` as shell/navigation structure, not as a domain feature group
+  - keep one page component per file
+- For React component files in the SPA:
+  - define props in the same file
+  - place an exported props `interface` near the top of the file
+  - use named component exports only
+  - avoid default component exports
+  - prefer named imports over namespace imports for local application code
 - For browser-facing app communication, `apps/api` to `apps/web` should use Hono RPC by default so route inputs and outputs stay type-safe across the stack.
 - Exception: routes primarily called by tenant servers or runtime plugins do not need to use Hono RPC and may remain plain HTTP interfaces.
 - Every spec should include:
@@ -31,6 +44,7 @@ This folder is the source of truth for implementation planning and session-to-se
 - When a spec is finished, rename it from `TODO_` to `DONE_` and update `STATUS.md`.
 - Before opening a PR, review the branch against the relevant spec and confirm the implementation still follows the repo's domain-first code organization model.
 - That pre-PR review should also confirm that new `apps/api` to `apps/web` routes use Hono RPC unless they fall under the tenant/runtime/plugin exception.
+- For SPA work, that pre-PR review should also confirm that routes are still centralized, shell code stays in the app-shell area, feature pages live under the correct feature group, and React files follow the props/export/import conventions above.
 
 ## Current implementation order
 
