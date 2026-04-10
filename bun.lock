@@ -14,6 +14,7 @@
         "@otto/auth": "workspace:*",
         "@otto/feature-billing": "workspace:*",
         "@otto/feature-integrations-runtime": "workspace:*",
+        "@otto/feature-platform": "workspace:*",
         "@otto/feature-runtime-core": "workspace:*",
         "@otto/feature-user-profile": "workspace:*",
         "@otto/feature-workspace-core": "workspace:*",
@@ -55,6 +56,7 @@
         "@fontsource-variable/geist": "^5.2.8",
         "@hono/node-server": "^1.19.6",
         "@otto/feature-billing": "workspace:*",
+        "@otto/feature-platform": "workspace:*",
         "@otto/feature-user-profile": "workspace:*",
         "@otto/feature-workspace-core": "workspace:*",
         "@otto/feature-workspace-members": "workspace:*",
@@ -149,6 +151,19 @@
         "dotenv": "^17.2.3",
         "drizzle-orm": "^0.44.6",
         "postgres": "^3.4.7",
+        "zod": "^4.1.12",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
+    "packages/features/platform": {
+      "name": "@otto/feature-platform",
+      "version": "0.1.0",
+      "dependencies": {
         "zod": "^4.1.12",
       },
       "devDependencies": {
@@ -432,6 +447,8 @@
     "@otto/feature-billing": ["@otto/feature-billing@workspace:packages/features/billing"],
 
     "@otto/feature-integrations-runtime": ["@otto/feature-integrations-runtime@workspace:packages/features/integrations-runtime"],
+
+    "@otto/feature-platform": ["@otto/feature-platform@workspace:packages/features/platform"],
 
     "@otto/feature-runtime-core": ["@otto/feature-runtime-core@workspace:packages/features/runtime-core"],
 

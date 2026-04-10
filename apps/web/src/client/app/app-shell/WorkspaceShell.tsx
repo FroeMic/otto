@@ -71,6 +71,7 @@ export function WorkspaceMenuLink({
 }
 
 export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
+  const matchRoute = useMatchRoute()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
@@ -143,11 +144,24 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
               <SidebarGroupLabel>Operator</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <WorkspaceMenuLink
-                    icon={BuildingsIcon}
-                    label="Platform"
-                    to="/platform"
-                  />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          preload="intent"
+                          search={() => ({
+                            workspace: orgSlug,
+                          })}
+                          to="/platform/organizations"
+                        />
+                      }
+                      isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
+                      tooltip="Platform"
+                    >
+                      <BuildingsIcon />
+                      <span>Platform</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

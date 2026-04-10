@@ -7,14 +7,30 @@ import {
 import { z } from "zod"
 
 import { SettingsShell } from "@/client/app/app-shell/SettingsShell"
+import { PlatformShell } from "@/client/app/app-shell/PlatformShell"
 import { WorkspaceShell } from "@/client/app/app-shell/WorkspaceShell"
-import { PlatformRoutePage } from "@/client/app/pages/PlatformRoutePage"
+import { PlatformOrganizationRedirectPage } from "@/client/app/pages/PlatformOrganizationRedirectPage"
+import { PlatformAuthRequiredPage } from "@/client/app/pages/PlatformAuthRequiredPage"
+import { PlatformRedirectPage } from "@/client/app/pages/PlatformRedirectPage"
 import { RootPage } from "@/client/app/pages/RootPage"
 import { WorkspaceAuthRequiredPage } from "@/client/app/pages/WorkspaceAuthRequiredPage"
 import { WorkspaceSettingsRedirectPage } from "@/client/app/pages/WorkspaceSettingsRedirectPage"
 import { BillingPage } from "@/features/billing/pages/BillingPage"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
+import {
+  platformBootstrapQueryOptions,
+  platformOrganizationDetailQueryOptions,
+  platformOrganizationsQueryOptions,
+} from "@/features/platform/api/platform"
+import { PlatformOrganizationAccessPage } from "@/features/platform/pages/PlatformOrganizationAccessPage"
+import { PlatformOrganizationEventsPage } from "@/features/platform/pages/PlatformOrganizationEventsPage"
+import { PlatformOrganizationJobsPage } from "@/features/platform/pages/PlatformOrganizationJobsPage"
+import { PlatformOrganizationLayoutPage } from "@/features/platform/pages/PlatformOrganizationLayoutPage"
+import { PlatformOrganizationLogsPage } from "@/features/platform/pages/PlatformOrganizationLogsPage"
+import { PlatformOrganizationOverviewPage } from "@/features/platform/pages/PlatformOrganizationOverviewPage"
+import { PlatformOrganizationsPage } from "@/features/platform/pages/PlatformOrganizationsPage"
+import { PlatformOrganizationUsagePage } from "@/features/platform/pages/PlatformOrganizationUsagePage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import {
   ApiResponseError,
@@ -29,6 +45,10 @@ import { WorkspaceOverviewPage } from "@/features/workspace/pages/WorkspaceOverv
 import { WorkspaceSettingsPage } from "@/features/workspace/pages/WorkspaceSettingsPage"
 
 function WorkspaceRouteOutlet() {
+  return <Outlet />
+}
+
+function PlatformRouteOutlet() {
   return <Outlet />
 }
 
@@ -111,6 +131,95 @@ function WorkspaceRouteErrorPage(props: { error: unknown }) {
   }
 
   throw props.error
+}
+
+function PlatformShellRoute() {
+  return (
+    <PlatformShell>
+      <Outlet />
+    </PlatformShell>
+  )
+}
+
+function PlatformRouteErrorPage(props: { error: unknown }) {
+  if (props.error instanceof ApiResponseError) {
+    if (props.error.status === 401) {
+      return <PlatformAuthRequiredPage message={props.error.message} />
+    }
+
+    if (props.error.status === 403) {
+      return (
+        <div className="flex min-h-[50vh] items-center justify-center px-6 py-16">
+          <div className="flex max-w-lg flex-col gap-3 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Platform access required
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              You need the platform admin role to access the operator UI.
+            </p>
+          </div>
+        </div>
+      )
+    }
+  }
+
+  throw props.error
+}
+
+function PlatformOrganizationsRoutePage() {
+  return <PlatformOrganizationsPage />
+}
+
+function PlatformOrganizationLayoutRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationLayoutPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationOverviewRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationOverviewPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationUsageRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationUsagePage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationAccessRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationAccessPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationJobsRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationJobsPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationEventsRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationEventsPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformOrganizationLogsRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationLogsPage orgSlug={platformOrgSlug} />
+}
+
+function PlatformRedirectRoutePage() {
+  return <PlatformRedirectPage />
+}
+
+function PlatformOrganizationRedirectRoutePage() {
+  const { platformOrgSlug } = platformOrganizationRoute.useParams()
+
+  return <PlatformOrganizationRedirectPage orgSlug={platformOrgSlug} />
 }
 
 export const rootRoute = createRootRouteWithContext<{
@@ -215,9 +324,84 @@ const workspaceSettingsBillingPlansRoute = createRoute({
 })
 
 const platformRoute = createRoute({
-  component: PlatformRoutePage,
+  component: PlatformRouteOutlet,
+  errorComponent: PlatformRouteErrorPage,
   getParentRoute: () => rootRoute,
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(platformBootstrapQueryOptions()),
   path: "/platform",
+})
+
+const platformShellRoute = createRoute({
+  component: PlatformShellRoute,
+  getParentRoute: () => platformRoute,
+  path: "/",
+})
+
+const platformIndexRoute = createRoute({
+  component: PlatformRedirectRoutePage,
+  getParentRoute: () => platformShellRoute,
+  path: "/",
+})
+
+const platformOrganizationsRoute = createRoute({
+  component: PlatformOrganizationsRoutePage,
+  getParentRoute: () => platformShellRoute,
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(platformOrganizationsQueryOptions()),
+  path: "/organizations",
+})
+
+const platformOrganizationRoute = createRoute({
+  component: PlatformOrganizationLayoutRoutePage,
+  getParentRoute: () => platformShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      platformOrganizationDetailQueryOptions(params.platformOrgSlug),
+    ),
+  path: "/organizations/$platformOrgSlug",
+})
+
+const platformOrganizationIndexRoute = createRoute({
+  component: PlatformOrganizationRedirectRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/",
+})
+
+const platformOrganizationOverviewRoute = createRoute({
+  component: PlatformOrganizationOverviewRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/overview",
+})
+
+const platformOrganizationUsageRoute = createRoute({
+  component: PlatformOrganizationUsageRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/usage",
+})
+
+const platformOrganizationAccessRoute = createRoute({
+  component: PlatformOrganizationAccessRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/access",
+})
+
+const platformOrganizationJobsRoute = createRoute({
+  component: PlatformOrganizationJobsRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/jobs",
+})
+
+const platformOrganizationEventsRoute = createRoute({
+  component: PlatformOrganizationEventsRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/events",
+})
+
+const platformOrganizationLogsRoute = createRoute({
+  component: PlatformOrganizationLogsRoutePage,
+  getParentRoute: () => platformOrganizationRoute,
+  path: "/logs",
 })
 
 export const routeTree = rootRoute.addChildren([
@@ -234,5 +418,19 @@ export const routeTree = rootRoute.addChildren([
       workspaceSettingsBillingPlansRoute,
     ]),
   ]),
-  platformRoute,
+  platformRoute.addChildren([
+    platformShellRoute.addChildren([
+      platformIndexRoute,
+      platformOrganizationsRoute,
+      platformOrganizationRoute.addChildren([
+        platformOrganizationIndexRoute,
+        platformOrganizationOverviewRoute,
+        platformOrganizationUsageRoute,
+        platformOrganizationAccessRoute,
+        platformOrganizationJobsRoute,
+        platformOrganizationEventsRoute,
+        platformOrganizationLogsRoute,
+      ]),
+    ]),
+  ]),
 ])

@@ -7,6 +7,7 @@ const rawApiEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  RUNTIME_OPENCLAW_IMAGE: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_BASE_URL_BETA: z.string().url().optional(),
@@ -23,6 +24,7 @@ export type ApiEnv = {
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
   PUBLIC_APP_BASE_URL: string
+  RUNTIME_OPENCLAW_IMAGE?: string
   WORKOS_API_KEY?: string
   WORKOS_CLIENT_ID?: string
   WORKOS_COOKIE_NAME?: string
@@ -105,6 +107,7 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,
+    RUNTIME_OPENCLAW_IMAGE: raw.RUNTIME_OPENCLAW_IMAGE?.trim() || undefined,
     WORKOS_API_KEY: raw.WORKOS_API_KEY?.trim() || undefined,
     WORKOS_CLIENT_ID: raw.WORKOS_CLIENT_ID?.trim() || undefined,
     WORKOS_COOKIE_NAME: raw.WORKOS_COOKIE_NAME?.trim() || undefined,
