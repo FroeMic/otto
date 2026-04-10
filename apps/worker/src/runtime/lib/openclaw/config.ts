@@ -45,7 +45,7 @@ export type OpenClawTenantConfig = {
   ottoPlugins?: Array<{
     config?: Record<string, unknown>;
     id: string;
-    timeoutMs: number;
+    timeoutMs?: number;
   }>;
   ottoProviderPlugins?: Array<{
     id: string;
@@ -197,10 +197,18 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
       {
-        config: {
-          ...(plugin.config ?? {}),
-          timeoutMs: plugin.timeoutMs,
-        },
+        ...(() => {
+          const pluginConfig = {
+            ...(plugin.config ?? {}),
+            ...(plugin.timeoutMs === undefined
+              ? {}
+              : { timeoutMs: plugin.timeoutMs }),
+          };
+
+          return Object.keys(pluginConfig).length > 0
+            ? { config: pluginConfig }
+            : {};
+        })(),
         enabled: true,
       },
     ]),
@@ -596,7 +604,6 @@ export function buildOpenClawTenantConfig(input: {
             },
             {
               id: "otto-workspace-chat",
-              timeoutMs: 15_000,
             },
           ],
         }
