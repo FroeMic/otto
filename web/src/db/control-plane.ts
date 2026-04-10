@@ -22,6 +22,7 @@ import {
   deleteTenantManagedSkillForTenantTx,
   ensureTenantSystemManagedSkillsForTenantTx,
   listLatestTenantManagedSkillVersionMapTx,
+  renameTenantManagedSkillForTenantTx,
   type TenantManagedSkillPatch,
   updateTenantManagedSkillForTenantTx,
   updateTenantManagedSkillTextFileForTenantTx,
@@ -4498,6 +4499,70 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
   return result;
 }
 
+export async function renameTenantManagedSkillForTenant(input: {
+  createdByExternalId?: string | null;
+  createdByType: "runtime" | "user";
+  expectedVersion?: number;
+  newSkillKey: string;
+  skillKey: string;
+  summary?: string;
+  tenantId: string;
+}) {
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const renamedSkill = await renameTenantManagedSkillForTenantTx(tx, {
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      expectedVersion: input.expectedVersion,
+      newSkillKey: input.newSkillKey,
+      skillKey: input.skillKey,
+      summary: input.summary,
+      tenantId: input.tenantId,
+    });
+
+    if (!renamedSkill.changed) {
+      return {
+        applyQueued: false,
+        changed: false,
+        currentVersion: renamedSkill.currentVersion,
+        renamedFromSkillKey: renamedSkill.renamedFromSkillKey,
+        skillKey: renamedSkill.skillKey,
+      };
+    }
+
+    const desiredStateVersion = (
+      await createNextDesiredStateVersion(tx, {
+        tenantId: input.tenantId,
+      })
+    ).version;
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+
+    return {
+      applyQueued: tenantRuntime.isRuntimeReady,
+      changed: true,
+      currentVersion: renamedSkill.currentVersion,
+      desiredStateVersion,
+      renamedFromSkillKey: renamedSkill.renamedFromSkillKey,
+      skillKey: renamedSkill.skillKey,
+    };
+  });
+
+  if (result.applyQueued && result.changed && result.desiredStateVersion) {
+    await enqueueTenantConfigApply({
+      desiredStateVersion: result.desiredStateVersion,
+      managedSkillRenameOperations: [
+        {
+          fromSkillKey: result.renamedFromSkillKey,
+          toSkillKey: result.skillKey,
+        },
+      ],
+      tenantId: input.tenantId,
+    });
+  }
+
+  return result;
+}
+
 export async function createTenantManagedSkillForTenant(input: {
   contentText?: string;
   createdByExternalId?: string | null;
@@ -4666,6 +4731,33 @@ export async function createTenantManagedSkill(input: {
     createdByType: "user",
     skillKey: input.skillKey,
     summary: `Created ${input.skillKey}`,
+    tenantId: authorizedTenant.tenantId,
+  });
+}
+
+export async function renameTenantManagedSkill(input: {
+  expectedVersion?: number;
+  newSkillKey: string;
+  orgSlug: string;
+  skillKey: string;
+  userExternalId: string;
+}) {
+  const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  });
+
+  if (!authorizedTenant) {
+    throw new Error("Organization tenant not found");
+  }
+
+  return renameTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    newSkillKey: input.newSkillKey,
+    skillKey: input.skillKey,
+    summary: `Renamed ${input.skillKey} to ${input.newSkillKey}`,
     tenantId: authorizedTenant.tenantId,
   });
 }
@@ -7813,6 +7905,10 @@ export async function getTenantByTenantToken(tenantToken: string) {
 
 export async function enqueueTenantConfigApply(input: {
   desiredStateVersion: number;
+  managedSkillRenameOperations?: Array<{
+    fromSkillKey: string;
+    toSkillKey: string;
+  }>;
   pullImageFirst?: boolean;
   tenantId: string;
 }) {
@@ -7821,6 +7917,12 @@ export async function enqueueTenantConfigApply(input: {
     jobType: JOB_TYPES.applyTenantConfig,
     payload: {
       desiredStateVersion: input.desiredStateVersion,
+      ...(input.managedSkillRenameOperations &&
+      input.managedSkillRenameOperations.length > 0
+        ? {
+            managedSkillRenameOperations: input.managedSkillRenameOperations,
+          }
+        : {}),
       ...(input.pullImageFirst === true ? { pullImageFirst: true } : {}),
       tenantId: input.tenantId,
     },

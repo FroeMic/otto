@@ -18,6 +18,7 @@ import {
 import { useSetBreadcrumbs } from "@/components/breadcrumb-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
@@ -75,6 +76,7 @@ type Props = {
   knownIntegrationKeys: string[];
   knownSkillKeys: string[];
   orgSlug: string;
+  renameAction: (formData: FormData) => Promise<{ skillKey: string }>;
   section: ManagedSkillSection;
   updateAction: (formData: FormData) => Promise<void>;
 };
@@ -135,6 +137,7 @@ export function ManagedSkillDetailPanel({
   knownIntegrationKeys,
   knownSkillKeys,
   orgSlug,
+  renameAction,
   section,
   updateAction,
 }: Props) {
@@ -142,6 +145,10 @@ export function ManagedSkillDetailPanel({
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameErrorMessage, setRenameErrorMessage] = useState<string | null>(
+    null,
+  );
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const skillEntryFile =
     detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
@@ -172,6 +179,7 @@ export function ManagedSkillDetailPanel({
     skillEntryFile?.editability === "editable" &&
     skillEntryFile.storageEncoding === "utf8_text" &&
     parsedSkillDocument !== null;
+  const canRename = detail.sourceType === "user";
   const nextContentText = useMemo(() => {
     if (!parsedSkillDocument) {
       return skillEntryFile?.contentText ?? "";
@@ -212,6 +220,8 @@ export function ManagedSkillDetailPanel({
 
   useEffect(() => {
     setTitleDraft(parsedSkillDocument?.name ?? detail.displayName);
+    setRenameDraft(detail.skillKey);
+    setRenameErrorMessage(null);
     setSkillDescriptionDraft(parsedSkillDocument?.description ?? "");
     setSkillIntegrationKeysDraft(parsedSkillDocument?.integrationKeys ?? []);
     setSkillInstructionsDraft(parsedSkillDocument?.skillBody ?? "");
@@ -241,6 +251,8 @@ export function ManagedSkillDetailPanel({
     setSkillInstructionsDraft(parsedSkillDocument?.skillBody ?? "");
     setSkillSkillKeysDraft(parsedSkillDocument?.skillKeys ?? []);
     setErrorMessage(null);
+    setRenameDraft(detail.skillKey);
+    setRenameErrorMessage(null);
     setSuccessMessage(null);
   }
 
@@ -299,6 +311,40 @@ export function ManagedSkillDetailPanel({
       }
 
       return current.filter((entry) => entry !== dependencySkillKey);
+    });
+  }
+
+  function handleRename() {
+    const nextSkillKey = renameDraft.trim();
+
+    if (!canRename || !nextSkillKey || nextSkillKey === detail.skillKey) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("expectedVersion", String(detail.version));
+    formData.set("newSkillKey", nextSkillKey);
+    formData.set("orgSlug", orgSlug);
+    formData.set("skillKey", detail.skillKey);
+
+    startTransition(async () => {
+      setRenameErrorMessage(null);
+
+      try {
+        const renamed = await renameAction(formData);
+        router.push(
+          buildManagedSkillSectionPath({
+            orgSlug,
+            section,
+            skillKey: renamed.skillKey,
+          }),
+        );
+        router.refresh();
+      } catch (error) {
+        setRenameErrorMessage(
+          error instanceof Error ? error.message : "Skill rename failed",
+        );
+      }
     });
   }
 
@@ -404,12 +450,15 @@ export function ManagedSkillDetailPanel({
                       </FieldLabel>
                       <FieldContent>
                         <Input
-                          disabled
+                          disabled={!canRename || isPending}
                           id="skill-overview-key"
-                          value={detail.skillKey}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          value={renameDraft}
                         />
                         <FieldDescription>
-                          Stable package path in the workspace runtime.
+                          Stable package path in the workspace runtime. Renaming
+                          moves the runtime skill folder without copying local
+                          files.
                         </FieldDescription>
                       </FieldContent>
                     </Field>
@@ -434,6 +483,64 @@ export function ManagedSkillDetailPanel({
                       </FieldContent>
                     </Field>
                   </FieldGroup>
+                </SettingsCard>
+              </SettingsSection>
+
+              <SettingsSection>
+                <SettingsSectionTitle>Rename</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Reserve a new key and move this skill package in place.
+                </SettingsSectionDescription>
+                <SettingsCard className="divide-y-0 px-5 py-5">
+                  <div className="flex flex-col gap-4">
+                    {renameErrorMessage ? (
+                      <Alert variant="destructive">
+                        <AlertTitle>Rename failed</AlertTitle>
+                        <AlertDescription>{renameErrorMessage}</AlertDescription>
+                      </Alert>
+                    ) : null}
+                    <FieldGroup>
+                      <Field>
+                        <FieldLabel htmlFor="skill-rename-key">
+                          New skill key
+                        </FieldLabel>
+                        <FieldContent>
+                          <Input
+                            disabled={!canRename || isPending}
+                            id="skill-rename-key"
+                            onChange={(event) =>
+                              setRenameDraft(event.target.value)
+                            }
+                            value={renameDraft}
+                          />
+                          <FieldDescription>
+                            Otto keeps the same managed skill record and version
+                            history, then moves the projected runtime folder to
+                            the new key.
+                          </FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldGroup>
+                    {!canRename ? (
+                      <p className="text-sm text-muted-foreground">
+                        Only workspace-managed skills can be renamed.
+                      </p>
+                    ) : null}
+                    <div className="flex justify-end">
+                      <Button
+                        disabled={
+                          !canRename ||
+                          isPending ||
+                          renameDraft.trim().length === 0 ||
+                          renameDraft.trim() === detail.skillKey
+                        }
+                        onClick={handleRename}
+                        type="button"
+                      >
+                        Rename skill
+                      </Button>
+                    </div>
+                  </div>
                 </SettingsCard>
               </SettingsSection>
 
