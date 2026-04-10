@@ -4,6 +4,11 @@ import {
   isWorkspaceSessionAuthError,
   jsonNoStore,
 } from "@otto/auth"
+import {
+  connectedAccountsResponseSchema,
+  updateUserProfileSchema,
+  userProfileSchema,
+} from "@otto/feature-user-profile"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -15,32 +20,6 @@ import {
 
 const orgSlugParamsSchema = z.object({
   orgSlug: z.string().min(1),
-})
-
-const updateUserProfileSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  lastName: z.string().trim(),
-})
-
-const connectedAccountSchema = z.object({
-  avatarUrl: z.string().nullable(),
-  displayName: z.string().nullable(),
-  externalId: z.string(),
-  fullName: z.string().nullable(),
-  id: z.string(),
-  provider: z.string(),
-  username: z.string().nullable(),
-})
-
-const connectedAccountsResponseSchema = z.object({
-  connectedAccounts: z.array(connectedAccountSchema),
-})
-
-const userProfileResponseSchema = z.object({
-  email: z.string().email(),
-  firstName: z.string(),
-  lastName: z.string(),
-  name: z.string(),
 })
 
 export type UserRouteDependencies = {
@@ -137,7 +116,7 @@ export function createUserRouter(
       const profile = await dependencies.getUserProfile(authResult.user.id)
 
       return context.json(
-        userProfileResponseSchema.parse({
+        userProfileSchema.parse({
           ...profile,
           name:
             [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
@@ -167,7 +146,7 @@ export function createUserRouter(
         })
 
         return context.json(
-          userProfileResponseSchema.parse({
+          userProfileSchema.parse({
             ...profile,
             name:
               [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||

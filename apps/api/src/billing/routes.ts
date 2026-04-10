@@ -4,6 +4,14 @@ import {
   isWorkspaceSessionAuthError,
   jsonNoStore,
 } from "@otto/auth"
+import {
+  billingCheckoutSchema,
+  billingOverviewSchema,
+  billingPreferencesResponseSchema,
+  billingPreferencesSchema,
+  billingUrlResponseSchema,
+  type BillingPreferences,
+} from "@otto/feature-billing"
 import type { WorkspaceShellUser } from "@otto/feature-workspace-core"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -35,97 +43,21 @@ const workspaceParamsSchema = z.object({
   orgSlug: z.string().min(1),
 })
 
-const billingPlanKeySchema = z.enum([
-  "basic_monthly",
-  "plus_monthly",
-  "pro_monthly",
-  "max_monthly",
-])
-
 const allowedTopOffAmountCents = new Set(
   getAutoTopOffPacks().map((pack) => pack.amountCents),
 )
 
-const billingPreferencesSchema = z.object({
-  autoTopOffEnabled: z.boolean(),
-  minimumBalanceCredits: z.coerce.number().int().min(0).max(1_000_000),
-  monthlySpendLimitCents: z.coerce.number().int().min(0).max(1_000_000),
-  topOffAmountCents: z.coerce
-    .number()
-    .int()
-    .refine(
-      (value) => allowedTopOffAmountCents.has(value),
-      "Select one of the supported auto-top-off pack amounts.",
-    ),
-})
-
-const billingCheckoutSchema = z.object({
-  planKey: billingPlanKeySchema,
-})
-
-export interface BillingOverview {
-  autoTopOff: {
-    latestRun: {
-      completedAt: Date | null
-      createdAt: Date
-      creditsGrantedMilli: number
-      failureReason: string | null
-      status: string
-      stripeInvoiceId: string | null
-      topOffAmountCents: number
-    } | null
-  }
-  balance: {
-    currentBalanceCreditsMilli: number
-    latestEntryCreatedAt: Date | null
-    totalDebitedCreditsMilli: number
-    totalGrantedCreditsMilli: number
-  }
-  billingConfigured: boolean
-  currentCycleSpendCents: number
-  customer: {
-    defaultCurrency: string
-    stripeCustomerId: string
-  } | null
-  invoices: Array<{
-    amountDueCents: number
-    amountPaidCents: number
-    createdAt: Date
-    currency: string
-    hostedInvoiceUrl: string | null
-    id: string
-    invoicePdfUrl: string | null
-    number: string | null
-    status: string | null
-  }>
-  invoicesError: string | null
-  nextAutoReloadChargeCents: number | null
-  organization: {
-    id: string
-    name: string
-    slug: string
-  } | null
-  plans: Array<{
-    creditsIncluded: number
-    key: string
-    monthlyPriceUsd: number
-    name: string
-  }>
-  preferences: BillingPreferencesRecord
-  subscription: {
-    cancelAtPeriodEnd: boolean
-    currentPeriodEnd: Date | null
-    currentPeriodStart: Date | null
-    planKey: string | null
-    status: string
-    stripeSubscriptionId: string
-    trialEnd: Date | null
-  } | null
-  tenant: {
-    id: string
-    name: string
-  } | null
-}
+const validatedBillingPreferencesSchema = billingPreferencesSchema.superRefine(
+  (value, context) => {
+    if (!allowedTopOffAmountCents.has(value.topOffAmountCents)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select one of the supported auto-top-off pack amounts.",
+        path: ["topOffAmountCents"],
+      })
+    }
+  },
+)
 
 export type BillingRouteDependencies = {
   authenticateWorkspaceUser?: (request: Request) => Promise<WorkspaceShellUser>
@@ -141,12 +73,12 @@ export type BillingRouteDependencies = {
   getBillingOverview: (payload: {
     orgSlug: string
     user: WorkspaceShellUser
-  }) => Promise<BillingOverview>
+  }) => Promise<unknown>
   updateBillingPreferences?: (payload: {
     orgSlug: string
-    preferences: BillingPreferencesRecord
+    preferences: BillingPreferences
     user: WorkspaceShellUser
-  }) => Promise<BillingPreferencesRecord>
+  }) => Promise<BillingPreferences>
 }
 
 async function loadBillingOverview(input: {
@@ -227,7 +159,7 @@ async function loadBillingOverview(input: {
 
 async function saveBillingPreferences(input: {
   orgSlug: string
-  preferences: BillingPreferencesRecord
+  preferences: BillingPreferences
   user: WorkspaceShellUser
 }) {
   await syncUserFromSession(input.user)
@@ -420,10 +352,12 @@ export function createBillingRouter(
         }
 
         return context.json(
-          await dependencies.getBillingOverview({
-            orgSlug: context.req.valid("param").orgSlug,
-            user: authResult.user,
-          }),
+          billingOverviewSchema.parse(
+            await dependencies.getBillingOverview({
+              orgSlug: context.req.valid("param").orgSlug,
+              user: authResult.user,
+            }),
+          ),
           200,
           {
             "Cache-Control": "no-store",
@@ -434,7 +368,7 @@ export function createBillingRouter(
     .post(
       "/api/workspace/:orgSlug/billing/preferences",
       zValidator("param", workspaceParamsSchema),
-      zValidator("json", billingPreferencesSchema),
+      zValidator("json", validatedBillingPreferencesSchema),
       async (context) => {
         const authResult = await authenticateUser(context.req.raw)
 
@@ -450,9 +384,9 @@ export function createBillingRouter(
         })
 
         return context.json(
-          {
+          billingPreferencesResponseSchema.parse({
             preferences,
-          },
+          }),
           200,
           {
             "Cache-Control": "no-store",
@@ -472,11 +406,13 @@ export function createBillingRouter(
         }
 
         return context.json(
-          await (dependencies.createCheckoutSession ?? startBillingCheckout)({
-            body: context.req.valid("json"),
-            orgSlug: context.req.valid("param").orgSlug,
-            user: authResult.user,
-          }),
+          billingUrlResponseSchema.parse(
+            await (dependencies.createCheckoutSession ?? startBillingCheckout)({
+              body: context.req.valid("json"),
+              orgSlug: context.req.valid("param").orgSlug,
+              user: authResult.user,
+            }),
+          ),
           200,
           {
             "Cache-Control": "no-store",
@@ -495,10 +431,12 @@ export function createBillingRouter(
         }
 
         return context.json(
-          await (dependencies.createBillingPortal ?? openBillingPortal)({
-            orgSlug: context.req.valid("param").orgSlug,
-            user: authResult.user,
-          }),
+          billingUrlResponseSchema.parse(
+            await (dependencies.createBillingPortal ?? openBillingPortal)({
+              orgSlug: context.req.valid("param").orgSlug,
+              user: authResult.user,
+            }),
+          ),
           200,
           {
             "Cache-Control": "no-store",

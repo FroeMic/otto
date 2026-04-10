@@ -4,6 +4,11 @@ import {
   workspaceSettingsSuccessSchema,
 } from "@otto/feature-workspace-core"
 import { queryOptions } from "@tanstack/react-query"
+import {
+  connectedAccountsResponseSchema,
+  updateUserProfileSchema,
+  userProfileSchema,
+} from "@otto/feature-user-profile"
 
 import { apiClient } from "@/client/app/rpc"
 
@@ -22,6 +27,16 @@ export async function fetchApiResponse<T>(
   }
 
   return parse(data)
+}
+
+export function parseUserProfile(data: unknown): UserProfile {
+  return userProfileSchema.parse(data)
+}
+
+export function parseConnectedAccountsResponse(
+  data: unknown,
+): ConnectedAccount[] {
+  return connectedAccountsResponseSchema.parse(data).connectedAccounts
 }
 
 export function shellBootstrapQueryOptions(orgSlug: string) {
@@ -66,7 +81,7 @@ export function userProfileQueryOptions() {
     queryFn: async () => {
       const response = await apiClient.api.user.profile.$get()
 
-      return fetchApiResponse(response, (data) => data as UserProfile)
+      return fetchApiResponse(response, parseUserProfile)
     },
     queryKey: ["user-profile"],
     staleTime: 60_000,
@@ -78,10 +93,10 @@ export async function updateUserProfile(body: {
   lastName: string
 }): Promise<UserProfile> {
   const response = await apiClient.api.user.profile.$post({
-    json: body,
+    json: updateUserProfileSchema.parse(body),
   })
 
-  return fetchApiResponse(response, (data) => data as UserProfile)
+  return fetchApiResponse(response, parseUserProfile)
 }
 
 export function connectedAccountsQueryOptions(orgSlug: string) {
@@ -94,10 +109,7 @@ export function connectedAccountsQueryOptions(orgSlug: string) {
           },
         })
 
-      return fetchApiResponse(
-        response,
-        (data) => (data as { connectedAccounts: ConnectedAccount[] }).connectedAccounts,
-      )
+      return fetchApiResponse(response, parseConnectedAccountsResponse)
     },
     queryKey: ["connected-accounts", orgSlug],
     staleTime: 60_000,

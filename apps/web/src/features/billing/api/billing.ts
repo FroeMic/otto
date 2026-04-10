@@ -1,8 +1,32 @@
-import { queryOptions, useQueryClient } from "@tanstack/react-query"
+import {
+  billingCheckoutSchema,
+  billingOverviewSchema,
+  billingPreferencesResponseSchema,
+  billingUrlResponseSchema,
+  type BillingOverview,
+  type BillingPreferences,
+  type BillingPreferencesResponse,
+  type BillingUrlResponse,
+} from "@otto/feature-billing"
+import { queryOptions } from "@tanstack/react-query"
 
 import { apiClient } from "@/client/app/rpc"
 
-import type { BillingOverview, BillingPreferences } from "../types"
+import { fetchApiResponse } from "@/features/workspace/api/workspace"
+
+export function parseBillingOverview(data: unknown): BillingOverview {
+  return billingOverviewSchema.parse(data)
+}
+
+export function parseBillingPreferencesResponse(
+  data: unknown,
+): BillingPreferencesResponse {
+  return billingPreferencesResponseSchema.parse(data)
+}
+
+export function parseBillingUrlResponse(data: unknown): BillingUrlResponse {
+  return billingUrlResponseSchema.parse(data)
+}
 
 export function billingOverviewQueryOptions(orgSlug: string) {
   return queryOptions({
@@ -13,15 +37,8 @@ export function billingOverviewQueryOptions(orgSlug: string) {
             orgSlug,
           },
         })
-      const data = (await response.json()) as {
-        message?: string
-      } & BillingOverview
 
-      if (!response.ok) {
-        throw new Error(data.message ?? "Request failed")
-      }
-
-      return data
+      return fetchApiResponse(response, parseBillingOverview)
     },
     queryKey: ["billing-overview", orgSlug],
     staleTime: 30_000,
@@ -39,16 +56,10 @@ export async function updateBillingPreferences(input: {
         orgSlug: input.orgSlug,
       },
     })
-  const data = (await response.json()) as {
-    message?: string
-    preferences: BillingPreferences
-  }
 
-  if (!response.ok) {
-    throw new Error(data.message ?? "Failed to save billing settings.")
-  }
-
-  return data.preferences
+  return fetchApiResponse(response, parseBillingPreferencesResponse).then(
+    (data) => data.preferences,
+  )
 }
 
 export async function startBillingCheckout(input: {
@@ -57,24 +68,17 @@ export async function startBillingCheckout(input: {
 }) {
   const response =
     await apiClient.api.workspace[":orgSlug"].billing.checkout.$post({
-      json: {
-        planKey: input.planKey as
-          | "basic_monthly"
-          | "plus_monthly"
-          | "pro_monthly"
-          | "max_monthly",
-      },
+      json: billingCheckoutSchema.parse({
+        planKey: input.planKey,
+      }),
       param: {
         orgSlug: input.orgSlug,
       },
     })
-  const data = (await response.json()) as {
-    message?: string
-    url?: string | null
-  }
+  const data = await fetchApiResponse(response, parseBillingUrlResponse)
 
-  if (!response.ok || !data.url) {
-    throw new Error(data.message ?? "Failed to start billing checkout.")
+  if (!data.url) {
+    throw new Error("Failed to start billing checkout.")
   }
 
   return data.url
@@ -88,13 +92,10 @@ export async function openBillingPortal(orgSlug: string) {
       },
     },
   )
-  const data = (await response.json()) as {
-    message?: string
-    url?: string | null
-  }
+  const data = await fetchApiResponse(response, parseBillingUrlResponse)
 
-  if (!response.ok || !data.url) {
-    throw new Error(data.message ?? "Failed to open billing portal.")
+  if (!data.url) {
+    throw new Error("Failed to open billing portal.")
   }
 
   return data.url
