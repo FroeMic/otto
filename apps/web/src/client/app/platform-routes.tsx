@@ -12,6 +12,9 @@ import { PlatformOrganizationOverviewPage } from "@/features/platform/pages/Plat
 import { PlatformOrganizationsPage } from "@/features/platform/pages/PlatformOrganizationsPage"
 import { PlatformOrganizationUsagePage } from "@/features/platform/pages/PlatformOrganizationUsagePage"
 
+const platformOrganizationRouteId =
+  "/platform/platform-shell/organizations/$platformOrgSlug"
+
 export interface PlatformShellRouteProps {}
 
 export function PlatformShellRoute(_props: PlatformShellRouteProps) {
@@ -36,7 +39,7 @@ export function PlatformOrganizationLayoutRoutePage(
   _props: PlatformOrganizationLayoutRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationLayoutPage orgSlug={platformOrgSlug} />
@@ -48,7 +51,7 @@ export function PlatformOrganizationOverviewRoutePage(
   _props: PlatformOrganizationOverviewRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationOverviewPage orgSlug={platformOrgSlug} />
@@ -60,7 +63,7 @@ export function PlatformOrganizationUsageRoutePage(
   _props: PlatformOrganizationUsageRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationUsagePage orgSlug={platformOrgSlug} />
@@ -72,7 +75,7 @@ export function PlatformOrganizationAccessRoutePage(
   _props: PlatformOrganizationAccessRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationAccessPage orgSlug={platformOrgSlug} />
@@ -84,7 +87,7 @@ export function PlatformOrganizationJobsRoutePage(
   _props: PlatformOrganizationJobsRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationJobsPage orgSlug={platformOrgSlug} />
@@ -96,7 +99,7 @@ export function PlatformOrganizationEventsRoutePage(
   _props: PlatformOrganizationEventsRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationEventsPage orgSlug={platformOrgSlug} />
@@ -108,7 +111,7 @@ export function PlatformOrganizationLogsRoutePage(
   _props: PlatformOrganizationLogsRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationLogsPage orgSlug={platformOrgSlug} />
@@ -126,7 +129,7 @@ export function PlatformOrganizationRedirectRoutePage(
   _props: PlatformOrganizationRedirectRoutePageProps,
 ) {
   const { platformOrgSlug } = useParams({
-    from: "/platform/organizations/$platformOrgSlug",
+    from: platformOrganizationRouteId,
   })
 
   return <PlatformOrganizationRedirectPage orgSlug={platformOrgSlug} />

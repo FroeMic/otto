@@ -266,7 +266,7 @@ const platformShellRoute = createRoute({
     "PlatformShellRoute",
   ),
   getParentRoute: () => platformRoute,
-  path: "/",
+  id: "platform-shell",
 })
 
 const platformIndexRoute = createRoute({
