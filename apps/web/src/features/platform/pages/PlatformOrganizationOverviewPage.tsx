@@ -48,6 +48,58 @@ function getRuntimeImageHref(image: string) {
   return `https://github.com/orgs/${owner}/packages/container/package/${packageName}`
 }
 
+function isFailureStatus(status: string | null | undefined) {
+  return (
+    status === "apply_failed" ||
+    status === "error" ||
+    status === "failed" ||
+    status === "link_failed"
+  )
+}
+
+function isInProgressStatus(status: string | null | undefined) {
+  return (
+    status === "applying" ||
+    status === "loading_desired_state" ||
+    status === "pending_apply" ||
+    status === "provisioning" ||
+    status === "pulling_runtime_image" ||
+    status === "queued" ||
+    status === "rendering_files" ||
+    status === "restarting_runtime" ||
+    status === "running" ||
+    status === "verifying_runtime" ||
+    status === "writing_files"
+  )
+}
+
+function getLatestIssueTitle(input: {
+  latestApplyRunStatus?: string | null
+  latestJobStatus?: string | null
+  slackError?: string | null
+}) {
+  if (
+    input.latestApplyRunStatus &&
+    isFailureStatus(input.latestApplyRunStatus)
+  ) {
+    return "Latest apply needs attention"
+  }
+
+  if (input.latestJobStatus && isFailureStatus(input.latestJobStatus)) {
+    return "Latest job needs attention"
+  }
+
+  if (input.slackError) {
+    return "Slack integration needs attention"
+  }
+
+  return "Latest issue"
+}
+
+function OverviewValue({ value }: { value: React.ReactNode }) {
+  return <div className="text-sm text-foreground">{value}</div>
+}
+
 function OverviewRow({
   label,
   value,
@@ -60,7 +112,7 @@ function OverviewRow({
       <SettingsRowLabel>
         <SettingsRowTitle>{label}</SettingsRowTitle>
       </SettingsRowLabel>
-      <div className="text-sm text-foreground">{value}</div>
+      <OverviewValue value={value} />
     </SettingsRow>
   )
 }
@@ -80,6 +132,51 @@ export function PlatformOrganizationOverviewPage({
     timeFormatPreference: organization.timeFormatPreference,
     timeZone: organization.timezone,
   })
+  const latestApplyRun = tenant?.latestApplyRun ?? null
+  const latestJob = tenant?.recentJobs[0] ?? null
+  const latestFailureMessage =
+    latestApplyRun?.error ??
+    latestJob?.error ??
+    organization.slackIntegration?.lastError
+  const observedRuntimeImageHref = organization.observedRuntimeImage
+    ? getRuntimeImageHref(organization.observedRuntimeImage)
+    : null
+  const configuredRuntimeImageHref = organization.configuredRuntimeImage
+    ? getRuntimeImageHref(organization.configuredRuntimeImage)
+    : null
+  const hasFailure =
+    isFailureStatus(latestApplyRun?.status) ||
+    isFailureStatus(latestJob?.status) ||
+    Boolean(organization.slackIntegration?.lastError)
+  const isUpdating =
+    isInProgressStatus(latestApplyRun?.status) ||
+    isInProgressStatus(latestJob?.status)
+  const runtimeReady =
+    tenant?.status === "ready" && tenant?.serverStatus === "ready"
+  const healthLabel = hasFailure
+    ? "Needs attention"
+    : isUpdating
+      ? "Updating"
+      : runtimeReady
+        ? "Healthy"
+        : "Provisioning"
+  const healthVariant = hasFailure
+    ? "destructive"
+    : runtimeReady
+      ? "secondary"
+      : "outline"
+  const latestFailure =
+    latestFailureMessage ??
+    (isFailureStatus(latestApplyRun?.status)
+      ? `Latest apply is ${formatStatus(latestApplyRun?.status ?? null)}.`
+      : isFailureStatus(latestJob?.status)
+        ? `Latest job is ${formatStatus(latestJob?.status ?? null)}.`
+        : null)
+  const latestIssueTitle = getLatestIssueTitle({
+    latestApplyRunStatus: latestApplyRun?.status,
+    latestJobStatus: latestJob?.status,
+    slackError: organization.slackIntegration?.lastError,
+  })
 
   if (!tenant) {
     return (
@@ -97,12 +194,6 @@ export function PlatformOrganizationOverviewPage({
     )
   }
 
-  const latestFailure =
-    tenant.latestApplyRun?.error ??
-    tenant.latestJob?.error ??
-    organization.slackIntegration?.lastError
-  const runtimeReady = tenant.status === "ready" && tenant.serverStatus === "ready"
-
   return (
     <div className="px-4 pb-6 md:px-6">
       <SettingsPage className="mx-0 max-w-2xl">
@@ -114,9 +205,7 @@ export function PlatformOrganizationOverviewPage({
                 <SettingsRowLabel>
                   <SettingsRowTitle>Health</SettingsRowTitle>
                 </SettingsRowLabel>
-                <Badge variant={runtimeReady ? "secondary" : "outline"}>
-                  {runtimeReady ? "Healthy" : "Provisioning"}
-                </Badge>
+                <Badge variant={healthVariant}>{healthLabel}</Badge>
               </SettingsRow>
               <OverviewRow
                 label="Runtime"
@@ -127,10 +216,9 @@ export function PlatformOrganizationOverviewPage({
               <OverviewRow
                 label="Latest apply"
                 value={
-                  tenant.latestApplyRun
-                    ? `${formatStatus(tenant.latestApplyRun.status)} · ${formatPreciseDateTime(
-                        tenant.latestApplyRun.finishedAt ??
-                          tenant.latestApplyRun.startedAt,
+                  latestApplyRun
+                    ? `${formatStatus(latestApplyRun.status)} · ${formatPreciseDateTime(
+                        latestApplyRun.finishedAt ?? latestApplyRun.startedAt,
                         dateTimePreferences,
                       )}`
                     : "No apply recorded"
@@ -139,11 +227,11 @@ export function PlatformOrganizationOverviewPage({
               <OverviewRow
                 label="Latest job"
                 value={
-                  tenant.latestJob
-                    ? `${formatStatus(tenant.latestJob.status)} · ${formatPreciseDateTime(
-                        tenant.latestJob.finishedAt ??
-                          tenant.latestJob.startedAt ??
-                          tenant.latestJob.createdAt,
+                  latestJob
+                    ? `${formatStatus(latestJob.status)} · ${formatPreciseDateTime(
+                        latestJob.finishedAt ??
+                          latestJob.startedAt ??
+                          latestJob.createdAt,
                         dateTimePreferences,
                       )}`
                     : "No job recorded"
@@ -152,7 +240,7 @@ export function PlatformOrganizationOverviewPage({
             </SettingsCard>
             {latestFailure ? (
               <Alert className="rounded-lg" variant="destructive">
-                <AlertTitle>Latest issue</AlertTitle>
+                <AlertTitle>{latestIssueTitle}</AlertTitle>
                 <AlertDescription className="max-w-full overflow-hidden break-all">
                   {latestFailure}
                 </AlertDescription>
@@ -161,11 +249,21 @@ export function PlatformOrganizationOverviewPage({
           </SettingsSection>
 
           <SettingsSection>
-            <SettingsSectionTitle>Workspace</SettingsSectionTitle>
+            <SettingsSectionTitle>Current</SettingsSectionTitle>
             <SettingsCard>
-              <OverviewRow label="Workspace" value={organization.name} />
-              <OverviewRow label="Slug" value={organization.slug} />
-              <OverviewRow label="Tenant" value={tenant.name} />
+              <OverviewRow label="Server IP" value={tenant.ipv4 ?? "Pending"} />
+              <OverviewRow label="Timezone" value={organization.timezone} />
+              <OverviewRow label="Locale" value={organization.locale} />
+              <OverviewRow
+                label="Time format"
+                value={
+                  organization.timeFormatPreference === "12"
+                    ? "12-hour"
+                    : organization.timeFormatPreference === "24"
+                      ? "24-hour"
+                      : "Automatic"
+                }
+              />
               <OverviewRow
                 label="Desired state"
                 value={
@@ -174,41 +272,13 @@ export function PlatformOrganizationOverviewPage({
                     : "Not available"
                 }
               />
-            </SettingsCard>
-          </SettingsSection>
-
-          <SettingsSection>
-            <SettingsSectionTitle>Runtime image</SettingsSectionTitle>
-            <SettingsCard>
               <OverviewRow
-                label="Configured"
+                label="Runtime image"
                 value={
-                  organization.configuredRuntimeImage ? (
+                  observedRuntimeImageHref ? (
                     <a
-                      href={
-                        getRuntimeImageHref(organization.configuredRuntimeImage) ??
-                        undefined
-                      }
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {organization.configuredRuntimeImageVersion ??
-                        organization.configuredRuntimeImage}
-                    </a>
-                  ) : (
-                    "Not available"
-                  )
-                }
-              />
-              <OverviewRow
-                label="Observed"
-                value={
-                  organization.observedRuntimeImage ? (
-                    <a
-                      href={
-                        getRuntimeImageHref(organization.observedRuntimeImage) ??
-                        undefined
-                      }
+                      className="text-foreground"
+                      href={observedRuntimeImageHref}
                       rel="noreferrer"
                       target="_blank"
                     >
@@ -216,31 +286,35 @@ export function PlatformOrganizationOverviewPage({
                         organization.observedRuntimeImage}
                     </a>
                   ) : (
+                    organization.observedRuntimeImageVersion ??
+                    organization.observedRuntimeImage ??
                     "Not available"
                   )
                 }
               />
-            </SettingsCard>
-          </SettingsSection>
-
-          <SettingsSection>
-            <SettingsSectionTitle>Providers</SettingsSectionTitle>
-            <SettingsCard>
               <OverviewRow
-                label="Slack"
+                label="Configured image"
                 value={
-                  organization.slackIntegration?.teamName ?? "Not connected"
+                  configuredRuntimeImageHref ? (
+                    <a
+                      className="text-foreground"
+                      href={configuredRuntimeImageHref}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {organization.configuredRuntimeImageVersion ??
+                        organization.configuredRuntimeImage}
+                    </a>
+                  ) : (
+                    organization.configuredRuntimeImageVersion ??
+                    organization.configuredRuntimeImage ??
+                    "Not available"
+                  )
                 }
               />
               <OverviewRow
-                label="OpenAI"
-                value={
-                  tenant.openAiProvider?.projectId
-                    ? `${tenant.openAiProvider.projectId} · ${formatStatus(
-                        tenant.openAiProvider.status,
-                      )}`
-                    : "Not configured"
-                }
+                label="Slack workspace"
+                value={organization.slackIntegration?.teamName ?? "Not connected"}
               />
             </SettingsCard>
           </SettingsSection>

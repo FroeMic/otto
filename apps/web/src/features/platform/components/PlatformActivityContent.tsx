@@ -231,7 +231,7 @@ export function PlatformActivityContent({
       ),
       cell: ({ row }) =>
         formatPreciseDateTime(row.original.createdAt, dateTimePreferences),
-      size: 180,
+      size: 220,
     },
     {
       accessorKey: "jobRunId",
@@ -275,6 +275,7 @@ export function PlatformActivityContent({
     <DataTable
       bodyClassName="align-top"
       cellClassName="h-16 px-4 py-3 md:px-6"
+      className="overflow-hidden"
       columns={jobColumns}
       data={filteredJobs}
       emptyMessage="No jobs found."
@@ -284,7 +285,7 @@ export function PlatformActivityContent({
       rowClassName="hover:bg-transparent"
       searchKeys={["id", "jobType", "status", "step", "searchText"]}
       searchPlaceholder="Search jobs"
-      tableClassName="min-w-full table-fixed"
+      tableClassName="min-w-[1280px] table-fixed"
       toolbar={
         <div className="flex w-full min-w-0 items-center gap-2">
           <NativeSelect
@@ -317,6 +318,7 @@ export function PlatformActivityContent({
     <DataTable
       bodyClassName="align-top"
       cellClassName="h-16 px-4 py-3 md:px-6"
+      className="overflow-hidden"
       columns={eventColumns}
       data={filteredEvents}
       emptyMessage="No events found."
@@ -326,7 +328,7 @@ export function PlatformActivityContent({
       rowClassName="hover:bg-transparent"
       searchKeys={["id", "jobRunId", "jobType", "eventType", "message", "searchText"]}
       searchPlaceholder="Search events"
-      tableClassName="min-w-full table-fixed"
+      tableClassName="min-w-[1420px] table-fixed"
       toolbar={
         <div className="flex w-full min-w-0 items-center gap-2">
           <NativeSelect

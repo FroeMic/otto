@@ -166,6 +166,15 @@ export const platformTenantDetailSchema = z.object({
 })
 
 export const platformOrganizationDetailSchema = z.object({
+  billing: z
+    .object({
+      currentBalanceCreditsMilli: z.number(),
+      currentPeriodEnd: jsonDateSchema.nullable(),
+      currentPeriodStart: jsonDateSchema.nullable(),
+      totalDebitedCreditsMilli: z.number(),
+      totalGrantedCreditsMilli: z.number(),
+    })
+    .nullable(),
   configuredRuntimeImage: z.string().nullable(),
   configuredRuntimeImageVersion: z.string().nullable(),
   id: z.string(),

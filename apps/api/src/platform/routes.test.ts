@@ -36,6 +36,13 @@ function createDependencies(): PlatformRouteDependencies {
       status: "running",
     }),
     getPlatformOrganizationDetail: async () => ({
+      billing: {
+        currentBalanceCreditsMilli: 100_000,
+        currentPeriodEnd: "2026-01-31T00:00:00.000Z",
+        currentPeriodStart: "2026-01-01T00:00:00.000Z",
+        totalDebitedCreditsMilli: 50_000,
+        totalGrantedCreditsMilli: 150_000,
+      },
       configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.8",
       configuredRuntimeImageVersion: "2026.4.8",
       id: "org_1",

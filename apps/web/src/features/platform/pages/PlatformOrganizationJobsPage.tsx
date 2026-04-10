@@ -48,7 +48,7 @@ export function PlatformOrganizationJobsPage({
   )
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-6 md:px-6">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden px-4 pb-6 md:px-6">
       <PlatformActivityContent
         dateTimePreferences={dateTimePreferences}
         events={events}
