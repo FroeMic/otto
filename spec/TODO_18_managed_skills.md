@@ -951,6 +951,49 @@ Acceptance criteria:
 - workspace-visible skills always correspond to managed records
 - unmanaged `workspace/skills/<skill-key>/SKILL.md` drift is surfaced or reconciled explicitly
 
+### Increment 11: Managed skill rename without copy-and-recreate
+
+Status:
+
+- planned
+
+Scope:
+
+- support a first-class managed-skill rename flow in the control plane rather than modeling rename as create-new plus delete-old
+- treat rename as an in-place identity update on the existing `tenant_skills.id` record so version history, audit lineage, and file metadata stay attached to one skill record
+- reserve the destination `skill_key` before commit and reject rename when the target key is already claimed by another managed skill
+- move the projected runtime package directory from `workspace/skills/<old-skill-key>/` to `workspace/skills/<new-skill-key>/` without copying local runtime-owned contents under `references/`, `scripts/`, or `state/`
+- optionally support renaming the skill's frontmatter `name` in the same action, but keep `skill_key` rename and human-facing skill-name edits as distinct fields in the API and UI
+- automatically rewrite `metadata.dependsOn.skills` references in other managed skills that point at the renamed skill so the dependency graph stays valid after the rename
+
+Implementation notes:
+
+- the control plane should expose an explicit rename action such as `rename_managed_skill`; this should not be hidden inside generic patch semantics because it affects identity, filesystem projection paths, and dependent skill packages
+- the first supported scope should be user-managed skills only; system-managed and integration-contributed skills should stay non-renamable until there is a stronger policy for those sources
+- the rename transaction should lock the renamed skill plus any dependent managed skills it rewrites, then:
+  - validate and reserve the new `skill_key`
+  - rewrite dependent `metadata.dependsOn.skills` references from old key to new key
+  - create new versions for every touched `SKILL.md`
+  - update the renamed row's `skill_key`
+- runtime-local companion directories are the main reason rename cannot be modeled as create and delete:
+  - `references/`, `scripts/`, and `state/` are not canonical control-plane files
+  - the current managed-skill manifest only tracks projected managed files such as `SKILL.md`
+  - a plain create/delete flow would either strand the old local directory or require ad hoc file copying
+- the worker apply path should consume a pending rename operation and perform an idempotent host-side directory move before writing managed files:
+  - if old exists and new does not, move old to new
+  - if old is missing and new exists, treat it as already moved
+  - if both exist, fail with a clear conflict instead of trying to merge directories automatically
+- desired-state or worker-job payloads should carry explicit rename operations until apply marks them complete; rename should not rely on inferring moves only from the final version map
+
+Acceptance criteria:
+
+- a managed skill can be renamed to a new reserved `skill_key` without creating a second skill record
+- the renamed skill keeps its version lineage and canonical `SKILL.md` history on the same `tenant_skills.id`
+- dependent managed skills that reference the old key are rewritten transactionally to the new key
+- projected runtime skill folders move from old key to new key without copying `references/`, `scripts/`, or `state/`
+- the worker handles rename retries idempotently and reports a clear failure when the destination folder already exists
+- the workspace redirects to the new skill route after a successful rename and no longer treats the old key as the canonical path
+
 ### Increment 7: Managed skill dependency graph metadata
 
 Status:
@@ -984,6 +1027,7 @@ Acceptance criteria:
 - [x] Increment 8: bundled skill policy and Otto system overrides
 - [ ] Increment 9: reduced managed lifecycle surface
 - [ ] Increment 10: unmanaged skill-source enforcement and drift handling
+- [ ] Increment 11: managed skill rename without copy-and-recreate
 
 ## Recommendation
 
@@ -1000,3 +1044,4 @@ Next:
 - Increment 9 first. Narrow the plugin and runtime API contract to `list`, `get`, `create`, `update`, and `delete`, with patch-oriented updates for content, metadata, and enabled-state.
 - Then finish Increment 5 by exposing `references/`, `scripts/`, and `state/` through the normal workspace file surface rather than a second managed-skills file API.
 - Then implement Increment 10 so Otto-managed runtimes have an explicit no-unmanaged-skills policy and drift handling model before starter-skill work expands the surface again.
+- Then implement Increment 11 so managed skill keys can be renamed in place without create-and-delete churn, while preserving local runtime-owned skill folders through an explicit worker-side move operation.

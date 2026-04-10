@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   SettingsPage,
+  SettingsPageContent,
   SettingsPageTitle,
 } from "@/client/app/app-shell/SettingsLayout"
 
@@ -38,8 +39,8 @@ export function BillingPlansPage({ orgSlug }: BillingPlansPageProps) {
   const currentPlanKey = billingOverview.subscription?.planKey ?? null
 
   return (
-    <SettingsPage className="max-w-6xl">
-      <div className="flex flex-col gap-8">
+    <SettingsPage>
+      <SettingsPageContent className="flex max-w-6xl flex-col gap-8">
         <div className="flex flex-col gap-1">
           <SettingsPageTitle>Plans</SettingsPageTitle>
           <p className="text-sm text-muted-foreground">
@@ -138,7 +139,7 @@ export function BillingPlansPage({ orgSlug }: BillingPlansPageProps) {
           until the end of the current billing period. Payment, invoices, and
           cancellations are handled through Stripe.
         </p>
-      </div>
+      </SettingsPageContent>
     </SettingsPage>
   )
 }

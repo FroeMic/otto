@@ -1,6 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
-import { SettingsPage } from "@/client/app/app-shell/SettingsLayout"
+import {
+  SettingsPage,
+  SettingsPageContent,
+} from "@/client/app/app-shell/SettingsLayout"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
@@ -15,10 +18,12 @@ export function UsagePage({ orgSlug }: UsagePageProps) {
 
   return (
     <SettingsPage>
-      <WorkspaceUsageContent
-        locale={shellData.currentOrganization.locale}
-        orgSlug={orgSlug}
-      />
+      <SettingsPageContent>
+        <WorkspaceUsageContent
+          locale={shellData.currentOrganization.locale}
+          orgSlug={orgSlug}
+        />
+      </SettingsPageContent>
     </SettingsPage>
   )
 }

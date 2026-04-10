@@ -66,6 +66,13 @@ export type TenantManagedSkillPatch = {
   skillKeys?: string[];
 };
 
+export type TenantManagedSkillRenameResult = {
+  changed: boolean;
+  currentVersion: number;
+  renamedFromSkillKey: string;
+  skillKey: string;
+};
+
 export class ManagedSkillVersionConflictError extends Error {
   constructor(
     readonly expectedVersion: number,
@@ -857,6 +864,166 @@ export async function updateTenantManagedSkillForTenantTx(
   };
 }
 
+export async function renameTenantManagedSkillForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    createdByExternalId?: string | null;
+    createdByType: "runtime" | "user";
+    expectedVersion?: number;
+    newSkillKey: string;
+    skillKey: string;
+    summary?: string;
+    tenantId: string;
+  },
+): Promise<TenantManagedSkillRenameResult> {
+  const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  });
+
+  if (!detail) {
+    throw new Error(
+      `Managed skill ${input.skillKey} does not exist for this workspace.`,
+    );
+  }
+
+  if (
+    input.expectedVersion !== undefined &&
+    detail.version !== input.expectedVersion
+  ) {
+    throw new ManagedSkillVersionConflictError(
+      input.expectedVersion,
+      detail.version,
+    );
+  }
+
+  if (detail.sourceType !== "user") {
+    throw new Error(
+      "Only workspace-managed skills can be renamed through this surface.",
+    );
+  }
+
+  const nextSkillKey = normalizeManagedSkillKey(input.newSkillKey);
+
+  if (nextSkillKey === detail.skillKey) {
+    return {
+      changed: false,
+      currentVersion: detail.version,
+      renamedFromSkillKey: detail.skillKey,
+      skillKey: detail.skillKey,
+    };
+  }
+
+  const [existingSkill] = await tx
+    .select({
+      id: tenantSkills.id,
+    })
+    .from(tenantSkills)
+    .where(
+      and(
+        eq(tenantSkills.tenantId, input.tenantId),
+        eq(tenantSkills.skillKey, nextSkillKey),
+      ),
+    )
+    .limit(1);
+
+  if (existingSkill) {
+    throw new Error(
+      `Managed skill ${nextSkillKey} already exists for this tenant.`,
+    );
+  }
+
+  const dependencyRows = await tx
+    .select({
+      skillKey: tenantSkills.skillKey,
+    })
+    .from(tenantSkills)
+    .where(eq(tenantSkills.tenantId, input.tenantId))
+    .orderBy(tenantSkills.skillKey);
+
+  const dependentUpdates: Array<{
+    contentText: string;
+    currentVersion: number;
+    skillKey: string;
+  }> = [];
+
+  for (const row of dependencyRows) {
+    if (row.skillKey === detail.skillKey) {
+      continue;
+    }
+
+    const dependencyDetail = await getLatestTenantManagedSkillDetailForTenantTx(
+      tx,
+      {
+        skillKey: row.skillKey,
+        tenantId: input.tenantId,
+      },
+    );
+
+    if (!dependencyDetail) {
+      continue;
+    }
+
+    const currentContent = getManagedSkillEntryContent(dependencyDetail);
+    const nextContent = rewriteManagedSkillDependencySkillKey({
+      contentText: currentContent,
+      fromSkillKey: detail.skillKey,
+      toSkillKey: nextSkillKey,
+    });
+
+    if (nextContent === currentContent) {
+      continue;
+    }
+
+    dependentUpdates.push({
+      contentText: nextContent,
+      currentVersion: dependencyDetail.version,
+      skillKey: dependencyDetail.skillKey,
+    });
+  }
+
+  await tx
+    .update(tenantSkills)
+    .set({
+      skillKey: nextSkillKey,
+      updatedAt: new Date(),
+      updatedByExternalId: input.createdByExternalId ?? null,
+      updatedByType: input.createdByType,
+    })
+    .where(eq(tenantSkills.id, detail.skillId));
+
+  const currentVersion = await createTenantManagedSkillVersionSnapshotTx(tx, {
+    createdByExternalId: input.createdByExternalId ?? null,
+    createdByType: input.createdByType,
+    detail: {
+      ...detail,
+      skillKey: nextSkillKey,
+    },
+    summary:
+      input.summary ?? `Renamed ${detail.skillKey} to ${nextSkillKey}`,
+  });
+
+  for (const dependencyUpdate of dependentUpdates) {
+    await updateTenantManagedSkillTextFileForTenantTx(tx, {
+      contentText: dependencyUpdate.contentText,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      expectedVersion: dependencyUpdate.currentVersion,
+      relativePath: MANAGED_SKILL_ENTRY_FILE_PATH,
+      skillKey: dependencyUpdate.skillKey,
+      summary: `Updated ${dependencyUpdate.skillKey} after renaming ${detail.skillKey} to ${nextSkillKey}`,
+      tenantId: input.tenantId,
+    });
+  }
+
+  return {
+    changed: true,
+    currentVersion,
+    renamedFromSkillKey: detail.skillKey,
+    skillKey: nextSkillKey,
+  };
+}
+
 export async function deleteTenantManagedSkillForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
@@ -996,6 +1163,35 @@ export function assertManagedSkillDependencyGraphValid(input: {
   visit(input.skillKey, []);
 }
 
+export function rewriteManagedSkillDependencySkillKey(input: {
+  contentText: string;
+  fromSkillKey: string;
+  toSkillKey: string;
+}) {
+  const fromSkillKey = normalizeManagedSkillKey(input.fromSkillKey);
+  const toSkillKey = normalizeManagedSkillKey(input.toSkillKey);
+
+  if (fromSkillKey === toSkillKey) {
+    return input.contentText;
+  }
+
+  const current = parseManagedSkillMarkdown(input.contentText);
+
+  if (!current.skillKeys.includes(fromSkillKey)) {
+    return input.contentText;
+  }
+
+  return buildManagedSkillMarkdown({
+    description: current.description,
+    integrationKeys: current.integrationKeys,
+    name: current.name,
+    skillBody: current.skillBody,
+    skillKeys: current.skillKeys.map((skillKey) =>
+      skillKey === fromSkillKey ? toSkillKey : skillKey,
+    ),
+  });
+}
+
 function normalizeManagedSkillSourceType(
   value: string,
 ): ManagedSkillSourceType {
@@ -1099,6 +1295,74 @@ function getManagedSkillEntryContent(detail: TenantManagedSkillDetail) {
   }
 
   return entryFile.contentText;
+}
+
+async function createTenantManagedSkillVersionSnapshotTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    createdByExternalId?: string | null;
+    createdByType: "runtime" | "user";
+    detail: TenantManagedSkillDetail;
+    summary: string;
+  },
+) {
+  const [createdVersion] = await tx
+    .insert(tenantSkillVersions)
+    .values({
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      summary: input.summary,
+      tenantSkillId: input.detail.skillId,
+      version: input.detail.version + 1,
+    })
+    .returning({
+      id: tenantSkillVersions.id,
+      version: tenantSkillVersions.version,
+    });
+
+  const managedFileRows = await tx
+    .select({
+      fileId: tenantSkillFiles.id,
+      relativePath: tenantSkillFiles.relativePath,
+    })
+    .from(tenantSkillFiles)
+    .where(eq(tenantSkillFiles.tenantSkillId, input.detail.skillId))
+    .orderBy(tenantSkillFiles.relativePath);
+  const detailFileByPath = new Map(
+    input.detail.files.map((file) => [file.path, file]),
+  );
+
+  for (const managedFileRow of managedFileRows) {
+    const detailFile = detailFileByPath.get(managedFileRow.relativePath);
+
+    if (
+      !detailFile ||
+      detailFile.storageEncoding !== "utf8_text" ||
+      typeof detailFile.contentText !== "string"
+    ) {
+      throw new Error(
+        `Managed skill file ${input.detail.skillKey}/${managedFileRow.relativePath} cannot be versioned as non-text in the current slice.`,
+      );
+    }
+
+    await tx.insert(tenantSkillFileVersions).values({
+      contentSha256:
+        detailFile.contentSha256 ??
+        (() => {
+          throw new Error(
+            `Missing checksum for managed file ${managedFileRow.relativePath}`,
+          );
+        })(),
+      contentText: detailFile.contentText,
+      createdByExternalId: input.createdByExternalId ?? null,
+      createdByType: input.createdByType,
+      tenantSkillFileId: managedFileRow.fileId,
+      tenantSkillVersionId: createdVersion.id,
+      version: createdVersion.version,
+    });
+  }
+
+  return createdVersion.version;
 }
 
 function buildNextManagedSkillContent(input: {

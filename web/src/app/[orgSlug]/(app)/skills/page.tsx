@@ -30,6 +30,7 @@ import {
 } from "@/db/managed-skills";
 import { buildManagedSkillMarkdown } from "@/lib/managed-skills/markdown";
 import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
+import { buildManagedSkillSectionPath } from "@/lib/managed-skills/routing";
 import { getPrimaryAgent, isOrganizationUnlocked } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,11 @@ async function createManagedSkillAction(formData: FormData) {
 
   revalidatePath(`/${orgSlug}/skills`);
   revalidatePath(
-    `/${orgSlug}/skills/${encodeURIComponent(createdSkill.skillKey)}`,
+    buildManagedSkillSectionPath({
+      orgSlug,
+      section: "overview",
+      skillKey: createdSkill.skillKey,
+    }),
   );
 
   return {
@@ -196,7 +201,11 @@ export default async function SkillsPage({
               <Link
                 key={skill.skillKey}
                 className="block transition-colors hover:bg-muted/30"
-                href={`/${organization.slug}/skills/${encodeURIComponent(skill.skillKey)}`}
+                href={buildManagedSkillSectionPath({
+                  orgSlug: organization.slug,
+                  section: "overview",
+                  skillKey: skill.skillKey,
+                })}
               >
                 <SettingsRow>
                   <SettingsRowLabel>

@@ -73,6 +73,10 @@ export type ProvisionTenantOpenAiKeyPayload = {
 export type ApplyTenantConfigPayload = {
   tenantId: string;
   desiredStateVersion: number;
+  managedSkillRenameOperations?: Array<{
+    fromSkillKey: string;
+    toSkillKey: string;
+  }>;
   pullImageFirst?: boolean;
   step?: ApplyStep;
 };

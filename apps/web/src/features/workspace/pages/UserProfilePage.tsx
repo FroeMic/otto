@@ -2,6 +2,7 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 
 import {
   SettingsPage,
+  SettingsPageContent,
   SettingsPageTitle,
   SettingsSection,
   SettingsSectionDescription,
@@ -29,7 +30,7 @@ export function UserProfilePage({ orgSlug }: UserProfilePageProps) {
 
   return (
     <SettingsPage>
-      <div className="flex flex-col gap-8">
+      <SettingsPageContent className="flex flex-col gap-8">
         <SettingsPageTitle>Account</SettingsPageTitle>
 
         <SettingsSection>
@@ -59,7 +60,7 @@ export function UserProfilePage({ orgSlug }: UserProfilePageProps) {
           <SettingsSectionTitle>Preferences</SettingsSectionTitle>
           <ThemeSettingsCard />
         </SettingsSection>
-      </div>
+      </SettingsPageContent>
     </SettingsPage>
   )
 }

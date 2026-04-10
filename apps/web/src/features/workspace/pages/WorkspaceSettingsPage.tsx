@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 
 import {
   SettingsPage,
+  SettingsPageContent,
   SettingsPageTitle,
   SettingsSection,
   SettingsSectionTitle,
@@ -23,7 +24,7 @@ export function WorkspaceSettingsPage({
 
   return (
     <SettingsPage>
-      <div className="flex flex-col gap-8">
+      <SettingsPageContent className="flex flex-col gap-8">
         <SettingsPageTitle>General</SettingsPageTitle>
 
         <SettingsSection>
@@ -47,7 +48,7 @@ export function WorkspaceSettingsPage({
             orgSlug={orgSlug}
           />
         </SettingsSection>
-      </div>
+      </SettingsPageContent>
     </SettingsPage>
   )
 }
