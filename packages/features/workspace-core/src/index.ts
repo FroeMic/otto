@@ -331,6 +331,7 @@ export async function handleWorkspaceBootstrapRequest<
   try {
     await input.syncUserFromSession(input.user)
   } catch (error) {
+    console.error("[workspace-bootstrap] sync_user_from_session", error)
     bootstrapFailures.push({
       error,
       stage: "sync_user_from_session",
@@ -347,6 +348,10 @@ export async function handleWorkspaceBootstrapRequest<
   if (organizationsResult.status === "fulfilled") {
     organizations = organizationsResult.value
   } else {
+    console.error(
+      "[workspace-bootstrap] load_dashboard_organizations",
+      organizationsResult.reason,
+    )
     bootstrapFailures.push({
       error: organizationsResult.reason,
       stage: "load_dashboard_organizations",
@@ -368,6 +373,7 @@ export async function handleWorkspaceBootstrapRequest<
         userExternalId: input.user.id,
       })
     } catch (error) {
+      console.error("[workspace-bootstrap] load_current_workspace", error)
       bootstrapFailures.push({
         error,
         stage: "load_current_workspace",

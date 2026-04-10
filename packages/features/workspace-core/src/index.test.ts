@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import {
   handleWorkspaceBootstrapRequest,
@@ -16,6 +16,10 @@ const user = {
 }
 
 describe("workspace core", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("returns workspace bootstrap data", async () => {
     const response = await handleWorkspaceBootstrapRequest({
       getDashboardOrganizations: async () => [
@@ -123,6 +127,48 @@ describe("workspace core", () => {
       message:
         "Failed to load the requested workspace: workspace lookup query failed",
     })
+  })
+
+  it("logs raw non-Error bootstrap failures", async () => {
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined)
+    const syncError = {
+      reason: "session sync query returned zero rows",
+    }
+    const organizationsError = {
+      error: "organization projection unavailable",
+      status: 503,
+    }
+    const workspaceError = {
+      code: "workspace_query_failed",
+      detail: "missing organization membership row",
+    }
+    const response = await handleWorkspaceBootstrapRequest({
+      getCurrentWorkspace: async () => {
+        throw workspaceError
+      },
+      getDashboardOrganizations: async () => {
+        throw organizationsError
+      },
+      hasPlatformAdminRole: async () => false,
+      orgSlug: "otto",
+      syncUserFromSession: async () => {
+        throw syncError
+      },
+      user,
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(errorSpy.mock.calls.length, 3)
+    assert.deepEqual(errorSpy.mock.calls, [
+      ["[workspace-bootstrap] sync_user_from_session", syncError],
+      [
+        "[workspace-bootstrap] load_dashboard_organizations",
+        organizationsError,
+      ],
+      ["[workspace-bootstrap] load_current_workspace", workspaceError],
+    ])
   })
 
   it("returns usage overview", async () => {
