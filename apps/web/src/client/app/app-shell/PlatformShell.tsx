@@ -1,52 +1,62 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { useLocation } from "@tanstack/react-router"
 import type { PropsWithChildren } from "react"
 
-import { PlatformSidebar } from "@/components/platform-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { PlatformSidebar } from "@/client/app/app-shell/PlatformSidebar"
+import { platformBootstrapQueryOptions } from "@/features/platform/api/platform"
+import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
 export interface PlatformShellProps extends PropsWithChildren {}
 
+function usePlatformPageLabel(platformOrganizations: Array<{
+  name: string
+  slug: string
+}>) {
+  const location = useLocation()
+  const pathname = location.pathname
+
+  if (pathname === "/platform" || pathname === "/platform/organizations") {
+    return "Organizations"
+  }
+
+  if (pathname.startsWith("/platform/organizations/")) {
+    const [, , , orgSlug] = pathname.split("/")
+    const organization = platformOrganizations.find(
+      (candidate) => candidate.slug === orgSlug,
+    )
+
+    return organization?.name ?? orgSlug ?? "Organizations"
+  }
+
+  return "Platform"
+}
+
 export function PlatformShell({ children }: PlatformShellProps) {
+  const { data } = useSuspenseQuery(platformBootstrapQueryOptions())
+  const pageLabel = usePlatformPageLabel(data.organizations)
+
   return (
     <SidebarProvider>
       <PlatformSidebar />
-
-      <SidebarInset className="bg-background">
-        <header className="flex h-16 shrink-0 items-center gap-2">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <SidebarSeparator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbPage>Platform</BreadcrumbPage>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Overview</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
+          <SidebarTrigger />
+          <Separator
+            orientation="vertical"
+            className="data-vertical:h-4 data-vertical:self-auto"
+          />
+          <div className="min-w-0 text-sm">
+            <span className="font-medium">Platform Administration</span>
+            <span className="mx-2 text-muted-foreground">/</span>
+            <span className="truncate text-muted-foreground">{pageLabel}</span>
           </div>
         </header>
-
-        <div className="flex flex-1 flex-col gap-6 px-4 py-6 md:px-6">
-          {children}
-        </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )
