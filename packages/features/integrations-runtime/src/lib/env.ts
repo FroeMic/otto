@@ -9,6 +9,7 @@ const envSchema = z.object({
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
   DATABASE_URL: z.url(),
+  LANDING_PAGE_DOMAIN: z.string().optional(),
   LINEAR_CLIENT_ID: z.string().optional(),
   LINEAR_CLIENT_SECRET: z.string().optional(),
   LINEAR_OAUTH_ACTOR: z.enum(["app", "user"]).default("app"),
@@ -85,6 +86,7 @@ export function getControlPlaneBaseUrl() {
   const env = getEnv()
 
   return (
+    deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
     deriveBaseUrlFromDomain(env.CONTROL_PLANE_DOMAIN) ??
     env.WORKOS_BASE_URL ??
     deriveBaseUrlFromUri(

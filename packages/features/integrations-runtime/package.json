@@ -10,8 +10,12 @@
     "./db/schema": "./src/db/schema.ts",
     "./integrations/framework": "./src/integrations/framework/index.ts",
     "./integrations/library/brave/settings-metadata": "./src/integrations/library/brave/settings-metadata.ts",
+    "./integrations/library/slack/policy": "./src/integrations/library/slack/policy.ts",
+    "./integrations/library/slack/settings-metadata": "./src/integrations/library/slack/settings-metadata.ts",
+    "./integrations/library/slack/update-policy": "./src/integrations/library/slack/update-policy.ts",
     "./lib/crypto": "./src/lib/crypto.ts",
     "./lib/env": "./src/lib/env.ts",
+    "./lib/slack-config": "./src/lib/slack-config.ts",
     "./lib/web-search-config": "./src/lib/web-search-config.ts",
     "./linear-client": "./src/linear-client.ts"
   },

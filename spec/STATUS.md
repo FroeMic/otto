@@ -43,6 +43,7 @@
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service with package-level `format`, `lint`, `test`, and `build` gates
   - `apps/api` no longer imports `web/src`, mounts legacy Next route adapters, or relies on a compatibility proxy; it now owns the currently shipped auth, webhook, workspace bootstrap, workspace settings, workspace usage, and internal runtime routes natively
+  - `apps/api` now also owns the active runtime integration settings mutation path natively, including `POST /api/internal/runtime/integrations/:integrationKey/settings` for Slack validate/apply flows
   - Phase 3 is still not complete because broader workspace, user/profile, OAuth follow-on, and platform/operator route families are intentionally deferred until the corresponding `apps/web` slices are migrated
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
@@ -79,6 +80,7 @@
   - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
   - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
   - for the extracted `web` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
+  - runtime control-plane base URL resolution now also prefers `LANDING_PAGE_DOMAIN`, so `OTTO_CONTROL_PLANE_BASE_URL` can point tenant runtime callbacks and Otto-owned plugins at the extracted apex-domain API surface during cutover
   - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
@@ -207,6 +209,7 @@
   - rendered tenant runtime config now also emits explicit `enabled: false` entries for non-selected bundled provider and memory plugins, so managed runtimes do not inherit OpenClaw's upstream provider defaults accidentally
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
   - the plugin packaging is now aligned with the released OpenClaw `2026.4.8` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
+  - the obsolete legacy `web/src/app/api/internal/runtime/surfaces/*` handlers and the old runtime-surface verifier script have now been removed because active tenant-runtime traffic no longer depends on that surface family
 - Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:
   - replace `RUNTIME_OPENCLAW_IMAGE` with a DB-backed active runtime release
   - add a migration-backed runtime release model plus tenant applied desired-state tracking

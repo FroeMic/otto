@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
 const WEB_ROOT = process.cwd();
 const SOURCE_ROOT = path.join(WEB_ROOT, "src");
 const TSCONFIG_PATH = path.join(WEB_ROOT, "tsconfig.json");
+const LEGACY_RUNTIME_SURFACES_ROOT = path.join(
+  WEB_ROOT,
+  "src/app/api/internal/runtime/surfaces",
+);
 
 function collectTypeScriptFiles(targetPath: string): string[] {
   const entries = readdirSync(targetPath, { withFileTypes: true });
@@ -70,6 +74,14 @@ describe("legacy web boundary", () => {
       offenses,
       [],
       `Legacy web must not define shared @otto path aliases: ${offenses.join(", ")}`,
+    );
+  });
+
+  it("does not keep legacy runtime surfaces routes in web/src", () => {
+    assert.equal(
+      existsSync(LEGACY_RUNTIME_SURFACES_ROOT),
+      false,
+      "Legacy runtime surfaces routes should be removed from web/src/app/api/internal/runtime/surfaces",
     );
   });
 });

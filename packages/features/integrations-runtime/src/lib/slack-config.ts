@@ -1,0 +1,176 @@
+import { z } from "zod"
+
+export const SLACK_RUNTIME_CONFIG_SURFACE_KIND = "channel"
+export const SLACK_RUNTIME_CONFIG_SURFACE_KEY = "slack"
+export const SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE = "otto_builtin"
+export const SLACK_RUNTIME_CONFIG_SCHEMA_VERSION = "3"
+export const SLACK_RUNTIME_CONFIG_LABEL = "Slack"
+export const SLACK_RUNTIME_CONFIG_DESCRIPTION =
+  "Manage reply behavior, permissions, and channel access for Slack."
+
+const slackIdSchema = z.string().trim().min(1)
+const slackChannelAccessModeSchema = z.enum([
+  "manual_allowlist",
+  "member_of_channels",
+])
+
+const slackRuntimeConfigFieldSchemas = {
+  ackReactionEnabled: z.boolean(),
+  allowedChannelIds: z.array(slackIdSchema),
+  allowedUserIds: z.array(slackIdSchema),
+  answerInThreads: z.boolean(),
+  channelAccessMode: slackChannelAccessModeSchema,
+  requireMentionInChannels: z.boolean(),
+} as const
+
+const slackRuntimeConfigObjectSchema = z.object({
+  ackReactionEnabled:
+    slackRuntimeConfigFieldSchemas.ackReactionEnabled.default(false),
+  allowedChannelIds: slackRuntimeConfigFieldSchemas.allowedChannelIds.default(
+    [],
+  ),
+  allowedUserIds: slackRuntimeConfigFieldSchemas.allowedUserIds.default([]),
+  answerInThreads: slackRuntimeConfigFieldSchemas.answerInThreads.default(true),
+  channelAccessMode:
+    slackRuntimeConfigFieldSchemas.channelAccessMode.default(
+      "manual_allowlist",
+    ),
+  requireMentionInChannels:
+    slackRuntimeConfigFieldSchemas.requireMentionInChannels.default(true),
+})
+
+export const slackRuntimeConfigSchema = slackRuntimeConfigObjectSchema
+  .strict()
+  .transform((value) => ({
+    ackReactionEnabled: value.ackReactionEnabled,
+    allowedChannelIds: [...new Set(value.allowedChannelIds)],
+    allowedUserIds: [...new Set(value.allowedUserIds)],
+    answerInThreads: value.answerInThreads,
+    channelAccessMode: value.channelAccessMode,
+    requireMentionInChannels: value.requireMentionInChannels,
+  }))
+
+export type SlackRuntimeConfig = z.infer<typeof slackRuntimeConfigSchema>
+
+export const slackRuntimeConfigPatchSchema = z
+  .object(slackRuntimeConfigFieldSchemas)
+  .partial()
+  .strict()
+  .transform((value) => {
+    const patch: Partial<SlackRuntimeConfig> = {}
+
+    if ("ackReactionEnabled" in value) {
+      patch.ackReactionEnabled = value.ackReactionEnabled
+    }
+
+    if ("allowedChannelIds" in value) {
+      patch.allowedChannelIds = [...new Set(value.allowedChannelIds ?? [])]
+    }
+
+    if ("allowedUserIds" in value) {
+      patch.allowedUserIds = [...new Set(value.allowedUserIds ?? [])]
+    }
+
+    if ("answerInThreads" in value) {
+      patch.answerInThreads = value.answerInThreads
+    }
+
+    if ("channelAccessMode" in value) {
+      patch.channelAccessMode = value.channelAccessMode
+    }
+
+    if ("requireMentionInChannels" in value) {
+      patch.requireMentionInChannels = value.requireMentionInChannels
+    }
+
+    return patch
+  })
+
+export const slackRuntimeConfigJsonSchema = {
+  additionalProperties: false,
+  properties: {
+    ackReactionEnabled: {
+      default: false,
+      type: "boolean",
+    },
+    allowedChannelIds: {
+      default: [],
+      items: {
+        minLength: 1,
+        type: "string",
+      },
+      type: "array",
+    },
+    allowedUserIds: {
+      default: [],
+      items: {
+        minLength: 1,
+        type: "string",
+      },
+      type: "array",
+    },
+    answerInThreads: {
+      default: true,
+      type: "boolean",
+    },
+    channelAccessMode: {
+      default: "manual_allowlist",
+      enum: ["manual_allowlist", "member_of_channels"],
+      type: "string",
+    },
+    requireMentionInChannels: {
+      default: true,
+      type: "boolean",
+    },
+  },
+  type: "object",
+} as const
+
+export const slackRuntimeConfigUiHints = {
+  description: SLACK_RUNTIME_CONFIG_DESCRIPTION,
+  fields: {
+    ackReactionEnabled: {
+      kind: "boolean",
+      label: "Ack reaction",
+    },
+    allowedChannelIds: {
+      label: "Allowed channels",
+      picker: "slack-channel-multi-select",
+    },
+    allowedUserIds: {
+      label: "Allowed users",
+      picker: "slack-user-multi-select",
+    },
+    answerInThreads: {
+      kind: "boolean",
+      label: "Answer in threads",
+    },
+    channelAccessMode: {
+      kind: "enum",
+      label: "Channel access mode",
+      options: [
+        {
+          label: "Only pre-configured channels",
+          value: "manual_allowlist",
+        },
+        {
+          label: "All channels Otto is added to",
+          value: "member_of_channels",
+        },
+      ],
+    },
+    requireMentionInChannels: {
+      kind: "boolean",
+      label: "Require mention in channels",
+    },
+  },
+  label: SLACK_RUNTIME_CONFIG_LABEL,
+} as const
+
+export function getDefaultSlackRuntimeConfig(): SlackRuntimeConfig {
+  return slackRuntimeConfigSchema.parse({})
+}
+
+export function parseSlackRuntimeConfig(value: unknown): SlackRuntimeConfig {
+  return slackRuntimeConfigSchema.parse(value)
+}

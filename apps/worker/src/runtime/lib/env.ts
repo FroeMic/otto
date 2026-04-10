@@ -98,6 +98,7 @@ const envSchema = z.object({
     .default(300000),
   RUNTIME_SSH_USERNAME: z.string().default("root"),
   CONTROL_PLANE_DOMAIN: z.string().optional(),
+  LANDING_PAGE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
@@ -208,6 +209,7 @@ export function getControlPlaneBaseUrl() {
   const env = getEnv();
 
   return (
+    deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
     deriveBaseUrlFromDomain(env.CONTROL_PLANE_DOMAIN) ??
     env.WORKOS_BASE_URL ??
     deriveBaseUrlFromUri(

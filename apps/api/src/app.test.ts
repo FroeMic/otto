@@ -72,6 +72,31 @@ describe("api app", () => {
     })
   })
 
+  it("exposes runtime integration settings updates natively", async () => {
+    const app = createApiApp()
+    const response = await app.request(
+      "http://api.local/api/internal/runtime/integrations/slack/settings",
+      {
+        body: JSON.stringify({
+          action: "validate",
+          patch: {
+            ackReactionEnabled: false,
+          },
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 401)
+    assert.deepEqual(await response.json(), {
+      code: "unauthorized",
+      message: "Missing runtime bearer token",
+    })
+  })
+
   it("exposes workos webhooks natively", async () => {
     const app = createApiApp()
     const response = await app.request("http://api.local/webhooks/workos", {
