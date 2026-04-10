@@ -177,6 +177,8 @@ export async function processApplyTenantConfigJob(
       "Writing runtime files to tenant server",
       {
         host: runtimeConnection.host,
+        managedSkillRenameOperations:
+          payload.managedSkillRenameOperations?.length ?? 0,
       },
     );
 
@@ -195,6 +197,7 @@ export async function processApplyTenantConfigJob(
         contents: file.contents,
         filename: file.relativePath,
       })),
+      managedSkillRenameOperations: payload.managedSkillRenameOperations,
       openClawConfig,
       slackBotToken,
       tenantId: payload.tenantId,
@@ -329,6 +332,34 @@ function parseApplyPayload(
 ): ApplyTenantConfigPayload {
   const tenantId = payload.tenantId;
   const desiredStateVersion = payload.desiredStateVersion;
+  const managedSkillRenameOperations = Array.isArray(
+    payload.managedSkillRenameOperations,
+  )
+    ? payload.managedSkillRenameOperations.flatMap((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          return [];
+        }
+
+        const candidate = entry as Record<string, unknown>;
+        const fromSkillKey =
+          typeof candidate.fromSkillKey === "string"
+            ? candidate.fromSkillKey
+            : null;
+        const toSkillKey =
+          typeof candidate.toSkillKey === "string" ? candidate.toSkillKey : null;
+
+        if (!fromSkillKey || !toSkillKey) {
+          return [];
+        }
+
+        return [
+          {
+            fromSkillKey,
+            toSkillKey,
+          },
+        ];
+      })
+    : [];
   const pullImageFirst = payload.pullImageFirst;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
@@ -345,6 +376,9 @@ function parseApplyPayload(
 
   return {
     desiredStateVersion,
+    ...(managedSkillRenameOperations.length > 0
+      ? { managedSkillRenameOperations }
+      : {}),
     ...(typeof pullImageFirst === "boolean" ? { pullImageFirst } : {}),
     tenantId,
   };

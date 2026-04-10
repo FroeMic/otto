@@ -29,6 +29,11 @@ export type ManagedSkillRuntimeFile = {
   contents: string;
 };
 
+export type ManagedSkillRuntimeRenameOperation = {
+  fromSkillKey: string;
+  toSkillKey: string;
+};
+
 export type ApplyTenantConfigResult = {
   restartStderr: string;
   restartStdout: string;
@@ -91,6 +96,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
     },
@@ -102,6 +108,7 @@ export class RuntimeManager {
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       managedSkillFiles: input.managedSkillFiles,
+      managedSkillRenameOperations: input.managedSkillRenameOperations,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       metadataTimestampKey: "bootstrappedAt",
       openClawConfig: input.openClawConfig,
@@ -135,6 +142,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       openClawConfig: OpenClawTenantConfig;
       pullImageFirst?: boolean;
       slackBotToken?: string | null;
@@ -148,6 +156,7 @@ export class RuntimeManager {
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       managedSkillFiles: input.managedSkillFiles,
+      managedSkillRenameOperations: input.managedSkillRenameOperations,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
       openClawConfig: input.openClawConfig,
@@ -231,6 +240,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       metadataPath: string;
       metadataTimestampKey: string;
       openClawConfig: OpenClawTenantConfig;
@@ -251,6 +261,10 @@ export class RuntimeManager {
       tenantId: input.tenantId,
     });
 
+    await this.moveManagedSkillDirectories(
+      connection,
+      input.managedSkillRenameOperations ?? [],
+    );
     await this.applyTenantFiles(connection, runtimeFiles);
     await this.reconcileManagedSkillFiles(connection, input.managedSkillFiles);
     await this.normalizeTenantRuntimeFilePermissions(connection, {
@@ -500,6 +514,19 @@ export class RuntimeManager {
       JSON.stringify(nextManifest, null, 2),
       0o640,
     );
+  }
+
+  async moveManagedSkillDirectories(
+    connection: SshConnection,
+    renameOperations: ManagedSkillRuntimeRenameOperation[],
+  ) {
+    const renameCommand = buildManagedSkillRenameCommand(renameOperations);
+
+    if (!renameCommand) {
+      return;
+    }
+
+    await this.execChecked(connection, buildShellCommand([renameCommand]));
   }
 
   async readManagedSkillManifest(
@@ -1195,6 +1222,46 @@ export function buildManagedSkillPruneCommand(input: {
         `rmdir ${shellQuoteForShell(directory)} >/dev/null 2>&1 || true`,
     ),
   ].join(" ");
+}
+
+export function buildManagedSkillRenameCommand(
+  renameOperations: ManagedSkillRuntimeRenameOperation[],
+) {
+  const commands = renameOperations
+    .filter(
+      (operation) =>
+        operation.fromSkillKey.trim().length > 0 &&
+        operation.toSkillKey.trim().length > 0 &&
+        operation.fromSkillKey !== operation.toSkillKey,
+    )
+    .map((operation) => {
+      const fromPath = `${MANAGED_SKILL_WORKSPACE_ROOT}/${operation.fromSkillKey}`;
+      const toPath = `${MANAGED_SKILL_WORKSPACE_ROOT}/${operation.toSkillKey}`;
+
+      return [
+        `if test -e ${shellQuoteForShell(fromPath)}; then`,
+        `if ! test -d ${shellQuoteForShell(fromPath)}; then`,
+        `echo ${shellQuoteForShell(`Managed skill source path is not a directory: ${fromPath}`)} >&2;`,
+        "exit 1;",
+        "fi;",
+        `if test -e ${shellQuoteForShell(toPath)}; then`,
+        `echo ${shellQuoteForShell(`Managed skill destination already exists: ${toPath}`)} >&2;`,
+        "exit 1;",
+        "fi;",
+        `mv ${shellQuoteForShell(fromPath)} ${shellQuoteForShell(toPath)};`,
+        `elif test -e ${shellQuoteForShell(toPath)}; then`,
+        ":;",
+        "else",
+        ":;",
+        "fi",
+      ].join(" ");
+    });
+
+  if (commands.length === 0) {
+    return null;
+  }
+
+  return commands.join(" ");
 }
 
 function listManagedSkillDirectoryPaths(
