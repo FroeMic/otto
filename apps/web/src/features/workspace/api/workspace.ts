@@ -14,6 +14,24 @@ import { apiClient } from "@/client/app/rpc"
 
 import type { ConnectedAccount, UserProfile } from "../types"
 
+export interface ApiResponseErrorOptions {
+  code?: string
+  message: string
+  status: number
+}
+
+export class ApiResponseError extends Error {
+  code?: string
+  status: number
+
+  constructor(options: ApiResponseErrorOptions) {
+    super(options.message)
+    this.code = options.code
+    this.name = "ApiResponseError"
+    this.status = options.status
+  }
+}
+
 export async function fetchApiResponse<T>(
   response: Response,
   parse: (input: unknown) => T,
@@ -21,9 +39,11 @@ export async function fetchApiResponse<T>(
   const data = await response.json()
 
   if (!response.ok) {
-    throw new Error(
-      typeof data?.message === "string" ? data.message : "Request failed",
-    )
+    throw new ApiResponseError({
+      code: typeof data?.code === "string" ? data.code : undefined,
+      message: typeof data?.message === "string" ? data.message : "Request failed",
+      status: response.status,
+    })
   }
 
   return parse(data)
@@ -39,17 +59,19 @@ export function parseConnectedAccountsResponse(
   return connectedAccountsResponseSchema.parse(data).connectedAccounts
 }
 
+export async function fetchShellBootstrap(orgSlug: string) {
+  const response = await apiClient.api.web.bootstrap[":orgSlug"].$get({
+    param: {
+      orgSlug,
+    },
+  })
+
+  return fetchApiResponse(response, (data) => shellBootstrapSchema.parse(data))
+}
+
 export function shellBootstrapQueryOptions(orgSlug: string) {
   return queryOptions({
-    queryFn: async () => {
-      const response = await apiClient.api.web.bootstrap[":orgSlug"].$get({
-        param: {
-          orgSlug,
-        },
-      })
-
-      return fetchApiResponse(response, (data) => shellBootstrapSchema.parse(data))
-    },
+    queryFn: async () => fetchShellBootstrap(orgSlug),
     queryKey: ["shell-bootstrap", orgSlug],
     staleTime: 60_000,
   })
