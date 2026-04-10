@@ -6,8 +6,9 @@
     "tools": [
       "list_managed_skills",
       "get_managed_skill",
-      "read_managed_skill_file",
-      "patch_managed_skill_file"
+      "create_managed_skill",
+      "update_managed_skill",
+      "delete_managed_skill"
     ]
   },
   "configSchema": {

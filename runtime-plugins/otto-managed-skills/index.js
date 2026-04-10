@@ -1,7 +1,6 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
-const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md";
 const PLUGIN_CONFIG_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -16,7 +15,8 @@ const PLUGIN_CONFIG_SCHEMA = {
 export default definePluginEntry({
   id: "otto-managed-skills",
   name: "Otto Managed Skills",
-  description: "Managed skill tools backed by the workspace app.",
+  description:
+    "Managed skill lifecycle tools backed by the workspace app. Use these tools for SKILL.md lifecycle changes only. Use normal file and exec tools for references/, scripts/, and state/ inside skill directories.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -40,7 +40,7 @@ export default definePluginEntry({
       {
         name: "get_managed_skill",
         description:
-          "Read one managed skill's current metadata, status, dependencies, and package file inventory from the workspace app.",
+          "Read one managed skill's current metadata, status, dependencies, editable content, and package file inventory from the workspace app.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -61,36 +61,9 @@ export default definePluginEntry({
 
     api.registerTool(
       {
-        name: "read_managed_skill_file",
+        name: "create_managed_skill",
         description:
-          "Read the current contents of SKILL.md for one managed skill from the workspace app.",
-        parameters: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            filePath: {
-              type: "string",
-              minLength: 1,
-            },
-            skillKey: {
-              type: "string",
-              minLength: 1,
-            },
-          },
-          required: ["skillKey", "filePath"],
-        },
-        async execute(_id, params) {
-          return buildToolResult(await readManagedSkillFile(api, params));
-        },
-      },
-      { optional: true },
-    );
-
-    api.registerTool(
-      {
-        name: "patch_managed_skill_file",
-        description:
-          "Update SKILL.md for one managed skill through the workspace app. Do not use this for references/, scripts/, state/, or binary files.",
+          "Create a new managed skill through the workspace app. Provide either contentText or structured skill fields.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -98,13 +71,117 @@ export default definePluginEntry({
             contentText: {
               type: "string",
             },
+            description: {
+              type: "string",
+              minLength: 1,
+            },
+            integrationKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+              },
+            },
+            skillBody: {
+              type: "string",
+            },
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+            skillKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+              },
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["skillKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await createManagedSkill(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "update_managed_skill",
+        description:
+          "Apply a surgical patch to one managed skill through the workspace app. Use this for content changes, metadata changes, and enable or disable state.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            contentText: {
+              type: "string",
+            },
+            description: {
+              type: "string",
+              minLength: 1,
+            },
+            enabled: {
+              type: "boolean",
+            },
             expectedVersion: {
               type: "integer",
               minimum: 1,
             },
-            filePath: {
+            integrationKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+              },
+            },
+            skillBody: {
+              type: "string",
+            },
+            skillKey: {
               type: "string",
               minLength: 1,
+            },
+            skillKeys: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+              },
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["skillKey", "expectedVersion"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await updateManagedSkill(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "delete_managed_skill",
+        description:
+          "Delete one managed skill through the workspace app. This removes the managed skill from the workspace projection.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expectedVersion: {
+              type: "integer",
+              minimum: 1,
             },
             skillKey: {
               type: "string",
@@ -116,10 +193,10 @@ export default definePluginEntry({
               maxLength: 500,
             },
           },
-          required: ["skillKey", "filePath", "contentText", "expectedVersion"],
+          required: ["skillKey", "expectedVersion"],
         },
         async execute(_id, params) {
-          return buildToolResult(await patchManagedSkillFile(api, params));
+          return buildToolResult(await deleteManagedSkill(api, params));
         },
       },
       { optional: true },
@@ -168,56 +245,16 @@ async function getManagedSkill(api, params) {
   };
 }
 
-async function readManagedSkillFile(api, params) {
-  const filePath = normalizeNonEmptyString(params?.filePath);
+async function createManagedSkill(api, params) {
   const skillKey = normalizeNonEmptyString(params?.skillKey);
-
-  if (!skillKey) {
-    return {
-      ok: false,
-      error: "skillKey must be a non-empty string.",
-    };
-  }
-
-  if (!filePath) {
-    return {
-      ok: false,
-      error: "filePath must be a non-empty string.",
-    };
-  }
-
-  if (filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
-    return {
-      ok: false,
-      error: "Only SKILL.md can be read through the managed-skills surface.",
-    };
-  }
-
-  const response = await requestControlPlane(api, {
-    method: "GET",
-    path: `/api/internal/runtime/managed-skills?skillKey=${encodeURIComponent(
-      skillKey,
-    )}&filePath=${encodeURIComponent(filePath)}`,
-  });
-
-  if (!response.ok) {
-    return response;
-  }
-
-  return {
-    ok: true,
-    file: response.data.file,
-    version: response.data.version,
-  };
-}
-
-async function patchManagedSkillFile(api, params) {
   const contentText =
-    typeof params?.contentText === "string" ? params.contentText : null;
-  const expectedVersion =
-    typeof params?.expectedVersion === "number" ? params.expectedVersion : null;
-  const filePath = normalizeNonEmptyString(params?.filePath);
-  const skillKey = normalizeNonEmptyString(params?.skillKey);
+    typeof params?.contentText === "string" ? params.contentText : undefined;
+  const description =
+    typeof params?.description === "string" ? params.description : undefined;
+  const skillBody =
+    typeof params?.skillBody === "string" ? params.skillBody : undefined;
+  const integrationKeys = normalizeStringArray(params?.integrationKeys);
+  const skillKeys = normalizeStringArray(params?.skillKeys);
   const summary =
     typeof params?.summary === "string" ? params.summary : undefined;
 
@@ -228,24 +265,66 @@ async function patchManagedSkillFile(api, params) {
     };
   }
 
-  if (!filePath) {
+  if (
+    typeof contentText !== "string" &&
+    typeof description !== "string" &&
+    typeof skillBody !== "string"
+  ) {
     return {
       ok: false,
-      error: "filePath must be a non-empty string.",
+      error:
+        "Provide contentText or structured fields like description and skillBody when creating a managed skill.",
     };
   }
 
-  if (filePath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
-    return {
-      ok: false,
-      error: "Only SKILL.md can be patched through the managed-skills surface.",
-    };
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/managed-skills",
+    body: {
+      ...(typeof contentText === "string" ? { contentText } : {}),
+      ...(typeof description === "string" ? { description } : {}),
+      ...(integrationKeys ? { integrationKeys } : {}),
+      ...(typeof skillBody === "string" ? { skillBody } : {}),
+      skillKey,
+      ...(skillKeys ? { skillKeys } : {}),
+      ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    return response;
   }
 
-  if (contentText === null) {
+  return {
+    ok: true,
+    applyQueued: response.data.applyQueued,
+    desiredStateVersion: response.data.desiredStateVersion,
+    skillKey: response.data.skillKey,
+    version: response.data.version,
+  };
+}
+
+async function updateManagedSkill(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+  const expectedVersion =
+    typeof params?.expectedVersion === "number" ? params.expectedVersion : null;
+  const contentText =
+    typeof params?.contentText === "string" ? params.contentText : undefined;
+  const description =
+    typeof params?.description === "string" ? params.description : undefined;
+  const enabled =
+    typeof params?.enabled === "boolean" ? params.enabled : undefined;
+  const integrationKeys = normalizeStringArray(params?.integrationKeys);
+  const skillBody =
+    typeof params?.skillBody === "string" ? params.skillBody : undefined;
+  const skillKeys = normalizeStringArray(params?.skillKeys);
+  const summary =
+    typeof params?.summary === "string" ? params.summary : undefined;
+
+  if (!skillKey) {
     return {
       ok: false,
-      error: "contentText must be a string.",
+      error: "skillKey must be a non-empty string.",
     };
   }
 
@@ -257,7 +336,23 @@ async function patchManagedSkillFile(api, params) {
     return {
       ok: false,
       error:
-        "expectedVersion is required and must come from a prior get_managed_skill or read_managed_skill_file call.",
+        "expectedVersion is required and must come from a prior get_managed_skill call.",
+    };
+  }
+
+  const hasPatchFields =
+    typeof contentText === "string" ||
+    typeof description === "string" ||
+    typeof enabled === "boolean" ||
+    Array.isArray(integrationKeys) ||
+    typeof skillBody === "string" ||
+    Array.isArray(skillKeys);
+
+  if (!hasPatchFields) {
+    return {
+      ok: false,
+      error:
+        "Provide at least one patch field when updating a managed skill.",
     };
   }
 
@@ -265,10 +360,14 @@ async function patchManagedSkillFile(api, params) {
     method: "PATCH",
     path: "/api/internal/runtime/managed-skills",
     body: {
-      contentText,
+      ...(typeof contentText === "string" ? { contentText } : {}),
+      ...(typeof description === "string" ? { description } : {}),
+      ...(typeof enabled === "boolean" ? { enabled } : {}),
       expectedVersion,
-      filePath,
+      ...(integrationKeys ? { integrationKeys } : {}),
+      ...(typeof skillBody === "string" ? { skillBody } : {}),
       skillKey,
+      ...(skillKeys ? { skillKeys } : {}),
       ...(summary ? { summary } : {}),
     },
   });
@@ -287,6 +386,55 @@ async function patchManagedSkillFile(api, params) {
   };
 }
 
+async function deleteManagedSkill(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+  const expectedVersion =
+    typeof params?.expectedVersion === "number" ? params.expectedVersion : null;
+  const summary =
+    typeof params?.summary === "string" ? params.summary : undefined;
+
+  if (!skillKey) {
+    return {
+      ok: false,
+      error: "skillKey must be a non-empty string.",
+    };
+  }
+
+  if (
+    !expectedVersion ||
+    !Number.isInteger(expectedVersion) ||
+    expectedVersion < 1
+  ) {
+    return {
+      ok: false,
+      error:
+        "expectedVersion is required and must come from a prior get_managed_skill call.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "DELETE",
+    path: "/api/internal/runtime/managed-skills",
+    body: {
+      expectedVersion,
+      skillKey,
+      ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    applyQueued: response.data.applyQueued,
+    deleted: response.data.deleted,
+    desiredStateVersion: response.data.desiredStateVersion,
+    skillKey: response.data.skillKey,
+  };
+}
+
 function normalizeNonEmptyString(value) {
   if (typeof value !== "string") {
     return null;
@@ -294,6 +442,18 @@ function normalizeNonEmptyString(value) {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = value
+    .map((entry) => normalizeNonEmptyString(entry))
+    .filter(Boolean);
+
+  return normalized.length > 0 ? normalized : [];
 }
 
 function buildToolResult(payload) {
