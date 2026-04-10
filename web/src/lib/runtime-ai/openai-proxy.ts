@@ -44,10 +44,47 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request;
   tenantId: string;
 }) {
-  return proxyOpenAiRequest({
-    request: input.request,
+  const apiKey = await getTenantOpenAiApiKey(input.tenantId);
+  const balanceCreditsMilli = await getTenantCreditBalanceMilli(input.tenantId);
+
+  assertTenantCreditsAvailable({
+    balanceCreditsMilli,
     tenantId: input.tenantId,
-    upstreamUrl: OPENAI_AUDIO_TRANSCRIPTIONS_URL,
+  });
+
+  if (!apiKey) {
+    throw new OpenAiProxyError(
+      "This workspace does not have an active OpenAI API key configured.",
+      503,
+    );
+  }
+
+  // Parse and re-send as FormData so fetch() handles multipart encoding
+  // correctly. The raw-buffer approach used by proxyOpenAiRequest loses
+  // the multipart form structure when re-sent via Node.js fetch, causing
+  // OpenAI to reject the request with "you must provide a model parameter".
+  const formData = await input.request.formData();
+
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+  } catch (error) {
+    throw new OpenAiProxyError(
+      error instanceof Error
+        ? `OpenAI upstream request failed: ${error.message}`
+        : "OpenAI upstream request failed.",
+      502,
+    );
+  }
+
+  return new Response(upstreamResponse.body, {
+    headers: buildOpenAiResponseHeaders(upstreamResponse.headers),
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText,
   });
 }
 
