@@ -8,21 +8,21 @@ export const BILLING_PLAN_KEYS = {
 export type BillingPlanKey =
   (typeof BILLING_PLAN_KEYS)[keyof typeof BILLING_PLAN_KEYS]
 
-type BillingPlan = {
+export type BillingPlan = {
   creditsIncluded: number
   key: BillingPlanKey
   monthlyPriceUsd: number
   name: string
 }
 
-type AutoTopOffPack = {
+export type AutoTopOffPack = {
   amountCents: number
   creditsGranted: number
   label: string
   lookupKey: string
 }
 
-function getBillingPlans(): BillingPlan[] {
+export function getBillingPlans(): BillingPlan[] {
   return [
     {
       creditsIncluded: 10_000,
@@ -51,7 +51,7 @@ function getBillingPlans(): BillingPlan[] {
   ]
 }
 
-function getAutoTopOffPacks(): AutoTopOffPack[] {
+export function getAutoTopOffPacks(): AutoTopOffPack[] {
   return [
     {
       amountCents: 2_000,

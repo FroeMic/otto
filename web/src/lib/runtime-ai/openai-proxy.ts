@@ -44,10 +44,84 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request;
   tenantId: string;
 }) {
-  return proxyOpenAiRequest({
-    request: input.request,
+  const incomingContentType = input.request.headers.get("content-type");
+  console.log("[audio-proxy:web] request received", {
+    contentType: incomingContentType,
+    method: input.request.method,
+  });
+
+  const apiKey = await getTenantOpenAiApiKey(input.tenantId);
+  const balanceCreditsMilli = await getTenantCreditBalanceMilli(input.tenantId);
+
+  assertTenantCreditsAvailable({
+    balanceCreditsMilli,
     tenantId: input.tenantId,
-    upstreamUrl: OPENAI_AUDIO_TRANSCRIPTIONS_URL,
+  });
+
+  if (!apiKey) {
+    throw new OpenAiProxyError(
+      "This workspace does not have an active OpenAI API key configured.",
+      503,
+    );
+  }
+
+  // Try FormData parsing first; fall back to raw buffer if it fails.
+  let upstreamBody: BodyInit;
+  let upstreamHeaders: HeadersInit;
+
+  try {
+    const formData = await input.request.formData();
+    console.log("[audio-proxy:web] formData parsed", {
+      keys: [...formData.keys()],
+      hasModel: formData.has("model"),
+      hasFile: formData.has("file"),
+    });
+    upstreamBody = formData;
+    upstreamHeaders = { Authorization: `Bearer ${apiKey}` };
+  } catch (parseErr) {
+    console.error(
+      "[audio-proxy:web] formData parse failed, falling back to raw buffer",
+      String(parseErr),
+    );
+    // Fallback: re-read body as raw buffer and forward with original Content-Type
+    const bodyBuffer = Buffer.from(await input.request.arrayBuffer());
+    console.log("[audio-proxy:web] raw buffer fallback", {
+      bodySize: bodyBuffer.length,
+      contentType: incomingContentType,
+    });
+    upstreamBody = bodyBuffer;
+    const headers = new Headers();
+    if (incomingContentType) {
+      headers.set("Content-Type", incomingContentType);
+    }
+    headers.set("Authorization", `Bearer ${apiKey}`);
+    upstreamHeaders = headers;
+  }
+
+  let upstreamResponse: Response;
+  try {
+    upstreamResponse = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
+      method: "POST",
+      headers: upstreamHeaders,
+      body: upstreamBody,
+    });
+  } catch (error) {
+    throw new OpenAiProxyError(
+      error instanceof Error
+        ? `OpenAI upstream request failed: ${error.message}`
+        : "OpenAI upstream request failed.",
+      502,
+    );
+  }
+
+  console.log("[audio-proxy:web] upstream response", {
+    status: upstreamResponse.status,
+  });
+
+  return new Response(upstreamResponse.body, {
+    headers: buildOpenAiResponseHeaders(upstreamResponse.headers),
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText,
   });
 }
 

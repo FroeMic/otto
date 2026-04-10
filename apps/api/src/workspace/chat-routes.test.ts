@@ -1,13 +1,12 @@
 import assert from "node:assert/strict"
 
 import { WorkspaceSessionAuthError } from "@otto/auth"
-import { Hono } from "hono"
 import { describe, it } from "vitest"
 
 import {
-  registerWorkspaceChatRoutes,
+  createWorkspaceChatRouter,
   type WorkspaceChatRouteDependencies,
-} from "./workspace-chat"
+} from "./chat-routes"
 
 const user = {
   email: "test@getyourotto.com",
@@ -71,18 +70,9 @@ function createDependencies(): WorkspaceChatRouteDependencies {
   }
 }
 
-function createWorkspaceChatTestApp(
-  dependencies: WorkspaceChatRouteDependencies = createDependencies(),
-) {
-  const app = new Hono()
-  registerWorkspaceChatRoutes(app, dependencies)
-
-  return app
-}
-
-describe("workspace chat native routes", () => {
+describe("workspace chat routes", () => {
   it("returns the workspace chat conversation list", async () => {
-    const app = createWorkspaceChatTestApp()
+    const app = createWorkspaceChatRouter(createDependencies())
     const response = await app.request(
       "http://api.local/api/workspace/otto/chat/conversations",
     )
@@ -102,8 +92,8 @@ describe("workspace chat native routes", () => {
     })
   })
 
-  it("creates a conversation through the native workspace chat route", async () => {
-    const app = createWorkspaceChatTestApp()
+  it("creates a conversation through the workspace chat route", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
     const response = await app.request(
       "http://api.local/api/workspace/otto/chat/conversations",
       {
@@ -133,7 +123,7 @@ describe("workspace chat native routes", () => {
   })
 
   it("returns a conversation detail payload", async () => {
-    const app = createWorkspaceChatTestApp()
+    const app = createWorkspaceChatRouter(createDependencies())
     const response = await app.request(
       "http://api.local/api/workspace/otto/chat/conversations/conv_1",
     )
@@ -152,8 +142,8 @@ describe("workspace chat native routes", () => {
     })
   })
 
-  it("accepts a message through the native workspace chat route", async () => {
-    const app = createWorkspaceChatTestApp()
+  it("accepts a message through the workspace chat route", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
     const response = await app.request(
       "http://api.local/api/workspace/otto/chat/conversations/conv_1/messages",
       {
@@ -199,7 +189,7 @@ describe("workspace chat native routes", () => {
   })
 
   it("returns 401 when the workspace session is missing", async () => {
-    const app = createWorkspaceChatTestApp({
+    const app = createWorkspaceChatRouter({
       ...createDependencies(),
       authenticateWorkspaceUser: async () => {
         throw new WorkspaceSessionAuthError(

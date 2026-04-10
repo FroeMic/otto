@@ -44,6 +44,45 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
   - a small health or metrics HTTP surface is acceptable
   - do not redesign job execution around inbound HTTP requests
 - Keep the application architecture independent of Cloudflare-specific runtime features unless a later spec explicitly adopts them.
+- For `apps/api` to `apps/web` communication, use Hono RPC as the default:
+  - export route or app `AppType` types from `apps/api`
+  - use `hc<AppType>()` clients in `apps/web`
+  - keep request/response contracts type-safe across the stack
+  - keep both sides on strict TypeScript so RPC inference works correctly
+- Prefer explicit `c.json(..., status)` responses on RPC routes so response types remain inferable.
+- Do not use Hono RPC as a requirement for routes primarily called by tenant servers or runtime plugins; those routes may remain plain HTTP interfaces.
+
+## Code organization philosophy
+
+- Organize code by bounded context first, then by execution surface.
+- Prefer domain-first homes such as `billing`, `workspace`, `integrations`, `runtime`, `auth`, and `platform` over repo-wide catch-all buckets like `db`, `lib`, or `utils`.
+- Keep `apps/*` thin:
+  - `apps/api` should primarily own HTTP handlers and API-specific adapters
+  - `apps/worker` should primarily own worker jobs and worker-only orchestration
+  - `apps/web` should primarily own browser UI, route loaders, and client behavior
+- Put shared domain logic in `packages/features/<domain>` only when that logic is genuinely used by more than one execution surface.
+- Keep worker-only logic inside `apps/worker`; do not move worker-owned code into `packages/` unless it becomes truly shared.
+- Keep browser-only UI code inside `apps/web`; do not leave React components or page-specific UI in backend/runtime packages.
+- Within a domain package, split by capability and role, for example `contracts`, `data`, `services`, `policies`, and `types`, rather than allowing a single `index.ts`, `db.ts`, or `lib.ts` file to become a monolith.
+- Treat `lib` as a last resort name, not the default home for unrelated code.
+- Before creating a new file, decide explicitly:
+  - which bounded context owns this behavior
+  - which execution surface runs it
+  - whether it is truly shared or surface-specific
+- If related code for one domain is spread across multiple apps/packages, favor pulling shared domain logic into one coherent `packages/features/<domain>` home and leaving only thin adapters in the apps.
+- For the SPA in `apps/web`:
+  - keep route registration centralized in a dedicated routing module such as `src/client/app/route-tree.tsx`
+  - keep global shell code such as app shell, sidebar, header, settings shell, and index-route helpers under a dedicated app-shell area such as `src/client/app/app-shell/`
+  - organize feature code under `src/features/<feature>/`
+  - treat `settings` as a shell and navigation area, not as a bounded context for domain logic
+  - current preferred feature grouping is `workspace`, `usage`, and `billing`
+  - keep one page component per file
+- For React component files:
+  - define props in the same file near the top
+  - use an exported `interface` for props definitions
+  - export components as named exports only
+  - do not use default exports for components
+  - prefer named imports over namespace imports for local application code
 
 ## Repository shape
 
@@ -108,6 +147,14 @@ Highlight these skills when relevant:
 - Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
 - Push committed work to `origin` regularly so progress is not stranded only in the local workspace.
+- Before creating a PR, review the branch against the spec and the code-organization philosophy above:
+  - confirm code is placed in the correct bounded context
+  - confirm shared code is actually shared and surface-specific code stayed in the app
+  - confirm new files did not introduce fresh catch-all `lib` or cross-domain sprawl
+  - confirm new `apps/api` to `apps/web` routes use Hono RPC unless they fall under the tenant/runtime/plugin exception
+  - confirm SPA routes are still centralized and new pages live under the correct feature group
+  - confirm component files use local exported props interfaces, named exports, and named imports
+  - note any intentional deviations explicitly in the PR description
 
 ## GitHub workflow expectation
 

@@ -10,6 +10,7 @@ export {
   normalizeTimeZone,
 } from "./normalization"
 export type {
+  ShellBootstrap,
   WorkspaceSettingsSuccess,
   WorkspaceSettingsUpdate,
   WorkspaceSummary,

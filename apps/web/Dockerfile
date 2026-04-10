@@ -7,11 +7,12 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY apps/worker/package.json apps/worker/package.json
-# Bun frozen workspace installs need the sibling workspace manifests present,
-# even when we only install the filtered web workspace.
+# The web build imports the API Hono RPC type surface, so the builder needs the
+# web and API workspace dependencies available during typecheck/build.
 COPY packages packages
-RUN bun install --frozen-lockfile --filter @otto/web
+RUN bun install --frozen-lockfile --filter @otto/web --filter @otto/api
 
+COPY apps/api apps/api
 COPY apps/web apps/web
 
 RUN bun run --cwd apps/web build

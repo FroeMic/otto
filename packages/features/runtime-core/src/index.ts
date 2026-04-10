@@ -13,6 +13,8 @@ export type ManagedSkillVersionConflictLike = {
   message: string
 }
 
+const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md"
+
 function isNeverManagedConfigVersionConflict(
   _error: unknown,
 ): _error is ManagedConfigVersionConflictLike {
@@ -208,10 +210,57 @@ function handleManagedConfigRouteError(
   )
 }
 
-export const managedSkillPatchSchema = z.object({
-  contentText: z.string(),
-  expectedVersion: z.number().int().positive().optional(),
-  filePath: z.string().trim().min(1),
+export const managedSkillCreateSchema = z
+  .object({
+    contentText: z.string().optional(),
+    description: z.string().trim().min(1).optional(),
+    integrationKeys: z.array(z.string().trim().min(1)).optional(),
+    skillBody: z.string().optional(),
+    skillKey: z.string().trim().min(1),
+    skillKeys: z.array(z.string().trim().min(1)).optional(),
+    summary: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine(
+    (value) =>
+      typeof value.contentText === "string" ||
+      typeof value.description === "string" ||
+      typeof value.skillBody === "string",
+    {
+      message:
+        "Provide contentText or structured skill fields when creating a managed skill.",
+      path: ["contentText"],
+    },
+  )
+
+export const managedSkillUpdateSchema = z
+  .object({
+    contentText: z.string().optional(),
+    description: z.string().trim().min(1).optional(),
+    enabled: z.boolean().optional(),
+    expectedVersion: z.number().int().positive().optional(),
+    integrationKeys: z.array(z.string().trim().min(1)).optional(),
+    skillBody: z.string().optional(),
+    skillKey: z.string().trim().min(1),
+    skillKeys: z.array(z.string().trim().min(1)).optional(),
+    summary: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine(
+    (value) =>
+      typeof value.contentText === "string" ||
+      typeof value.description === "string" ||
+      typeof value.skillBody === "string" ||
+      Array.isArray(value.integrationKeys) ||
+      Array.isArray(value.skillKeys) ||
+      typeof value.enabled === "boolean",
+    {
+      message:
+        "Provide at least one managed skill patch field when updating a managed skill.",
+      path: ["contentText"],
+    },
+  )
+
+export const managedSkillDeleteSchema = z.object({
+  expectedVersion: z.number().int().positive(),
   skillKey: z.string().trim().min(1),
   summary: z.string().trim().min(1).max(500).optional(),
 })
@@ -236,7 +285,6 @@ export async function handleManagedSkillsGetRequest(input: {
   listTenantManagedSkillsForTenant: (payload: {
     tenantId: string
   }) => Promise<unknown>
-  managedSkillEntryFilePath: string
   request: Request
 }) {
   try {
@@ -247,20 +295,11 @@ export async function handleManagedSkillsGetRequest(input: {
     const skillKey = url.searchParams.get("skillKey")?.trim()
     const filePath = url.searchParams.get("filePath")?.trim()
 
-    if (filePath && !skillKey) {
-      return jsonNoStore(
-        {
-          error: "filePath requires skillKey.",
-        },
-        400,
-      )
-    }
-
-    if (filePath && filePath !== input.managedSkillEntryFilePath) {
+    if (filePath) {
       return jsonNoStore(
         {
           error:
-            "Only SKILL.md can be read through the runtime-managed skills surface.",
+            "filePath is no longer supported on the runtime-managed skills surface. Use get_managed_skill for SKILL.md content and normal file tools for local skill directories.",
         },
         400,
       )
@@ -290,60 +329,22 @@ export async function handleManagedSkillsGetRequest(input: {
       )
     }
 
-    if (!filePath) {
-      return jsonNoStore({
-        skill: {
-          ...detail,
-          files: detail.files.map((file) => ({
-            contentType: file.contentType,
-            editability: file.editability,
-            path: file.path,
-            storageEncoding: file.storageEncoding,
-          })),
-        },
-      })
-    }
-
-    const file = detail.files.find((entry) => entry.path === filePath)
-
-    if (!file) {
-      return jsonNoStore(
-        {
-          error: `Managed skill file not found: ${skillKey}/${filePath}`,
-        },
-        404,
-      )
-    }
-
-    if (file.editability === "local_state") {
-      return jsonNoStore(
-        {
-          error:
-            "state/ files are not exposed through the runtime-managed skills surface in this slice.",
-        },
-        400,
-      )
-    }
-
-    if (file.storageEncoding !== "utf8_text" || file.contentText === null) {
-      return jsonNoStore(
-        {
-          error:
-            "Only managed UTF-8 text files can be read through the runtime-managed skills surface in this slice.",
-        },
-        400,
-      )
-    }
+    const entryFile =
+      detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+      null
 
     return jsonNoStore({
-      file: {
-        contentText: file.contentText,
-        contentType: file.contentType,
-        editability: file.editability,
-        path: file.path,
-        storageEncoding: file.storageEncoding,
+      skill: {
+        ...detail,
+        contentText:
+          entryFile?.storageEncoding === "utf8_text" ? entryFile.contentText : null,
+        files: detail.files.map((file) => ({
+          contentType: file.contentType,
+          editability: file.editability,
+          path: file.path,
+          storageEncoding: file.storageEncoding,
+        })),
       },
-      version: detail.version,
     })
   } catch (error) {
     return handleManagedSkillsRouteError(error, {
@@ -352,21 +353,101 @@ export async function handleManagedSkillsGetRequest(input: {
   }
 }
 
-export async function handleManagedSkillsPatchRequest(input: {
+export async function handleManagedSkillsPostRequest(input: {
+  authenticateTenantRuntimeRequest: (
+    request: Request,
+  ) => Promise<{ tenantId: string }>
+  createTenantManagedSkillForTenant: (payload: {
+    contentText?: string
+    createdByExternalId: string | null
+    createdByType: "runtime"
+    description?: string
+    integrationKeys?: string[]
+    skillBody?: string
+    skillKey: string
+    skillKeys?: string[]
+    summary: string
+    tenantId: string
+  }) => Promise<unknown>
+  request: Request
+}) {
+  try {
+    const { tenantId } = await input.authenticateTenantRuntimeRequest(
+      input.request,
+    )
+    const body = managedSkillCreateSchema.parse(await input.request.json())
+
+    const result = await input.createTenantManagedSkillForTenant({
+      ...(typeof body.contentText === "string"
+        ? {
+            contentText: body.contentText,
+          }
+        : {}),
+      createdByExternalId: null,
+      createdByType: "runtime",
+      ...(typeof body.description === "string"
+        ? {
+            description: body.description,
+          }
+        : {}),
+      ...(Array.isArray(body.integrationKeys)
+        ? {
+            integrationKeys: body.integrationKeys,
+          }
+        : {}),
+      ...(typeof body.skillBody === "string"
+        ? {
+            skillBody: body.skillBody,
+          }
+        : {}),
+      skillKey: body.skillKey,
+      ...(Array.isArray(body.skillKeys)
+        ? {
+            skillKeys: body.skillKeys,
+          }
+        : {}),
+      summary: body.summary ?? `Runtime created managed skill ${body.skillKey}`,
+      tenantId,
+    })
+
+    return jsonNoStore(result)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return jsonNoStore(
+        {
+          error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      )
+    }
+
+    return handleManagedSkillsRouteError(error, {
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+    })
+  }
+}
+
+export async function handleManagedSkillsUpdateRequest(input: {
   authenticateTenantRuntimeRequest: (
     request: Request,
   ) => Promise<{ tenantId: string }>
   isVersionConflictError: (
     error: unknown,
   ) => error is ManagedSkillVersionConflictLike
-  managedSkillEntryFilePath: string
   request: Request
-  updateTenantManagedSkillTextFileForTenant: (payload: {
-    contentText: string
+  updateTenantManagedSkillForTenant: (payload: {
     createdByExternalId: string | null
     createdByType: "runtime"
     expectedVersion?: number
-    relativePath: string
+    patch: {
+      contentText?: string
+      description?: string
+      enabled?: boolean
+      integrationKeys?: string[]
+      skillBody?: string
+      skillKeys?: string[]
+    }
     skillKey: string
     summary: string
     tenantId: string
@@ -376,28 +457,48 @@ export async function handleManagedSkillsPatchRequest(input: {
     const { tenantId } = await input.authenticateTenantRuntimeRequest(
       input.request,
     )
-    const body = managedSkillPatchSchema.parse(await input.request.json())
+    const body = managedSkillUpdateSchema.parse(await input.request.json())
 
-    if (body.filePath !== input.managedSkillEntryFilePath) {
-      return jsonNoStore(
-        {
-          error:
-            "Only SKILL.md can be patched through the runtime-managed skills surface.",
-        },
-        400,
-      )
+    const patch = {
+      ...(typeof body.contentText === "string"
+        ? {
+            contentText: body.contentText,
+          }
+        : {}),
+      ...(typeof body.description === "string"
+        ? {
+            description: body.description,
+          }
+        : {}),
+      ...(typeof body.enabled === "boolean"
+        ? {
+            enabled: body.enabled,
+          }
+        : {}),
+      ...(Array.isArray(body.integrationKeys)
+        ? {
+            integrationKeys: body.integrationKeys,
+          }
+        : {}),
+      ...(typeof body.skillBody === "string"
+        ? {
+            skillBody: body.skillBody,
+          }
+        : {}),
+      ...(Array.isArray(body.skillKeys)
+        ? {
+            skillKeys: body.skillKeys,
+          }
+        : {}),
     }
 
-    const result = await input.updateTenantManagedSkillTextFileForTenant({
-      contentText: body.contentText,
+    const result = await input.updateTenantManagedSkillForTenant({
       createdByExternalId: null,
       createdByType: "runtime",
       expectedVersion: body.expectedVersion,
-      relativePath: body.filePath,
+      patch,
       skillKey: body.skillKey,
-      summary:
-        body.summary ??
-        `Runtime updated managed skill file ${body.skillKey}/${body.filePath}`,
+      summary: body.summary ?? `Runtime updated managed skill ${body.skillKey}`,
       tenantId,
     })
 
@@ -406,7 +507,56 @@ export async function handleManagedSkillsPatchRequest(input: {
     if (error instanceof z.ZodError) {
       return jsonNoStore(
         {
-          error: "Invalid managed skills payload",
+          error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      )
+    }
+
+    return handleManagedSkillsRouteError(error, {
+      isVersionConflictError: input.isVersionConflictError,
+    })
+  }
+}
+
+export async function handleManagedSkillsDeleteRequest(input: {
+  authenticateTenantRuntimeRequest: (
+    request: Request,
+  ) => Promise<{ tenantId: string }>
+  deleteTenantManagedSkillForTenant: (payload: {
+    createdByExternalId: string | null
+    createdByType: "runtime"
+    expectedVersion: number
+    skillKey: string
+    summary: string
+    tenantId: string
+  }) => Promise<unknown>
+  isVersionConflictError: (
+    error: unknown,
+  ) => error is ManagedSkillVersionConflictLike
+  request: Request
+}) {
+  try {
+    const { tenantId } = await input.authenticateTenantRuntimeRequest(
+      input.request,
+    )
+    const body = managedSkillDeleteSchema.parse(await input.request.json())
+    const result = await input.deleteTenantManagedSkillForTenant({
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: body.expectedVersion,
+      skillKey: body.skillKey,
+      summary: body.summary ?? `Runtime deleted managed skill ${body.skillKey}`,
+      tenantId,
+    })
+
+    return jsonNoStore(result)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return jsonNoStore(
+        {
+          error: "Invalid managed skill payload",
           issues: error.issues,
         },
         400,

@@ -436,13 +436,15 @@
   - tenant Slack projection now renders OpenClaw in HTTP mode instead of Socket Mode, and tenant runtime env projection no longer depends on `SLACK_APP_TOKEN`
   - the current forwarding hop still uses the existing runtime connection path to reach the loopback-only tenant gateway, so the next hardening step is about transport and lifecycle robustness rather than basic routing capability
 - Managed skills planning is now captured in `TODO_18_managed_skills.md`:
+  - every skill visible in the Otto workspace should correspond to a managed record rather than an unmanaged workspace skill directory
   - managed skills should be stored canonically in the control plane and projected into `workspace/skills/<skill-key>/`
-  - `SKILL.md` is the only Otto-managed file in a skill package
-  - `references/`, `scripts/`, and `state/` should be durable runtime-local writable directories, not managed source of truth
-  - only `SKILL.md` should be editable through Otto's managed-skills surface; local skill directories should remain non-editable there in `v1`
+  - `SKILL.md` is the only Otto-managed file in a skill package and should only be created, updated, or deleted through the managed-skills APIs
+  - `references/`, `scripts/`, and `state/` should be durable runtime-local writable directories that use the normal workspace file surface instead of a second managed-skills file API
+  - Otto should manage the lifecycle of workspace-visible skills, while OpenClaw continues to own native loading, source precedence, gating, prompt visibility, and on-demand reading of `SKILL.md`
+  - the managed-skills runtime plugin should stay narrow and lifecycle-oriented: `list_managed_skills`, `get_managed_skill`, `create_managed_skill`, `update_managed_skill`, and `delete_managed_skill`
   - skill dependencies should use generic metadata such as `metadata.dependsOn.integrations`, while integration setup and runtime tool injection remain outside the skills surface
-  - the workspace should expose a dedicated `Skills` area with a package viewer and explicit editing for `SKILL.md`, while the general file browser remains a lower-level filesystem surface
-  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, local-directory visibility, bundled skill policy, then integration-linked starter skills
+  - Otto-managed runtimes should treat unexpected on-disk skills without matching managed records as drift rather than as a supported unmanaged product path
+  - the next implementation plan should use vertical increments: schema/validation, projection, minimal UI, runtime-authenticated CRUD, normal file-surface visibility for local skill directories, bundled skill policy, reduced lifecycle surface, unmanaged-skill enforcement, then integration-linked starter skills
 - The first `TODO_18_managed_skills.md` increment is now implemented on `main`:
   - `tenant_skills`, `tenant_skill_versions`, `tenant_skill_files`, and `tenant_skill_file_versions` now exist in schema plus migration form as the managed-skills persistence foundation
   - `web/src/lib/managed-skills/package.ts` now validates `SKILL.md`, parses dependency metadata, rejects invalid paths and `state/` writes, and classifies package files into editable managed text, download-only managed files, and local state
@@ -471,7 +473,9 @@
   - Otto now renders an explicit bundled-skill allowlist into tenant OpenClaw config so unwanted upstream bundled skills such as `healthcheck`, `node-connect`, and `weather` are not exposed by default
   - managed-skill seeding now installs an Otto-owned `skill-creator` system skill into each workspace with higher precedence than the bundled OpenClaw copy
   - the Otto `skill-creator` override is visible in the Skills UI and available to Otto, but it is system-managed and non-editable through the workspace or runtime-managed skills surface
-  - the next recommended slice is Increment 5: add read-only workspace visibility for runtime-local `references/`, `scripts/`, and `state/` contents
+  - the managed-skills spec has now been tightened so every workspace-visible skill should be managed, `SKILL.md` lifecycle changes must flow through the managed APIs, and `references/`, `scripts/`, and `state/` should use the normal workspace file surface
+  - the next recommended slice is Increment 9: reduce the runtime plugin and APIs to the authoritative managed lifecycle surface (`list`, `get`, `create`, `update`, `delete`) with patch-oriented updates and explicit delete semantics
+  - after that, finish Increment 5 through the normal workspace file surface for runtime-local `references/`, `scripts/`, and `state/`, then implement Increment 10 for unmanaged-skill enforcement and drift handling
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface
@@ -642,10 +646,7 @@
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
   - adding disconnect handling and revoked-token recovery now that reconnect and apply are in place
-<<<<<<< HEAD
-=======
   - manually verifying that the control-plane UI and the legacy runtime-surface plugin could both update the same `channel/slack` surface on a provisioned tenant without version conflicts or stale reads
->>>>>>> origin/main
   - running a Brave integration + proxy smoke test against a provisioned tenant after the updated runtime image is published and applied
   - preserving the raw Slack attachment semantics needed for `DONE_10_voice_note_understanding.md`, so tenant runtimes can keep downloading and transcribing voice notes
 - Keep `DONE_10_voice_note_understanding.md` treated as complete, while preserving its regression constraints during later Slack ingress work:
@@ -670,11 +671,7 @@
 - If Slack becomes the active managed-integrations priority again, use `TODO_17` Increment 11 as the implementation source of truth:
   - add framework-native integration settings storage and runtime contract first
   - port Slack's safe config fields and diagnostics into a provider-owned Slack integration definition
-<<<<<<< HEAD
-  - keep Slack OAuth and shared HTTP ingress control-plane-native while continuing to use `otto-integrations` for runtime-facing settings and commands
-=======
   - keep Slack OAuth and shared HTTP ingress control-plane-native while cutting runtime-facing settings from the legacy runtime-surface path over to `otto-integrations`
->>>>>>> origin/main
   - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
   - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
   - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`

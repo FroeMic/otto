@@ -6,9 +6,17 @@ import { describe, it } from "vitest"
 import {
   handleManagedConfigGetRequest,
   handleManagedConfigPatchRequest,
+  handleManagedSkillsDeleteRequest,
+  handleManagedSkillsGetRequest,
+  handleManagedSkillsPostRequest,
+  handleManagedSkillsUpdateRequest,
 } from "./index"
 
 function isNeverManagedConfigVersionConflict(_error: unknown): _error is never {
+  return false
+}
+
+function isNeverManagedSkillVersionConflict(_error: unknown): _error is never {
   return false
 }
 
@@ -90,6 +98,199 @@ describe("runtime core managed config handlers", () => {
       sharedContent: "next",
       summary:
         "Runtime updated shared managed config block for config/openclaw.json",
+      tenantId: "tenant_123",
+    })
+  })
+})
+
+describe("runtime core managed skills handlers", () => {
+  it("returns a managed skill detail without a separate file-read path", async () => {
+    const response = await handleManagedSkillsGetRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      getLatestTenantManagedSkillDetailForTenant: async () => ({
+        dependencies: {
+          integrations: ["linear"],
+          skills: [],
+        },
+        description: "Triage bug reports.",
+        displayName: "bug-triage",
+        enabled: true,
+        files: [
+          {
+            contentText:
+              "---\nname: bug-triage\ndescription: Triage bug reports.\n---\n",
+            contentType: "text/markdown; charset=utf-8",
+            editability: "editable",
+            path: "SKILL.md",
+            storageEncoding: "utf8_text",
+          },
+        ],
+        skillId: "skill_123",
+        skillKey: "bug-triage",
+        sourceType: "user",
+        status: "ready",
+        summary: "Created bug-triage",
+        updatedAt: new Date("2026-04-10T10:00:00.000Z"),
+        version: 2,
+      }),
+      listTenantManagedSkillsForTenant: async () => [],
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills?skillKey=bug-triage",
+      ),
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      skill: {
+        contentText:
+          "---\nname: bug-triage\ndescription: Triage bug reports.\n---\n",
+        dependencies: {
+          integrations: ["linear"],
+          skills: [],
+        },
+        description: "Triage bug reports.",
+        displayName: "bug-triage",
+        enabled: true,
+        files: [
+          {
+            contentType: "text/markdown; charset=utf-8",
+            editability: "editable",
+            path: "SKILL.md",
+            storageEncoding: "utf8_text",
+          },
+        ],
+        skillId: "skill_123",
+        skillKey: "bug-triage",
+        sourceType: "user",
+        status: "ready",
+        summary: "Created bug-triage",
+        updatedAt: "2026-04-10T10:00:00.000Z",
+        version: 2,
+      },
+    })
+  })
+
+  it("rejects filePath query parameters on the managed skills route", async () => {
+    const response = await handleManagedSkillsGetRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      getLatestTenantManagedSkillDetailForTenant: async () => null,
+      listTenantManagedSkillsForTenant: async () => [],
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills?skillKey=bug-triage&filePath=SKILL.md",
+      ),
+    })
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      error:
+        "filePath is no longer supported on the runtime-managed skills surface. Use get_managed_skill for SKILL.md content and normal file tools for local skill directories.",
+    })
+  })
+
+  it("validates managed skill create payloads", async () => {
+    const response = await handleManagedSkillsPostRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      createTenantManagedSkillForTenant: async (payload) => payload,
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills",
+        {
+          body: JSON.stringify({
+            contentText:
+              "---\nname: bug-triage\ndescription: Triage bug reports.\n---\n",
+            skillKey: "bug-triage",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        },
+      ),
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      contentText:
+        "---\nname: bug-triage\ndescription: Triage bug reports.\n---\n",
+      createdByExternalId: null,
+      createdByType: "runtime",
+      skillKey: "bug-triage",
+      summary: "Runtime created managed skill bug-triage",
+      tenantId: "tenant_123",
+    })
+  })
+
+  it("validates patch-style managed skill updates", async () => {
+    const response = await handleManagedSkillsUpdateRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills",
+        {
+          body: JSON.stringify({
+            enabled: false,
+            expectedVersion: 3,
+            skillKey: "bug-triage",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "PATCH",
+        },
+      ),
+      updateTenantManagedSkillForTenant: async (payload) => payload,
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: 3,
+      patch: {
+        enabled: false,
+      },
+      skillKey: "bug-triage",
+      summary: "Runtime updated managed skill bug-triage",
+      tenantId: "tenant_123",
+    })
+  })
+
+  it("validates managed skill delete payloads", async () => {
+    const response = await handleManagedSkillsDeleteRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      deleteTenantManagedSkillForTenant: async (payload) => payload,
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills",
+        {
+          body: JSON.stringify({
+            expectedVersion: 4,
+            skillKey: "bug-triage",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "DELETE",
+        },
+      ),
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: 4,
+      skillKey: "bug-triage",
+      summary: "Runtime deleted managed skill bug-triage",
       tenantId: "tenant_123",
     })
   })
