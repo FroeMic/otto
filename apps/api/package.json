@@ -22,6 +22,7 @@
     "@otto/feature-integrations-runtime": "workspace:*",
     "@otto/feature-runtime-core": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
+    "@otto/feature-workspace-members": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",
     "@workos-inc/node": "^8.9.0",
     "drizzle-orm": "^0.44.6",

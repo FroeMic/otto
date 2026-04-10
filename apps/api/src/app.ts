@@ -12,10 +12,15 @@ import {
   createUserRouter,
   type UserRouteDependencies,
 } from "./user/routes"
+import {
+  createWorkspaceMembersRouter,
+  type WorkspaceMembersRouteDependencies,
+} from "./workspace-members/routes"
 
 export type CreateApiAppOptions = {
   billingRoutes?: BillingRouteDependencies
   userRoutes?: UserRouteDependencies
+  workspaceMembersRoutes?: WorkspaceMembersRouteDependencies
 }
 
 export function createApiApp(options: CreateApiAppOptions = {}) {
@@ -36,6 +41,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createWorkspaceCoreRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createUserRouter(options.userRoutes))
+    .route("/", createWorkspaceMembersRouter(options.workspaceMembersRoutes))
 
   registerAuthRoutes(app)
   registerRuntimeCoreRoutes(app)

@@ -58,6 +58,12 @@ function WorkspaceUsageRoutePage() {
   return <UsagePage orgSlug={orgSlug} />
 }
 
+function WorkspaceMembersRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <WorkspaceMembersPage orgSlug={orgSlug} />
+}
+
 function WorkspaceBillingRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
@@ -133,7 +139,7 @@ const workspaceSettingsUserRoute = createRoute({
 })
 
 const workspaceSettingsMembersRoute = createRoute({
-  component: WorkspaceMembersPage,
+  component: WorkspaceMembersRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   path: "/workspace/members",
 })

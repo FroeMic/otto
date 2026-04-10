@@ -15,6 +15,7 @@
         "@otto/feature-integrations-runtime": "workspace:*",
         "@otto/feature-runtime-core": "workspace:*",
         "@otto/feature-workspace-core": "workspace:*",
+        "@otto/feature-workspace-members": "workspace:*",
         "@otto/feature-workspace-slugs": "workspace:*",
         "@workos-inc/node": "^8.9.0",
         "drizzle-orm": "^0.44.6",
@@ -52,10 +53,12 @@
         "@fontsource-variable/geist": "^5.2.8",
         "@hono/node-server": "^1.19.6",
         "@otto/feature-workspace-core": "workspace:*",
+        "@otto/feature-workspace-members": "workspace:*",
         "@otto/feature-workspace-slugs": "workspace:*",
         "@phosphor-icons/react": "^2.1.10",
         "@tanstack/react-query": "^5.90.5",
         "@tanstack/react-router": "^1.139.3",
+        "@tanstack/react-table": "^8.21.3",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
@@ -158,6 +161,19 @@
       "dependencies": {
         "@otto/auth": "workspace:*",
         "@otto/feature-workspace-slugs": "workspace:*",
+        "zod": "^4.1.12",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
+    "packages/features/workspace-members": {
+      "name": "@otto/feature-workspace-members",
+      "version": "0.1.0",
+      "dependencies": {
         "zod": "^4.1.12",
       },
       "devDependencies": {
@@ -389,6 +405,8 @@
 
     "@otto/feature-workspace-core": ["@otto/feature-workspace-core@workspace:packages/features/workspace-core"],
 
+    "@otto/feature-workspace-members": ["@otto/feature-workspace-members@workspace:packages/features/workspace-members"],
+
     "@otto/feature-workspace-slugs": ["@otto/feature-workspace-slugs@workspace:packages/features/workspace-slugs"],
 
     "@otto/gateway": ["@otto/gateway@workspace:apps/gateway"],
@@ -537,9 +555,13 @@
 
     "@tanstack/react-store": ["@tanstack/react-store@0.9.3", "", { "dependencies": { "@tanstack/store": "0.9.3", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-y2iHd/N9OkoQbFJLUX1T9vbc2O9tjH0pQRgTcx1/Nz4IlwLvkgpuglXUx+mXt0g5ZDFrEeDnONPqkbfxXJKwRg=="],
 
+    "@tanstack/react-table": ["@tanstack/react-table@8.21.3", "", { "dependencies": { "@tanstack/table-core": "8.21.3" }, "peerDependencies": { "react": ">=16.8", "react-dom": ">=16.8" } }, "sha512-5nNMTSETP4ykGegmVkhjcS8tTLW6Vl4axfEGQN3v0zdHYbK4UfoqfPChclTrJ4EoK9QynqAu9oUf8VEmrpZ5Ww=="],
+
     "@tanstack/router-core": ["@tanstack/router-core@1.168.9", "", { "dependencies": { "@tanstack/history": "1.161.6", "cookie-es": "^2.0.0", "seroval": "^1.4.2", "seroval-plugins": "^1.4.2" }, "bin": { "intent": "bin/intent.js" } }, "sha512-18oeEwEDyXOIuO1VBP9ACaK7tYHZUjynGDCoUh/5c/BNhia9vCJCp9O0LfhZXOorDc/PmLSgvmweFhVmIxF10g=="],
 
     "@tanstack/store": ["@tanstack/store@0.9.3", "", {}, "sha512-8reSzl/qGWGGVKhBoxXPMWzATSbZLZFWhwBAFO9NAyp0TxzfBP0mIrGb8CP8KrQTmvzXlR/vFPPUrHTLBGyFyw=="],
+
+    "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
 
     "@ts-morph/common": ["@ts-morph/common@0.27.0", "", { "dependencies": { "fast-glob": "^3.3.3", "minimatch": "^10.0.1", "path-browserify": "^1.0.1" } }, "sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ=="],
 
