@@ -28,6 +28,7 @@ RUN npm install --no-package-lock
 WORKDIR /app
 COPY apps/api apps/api
 COPY packages/auth packages/auth
+COPY packages/features/integrations-runtime packages/features/integrations-runtime
 COPY packages/features/runtime-core packages/features/runtime-core
 COPY packages/features/workspace-core packages/features/workspace-core
 COPY packages/features/workspace-slugs packages/features/workspace-slugs
