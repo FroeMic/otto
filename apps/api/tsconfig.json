@@ -11,11 +11,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../../web/src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "vite.config.ts"]
 }

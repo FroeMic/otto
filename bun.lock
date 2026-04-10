@@ -11,11 +11,14 @@
       "dependencies": {
         "@hono/node-server": "^1.19.6",
         "@otto/auth": "workspace:*",
+        "@otto/feature-integrations-runtime": "workspace:*",
         "@otto/feature-runtime-core": "workspace:*",
         "@otto/feature-workspace-core": "workspace:*",
+        "@otto/feature-workspace-slugs": "workspace:*",
         "@workos-inc/node": "^8.9.0",
         "drizzle-orm": "^0.44.6",
         "hono": "^4.10.5",
+        "stripe": "^19.0.0",
         "zod": "^4.1.12",
       },
       "devDependencies": {
@@ -30,6 +33,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hono/node-server": "^1.19.6",
+        "@otto/feature-integrations-runtime": "workspace:*",
         "hono": "^4.10.5",
       },
       "devDependencies": {
@@ -86,6 +90,9 @@
     "apps/worker": {
       "name": "@otto/worker",
       "version": "0.1.0",
+      "dependencies": {
+        "@otto/feature-worker-runtime": "workspace:*",
+      },
       "devDependencies": {
         "@biomejs/biome": "2.2.0",
         "@types/node": "^24.9.1",
@@ -106,6 +113,22 @@
         "vitest": "^3.2.4",
       },
     },
+    "packages/features/integrations-runtime": {
+      "name": "@otto/feature-integrations-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "dotenv": "^17.2.3",
+        "drizzle-orm": "^0.44.6",
+        "postgres": "^3.4.7",
+        "zod": "^4.1.12",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
     "packages/features/runtime-core": {
       "name": "@otto/feature-runtime-core",
       "version": "0.1.0",
@@ -118,6 +141,26 @@
         "@types/node": "^24.9.1",
         "typescript": "^5.9.3",
         "vitest": "^3.2.4",
+      },
+    },
+    "packages/features/worker-runtime": {
+      "name": "@otto/feature-worker-runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@workos-inc/node": "^8.9.0",
+        "dotenv": "^17.2.3",
+        "drizzle-orm": "^0.44.6",
+        "postgres": "^3.4.7",
+        "ssh2": "^1.17.0",
+        "ssh2-sftp-client": "^12.1.0",
+        "stripe": "^22.0.0",
+        "zod": "^4.1.11",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^20",
+        "@types/ssh2": "^1.15.5",
+        "typescript": "^5",
       },
     },
     "packages/features/workspace-core": {
@@ -545,7 +588,11 @@
 
     "@otto/auth": ["@otto/auth@workspace:packages/auth"],
 
+    "@otto/feature-integrations-runtime": ["@otto/feature-integrations-runtime@workspace:packages/features/integrations-runtime"],
+
     "@otto/feature-runtime-core": ["@otto/feature-runtime-core@workspace:packages/features/runtime-core"],
+
+    "@otto/feature-worker-runtime": ["@otto/feature-worker-runtime@workspace:packages/features/worker-runtime"],
 
     "@otto/feature-workspace-core": ["@otto/feature-workspace-core@workspace:packages/features/workspace-core"],
 
@@ -1949,7 +1996,7 @@
 
     "strip-literal": ["strip-literal@3.1.0", "", { "dependencies": { "js-tokens": "^9.0.1" } }, "sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg=="],
 
-    "stripe": ["stripe@22.0.1", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Yw764pZ6s8Xu4CtUZdD5uWOkw6gc9xzO9OKylCuj1gMhMDLbyGbDtaPNNSFE4mB6njYSHESYIVbF1iIzUfAl2g=="],
+    "stripe": ["stripe@19.3.1", "", { "dependencies": { "qs": "^6.11.0" }, "peerDependencies": { "@types/node": ">=16" }, "optionalPeers": ["@types/node"] }, "sha512-5NXhLxTZ+4uO1wnsmNysILVuyeZ1Xia7niz/8ykBkGJkCcrY2WyQZwcfYuWZmZEJtWr2+0j49JXwNC6y9CHL7Q=="],
 
     "style-to-js": ["style-to-js@1.1.21", "", { "dependencies": { "style-to-object": "1.0.14" } }, "sha512-RjQetxJrrUJLQPHbLku6U/ocGtzyjbJMP9lCNK7Ag0CNh690nSH8woqWH9u16nMjYBAok+i7JO1NP2pOy8IsPQ=="],
 
@@ -2169,7 +2216,13 @@
 
     "@opentelemetry/sdk-trace-base/@opentelemetry/resources": ["@opentelemetry/resources@2.2.0", "", { "dependencies": { "@opentelemetry/core": "2.2.0", "@opentelemetry/semantic-conventions": "^1.29.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.3.0 <1.10.0" } }, "sha512-1pNQf/JazQTMA0BiO5NINUzH0cbLbbl7mntLa4aJNmCCXSj0q03T5ZXXL0zw4G55TjdL9Tz32cznGClf+8zr5A=="],
 
+    "@otto/feature-worker-runtime/@types/node": ["@types/node@20.19.39", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-orrrD74MBUyK8jOAD/r0+lfa1I2MO6I+vAkmAWzMYbCcgrN4lCrmK52gRFQq/JRxfYPfonkr4b0jcY7Olqdqbw=="],
+
+    "@otto/feature-worker-runtime/stripe": ["stripe@22.0.1", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Yw764pZ6s8Xu4CtUZdD5uWOkw6gc9xzO9OKylCuj1gMhMDLbyGbDtaPNNSFE4mB6njYSHESYIVbF1iIzUfAl2g=="],
+
     "@otto/legacy-control-plane-runtime/@types/node": ["@types/node@20.19.39", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-orrrD74MBUyK8jOAD/r0+lfa1I2MO6I+vAkmAWzMYbCcgrN4lCrmK52gRFQq/JRxfYPfonkr4b0jcY7Olqdqbw=="],
+
+    "@otto/legacy-control-plane-runtime/stripe": ["stripe@22.0.1", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Yw764pZ6s8Xu4CtUZdD5uWOkw6gc9xzO9OKylCuj1gMhMDLbyGbDtaPNNSFE4mB6njYSHESYIVbF1iIzUfAl2g=="],
 
     "@otto/web/react": ["react@19.2.5", "", {}, "sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA=="],
 
@@ -2322,6 +2375,8 @@
     "@esbuild-kit/core-utils/esbuild/@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.18.20", "", { "os": "win32", "cpu": "ia32" }, "sha512-Wv7QBi3ID/rROT08SABTS7eV4hX26sVduqDOTe1MvGMjNd3EjOz4b7zeexIR62GTIEKrfJXKL9LFxTYgkyeu7g=="],
 
     "@esbuild-kit/core-utils/esbuild/@esbuild/win32-x64": ["@esbuild/win32-x64@0.18.20", "", { "os": "win32", "cpu": "x64" }, "sha512-kTdfRcSiDfQca/y9QIkng02avJ+NCaQvrMejlsB3RRv5sE9rRoeBPISaZpKxHELzRxZyLvNts1P27W3wV+8geQ=="],
+
+    "@otto/feature-worker-runtime/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "@otto/legacy-control-plane-runtime/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 

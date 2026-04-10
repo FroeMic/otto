@@ -1,28 +1,19 @@
-FROM oven/bun:1 AS bun
+FROM oven/bun:1.3.5 AS bun
 
 FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 ENV NODE_ENV=production
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
-COPY package.json bun.lock ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY apps/gateway/package.json apps/gateway/package.json
-COPY apps/worker/package.json apps/worker/package.json
-COPY packages/auth/package.json packages/auth/package.json
-COPY packages/legacy-control-plane-runtime/package.json packages/legacy-control-plane-runtime/package.json
-COPY packages/features/runtime-core/package.json packages/features/runtime-core/package.json
-COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
-COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
-RUN bun install --frozen-lockfile
-
-WORKDIR /app
-COPY apps/worker apps/worker
-COPY packages/legacy-control-plane-runtime packages/legacy-control-plane-runtime
+COPY . .
+RUN bun install --frozen-lockfile --filter @otto/worker
 
 RUN bun run --cwd apps/worker build
 
@@ -37,7 +28,7 @@ COPY --from=bun /usr/local/bin/bunx /usr/local/bin/bunx
 
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/legacy-control-plane-runtime ./packages/legacy-control-plane-runtime
+COPY --from=builder /app/packages/features/worker-runtime ./packages/features/worker-runtime
 
 WORKDIR /app/apps/worker
 

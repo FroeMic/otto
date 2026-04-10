@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 import { afterEach, describe, it, vi } from "vitest"
 
 import { createApiApp } from "./app"
-import type { LegacyRouteDefinition } from "./legacy-routes"
 
 describe("api app", () => {
   afterEach(() => {
@@ -41,42 +40,68 @@ describe("api app", () => {
     })
   })
 
-  it("adapts legacy-style routes that expect nextUrl", async () => {
-    const app = createApiApp([
-      {
-        exportName: "GET",
-        honoPath: "/auth-fixture",
-        legacyModulePath: "./test-fixtures/next-request-route",
-        requestMode: "next-request",
-      } satisfies LegacyRouteDefinition,
-    ])
+  it("exposes runtime web search natively", async () => {
+    const app = createApiApp()
     const response = await app.request(
-      "http://api.local/auth-fixture?returnTo=/workspace",
+      "http://api.local/api/internal/runtime/web-search/search",
+      {
+        body: JSON.stringify({ query: "otto" }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
     )
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 401)
     assert.deepEqual(await response.json(), {
-      pathname: "/auth-fixture",
-      returnTo: "/workspace",
+      error: "Missing runtime bearer token",
     })
   })
 
-  it("adapts a legacy-style route module", async () => {
-    const app = createApiApp([
-      {
-        exportName: "GET",
-        honoPath: "/fixtures/:id",
-        legacyModulePath: "./test-fixtures/echo-route",
-      } satisfies LegacyRouteDefinition,
-    ])
+  it("exposes runtime integration settings natively", async () => {
+    const app = createApiApp()
     const response = await app.request(
-      "http://api.local/fixtures/demo?search=otto",
+      "http://api.local/api/internal/runtime/integrations/slack/settings",
     )
 
-    assert.equal(response.status, 200)
+    assert.equal(response.status, 401)
     assert.deepEqual(await response.json(), {
-      id: "demo",
-      search: "otto",
+      code: "unauthorized",
+      message: "Missing runtime bearer token",
+    })
+  })
+
+  it("exposes workos webhooks natively", async () => {
+    const app = createApiApp()
+    const response = await app.request("http://api.local/webhooks/workos", {
+      body: JSON.stringify({ event: "organization.updated" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+
+    assert.equal(response.status, 501)
+    assert.deepEqual(await response.json(), {
+      error: "WorkOS webhook secret is not configured",
+      ok: false,
+    })
+  })
+
+  it("exposes stripe webhooks natively", async () => {
+    const app = createApiApp()
+    const response = await app.request("http://api.local/webhooks/stripe", {
+      body: JSON.stringify({ type: "invoice.paid" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      error: "Missing Stripe signature header.",
     })
   })
 })

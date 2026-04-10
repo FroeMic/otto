@@ -18,11 +18,14 @@
   "dependencies": {
     "@hono/node-server": "^1.19.6",
     "@otto/auth": "workspace:*",
+    "@otto/feature-integrations-runtime": "workspace:*",
     "@otto/feature-runtime-core": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
+    "@otto/feature-workspace-slugs": "workspace:*",
     "@workos-inc/node": "^8.9.0",
     "drizzle-orm": "^0.44.6",
     "hono": "^4.10.5",
+    "stripe": "^19.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

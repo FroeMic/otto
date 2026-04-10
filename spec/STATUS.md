@@ -29,23 +29,24 @@
   - Phase 1 gateway extraction has started
   - `apps/gateway` is a Bun-managed Hono service with health and execute-route parity plus package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `integration-gateway` from `apps/gateway` while preserving the same internal service name and execute URL
-  - `apps/gateway` no longer loads runtime code from `web/src` at request time; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
+  - `apps/gateway` now loads runtime auth and execute behavior from `packages/features/integrations-runtime` instead of a compatibility copy derived from legacy `web/src`
   - the legacy gateway remains the rollback target until the new container wiring is deployed and verified
 - The worker extraction slice now also exists in parallel:
   - Phase 2 worker extraction has started
   - `apps/worker` is a Bun-managed long-running process wrapper around the existing queue model with package-level `format`, `lint`, `test`, and `build` gates
   - production compose now builds `worker` from `apps/worker` with a dedicated Bun image while preserving the same queue behavior
-  - `apps/worker` no longer loads env or job runtime code from `web/src`; it now reads from a repo-level compatibility copy under `packages/legacy-control-plane-runtime`
+  - `apps/worker` now loads env, queue, and execution behavior from `packages/features/worker-runtime`, a backend-only package that is free of `web/src`, legacy compatibility-package imports, and browser/Next-only dependencies
   - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
   - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
   - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
-  - `apps/api` is a Bun-managed Hono service that now mirrors the current `web/` route-handler surface through adapter-mounted route families, with package-level `format`, `lint`, `test`, and `build` gates
-  - the service boundary is extracted, but the underlying request logic still lives in legacy handlers until cutover and shared-package extraction continue
+  - `apps/api` is a Bun-managed Hono service with package-level `format`, `lint`, `test`, and `build` gates
+  - `apps/api` no longer imports `web/src`, mounts legacy Next route adapters, or relies on a compatibility proxy; it now owns the currently shipped auth, webhook, workspace bootstrap, workspace settings, workspace usage, and internal runtime routes natively
+  - Phase 3 is still not complete because broader workspace, user/profile, OAuth follow-on, and platform/operator route families are intentionally deferred until the corresponding `apps/web` slices are migrated
 - The migration layout rule is now explicit:
   - extraction should be feature-first with `packages/features/<feature-name>` as the primary home for domain logic
-  - temporary repo-level compatibility copies are acceptable when they remove runtime coupling to legacy `web/` without forcing a large behavior rewrite in the same change
+  - temporary repo-level compatibility copies may be used only as short-lived staging aids; they do not satisfy extraction goals for `apps/gateway`, `apps/worker`, or `apps/api`, and no phase should be marked complete while those services still depend on copied legacy Next.js implementation code
   - `apps/api`, `apps/worker`, and `apps/web` should keep thin feature adapters instead of scattering product logic across generic layer folders
 - The next execution focus is now explicit in the migration spec:
   - Track A: shared-package extraction out of `web/`
@@ -55,6 +56,8 @@
   - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
   - `packages/features/runtime-core` owns managed-config and managed-skills route logic
   - `packages/features/workspace-core` now owns workspace shell bootstrap, usage, and workspace settings route logic
+  - `packages/features/integrations-runtime` now owns gateway runtime auth and execute behavior
+  - `packages/features/worker-runtime` now owns worker env, queue, and execution behavior
   - the extracted apps consume those shared packages directly
   - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
 - The first real frontend shell now exists:
@@ -62,7 +65,7 @@
   - `apps/web` now owns the same-origin `/login` entry page for the new shell
   - `apps/web` now also carries the required shadcn/Vite baseline in merged form: `components.json`, base-ui shadcn primitives, sidebar primitives, and the preset-aligned theme/tooling setup
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
-  - the `apps/api` compatibility bridge is now narrowed to remaining `/api/user/*` routes instead of the shell's authenticated data paths
+  - `apps/api` now also owns the current apex-domain auth, WorkOS webhook, Stripe webhook, and internal runtime routes without falling through to legacy Next route code
   - the TanStack Router SPA now mounts on real slug and platform routes with a persistent workspace layout, nested workspace settings layout, and a lazy platform surface
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`

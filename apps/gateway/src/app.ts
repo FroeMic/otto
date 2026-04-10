@@ -1,27 +1,10 @@
+import {
+  authenticateTenantRuntimeRequest,
+  executeRuntimeIntegrationInGateway,
+} from "@otto/feature-integrations-runtime"
 import { Hono } from "hono"
 
 import { buildExecutionErrorResponse } from "./error-response"
-
-type RuntimeAuthResult = {
-  tenantId: string
-}
-
-type AuthenticateTenantRuntimeRequest = (
-  request: Request,
-) => Promise<RuntimeAuthResult>
-
-type ExecuteRuntimeIntegrationInGateway = (input: {
-  arguments: Record<string, unknown>
-  commandKey?: string
-  commandPath?: string[]
-  integrationKey: string
-  tenantId: string
-}) => Promise<unknown>
-
-const runtimeAuthModulePath =
-  "../../../packages/legacy-control-plane-runtime/src/lib/runtime-auth"
-const executeGatewayModulePath =
-  "../../../packages/legacy-control-plane-runtime/src/integration-gateway/execute"
 
 function json(body: unknown, status = 200) {
   return Response.json(body, {
@@ -66,15 +49,6 @@ async function handleExecuteRequest(request: Request) {
 
   try {
     requireBearerToken(request)
-
-    const [runtimeAuthModule, executeModule] = await Promise.all([
-      import(runtimeAuthModulePath),
-      import(executeGatewayModulePath),
-    ])
-    const authenticateTenantRuntimeRequest =
-      runtimeAuthModule.authenticateTenantRuntimeRequest as AuthenticateTenantRuntimeRequest
-    const executeRuntimeIntegrationInGateway =
-      executeModule.executeRuntimeIntegrationInGateway as ExecuteRuntimeIntegrationInGateway
     const auth = await authenticateTenantRuntimeRequest(request)
     tenantId = auth.tenantId
 
