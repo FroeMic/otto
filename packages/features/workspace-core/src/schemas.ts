@@ -140,6 +140,7 @@ export const usageSearchSchema = z.object({
 })
 
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>
+export type ShellBootstrap = z.infer<typeof shellBootstrapSchema>
 export type WorkspaceUsageOverview = z.infer<typeof usageOverviewSchema>
 export type WorkspaceSettingsUpdate = z.infer<
   typeof workspaceSettingsUpdateSchema

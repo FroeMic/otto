@@ -1,6 +1,8 @@
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { transcribeOpenAiCompatibleAudio } from "openclaw/plugin-sdk/media-understanding";
+import { createSubsystemLogger } from "openclaw/plugin-sdk/logging-core";
 
+const log = createSubsystemLogger("otto-ai-provider");
 const PROVIDER_ID = "openai-proxy";
 const PROVIDER_LABEL = "OpenAI Proxy";
 const DEFAULT_CONTEXT_TOKENS = 272_000;
@@ -65,19 +67,49 @@ export default defineSingleProviderPluginEntry({
       normalizeModelId(modelId).startsWith("gpt-5"),
   },
   register(api) {
+    log.info("Registering media-understanding provider for audio transcription");
     api.registerMediaUnderstandingProvider({
       id: PROVIDER_ID,
       capabilities: ["audio"],
       transcribeAudio: async (params) => {
-        const baseUrl = requireProxyBaseUrl(params.baseUrl);
-
-        return transcribeOpenAiCompatibleAudio({
-          ...params,
-          baseUrl,
-          defaultBaseUrl: baseUrl,
-          defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
-          provider: PROVIDER_ID,
+        log.info("transcribeAudio called", {
+          hasBaseUrl: params.baseUrl != null,
+          baseUrlPreview: params.baseUrl
+            ? `${params.baseUrl.slice(0, 40)}...`
+            : "(undefined)",
+          model: params.model,
+          hasApiKey: params.apiKey != null,
+          mime: params.mime,
+          fileName: params.fileName,
         });
+
+        try {
+          const baseUrl = resolveProxyBaseUrl(params.baseUrl);
+          log.info("Resolved transcription baseUrl", {
+            resolvedBaseUrl: `${baseUrl.slice(0, 40)}...`,
+            source: params.baseUrl ? "pipeline" : "env-fallback",
+          });
+
+          const result = await transcribeOpenAiCompatibleAudio({
+            ...params,
+            baseUrl,
+            defaultBaseUrl: baseUrl,
+            defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
+            provider: PROVIDER_ID,
+          });
+
+          log.info("transcribeAudio succeeded", {
+            model: result.model,
+            textLength: result.text?.length,
+          });
+
+          return result;
+        } catch (err) {
+          log.error("transcribeAudio failed", {
+            error: String(err),
+          });
+          throw err;
+        }
       },
     });
   },
@@ -121,12 +153,21 @@ function normalizeModelId(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function requireProxyBaseUrl(value) {
-  const baseUrl = normalizeControlPlaneBaseUrl(value);
-
-  if (!baseUrl) {
-    throw new Error("openai-proxy audio transcription requires a configured baseUrl.");
+function resolveProxyBaseUrl(value) {
+  const explicit = normalizeControlPlaneBaseUrl(value);
+  if (explicit) {
+    return explicit;
   }
 
-  return baseUrl;
+  const controlPlaneBaseUrl = normalizeControlPlaneBaseUrl(
+    process.env.OTTO_CONTROL_PLANE_BASE_URL,
+  );
+
+  if (!controlPlaneBaseUrl) {
+    throw new Error(
+      "openai-proxy audio transcription requires a configured baseUrl or OTTO_CONTROL_PLANE_BASE_URL.",
+    );
+  }
+
+  return `${controlPlaneBaseUrl}${DEFAULT_BASE_URL_PATH}`;
 }

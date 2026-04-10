@@ -1,12 +1,12 @@
 import { Hono } from "hono"
 
 import { createBillingRouter } from "./billing/routes"
-import { createWorkspaceCoreRouter } from "./native/workspace-core"
+import { createWorkspaceRouter } from "./workspace/routes"
 import { createUserRouter } from "./user/routes"
 import { createWorkspaceMembersRouter } from "./workspace-members/routes"
 
 export const webRpcApp = new Hono()
-  .route("/", createWorkspaceCoreRouter())
+  .route("/", createWorkspaceRouter())
   .route("/", createBillingRouter())
   .route("/", createUserRouter())
   .route("/", createWorkspaceMembersRouter())

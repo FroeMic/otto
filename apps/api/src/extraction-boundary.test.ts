@@ -5,10 +5,7 @@ import path from "node:path"
 import { describe, it } from "vitest"
 
 const appPath = path.resolve(import.meta.dirname, "app.ts")
-const runtimeCorePath = path.resolve(
-  import.meta.dirname,
-  "native/runtime-core.ts",
-)
+const runtimeRoutesPath = path.resolve(import.meta.dirname, "runtime/routes.ts")
 const tsconfigPath = path.resolve(import.meta.dirname, "../tsconfig.json")
 const viteConfigPath = path.resolve(import.meta.dirname, "../vite.config.ts")
 
@@ -21,7 +18,7 @@ describe("api runtime extraction boundary", () => {
   })
 
   it("registers runtime and webhook routes natively in apps/api", () => {
-    const source = fs.readFileSync(runtimeCorePath, "utf8")
+    const source = fs.readFileSync(runtimeRoutesPath, "utf8")
 
     assert.match(source, /\/api\/internal\/runtime\/integrations/)
     assert.match(source, /\/api\/internal\/runtime\/web-search\/search/)
@@ -35,7 +32,7 @@ describe("api runtime extraction boundary", () => {
   })
 
   it("does not import runtime code from legacy web sources", () => {
-    const source = fs.readFileSync(runtimeCorePath, "utf8")
+    const source = fs.readFileSync(runtimeRoutesPath, "utf8")
 
     assert.doesNotMatch(source, /web\/src/)
   })

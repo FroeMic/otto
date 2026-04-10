@@ -6,14 +6,16 @@ import { AppProviders } from "./app/AppProviders"
 import { router } from "./app/router"
 import "./styles.css"
 
-const rootElement = document.getElementById("root")
+const container = document.getElementById("root")
 
-if (rootElement) {
-  createRoot(rootElement).render(
-    <StrictMode>
-      <AppProviders>
-          <RouterProvider router={router} />
-      </AppProviders>
-    </StrictMode>,
-  )
+if (!container) {
+  throw new Error("Root container #root was not found.")
 }
+
+createRoot(container).render(
+  <StrictMode>
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>
+  </StrictMode>,
+)

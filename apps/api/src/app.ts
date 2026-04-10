@@ -6,12 +6,14 @@ import {
   createBillingRouter,
   type BillingRouteDependencies,
 } from "./billing/routes"
-import { registerRuntimeCoreRoutes } from "./native/runtime-core"
-import { createWorkspaceCoreRouter } from "./native/workspace-core"
+import { registerRuntimeRoutes } from "./runtime/routes"
 import {
   createUserRouter,
   type UserRouteDependencies,
 } from "./user/routes"
+import {
+  createWorkspaceRouter,
+} from "./workspace/routes"
 import {
   createWorkspaceMembersRouter,
   type WorkspaceMembersRouteDependencies,
@@ -38,13 +40,13 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         },
       )
     })
-    .route("/", createWorkspaceCoreRouter())
+    .route("/", createWorkspaceRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createUserRouter(options.userRoutes))
     .route("/", createWorkspaceMembersRouter(options.workspaceMembersRoutes))
 
   registerAuthRoutes(app)
-  registerRuntimeCoreRoutes(app)
+  registerRuntimeRoutes(app)
   app.notFound((context) => {
     return context.json(
       {

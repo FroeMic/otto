@@ -8,7 +8,6 @@ import {
   handleWorkspaceBootstrapRequest,
   handleWorkspaceSettingsUpdateRequest,
   handleWorkspaceUsageRequest,
-  usageSearchSchema,
   type WorkspaceShellUser,
   type WorkspaceSummary,
   type WorkspaceUsageOverview,
@@ -27,7 +26,7 @@ import {
   syncUserFromSession,
   updateOrganizationSlug,
   updateWorkspaceDateTimePreferences,
-} from "../workspace/data"
+} from "./data"
 
 const workspaceParamsSchema = z.object({
   orgSlug: z.string().min(1),
@@ -38,7 +37,7 @@ const workspaceUsageQuerySchema = z.object({
   to: z.string().min(1),
 })
 
-export type WorkspaceCoreRouteDependencies = {
+export type WorkspaceRouteDependencies = {
   authenticateWorkspaceUser: (request: Request) => Promise<WorkspaceShellUser>
   getCurrentWorkspace: (payload: {
     orgSlug: string
@@ -83,7 +82,7 @@ export type WorkspaceCoreRouteDependencies = {
   }>
 }
 
-function createDefaultWorkspaceCoreDependencies(): WorkspaceCoreRouteDependencies {
+function createDefaultWorkspaceRouteDependencies(): WorkspaceRouteDependencies {
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
@@ -92,25 +91,25 @@ function createDefaultWorkspaceCoreDependencies(): WorkspaceCoreRouteDependencie
     getOrganizationTenantForBilling,
     getOrganizationWorkspaceBySlug,
     getTenantProviderUsageOverview:
-      getTenantProviderUsageOverview as WorkspaceCoreRouteDependencies["getTenantProviderUsageOverview"],
+      getTenantProviderUsageOverview as WorkspaceRouteDependencies["getTenantProviderUsageOverview"],
     hasPlatformAdminRole,
     renameOrganization,
     syncUserFromSession:
-      syncUserFromSession as WorkspaceCoreRouteDependencies["syncUserFromSession"],
+      syncUserFromSession as WorkspaceRouteDependencies["syncUserFromSession"],
     updateOrganizationSlug,
     updateWorkspaceDateTimePreferences,
   }
 }
 
-export function registerWorkspaceCoreRoutes(
+export function registerWorkspaceRoutes(
   app: Hono,
-  dependencies: WorkspaceCoreRouteDependencies = createDefaultWorkspaceCoreDependencies(),
+  dependencies: WorkspaceRouteDependencies = createDefaultWorkspaceRouteDependencies(),
 ) {
-  return app.route("/", createWorkspaceCoreRouter(dependencies))
+  return app.route("/", createWorkspaceRouter(dependencies))
 }
 
-export function createWorkspaceCoreRouter(
-  dependencies: WorkspaceCoreRouteDependencies = createDefaultWorkspaceCoreDependencies(),
+export function createWorkspaceRouter(
+  dependencies: WorkspaceRouteDependencies = createDefaultWorkspaceRouteDependencies(),
 ) {
   async function authenticateUser(request: Request) {
     try {
