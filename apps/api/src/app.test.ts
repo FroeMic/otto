@@ -71,4 +71,37 @@ describe("api app", () => {
       message: "Missing runtime bearer token",
     })
   })
+
+  it("exposes workos webhooks natively", async () => {
+    const app = createApiApp()
+    const response = await app.request("http://api.local/webhooks/workos", {
+      body: JSON.stringify({ event: "organization.updated" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+
+    assert.equal(response.status, 501)
+    assert.deepEqual(await response.json(), {
+      error: "WorkOS webhook secret is not configured",
+      ok: false,
+    })
+  })
+
+  it("exposes stripe webhooks natively", async () => {
+    const app = createApiApp()
+    const response = await app.request("http://api.local/webhooks/stripe", {
+      body: JSON.stringify({ type: "invoice.paid" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    })
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      error: "Missing Stripe signature header.",
+    })
+  })
 })

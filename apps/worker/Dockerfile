@@ -1,4 +1,4 @@
-FROM oven/bun:1 AS bun
+FROM oven/bun:1.3.5 AS bun
 
 FROM node:20-bookworm-slim AS builder
 
@@ -13,17 +13,11 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY apps/worker/package.json apps/worker/package.json
-COPY packages/auth/package.json packages/auth/package.json
-COPY packages/features/integrations-runtime/package.json packages/features/integrations-runtime/package.json
-COPY packages/legacy-control-plane-runtime/package.json packages/legacy-control-plane-runtime/package.json
-COPY packages/features/runtime-core/package.json packages/features/runtime-core/package.json
-COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
-COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
-RUN bun install --frozen-lockfile
+COPY packages packages
+RUN bun install --frozen-lockfile --filter @otto/worker
 
 WORKDIR /app
 COPY apps/worker apps/worker
-COPY packages/legacy-control-plane-runtime packages/legacy-control-plane-runtime
 
 RUN bun run --cwd apps/worker build
 
