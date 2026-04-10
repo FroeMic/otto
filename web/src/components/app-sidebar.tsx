@@ -8,6 +8,7 @@ import {
   CaretUpDown,
   ChatCenteredDots,
   ChatsTeardrop,
+  FolderOpen,
   Gear,
   Lightning,
   PlugsConnected,
@@ -84,6 +85,11 @@ export function AppSidebar({
       href: `/${currentOrganization.slug}/skills`,
       icon: <Lightning />,
       title: "Skills",
+    },
+    {
+      href: `/${currentOrganization.slug}/files`,
+      icon: <FolderOpen />,
+      title: "Files",
     },
     {
       href: `/${currentOrganization.slug}/sessions`,
