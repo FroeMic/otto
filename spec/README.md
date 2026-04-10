@@ -12,6 +12,8 @@ This folder is the source of truth for implementation planning and session-to-se
   - keep `apps/*` thin and surface-specific
   - keep genuinely shared domain logic in `packages/features/<domain>`
   - avoid catch-all growth in repo-wide `lib`, `db`, or utility buckets
+- For browser-facing app communication, `apps/api` to `apps/web` should use Hono RPC by default so route inputs and outputs stay type-safe across the stack.
+- Exception: routes primarily called by tenant servers or runtime plugins do not need to use Hono RPC and may remain plain HTTP interfaces.
 - Every spec should include:
   - goal
   - scope
@@ -28,6 +30,7 @@ This folder is the source of truth for implementation planning and session-to-se
 - When work on a spec starts, note that in `STATUS.md`.
 - When a spec is finished, rename it from `TODO_` to `DONE_` and update `STATUS.md`.
 - Before opening a PR, review the branch against the relevant spec and confirm the implementation still follows the repo's domain-first code organization model.
+- That pre-PR review should also confirm that new `apps/api` to `apps/web` routes use Hono RPC unless they fall under the tenant/runtime/plugin exception.
 
 ## Current implementation order
 

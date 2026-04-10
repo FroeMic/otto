@@ -44,6 +44,13 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
   - a small health or metrics HTTP surface is acceptable
   - do not redesign job execution around inbound HTTP requests
 - Keep the application architecture independent of Cloudflare-specific runtime features unless a later spec explicitly adopts them.
+- For `apps/api` to `apps/web` communication, use Hono RPC as the default:
+  - export route or app `AppType` types from `apps/api`
+  - use `hc<AppType>()` clients in `apps/web`
+  - keep request/response contracts type-safe across the stack
+  - keep both sides on strict TypeScript so RPC inference works correctly
+- Prefer explicit `c.json(..., status)` responses on RPC routes so response types remain inferable.
+- Do not use Hono RPC as a requirement for routes primarily called by tenant servers or runtime plugins; those routes may remain plain HTTP interfaces.
 
 ## Code organization philosophy
 
@@ -131,6 +138,7 @@ Highlight these skills when relevant:
   - confirm code is placed in the correct bounded context
   - confirm shared code is actually shared and surface-specific code stayed in the app
   - confirm new files did not introduce fresh catch-all `lib` or cross-domain sprawl
+  - confirm new `apps/api` to `apps/web` routes use Hono RPC unless they fall under the tenant/runtime/plugin exception
   - note any intentional deviations explicitly in the PR description
 
 ## GitHub workflow expectation
