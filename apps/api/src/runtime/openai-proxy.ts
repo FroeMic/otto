@@ -201,10 +201,6 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   request: Request
   tenantId: string
 }) {
-  console.log("[audio-proxy:api] request received", {
-    contentType: input.request.headers.get("content-type"),
-  })
-
   const [apiKey, balanceCreditsMilli] = await Promise.all([
     getTenantOpenAiApiKey(input.tenantId),
     getTenantCreditBalanceMilli(input.tenantId),
@@ -222,18 +218,36 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     )
   }
 
-  // Parse and re-send as FormData so fetch() handles multipart encoding
-  // correctly. The raw-buffer approach used by proxyOpenAiRequest loses
-  // the multipart form structure when re-sent via Node.js fetch, causing
-  // OpenAI to reject the request with "you must provide a model parameter".
-  const formData = await input.request.formData()
+  // The OpenClaw runtime sends multipart/form-data bodies but an upstream
+  // fetch quirk can set the Content-Type header to text/plain instead of
+  // multipart/form-data. The raw body IS correctly multipart-encoded — only
+  // the header is wrong. Detect the boundary from the body and reconstruct
+  // the correct Content-Type before forwarding to OpenAI.
+  const bodyBuffer = Buffer.from(await input.request.arrayBuffer())
+  const incomingContentType = input.request.headers.get("content-type")
+  let contentType = incomingContentType ?? ""
+
+  if (!contentType.startsWith("multipart/form-data")) {
+    const firstLine = bodyBuffer.subarray(0, 200).toString("utf-8").split("\r\n")[0]
+    if (firstLine.startsWith("--")) {
+      const boundary = firstLine.slice(2)
+      contentType = `multipart/form-data; boundary=${boundary}`
+    } else {
+      console.error("[audio-proxy] unexpected body encoding", {
+        contentType: incomingContentType,
+      })
+    }
+  }
 
   let upstreamResponse: Response
   try {
     upstreamResponse = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": contentType,
+      },
+      body: bodyBuffer,
     })
   } catch (error) {
     throw new OpenAiProxyError(
@@ -242,6 +256,12 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
         : "OpenAI upstream request failed.",
       502,
     )
+  }
+
+  if (!upstreamResponse.ok) {
+    console.error("[audio-proxy] upstream error", {
+      status: upstreamResponse.status,
+    })
   }
 
   return new Response(upstreamResponse.body, {

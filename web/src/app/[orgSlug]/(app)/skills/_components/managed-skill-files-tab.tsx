@@ -9,12 +9,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import {
-  type ReadonlyURLSearchParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -84,20 +78,17 @@ type Props = {
 };
 
 export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [snapshot, setSnapshot] =
     useState<WorkspaceSkillDirectorySnapshot | null>(null);
-  const runtimeFileParam = searchParams.get("runtimeFile");
   const tree = buildExplorerTree(snapshot?.files ?? []);
   const selectedFile =
-    snapshot?.files.find((file) => file.path === runtimeFileParam) ??
+    snapshot?.files.find((file) => file.path === selectedFilePath) ??
     snapshot?.files.find((file) => file.storageEncoding === "utf8_text") ??
     snapshot?.files[0] ??
     null;
@@ -136,6 +127,13 @@ export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
         setExpandedDirectories(
           collectExpandedDirectories(payload.snapshot.files),
         );
+        setSelectedFilePath(
+          payload.snapshot.files.find(
+            (file) => file.storageEncoding === "utf8_text",
+          )?.path ??
+            payload.snapshot.files[0]?.path ??
+            null,
+        );
       } catch (error) {
         if (cancelled) {
           return;
@@ -166,24 +164,20 @@ export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
       return;
     }
 
-    const nextPath = selectedFile?.path ?? null;
-
-    if (runtimeFileParam !== nextPath) {
-      router.replace(
-        updateQueryString(pathname, searchParams, {
-          runtimeFile: nextPath,
-        }),
-        { scroll: false },
-      );
+    if (
+      selectedFilePath &&
+      snapshot.files.some((file) => file.path === selectedFilePath)
+    ) {
+      return;
     }
-  }, [
-    pathname,
-    router,
-    runtimeFileParam,
-    searchParams,
-    selectedFile?.path,
-    snapshot,
-  ]);
+
+    setSelectedFilePath(
+      snapshot.files.find((file) => file.storageEncoding === "utf8_text")
+        ?.path ??
+        snapshot.files[0]?.path ??
+        null,
+    );
+  }, [selectedFilePath, snapshot]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
@@ -215,6 +209,22 @@ export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
           ? current
           : collectExpandedDirectories(nextSnapshot.files),
       );
+      setSelectedFilePath((current) => {
+        if (
+          current &&
+          nextSnapshot.files.some((file) => file.path === current)
+        ) {
+          return current;
+        }
+
+        return (
+          nextSnapshot.files.find(
+            (file) => file.storageEncoding === "utf8_text",
+          )?.path ??
+          nextSnapshot.files[0]?.path ??
+          null
+        );
+      });
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -235,12 +245,7 @@ export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
   }
 
   function handleFileSelect(path: string) {
-    router.replace(
-      updateQueryString(pathname, searchParams, {
-        runtimeFile: path,
-      }),
-      { scroll: false },
-    );
+    setSelectedFilePath(path);
   }
 
   if (isLoading) {
@@ -697,24 +702,4 @@ function formatFileSize(sizeBytes: number) {
   }
 
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function updateQueryString(
-  pathname: string,
-  searchParams: ReadonlyURLSearchParams,
-  updates: Record<string, string | null>,
-) {
-  const params = new URLSearchParams(searchParams.toString());
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (!value) {
-      params.delete(key);
-      continue;
-    }
-
-    params.set(key, value);
-  }
-
-  const query = params.toString();
-  return `${pathname}${query ? `?${query}` : ""}`;
 }

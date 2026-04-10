@@ -111,12 +111,13 @@ export function SettingsShell({ children, orgSlug }: SettingsShellProps) {
               <span key={segment.label}>
                 <span className="mx-2 text-muted-foreground">/</span>
                 {segment.href ? (
-                  <a
+                  <Link
                     className="truncate text-muted-foreground hover:text-foreground hover:underline"
-                    href={segment.href}
+                    preload="intent"
+                    to={segment.href}
                   >
                     {segment.label}
-                  </a>
+                  </Link>
                 ) : (
                   <span className="truncate text-muted-foreground">
                     {segment.label}
