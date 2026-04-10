@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type ReadonlyURLSearchParams,
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { ManagedSkillFilesTab } from "@/app/[orgSlug]/(app)/skills/_components/managed-skill-files-tab";
 import {
@@ -91,26 +86,6 @@ const statusBadgeVariant: Record<
   ready: "default",
 };
 
-function updateQueryString(
-  pathname: string,
-  searchParams: ReadonlyURLSearchParams,
-  updates: Record<string, string | null>,
-) {
-  const params = new URLSearchParams(searchParams.toString());
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (!value) {
-      params.delete(key);
-      continue;
-    }
-
-    params.set(key, value);
-  }
-
-  const query = params.toString();
-  return `${pathname}${query ? `?${query}` : ""}`;
-}
-
 function formatStatusLabel(status: string) {
   return status
     .split("_")
@@ -167,12 +142,14 @@ export function ManagedSkillDetailPanel({
 }: Props) {
   const setBreadcrumbs = useSetBreadcrumbs();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [currentTab, setCurrentTab] = useState<"files" | "status">("files");
   const [draftValue, setDraftValue] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [selectedManagedFilePath, setSelectedManagedFilePath] = useState<
+    string | null
+  >(detail.files[0]?.path ?? null);
   const [skillDescriptionDraft, setSkillDescriptionDraft] = useState("");
   const [skillIntegrationKeysDraft, setSkillIntegrationKeysDraft] = useState<
     string[]
@@ -180,16 +157,8 @@ export function ManagedSkillDetailPanel({
   const [skillSkillKeysDraft, setSkillSkillKeysDraft] = useState<string[]>([]);
   const [skillInstructionsDraft, setSkillInstructionsDraft] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const tabParam = searchParams.get("tab");
-  const fileParam = searchParams.get("file");
-  const currentTab: "files" | "package" | "status" =
-    tabParam === "package"
-      ? "package"
-      : tabParam === "status"
-        ? "status"
-        : "files";
   const selectedFile =
-    detail.files.find((file) => file.path === fileParam) ??
+    detail.files.find((file) => file.path === selectedManagedFilePath) ??
     detail.files[0] ??
     null;
   const selectedSkillDocument =
@@ -224,41 +193,15 @@ export function ManagedSkillDetailPanel({
   }, [detail.displayName, orgSlug, setBreadcrumbs]);
 
   useEffect(() => {
-    const nextFilePath = selectedFile?.path ?? null;
-
     if (
-      tabParam &&
-      tabParam !== "files" &&
-      tabParam !== "package" &&
-      tabParam !== "status"
+      selectedManagedFilePath &&
+      detail.files.some((file) => file.path === selectedManagedFilePath)
     ) {
-      router.replace(
-        updateQueryString(pathname, searchParams, {
-          file: nextFilePath,
-          tab: "files",
-        }),
-        { scroll: false },
-      );
       return;
     }
 
-    if (detail.files.length > 0 && fileParam !== nextFilePath) {
-      router.replace(
-        updateQueryString(pathname, searchParams, {
-          file: nextFilePath,
-        }),
-        { scroll: false },
-      );
-    }
-  }, [
-    detail.files.length,
-    fileParam,
-    pathname,
-    router,
-    searchParams,
-    selectedFile?.path,
-    tabParam,
-  ]);
+    setSelectedManagedFilePath(detail.files[0]?.path ?? null);
+  }, [detail.files, selectedManagedFilePath]);
 
   useEffect(() => {
     setDraftValue(selectedFile?.contentText ?? "");
@@ -272,12 +215,7 @@ export function ManagedSkillDetailPanel({
   }, [selectedFile, selectedSkillDocument]);
 
   function handleTabChange(nextTab: string) {
-    router.replace(
-      updateQueryString(pathname, searchParams, {
-        tab: nextTab,
-      }),
-      { scroll: false },
-    );
+    setCurrentTab(nextTab === "status" ? "status" : "files");
   }
 
   function handleFileSelect(nextPath: string) {
@@ -285,12 +223,7 @@ export function ManagedSkillDetailPanel({
       return;
     }
 
-    router.replace(
-      updateQueryString(pathname, searchParams, {
-        file: nextPath,
-      }),
-      { scroll: false },
-    );
+    setSelectedManagedFilePath(nextPath);
   }
 
   function handleCancelEdit() {
@@ -392,416 +325,418 @@ export function ManagedSkillDetailPanel({
       <Tabs onValueChange={handleTabChange} value={currentTab}>
         <TabsList className="h-auto justify-start overflow-x-auto p-1">
           <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="package">Package</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
         </TabsList>
 
         <TabsContent value="files">
-          <SettingsSection>
-            <SettingsSectionTitle>Runtime files</SettingsSectionTitle>
-            <SettingsSectionDescription>
-              Explore the projected skill directory exactly as Otto sees it in
-              the workspace runtime. This viewer is read-only for now.
-            </SettingsSectionDescription>
-            <ManagedSkillFilesTab
-              orgSlug={orgSlug}
-              skillKey={detail.skillKey}
-            />
-          </SettingsSection>
-        </TabsContent>
-
-        <TabsContent value="package">
-          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+          <div className="flex flex-col gap-6">
             <SettingsSection>
-              <SettingsSectionTitle>Package files</SettingsSectionTitle>
+              <SettingsSectionTitle>Runtime files</SettingsSectionTitle>
               <SettingsSectionDescription>
-                Review the managed package stored for this skill. Only SKILL.md
-                is edited through the workspace.
+                Explore the projected skill directory exactly as Otto sees it in
+                the workspace runtime. This viewer is read-only for now.
               </SettingsSectionDescription>
-              <SettingsCard className="overflow-hidden">
-                <ScrollArea className="max-h-[34rem]">
-                  <div className="flex flex-col">
-                    {detail.files.map((file) => {
-                      const isActive = selectedFile?.path === file.path;
-
-                      return (
-                        <button
-                          key={file.path}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors",
-                            isActive ? "bg-muted/40" : "hover:bg-muted/20",
-                          )}
-                          onClick={() => handleFileSelect(file.path)}
-                          type="button"
-                        >
-                          <div className="flex min-w-0 flex-col gap-1">
-                            <span className="truncate font-mono text-xs text-foreground">
-                              {file.path}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {file.editability === "editable"
-                                ? "Managed SKILL.md"
-                                : "Download-only file"}
-                            </span>
-                          </div>
-                          <Badge
-                            variant={
-                              file.editability === "editable"
-                                ? "outline"
-                                : "secondary"
-                            }
-                          >
-                            {file.editability === "editable" ? "Edit" : "View"}
-                          </Badge>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </SettingsCard>
+              <ManagedSkillFilesTab
+                orgSlug={orgSlug}
+                skillKey={detail.skillKey}
+              />
             </SettingsSection>
 
-            <SettingsSection>
-              <SettingsSectionTitle>Viewer</SettingsSectionTitle>
-              <SettingsSectionDescription>
-                Review the selected file. Otto only edits SKILL.md through the
-                managed workspace surface.
-              </SettingsSectionDescription>
-              <div className="flex flex-col gap-4">
-                {errorMessage ? (
-                  <Alert variant="destructive">
-                    <AlertTitle>Save failed</AlertTitle>
-                    <AlertDescription>{errorMessage}</AlertDescription>
-                  </Alert>
-                ) : null}
-                {successMessage ? (
-                  <Alert>
-                    <AlertTitle>Saved</AlertTitle>
-                    <AlertDescription>{successMessage}</AlertDescription>
-                  </Alert>
-                ) : null}
-                {selectedFile ? (
-                  <div className="flex flex-col gap-4">
-                    <SettingsCard className="divide-y-0">
-                      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <div className="font-mono text-sm text-foreground">
-                            {selectedFile.path}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {selectedFile.contentType ??
-                              (selectedFile.storageEncoding === "utf8_text"
-                                ? "text/plain"
-                                : "application/octet-stream")}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              selectedFile.editability === "editable"
-                                ? "outline"
-                                : "secondary"
-                            }
+            <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+              <SettingsSection>
+                <SettingsSectionTitle>Skill definition</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Edit the managed skill package and its structured metadata.
+                </SettingsSectionDescription>
+                <SettingsCard className="overflow-hidden">
+                  <ScrollArea className="max-h-[34rem]">
+                    <div className="flex flex-col">
+                      {detail.files.map((file) => {
+                        const isActive = selectedFile?.path === file.path;
+
+                        return (
+                          <button
+                            key={file.path}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors",
+                              isActive ? "bg-muted/40" : "hover:bg-muted/20",
+                            )}
+                            onClick={() => handleFileSelect(file.path)}
+                            type="button"
                           >
-                            {selectedFile.editability === "editable"
-                              ? "Editable"
-                              : "Read only"}
-                          </Badge>
-                          {selectedFile.editability === "editable" ? (
-                            isEditing ? (
-                              <>
+                            <div className="flex min-w-0 flex-col gap-1">
+                              <span className="truncate font-mono text-xs text-foreground">
+                                {file.path}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {file.editability === "editable"
+                                  ? "Managed SKILL.md"
+                                  : "Download-only file"}
+                              </span>
+                            </div>
+                            <Badge
+                              variant={
+                                file.editability === "editable"
+                                  ? "outline"
+                                  : "secondary"
+                              }
+                            >
+                              {file.editability === "editable"
+                                ? "Edit"
+                                : "View"}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </SettingsCard>
+              </SettingsSection>
+
+              <SettingsSection>
+                <SettingsSectionTitle>Viewer</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Review the selected file. Otto only edits SKILL.md through the
+                  managed workspace surface.
+                </SettingsSectionDescription>
+                <div className="flex flex-col gap-4">
+                  {errorMessage ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Save failed</AlertTitle>
+                      <AlertDescription>{errorMessage}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {successMessage ? (
+                    <Alert>
+                      <AlertTitle>Saved</AlertTitle>
+                      <AlertDescription>{successMessage}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {selectedFile ? (
+                    <div className="flex flex-col gap-4">
+                      <SettingsCard className="divide-y-0">
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <div className="font-mono text-sm text-foreground">
+                              {selectedFile.path}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {selectedFile.contentType ??
+                                (selectedFile.storageEncoding === "utf8_text"
+                                  ? "text/plain"
+                                  : "application/octet-stream")}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                selectedFile.editability === "editable"
+                                  ? "outline"
+                                  : "secondary"
+                              }
+                            >
+                              {selectedFile.editability === "editable"
+                                ? "Editable"
+                                : "Read only"}
+                            </Badge>
+                            {selectedFile.editability === "editable" ? (
+                              isEditing ? (
+                                <>
+                                  <Button
+                                    disabled={isPending}
+                                    onClick={handleCancelEdit}
+                                    type="button"
+                                    variant="outline"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    disabled={
+                                      isPending ||
+                                      nextContentTextValue({
+                                        draftValue,
+                                        selectedFile,
+                                        selectedSkillDocument,
+                                        skillDescriptionDraft,
+                                        skillInstructionsDraft,
+                                        skillIntegrationKeysDraft,
+                                        skillSkillKeysDraft,
+                                      }) === (selectedFile.contentText ?? "")
+                                    }
+                                    onClick={handleSave}
+                                    type="button"
+                                  >
+                                    Save changes
+                                  </Button>
+                                </>
+                              ) : (
                                 <Button
-                                  disabled={isPending}
-                                  onClick={handleCancelEdit}
+                                  onClick={() => setIsEditing(true)}
                                   type="button"
                                   variant="outline"
                                 >
-                                  Cancel
+                                  Edit file
                                 </Button>
-                                <Button
-                                  disabled={
-                                    isPending ||
-                                    nextContentTextValue({
-                                      draftValue,
-                                      selectedFile,
-                                      selectedSkillDocument,
-                                      skillDescriptionDraft,
-                                      skillInstructionsDraft,
-                                      skillIntegrationKeysDraft,
-                                      skillSkillKeysDraft,
-                                    }) === (selectedFile.contentText ?? "")
-                                  }
-                                  onClick={handleSave}
-                                  type="button"
-                                >
-                                  Save changes
-                                </Button>
-                              </>
-                            ) : (
-                              <Button
-                                onClick={() => setIsEditing(true)}
-                                type="button"
-                                variant="outline"
-                              >
-                                Edit file
-                              </Button>
-                            )
-                          ) : null}
+                              )
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </SettingsCard>
+                      </SettingsCard>
 
-                    {selectedFile.storageEncoding === "utf8_text" ? (
-                      isStructuredSkillEntry ? (
-                        <SettingsCard className="divide-y-0 px-5 py-5">
-                          <div className="flex flex-col gap-6">
-                            <FieldGroup>
-                              <Field>
-                                <FieldLabel htmlFor="skill-detail-key">
-                                  Skill key
-                                </FieldLabel>
-                                <FieldContent>
-                                  <Input
-                                    disabled
-                                    id="skill-detail-key"
-                                    value={detail.skillKey}
-                                  />
-                                  <FieldDescription>
-                                    Stable package path for this skill.
-                                  </FieldDescription>
-                                </FieldContent>
-                              </Field>
-
-                              <Field>
-                                <FieldLabel htmlFor="skill-detail-description">
-                                  Description
-                                </FieldLabel>
-                                <FieldContent>
-                                  {isEditing ? (
-                                    <Textarea
-                                      className="min-h-24"
-                                      id="skill-detail-description"
-                                      onChange={(event) =>
-                                        setSkillDescriptionDraft(
-                                          event.target.value,
-                                        )
-                                      }
-                                      value={skillDescriptionDraft}
-                                    />
-                                  ) : (
-                                    <Textarea
-                                      className={
-                                        compactReadOnlyTextareaClassName
-                                      }
+                      {selectedFile.storageEncoding === "utf8_text" ? (
+                        isStructuredSkillEntry ? (
+                          <SettingsCard className="divide-y-0 px-5 py-5">
+                            <div className="flex flex-col gap-6">
+                              <FieldGroup>
+                                <Field>
+                                  <FieldLabel htmlFor="skill-detail-key">
+                                    Skill key
+                                  </FieldLabel>
+                                  <FieldContent>
+                                    <Input
                                       disabled
-                                      id="skill-detail-description"
-                                      value={skillDescriptionDraft}
+                                      id="skill-detail-key"
+                                      value={detail.skillKey}
                                     />
-                                  )}
-                                  <FieldDescription>
-                                    Short guidance for when Otto should use this
-                                    skill.
-                                  </FieldDescription>
-                                </FieldContent>
-                              </Field>
-                            </FieldGroup>
+                                    <FieldDescription>
+                                      Stable package path for this skill.
+                                    </FieldDescription>
+                                  </FieldContent>
+                                </Field>
 
-                            <FieldSet>
-                              <FieldLegend>
-                                Integration dependencies
-                              </FieldLegend>
-                              <FieldDescription>
-                                Optional prerequisites Otto should expect before
-                                using this skill.
-                              </FieldDescription>
-                              {isEditing ? (
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  {knownIntegrationKeys.map(
-                                    (integrationKey) => {
-                                      const checked =
-                                        skillIntegrationKeysDraft.includes(
-                                          integrationKey,
-                                        );
+                                <Field>
+                                  <FieldLabel htmlFor="skill-detail-description">
+                                    Description
+                                  </FieldLabel>
+                                  <FieldContent>
+                                    {isEditing ? (
+                                      <Textarea
+                                        className="min-h-24"
+                                        id="skill-detail-description"
+                                        onChange={(event) =>
+                                          setSkillDescriptionDraft(
+                                            event.target.value,
+                                          )
+                                        }
+                                        value={skillDescriptionDraft}
+                                      />
+                                    ) : (
+                                      <Textarea
+                                        className={
+                                          compactReadOnlyTextareaClassName
+                                        }
+                                        disabled
+                                        id="skill-detail-description"
+                                        value={skillDescriptionDraft}
+                                      />
+                                    )}
+                                    <FieldDescription>
+                                      Short guidance for when Otto should use
+                                      this skill.
+                                    </FieldDescription>
+                                  </FieldContent>
+                                </Field>
+                              </FieldGroup>
 
-                                      return (
-                                        <Field
-                                          key={integrationKey}
-                                          orientation="horizontal"
-                                        >
-                                          <Checkbox
-                                            checked={checked}
-                                            id={`skill-detail-dependency-${integrationKey}`}
-                                            onCheckedChange={(nextChecked) =>
-                                              handleIntegrationToggle(
-                                                integrationKey,
-                                                nextChecked,
-                                              )
-                                            }
-                                          />
-                                          <FieldLabel
-                                            htmlFor={`skill-detail-dependency-${integrationKey}`}
-                                          >
-                                            {integrationKey}
-                                          </FieldLabel>
-                                        </Field>
-                                      );
-                                    },
-                                  )}
-                                </div>
-                              ) : skillIntegrationKeysDraft.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {skillIntegrationKeysDraft.map(
-                                    (integrationKey) => (
-                                      <Badge
-                                        key={integrationKey}
-                                        variant="outline"
-                                      >
-                                        {integrationKey}
-                                      </Badge>
-                                    ),
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  No integration prerequisites declared.
-                                </p>
-                              )}
-                            </FieldSet>
-
-                            <FieldSet>
-                              <FieldLegend>Skill dependencies</FieldLegend>
-                              <FieldDescription>
-                                Other managed skills this skill expects to exist
-                                first.
-                              </FieldDescription>
-                              {isEditing ? (
-                                knownSkillKeys.length > 0 ? (
+                              <FieldSet>
+                                <FieldLegend>
+                                  Integration dependencies
+                                </FieldLegend>
+                                <FieldDescription>
+                                  Optional prerequisites Otto should expect
+                                  before using this skill.
+                                </FieldDescription>
+                                {isEditing ? (
                                   <div className="grid gap-3 sm:grid-cols-2">
-                                    {knownSkillKeys.map(
-                                      (dependencySkillKey) => {
+                                    {knownIntegrationKeys.map(
+                                      (integrationKey) => {
                                         const checked =
-                                          skillSkillKeysDraft.includes(
-                                            dependencySkillKey,
+                                          skillIntegrationKeysDraft.includes(
+                                            integrationKey,
                                           );
 
                                         return (
                                           <Field
-                                            key={dependencySkillKey}
+                                            key={integrationKey}
                                             orientation="horizontal"
                                           >
                                             <Checkbox
                                               checked={checked}
-                                              id={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                              id={`skill-detail-dependency-${integrationKey}`}
                                               onCheckedChange={(nextChecked) =>
-                                                handleSkillToggle(
-                                                  dependencySkillKey,
+                                                handleIntegrationToggle(
+                                                  integrationKey,
                                                   nextChecked,
                                                 )
                                               }
                                             />
                                             <FieldLabel
-                                              htmlFor={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                              htmlFor={`skill-detail-dependency-${integrationKey}`}
                                             >
-                                              {dependencySkillKey}
+                                              {integrationKey}
                                             </FieldLabel>
                                           </Field>
                                         );
                                       },
                                     )}
                                   </div>
+                                ) : skillIntegrationKeysDraft.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {skillIntegrationKeysDraft.map(
+                                      (integrationKey) => (
+                                        <Badge
+                                          key={integrationKey}
+                                          variant="outline"
+                                        >
+                                          {integrationKey}
+                                        </Badge>
+                                      ),
+                                    )}
+                                  </div>
                                 ) : (
                                   <p className="text-sm text-muted-foreground">
-                                    No other managed skills exist in this
-                                    workspace yet.
+                                    No integration prerequisites declared.
                                   </p>
-                                )
-                              ) : skillSkillKeysDraft.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {skillSkillKeysDraft.map(
-                                    (dependencySkillKey) => (
-                                      <Badge
-                                        key={dependencySkillKey}
-                                        variant="outline"
-                                      >
-                                        {dependencySkillKey}
-                                      </Badge>
-                                    ),
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  No managed skill prerequisites declared.
-                                </p>
-                              )}
-                            </FieldSet>
-
-                            <Field>
-                              <FieldLabel htmlFor="skill-detail-body">
-                                Skill instructions
-                              </FieldLabel>
-                              <FieldContent>
-                                {isEditing ? (
-                                  <Textarea
-                                    className={lockedTextareaClassName}
-                                    id="skill-detail-body"
-                                    onChange={(event) =>
-                                      setSkillInstructionsDraft(
-                                        event.target.value,
-                                      )
-                                    }
-                                    value={skillInstructionsDraft}
-                                  />
-                                ) : (
-                                  <Textarea
-                                    className={lockedTextareaClassName}
-                                    disabled
-                                    id="skill-detail-body"
-                                    value={skillInstructionsDraft}
-                                  />
                                 )}
+                              </FieldSet>
+
+                              <FieldSet>
+                                <FieldLegend>Skill dependencies</FieldLegend>
                                 <FieldDescription>
-                                  Main markdown body stored below the generated
-                                  metadata header.
+                                  Other managed skills this skill expects to
+                                  exist first.
                                 </FieldDescription>
-                              </FieldContent>
-                            </Field>
-                          </div>
-                        </SettingsCard>
-                      ) : isEditing ? (
-                        <Textarea
-                          className={lockedTextareaClassName}
-                          onChange={(event) =>
-                            setDraftValue(event.target.value)
-                          }
-                          value={draftValue}
-                        />
+                                {isEditing ? (
+                                  knownSkillKeys.length > 0 ? (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      {knownSkillKeys.map(
+                                        (dependencySkillKey) => {
+                                          const checked =
+                                            skillSkillKeysDraft.includes(
+                                              dependencySkillKey,
+                                            );
+
+                                          return (
+                                            <Field
+                                              key={dependencySkillKey}
+                                              orientation="horizontal"
+                                            >
+                                              <Checkbox
+                                                checked={checked}
+                                                id={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                                onCheckedChange={(
+                                                  nextChecked,
+                                                ) =>
+                                                  handleSkillToggle(
+                                                    dependencySkillKey,
+                                                    nextChecked,
+                                                  )
+                                                }
+                                              />
+                                              <FieldLabel
+                                                htmlFor={`skill-detail-skill-dependency-${dependencySkillKey}`}
+                                              >
+                                                {dependencySkillKey}
+                                              </FieldLabel>
+                                            </Field>
+                                          );
+                                        },
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      No other managed skills exist in this
+                                      workspace yet.
+                                    </p>
+                                  )
+                                ) : skillSkillKeysDraft.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {skillSkillKeysDraft.map(
+                                      (dependencySkillKey) => (
+                                        <Badge
+                                          key={dependencySkillKey}
+                                          variant="outline"
+                                        >
+                                          {dependencySkillKey}
+                                        </Badge>
+                                      ),
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    No managed skill prerequisites declared.
+                                  </p>
+                                )}
+                              </FieldSet>
+
+                              <Field>
+                                <FieldLabel htmlFor="skill-detail-body">
+                                  Skill instructions
+                                </FieldLabel>
+                                <FieldContent>
+                                  {isEditing ? (
+                                    <Textarea
+                                      className={lockedTextareaClassName}
+                                      id="skill-detail-body"
+                                      onChange={(event) =>
+                                        setSkillInstructionsDraft(
+                                          event.target.value,
+                                        )
+                                      }
+                                      value={skillInstructionsDraft}
+                                    />
+                                  ) : (
+                                    <Textarea
+                                      className={lockedTextareaClassName}
+                                      disabled
+                                      id="skill-detail-body"
+                                      value={skillInstructionsDraft}
+                                    />
+                                  )}
+                                  <FieldDescription>
+                                    Main markdown body stored below the
+                                    generated metadata header.
+                                  </FieldDescription>
+                                </FieldContent>
+                              </Field>
+                            </div>
+                          </SettingsCard>
+                        ) : isEditing ? (
+                          <Textarea
+                            className={lockedTextareaClassName}
+                            onChange={(event) =>
+                              setDraftValue(event.target.value)
+                            }
+                            value={draftValue}
+                          />
+                        ) : (
+                          <Textarea
+                            className={lockedTextareaClassName}
+                            value={selectedFile.contentText ?? ""}
+                            disabled
+                            readOnly
+                          />
+                        )
                       ) : (
-                        <Textarea
-                          className={lockedTextareaClassName}
-                          value={selectedFile.contentText ?? ""}
-                          disabled
-                          readOnly
-                        />
-                      )
-                    ) : (
-                      <SettingsCard className="divide-y-0 px-5 py-5">
-                        <p className="text-sm text-muted-foreground">
-                          This file is stored as binary content in the package.
-                          The current slice only supports metadata visibility in
-                          the workspace UI.
-                        </p>
-                      </SettingsCard>
-                    )}
-                  </div>
-                ) : (
-                  <SettingsCard className="divide-y-0 px-5 py-5">
-                    <p className="text-sm text-muted-foreground">
-                      This skill has no projected package files yet.
-                    </p>
-                  </SettingsCard>
-                )}
-              </div>
-            </SettingsSection>
+                        <SettingsCard className="divide-y-0 px-5 py-5">
+                          <p className="text-sm text-muted-foreground">
+                            This file is stored as binary content in the
+                            package. The current slice only supports metadata
+                            visibility in the workspace UI.
+                          </p>
+                        </SettingsCard>
+                      )}
+                    </div>
+                  ) : (
+                    <SettingsCard className="divide-y-0 px-5 py-5">
+                      <p className="text-sm text-muted-foreground">
+                        This skill has no projected package files yet.
+                      </p>
+                    </SettingsCard>
+                  )}
+                </div>
+              </SettingsSection>
+            </div>
           </div>
         </TabsContent>
 
