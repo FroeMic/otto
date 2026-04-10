@@ -7,6 +7,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   SettingsCard,
   SettingsPage,
+  SettingsPageContent,
   SettingsPageTitle,
   SettingsRow,
   SettingsRowDescription,
@@ -93,7 +94,7 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
 
   return (
     <SettingsPage>
-      <div className="flex flex-col gap-8">
+      <SettingsPageContent className="flex flex-col gap-8">
         <div className="flex items-center justify-between">
           <SettingsPageTitle>Billing</SettingsPageTitle>
           <Button
@@ -402,7 +403,7 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
             )}
           </SettingsCard>
         </SettingsSection>
-      </div>
+      </SettingsPageContent>
     </SettingsPage>
   )
 }

@@ -86,10 +86,6 @@ export function SettingsShell({ children, orgSlug }: SettingsShellProps) {
           name: shellData.currentOrganization.name,
           slug: shellData.currentOrganization.slug,
         }}
-        organizations={shellData.organizations.map((organization) => ({
-          name: organization.name,
-          slug: organization.slug,
-        }))}
         user={shellData.user}
       />
       <SidebarInset>

@@ -8,7 +8,22 @@ export function SettingsPage({ className, ...props }: SettingsPageProps) {
   return (
     <div
       data-slot="settings-page"
-      className={cn("mx-auto w-full max-w-2xl", className)}
+      className={cn("w-full", className)}
+      {...props}
+    />
+  )
+}
+
+export interface SettingsPageContentProps extends ComponentProps<"div"> {}
+
+export function SettingsPageContent({
+  className,
+  ...props
+}: SettingsPageContentProps) {
+  return (
+    <div
+      data-slot="settings-page-content"
+      className={cn("w-full max-w-2xl", className)}
       {...props}
     />
   )
