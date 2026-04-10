@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react"
 
 const LazyPlatformPage = lazy(() =>
-  import("../../platform-page").then((module) => ({
+  import("./PlatformPage").then((module) => ({
     default: module.PlatformPage,
   })),
 )
