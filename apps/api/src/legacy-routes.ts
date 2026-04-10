@@ -15,51 +15,6 @@ const webhookBasePath = "../../../web/src/app/webhooks"
 export const legacyRouteDefinitions: LegacyRouteDefinition[] = [
   {
     exportName: "POST",
-    honoPath: "/api/internal/runtime/ai/openai/v1/audio/transcriptions",
-    legacyModulePath: `${internalRuntimeBasePath}/ai/openai/v1/audio/transcriptions/route`,
-  },
-  {
-    exportName: "POST",
-    honoPath: "/api/internal/runtime/ai/openai/v1/responses",
-    legacyModulePath: `${internalRuntimeBasePath}/ai/openai/v1/responses/route`,
-  },
-  {
-    exportName: "POST",
-    honoPath: "/api/internal/runtime/integrations/:integrationKey/connection",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/[integrationKey]/connection/route`,
-  },
-  {
-    exportName: "POST",
-    honoPath: "/api/internal/runtime/integrations/:integrationKey/details",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/[integrationKey]/details/route`,
-  },
-  {
-    exportName: "GET",
-    honoPath: "/api/internal/runtime/integrations/:integrationKey",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/[integrationKey]/route`,
-  },
-  {
-    exportName: "GET",
-    honoPath: "/api/internal/runtime/integrations/catalog",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/catalog/route`,
-  },
-  {
-    exportName: "POST",
-    honoPath: "/api/internal/runtime/integrations/execute",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/execute/route`,
-  },
-  {
-    exportName: "POST",
-    honoPath: "/api/internal/runtime/integrations/find",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/find/route`,
-  },
-  {
-    exportName: "GET",
-    honoPath: "/api/internal/runtime/integrations",
-    legacyModulePath: `${internalRuntimeBasePath}/integrations/route`,
-  },
-  {
-    exportName: "POST",
     honoPath: "/api/internal/runtime/scheduled-tasks/sync",
     legacyModulePath: `${internalRuntimeBasePath}/scheduled-tasks/sync/route`,
   },

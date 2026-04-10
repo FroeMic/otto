@@ -6,6 +6,13 @@
   "packageManager": "bun@1.3.5",
   "exports": {
     ".": "./src/index.ts",
+    "./db/client": "./src/db/client.ts",
+    "./db/schema": "./src/db/schema.ts",
+    "./integrations/framework": "./src/integrations/framework/index.ts",
+    "./integrations/library/brave/settings-metadata": "./src/integrations/library/brave/settings-metadata.ts",
+    "./lib/crypto": "./src/lib/crypto.ts",
+    "./lib/env": "./src/lib/env.ts",
+    "./lib/web-search-config": "./src/lib/web-search-config.ts",
     "./linear-client": "./src/linear-client.ts"
   },
   "scripts": {
