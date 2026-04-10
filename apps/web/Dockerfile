@@ -7,6 +7,8 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY apps/worker/package.json apps/worker/package.json
+# Bun frozen workspace installs need the sibling workspace manifests present,
+# even when we only install the filtered web workspace.
 COPY packages packages
 RUN bun install --frozen-lockfile --filter @otto/web
 

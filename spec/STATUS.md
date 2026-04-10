@@ -56,9 +56,10 @@
   - `packages/auth` owns runtime bearer parsing and injected tenant auth helpers
   - `packages/features/runtime-core` owns managed-config and managed-skills route logic
   - `packages/features/workspace-core` now owns workspace shell bootstrap, usage, and workspace settings route logic
-  - `packages/features/integrations-runtime` now owns gateway runtime auth and execute behavior
+  - `packages/features/integrations-runtime` now owns shared gateway and API runtime auth, execute, registry, and integration command behavior without carrying dormant browser UI files
   - the extracted apps consume shared packages only where the logic is actually shared
   - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
+  - `packages/legacy-control-plane-runtime` has been deleted now that no extracted service depends on it
 - The first real frontend shell now exists:
   - `apps/web` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
   - `apps/web` now owns the same-origin `/login` entry page for the new shell
