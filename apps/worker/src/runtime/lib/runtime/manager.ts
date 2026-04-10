@@ -171,8 +171,9 @@ export class RuntimeManager {
 
     const restart = await this.restartGatewayWithResult(connection, {
       pullImage: input.pullImageFirst ?? false,
-      strategy:
-        input.pullImageFirst === true ? "recreate" : "restart-container",
+      // Docker restart preserves the container's original env; recreate is
+      // required for changes in /opt/openclaw/home/.env to take effect.
+      strategy: "recreate",
     });
     const verify = await this.checkGatewayHealthWithResult(connection);
 
