@@ -7,6 +7,20 @@ const rawApiEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
+  RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
+  RUNTIME_SSH_COMMAND_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30000),
+  RUNTIME_SSH_CONNECT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5000),
+  RUNTIME_SSH_PORT: z.coerce.number().int().positive().default(22),
+  RUNTIME_SSH_USERNAME: z.string().default("root"),
   RUNTIME_OPENCLAW_IMAGE: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
@@ -24,6 +38,12 @@ export type ApiEnv = {
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
   PUBLIC_APP_BASE_URL: string
+  RUNTIME_DEPLOY_PRIVATE_KEY?: string
+  RUNTIME_DEPLOY_PRIVATE_KEY_PATH?: string
+  RUNTIME_SSH_COMMAND_TIMEOUT_MS: number
+  RUNTIME_SSH_CONNECT_TIMEOUT_MS: number
+  RUNTIME_SSH_PORT: number
+  RUNTIME_SSH_USERNAME: string
   RUNTIME_OPENCLAW_IMAGE?: string
   WORKOS_API_KEY?: string
   WORKOS_CLIENT_ID?: string
@@ -107,6 +127,14 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,
+    RUNTIME_DEPLOY_PRIVATE_KEY:
+      raw.RUNTIME_DEPLOY_PRIVATE_KEY?.trim() || undefined,
+    RUNTIME_DEPLOY_PRIVATE_KEY_PATH:
+      raw.RUNTIME_DEPLOY_PRIVATE_KEY_PATH?.trim() || undefined,
+    RUNTIME_SSH_COMMAND_TIMEOUT_MS: raw.RUNTIME_SSH_COMMAND_TIMEOUT_MS,
+    RUNTIME_SSH_CONNECT_TIMEOUT_MS: raw.RUNTIME_SSH_CONNECT_TIMEOUT_MS,
+    RUNTIME_SSH_PORT: raw.RUNTIME_SSH_PORT,
+    RUNTIME_SSH_USERNAME: raw.RUNTIME_SSH_USERNAME,
     RUNTIME_OPENCLAW_IMAGE: raw.RUNTIME_OPENCLAW_IMAGE?.trim() || undefined,
     WORKOS_API_KEY: raw.WORKOS_API_KEY?.trim() || undefined,
     WORKOS_CLIENT_ID: raw.WORKOS_CLIENT_ID?.trim() || undefined,
@@ -121,6 +149,18 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
 
 export function getApiEnv() {
   return resolveApiEnv(process.env)
+}
+
+export function normalizePrivateKeyValue(value: string) {
+  const normalized = value.replace(/\r\n/g, "\n").replace(/\\n/g, "\n").trim()
+
+  if (normalized.includes("-----BEGIN") && !normalized.endsWith("\n")) {
+    return normalized
+      .replace(/(-----BEGIN [^-]+-----)\s*/, "$1\n")
+      .replace(/\s*(-----END [^-]+-----)/, "\n$1")
+  }
+
+  return normalized
 }
 
 export function hasWorkOsConfig(env: ApiEnv) {

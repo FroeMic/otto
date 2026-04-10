@@ -23,6 +23,7 @@
     "@otto/feature-integrations-runtime": "workspace:*",
     "@otto/feature-platform": "workspace:*",
     "@otto/feature-runtime-core": "workspace:*",
+    "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-user-profile": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
     "@otto/feature-workspace-members": "workspace:*",
@@ -30,12 +31,14 @@
     "@workos-inc/node": "^8.9.0",
     "drizzle-orm": "^0.44.6",
     "hono": "^4.10.5",
+    "ssh2": "^1.17.0",
     "stripe": "^19.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@types/node": "^24.9.1",
+    "@types/ssh2": "^1.15.5",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

@@ -36,6 +36,10 @@ describe("renderOpenClawConfig", () => {
           id: "otto-session-reporter",
           timeoutMs: 15_000,
         },
+        {
+          id: "otto-workspace-chat",
+          timeoutMs: 15_000,
+        },
       ],
       prompts: {},
       tenantId: "tenant_123",
@@ -49,6 +53,7 @@ describe("renderOpenClawConfig", () => {
       "otto-managed-skills",
       "otto-integrations",
       "otto-session-reporter",
+      "otto-workspace-chat",
     ]);
     assert.deepEqual(renderedConfig.tools.exec, {
       ask: "off",
@@ -63,6 +68,7 @@ describe("renderOpenClawConfig", () => {
       "otto-managed-skills",
       "otto-integrations",
       "otto-session-reporter",
+      "otto-workspace-chat",
     ]);
     assert.deepEqual(renderedConfig.skills, {
       allowBundled: ["slack"],

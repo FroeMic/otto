@@ -18,6 +18,11 @@ import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import {
+  workspaceChatConversationDetailQueryOptions,
+  workspaceChatConversationListQueryOptions,
+} from "@/features/workspace-chat/api/chat"
+import { WorkspaceConversationPage } from "@/features/workspace-chat/pages/WorkspaceConversationPage"
+import {
   ApiResponseError,
   connectedAccountsQueryOptions,
   shellBootstrapQueryOptions,
@@ -47,6 +52,19 @@ function WorkspaceShellRoute() {
   return (
     <WorkspaceShell orgSlug={orgSlug}>
       <WorkspaceOverviewPage orgSlug={orgSlug} />
+    </WorkspaceShell>
+  )
+}
+
+function WorkspaceConversationRoutePage() {
+  const { conversationId, orgSlug } = workspaceConversationRoute.useParams()
+
+  return (
+    <WorkspaceShell orgSlug={orgSlug}>
+      <WorkspaceConversationPage
+        conversationId={conversationId}
+        orgSlug={orgSlug}
+      />
     </WorkspaceShell>
   )
 }
@@ -178,6 +196,24 @@ const workspaceIndexRoute = createRoute({
   component: WorkspaceShellRoute,
   getParentRoute: () => workspaceRoute,
   path: "/",
+})
+
+const workspaceConversationRoute = createRoute({
+  component: WorkspaceConversationRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(
+        workspaceChatConversationListQueryOptions(params.orgSlug),
+      ),
+      context.queryClient.ensureQueryData(
+        workspaceChatConversationDetailQueryOptions(
+          params.orgSlug,
+          params.conversationId,
+        ),
+      ),
+    ]),
+  path: "/c/$conversationId",
 })
 
 const workspaceSettingsRoute = createRoute({
@@ -378,6 +414,7 @@ export const routeTree = rootRoute.addChildren([
   homeRoute,
   workspaceRoute.addChildren([
     workspaceIndexRoute,
+    workspaceConversationRoute,
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,

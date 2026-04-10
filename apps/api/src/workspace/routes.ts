@@ -15,6 +15,7 @@ import {
 } from "@otto/feature-workspace-core"
 import { Hono } from "hono"
 import { z } from "zod"
+import { createWorkspaceChatRouter } from "./chat-routes"
 import {
   getDashboardOrganizations,
   getOrganizationTenantForBilling,
@@ -136,6 +137,7 @@ export function createWorkspaceRouter(
   const app = new Hono()
 
   return app
+    .route("/", createWorkspaceChatRouter())
     .get(
     "/api/web/bootstrap/:orgSlug",
     zValidator("param", workspaceParamsSchema),

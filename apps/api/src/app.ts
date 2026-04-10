@@ -22,7 +22,6 @@ import {
   createWorkspaceMembersRouter,
   type WorkspaceMembersRouteDependencies,
 } from "./workspace-members/routes"
-
 export type CreateApiAppOptions = {
   billingRoutes?: BillingRouteDependencies
   platformRoutes?: PlatformRouteDependencies

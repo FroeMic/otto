@@ -25,6 +25,7 @@
     "@otto/feature-billing": "workspace:*",
     "@otto/feature-platform": "workspace:*",
     "@otto/feature-user-profile": "workspace:*",
+    "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
     "@otto/feature-workspace-members": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",

@@ -1720,6 +1720,114 @@ export const tenantApplyRuns = pgTable(
   }),
 );
 
+export const workspaceChatConversations = pgTable(
+  "workspace_chat_conversations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    kind: varchar("kind", { length: 64 }).notNull(),
+    visibility: varchar("visibility", { length: 64 }).notNull(),
+    title: text("title").notNull(),
+    slug: varchar("slug", { length: 255 }),
+    latestMessagePreview: text("latest_message_preview"),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationLastActivityIdx: index(
+      "workspace_chat_conversations_organization_id_last_activity_at_idx",
+    ).on(table.organizationId, table.lastActivityAt),
+    tenantIdx: index("workspace_chat_conversations_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    organizationSlugUniqueIdx: uniqueIndex(
+      "workspace_chat_conversations_organization_id_slug_idx",
+    )
+      .on(table.organizationId, table.slug)
+      .where(sql`${table.slug} is not null`),
+  }),
+);
+
+export const workspaceChatMessages = pgTable(
+  "workspace_chat_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .references(() => workspaceChatConversations.id, { onDelete: "cascade" })
+      .notNull(),
+    authorKind: varchar("author_kind", { length: 64 }).notNull(),
+    authorUserId: uuid("author_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name"),
+    status: varchar("status", { length: 64 }).notNull(),
+    clientMessageId: varchar("client_message_id", { length: 255 }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    conversationCreatedAtIdx: index(
+      "workspace_chat_messages_conversation_id_created_at_idx",
+    ).on(table.conversationId, table.createdAt),
+    authorUserIdx: index("workspace_chat_messages_author_user_id_idx").on(
+      table.authorUserId,
+    ),
+    conversationClientMessageUniqueIdx: uniqueIndex(
+      "workspace_chat_messages_conversation_id_client_message_id_idx",
+    )
+      .on(table.conversationId, table.clientMessageId)
+      .where(sql`${table.clientMessageId} is not null`),
+  }),
+);
+
+export const workspaceChatMessageParts = pgTable(
+  "workspace_chat_message_parts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    messageId: uuid("message_id")
+      .references(() => workspaceChatMessages.id, { onDelete: "cascade" })
+      .notNull(),
+    ordinal: integer("ordinal").notNull(),
+    partKind: varchar("part_kind", { length: 64 }).notNull(),
+    textValue: text("text_value"),
+    attachmentId: varchar("attachment_id", { length: 255 }),
+    fileName: text("file_name"),
+    mimeType: varchar("mime_type", { length: 255 }),
+    durationMs: integer("duration_ms"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    messageOrdinalUniqueIdx: uniqueIndex(
+      "workspace_chat_message_parts_message_id_ordinal_idx",
+    ).on(table.messageId, table.ordinal),
+    messageIdx: index("workspace_chat_message_parts_message_id_idx").on(
+      table.messageId,
+    ),
+  }),
+);
+
 export const tenantSessions = pgTable(
   "tenant_sessions",
   {
@@ -1808,6 +1916,41 @@ export const tenantSessions = pgTable(
     tenantLastMessageAtIdx: index(
       "tenant_sessions_tenant_id_last_message_at_idx",
     ).on(table.tenantId, table.lastMessageAt),
+  }),
+);
+
+export const workspaceChatRuntimeSegments = pgTable(
+  "workspace_chat_runtime_segments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .references(() => workspaceChatConversations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantSessionId: uuid("tenant_session_id").references(() => tenantSessions.id, {
+      onDelete: "set null",
+    }),
+    sessionKey: text("session_key").notNull(),
+    externalSessionId: text("external_session_id"),
+    status: varchar("status", { length: 64 }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    conversationSessionKeyUniqueIdx: uniqueIndex(
+      "workspace_chat_runtime_segments_conversation_id_session_key_idx",
+    ).on(table.conversationId, table.sessionKey),
+    tenantIdx: index("workspace_chat_runtime_segments_tenant_id_idx").on(
+      table.tenantId,
+    ),
   }),
 );
 
