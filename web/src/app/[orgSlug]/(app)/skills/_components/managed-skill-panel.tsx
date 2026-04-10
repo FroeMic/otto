@@ -9,6 +9,7 @@ import {
   listTenantManagedSkillKeysForTenant,
 } from "@/db/managed-skills";
 import { listKnownManagedSkillDependencyIntegrationKeys } from "@/lib/managed-skills/package";
+import { buildManagedSkillSectionPath } from "@/lib/managed-skills/routing";
 
 async function updateManagedSkillAction(formData: FormData) {
   "use server";
@@ -37,14 +38,37 @@ async function updateManagedSkillAction(formData: FormData) {
 
   revalidatePath(`/${orgSlug}/skills`);
   revalidatePath(`/${orgSlug}/skills/${encodeURIComponent(skillKey)}`);
+  revalidatePath(
+    buildManagedSkillSectionPath({
+      orgSlug,
+      section: "overview",
+      skillKey,
+    }),
+  );
+  revalidatePath(
+    buildManagedSkillSectionPath({
+      orgSlug,
+      section: "files",
+      skillKey,
+    }),
+  );
+  revalidatePath(
+    buildManagedSkillSectionPath({
+      orgSlug,
+      section: "status",
+      skillKey,
+    }),
+  );
 }
 
 export async function ManagedSkillPanel({
   orgSlug,
+  section,
   skillKey,
   tenantId,
 }: {
   orgSlug: string;
+  section: "files" | "overview" | "status";
   skillKey: string;
   tenantId: string;
 }) {
@@ -72,6 +96,7 @@ export async function ManagedSkillPanel({
       knownIntegrationKeys={knownIntegrationKeys}
       knownSkillKeys={knownSkillKeys}
       orgSlug={orgSlug}
+      section={section}
       updateAction={updateManagedSkillAction}
     />
   );

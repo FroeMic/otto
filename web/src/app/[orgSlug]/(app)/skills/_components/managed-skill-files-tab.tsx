@@ -15,11 +15,6 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
@@ -324,26 +319,23 @@ export function ManagedSkillFilesTab({ orgSlug, skillKey }: Props) {
           </div>
         ) : (
           <>
-            <div className="hidden h-[42rem] lg:block">
-              <ResizablePanelGroup orientation="horizontal">
-                <ResizablePanel defaultSize={28} minSize={20}>
-                  <ExplorerPane
-                    expandedDirectories={expandedDirectories}
-                    onDirectoryToggle={handleDirectoryToggle}
-                    onFileSelect={handleFileSelect}
-                    selectedFilePath={selectedFile?.path ?? null}
-                    skillKey={skillKey}
-                    tree={tree}
-                  />
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={72} minSize={40}>
-                  <EditorPane
-                    selectedFile={selectedFile}
-                    theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
-                  />
-                </ResizablePanel>
-              </ResizablePanelGroup>
+            <div className="hidden h-[42rem] min-h-0 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+              <div className="min-h-0 border-r border-border">
+                <ExplorerPane
+                  expandedDirectories={expandedDirectories}
+                  onDirectoryToggle={handleDirectoryToggle}
+                  onFileSelect={handleFileSelect}
+                  selectedFilePath={selectedFile?.path ?? null}
+                  skillKey={skillKey}
+                  tree={tree}
+                />
+              </div>
+              <div className="min-h-0 overflow-hidden">
+                <EditorPane
+                  selectedFile={selectedFile}
+                  theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-4 p-4 lg:hidden">
@@ -497,7 +489,7 @@ function EditorPane(input: {
   }
 
   return (
-    <div className="flex h-full min-h-[24rem] flex-col">
+    <div className="flex h-full min-h-[24rem] flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="truncate font-mono text-sm text-foreground">
@@ -531,13 +523,13 @@ function EditorPane(input: {
 
       {input.selectedFile.storageEncoding === "utf8_text" &&
       input.selectedFile.contentText !== null ? (
-        <div className="min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <MonacoEditor
             height="100%"
             language={getMonacoLanguage(input.selectedFile.path)}
             options={{
-              automaticLayout: true,
               fontSize: 13,
+              fixedOverflowWidgets: true,
               minimap: { enabled: false },
               readOnly: true,
               renderLineHighlight: "all",

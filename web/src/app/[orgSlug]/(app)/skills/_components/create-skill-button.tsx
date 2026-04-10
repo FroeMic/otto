@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { buildManagedSkillSectionPath } from "@/lib/managed-skills/routing";
 
 const DEFAULT_SKILL_BODY = `# New Skill
 
@@ -95,7 +96,11 @@ export function CreateSkillButton({
         setIsOpen(false);
         resetForm();
         router.push(
-          `/${orgSlug}/skills/${encodeURIComponent(created.skillKey)}`,
+          buildManagedSkillSectionPath({
+            orgSlug,
+            section: "overview",
+            skillKey: created.skillKey,
+          }),
         );
         router.refresh();
       } catch (error) {
