@@ -9,6 +9,7 @@ import {
   renderOpenClawConfig,
   TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
 } from "@/lib/openclaw/config";
+import { MANAGED_BOOTSTRAP_FILE_PATHS } from "@/lib/openclaw/managed-config";
 import type { SshConnection } from "@/lib/ssh/client";
 import { SshClient } from "@/lib/ssh/client";
 import { resolveRuntimeWebSearchConfig } from "@/lib/web-search-config";
@@ -274,11 +275,10 @@ export class RuntimeManager {
     const commands = [
       "test -s /opt/openclaw/home/openclaw.json",
       "test -s /opt/openclaw/home/.env",
-      "test -s /opt/openclaw/home/workspace/AGENTS.md",
-      "test -s /opt/openclaw/home/workspace/IDENTITY.md",
-      "test -s /opt/openclaw/home/workspace/SOUL.md",
-      "test -s /opt/openclaw/home/workspace/USER.md",
-      "test -s /opt/openclaw/home/workspace/TOOLS.md",
+      ...MANAGED_BOOTSTRAP_FILE_PATHS.map(
+        (path) =>
+          `test -s ${shellQuoteForShell(`/opt/openclaw/home/workspace/${path}`)}`,
+      ),
       `test -s ${shellQuoteForShell(input.metadataPath)}`,
     ];
 

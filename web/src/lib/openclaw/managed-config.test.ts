@@ -3,10 +3,28 @@ import { describe, it } from "node:test";
 
 import {
   buildManagedBootstrapFileContent,
+  getManagedBootstrapFileDefinitions,
   normalizeManagedBootstrapFilePath,
 } from "@/lib/openclaw/managed-config";
 
 describe("buildManagedBootstrapFileContent", () => {
+  it("includes HEARTBEAT.md and MEMORY.md in the managed bootstrap registry", () => {
+    const definitions = getManagedBootstrapFileDefinitions();
+
+    assert.deepEqual(
+      definitions.map((definition) => definition.path),
+      [
+        "AGENTS.md",
+        "HEARTBEAT.md",
+        "IDENTITY.md",
+        "MEMORY.md",
+        "SOUL.md",
+        "USER.md",
+        "TOOLS.md",
+      ],
+    );
+  });
+
   it("injects workspace app context into TOOLS.md when runtime context is available", () => {
     const rendered = buildManagedBootstrapFileContent({
       path: "TOOLS.md",
@@ -70,6 +88,11 @@ describe("buildManagedBootstrapFileContent", () => {
   });
 
   it("normalizes the legacy USERS.md path to USER.md", () => {
+    assert.equal(
+      normalizeManagedBootstrapFilePath("HEARTBEAT.md"),
+      "HEARTBEAT.md",
+    );
+    assert.equal(normalizeManagedBootstrapFilePath("MEMORY.md"), "MEMORY.md");
     assert.equal(normalizeManagedBootstrapFilePath("USERS.md"), "USER.md");
     assert.equal(normalizeManagedBootstrapFilePath("USER.md"), "USER.md");
     assert.equal(normalizeManagedBootstrapFilePath("not-a-managed-file"), null);
