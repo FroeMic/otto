@@ -13,9 +13,19 @@ const AGENT_INSTRUCTION_TABS: AgentInstructionTab[] = [
     slug: "Agent.md",
   },
   {
+    actualPath: "HEARTBEAT.md",
+    label: "Heartbeat.md",
+    slug: "Heartbeat.md",
+  },
+  {
     actualPath: "IDENTITY.md",
     label: "Identity.md",
     slug: "Identity.md",
+  },
+  {
+    actualPath: "MEMORY.md",
+    label: "Memory.md",
+    slug: "Memory.md",
   },
   {
     actualPath: "SOUL.md",
