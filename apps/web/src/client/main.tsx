@@ -12,7 +12,6 @@ import {
   Link,
   Outlet,
   RouterProvider,
-  useMatchRoute,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router"
@@ -20,6 +19,7 @@ import { lazy, StrictMode, Suspense, useEffect, useId, useState } from "react"
 import { createRoot } from "react-dom/client"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { SettingsSidebar } from "@/components/settings-sidebar"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -77,16 +77,7 @@ function RootPage() {
 
 function WorkspaceLayout() {
   const { orgSlug } = workspaceRoute.useParams()
-  const matchRoute = useMatchRoute()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
-  const isSettingsRoute = Boolean(
-    matchRoute({
-      fuzzy: true,
-      params: { orgSlug },
-      to: "/$orgSlug/settings/workspace",
-    }),
-  )
-  const breadcrumbLabel = isSettingsRoute ? "Workspace settings" : "Overview"
 
   return (
     <SidebarProvider>
@@ -117,7 +108,7 @@ function WorkspaceLayout() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{breadcrumbLabel}</BreadcrumbPage>
+                  <BreadcrumbPage>Overview</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
@@ -181,33 +172,55 @@ function WorkspaceHomePage() {
 
 function WorkspaceSettingsLayout() {
   const { orgSlug } = workspaceRoute.useParams()
+  const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-          Settings
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Workspace settings
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          The first nested layout inside the workspace shell.
-        </p>
-      </div>
+    <SidebarProvider>
+      <SettingsSidebar data={data} orgSlug={orgSlug} />
 
-      <div className="flex flex-wrap gap-2">
-        <Link params={{ orgSlug }} to="/$orgSlug/settings/workspace">
-          {({ isActive }) => (
-            <Button variant={isActive ? "default" : "outline"}>
-              Workspace
-            </Button>
-          )}
-        </Link>
-      </div>
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <SidebarSeparator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink
+                    render={
+                      <Link
+                        params={{ orgSlug }}
+                        preload="intent"
+                        to="/$orgSlug/settings/workspace"
+                      />
+                    }
+                  >
+                    Settings
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbPage>
+                    {data.currentOrganization.name}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>General</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
 
-      <Outlet />
-    </div>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 
@@ -282,6 +295,16 @@ function WorkspaceSettingsPage() {
 
   return (
     <div className="grid gap-4">
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+          Workspace settings
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">General</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage the workspace name, URL, and regional defaults.
+        </p>
+      </div>
+
       <form
         className="flex flex-col gap-4 rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm"
         onSubmit={(event) => {
@@ -400,7 +423,7 @@ const homeRoute = createRoute({
 
 const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
-  component: WorkspaceLayout,
+  component: Outlet,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       shellBootstrapQueryOptions(params.orgSlug),
@@ -408,8 +431,14 @@ const workspaceRoute = createRoute({
   path: "/$orgSlug",
 })
 
-const workspaceIndexRoute = createRoute({
+const workspaceShellRoute = createRoute({
   getParentRoute: () => workspaceRoute,
+  component: WorkspaceLayout,
+  id: "workspace-shell",
+})
+
+const workspaceIndexRoute = createRoute({
+  getParentRoute: () => workspaceShellRoute,
   component: WorkspaceHomePage,
   path: "/",
 })
@@ -441,7 +470,7 @@ const platformRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   workspaceRoute.addChildren([
-    workspaceIndexRoute,
+    workspaceShellRoute.addChildren([workspaceIndexRoute]),
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsWorkspaceRoute,

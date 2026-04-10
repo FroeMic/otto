@@ -1,123 +1,49 @@
-import {
-  BuildingsIcon,
-  GearSixIcon,
-  HouseLineIcon,
-  SignOutIcon,
-  SparkleIcon,
-} from "@phosphor-icons/react"
+import { RocketLaunchIcon } from "@phosphor-icons/react"
 
+import { PlatformSidebar } from "@/components/platform-sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
+  SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
 export default function PlatformPage() {
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="gap-4 border-b border-sidebar-border/70">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
-              <SparkleIcon weight="fill" />
-            </div>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="text-sm font-medium">Otto</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">
-                Platform
-              </p>
-            </div>
-          </div>
-        </SidebarHeader>
-
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Platform</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton isActive tooltip="Overview">
-                    <BuildingsIcon />
-                    <span>Overview</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Navigate</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      window.location.assign("/")
-                    }}
-                    tooltip="Home"
-                  >
-                    <HouseLineIcon />
-                    <span>Home</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      window.location.assign("/login")
-                    }}
-                    tooltip="Login"
-                  >
-                    <GearSixIcon />
-                    <span>Login</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter className="border-t border-sidebar-border/70">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  window.location.assign("/auth/sign-out")
-                }}
-                tooltip="Sign out"
-              >
-                <SignOutIcon />
-                <span>Sign out</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+      <PlatformSidebar />
 
       <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur md:px-6">
-          <SidebarTrigger />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">Platform</p>
-            <p className="truncate text-xs text-muted-foreground">
-              Operator-facing area
-            </p>
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <SidebarSeparator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbPage>Platform</BreadcrumbPage>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Overview</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col gap-6 px-4 py-6 md:px-6">
+        <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
               Platform
@@ -149,12 +75,32 @@ export default function PlatformPage() {
                 Next cut
               </p>
               <p className="mt-3 text-2xl font-semibold tracking-tight">
-                Operator pages
+                Organizations
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Organizations, detail views, and queued actions can move in one
-                slice at a time without reworking the shell again.
+                The platform shell is ready for the organizations index and its
+                deeper operator views to move over without another shell reset.
               </p>
+            </section>
+
+            <section className="rounded-[1.5rem] border border-border/70 bg-card px-5 py-5 shadow-sm">
+              <p className="text-xs font-medium tracking-[0.18em] text-primary uppercase">
+                Status
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <RocketLaunchIcon weight="fill" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold tracking-tight">
+                    Operator shell ready
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Navigation and layout can stay stable while platform pages
+                    migrate one slice at a time.
+                  </p>
+                </div>
+              </div>
             </section>
           </div>
 
