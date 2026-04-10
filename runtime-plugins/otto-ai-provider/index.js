@@ -69,7 +69,7 @@ export default defineSingleProviderPluginEntry({
       id: PROVIDER_ID,
       capabilities: ["audio"],
       transcribeAudio: async (params) => {
-        const baseUrl = requireProxyBaseUrl(params.baseUrl);
+        const baseUrl = resolveProxyBaseUrl(params.baseUrl);
 
         return transcribeOpenAiCompatibleAudio({
           ...params,
@@ -121,12 +121,21 @@ function normalizeModelId(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function requireProxyBaseUrl(value) {
-  const baseUrl = normalizeControlPlaneBaseUrl(value);
-
-  if (!baseUrl) {
-    throw new Error("openai-proxy audio transcription requires a configured baseUrl.");
+function resolveProxyBaseUrl(value) {
+  const explicit = normalizeControlPlaneBaseUrl(value);
+  if (explicit) {
+    return explicit;
   }
 
-  return baseUrl;
+  const controlPlaneBaseUrl = normalizeControlPlaneBaseUrl(
+    process.env.OTTO_CONTROL_PLANE_BASE_URL,
+  );
+
+  if (!controlPlaneBaseUrl) {
+    throw new Error(
+      "openai-proxy audio transcription requires a configured baseUrl or OTTO_CONTROL_PLANE_BASE_URL.",
+    );
+  }
+
+  return `${controlPlaneBaseUrl}${DEFAULT_BASE_URL_PATH}`;
 }
