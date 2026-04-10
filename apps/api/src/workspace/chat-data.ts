@@ -25,6 +25,7 @@ type WorkspaceChatConversationRow = {
   lastActivityAt: Date
   latestMessagePreview: string | null
   slug: string | null
+  tenantId: string
   title: string
   visibility: string
 }
@@ -137,6 +138,7 @@ export async function listWorkspaceChatConversations(input: {
       lastActivityAt: workspaceChatConversations.lastActivityAt,
       latestMessagePreview: workspaceChatConversations.latestMessagePreview,
       slug: workspaceChatConversations.slug,
+      tenantId: workspaceChatConversations.tenantId,
       title: workspaceChatConversations.title,
       visibility: workspaceChatConversations.visibility,
     })
@@ -221,6 +223,7 @@ export async function createWorkspaceChatConversation(input: {
       lastActivityAt: workspaceChatConversations.lastActivityAt,
       latestMessagePreview: workspaceChatConversations.latestMessagePreview,
       slug: workspaceChatConversations.slug,
+      tenantId: workspaceChatConversations.tenantId,
       title: workspaceChatConversations.title,
       visibility: workspaceChatConversations.visibility,
     })
@@ -328,6 +331,27 @@ export async function createWorkspaceChatMessage(input: {
   userDisplayName: string
   userExternalId: string
 }): Promise<WorkspaceChatMessageCreateResponse> {
+  const result = await createWorkspaceChatMessageRecord(input)
+
+  return {
+    conversationId: result.conversationId,
+    dispatch: result.dispatch,
+    message: result.message,
+  }
+}
+
+export async function createWorkspaceChatMessageRecord(input: {
+  clientMessageId?: string
+  conversationId: string
+  orgSlug: string
+  parts: WorkspaceChatMessagePart[]
+  userDisplayName: string
+  userExternalId: string
+}): Promise<
+  WorkspaceChatMessageCreateResponse & {
+    tenantId: string
+  }
+> {
   const actor = await resolveWorkspaceChatActor({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
@@ -357,6 +381,7 @@ export async function createWorkspaceChatMessage(input: {
         status: "pending_runtime_bridge",
       },
       message: existingMessage,
+      tenantId: conversation.tenantId,
     }
   }
 
@@ -415,6 +440,7 @@ export async function createWorkspaceChatMessage(input: {
       status: "pending_runtime_bridge",
     },
     message: createdMessage,
+    tenantId: conversation.tenantId,
   }
 }
 
@@ -581,6 +607,7 @@ async function getAccessibleWorkspaceChatConversation(input: {
       lastActivityAt: workspaceChatConversations.lastActivityAt,
       latestMessagePreview: workspaceChatConversations.latestMessagePreview,
       slug: workspaceChatConversations.slug,
+      tenantId: workspaceChatConversations.tenantId,
       title: workspaceChatConversations.title,
       visibility: workspaceChatConversations.visibility,
     })

@@ -187,8 +187,11 @@ Current implementation status for Increment 1:
   - shared conversation tables now exist in `packages/features/integrations-runtime/src/db/schema.ts`
   - the initial migration now exists in `web/drizzle/0048_workspace_chat_increment_1.sql`
   - a tenant-authenticated runtime callback route now exists for assistant message completion and runtime-segment linkage
-- the `otto-workspace-chat` runtime plugin scaffold now exists under `runtime-plugins/`
-- the outbound tenant bridge and real plugin delivery loop are still open
+- the Control Plane-to-tenant outbound dispatch now exists for the first text-only slice:
+  - `apps/api` now persists a user message, resolves the owning tenant runtime, and dispatches one `openclaw agent` turn over SSH to the tenant host
+  - the dispatch path uses the `otto-workspace-chat` channel with a stable `workspace:<conversationId>` target and `--deliver`
+- the `otto-workspace-chat` runtime plugin now posts assistant completions back to the existing runtime callback route instead of throwing
+- the managed tenant OpenClaw config now enables `otto-workspace-chat` alongside the other Otto-owned plugins when the workspace base URL is available
 - `apps/web` UI work for workspace chat has not started yet and should remain paused until the backend slice is reviewed
 
 ## Frameworks And Packages To Use

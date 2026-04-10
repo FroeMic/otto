@@ -21,10 +21,10 @@ import { z } from "zod"
 
 import {
   createWorkspaceChatConversation,
-  createWorkspaceChatMessage,
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
 } from "./chat-data"
+import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 import { syncUserFromSession } from "./data"
 
 const workspaceParamsSchema = z.object({
@@ -72,7 +72,7 @@ function createDefaultWorkspaceChatRouteDependencies(): WorkspaceChatRouteDepend
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
     createConversation: createWorkspaceChatConversation,
-    createMessage: createWorkspaceChatMessage,
+    createMessage: createAndDispatchWorkspaceChatMessage,
     getConversationDetail: getWorkspaceChatConversationDetail,
     listConversations: listWorkspaceChatConversations,
     syncUserFromSession:

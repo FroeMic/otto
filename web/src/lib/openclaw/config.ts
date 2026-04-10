@@ -525,6 +525,10 @@ export function buildOpenClawTenantConfig(input: {
               id: "otto-session-reporter",
               timeoutMs: 15_000,
             },
+            {
+              id: "otto-workspace-chat",
+              timeoutMs: 15_000,
+            },
           ],
         }
       : {}),

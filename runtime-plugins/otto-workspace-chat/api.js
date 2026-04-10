@@ -4,6 +4,8 @@ import {
 } from "openclaw/plugin-sdk/channel-core";
 import { getChatChannelMeta } from "openclaw/plugin-sdk/channel-plugin-common";
 
+import { sendWorkspaceChatText } from "./outbound.js";
+
 const CHANNEL_ID = "otto-workspace-chat";
 const DEFAULT_ACCOUNT_ID = "default";
 const meta = { ...getChatChannelMeta(CHANNEL_ID) };
@@ -29,12 +31,6 @@ function parseWorkspaceTarget(raw) {
     conversationId,
     target: normalized,
   };
-}
-
-async function sendWorkspaceChatText() {
-  throw new Error(
-    "otto-workspace-chat outbound delivery is not wired yet. The tenant bridge must register runtime delivery callbacks before this channel can send messages.",
-  );
 }
 
 function resolveWorkspaceChatAccount(accountId) {
@@ -113,8 +109,11 @@ export const workspaceChatChannelPlugin = createChatChannelPlugin({
     },
     attachedResults: {
       channel: CHANNEL_ID,
-      sendText: async (payload) =>
-        await sendWorkspaceChatText(payload),
+      sendText: async (payload) => await sendWorkspaceChatText(payload),
     },
   },
 });
+
+export const __testing = {
+  sendWorkspaceChatText,
+};
