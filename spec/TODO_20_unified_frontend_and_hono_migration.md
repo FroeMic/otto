@@ -849,7 +849,7 @@ Exit criteria:
   - `apps/gateway` exists for legacy `integration-gateway`
   - `apps/worker` exists for the legacy `web/` worker entrypoint
   - `apps/api` now owns the currently shipped native route surface directly instead of delegating through adapter-mounted legacy route families
-  - `packages/auth`, `packages/features/runtime-core`, `packages/features/workspace-core`, `packages/features/integrations-runtime`, and `packages/features/worker-runtime` now exist for the extracted services
+  - `packages/auth`, `packages/features/runtime-core`, `packages/features/workspace-core`, and `packages/features/integrations-runtime` now exist for the extracted services
   - legacy `web/` keeps local compatibility copies for runtime auth, managed runtime routes, workspace bootstrap, workspace usage, workspace settings, and workspace slug normalization
   - `apps/api` now owns the current shell bootstrap, workspace usage, and workspace settings routes natively
   - `apps/api` now also owns the current apex-domain auth, webhook, and internal runtime routes natively
@@ -974,7 +974,7 @@ Current checkpoint:
 - `worker`:
   - current owner: legacy worker entrypoint under `web/`
   - target owner: `apps/worker`
-  - status: production compose cutover wired with worker env/queue/execution behavior now owned by `packages/features/worker-runtime`; deployment verification pending
+  - status: production compose cutover wired with worker env/queue/execution behavior now owned directly by `apps/worker/src/runtime`; deployment verification pending
 
 ### Session update rules
 

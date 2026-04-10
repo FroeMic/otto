@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { Client, type ConnectConfig } from "ssh2";
+import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
 import SftpClient from "ssh2-sftp-client";
 
 import { getEnv, normalizePrivateKeyValue } from "../env";
@@ -54,9 +54,14 @@ export class SshClient {
       }, timeoutMs);
 
       client.on("ready", () => {
-        client.exec(command, (error, stream) => {
+        client.exec(command, (error?: Error, stream?: ClientChannel) => {
           if (error) {
             rejectOnce(error);
+            return;
+          }
+
+          if (!stream) {
+            rejectOnce(new Error("SSH exec did not provide a stream"));
             return;
           }
 
@@ -79,7 +84,7 @@ export class SshClient {
         });
       });
 
-      client.on("error", (error) => {
+      client.on("error", (error: Error) => {
         rejectOnce(error);
       });
 
@@ -256,7 +261,7 @@ async function resolvePrivateKey() {
   return undefined;
 }
 
-async function safeEnd(client: SftpClient) {
+async function safeEnd(client: { end(): Promise<unknown> }) {
   try {
     await client.end();
   } catch {

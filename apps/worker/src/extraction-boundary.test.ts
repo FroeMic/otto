@@ -6,9 +6,10 @@ import { describe, it } from "vitest"
 
 const appSourcePath = path.resolve(import.meta.dirname, "app.ts")
 const dockerfilePath = path.resolve(import.meta.dirname, "../Dockerfile")
-const workerRuntimeSourceRoot = path.resolve(
+const workerRuntimeSourceRoot = path.resolve(import.meta.dirname, "../src/runtime")
+const workerRuntimePackagePath = path.resolve(
   import.meta.dirname,
-  "../../../packages/features/worker-runtime/src",
+  "../../../packages/features/worker-runtime",
 )
 
 describe("worker extraction boundary", () => {
@@ -17,7 +18,8 @@ describe("worker extraction boundary", () => {
 
     assert.doesNotMatch(source, /\.\.\/\.\.\/\.\.\/web\/src/)
     assert.doesNotMatch(source, /legacy-control-plane-runtime/)
-    assert.match(source, /@otto\/feature-worker-runtime/)
+    assert.doesNotMatch(source, /@otto\/feature-worker-runtime/)
+    assert.match(source, /\.\/runtime\//)
   })
 
   it("does not copy legacy web/src into the worker image", () => {
@@ -26,6 +28,7 @@ describe("worker extraction boundary", () => {
     assert.doesNotMatch(dockerfile, /COPY web\/src web\/src/)
     assert.doesNotMatch(dockerfile, /\/app\/web\/src/)
     assert.doesNotMatch(dockerfile, /legacy-control-plane-runtime/)
+    assert.doesNotMatch(dockerfile, /packages\/features\/worker-runtime/)
   })
 
   it("keeps the worker runtime package free of browser and next-specific imports", () => {
@@ -46,5 +49,9 @@ describe("worker extraction boundary", () => {
       assert.doesNotMatch(source, /clsx/, filePath)
       assert.doesNotMatch(source, /NextResponse/, filePath)
     }
+  })
+
+  it("does not keep worker-only runtime code under packages", () => {
+    assert.equal(fs.existsSync(workerRuntimePackagePath), false)
   })
 })
