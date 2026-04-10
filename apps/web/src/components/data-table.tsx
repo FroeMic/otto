@@ -2,6 +2,7 @@
 
 import {
   flexRender,
+  getFilteredRowModel,
   getCoreRowModel,
   getSortedRowModel,
   type ColumnDef,
@@ -10,6 +11,7 @@ import {
 } from "@tanstack/react-table"
 import { useState } from "react"
 
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -32,6 +34,8 @@ export interface DataTableProps<TData, TValue> {
   headerClassName?: string
   initialSorting?: SortingState
   rowClassName?: string
+  searchKeys?: string[]
+  searchPlaceholder?: string
   tableClassName?: string
   toolbar?: React.ReactNode
   toolbarClassName?: string
@@ -50,20 +54,53 @@ export function DataTable<TData, TValue>({
   headerClassName,
   initialSorting,
   rowClassName,
+  searchKeys,
+  searchPlaceholder = "Search",
   tableClassName,
   toolbar,
   toolbarClassName,
   viewportClassName,
 }: DataTableProps<TData, TValue>) {
+  const [globalFilter, setGlobalFilter] = useState("")
   const [sorting, setSorting] = useState<SortingState>(initialSorting ?? [])
   const table = useReactTable({
     columns,
     data,
     enableSortingRemoval: false,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      if (!Array.isArray(searchKeys) || searchKeys.length === 0) {
+        return true
+      }
+
+      const normalizedFilter = String(filterValue).trim().toLowerCase()
+
+      if (!normalizedFilter) {
+        return true
+      }
+
+      return searchKeys.some((searchKey) => {
+        const keyParts = searchKey.split(".")
+        let currentValue: unknown = row.original
+
+        for (const keyPart of keyParts) {
+          if (!currentValue || typeof currentValue !== "object") {
+            return false
+          }
+
+          currentValue = (currentValue as Record<string, unknown>)[keyPart]
+        }
+
+        return String(currentValue ?? "")
+          .toLowerCase()
+          .includes(normalizedFilter)
+      })
+    },
     onSortingChange: setSorting,
     state: {
+      globalFilter,
       sorting,
     },
   })
@@ -76,7 +113,21 @@ export function DataTable<TData, TValue>({
         className,
       )}
     >
-      {toolbar ? <div className={toolbarClassName}>{toolbar}</div> : null}
+      {toolbar || (Array.isArray(searchKeys) && searchKeys.length > 0) ? (
+        <div className={toolbarClassName}>
+          <div className="flex w-full min-w-0 items-center gap-3">
+            {Array.isArray(searchKeys) && searchKeys.length > 0 ? (
+              <Input
+                className="max-w-sm"
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                placeholder={searchPlaceholder}
+                value={globalFilter}
+              />
+            ) : null}
+            {toolbar ? <div className="flex min-w-0 flex-1">{toolbar}</div> : null}
+          </div>
+        </div>
+      ) : null}
       <div
         className={cn(
           fillAvailableSpace && "min-h-0 min-w-0 flex-1 overflow-auto",

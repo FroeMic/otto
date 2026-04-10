@@ -8,6 +8,10 @@ import {
 } from "./billing/routes"
 import { registerRuntimeRoutes } from "./runtime/routes"
 import {
+  createPlatformRouter,
+  type PlatformRouteDependencies,
+} from "./platform/routes"
+import {
   createUserRouter,
   type UserRouteDependencies,
 } from "./user/routes"
@@ -20,6 +24,7 @@ import {
 } from "./workspace-members/routes"
 export type CreateApiAppOptions = {
   billingRoutes?: BillingRouteDependencies
+  platformRoutes?: PlatformRouteDependencies
   userRoutes?: UserRouteDependencies
   workspaceMembersRoutes?: WorkspaceMembersRouteDependencies
 }
@@ -41,6 +46,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     })
     .route("/", createWorkspaceRouter())
     .route("/", createBillingRouter(options.billingRoutes))
+    .route("/", createPlatformRouter(options.platformRoutes))
     .route("/", createUserRouter(options.userRoutes))
     .route("/", createWorkspaceMembersRouter(options.workspaceMembersRoutes))
 
