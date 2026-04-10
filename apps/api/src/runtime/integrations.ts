@@ -32,6 +32,12 @@ import {
 } from "@otto/feature-integrations-runtime/lib/web-search-config"
 import { and, eq } from "drizzle-orm"
 
+import {
+  applySlackRuntimeIntegrationSettingsForTenant,
+  getSlackRuntimeIntegrationSettingsForTenant,
+  validateSlackRuntimeIntegrationSettingsForTenant,
+} from "./slack-settings"
+
 type RuntimeStatusRow = {
   connectedAt: Date | null
   disconnectedAt: Date | null
@@ -462,7 +468,18 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
 }) {
   const integration = await getRuntimeIntegrationForTenant(input)
 
-  if (!integration?.settings || integration.key !== "brave") {
+  if (!integration?.settings) {
+    return null
+  }
+
+  if (integration.key === "slack") {
+    return getSlackRuntimeIntegrationSettingsForTenant({
+      integration,
+      tenantId: input.tenantId,
+    })
+  }
+
+  if (integration.key !== "brave") {
     return null
   }
 
@@ -533,5 +550,69 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
       uiGroup: "integrations",
       uiHints: webSearchRuntimeConfigUiHints,
     },
+  }
+}
+
+export async function validateRuntimeIntegrationSettingsForTenant(input: {
+  integrationKey: string
+  patch: Record<string, unknown>
+  tenantId: string
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  })
+
+  if (!integration?.settings) {
+    return null
+  }
+
+  switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      )
+    case "slack":
+      return validateSlackRuntimeIntegrationSettingsForTenant({
+        integration,
+        patch: input.patch,
+        tenantId: input.tenantId,
+      })
+    default:
+      return null
+  }
+}
+
+export async function applyRuntimeIntegrationSettingsForTenant(input: {
+  expectedEntryVersion?: number
+  integrationKey: string
+  patch: Record<string, unknown>
+  summary?: string
+  tenantId: string
+}) {
+  const integration = await getRuntimeIntegrationForTenant({
+    integrationKey: input.integrationKey,
+    tenantId: input.tenantId,
+  })
+
+  if (!integration?.settings) {
+    return null
+  }
+
+  switch (integration.key) {
+    case "brave":
+      throw new Error(
+        "Brave settings are platform-managed and read-only in the workspace.",
+      )
+    case "slack":
+      return applySlackRuntimeIntegrationSettingsForTenant({
+        expectedEntryVersion: input.expectedEntryVersion,
+        integration,
+        patch: input.patch,
+        summary: input.summary,
+        tenantId: input.tenantId,
+      })
+    default:
+      return null
   }
 }

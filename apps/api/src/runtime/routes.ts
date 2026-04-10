@@ -16,12 +16,14 @@ import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
 import { authenticateTenantRuntimeRequest } from "./auth"
 import {
+  applyRuntimeIntegrationSettingsForTenant,
   findRuntimeIntegrationCommandsForTenant,
   getRuntimeIntegrationConnectionActionForTenant,
   getRuntimeIntegrationDetailsForTenant,
   getRuntimeIntegrationForTenant,
   getRuntimeIntegrationSettingsForTenant,
   listRuntimeIntegrationsForTenant,
+  validateRuntimeIntegrationSettingsForTenant,
 } from "./integrations"
 import {
   getLatestTenantManagedConfig,
@@ -62,6 +64,7 @@ import {
   RuntimeWebSearchProxyError,
 } from "./web-search"
 import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
+import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
 import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 
@@ -332,6 +335,67 @@ export function registerRuntimeRoutes(app: Hono) {
         }
 
         return jsonNoStore(settings)
+      } catch (error) {
+        return handleRuntimeIntegrationSettingsError(error)
+      }
+    },
+  )
+
+  app.post(
+    "/api/internal/runtime/integrations/:integrationKey/settings",
+    async (context) => {
+      try {
+        const { tenantId } = await authenticateTenantRuntimeRequest(
+          context.req.raw,
+        )
+        const integrationKey = context.req.param("integrationKey") ?? ""
+
+        if (!integrationKey.trim()) {
+          throw new Error("integrationKey is required.")
+        }
+
+        const body = (await context.req.raw.json().catch(() => null)) as {
+          action?: string
+          expectedEntryVersion?: number
+          patch?: Record<string, unknown>
+          summary?: string
+        } | null
+        const action = body?.action === "apply" ? "apply" : "validate"
+
+        if (
+          !body?.patch ||
+          typeof body.patch !== "object" ||
+          Array.isArray(body.patch)
+        ) {
+          throw new Error("patch must be an object.")
+        }
+
+        const result =
+          action === "apply"
+            ? await applyRuntimeIntegrationSettingsForTenant({
+                expectedEntryVersion: body.expectedEntryVersion,
+                integrationKey,
+                patch: body.patch,
+                summary: body.summary,
+                tenantId,
+              })
+            : await validateRuntimeIntegrationSettingsForTenant({
+                integrationKey,
+                patch: body.patch,
+                tenantId,
+              })
+
+        if (!result) {
+          return jsonNoStore(
+            {
+              code: "not_found",
+              message: `Managed integration ${integrationKey} does not expose configurable settings.`,
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(result)
       } catch (error) {
         return handleRuntimeIntegrationSettingsError(error)
       }
@@ -908,6 +972,17 @@ function handleScheduledTaskSyncError(error: unknown) {
 }
 
 function handleRuntimeIntegrationSettingsError(error: unknown) {
+  if (error instanceof TenantRuntimeConfigVersionConflictError) {
+    return jsonNoStore(
+      {
+        code: "stale_version",
+        currentEntryVersion: error.currentVersion,
+        message: error.message,
+      },
+      409,
+    )
+  }
+
   if (error instanceof z.ZodError) {
     return jsonNoStore(
       {

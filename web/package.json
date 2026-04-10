@@ -17,7 +17,6 @@
     "tenant:runtime:deploy": "bun src/scripts/tenant-runtime.ts deploy",
     "tenant:runtime:recompile-desired-state": "bun src/scripts/tenant-runtime.ts recompile-desired-state",
     "tenant:runtime:refresh-image": "bun src/scripts/tenant-runtime.ts refresh-image",
-    "verify:runtime-surface": "bun src/scripts/verify-runtime-surface.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node src/scripts/wait-for-db.mjs && drizzle-kit migrate",
     "lint": "biome check",

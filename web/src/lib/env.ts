@@ -210,6 +210,7 @@ export function getControlPlaneBaseUrl() {
   const env = getEnv();
 
   return (
+    deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
     deriveBaseUrlFromDomain(env.CONTROL_PLANE_DOMAIN) ??
     env.WORKOS_BASE_URL ??
     deriveBaseUrlFromUri(
