@@ -193,6 +193,12 @@ export function createWorkspaceChatRouter(
 
         const { conversationId, orgSlug } = context.req.valid("param")
 
+        console.info("[workspace-chat] message create request received", {
+          conversationId,
+          orgSlug,
+          userId: authResult.user.id,
+        })
+
         return handleWorkspaceChatMessageCreateRequest({
           body: context.req.valid("json"),
           conversationId,

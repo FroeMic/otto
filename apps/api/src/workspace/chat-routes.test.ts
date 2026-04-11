@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 
 import { WorkspaceSessionAuthError } from "@otto/auth"
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import {
   createWorkspaceChatRouter,
@@ -71,6 +71,10 @@ function createDependencies(): WorkspaceChatRouteDependencies {
 }
 
 describe("workspace chat routes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("returns the workspace chat conversation list", async () => {
     const app = createWorkspaceChatRouter(createDependencies())
     const response = await app.request(
@@ -186,6 +190,41 @@ describe("workspace chat routes", () => {
         status: "completed",
       },
     })
+  })
+
+  it("logs when a workspace chat message create request reaches the API route", async () => {
+    const logSpy = vi.spyOn(console, "info").mockImplementation(() => undefined)
+    const app = createWorkspaceChatRouter(createDependencies())
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/conversations/conv_1/messages",
+      {
+        body: JSON.stringify({
+          clientMessageId: "client-msg-1",
+          parts: [
+            {
+              text: "Summarize the latest notes",
+              type: "text",
+            },
+          ],
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 202)
+    assert.equal(logSpy.mock.calls.length, 1)
+    assert.deepEqual(logSpy.mock.calls[0], [
+      "[workspace-chat] message create request received",
+      {
+        conversationId: "conv_1",
+        orgSlug: "otto",
+        userId: "user_123",
+      },
+    ])
   })
 
   it("returns 401 when the workspace session is missing", async () => {
