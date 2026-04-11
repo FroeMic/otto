@@ -5,7 +5,6 @@ import { spawn } from "node:child_process";
 const DEFAULT_GATEWAY_PORT = "18791";
 const CRON_WATCHER_PATH = "/app/otto-helpers/cron-sync-watcher.mjs";
 const BRIDGE_REPORTER_PATH = "/app/otto-helpers/runtime-bridge-reporter.mjs";
-const BRIDGE_COMMAND_RUNNER_PATH = "/app/otto-helpers/runtime-bridge-command-runner.mjs";
 
 const gatewayArgs = process.argv.slice(2);
 const gatewayPort =
@@ -16,7 +15,6 @@ const gatewayPort =
 let gatewayChild = null;
 let cronWatcherChild = null;
 let bridgeReporterChild = null;
-let bridgeCommandRunnerChild = null;
 let shuttingDown = false;
 
 startProcesses();
@@ -48,12 +46,6 @@ function startProcesses() {
       path: BRIDGE_REPORTER_PATH,
       restartLabel: "bridge reporter",
     });
-    bridgeCommandRunnerChild = startManagedHelper({
-      disabledMessage:
-        "[otto-runtime] bridge command runner disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
-      path: BRIDGE_COMMAND_RUNNER_PATH,
-      restartLabel: "bridge command runner",
-    });
   } else {
     console.info(
       "[otto-runtime] runtime companions disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
@@ -64,7 +56,6 @@ function startProcesses() {
     shuttingDown = true;
     stopHelper(cronWatcherChild);
     stopHelper(bridgeReporterChild);
-    stopHelper(bridgeCommandRunnerChild);
     exitWithChildStatus(code, signal);
   });
 
@@ -106,8 +97,6 @@ function startManagedHelper(input) {
           cronWatcherChild = startManagedHelper(input);
         } else if (input.path === BRIDGE_REPORTER_PATH) {
           bridgeReporterChild = startManagedHelper(input);
-        } else if (input.path === BRIDGE_COMMAND_RUNNER_PATH) {
-          bridgeCommandRunnerChild = startManagedHelper(input);
         }
       }
     }, 5_000);
@@ -132,7 +121,6 @@ function handleShutdownSignal(signal) {
   shuttingDown = true;
   stopHelper(cronWatcherChild);
   stopHelper(bridgeReporterChild);
-  stopHelper(bridgeCommandRunnerChild);
 
   if (gatewayChild && !gatewayChild.killed) {
     try {

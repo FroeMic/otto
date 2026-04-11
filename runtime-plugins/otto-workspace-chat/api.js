@@ -11,36 +11,9 @@ import {
   WORKSPACE_CHAT_DEFAULT_ACCOUNT_ID as DEFAULT_ACCOUNT_ID,
 } from "./channel-config.js";
 import { sendWorkspaceChatText } from "./outbound.js";
+import { normalizeWorkspaceTarget, parseWorkspaceTarget } from "./target.js";
 
 const meta = { ...getChatChannelMeta(CHANNEL_ID) };
-
-function normalizeWorkspaceTarget(raw) {
-  if (typeof raw !== "string") {
-    return "";
-  }
-
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  return trimmed.startsWith("workspace:") ? trimmed : `workspace:${trimmed}`;
-}
-
-function parseWorkspaceTarget(raw) {
-  const normalized = normalizeWorkspaceTarget(raw);
-  const [conversationId, query = ""] = normalized
-    .replace(/^workspace:/, "")
-    .split("?", 2);
-  const assistantMessageId =
-    new URLSearchParams(query).get("assistantMessageId")?.trim() || undefined;
-
-  return {
-    assistantMessageId,
-    conversationId,
-    target: normalized,
-  };
-}
 
 export const workspaceChatChannelPlugin = createChatChannelPlugin({
   base: {

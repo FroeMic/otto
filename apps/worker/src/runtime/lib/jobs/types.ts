@@ -5,6 +5,7 @@ export const JOB_TYPES = {
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
   refreshRuntimeImage: "refresh_runtime_image",
+  runWorkspaceChatTurn: "run_workspace_chat_turn",
   scheduleOauthConnectionRefresh: "schedule_oauth_connection_refresh",
   refreshOauthConnection: "refresh_oauth_connection",
   scheduleOpenAiUsageSync: "schedule_openai_usage_sync",
@@ -87,6 +88,13 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type RunWorkspaceChatTurnPayload = {
+  assistantMessageId?: string;
+  conversationId: string;
+  message: string;
+  tenantId: string;
+};
+
 export type ScheduleOauthConnectionRefreshPayload = Record<string, never>;
 
 export type RefreshOauthConnectionPayload = {
@@ -156,6 +164,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;
       payload: RefreshRuntimeImagePayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.runWorkspaceChatTurn;
+      payload: RunWorkspaceChatTurnPayload;
     }
   | {
       jobType: typeof JOB_TYPES.scheduleOauthConnectionRefresh;

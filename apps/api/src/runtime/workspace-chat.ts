@@ -2,16 +2,20 @@ import { jsonNoStore } from "@otto/auth"
 import {
   type WorkspaceChatRuntimeMessageCompleteRequest,
   type WorkspaceChatRuntimeMessageDeltaRequest,
+  type WorkspaceChatRuntimeMessageFailRequest,
   workspaceChatRuntimeMessageCompleteRequestSchema,
   workspaceChatRuntimeMessageCompleteResponseSchema,
   workspaceChatRuntimeMessageDeltaRequestSchema,
   workspaceChatRuntimeMessageDeltaResponseSchema,
+  workspaceChatRuntimeMessageFailRequestSchema,
+  workspaceChatRuntimeMessageFailResponseSchema,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import * as z from "zod"
 import {
   applyWorkspaceChatAssistantDelta,
   completeWorkspaceChatAssistantMessage,
+  markWorkspaceChatAssistantMessageFailed,
 } from "../workspace/chat-data"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
@@ -46,6 +50,17 @@ export type WorkspaceChatRuntimeRouteDependencies = {
     runtimeSegmentId: string
     tenantId: string
   } | null>
+  failAssistantMessage?: (payload: {
+    assistantDisplayName?: string
+    assistantMessageId: string
+    conversationId: string
+    error?: WorkspaceChatRuntimeMessageFailRequest["error"]
+    tenantId: string
+  }) => Promise<{
+    conversationId: string
+    messageId: string
+    tenantId: string
+  } | null>
 }
 
 function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRuntimeRouteDependencies {
@@ -53,6 +68,18 @@ function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRunt
     applyAssistantDelta: applyWorkspaceChatAssistantDelta,
     authenticateTenantRuntime: authenticateTenantRuntimeRequest,
     completeAssistantMessage: completeWorkspaceChatAssistantMessage,
+    failAssistantMessage: async (payload) => {
+      await markWorkspaceChatAssistantMessageFailed({
+        assistantMessageId: payload.assistantMessageId,
+        conversationId: payload.conversationId,
+      })
+
+      return {
+        conversationId: payload.conversationId,
+        messageId: payload.assistantMessageId,
+        tenantId: payload.tenantId,
+      }
+    },
   }
 }
 
@@ -173,6 +200,45 @@ export function createWorkspaceChatRuntimeRouter(
       }
     },
   )
+
+  app.post("/api/internal/runtime/workspace-chat/messages/fail", async (context) => {
+    try {
+      const { tenantId } = await (dependencies.authenticateTenantRuntime
+        ? dependencies.authenticateTenantRuntime(context.req.raw)
+        : authenticateTenantRuntimeRequest(context.req.raw))
+      const payload = workspaceChatRuntimeMessageFailRequestSchema.parse(
+        await context.req.json(),
+      )
+      const result = await dependencies.failAssistantMessage?.({
+        assistantDisplayName: payload.assistantDisplayName,
+        assistantMessageId: payload.assistantMessageId,
+        conversationId: payload.conversationId,
+        error: payload.error,
+        tenantId,
+      })
+
+      if (!result) {
+        return jsonNoStore(
+          {
+            error:
+              "Workspace chat conversation not found for this tenant runtime.",
+          },
+          404,
+        )
+      }
+
+      return jsonNoStore(
+        workspaceChatRuntimeMessageFailResponseSchema.parse({
+          conversationId: result.conversationId,
+          messageId: result.messageId,
+          ok: true,
+          tenantId: result.tenantId,
+        }),
+      )
+    } catch (error) {
+      return buildWorkspaceChatRuntimeErrorResponse(error)
+    }
+  })
 
   return app
 }

@@ -1,13 +1,14 @@
-import { enqueueWorkspaceChatBridgeCommand } from "../runtime/bridge-commands-data"
+import { enqueueJob } from "../jobs/queue"
+import { JOB_TYPES } from "../jobs/types"
 
 type WorkspaceChatDispatchDependencies = {
-  enqueueBridgeCommand?: (input: {
+  enqueueRunJob?: (input: {
     assistantMessageId?: string
     conversationId: string
     message: string
     tenantId: string
   }) => Promise<{
-    commandId: string
+    jobId: string
     status: "queued"
   }>
 }
@@ -23,9 +24,20 @@ export async function dispatchWorkspaceChatMessage(
 ): Promise<{
   status: "queued"
 }> {
-  const enqueueBridgeCommand =
-    dependencies.enqueueBridgeCommand ?? enqueueWorkspaceChatBridgeCommand
-  const command = await enqueueBridgeCommand({
+  const enqueueRunJob =
+    dependencies.enqueueRunJob ??
+    (async (payload) => {
+      const jobId = await enqueueJob({
+        jobType: JOB_TYPES.runWorkspaceChatTurn,
+        payload,
+      })
+
+      return {
+        jobId,
+        status: "queued" as const,
+      }
+    })
+  const job = await enqueueRunJob({
     assistantMessageId: input.assistantMessageId,
     conversationId: input.conversationId,
     message: input.message,
@@ -33,6 +45,6 @@ export async function dispatchWorkspaceChatMessage(
   })
 
   return {
-    status: command.status,
+    status: job.status,
   }
 }

@@ -5,9 +5,10 @@ import { describe, it } from "vitest"
 import { dispatchWorkspaceChatMessage } from "./chat-dispatch"
 
 describe("workspace chat dispatch", () => {
-  it("enqueues a workspace chat bridge command for the tenant runtime", async () => {
+  it("enqueues a workspace chat worker job for the tenant runtime", async () => {
     let queuedPayload:
       | {
+          assistantMessageId?: string
           conversationId: string
           message: string
           tenantId: string
@@ -22,11 +23,11 @@ describe("workspace chat dispatch", () => {
         tenantId: "tenant_123",
       },
       {
-        enqueueBridgeCommand: async (input) => {
+        enqueueRunJob: async (input) => {
           queuedPayload = input
 
           return {
-            commandId: "cmd_123",
+            jobId: "job_123",
             status: "queued",
           }
         },
