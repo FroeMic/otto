@@ -25,11 +25,13 @@ function buildConfig(): OpenClawTenantConfig {
 }
 
 describe("renderOpenClawConfig", () => {
-  it("omits config for Otto plugins that do not declare any config fields", () => {
+  it("omits plugin config fields when a plugin does not declare them and enables the workspace channel", () => {
     const rendered = JSON.parse(renderOpenClawConfig(buildConfig())) as {
+      channels: Record<string, { enabled: boolean }>;
       plugins: {
         entries: Record<string, { config?: Record<string, unknown>; enabled: boolean }>;
       };
+      tools: Record<string, unknown>;
     };
 
     expect(rendered.plugins.entries["otto-managed-config"]).toEqual({
@@ -43,5 +45,9 @@ describe("renderOpenClawConfig", () => {
       "config" in rendered.plugins.entries["otto-workspace-chat"],
       false,
     );
+    expect(rendered.channels["otto-workspace-chat"]).toEqual({
+      enabled: true,
+    });
+    assert.equal("alsoAllow" in rendered.tools, false);
   });
 });
