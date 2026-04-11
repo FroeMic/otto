@@ -49,6 +49,45 @@ describe("renderOpenClawConfig", () => {
       enabled: true,
       managed: true,
     });
-    assert.equal("alsoAllow" in rendered.tools, false);
+    expect(rendered.tools.alsoAllow).toEqual(["otto-managed-config"]);
+  });
+
+  it("allowlists optional Otto tool plugins without including non-tool plugins", () => {
+    const rendered = JSON.parse(
+      renderOpenClawConfig({
+        ...buildConfig(),
+        ottoPlugins: [
+          {
+            id: "otto-managed-config",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-managed-skills",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-integrations",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-session-reporter",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-workspace-chat",
+          },
+        ],
+      }),
+    ) as {
+      tools: {
+        alsoAllow?: string[];
+      };
+    };
+
+    expect(rendered.tools.alsoAllow).toEqual([
+      "otto-managed-config",
+      "otto-managed-skills",
+      "otto-integrations",
+    ]);
   });
 });

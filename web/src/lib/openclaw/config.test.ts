@@ -48,7 +48,11 @@ describe("renderOpenClawConfig", () => {
 
     const renderedConfig = JSON.parse(renderOpenClawConfig(config));
 
-    assert.equal("alsoAllow" in renderedConfig.tools, false);
+    assert.deepEqual(renderedConfig.tools.alsoAllow, [
+      "otto-managed-config",
+      "otto-managed-skills",
+      "otto-integrations",
+    ]);
     assert.deepEqual(renderedConfig.tools.exec, {
       ask: "off",
       host: "gateway",
@@ -98,6 +102,30 @@ describe("renderOpenClawConfig", () => {
     assert.deepEqual(renderedConfig.session, {
       dmScope: "per-channel-peer",
     });
+  });
+
+  it("does not allowlist non-tool Otto plugins", () => {
+    const config: OpenClawTenantConfig = {
+      authTokenEnvVar: "OPENCLAW_GATEWAY_TOKEN",
+      gatewayPort: OPENCLAW_GATEWAY_CONTAINER_PORT,
+      integrations: ["slack"],
+      ottoPlugins: [
+        {
+          id: "otto-session-reporter",
+          timeoutMs: 15_000,
+        },
+        {
+          id: "otto-workspace-chat",
+        },
+      ],
+      prompts: {},
+      tenantId: "tenant_123",
+      workspacePath: "/home/node/.openclaw/workspace",
+    };
+
+    const renderedConfig = JSON.parse(renderOpenClawConfig(config));
+
+    assert.equal("alsoAllow" in renderedConfig.tools, false);
   });
 
   it("renders a Slack projection that satisfies the pinned OpenClaw schema", () => {
