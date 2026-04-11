@@ -92,6 +92,11 @@ const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
 export const OTTO_WEB_SEARCH_PROVIDER_ID = "otto-web-search";
 export const OTTO_WEB_PROVIDER_PLUGIN_ID = "otto-web-provider";
+const OPTIONAL_OTTO_TOOL_PLUGIN_IDS = new Set([
+  "otto-managed-config",
+  "otto-managed-skills",
+  "otto-integrations",
+]);
 const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
   "amazon-bedrock",
   "amazon-bedrock-mantle",
@@ -193,6 +198,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   ];
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const optionalOttoToolPluginIds = ottoToolPluginIds.filter((pluginId) =>
+    OPTIONAL_OTTO_TOOL_PLUGIN_IDS.has(pluginId),
+  );
   const workspaceChatChannelConfig = ottoToolPluginIds.includes(
     "otto-workspace-chat",
   )
@@ -461,6 +469,11 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           }
         : {}),
       tools: {
+        ...(optionalOttoToolPluginIds.length > 0
+          ? {
+              alsoAllow: optionalOttoToolPluginIds,
+            }
+          : {}),
         ...execTools,
         experimental: {
           planTool: false,
