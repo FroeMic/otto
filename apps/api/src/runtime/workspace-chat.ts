@@ -84,6 +84,15 @@ function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRunt
 }
 
 function buildWorkspaceChatRuntimeErrorResponse(error: unknown) {
+  console.error("[workspace-chat] runtime callback request failed", {
+    error:
+      error instanceof Error
+        ? error.message
+        : error instanceof z.ZodError
+          ? "Invalid workspace chat runtime payload"
+          : "Workspace chat runtime request failed.",
+  })
+
   if (error instanceof z.ZodError) {
     return jsonNoStore(
       {
@@ -124,6 +133,15 @@ export function createWorkspaceChatRuntimeRouter(
       const payload = workspaceChatRuntimeMessageDeltaRequestSchema.parse(
         await context.req.json(),
       )
+
+      console.info("[workspace-chat] runtime delta callback received", {
+        assistantMessageId: payload.assistantMessageId ?? null,
+        conversationId: payload.conversationId,
+        sequence: payload.sequence,
+        tenantId,
+        textLength: payload.message.text.length,
+      })
+
       const result = await dependencies.applyAssistantDelta({
         assistantDisplayName: payload.assistantDisplayName,
         assistantMessageId: payload.assistantMessageId,
@@ -134,6 +152,12 @@ export function createWorkspaceChatRuntimeRouter(
       })
 
       if (!result) {
+        console.warn("[workspace-chat] runtime delta callback target missing", {
+          assistantMessageId: payload.assistantMessageId ?? null,
+          conversationId: payload.conversationId,
+          sequence: payload.sequence,
+          tenantId,
+        })
         return jsonNoStore(
           {
             error:
@@ -142,6 +166,13 @@ export function createWorkspaceChatRuntimeRouter(
           404,
         )
       }
+
+      console.info("[workspace-chat] runtime delta callback applied", {
+        applied: result.applied,
+        conversationId: result.conversationId,
+        messageId: result.messageId,
+        tenantId: result.tenantId,
+      })
 
       return jsonNoStore(
         workspaceChatRuntimeMessageDeltaResponseSchema.parse({
@@ -167,6 +198,14 @@ export function createWorkspaceChatRuntimeRouter(
         const payload = workspaceChatRuntimeMessageCompleteRequestSchema.parse(
           await context.req.json(),
         )
+
+        console.info("[workspace-chat] runtime completion callback received", {
+          assistantMessageId: payload.assistantMessageId ?? null,
+          conversationId: payload.conversationId,
+          partsCount: payload.message.parts.length,
+          tenantId,
+        })
+
         const result = await dependencies.completeAssistantMessage({
           assistantMessageId: payload.assistantMessageId,
           assistantDisplayName: payload.assistantDisplayName,
@@ -177,6 +216,14 @@ export function createWorkspaceChatRuntimeRouter(
         })
 
         if (!result) {
+          console.warn(
+            "[workspace-chat] runtime completion callback target missing",
+            {
+              assistantMessageId: payload.assistantMessageId ?? null,
+              conversationId: payload.conversationId,
+              tenantId,
+            },
+          )
           return jsonNoStore(
             {
               error:
@@ -185,6 +232,13 @@ export function createWorkspaceChatRuntimeRouter(
             404,
           )
         }
+
+        console.info("[workspace-chat] runtime completion callback applied", {
+          conversationId: result.conversationId,
+          messageId: result.messageId,
+          runtimeSegmentId: result.runtimeSegmentId,
+          tenantId: result.tenantId,
+        })
 
         return jsonNoStore(
           workspaceChatRuntimeMessageCompleteResponseSchema.parse({
@@ -209,6 +263,14 @@ export function createWorkspaceChatRuntimeRouter(
       const payload = workspaceChatRuntimeMessageFailRequestSchema.parse(
         await context.req.json(),
       )
+
+      console.info("[workspace-chat] runtime failure callback received", {
+        assistantMessageId: payload.assistantMessageId ?? null,
+        conversationId: payload.conversationId,
+        error: payload.error ?? null,
+        tenantId,
+      })
+
       const result = await dependencies.failAssistantMessage?.({
         assistantDisplayName: payload.assistantDisplayName,
         assistantMessageId: payload.assistantMessageId,
@@ -218,6 +280,11 @@ export function createWorkspaceChatRuntimeRouter(
       })
 
       if (!result) {
+        console.warn("[workspace-chat] runtime failure callback target missing", {
+          assistantMessageId: payload.assistantMessageId ?? null,
+          conversationId: payload.conversationId,
+          tenantId,
+        })
         return jsonNoStore(
           {
             error:
@@ -226,6 +293,12 @@ export function createWorkspaceChatRuntimeRouter(
           404,
         )
       }
+
+      console.info("[workspace-chat] runtime failure callback applied", {
+        conversationId: result.conversationId,
+        messageId: result.messageId,
+        tenantId: result.tenantId,
+      })
 
       return jsonNoStore(
         workspaceChatRuntimeMessageFailResponseSchema.parse({

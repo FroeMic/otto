@@ -55,6 +55,15 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
     markWorkspaceChatAssistantMessageFailed
   const created = await createMessageRecord(input)
 
+  console.info("[workspace-chat] message record created", {
+    assistantMessageId: created.assistantMessageId ?? null,
+    conversationId: created.conversationId,
+    dispatchStatus: created.dispatch.status,
+    shouldDispatch: created.shouldDispatch,
+    tenantId: created.tenantId,
+    userMessageId: created.message.id,
+  })
+
   if (!created.shouldDispatch) {
     return {
       conversationId: created.conversationId,
@@ -64,10 +73,26 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
   }
 
   try {
+    const prompt = flattenWorkspaceChatPartsToPrompt(created.message.parts)
+
+    console.info("[workspace-chat] dispatching runtime turn", {
+      assistantMessageId: created.assistantMessageId ?? null,
+      conversationId: created.conversationId,
+      promptLength: prompt.length,
+      tenantId: created.tenantId,
+    })
+
     const dispatchResult = await dispatchMessage({
       assistantMessageId: created.assistantMessageId,
       conversationId: created.conversationId,
-      message: flattenWorkspaceChatPartsToPrompt(created.message.parts),
+      message: prompt,
+      tenantId: created.tenantId,
+    })
+
+    console.info("[workspace-chat] runtime turn queued", {
+      assistantMessageId: created.assistantMessageId ?? null,
+      conversationId: created.conversationId,
+      queueStatus: dispatchResult.status,
       tenantId: created.tenantId,
     })
 
@@ -79,7 +104,12 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
   } catch (error) {
     console.error(
       "[workspace-chat] runtime dispatch failed",
-      error instanceof Error ? error.message : error,
+      {
+        assistantMessageId: created.assistantMessageId ?? null,
+        conversationId: created.conversationId,
+        error: error instanceof Error ? error.message : error,
+        tenantId: created.tenantId,
+      },
     )
 
     if (created.assistantMessageId) {

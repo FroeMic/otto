@@ -26,12 +26,22 @@ export function registerWorkspaceChatGatewayMethods(api) {
             ? params.assistantMessageId.trim()
             : undefined;
 
+        console.info("[workspace-chat] gateway method invoked", {
+          assistantMessageId: assistantMessageId ?? null,
+          conversationId: conversationId || null,
+          messageLength: message.length,
+        });
+
         if (!conversationId) {
+          console.warn("[workspace-chat] gateway method missing conversationId");
           respond(false, { error: "conversationId required" });
           return;
         }
 
         if (!message) {
+          console.warn("[workspace-chat] gateway method missing message", {
+            conversationId,
+          });
           respond(false, { error: "message required" });
           return;
         }
@@ -44,8 +54,16 @@ export function registerWorkspaceChatGatewayMethods(api) {
           runtime: api.runtime,
         });
 
+        console.info("[workspace-chat] gateway method completed", {
+          assistantMessageId: assistantMessageId ?? null,
+          conversationId,
+          sessionKey: result.sessionKey,
+        });
         respond(true, result);
       } catch (error) {
+        console.error("[workspace-chat] gateway method failed", {
+          error: getErrorMessage(error),
+        });
         respond(false, { error: getErrorMessage(error) });
       }
     },
@@ -82,6 +100,18 @@ export async function runWorkspaceChatTurn(input) {
   const timeoutMs = runtime.agent.resolveAgentTimeoutMs(cfg);
   const sessionFile = runtime.agent.session.resolveSessionFilePath(cfg, sessionId);
 
+  console.info("[workspace-chat] plugin turn starting", {
+    agentDir,
+    assistantMessageId: input.assistantMessageId ?? null,
+    conversationId: input.conversationId,
+    model,
+    provider,
+    sessionId,
+    sessionKey,
+    timeoutMs,
+    workspaceDir,
+  });
+
   await runtime.agent.ensureAgentWorkspace(cfg);
   await sendWorkspaceChatDelta({
     assistantDisplayName: assistantName,
@@ -91,9 +121,15 @@ export async function runWorkspaceChatTurn(input) {
     text: "",
   });
 
+  console.info("[workspace-chat] plugin initial delta sent", {
+    assistantMessageId: input.assistantMessageId ?? null,
+    conversationId: input.conversationId,
+    sequence: 1,
+  });
+
   const reporter = createWorkspaceChatStreamReporter({
     sendDelta: async ({ sequence, text }) =>
-      await sendWorkspaceChatDelta({
+      await sendWorkspaceChatDeltaWithLogging({
         assistantDisplayName: assistantName,
         assistantMessageId: input.assistantMessageId,
         conversationId: input.conversationId,
@@ -129,6 +165,11 @@ export async function runWorkspaceChatTurn(input) {
 
     await reporter.flush();
 
+    console.info("[workspace-chat] plugin stream flushed", {
+      assistantMessageId: input.assistantMessageId ?? null,
+      conversationId: input.conversationId,
+    });
+
     await sendWorkspaceChatCompletion({
       assistantDisplayName: assistantName,
       assistantMessageId: input.assistantMessageId,
@@ -141,11 +182,25 @@ export async function runWorkspaceChatTurn(input) {
       },
     });
 
+    console.info("[workspace-chat] plugin completion sent", {
+      assistantMessageId: input.assistantMessageId ?? null,
+      conversationId: input.conversationId,
+      payloadCount: Array.isArray(result.payloads) ? result.payloads.length : 0,
+      sessionKey,
+    });
+
     return {
       ok: true,
       sessionKey,
     };
   } catch (error) {
+    console.error("[workspace-chat] plugin turn failed", {
+      assistantMessageId: input.assistantMessageId ?? null,
+      conversationId: input.conversationId,
+      error: getErrorMessage(error),
+      sessionKey,
+    });
+
     await sendWorkspaceChatFailure({
       assistantDisplayName: assistantName,
       assistantMessageId: input.assistantMessageId,
@@ -198,4 +253,15 @@ function getErrorMessage(error) {
   }
 
   return "Workspace chat turn failed";
+}
+
+async function sendWorkspaceChatDeltaWithLogging(input) {
+  await sendWorkspaceChatDelta(input);
+
+  console.info("[workspace-chat] plugin delta sent", {
+    assistantMessageId: input.assistantMessageId ?? null,
+    conversationId: input.conversationId,
+    sequence: input.sequence,
+    textLength: input.text.length,
+  });
 }

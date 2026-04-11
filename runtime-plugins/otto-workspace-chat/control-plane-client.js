@@ -73,9 +73,16 @@ async function requestControlPlane(input) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const requestUrl = `${baseUrl}${input.path}`;
+
+  console.info("[workspace-chat] control-plane callback request starting", {
+    bodyKeys: input.body ? Object.keys(input.body) : [],
+    method: input.method,
+    path: input.path,
+  });
 
   try {
-    const response = await fetch(`${baseUrl}${input.path}`, {
+    const response = await fetch(requestUrl, {
       body: input.body ? JSON.stringify(input.body) : undefined,
       headers: {
         authorization: `Bearer ${token}`,
@@ -89,11 +96,25 @@ async function requestControlPlane(input) {
     const payload = text ? JSON.parse(text) : null;
 
     if (!response.ok) {
+      console.error("[workspace-chat] control-plane callback request failed", {
+        error:
+          payload?.error ||
+          `Workspace chat workspace API request failed with status ${response.status}.`,
+        method: input.method,
+        path: input.path,
+        status: response.status,
+      });
       throw new Error(
         payload?.error ||
           `Workspace chat workspace API request failed with status ${response.status}.`,
       );
     }
+
+    console.info("[workspace-chat] control-plane callback request succeeded", {
+      method: input.method,
+      path: input.path,
+      status: response.status,
+    });
 
     return payload;
   } finally {

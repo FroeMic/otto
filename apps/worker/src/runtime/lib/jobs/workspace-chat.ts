@@ -111,11 +111,26 @@ export async function processRunWorkspaceChatTurnJob(
 
   const payload = parseRunWorkspaceChatTurnPayload(job.payload);
 
+  console.info("[workspace-chat] worker job started", {
+    assistantMessageId: payload.assistantMessageId ?? null,
+    conversationId: payload.conversationId,
+    jobId: job.id,
+    tenantId: payload.tenantId,
+  })
+
   try {
     const connection = await dependencies.getTenantRuntimeConnection(
       payload.tenantId,
       "workspace chat turn dispatch",
     );
+
+    console.info("[workspace-chat] worker resolved tenant connection", {
+      conversationId: payload.conversationId,
+      host: connection.host,
+      jobId: job.id,
+      tenantId: payload.tenantId,
+    })
+
     const gatewayToken = await dependencies.getTenantRuntimeGatewayToken(
       payload.tenantId,
     );
@@ -134,6 +149,14 @@ export async function processRunWorkspaceChatTurnJob(
       },
     );
 
+    console.info("[workspace-chat] worker invoking tenant gateway method", {
+      assistantMessageId: payload.assistantMessageId ?? null,
+      conversationId: payload.conversationId,
+      host: connection.host,
+      jobId: job.id,
+      tenantId: payload.tenantId,
+    })
+
     const result = await dependencies.invokeWorkspaceChatTurn({
       assistantMessageId: payload.assistantMessageId,
       connection,
@@ -141,6 +164,13 @@ export async function processRunWorkspaceChatTurnJob(
       gatewayToken,
       message: payload.message,
     });
+
+    console.info("[workspace-chat] worker tenant gateway method succeeded", {
+      conversationId: payload.conversationId,
+      jobId: job.id,
+      sessionKey: result.sessionKey,
+      tenantId: payload.tenantId,
+    })
 
     await dependencies.appendJobEvent(
       job.id,
@@ -159,6 +189,14 @@ export async function processRunWorkspaceChatTurnJob(
   } catch (error) {
     const message = getErrorMessage(error);
 
+    console.error("[workspace-chat] worker tenant gateway method failed", {
+      assistantMessageId: payload.assistantMessageId ?? null,
+      conversationId: payload.conversationId,
+      error: message,
+      jobId: job.id,
+      tenantId: payload.tenantId,
+    })
+
     try {
       await dependencies.markAssistantMessageFailed({
         assistantMessageId: payload.assistantMessageId,
@@ -166,7 +204,23 @@ export async function processRunWorkspaceChatTurnJob(
         error: message,
         tenantId: payload.tenantId,
       });
+
+      console.info("[workspace-chat] worker failure callback delivered", {
+        assistantMessageId: payload.assistantMessageId ?? null,
+        conversationId: payload.conversationId,
+        jobId: job.id,
+        tenantId: payload.tenantId,
+      })
     } catch (callbackError) {
+      console.error("[workspace-chat] worker failure callback delivery failed", {
+        assistantMessageId: payload.assistantMessageId ?? null,
+        callbackError: getErrorMessage(callbackError),
+        conversationId: payload.conversationId,
+        error: message,
+        jobId: job.id,
+        tenantId: payload.tenantId,
+      })
+
       await dependencies.appendJobEvent(
         job.id,
         WORKSPACE_CHAT_EVENTS.failed,

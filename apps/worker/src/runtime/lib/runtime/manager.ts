@@ -656,6 +656,15 @@ export class RuntimeManager {
       conversationId: input.conversationId,
       message: input.message,
     });
+
+    console.info("[workspace-chat] runtime manager invoking gateway call", {
+      assistantMessageId: input.assistantMessageId ?? null,
+      conversationId: input.conversationId,
+      host: connection.host,
+      messageLength: input.message.length,
+      timeoutMs: input.timeoutMs ?? 600_000,
+    });
+
     const command = buildShellCommand([
       "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
       [
@@ -678,6 +687,13 @@ export class RuntimeManager {
     ]);
     const result = await this.execChecked(connection, command, {
       timeoutMs: input.timeoutMs ?? 620_000,
+    });
+
+    console.info("[workspace-chat] runtime manager gateway call returned", {
+      assistantMessageId: input.assistantMessageId ?? null,
+      conversationId: input.conversationId,
+      host: connection.host,
+      stdoutLength: result.stdout.length,
     });
 
     return parseWorkspaceChatGatewayPayload(result.stdout);
@@ -1152,15 +1168,73 @@ function parseToolInvokePayload(value: string) {
 function parseWorkspaceChatGatewayPayload(value: string): InvokeWorkspaceChatTurnResult {
   const payload = parseJsonObject(value);
   const sessionKey = payload.sessionKey;
+  const explicitError = extractWorkspaceChatGatewayError(payload);
 
-  if (payload.ok !== true || typeof sessionKey !== "string" || sessionKey.length === 0) {
-    throw new Error("Tenant runtime workspace chat gateway call did not return a sessionKey");
+  if (payload.ok !== true) {
+    throw new Error(
+      explicitError || "Tenant runtime workspace chat gateway call failed",
+    );
+  }
+
+  if (typeof sessionKey !== "string" || sessionKey.length === 0) {
+    throw new Error(
+      explicitError ||
+        "Tenant runtime workspace chat gateway call did not return a sessionKey",
+    );
   }
 
   return {
     ok: true,
     sessionKey,
   };
+}
+
+function extractWorkspaceChatGatewayError(payload: Record<string, unknown>) {
+  const directError =
+    typeof payload.error === "string" && payload.error.trim().length > 0
+      ? payload.error.trim()
+      : null;
+
+  if (directError) {
+    return directError;
+  }
+
+  const errorObject =
+    payload.error &&
+    typeof payload.error === "object" &&
+    !Array.isArray(payload.error)
+      ? (payload.error as Record<string, unknown>)
+      : null;
+
+  if (
+    typeof errorObject?.message === "string" &&
+    errorObject.message.trim().length > 0
+  ) {
+    return errorObject.message.trim();
+  }
+
+  const details =
+    payload.details &&
+    typeof payload.details === "object" &&
+    !Array.isArray(payload.details)
+      ? (payload.details as Record<string, unknown>)
+      : null;
+
+  if (
+    typeof details?.error === "string" &&
+    details.error.trim().length > 0
+  ) {
+    return details.error.trim();
+  }
+
+  if (
+    typeof details?.message === "string" &&
+    details.message.trim().length > 0
+  ) {
+    return details.message.trim();
+  }
+
+  return null;
 }
 
 function parseForwardedSlackHttpPayload(

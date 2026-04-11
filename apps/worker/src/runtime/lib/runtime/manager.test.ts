@@ -51,3 +51,36 @@ describe("RuntimeManager.applyTenantConfig", () => {
     });
   });
 });
+
+describe("RuntimeManager.invokeWorkspaceChatTurn", () => {
+  it("surfaces the tenant gateway error payload when the workspace chat call fails", async () => {
+    const manager = new RuntimeManager({} as never);
+    const execCheckedSpy = vi
+      .spyOn(manager as never, "execChecked")
+      .mockResolvedValue({
+        exitCode: 0,
+        stderr: "",
+        stdout: JSON.stringify({
+          error: "workspace chat plugin is not configured",
+          ok: false,
+        }),
+      });
+
+    await expect(
+      manager.invokeWorkspaceChatTurn(
+        {
+          host: "tenant.test",
+          port: 22,
+          username: "root",
+        },
+        {
+          conversationId: "conv_1",
+          gatewayToken: "gateway-token",
+          message: "Hello",
+        },
+      ),
+    ).rejects.toThrow("workspace chat plugin is not configured");
+
+    expect(execCheckedSpy).toHaveBeenCalled();
+  });
+});
