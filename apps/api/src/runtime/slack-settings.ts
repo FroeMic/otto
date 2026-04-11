@@ -1,9 +1,9 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  integrationOauthConnections,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
-  integrationSlackInstallations,
   organizations,
   tenantApplyRuns,
   tenantDesiredStates,
@@ -282,24 +282,20 @@ async function getConnectedSlackIntegrationForTenant(tenantId: string) {
     .select({
       connectedAt: tenantIntegrations.connectedAt,
       disconnectedAt: tenantIntegrations.disconnectedAt,
-      installerUserId: integrationSlackInstallations.installerUserId,
-      slackBotUserId: integrationSlackInstallations.slackBotUserId,
-      slackTeamId: integrationSlackInstallations.slackTeamId,
-      slackTeamName: integrationSlackInstallations.slackTeamName,
+      slackTeamId: integrationOauthConnections.externalAccountId,
+      slackTeamName: integrationOauthConnections.externalAccountLabel,
       tenantIntegrationId: tenantIntegrations.id,
     })
     .from(tenantIntegrations)
     .leftJoin(
-      integrationSlackInstallations,
-      eq(
-        integrationSlackInstallations.tenantIntegrationId,
-        tenantIntegrations.id,
-      ),
+      integrationOauthConnections,
+      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
     )
     .where(
       and(
         eq(tenantIntegrations.tenantId, tenantId),
         eq(tenantIntegrations.providerKey, "slack"),
+        eq(integrationOauthConnections.providerKey, "slack"),
       ),
     )
     .limit(1)
@@ -309,8 +305,8 @@ async function getConnectedSlackIntegrationForTenant(tenantId: string) {
   }
 
   const profile = buildSlackConnectionProfile({
-    installerUserId: integration.installerUserId,
-    slackBotUserId: integration.slackBotUserId,
+    installerUserId: null,
+    slackBotUserId: null,
     slackTeamId: integration.slackTeamId,
     slackTeamName: integration.slackTeamName,
   })
