@@ -3,6 +3,7 @@ import {
   CaretUpDown,
   ChartBar,
   CreditCard,
+  FolderOpen,
   Gear,
   PlugsConnected,
   Sliders,
@@ -79,6 +80,12 @@ const settingsNavItems: {
       icon: <PlugsConnected />,
       match: "section",
       title: "Integrations",
+    },
+    {
+      href: (orgSlug) => `/${orgSlug}/settings/agent/files`,
+      icon: <FolderOpen />,
+      match: "section",
+      title: "Files",
     },
   ],
   user: [

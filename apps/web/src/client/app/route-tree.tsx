@@ -24,6 +24,9 @@ import { LegacyAgentRedirectPage } from "@/features/agent/pages/LegacyAgentRedir
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPage } from "@/features/billing/pages/BillingPage"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
+import { workspaceFilesQueryOptions } from "@/features/files/api/files"
+import { LegacyFilesRedirectPage } from "@/features/files/pages/LegacyFilesRedirectPage"
+import { WorkspaceFilesPage } from "@/features/files/pages/WorkspaceFilesPage"
 import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
@@ -118,6 +121,12 @@ function WorkspaceIntegrationsRoutePage() {
   return <IntegrationsPage orgSlug={orgSlug} />
 }
 
+function WorkspaceFilesRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <WorkspaceFilesPage orgSlug={orgSlug} />
+}
+
 function WorkspaceAgentPersonalizationRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
@@ -164,6 +173,12 @@ function LegacyWorkspaceAgentInstructionRedirectRoutePage() {
       orgSlug={orgSlug}
     />
   )
+}
+
+function LegacyWorkspaceFilesRedirectRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <LegacyFilesRedirectPage orgSlug={orgSlug} />
 }
 
 function WorkspaceIntegrationDetailRedirectRoutePage() {
@@ -334,6 +349,12 @@ const workspaceLegacyAgentInstructionRoute = createRoute({
   path: "/agent/$instructionTab",
 })
 
+const workspaceLegacyFilesRoute = createRoute({
+  component: LegacyWorkspaceFilesRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  path: "/files",
+})
+
 const workspaceSettingsRoute = createRoute({
   component: SettingsShellRoute,
   getParentRoute: () => workspaceRoute,
@@ -381,8 +402,18 @@ const workspaceSettingsIntegrationsRoute = createRoute({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceIntegrationsQueryOptions(params.orgSlug),
-    ),
+  ),
   path: "/agent/integrations",
+})
+
+const workspaceSettingsFilesRoute = createRoute({
+  component: WorkspaceFilesRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceFilesQueryOptions(params.orgSlug),
+    ),
+  path: "/agent/files",
 })
 
 const workspaceAgentPersonalizationRoute = createRoute({
@@ -610,6 +641,7 @@ export const routeTree = rootRoute.addChildren([
     workspaceLegacyAgentStatusRoute,
     workspaceLegacyAgentPromptsRoute,
     workspaceLegacyAgentInstructionRoute,
+    workspaceLegacyFilesRoute,
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,
@@ -617,6 +649,7 @@ export const routeTree = rootRoute.addChildren([
       workspaceAgentPersonalizationDetailRoute,
       workspaceAgentPersonalizationSystemRoute,
       workspaceSettingsIntegrationsRoute,
+      workspaceSettingsFilesRoute,
       workspaceIntegrationRedirectRoute,
       workspaceIntegrationDetailRoute,
       workspaceSettingsWorkspaceRoute,
