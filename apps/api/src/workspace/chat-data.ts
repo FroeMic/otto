@@ -61,6 +61,13 @@ type WorkspaceChatActor = {
 const PERSONAL_VISIBILITY = "personal"
 const OPEN_VISIBILITY = "open"
 
+export function shouldApplyWorkspaceChatAssistantDeltaSequence(input: {
+  incomingSequence: number
+  lastAppliedSequence: number
+}) {
+  return input.incomingSequence > input.lastAppliedSequence
+}
+
 export function buildWorkspaceChatMessagePreview(
   parts: WorkspaceChatMessagePart[],
 ) {
@@ -780,6 +787,160 @@ export async function completeWorkspaceChatAssistantMessage(input: {
   return result
 }
 
+export async function applyWorkspaceChatAssistantDelta(input: {
+  assistantDisplayName?: string
+  assistantMessageId: string
+  conversationId: string
+  sequence: number
+  tenantId: string
+  text: string
+}): Promise<{
+  applied: boolean
+  conversationId: string
+  messageId: string
+  tenantId: string
+} | null> {
+  const db = getDb()
+  const result = await db.transaction(async (tx) => {
+    const [conversation] = await tx
+      .select({
+        id: workspaceChatConversations.id,
+        tenantId: workspaceChatConversations.tenantId,
+      })
+      .from(workspaceChatConversations)
+      .where(
+        and(
+          eq(workspaceChatConversations.id, input.conversationId),
+          eq(workspaceChatConversations.tenantId, input.tenantId),
+        ),
+      )
+      .limit(1)
+
+    if (!conversation) {
+      return null
+    }
+
+    const [assistantMessage] = await tx
+      .select({
+        id: workspaceChatMessages.id,
+        lastStreamSequence: workspaceChatMessages.lastStreamSequence,
+      })
+      .from(workspaceChatMessages)
+      .where(
+        and(
+          eq(workspaceChatMessages.id, input.assistantMessageId),
+          eq(workspaceChatMessages.conversationId, conversation.id),
+        ),
+      )
+      .limit(1)
+
+    if (!assistantMessage) {
+      return null
+    }
+
+    if (
+      !shouldApplyWorkspaceChatAssistantDeltaSequence({
+        incomingSequence: input.sequence,
+        lastAppliedSequence: assistantMessage.lastStreamSequence,
+      })
+    ) {
+      return {
+        applied: false,
+        conversationId: conversation.id,
+        messageId: assistantMessage.id,
+        tenantId: input.tenantId,
+      }
+    }
+
+    const updatedAt = new Date()
+    const deltaParts = buildWorkspaceChatAssistantDeltaParts(input.text)
+    const [updatedMessage] = await tx
+      .update(workspaceChatMessages)
+      .set({
+        authorKind: "assistant",
+        authorName: input.assistantDisplayName?.trim() || "Otto",
+        lastStreamSequence: input.sequence,
+        status: "streaming",
+        updatedAt,
+      })
+      .where(
+        and(
+          eq(workspaceChatMessages.id, input.assistantMessageId),
+          eq(workspaceChatMessages.conversationId, conversation.id),
+          inArray(workspaceChatMessages.status, ["pending", "streaming"]),
+        ),
+      )
+      .returning({
+        id: workspaceChatMessages.id,
+      })
+
+    if (!updatedMessage) {
+      return {
+        applied: false,
+        conversationId: conversation.id,
+        messageId: assistantMessage.id,
+        tenantId: input.tenantId,
+      }
+    }
+
+    await tx
+      .delete(workspaceChatMessageParts)
+      .where(eq(workspaceChatMessageParts.messageId, updatedMessage.id))
+
+    await insertWorkspaceChatParts({
+      messageId: updatedMessage.id,
+      parts: deltaParts,
+      tx,
+    })
+
+    await tx
+      .update(workspaceChatConversations)
+      .set({
+        lastActivityAt: updatedAt,
+        latestMessagePreview: buildWorkspaceChatMessagePreview(deltaParts),
+        updatedAt,
+      })
+      .where(eq(workspaceChatConversations.id, conversation.id))
+
+    return {
+      applied: true,
+      conversationId: conversation.id,
+      messageId: updatedMessage.id,
+      tenantId: input.tenantId,
+    }
+  })
+
+  if (!result) {
+    return null
+  }
+
+  if (!result.applied) {
+    return result
+  }
+
+  const [message, conversationSummary] = await Promise.all([
+    getWorkspaceChatMessageById(result.messageId),
+    getWorkspaceChatConversationSummaryById(result.conversationId),
+  ])
+
+  if (message) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: result.conversationId,
+      message,
+      type: "conversation.message_upserted",
+    })
+  }
+
+  if (conversationSummary) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversation: conversationSummary,
+      type: "conversation.summary_updated",
+    })
+  }
+
+  return result
+}
+
 export async function markWorkspaceChatAssistantMessageStreaming(input: {
   assistantMessageId: string
   conversationId: string
@@ -1012,6 +1173,17 @@ async function publishWorkspaceChatRealtimeEvent(
 
 function buildAssistantClientMessageId(clientMessageId: string | undefined) {
   return clientMessageId ? `assistant:${clientMessageId}` : null
+}
+
+function buildWorkspaceChatAssistantDeltaParts(text: string): WorkspaceChatMessagePart[] {
+  return text
+    ? [
+        {
+          text,
+          type: "text",
+        },
+      ]
+    : []
 }
 
 async function insertWorkspaceChatParts(input: {

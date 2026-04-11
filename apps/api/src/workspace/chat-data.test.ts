@@ -5,6 +5,7 @@ import { describe, it } from "vitest"
 import {
   buildWorkspaceChatMessagePreview,
   mapWorkspaceChatMessagePartRecord,
+  shouldApplyWorkspaceChatAssistantDeltaSequence,
 } from "./chat-data"
 
 describe("workspace chat data helpers", () => {
@@ -49,5 +50,35 @@ describe("workspace chat data helpers", () => {
       transcript: "hello",
       type: "audio",
     })
+  })
+
+  it("applies assistant deltas when the incoming sequence is newer", () => {
+    assert.equal(
+      shouldApplyWorkspaceChatAssistantDeltaSequence({
+        incomingSequence: 2,
+        lastAppliedSequence: 1,
+      }),
+      true,
+    )
+  })
+
+  it("ignores assistant deltas when the incoming sequence is duplicated", () => {
+    assert.equal(
+      shouldApplyWorkspaceChatAssistantDeltaSequence({
+        incomingSequence: 2,
+        lastAppliedSequence: 2,
+      }),
+      false,
+    )
+  })
+
+  it("ignores assistant deltas when the incoming sequence is older", () => {
+    assert.equal(
+      shouldApplyWorkspaceChatAssistantDeltaSequence({
+        incomingSequence: 1,
+        lastAppliedSequence: 2,
+      }),
+      false,
+    )
   })
 })
