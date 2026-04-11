@@ -351,6 +351,13 @@
       "when": 1775880000000,
       "tag": "0049_tenant_bridge_status",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1775929200000,
+      "tag": "0050_workspace_chat_streaming_deltas",
+      "breakpoints": true
     }
   ]
 }
