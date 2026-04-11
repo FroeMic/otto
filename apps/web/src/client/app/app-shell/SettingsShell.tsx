@@ -36,14 +36,24 @@ function useSettingsBreadcrumbs(
   if (settingsPath.startsWith("/agent/personalization")) {
     const segments = settingsPath.split("/").filter(Boolean)
     const instructionTab = segments[2] ?? null
+    const systemSlug = segments[3] ?? null
     const breadcrumbs: BreadcrumbSegment[] = [
       { href: `${base}/agent/personalization`, label: "Personalization" },
     ]
 
     if (instructionTab) {
       breadcrumbs.push({
-        href: null,
+        href: systemSlug
+          ? `${base}/agent/personalization/${instructionTab}`
+          : null,
         label: decodeURIComponent(instructionTab),
+      })
+    }
+
+    if (systemSlug) {
+      breadcrumbs.push({
+        href: null,
+        label: systemSlug,
       })
     }
 
@@ -115,7 +125,9 @@ function useSettingsBreadcrumbs(
 }
 
 export function SettingsShell({ children, orgSlug }: SettingsShellProps) {
-  const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const { data: shellData } = useSuspenseQuery(
+    shellBootstrapQueryOptions(orgSlug),
+  )
   const breadcrumbs = useSettingsBreadcrumbs(
     shellData.currentOrganization.slug,
     shellData.currentOrganization.name,
