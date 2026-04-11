@@ -189,6 +189,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
   if (existsSync(STATIC_ROOT)) {
     app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
+    app.use("/integrations/*", serveStatic({ root: `${STATIC_ROOT}/assets` }))
   }
 
   app.get("/healthz", (c) =>
