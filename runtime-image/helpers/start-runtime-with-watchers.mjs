@@ -3,7 +3,8 @@
 import { spawn } from "node:child_process";
 
 const DEFAULT_GATEWAY_PORT = "18791";
-const WATCHER_PATH = "/app/otto-helpers/cron-sync-watcher.mjs";
+const CRON_WATCHER_PATH = "/app/otto-helpers/cron-sync-watcher.mjs";
+const BRIDGE_REPORTER_PATH = "/app/otto-helpers/runtime-bridge-reporter.mjs";
 
 const gatewayArgs = process.argv.slice(2);
 const gatewayPort =
@@ -12,7 +13,8 @@ const gatewayPort =
   DEFAULT_GATEWAY_PORT;
 
 let gatewayChild = null;
-let watcherChild = null;
+let cronWatcherChild = null;
+let bridgeReporterChild = null;
 let shuttingDown = false;
 
 startProcesses();
@@ -31,17 +33,29 @@ function startProcesses() {
     },
   );
 
-  if (shouldStartWatcher()) {
-    watcherChild = startWatcher();
+  if (shouldStartCompanionProcesses()) {
+    cronWatcherChild = startManagedHelper({
+      disabledMessage:
+        "[otto-runtime] cron watcher disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
+      path: CRON_WATCHER_PATH,
+      restartLabel: "cron watcher",
+    });
+    bridgeReporterChild = startManagedHelper({
+      disabledMessage:
+        "[otto-runtime] bridge reporter disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
+      path: BRIDGE_REPORTER_PATH,
+      restartLabel: "bridge reporter",
+    });
   } else {
     console.info(
-      "[otto-runtime] cron watcher disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
+      "[otto-runtime] runtime companions disabled: missing OTTO_CONTROL_PLANE_BASE_URL",
     );
   }
 
   gatewayChild.on("exit", (code, signal) => {
     shuttingDown = true;
-    stopWatcher();
+    stopHelper(cronWatcherChild);
+    stopHelper(bridgeReporterChild);
     exitWithChildStatus(code, signal);
   });
 
@@ -49,12 +63,17 @@ function startProcesses() {
   process.on("SIGTERM", handleShutdownSignal);
 }
 
-function shouldStartWatcher() {
+function shouldStartCompanionProcesses() {
   return Boolean(process.env.OTTO_CONTROL_PLANE_BASE_URL?.trim());
 }
 
-function startWatcher() {
-  const child = spawn(process.execPath, [WATCHER_PATH], {
+function startManagedHelper(input) {
+  if (!shouldStartCompanionProcesses()) {
+    console.info(input.disabledMessage);
+    return null;
+  }
+
+  const child = spawn(process.execPath, [input.path], {
     cwd: "/app",
     env: {
       ...process.env,
@@ -69,12 +88,16 @@ function startWatcher() {
     }
 
     console.error(
-      `[otto-runtime] cron watcher exited (code=${code ?? "null"} signal=${signal ?? "null"}); restarting in 5s`,
+      `[otto-runtime] ${input.restartLabel} exited (code=${code ?? "null"} signal=${signal ?? "null"}); restarting in 5s`,
     );
 
     setTimeout(() => {
       if (!shuttingDown) {
-        watcherChild = startWatcher();
+        if (input.path === CRON_WATCHER_PATH) {
+          cronWatcherChild = startManagedHelper(input);
+        } else if (input.path === BRIDGE_REPORTER_PATH) {
+          bridgeReporterChild = startManagedHelper(input);
+        }
       }
     }, 5_000);
   });
@@ -82,13 +105,13 @@ function startWatcher() {
   return child;
 }
 
-function stopWatcher() {
-  if (!watcherChild || watcherChild.killed) {
+function stopHelper(child) {
+  if (!child || child.killed) {
     return;
   }
 
   try {
-    watcherChild.kill("SIGTERM");
+    child.kill("SIGTERM");
   } catch {
     // best effort cleanup
   }
@@ -96,7 +119,8 @@ function stopWatcher() {
 
 function handleShutdownSignal(signal) {
   shuttingDown = true;
-  stopWatcher();
+  stopHelper(cronWatcherChild);
+  stopHelper(bridgeReporterChild);
 
   if (gatewayChild && !gatewayChild.killed) {
     try {

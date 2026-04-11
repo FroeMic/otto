@@ -1152,6 +1152,53 @@ export const tenantRuntimeSecrets = pgTable(
   }),
 );
 
+export const tenantRuntimeBridgeStatuses = pgTable(
+  "tenant_runtime_bridge_statuses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    bridgeId: text("bridge_id").notNull(),
+    bridgeStatus: varchar("bridge_status", { length: 32 }).notNull(),
+    gatewayHealthy: boolean("gateway_healthy").default(false).notNull(),
+    gatewayPort: integer("gateway_port"),
+    gatewayStatusCode: integer("gateway_status_code"),
+    installedPluginIds: jsonb("installed_plugin_ids")
+      .$type<string[]>()
+      .default([])
+      .notNull(),
+    enabledPluginIds: jsonb("enabled_plugin_ids")
+      .$type<string[]>()
+      .default([])
+      .notNull(),
+    workspaceChatEnabled: boolean("workspace_chat_enabled")
+      .default(false)
+      .notNull(),
+    sessionReporterEnabled: boolean("session_reporter_enabled")
+      .default(false)
+      .notNull(),
+    controlPlaneBaseUrl: text("control_plane_base_url"),
+    lastReportedAt: timestamp("last_reported_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    tenantUniqueIdx: uniqueIndex(
+      "tenant_runtime_bridge_statuses_tenant_id_idx",
+    ).on(table.tenantId),
+    bridgeStatusIdx: index(
+      "tenant_runtime_bridge_statuses_bridge_status_idx",
+    ).on(table.bridgeStatus, table.lastReportedAt),
+  }),
+);
+
 export const providerAccounts = pgTable(
   "provider_accounts",
   {
