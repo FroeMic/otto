@@ -30,7 +30,7 @@ import {
   ManagedConfigVersionConflictError,
   normalizeManagedBootstrapFilePath,
   updateTenantManagedFileSharedContentForTenant,
-} from "./managed-config-data"
+} from "./managed-config/data"
 import {
   createTenantManagedSkillForTenant,
   deleteTenantManagedSkillForTenant,
