@@ -1,9 +1,27 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { loadConfig } from "/app/dist/index.js";
+import {
+  resolveAgentDir,
+  resolveAgentEffectiveModelPrimary,
+  resolveAgentWorkspaceDir,
+  resolveDefaultAgentId,
+} from "/app/dist/agents/agent-scope.js";
+import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "/app/dist/agents/defaults.js";
+import { parseModelRef } from "/app/dist/agents/model-selection.js";
+import { runEmbeddedPiAgent } from "/app/dist/agents/pi-embedded.js";
+import {
+  buildWorkspaceChatCompletionParts,
+  createWorkspaceChatStreamReporter,
+} from "./workspace-chat-stream-reporter.mjs";
 
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const DEFAULT_WORKSPACE_CHAT_RUN_TIMEOUT_MS = 120_000;
 const WORKSPACE_CHAT_CHANNEL_ID = "otto-workspace-chat";
 
 const controlPlaneBaseUrl = normalizeBaseUrl(
@@ -14,6 +32,10 @@ const bridgeId = resolveBridgeId();
 const pollIntervalMs = resolvePositiveInt(
   process.env.OTTO_RUNTIME_BRIDGE_COMMAND_POLL_INTERVAL_MS,
   DEFAULT_POLL_INTERVAL_MS,
+);
+const workspaceChatRunTimeoutMs = resolvePositiveInt(
+  process.env.OTTO_WORKSPACE_CHAT_RUN_TIMEOUT_MS,
+  DEFAULT_WORKSPACE_CHAT_RUN_TIMEOUT_MS,
 );
 
 let stopped = false;
@@ -96,79 +118,126 @@ async function executeCommand(command) {
 }
 
 async function executeWorkspaceConversationTrigger(command) {
+  const assistantMessageId = String(command.payload.assistantMessageId || "").trim();
+  if (!assistantMessageId) {
+    return {
+      completedAt: new Date().toISOString(),
+      error: "Workspace chat bridge command is missing assistantMessageId.",
+      status: "failed",
+    };
+  }
+
   const target = buildWorkspaceTarget(
     command.payload.conversationId,
-    command.payload.assistantMessageId,
+    assistantMessageId,
   );
-  const args = [
-    "dist/index.js",
-    "agent",
-    "--message",
-    command.payload.message,
-    "--to",
-    target,
-    "--channel",
-    WORKSPACE_CHAT_CHANNEL_ID,
-    "--reply-channel",
-    WORKSPACE_CHAT_CHANNEL_ID,
-    "--reply-to",
-    target,
-    "--deliver",
-    "--json",
-  ];
-
-  return await new Promise((resolve) => {
-    const child = spawn(process.execPath, args, {
-      cwd: "/app",
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    child.on("close", (code) => {
-      const completedAt = new Date().toISOString();
-      if (typeof code === "number" && code === 0) {
-        resolve({
-          completedAt,
-          exitCode: code,
-          status: "succeeded",
-          stderr: stderr.trim() || undefined,
-          stdout: stdout.trim() || undefined,
-        });
-        return;
-      }
-
-      resolve({
-        completedAt,
-        error:
-          stderr.trim() ||
-          stdout.trim() ||
-          `Bridge command exited with code ${String(code)}`,
-        exitCode: typeof code === "number" ? code : undefined,
-        status: "failed",
-        stderr: stderr.trim() || undefined,
-        stdout: stdout.trim() || undefined,
+  const cfg = await loadConfig();
+  const agentId = resolveDefaultAgentId(cfg);
+  const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
+  const agentDir = resolveAgentDir(cfg, agentId);
+  const modelRef = resolveAgentEffectiveModelPrimary(cfg, agentId);
+  const parsedModel = modelRef
+    ? parseModelRef(modelRef, DEFAULT_PROVIDER)
+    : null;
+  const provider = parsedModel?.provider ?? DEFAULT_PROVIDER;
+  const model = parsedModel?.model ?? DEFAULT_MODEL;
+  const sessionId = `workspace-chat-${randomUUID()}`;
+  const runId = `workspace-chat-run-${randomUUID()}`;
+  const startedAt = new Date().toISOString();
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "otto-workspace-chat-"));
+  const sessionFile = path.join(tempDir, "session.jsonl");
+  const reporter = createWorkspaceChatStreamReporter({
+    sendDelta: async ({ sequence, text }) => {
+      await requestControlPlane({
+        body: {
+          assistantDisplayName: "Otto",
+          assistantMessageId,
+          conversationId: command.payload.conversationId,
+          message: {
+            text,
+          },
+          sequence,
+        },
+        method: "POST",
+        path: "/api/internal/runtime/workspace-chat/messages/delta",
       });
-    });
-
-    child.on("error", (error) => {
-      resolve({
-        completedAt: new Date().toISOString(),
-        error: error.message,
-        status: "failed",
-      });
-    });
+    },
   });
+
+  try {
+    const result = await runEmbeddedPiAgent({
+      agentId,
+      agentDir,
+      config: cfg,
+      messageChannel: WORKSPACE_CHAT_CHANNEL_ID,
+      messageTo: target,
+      onPartialReply: async (payload) => {
+        if (typeof payload?.text === "string") {
+          reporter.push(payload.text);
+        }
+      },
+      prompt: command.payload.message,
+      provider,
+      runId,
+      sessionFile,
+      sessionId,
+      sessionKey: target,
+      timeoutMs: workspaceChatRunTimeoutMs,
+      workspaceDir,
+    });
+
+    await reporter.flush();
+
+    const parts = buildWorkspaceChatCompletionParts(result.payloads);
+    if (parts.length === 0) {
+      return {
+        completedAt: new Date().toISOString(),
+        error: "Workspace chat run completed without a visible assistant reply.",
+        status: "failed",
+      };
+    }
+
+    const completedAt = new Date().toISOString();
+    const completionResponse = await requestControlPlane({
+      body: {
+        assistantDisplayName: "Otto",
+        assistantMessageId,
+        conversationId: command.payload.conversationId,
+        message: {
+          parts,
+        },
+        session: {
+          endedAt: completedAt,
+          externalSessionId: result.meta?.agentMeta?.sessionId,
+          sessionKey: target,
+          startedAt,
+          status: "completed",
+        },
+      },
+      method: "POST",
+      path: "/api/internal/runtime/workspace-chat/messages/complete",
+    });
+
+    return {
+      completedAt,
+      status: "succeeded",
+      stdout: JSON.stringify({
+        conversationId: completionResponse?.conversationId,
+        messageId: completionResponse?.messageId,
+        runId,
+        sessionId: result.meta?.agentMeta?.sessionId,
+      }),
+    };
+  } catch (error) {
+    await reporter.flush();
+    return {
+      completedAt: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+      status: "failed",
+    };
+  } finally {
+    await fs.rm(tempDir, { force: true, recursive: true });
+  }
 }
 
 function buildWorkspaceTarget(conversationId, assistantMessageId) {
