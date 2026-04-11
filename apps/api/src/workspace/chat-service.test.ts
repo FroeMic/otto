@@ -5,7 +5,7 @@ import { describe, it } from "vitest"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 
 describe("workspace chat service", () => {
-  it("returns sent when runtime dispatch succeeds", async () => {
+  it("returns queued when bridge dispatch succeeds", async () => {
     const result = await createAndDispatchWorkspaceChatMessage(
       {
         clientMessageId: "client-msg-1",
@@ -45,12 +45,12 @@ describe("workspace chat service", () => {
           tenantId: "tenant_1",
         }),
         dispatchMessage: async () => ({
-          status: "sent",
+          status: "queued",
         }),
       },
     )
 
-    assert.equal(result.dispatch.status, "sent")
+    assert.equal(result.dispatch.status, "queued")
   })
 
   it("keeps the message persisted when runtime dispatch fails", async () => {

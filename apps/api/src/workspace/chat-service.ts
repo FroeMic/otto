@@ -24,7 +24,7 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
     message: string
     tenantId: string
   }) => Promise<{
-    status: "sent"
+    status: "queued"
   }>
 }
 

@@ -31,7 +31,7 @@ function createDependencies(): WorkspaceChatRouteDependencies {
     createMessage: async ({ conversationId, parts }) => ({
       conversationId,
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "queued",
       },
       message: {
         author: {
@@ -167,7 +167,7 @@ describe("workspace chat routes", () => {
     assert.deepEqual(await response.json(), {
       conversationId: "conv_1",
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "queued",
       },
       message: {
         author: {

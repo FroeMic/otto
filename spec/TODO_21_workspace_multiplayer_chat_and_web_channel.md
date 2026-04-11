@@ -202,6 +202,11 @@ Current implementation status for Increment 1:
   - the tenant runtime reports bridge liveness, gateway health, enabled plugin ids, and control-plane base URL back to `/api/internal/runtime/bridge/report`
   - the control plane persists the latest bridge heartbeat in `tenant_runtime_bridge_statuses`
   - the command relay and event-stream side of the bridge protocol is still the next slice
+- the first tenant-bridge command relay slice now also exists:
+  - `apps/api` now queues `conversation.trigger_message` workspace-chat bridge commands in `job_runs` instead of SSH-dispatching chat turns inline from the browser request path
+  - tenant runtimes now claim and complete those commands through runtime-authenticated bridge routes under `/api/internal/runtime/bridge/commands/*`
+  - the Otto-managed runtime image now runs a `runtime-bridge-command-runner` helper that executes queued workspace chat turns locally with `openclaw agent --deliver`
+  - this slice replaces SSH for workspace-chat dispatch only; browser fanout, streaming deltas, and richer bridge events are still follow-on work
 
 ## Frameworks And Packages To Use
 
