@@ -17,6 +17,13 @@ import { BillingPage } from "@/features/billing/pages/BillingPage"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import {
+  agentPersonalizationDetailQueryOptions,
+  agentPersonalizationOverviewQueryOptions,
+} from "@/features/agent/api/agent"
+import { AgentPersonalizationPage } from "@/features/agent/pages/AgentPersonalizationPage"
+import { AgentPersonalizationRedirectPage } from "@/features/agent/pages/AgentPersonalizationRedirectPage"
+import { LegacyAgentRedirectPage } from "@/features/agent/pages/LegacyAgentRedirectPage"
+import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
 } from "@/features/integrations/api/integrations"
@@ -108,6 +115,42 @@ function WorkspaceIntegrationsRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <IntegrationsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceAgentPersonalizationRedirectRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <AgentPersonalizationRedirectPage orgSlug={orgSlug} />
+}
+
+function WorkspaceAgentPersonalizationRoutePage() {
+  const { instructionTab, orgSlug } =
+    workspaceAgentPersonalizationDetailRoute.useParams()
+
+  return (
+    <AgentPersonalizationPage
+      instructionTab={instructionTab}
+      orgSlug={orgSlug}
+    />
+  )
+}
+
+function LegacyWorkspaceAgentRedirectRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <LegacyAgentRedirectPage orgSlug={orgSlug} />
+}
+
+function LegacyWorkspaceAgentInstructionRedirectRoutePage() {
+  const { instructionTab, orgSlug } =
+    workspaceLegacyAgentInstructionRoute.useParams()
+
+  return (
+    <LegacyAgentRedirectPage
+      instructionTab={instructionTab}
+      orgSlug={orgSlug}
+    />
+  )
 }
 
 function WorkspaceIntegrationDetailRedirectRoutePage() {
@@ -253,6 +296,30 @@ const workspaceConversationRoute = createRoute({
   path: "/c/$conversationId",
 })
 
+const workspaceLegacyAgentRoute = createRoute({
+  component: LegacyWorkspaceAgentRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  path: "/agent",
+})
+
+const workspaceLegacyAgentStatusRoute = createRoute({
+  component: LegacyWorkspaceAgentRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  path: "/agent/status",
+})
+
+const workspaceLegacyAgentPromptsRoute = createRoute({
+  component: LegacyWorkspaceAgentRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  path: "/agent/prompts",
+})
+
+const workspaceLegacyAgentInstructionRoute = createRoute({
+  component: LegacyWorkspaceAgentInstructionRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  path: "/agent/$instructionTab",
+})
+
 const workspaceSettingsRoute = createRoute({
   component: SettingsShellRoute,
   getParentRoute: () => workspaceRoute,
@@ -302,6 +369,29 @@ const workspaceSettingsIntegrationsRoute = createRoute({
       workspaceIntegrationsQueryOptions(params.orgSlug),
     ),
   path: "/agent/integrations",
+})
+
+const workspaceAgentPersonalizationRoute = createRoute({
+  component: WorkspaceAgentPersonalizationRedirectRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      agentPersonalizationOverviewQueryOptions(params.orgSlug),
+    ),
+  path: "/agent/personalization",
+})
+
+const workspaceAgentPersonalizationDetailRoute = createRoute({
+  component: WorkspaceAgentPersonalizationRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      agentPersonalizationDetailQueryOptions({
+        instructionTab: params.instructionTab,
+        orgSlug: params.orgSlug,
+      }),
+    ),
+  path: "/agent/personalization/$instructionTab",
 })
 
 const workspaceIntegrationRedirectRoute = createRoute({
@@ -488,9 +578,15 @@ export const routeTree = rootRoute.addChildren([
   workspaceRoute.addChildren([
     workspaceIndexRoute,
     workspaceConversationRoute,
+    workspaceLegacyAgentRoute,
+    workspaceLegacyAgentStatusRoute,
+    workspaceLegacyAgentPromptsRoute,
+    workspaceLegacyAgentInstructionRoute,
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,
+      workspaceAgentPersonalizationRoute,
+      workspaceAgentPersonalizationDetailRoute,
       workspaceSettingsIntegrationsRoute,
       workspaceIntegrationRedirectRoute,
       workspaceIntegrationDetailRoute,

@@ -20,49 +20,49 @@ function createDependencies(): AgentRouteDependencies {
   return {
     authenticateWorkspaceUser: async () => user,
     getAgentPersonalizationDetail: async ({ instructionTab }) => ({
-      defaultInstructionTab: "working-rules",
+      defaultInstructionTab: "Agent.md",
       instruction: {
         description:
           "The main workspace playbook. It tells Otto how to start each session and how to work safely here.",
         filePath: "AGENTS.md",
-        label: "Working rules",
+        label: "Agent.md",
         sharedContent: "Use this section for workspace-specific rules.",
-        slug: "working-rules",
+        slug: "Agent.md",
         systemContent: "AGENTS.md system content",
         version: 3,
       },
       selectedTab: {
         filePath: "AGENTS.md",
-        label: "Working rules",
+        label: "Agent.md",
         slug: instructionTab,
       },
       state: "ready",
       tabs: [
         {
           filePath: "AGENTS.md",
-          label: "Working rules",
-          slug: "working-rules",
+          label: "Agent.md",
+          slug: "Agent.md",
         },
         {
           filePath: "IDENTITY.md",
-          label: "Identity",
-          slug: "identity",
+          label: "Identity.md",
+          slug: "Identity.md",
         },
       ],
     }),
     getAgentPersonalizationOverview: async () => ({
-      defaultInstructionTab: "working-rules",
+      defaultInstructionTab: "Agent.md",
       state: "ready",
       tabs: [
         {
           filePath: "AGENTS.md",
-          label: "Working rules",
-          slug: "working-rules",
+          label: "Agent.md",
+          slug: "Agent.md",
         },
         {
           filePath: "IDENTITY.md",
-          label: "Identity",
-          slug: "identity",
+          label: "Identity.md",
+          slug: "Identity.md",
         },
       ],
     }),
@@ -74,7 +74,7 @@ function createDependencies(): AgentRouteDependencies {
         description:
           "The main workspace playbook. It tells Otto how to start each session and how to work safely here.",
         filePath: "AGENTS.md",
-        label: "Working rules",
+        label: "Agent.md",
         sharedContent: "Updated content",
         slug: instructionTab,
         systemContent: "AGENTS.md system content",
@@ -102,18 +102,18 @@ describe("agent routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
-      defaultInstructionTab: "working-rules",
+      defaultInstructionTab: "Agent.md",
       state: "ready",
       tabs: [
         {
           filePath: "AGENTS.md",
-          label: "Working rules",
-          slug: "working-rules",
+          label: "Agent.md",
+          slug: "Agent.md",
         },
         {
           filePath: "IDENTITY.md",
-          label: "Identity",
-          slug: "identity",
+          label: "Identity.md",
+          slug: "Identity.md",
         },
       ],
     })
@@ -122,7 +122,7 @@ describe("agent routes", () => {
   it("returns the selected personalization tab payload", async () => {
     const app = createAgentTestApp()
     const response = await app.request(
-      "http://api.local/api/workspace/otto/agent/personalization/working-rules",
+      "http://api.local/api/workspace/otto/agent/personalization/Agent.md",
     )
     const data = (await response.json()) as {
       instruction: { filePath: string }
@@ -132,14 +132,14 @@ describe("agent routes", () => {
 
     assert.equal(response.status, 200)
     assert.equal(data.state, "ready")
-    assert.equal(data.selectedTab.slug, "working-rules")
+    assert.equal(data.selectedTab.slug, "Agent.md")
     assert.equal(data.instruction.filePath, "AGENTS.md")
   })
 
   it("updates the selected personalization tab", async () => {
     const app = createAgentTestApp()
     const response = await app.request(
-      "http://api.local/api/workspace/otto/agent/personalization/working-rules",
+      "http://api.local/api/workspace/otto/agent/personalization/Agent.md",
       {
         body: JSON.stringify({
           expectedVersion: 3,
@@ -161,9 +161,9 @@ describe("agent routes", () => {
         description:
           "The main workspace playbook. It tells Otto how to start each session and how to work safely here.",
         filePath: "AGENTS.md",
-        label: "Working rules",
+        label: "Agent.md",
         sharedContent: "Updated content",
-        slug: "working-rules",
+        slug: "Agent.md",
         systemContent: "AGENTS.md system content",
         version: 4,
       },

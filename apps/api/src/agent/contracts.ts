@@ -2,7 +2,9 @@ import { z } from "zod"
 
 export const agentInstructionFilePathSchema = z.enum([
   "AGENTS.md",
+  "HEARTBEAT.md",
   "IDENTITY.md",
+  "MEMORY.md",
   "SOUL.md",
   "TOOLS.md",
   "USER.md",

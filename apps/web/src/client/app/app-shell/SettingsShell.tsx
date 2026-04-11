@@ -33,6 +33,23 @@ function useSettingsBreadcrumbs(
     return [{ href: `${base}/user`, label: "Account" }]
   }
 
+  if (settingsPath.startsWith("/agent/personalization")) {
+    const segments = settingsPath.split("/").filter(Boolean)
+    const instructionTab = segments[2] ?? null
+    const breadcrumbs: BreadcrumbSegment[] = [
+      { href: `${base}/agent/personalization`, label: "Personalization" },
+    ]
+
+    if (instructionTab) {
+      breadcrumbs.push({
+        href: null,
+        label: decodeURIComponent(instructionTab),
+      })
+    }
+
+    return breadcrumbs
+  }
+
   if (settingsPath.startsWith("/agent/integrations")) {
     const segments = settingsPath.split("/").filter(Boolean)
     const integrationKey = segments[2] ?? null

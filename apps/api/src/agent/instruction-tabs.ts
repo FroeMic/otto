@@ -9,28 +9,38 @@ export interface AgentInstructionTabDefinition {
 const AGENT_INSTRUCTION_TABS: AgentInstructionTabDefinition[] = [
   {
     filePath: "AGENTS.md",
-    label: "Working rules",
-    slug: "working-rules",
+    label: "Agent.md",
+    slug: "Agent.md",
+  },
+  {
+    filePath: "HEARTBEAT.md",
+    label: "Heartbeat.md",
+    slug: "Heartbeat.md",
   },
   {
     filePath: "IDENTITY.md",
-    label: "Identity",
-    slug: "identity",
+    label: "Identity.md",
+    slug: "Identity.md",
+  },
+  {
+    filePath: "MEMORY.md",
+    label: "Memory.md",
+    slug: "Memory.md",
   },
   {
     filePath: "SOUL.md",
-    label: "Values",
-    slug: "values",
+    label: "Soul.md",
+    slug: "Soul.md",
   },
   {
     filePath: "USER.md",
-    label: "People",
-    slug: "people",
+    label: "Users.md",
+    slug: "Users.md",
   },
   {
     filePath: "TOOLS.md",
-    label: "Tools",
-    slug: "tools",
+    label: "Tools.md",
+    slug: "Tools.md",
   },
 ]
 
