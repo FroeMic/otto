@@ -3,6 +3,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import {
+  ApiResponseError,
+  fetchApiResponse,
   parseConnectedAccountsResponse,
   parseUserProfile,
 } from "./workspace"
@@ -56,5 +58,23 @@ describe("workspace api helpers", () => {
         ],
       })
     })
+  })
+
+  it("surfaces plain-text API errors without a JSON parse crash", async () => {
+    const response = new Response("Internal Server Error", {
+      status: 500,
+      statusText: "Internal Server Error",
+    })
+
+    await assert.rejects(
+      () => fetchApiResponse(response, (data) => data),
+      (error) => {
+        assert.ok(error instanceof ApiResponseError)
+        assert.equal(error.message, "Internal Server Error")
+        assert.equal(error.status, 500)
+
+        return true
+      },
+    )
   })
 })

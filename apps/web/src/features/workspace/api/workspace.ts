@@ -32,16 +32,52 @@ export class ApiResponseError extends Error {
   }
 }
 
+function tryParseJson(text: string) {
+  if (!text.trim()) {
+    return null
+  }
+
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return null
+  }
+}
+
+function getStringRecordValue(
+  value: unknown,
+  key: "code" | "message",
+): string | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined
+  }
+
+  const record = value as Record<string, unknown>
+  return typeof record[key] === "string" ? record[key] : undefined
+}
+
 export async function fetchApiResponse<T>(
   response: Response,
   parse: (input: unknown) => T,
 ): Promise<T> {
-  const data = await response.json()
+  const text = await response.text()
+  const data = tryParseJson(text)
 
   if (!response.ok) {
     throw new ApiResponseError({
-      code: typeof data?.code === "string" ? data.code : undefined,
-      message: typeof data?.message === "string" ? data.message : "Request failed",
+      code: getStringRecordValue(data, "code"),
+      message:
+        getStringRecordValue(data, "message") ??
+        text.trim() ??
+        response.statusText ??
+        "Request failed",
+      status: response.status,
+    })
+  }
+
+  if (data === null) {
+    throw new ApiResponseError({
+      message: "Received a non-JSON API response",
       status: response.status,
     })
   }
