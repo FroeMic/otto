@@ -5,4 +5,4 @@ export type {
   AgentInstructionUpdateResponse,
   AgentPersonalizationDetailResponse,
   AgentPersonalizationOverviewResponse,
-} from "../../../../api/src/agent/contracts"
+} from "@otto/feature-runtime-core"

@@ -1,4 +1,10 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
+import type {
+  AgentInstruction,
+  AgentInstructionUpdateResponse,
+  AgentPersonalizationDetailResponse,
+  AgentPersonalizationOverviewResponse,
+} from "@otto/feature-runtime-core"
 import { tenants } from "@otto/feature-integrations-runtime/db/schema"
 import { desc, eq } from "drizzle-orm"
 
@@ -8,12 +14,6 @@ import {
 } from "../runtime/managed-config/data"
 import type { ManagedBootstrapFilePath } from "../runtime/managed-config/definition"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
-import type {
-  AgentInstruction,
-  AgentInstructionUpdateResponse,
-  AgentPersonalizationDetailResponse,
-  AgentPersonalizationOverviewResponse,
-} from "./contracts"
 import {
   getAgentInstructionTabBySlug,
   getAgentInstructionTabs,

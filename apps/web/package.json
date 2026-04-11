@@ -25,6 +25,7 @@
     "@otto/feature-billing": "workspace:*",
     "@otto/feature-integrations-runtime": "workspace:*",
     "@otto/feature-platform": "workspace:*",
+    "@otto/feature-runtime-core": "workspace:*",
     "@otto/feature-user-profile": "workspace:*",
     "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",

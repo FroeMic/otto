@@ -4,18 +4,17 @@ import {
   isWorkspaceSessionAuthError,
   jsonNoStore,
 } from "@otto/auth"
-import { Hono } from "hono"
-import { z } from "zod"
-
 import {
   agentInstructionUpdateRequestSchema,
   agentInstructionUpdateResponseSchema,
   agentPersonalizationDetailResponseSchema,
   agentPersonalizationOverviewResponseSchema,
+  type AgentInstructionUpdateResponse,
   type AgentPersonalizationDetailResponse,
   type AgentPersonalizationOverviewResponse,
-  type AgentInstructionUpdateResponse,
-} from "./contracts"
+} from "@otto/feature-runtime-core"
+import { Hono } from "hono"
+import { z } from "zod"
 import {
   getAgentPersonalizationDetail,
   getAgentPersonalizationOverview,

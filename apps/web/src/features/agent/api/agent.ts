@@ -3,7 +3,7 @@ import {
   agentInstructionUpdateResponseSchema,
   agentPersonalizationDetailResponseSchema,
   agentPersonalizationOverviewResponseSchema,
-} from "../../../../../api/src/agent/contracts"
+} from "@otto/feature-runtime-core"
 import { queryOptions } from "@tanstack/react-query"
 
 import { apiClient } from "@/client/app/rpc"
