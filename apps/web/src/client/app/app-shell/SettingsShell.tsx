@@ -33,6 +33,31 @@ function useSettingsBreadcrumbs(
     return [{ href: `${base}/user`, label: "Account" }]
   }
 
+  if (settingsPath.startsWith("/agent/integrations")) {
+    const segments = settingsPath.split("/").filter(Boolean)
+    const integrationKey = segments[2] ?? null
+    const section = segments[3] ?? null
+    const breadcrumbs: BreadcrumbSegment[] = [
+      { href: `${base}/agent/integrations`, label: "Integrations" },
+    ]
+
+    if (integrationKey) {
+      breadcrumbs.push({
+        href: `${base}/agent/integrations/${integrationKey}`,
+        label: integrationKey.charAt(0).toUpperCase() + integrationKey.slice(1),
+      })
+    }
+
+    if (section) {
+      breadcrumbs.push({
+        href: null,
+        label: section.charAt(0).toUpperCase() + section.slice(1),
+      })
+    }
+
+    return breadcrumbs
+  }
+
   if (settingsPath.startsWith("/workspace/usage")) {
     return [
       { href: `${base}/workspace`, label: orgName },

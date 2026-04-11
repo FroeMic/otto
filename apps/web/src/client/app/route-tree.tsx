@@ -16,6 +16,13 @@ import { WorkspaceSettingsRedirectPage } from "@/client/app/pages/WorkspaceSetti
 import { BillingPage } from "@/features/billing/pages/BillingPage"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
+import {
+  workspaceIntegrationDetailQueryOptions,
+  workspaceIntegrationsQueryOptions,
+} from "@/features/integrations/api/integrations"
+import { IntegrationDetailLayoutPage } from "@/features/integrations/pages/IntegrationDetailLayoutPage"
+import { IntegrationDetailRedirectPage } from "@/features/integrations/pages/IntegrationDetailRedirectPage"
+import { IntegrationsPage } from "@/features/integrations/pages/IntegrationsPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import {
   workspaceChatConversationDetailQueryOptions,
@@ -95,6 +102,36 @@ function WorkspaceUsageRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <UsagePage orgSlug={orgSlug} />
+}
+
+function WorkspaceIntegrationsRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <IntegrationsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceIntegrationDetailRedirectRoutePage() {
+  const { integrationKey, orgSlug } = workspaceIntegrationRedirectRoute.useParams()
+
+  return (
+    <IntegrationDetailRedirectPage
+      integrationKey={integrationKey}
+      orgSlug={orgSlug}
+    />
+  )
+}
+
+function WorkspaceIntegrationDetailRoutePage() {
+  const { integrationKey, orgSlug, section } =
+    workspaceIntegrationDetailRoute.useParams()
+
+  return (
+    <IntegrationDetailLayoutPage
+      integrationKey={integrationKey}
+      orgSlug={orgSlug}
+      section={section}
+    />
+  )
 }
 
 function WorkspaceMembersRoutePage() {
@@ -255,6 +292,42 @@ const workspaceSettingsMembersRoute = createRoute({
       workspaceMembersQueryOptions(params.orgSlug),
     ),
   path: "/workspace/members",
+})
+
+const workspaceSettingsIntegrationsRoute = createRoute({
+  component: WorkspaceIntegrationsRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceIntegrationsQueryOptions(params.orgSlug),
+    ),
+  path: "/agent/integrations",
+})
+
+const workspaceIntegrationRedirectRoute = createRoute({
+  component: WorkspaceIntegrationDetailRedirectRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceIntegrationDetailQueryOptions({
+        integrationKey: params.integrationKey,
+        orgSlug: params.orgSlug,
+      }),
+    ),
+  path: "/agent/integrations/$integrationKey",
+})
+
+const workspaceIntegrationDetailRoute = createRoute({
+  component: WorkspaceIntegrationDetailRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceIntegrationDetailQueryOptions({
+        integrationKey: params.integrationKey,
+        orgSlug: params.orgSlug,
+      }),
+    ),
+  path: "/agent/integrations/$integrationKey/$section",
 })
 
 const workspaceSettingsUsageRoute = createRoute({
@@ -418,6 +491,9 @@ export const routeTree = rootRoute.addChildren([
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,
+      workspaceSettingsIntegrationsRoute,
+      workspaceIntegrationRedirectRoute,
+      workspaceIntegrationDetailRoute,
       workspaceSettingsWorkspaceRoute,
       workspaceSettingsMembersRoute,
       workspaceSettingsUsageRoute,

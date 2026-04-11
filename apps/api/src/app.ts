@@ -7,6 +7,7 @@ import {
   type BillingRouteDependencies,
 } from "./billing/routes"
 import { registerRuntimeRoutes } from "./runtime/routes"
+import { createIntegrationsRouter } from "./integrations/routes"
 import {
   createPlatformRouter,
   type PlatformRouteDependencies,
@@ -45,6 +46,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
       )
     })
     .route("/", createWorkspaceRouter())
+    .route("/", createIntegrationsRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createPlatformRouter(options.platformRoutes))
     .route("/", createUserRouter(options.userRoutes))
