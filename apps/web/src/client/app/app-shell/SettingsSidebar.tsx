@@ -5,6 +5,7 @@ import {
   CreditCard,
   Gear,
   PlugsConnected,
+  Sliders,
   User,
 } from "@phosphor-icons/react/ssr"
 import { Link, useLocation } from "@tanstack/react-router"
@@ -67,6 +68,12 @@ const settingsNavItems: {
   workspace: SettingsNavItem[]
 } = {
   agent: [
+    {
+      href: (orgSlug) => `/${orgSlug}/settings/agent/personalization`,
+      icon: <Sliders />,
+      match: "section",
+      title: "Personalization",
+    },
     {
       href: (orgSlug) => `/${orgSlug}/settings/agent/integrations`,
       icon: <PlugsConnected />,
@@ -242,10 +249,7 @@ export function SettingsSidebar({
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       render={
-                        <Link
-                          params={{ orgSlug: currentOrganization.slug }}
-                          to="/$orgSlug/settings/user"
-                        />
+                        <Link to={href} />
                       }
                       isActive={isSettingsItemActive(
                         href,
@@ -274,10 +278,7 @@ export function SettingsSidebar({
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       render={
-                        <Link
-                          params={{ orgSlug: currentOrganization.slug }}
-                          to="/$orgSlug/settings/agent/integrations"
-                        />
+                        <Link to={href} />
                       }
                       isActive={isSettingsItemActive(
                         href,

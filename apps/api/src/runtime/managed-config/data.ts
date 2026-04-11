@@ -12,13 +12,13 @@ import {
 import { getControlPlaneBaseUrl } from "@otto/feature-integrations-runtime/lib/env"
 import { and, desc, eq } from "drizzle-orm"
 
-import { enqueueJob } from "../jobs/queue"
+import { enqueueJob } from "../../jobs/queue"
 import {
   buildManagedBootstrapFileContent,
   getManagedBootstrapFileDefinitions,
   type ManagedBootstrapFilePath,
   normalizeManagedBootstrapFilePath,
-} from "./managed-config-definition"
+} from "./definition"
 
 export class ManagedConfigVersionConflictError extends Error {
   constructor(

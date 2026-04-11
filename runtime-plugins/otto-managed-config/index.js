@@ -2,7 +2,9 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 
 const MANAGED_FILE_PATHS = [
   "AGENTS.md",
+  "HEARTBEAT.md",
   "IDENTITY.md",
+  "MEMORY.md",
   "SOUL.md",
   "USER.md",
   "TOOLS.md",
@@ -132,7 +134,7 @@ async function readManagedFile(api, params) {
     return {
       ok: false,
       error:
-        "filePath must be one of AGENTS.md, IDENTITY.md, SOUL.md, USER.md, or TOOLS.md.",
+        "filePath must be one of AGENTS.md, HEARTBEAT.md, IDENTITY.md, MEMORY.md, SOUL.md, USER.md, or TOOLS.md.",
     };
   }
 
@@ -165,7 +167,7 @@ async function patchManagedFile(api, params) {
     return {
       ok: false,
       error:
-        "filePath must be one of AGENTS.md, IDENTITY.md, SOUL.md, USER.md, or TOOLS.md.",
+        "filePath must be one of AGENTS.md, HEARTBEAT.md, IDENTITY.md, MEMORY.md, SOUL.md, USER.md, or TOOLS.md.",
     };
   }
 

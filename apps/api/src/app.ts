@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { logger } from "hono/logger"
 
+import { createAgentRouter } from "./agent/routes"
 import { registerAuthRoutes } from "./auth"
 import {
   createBillingRouter,
@@ -45,6 +46,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
         },
       )
     })
+    .route("/", createAgentRouter())
     .route("/", createWorkspaceRouter())
     .route("/", createIntegrationsRouter())
     .route("/", createBillingRouter(options.billingRoutes))
