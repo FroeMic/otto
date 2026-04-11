@@ -37,17 +37,7 @@ export function AgentPersonalizationPage({
           </SettingsSectionDescription>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-base font-medium">Instruction files</h2>
-            <p className="text-sm text-muted-foreground">
-              Open a file to edit the workspace-specific guidance Otto should
-              follow in that area.
-            </p>
-          </div>
-
-          <AgentInstructionList orgSlug={orgSlug} tabs={data.tabs} />
-        </div>
+        <AgentInstructionList orgSlug={orgSlug} tabs={data.tabs} />
       </SettingsPageContent>
     </SettingsPage>
   )

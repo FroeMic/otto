@@ -1,4 +1,3 @@
-import { LockIcon } from "@phosphor-icons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -13,21 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldTitle,
-} from "@/components/ui/field"
+import { Field, FieldGroup } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 
@@ -62,10 +47,6 @@ export function AgentInstructionEditor({
   const isDirty = workspaceValue !== savedValue
   const instructionTextareaClassName =
     "min-h-64 rounded-2xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs"
-  const systemTextareaClassName = [
-    instructionTextareaClassName,
-    "disabled:cursor-default disabled:border-border disabled:bg-muted/20 disabled:opacity-100 disabled:text-foreground",
-  ].join(" ")
 
   useEffect(() => {
     setWorkspaceValue(instruction.sharedContent)
@@ -216,56 +197,19 @@ export function AgentInstructionEditor({
       ) : null}
 
       <form ref={formRef} onSubmit={handleSubmit}>
-        <Card className="gap-0 rounded-3xl py-0 ring-1 ring-border/70">
-          <CardHeader className="gap-2 border-b border-border px-6 py-5">
-            <CardTitle>Instruction file</CardTitle>
-            <CardDescription>
-              Otto keeps the system instructions locked and appends your
-              workspace guidance below.
-            </CardDescription>
-          </CardHeader>
+        <FieldGroup className="gap-4">
+          <Field className="gap-3">
+            <h2 className="text-sm font-medium">Workspace instructions</h2>
+            <Textarea
+              className={instructionTextareaClassName}
+              name="sharedContent"
+              onChange={(event) => setWorkspaceValue(event.target.value)}
+              required
+              value={workspaceValue}
+            />
+          </Field>
 
-          <CardContent className="px-6 py-6">
-            <FieldGroup>
-              <Field>
-                <FieldContent className="gap-3">
-                  <FieldTitle>
-                    System instructions
-                    <LockIcon className="size-4 text-muted-foreground" />
-                  </FieldTitle>
-                  <FieldDescription>
-                    These instructions are managed by Otto and cannot be edited
-                    here.
-                  </FieldDescription>
-                  <Textarea
-                    className={systemTextareaClassName}
-                    defaultValue={instruction.systemContent}
-                    disabled
-                    readOnly
-                  />
-                </FieldContent>
-              </Field>
-
-              <Field>
-                <FieldContent className="gap-3">
-                  <FieldTitle>Workspace instructions</FieldTitle>
-                  <FieldDescription>
-                    Add workspace-specific guidance Otto should follow for this
-                    file.
-                  </FieldDescription>
-                  <Textarea
-                    className={instructionTextareaClassName}
-                    name="sharedContent"
-                    onChange={(event) => setWorkspaceValue(event.target.value)}
-                    required
-                    value={workspaceValue}
-                  />
-                </FieldContent>
-              </Field>
-            </FieldGroup>
-          </CardContent>
-
-          <CardFooter className="justify-end gap-2 border-t border-border px-6 py-4">
+          <div className="flex items-center justify-end gap-2">
             <Button
               disabled={!isDirty || isPending}
               onClick={handleReset}
@@ -277,8 +221,8 @@ export function AgentInstructionEditor({
             <Button disabled={!isDirty || isPending} type="submit">
               {isPending ? "Saving..." : "Save changes"}
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </FieldGroup>
       </form>
 
       <AlertDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>

@@ -1,12 +1,17 @@
-import { ArrowLeftIcon } from "@phosphor-icons/react"
+import { CaretRightIcon } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-
 import {
+  SettingsCard,
   SettingsPage,
   SettingsPageContent,
+  SettingsRow,
+  SettingsRowDescription,
+  SettingsRowLabel,
+  SettingsRowTitle,
   SettingsSectionDescription,
 } from "@/client/app/app-shell/SettingsLayout"
+import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
 import { agentPersonalizationDetailQueryOptions } from "../api/agent"
 import { AgentInstructionEditor } from "../components/AgentInstructionEditor"
@@ -21,6 +26,9 @@ export function AgentPersonalizationDetailPage({
   instructionTab,
   orgSlug,
 }: AgentPersonalizationDetailPageProps) {
+  const { data: shellData } = useSuspenseQuery(
+    shellBootstrapQueryOptions(orgSlug),
+  )
   const { data } = useSuspenseQuery(
     agentPersonalizationDetailQueryOptions({
       instructionTab,
@@ -34,19 +42,9 @@ export function AgentPersonalizationDetailPage({
 
   return (
     <SettingsPage>
-      <SettingsPageContent className="flex max-w-3xl flex-col gap-8 pb-8">
-        <div className="flex flex-col gap-4">
-          <Link
-            className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            params={{ orgSlug }}
-            to="/$orgSlug/settings/agent/personalization"
-          >
-            <ArrowLeftIcon className="size-4" />
-            Personalization
-          </Link>
-
+      <SettingsPageContent className="flex max-w-3xl flex-col gap-6 pb-8">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Otto instructions</p>
             <h1 className="text-3xl font-semibold tracking-tight">
               {data.selectedTab.label}
             </h1>
@@ -60,6 +58,27 @@ export function AgentPersonalizationDetailPage({
           instruction={data.instruction}
           orgSlug={orgSlug}
         />
+
+        {shellData.user.isPlatformAdmin ? (
+          <SettingsCard>
+            <Link
+              className="block transition-colors hover:bg-muted/30"
+              params={{ instructionTab, orgSlug }}
+              preload="intent"
+              to="/$orgSlug/settings/agent/personalization/$instructionTab/system"
+            >
+              <SettingsRow>
+                <SettingsRowLabel>
+                  <SettingsRowTitle>System instructions</SettingsRowTitle>
+                  <SettingsRowDescription>
+                    Review the locked instructions Otto prepends to this file.
+                  </SettingsRowDescription>
+                </SettingsRowLabel>
+                <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </SettingsRow>
+            </Link>
+          </SettingsCard>
+        ) : null}
       </SettingsPageContent>
     </SettingsPage>
   )

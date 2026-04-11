@@ -19,6 +19,7 @@ import {
 } from "@/features/agent/api/agent"
 import { AgentPersonalizationDetailPage } from "@/features/agent/pages/AgentPersonalizationDetailPage"
 import { AgentPersonalizationPage } from "@/features/agent/pages/AgentPersonalizationPage"
+import { AgentPersonalizationSystemPage } from "@/features/agent/pages/AgentPersonalizationSystemPage"
 import { LegacyAgentRedirectPage } from "@/features/agent/pages/LegacyAgentRedirectPage"
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
 import { BillingPage } from "@/features/billing/pages/BillingPage"
@@ -129,6 +130,18 @@ function WorkspaceAgentPersonalizationDetailRoutePage() {
 
   return (
     <AgentPersonalizationDetailPage
+      instructionTab={instructionTab}
+      orgSlug={orgSlug}
+    />
+  )
+}
+
+function WorkspaceAgentPersonalizationSystemRoutePage() {
+  const { instructionTab, orgSlug } =
+    workspaceAgentPersonalizationSystemRoute.useParams()
+
+  return (
+    <AgentPersonalizationSystemPage
       instructionTab={instructionTab}
       orgSlug={orgSlug}
     />
@@ -395,6 +408,19 @@ const workspaceAgentPersonalizationDetailRoute = createRoute({
   path: "/agent/personalization/$instructionTab",
 })
 
+const workspaceAgentPersonalizationSystemRoute = createRoute({
+  component: WorkspaceAgentPersonalizationSystemRoutePage,
+  getParentRoute: () => workspaceSettingsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      agentPersonalizationDetailQueryOptions({
+        instructionTab: params.instructionTab,
+        orgSlug: params.orgSlug,
+      }),
+    ),
+  path: "/agent/personalization/$instructionTab/system",
+})
+
 const workspaceIntegrationRedirectRoute = createRoute({
   component: WorkspaceIntegrationDetailRedirectRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
@@ -589,6 +615,7 @@ export const routeTree = rootRoute.addChildren([
       workspaceSettingsUserRoute,
       workspaceAgentPersonalizationRoute,
       workspaceAgentPersonalizationDetailRoute,
+      workspaceAgentPersonalizationSystemRoute,
       workspaceSettingsIntegrationsRoute,
       workspaceIntegrationRedirectRoute,
       workspaceIntegrationDetailRoute,
