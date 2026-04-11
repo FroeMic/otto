@@ -57,6 +57,11 @@ export type ForwardedSlackHttpResponse = {
   status: number;
 };
 
+export type InvokeWorkspaceChatTurnResult = {
+  ok: true;
+  sessionKey: string;
+};
+
 const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000;
 const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000;
 const RUNTIME_START_HELPER_PATH =
@@ -634,6 +639,50 @@ export class RuntimeManager {
     return parseToolInvokePayload(result.stdout);
   }
 
+  async invokeWorkspaceChatTurn(
+    connection: SshConnection,
+    input: {
+      assistantMessageId?: string;
+      conversationId: string;
+      gatewayToken: string;
+      message: string;
+      timeoutMs?: number;
+    },
+  ): Promise<InvokeWorkspaceChatTurnResult> {
+    const params = JSON.stringify({
+      ...(input.assistantMessageId
+        ? { assistantMessageId: input.assistantMessageId }
+        : {}),
+      conversationId: input.conversationId,
+      message: input.message,
+    });
+    const command = buildShellCommand([
+      "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+      [
+        "docker exec openclaw-gateway",
+        "node",
+        "dist/index.js",
+        "gateway",
+        "call",
+        "otto.workspaceChat.runTurn",
+        "--url",
+        shellQuoteForShell(`ws://127.0.0.1:${OPENCLAW_GATEWAY_CONTAINER_PORT}`),
+        "--token",
+        shellQuoteForShell(input.gatewayToken),
+        "--timeout",
+        shellQuoteForShell(String(input.timeoutMs ?? 600_000)),
+        "--json",
+        "--params",
+        shellQuoteForShell(params),
+      ].join(" "),
+    ]);
+    const result = await this.execChecked(connection, command, {
+      timeoutMs: input.timeoutMs ?? 620_000,
+    });
+
+    return parseWorkspaceChatGatewayPayload(result.stdout);
+  }
+
   async forwardSlackHttpRequest(
     connection: SshConnection,
     input: {
@@ -1098,6 +1147,20 @@ function parseToolInvokePayload(value: string) {
   throw new Error(
     "Tenant runtime tool response did not include a JSON payload",
   );
+}
+
+function parseWorkspaceChatGatewayPayload(value: string): InvokeWorkspaceChatTurnResult {
+  const payload = parseJsonObject(value);
+  const sessionKey = payload.sessionKey;
+
+  if (payload.ok !== true || typeof sessionKey !== "string" || sessionKey.length === 0) {
+    throw new Error("Tenant runtime workspace chat gateway call did not return a sessionKey");
+  }
+
+  return {
+    ok: true,
+    sessionKey,
+  };
 }
 
 function parseForwardedSlackHttpPayload(

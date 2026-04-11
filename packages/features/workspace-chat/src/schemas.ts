@@ -147,6 +147,13 @@ export const workspaceChatRuntimeMessageDeltaRequestSchema = z.object({
   sequence: z.number().int().positive(),
 })
 
+export const workspaceChatRuntimeMessageFailRequestSchema = z.object({
+  assistantDisplayName: z.string().trim().min(1).optional(),
+  assistantMessageId: z.string().trim().min(1),
+  conversationId: z.string().trim().min(1),
+  error: z.string().trim().min(1).optional(),
+})
+
 export const workspaceChatRuntimeMessageCompleteResponseSchema = z.object({
   conversationId: z.string().trim().min(1),
   messageId: z.string().trim().min(1),
@@ -157,6 +164,13 @@ export const workspaceChatRuntimeMessageCompleteResponseSchema = z.object({
 
 export const workspaceChatRuntimeMessageDeltaResponseSchema = z.object({
   applied: z.boolean(),
+  conversationId: z.string().trim().min(1),
+  messageId: z.string().trim().min(1),
+  ok: z.literal(true),
+  tenantId: z.string().trim().min(1),
+})
+
+export const workspaceChatRuntimeMessageFailResponseSchema = z.object({
   conversationId: z.string().trim().min(1),
   messageId: z.string().trim().min(1),
   ok: z.literal(true),
@@ -188,9 +202,15 @@ export type WorkspaceChatRuntimeMessageCompleteRequest = z.infer<
 export type WorkspaceChatRuntimeMessageDeltaRequest = z.infer<
   typeof workspaceChatRuntimeMessageDeltaRequestSchema
 >
+export type WorkspaceChatRuntimeMessageFailRequest = z.infer<
+  typeof workspaceChatRuntimeMessageFailRequestSchema
+>
 export type WorkspaceChatRuntimeMessageCompleteResponse = z.infer<
   typeof workspaceChatRuntimeMessageCompleteResponseSchema
 >
 export type WorkspaceChatRuntimeMessageDeltaResponse = z.infer<
   typeof workspaceChatRuntimeMessageDeltaResponseSchema
+>
+export type WorkspaceChatRuntimeMessageFailResponse = z.infer<
+  typeof workspaceChatRuntimeMessageFailResponseSchema
 >

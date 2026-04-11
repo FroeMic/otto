@@ -39,6 +39,7 @@ import {
 } from "./slack-sync";
 import type { ClaimedJob } from "./types";
 import { JOB_TYPES } from "./types";
+import { processRunWorkspaceChatTurnJob } from "./workspace-chat";
 import {
   processWhatsAppDisconnectJob,
   processWhatsAppLinkSessionJob,
@@ -56,6 +57,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
+      return;
+    case JOB_TYPES.runWorkspaceChatTurn:
+      await processRunWorkspaceChatTurnJob(job);
       return;
     case JOB_TYPES.scheduleOauthConnectionRefresh:
       await processScheduleOauthConnectionRefreshJob(job);

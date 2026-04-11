@@ -1,4 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
+import { registerWorkspaceChatGatewayMethods } from "./gateway.js";
 
 export default defineBundledChannelEntry({
   id: "otto-workspace-chat",
@@ -12,5 +13,8 @@ export default defineBundledChannelEntry({
   runtime: {
     specifier: "./runtime-api.js",
     exportName: "setWorkspaceChatRuntime",
+  },
+  registerFull(api) {
+    registerWorkspaceChatGatewayMethods(api);
   },
 });

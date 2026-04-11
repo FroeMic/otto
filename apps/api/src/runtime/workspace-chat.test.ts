@@ -205,4 +205,52 @@ describe("workspace chat runtime routes", () => {
       error: "Workspace chat conversation not found for this tenant runtime.",
     })
   })
+
+  it("accepts a failed assistant callback from a tenant runtime", async () => {
+    let receivedAssistantMessageId: string | undefined
+    let receivedError: string | undefined
+    const appWithSpy = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      failAssistantMessage: async ({
+        assistantMessageId,
+        conversationId,
+        error,
+        tenantId,
+      }) => {
+        receivedAssistantMessageId = assistantMessageId
+        receivedError = error
+
+        return {
+          conversationId,
+          messageId: assistantMessageId,
+          tenantId,
+        }
+      },
+    })
+
+    const response = await appWithSpy.request(
+      "http://api.local/api/internal/runtime/workspace-chat/messages/fail",
+      {
+        body: JSON.stringify({
+          assistantMessageId: "msg_assistant_1",
+          conversationId: "conv_1",
+          error: "embedded run failed",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      conversationId: "conv_1",
+      messageId: "msg_assistant_1",
+      ok: true,
+      tenantId: "tenant_1",
+    })
+    assert.equal(receivedAssistantMessageId, "msg_assistant_1")
+    assert.equal(receivedError, "embedded run failed")
+  })
 })

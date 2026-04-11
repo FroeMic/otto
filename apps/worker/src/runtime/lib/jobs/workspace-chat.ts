@@ -1,0 +1,231 @@
+import { getTenantRuntimeGatewayToken, getTenantRuntimeTenantToken } from "../../db/control-plane";
+import { getControlPlaneBaseUrl } from "../env";
+import { getTenantRuntimeConnection } from "../runtime/connection";
+import { RuntimeManager } from "../runtime/manager";
+
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import {
+  type ClaimedJob,
+  JOB_TYPES,
+  type RunWorkspaceChatTurnPayload,
+} from "./types";
+
+const runtimeManager = new RuntimeManager();
+
+const WORKSPACE_CHAT_EVENTS = {
+  failed: "workspace_chat_turn_failed",
+  queued: "workspace_chat_turn_started",
+  succeeded: "workspace_chat_turn_succeeded",
+} as const;
+
+type ProcessWorkspaceChatDependencies = {
+  appendJobEvent: typeof appendJobEvent;
+  getTenantRuntimeConnection: typeof getTenantRuntimeConnection;
+  getTenantRuntimeGatewayToken: typeof getTenantRuntimeGatewayToken;
+  getTenantRuntimeTenantToken: typeof getTenantRuntimeTenantToken;
+  invokeWorkspaceChatTurn: (input: {
+    assistantMessageId?: string;
+    connection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>;
+    conversationId: string;
+    gatewayToken: string;
+    message: string;
+  }) => Promise<{
+    ok: true;
+    sessionKey: string;
+  }>;
+  markAssistantMessageFailed: (input: {
+    assistantMessageId?: string;
+    conversationId: string;
+    error: string;
+    tenantId: string;
+  }) => Promise<void>;
+  markJobFailed: typeof markJobFailed;
+  markJobSucceeded: typeof markJobSucceeded;
+};
+
+const defaultDependencies: ProcessWorkspaceChatDependencies = {
+  appendJobEvent,
+  getTenantRuntimeConnection,
+  getTenantRuntimeGatewayToken,
+  getTenantRuntimeTenantToken,
+  invokeWorkspaceChatTurn: async (input) =>
+    await runtimeManager.invokeWorkspaceChatTurn(input.connection, {
+      assistantMessageId: input.assistantMessageId,
+      conversationId: input.conversationId,
+      gatewayToken: input.gatewayToken,
+      message: input.message,
+    }),
+  markAssistantMessageFailed: async (input) => {
+    if (!input.assistantMessageId) {
+      return;
+    }
+
+    const tenantToken = await getTenantRuntimeTenantToken(input.tenantId);
+    const baseUrl = getControlPlaneBaseUrl();
+
+    if (!baseUrl) {
+      throw new Error("Control-plane base URL is not configured");
+    }
+
+    if (!tenantToken) {
+      throw new Error("Tenant runtime token is not configured");
+    }
+
+    const response = await fetch(
+      `${baseUrl.replace(/\/+$/u, "")}/api/internal/runtime/workspace-chat/messages/fail`,
+      {
+        body: JSON.stringify({
+          assistantDisplayName: "Otto",
+          assistantMessageId: input.assistantMessageId,
+          conversationId: input.conversationId,
+          error: input.error,
+        }),
+        headers: {
+          authorization: `Bearer ${tenantToken}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Workspace chat fail callback returned ${response.status}: ${text || "Unknown error"}`,
+      );
+    }
+  },
+  markJobFailed,
+  markJobSucceeded,
+};
+
+export async function processRunWorkspaceChatTurnJob(
+  job: ClaimedJob,
+  dependencies: ProcessWorkspaceChatDependencies = defaultDependencies,
+): Promise<void> {
+  if (job.jobType !== JOB_TYPES.runWorkspaceChatTurn) {
+    throw new Error(
+      `Unsupported job type for workspace chat handler: ${job.jobType}`,
+    );
+  }
+
+  const payload = parseRunWorkspaceChatTurnPayload(job.payload);
+
+  try {
+    const connection = await dependencies.getTenantRuntimeConnection(
+      payload.tenantId,
+      "workspace chat turn dispatch",
+    );
+    const gatewayToken = await dependencies.getTenantRuntimeGatewayToken(
+      payload.tenantId,
+    );
+
+    if (!gatewayToken) {
+      throw new Error("Tenant gateway token is not configured");
+    }
+
+    await dependencies.appendJobEvent(
+      job.id,
+      WORKSPACE_CHAT_EVENTS.queued,
+      "Invoking the workspace chat turn through the tenant gateway",
+      {
+        conversationId: payload.conversationId,
+        host: connection.host,
+      },
+    );
+
+    const result = await dependencies.invokeWorkspaceChatTurn({
+      assistantMessageId: payload.assistantMessageId,
+      connection,
+      conversationId: payload.conversationId,
+      gatewayToken,
+      message: payload.message,
+    });
+
+    await dependencies.appendJobEvent(
+      job.id,
+      WORKSPACE_CHAT_EVENTS.succeeded,
+      "Workspace chat turn started successfully in the tenant runtime",
+      {
+        conversationId: payload.conversationId,
+        sessionKey: result.sessionKey,
+      },
+    );
+    await dependencies.markJobSucceeded(job.id, {
+      conversationId: payload.conversationId,
+      sessionKey: result.sessionKey,
+      tenantId: payload.tenantId,
+    });
+  } catch (error) {
+    const message = getErrorMessage(error);
+
+    try {
+      await dependencies.markAssistantMessageFailed({
+        assistantMessageId: payload.assistantMessageId,
+        conversationId: payload.conversationId,
+        error: message,
+        tenantId: payload.tenantId,
+      });
+    } catch (callbackError) {
+      await dependencies.appendJobEvent(
+        job.id,
+        WORKSPACE_CHAT_EVENTS.failed,
+        "Workspace chat fail callback could not be delivered",
+        {
+          callbackError: getErrorMessage(callbackError),
+          error: message,
+        },
+      );
+    }
+
+    await dependencies.appendJobEvent(
+      job.id,
+      WORKSPACE_CHAT_EVENTS.failed,
+      "Workspace chat turn failed before the tenant runtime could complete it",
+      {
+        error: message,
+      },
+    );
+    await dependencies.markJobFailed(job.id, message);
+  }
+}
+
+function parseRunWorkspaceChatTurnPayload(
+  payload: Record<string, unknown>,
+): RunWorkspaceChatTurnPayload {
+  const assistantMessageId =
+    typeof payload.assistantMessageId === "string" &&
+    payload.assistantMessageId.length > 0
+      ? payload.assistantMessageId
+      : undefined;
+  const conversationId = payload.conversationId;
+  const message = payload.message;
+  const tenantId = payload.tenantId;
+
+  if (typeof conversationId !== "string" || conversationId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing conversationId");
+  }
+
+  if (typeof message !== "string" || message.length === 0) {
+    throw new Error("Workspace chat turn payload is missing message");
+  }
+
+  if (typeof tenantId !== "string" || tenantId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing tenantId");
+  }
+
+  return {
+    ...(assistantMessageId ? { assistantMessageId } : {}),
+    conversationId,
+    message,
+    tenantId,
+  };
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "Unknown workspace chat worker error";
+}

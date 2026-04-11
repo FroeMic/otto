@@ -239,6 +239,8 @@ export type {
   WorkspaceChatRuntimeMessageCompleteResponse,
   WorkspaceChatRuntimeMessageDeltaRequest,
   WorkspaceChatRuntimeMessageDeltaResponse,
+  WorkspaceChatRuntimeMessageFailRequest,
+  WorkspaceChatRuntimeMessageFailResponse,
 } from "./schemas"
 export type {
   WorkspaceChatRealtimeClientMessage,
@@ -261,6 +263,8 @@ export {
   workspaceChatRuntimeMessageCompleteResponseSchema,
   workspaceChatRuntimeMessageDeltaRequestSchema,
   workspaceChatRuntimeMessageDeltaResponseSchema,
+  workspaceChatRuntimeMessageFailRequestSchema,
+  workspaceChatRuntimeMessageFailResponseSchema,
   workspaceChatRuntimeSessionStatusSchema,
 } from "./schemas"
 export {
