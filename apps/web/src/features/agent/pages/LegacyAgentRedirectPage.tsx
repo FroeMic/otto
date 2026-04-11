@@ -9,10 +9,20 @@ export function LegacyAgentRedirectPage({
   instructionTab,
   orgSlug,
 }: LegacyAgentRedirectPageProps) {
+  if (!instructionTab) {
+    return (
+      <Navigate
+        params={{ orgSlug }}
+        replace
+        to="/$orgSlug/settings/agent/personalization"
+      />
+    )
+  }
+
   return (
     <Navigate
       params={{
-        instructionTab: instructionTab ?? "Agent.md",
+        instructionTab,
         orgSlug,
       }}
       replace
