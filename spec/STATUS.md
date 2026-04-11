@@ -236,6 +236,10 @@
     - `apps/api` now persists a workspace message and dispatches a first real tenant-runtime turn over SSH using `openclaw agent --deliver`
     - `runtime-plugins/otto-workspace-chat` now posts assistant completions back to `/api/internal/runtime/workspace-chat/messages/complete`
     - managed OpenClaw config now enables `otto-workspace-chat` in tenant runtimes when the workspace base URL is available
+  - the first tenant-bridge heartbeat slice now also exists:
+    - the Otto-managed runtime image now starts a lightweight `runtime-bridge-reporter` helper beside the existing cron watcher
+    - tenant runtimes now report bridge heartbeat, gateway health, enabled Otto plugin ids, and control-plane base URL back to `apps/api` at `/api/internal/runtime/bridge/report`
+    - the control plane now persists the latest bridge status per tenant in `tenant_runtime_bridge_statuses`
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree
@@ -713,8 +717,9 @@
     - conversation, message, message-part, and runtime-segment tables now exist in the shared schema
     - `apps/api` workspace-chat routes now persist conversations and messages instead of returning `501`
     - `apps/api` now also exposes a tenant-authenticated workspace-chat assistant-completion callback route
-  - next, add the tenant bridge protocol, auth model, and local Gateway relay so the existing `otto-workspace-chat` plugin scaffold can deliver real runtime traffic
-  - only after that checkpoint, start `apps/web` UI work for the first conversation detail slice
+  - the first tenant-bridge heartbeat checkpoint is now in place:
+    - tenant runtimes report bridge liveness, gateway health, and enabled Otto plugin ids over a tenant-authenticated runtime route
+    - the next bridge slice is command relay and normalized runtime event delivery, so workspace chat can stop depending on per-turn SSH dispatch
   - then add the browser realtime protocol and multiplayer fanout layer
   - then implement durable named conversations, delivery targets, and favorites support
 

@@ -63,6 +63,7 @@ import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,
 } from "./web-search"
+import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
 import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
 import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
@@ -70,6 +71,7 @@ import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 
 export function registerRuntimeRoutes(app: Hono) {
   registerWorkspaceChatRuntimeRoutes(app)
+  registerTenantRuntimeBridgeStatusRoutes(app)
 
   app.get("/api/internal/runtime/integrations", async (context) => {
     try {

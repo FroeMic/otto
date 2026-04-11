@@ -197,6 +197,11 @@ Current implementation status for Increment 1:
   - `apps/web/src/features/workspace-chat` now owns the first feature-local UI files for API access, sidebar history, conversation detail, and message composition
   - the workspace shell now shows a first conversation history section and create-conversation action
   - the first browser path is polling-based and intentionally stops short of realtime fanout or streaming
+- the first tenant-bridge heartbeat slice now also exists:
+  - the Otto-managed runtime image now starts a lightweight `runtime-bridge-reporter` helper next to the existing cron watcher
+  - the tenant runtime reports bridge liveness, gateway health, enabled plugin ids, and control-plane base URL back to `/api/internal/runtime/bridge/report`
+  - the control plane persists the latest bridge heartbeat in `tenant_runtime_bridge_statuses`
+  - the command relay and event-stream side of the bridge protocol is still the next slice
 
 ## Frameworks And Packages To Use
 
@@ -1177,14 +1182,14 @@ Implementation note:
 - [x] decide that a dedicated `otto-workspace-chat` OpenClaw channel plugin is the preferred runtime seam
 - [ ] define the Control Plane conversation schema and DB access layer
 - [ ] define the browser realtime protocol
-- [ ] define the tenant bridge protocol and auth model
+- [~] define the tenant bridge protocol and auth model
 - [x] implement the Control Plane conversation history and conversation detail routes
 - [x] implement the first `apps/web` conversation route and detail page at `/{workspaceSlug}/c/{conversationId}`
 - [ ] implement Control Plane browser fanout and replay
 - [ ] implement durable named conversation create, rename, favorite, and delivery-target flows
 - [ ] implement Slack and external surface reconciliation onto conversations
 - [ ] implement the `otto-workspace-chat` OpenClaw channel plugin
-- [ ] bundle the plugin and tenant bridge into the Otto-managed runtime image
+- [~] bundle the plugin and tenant bridge into the Otto-managed runtime image
 
 ## Open Questions
 
