@@ -14,7 +14,7 @@ import {
 } from "@/client/app/app-shell/SettingsLayout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
 import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
 import { disconnectWorkspaceIntegration } from "@/features/integrations/api/integrations"
@@ -181,7 +181,6 @@ export function LinearIntegrationStatusPage({
               {detail.integration.pageDescription}
             </p>
           </div>
-          <Badge variant={getStatusBadgeVariant(uiState)}>{statusLabel}</Badge>
         </div>
       </section>
 
@@ -289,7 +288,10 @@ export function LinearIntegrationStatusPage({
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     {detail.connection.connectUrl ? (
-                      <a className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" href={detail.connection.connectUrl}>
+                      <a
+                        className={buttonVariants()}
+                        href={detail.connection.connectUrl}
+                      >
                         {connectActionLabel}
                       </a>
                     ) : (

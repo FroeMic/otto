@@ -1,7 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { useQueryClient } from "@tanstack/react-query"
 import type { ReactNode } from "react"
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 
 import {
   deriveSlackPolicyEffects,
@@ -25,7 +25,7 @@ import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ import {
   updateWorkspaceSlackSettings,
 } from "@/features/integrations/api/integrations"
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
+import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
 import { IntegrationStickySaveBar } from "@/features/integrations/components/IntegrationStickySaveBar"
 import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
@@ -397,6 +398,7 @@ export function SlackIntegrationStatusPage({
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [membershipError, setMembershipError] = useState<string | null>(null)
+  const [isApplyQueuedVisible, setIsApplyQueuedVisible] = useState(false)
   const [pendingMembershipAction, setPendingMembershipAction] = useState<{
     action: "join" | "leave"
     channelId: string
@@ -404,6 +406,8 @@ export function SlackIntegrationStatusPage({
   const [isDangerDialogOpen, setIsDangerDialogOpen] = useState(false)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const isApplyActive =
+    detail.summary?.status === "applying" || detail.summary?.status === "pending_apply"
 
   const hasChanges =
     surface && draft ? !areConfigsEqual(draft, surface.config) : false
@@ -647,6 +651,7 @@ export function SlackIntegrationStatusPage({
           setErrorMessage(null)
           setIsDangerDialogOpen(false)
           setIsSavingSettings(false)
+          setIsApplyQueuedVisible(Boolean(result.applyQueued))
           setSurface(nextSurface)
           setDraft(nextSurface.config)
           invalidate()
@@ -895,12 +900,24 @@ export function SlackIntegrationStatusPage({
     ? "Reconnect Slack"
     : "Connect Slack"
 
+  useEffect(() => {
+    if (!isApplyQueuedVisible) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsApplyQueuedVisible(false)
+    }, 10_000)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [isApplyQueuedVisible])
+
   return (
     <div className="flex flex-col gap-6 pb-24">
-      {isSavingSettings ? (
-        <div className="fixed bottom-10 right-6 z-30 rounded-full border bg-background px-4 py-2 text-sm shadow-sm">
-          Saving Slack settings
-        </div>
+      {isSavingSettings || isApplyActive || isApplyQueuedVisible ? (
+        <IntegrationFloatingStatusChip message="Applying Changes" />
       ) : null}
 
       {errorMessage ? (
@@ -926,7 +943,7 @@ export function SlackIntegrationStatusPage({
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             {!detail.connection.status.connected && detail.connection.connectUrl ? (
               <a
-                className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                className={buttonVariants()}
                 href={detail.connection.connectUrl}
               >
                 {connectActionLabel}
@@ -939,9 +956,6 @@ export function SlackIntegrationStatusPage({
                 reconnectUrl={detail.connection.connectUrl}
               />
             ) : null}
-            <Badge variant={getStatusBadgeVariant(detail)}>
-              {getSlackStatusLabel(detail)}
-            </Badge>
           </div>
         </div>
       </section>
@@ -1272,7 +1286,7 @@ export function SlackIntegrationStatusPage({
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <a
-                        className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                        className={buttonVariants()}
                         href={detail.connection.connectUrl}
                       >
                         {connectActionLabel}
