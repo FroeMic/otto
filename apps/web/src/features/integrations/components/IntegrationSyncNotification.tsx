@@ -7,7 +7,7 @@ import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
 } from "@/features/integrations/api/integrations"
-import { SpinnerGapIcon } from "@phosphor-icons/react"
+import { IntegrationFloatingStatusChip } from "./IntegrationFloatingStatusChip"
 
 const MIN_DISPLAY_MS = 10_000
 const POLL_INTERVAL_MS = 1_000
@@ -18,17 +18,6 @@ export interface IntegrationSyncNotificationProps {
   message: string
   onDone: () => void
   orgSlug: string
-}
-
-function FloatingStatusChip(props: { message: string }) {
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-green-600 px-3 py-1.5 shadow-lg">
-        <SpinnerGapIcon className="size-3 animate-spin text-white" />
-        <span className="text-xs font-medium text-white">{props.message}</span>
-      </div>
-    </div>
-  )
 }
 
 export function IntegrationSyncNotification({
@@ -102,5 +91,5 @@ export function IntegrationSyncNotification({
     return null
   }
 
-  return <FloatingStatusChip message={message} />
+  return <IntegrationFloatingStatusChip message={message} />
 }
