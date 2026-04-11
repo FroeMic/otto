@@ -2,11 +2,17 @@ import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { jobEvents, jobRuns } from "@otto/feature-integrations-runtime/db/schema"
 import { and, asc, eq, lte, or, sql } from "drizzle-orm"
 
+import {
+  markWorkspaceChatAssistantMessageFailed,
+  markWorkspaceChatAssistantMessageStreaming,
+} from "../workspace/chat-data"
+
 const WORKSPACE_CHAT_BRIDGE_COMMAND_TYPE = "conversation.trigger_message" as const
 const WORKSPACE_CHAT_BRIDGE_JOB_TYPE = "workspace_chat_bridge_dispatch" as const
 const COMMAND_CLAIM_STALE_AFTER_MS = 2 * 60 * 1000
 
 export type WorkspaceChatBridgeCommandPayload = {
+  assistantMessageId?: string
   commandType: typeof WORKSPACE_CHAT_BRIDGE_COMMAND_TYPE
   conversationId: string
   message: string
@@ -14,12 +20,14 @@ export type WorkspaceChatBridgeCommandPayload = {
 }
 
 export async function enqueueWorkspaceChatBridgeCommand(input: {
+  assistantMessageId?: string
   conversationId: string
   message: string
   tenantId: string
 }) {
   const db = getDb()
   const payload: WorkspaceChatBridgeCommandPayload = {
+    assistantMessageId: input.assistantMessageId?.trim() || undefined,
     commandType: WORKSPACE_CHAT_BRIDGE_COMMAND_TYPE,
     conversationId: input.conversationId,
     message: input.message,
@@ -45,6 +53,7 @@ export async function enqueueWorkspaceChatBridgeCommand(input: {
 
   await db.insert(jobEvents).values({
     dataJson: {
+      assistantMessageId: payload.assistantMessageId ?? null,
       commandType: payload.commandType,
       conversationId: payload.conversationId,
     },
@@ -123,6 +132,7 @@ export async function claimNextTenantRuntimeBridgeCommand(input: {
 
   await db.insert(jobEvents).values({
     dataJson: {
+      assistantMessageId: payload.assistantMessageId ?? null,
       bridgeId: input.bridgeId,
       commandType: payload.commandType,
       conversationId: payload.conversationId,
@@ -132,11 +142,19 @@ export async function claimNextTenantRuntimeBridgeCommand(input: {
     message: "Tenant bridge claimed workspace chat command",
   })
 
+  if (payload.assistantMessageId) {
+    await markWorkspaceChatAssistantMessageStreaming({
+      assistantMessageId: payload.assistantMessageId,
+      conversationId: payload.conversationId,
+    })
+  }
+
   return {
     command: {
       commandId: claimedJob.id,
       commandType: payload.commandType,
       payload: {
+        assistantMessageId: payload.assistantMessageId,
         conversationId: payload.conversationId,
         message: payload.message,
       },
@@ -187,8 +205,19 @@ export async function completeTenantRuntimeBridgeCommand(input: {
     throw new Error("Bridge command not found.")
   }
 
+  const [job] = await db
+    .select({
+      payload: jobRuns.payloadJson,
+    })
+    .from(jobRuns)
+    .where(eq(jobRuns.id, input.commandId))
+    .limit(1)
+
+  const payload = job ? parseWorkspaceChatBridgeCommandPayload(job.payload) : null
+
   await db.insert(jobEvents).values({
     dataJson: {
+      assistantMessageId: payload?.assistantMessageId ?? null,
       error: input.result.error ?? null,
       exitCode: input.result.exitCode ?? null,
       stderr: input.result.stderr ?? null,
@@ -201,6 +230,13 @@ export async function completeTenantRuntimeBridgeCommand(input: {
         ? "Tenant bridge completed workspace chat command"
         : input.result.error?.trim() || "Tenant bridge failed workspace chat command",
   })
+
+  if (input.result.status === "failed" && payload?.assistantMessageId) {
+    await markWorkspaceChatAssistantMessageFailed({
+      assistantMessageId: payload.assistantMessageId,
+      conversationId: payload.conversationId,
+    })
+  }
 
   return {
     commandId: updatedJob.id,
@@ -220,6 +256,10 @@ function parseWorkspaceChatBridgeCommandPayload(
 
   const commandType =
     typeof record.commandType === "string" ? record.commandType.trim() : ""
+  const assistantMessageId =
+    typeof record.assistantMessageId === "string"
+      ? record.assistantMessageId.trim()
+      : ""
   const conversationId =
     typeof record.conversationId === "string" ? record.conversationId.trim() : ""
   const message = typeof record.message === "string" ? record.message.trim() : ""
@@ -234,6 +274,7 @@ function parseWorkspaceChatBridgeCommandPayload(
   }
 
   return {
+    assistantMessageId: assistantMessageId || undefined,
     commandType,
     conversationId,
     message,

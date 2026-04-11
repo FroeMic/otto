@@ -34,12 +34,13 @@ export type TenantRuntimeBridgeCommandsRouteDependencies = {
     command:
       | {
           commandId: string
-          commandType: "conversation.trigger_message"
-          payload: {
-            conversationId: string
-            message: string
-          }
+        commandType: "conversation.trigger_message"
+        payload: {
+          assistantMessageId?: string
+          conversationId: string
+          message: string
         }
+      }
       | null
     tenantId: string
   }>

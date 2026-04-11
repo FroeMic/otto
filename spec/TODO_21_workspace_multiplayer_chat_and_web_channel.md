@@ -207,6 +207,11 @@ Current implementation status for Increment 1:
   - tenant runtimes now claim and complete those commands through runtime-authenticated bridge routes under `/api/internal/runtime/bridge/commands/*`
   - the Otto-managed runtime image now runs a `runtime-bridge-command-runner` helper that executes queued workspace chat turns locally with `openclaw agent --deliver`
   - this slice replaces SSH for workspace-chat dispatch only; browser fanout, streaming deltas, and richer bridge events are still follow-on work
+- the first assistant-lifecycle slice now also exists:
+  - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
+  - bridge command payloads now carry `assistantMessageId` correlation so tenant claim and completion paths can target the correct placeholder
+  - tenant bridge claim now advances the assistant placeholder to `streaming`, tenant bridge command failure marks it `failed`, and the runtime completion callback now fills and completes that exact assistant message instead of always inserting a new row
+  - the workspace UI now renders empty-part assistant placeholders as queued/running/failed state instead of treating every missing assistant reply as an implicit spinner only
 
 ## Frameworks And Packages To Use
 

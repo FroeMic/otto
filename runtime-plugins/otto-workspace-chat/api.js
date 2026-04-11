@@ -29,9 +29,14 @@ function normalizeWorkspaceTarget(raw) {
 
 function parseWorkspaceTarget(raw) {
   const normalized = normalizeWorkspaceTarget(raw);
-  const conversationId = normalized.replace(/^workspace:/, "");
+  const [conversationId, query = ""] = normalized
+    .replace(/^workspace:/, "")
+    .split("?", 2);
+  const assistantMessageId =
+    new URLSearchParams(query).get("assistantMessageId")?.trim() || undefined;
 
   return {
+    assistantMessageId,
     conversationId,
     target: normalized,
   };

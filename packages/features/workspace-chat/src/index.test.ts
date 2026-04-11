@@ -121,6 +121,16 @@ describe("workspace chat feature", () => {
             ],
             status: "completed",
           },
+          {
+            author: {
+              kind: "assistant",
+              name: "Otto",
+            },
+            createdAt: "2026-04-10T09:31:05.000Z",
+            id: "msg_2",
+            parts: [],
+            status: "pending",
+          },
         ],
       }),
       conversationId: "conv_1",
@@ -155,6 +165,16 @@ describe("workspace chat feature", () => {
             },
           ],
           status: "completed",
+        },
+        {
+          author: {
+            kind: "assistant",
+            name: "Otto",
+          },
+          createdAt: "2026-04-10T09:31:05.000Z",
+          id: "msg_2",
+          parts: [],
+          status: "pending",
         },
       ],
     })

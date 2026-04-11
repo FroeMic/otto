@@ -17,6 +17,7 @@ function createDependencies(): TenantRuntimeBridgeCommandsRouteDependencies {
         commandId: "cmd_1",
         commandType: "conversation.trigger_message",
         payload: {
+          assistantMessageId: "assistant_msg_1",
           conversationId: "conv_1",
           message: "Summarize the latest notes.",
         },
@@ -54,6 +55,7 @@ describe("tenant runtime bridge command routes", () => {
         commandId: "cmd_1",
         commandType: "conversation.trigger_message",
         payload: {
+          assistantMessageId: "assistant_msg_1",
           conversationId: "conv_1",
           message: "Summarize the latest notes.",
         },

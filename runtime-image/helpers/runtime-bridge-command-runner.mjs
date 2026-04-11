@@ -96,7 +96,10 @@ async function executeCommand(command) {
 }
 
 async function executeWorkspaceConversationTrigger(command) {
-  const target = `workspace:${command.payload.conversationId}`;
+  const target = buildWorkspaceTarget(
+    command.payload.conversationId,
+    command.payload.assistantMessageId,
+  );
   const args = [
     "dist/index.js",
     "agent",
@@ -166,6 +169,25 @@ async function executeWorkspaceConversationTrigger(command) {
       });
     });
   });
+}
+
+function buildWorkspaceTarget(conversationId, assistantMessageId) {
+  const normalizedConversationId = String(conversationId || "").trim();
+  const normalizedAssistantMessageId = String(assistantMessageId || "").trim();
+
+  if (!normalizedConversationId) {
+    return "workspace:";
+  }
+
+  if (!normalizedAssistantMessageId) {
+    return `workspace:${normalizedConversationId}`;
+  }
+
+  const params = new URLSearchParams({
+    assistantMessageId: normalizedAssistantMessageId,
+  });
+
+  return `workspace:${normalizedConversationId}?${params.toString()}`;
 }
 
 async function requestControlPlane(input) {
