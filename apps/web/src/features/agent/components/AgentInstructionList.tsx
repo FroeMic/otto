@@ -29,7 +29,7 @@ export function AgentInstructionList({
   tabs,
 }: AgentInstructionListProps) {
   return (
-    <SettingsCard className="overflow-hidden rounded-3xl">
+    <SettingsCard>
       {tabs.map((tab) => (
         <Link
           key={tab.slug}
