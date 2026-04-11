@@ -1,7 +1,82 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import {
+  hasConfiguredWorkspaceChatRuntime,
+  resolveWorkspaceChatAccount,
+} from "./channel-config.js";
 import { sendWorkspaceChatText } from "./outbound.js";
+
+test("otto-workspace-chat resolves as configured for managed runtimes", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+
+  try {
+    const cfg = {
+      channels: {
+        "otto-workspace-chat": {
+          enabled: true,
+          managed: true,
+        },
+      },
+    };
+
+    const account = resolveWorkspaceChatAccount(cfg, "default");
+
+    assert.equal(account.configured, true);
+    assert.equal(hasConfiguredWorkspaceChatRuntime(), true);
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
+test("otto-workspace-chat stays unconfigured without managed channel state", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+
+  try {
+    const cfg = {
+      channels: {
+        "otto-workspace-chat": {
+          enabled: true,
+        },
+      },
+    };
+
+    const account = resolveWorkspaceChatAccount(cfg, "default");
+
+    assert.equal(account.configured, false);
+    assert.equal(hasConfiguredWorkspaceChatRuntime(), true);
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
 
 test("otto-workspace-chat posts assistant completions back to the workspace API", async () => {
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
