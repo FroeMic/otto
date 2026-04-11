@@ -54,11 +54,6 @@ export function AgentPersonalizationDetailPage({
           </div>
         </div>
 
-        <AgentInstructionEditor
-          instruction={data.instruction}
-          orgSlug={orgSlug}
-        />
-
         {shellData.user.isPlatformAdmin ? (
           <SettingsCard>
             <Link
@@ -79,6 +74,11 @@ export function AgentPersonalizationDetailPage({
             </Link>
           </SettingsCard>
         ) : null}
+
+        <AgentInstructionEditor
+          instruction={data.instruction}
+          orgSlug={orgSlug}
+        />
       </SettingsPageContent>
     </SettingsPage>
   )
