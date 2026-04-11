@@ -2,12 +2,10 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { Navigate } from "@tanstack/react-router"
 
 import {
-  SettingsCard,
   SettingsPage,
   SettingsPageContent,
   SettingsSectionDescription,
 } from "@/client/app/app-shell/SettingsLayout"
-import { Textarea } from "@/components/ui/textarea"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
 import { agentPersonalizationDetailQueryOptions } from "../api/agent"
@@ -59,17 +57,12 @@ export function AgentPersonalizationSystemPage({
           </SettingsSectionDescription>
         </div>
 
-        <SettingsCard className="divide-y-0">
-          <div className="flex flex-col gap-3 px-5 py-5">
-            <h2 className="text-sm font-medium">System instructions</h2>
-            <Textarea
-              className="min-h-64 rounded-2xl border-border bg-muted/20 font-mono text-xs leading-5 disabled:cursor-default disabled:border-border disabled:opacity-100 disabled:text-foreground md:text-xs"
-              defaultValue={data.instruction.systemContent}
-              disabled
-              readOnly
-            />
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium">System instructions</h2>
+          <div className="min-h-64 rounded-2xl border border-border bg-muted/20 px-4 py-3 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground md:text-xs">
+            {data.instruction.systemContent}
           </div>
-        </SettingsCard>
+        </div>
       </SettingsPageContent>
     </SettingsPage>
   )
