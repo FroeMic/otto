@@ -164,7 +164,7 @@ describe("workspace chat feature", () => {
     const response = await handleWorkspaceChatMessageCreateRequest({
       createMessage: async ({ conversationId, parts }) => ({
         dispatch: {
-          status: "pending_runtime_bridge",
+          status: "queued",
         },
         message: {
           author: {
@@ -207,7 +207,7 @@ describe("workspace chat feature", () => {
     assert.deepEqual(await response.json(), {
       conversationId: "conv_1",
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "queued",
       },
       message: {
         author: {

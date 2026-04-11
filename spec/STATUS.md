@@ -240,6 +240,11 @@
     - the Otto-managed runtime image now starts a lightweight `runtime-bridge-reporter` helper beside the existing cron watcher
     - tenant runtimes now report bridge heartbeat, gateway health, enabled Otto plugin ids, and control-plane base URL back to `apps/api` at `/api/internal/runtime/bridge/report`
     - the control plane now persists the latest bridge status per tenant in `tenant_runtime_bridge_statuses`
+  - the first tenant-bridge command relay slice now also exists:
+    - `apps/api` now queues workspace-chat bridge commands in the existing `job_runs` table instead of SSH-dispatching chat turns inline from the request path
+    - tenant runtimes now expose runtime-authenticated bridge command claim and completion routes at `/api/internal/runtime/bridge/commands/*`
+    - the Otto-managed runtime image now starts a lightweight `runtime-bridge-command-runner` helper that polls for `conversation.trigger_message` commands and executes them locally with `openclaw agent --deliver`
+    - workspace chat still stops short of browser realtime or streaming, but the request-path SSH dependency is now removed for workspace-chat dispatch
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree
