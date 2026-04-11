@@ -27,7 +27,7 @@ function buildConfig(): OpenClawTenantConfig {
 describe("renderOpenClawConfig", () => {
   it("omits plugin config fields when a plugin does not declare them and enables the workspace channel", () => {
     const rendered = JSON.parse(renderOpenClawConfig(buildConfig())) as {
-      channels: Record<string, { enabled: boolean }>;
+      channels: Record<string, { enabled: boolean; managed?: boolean }>;
       plugins: {
         entries: Record<string, { config?: Record<string, unknown>; enabled: boolean }>;
       };
@@ -47,6 +47,7 @@ describe("renderOpenClawConfig", () => {
     );
     expect(rendered.channels["otto-workspace-chat"]).toEqual({
       enabled: true,
+      managed: true,
     });
     assert.equal("alsoAllow" in rendered.tools, false);
   });

@@ -198,6 +198,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   )
     ? {
         enabled: true,
+        managed: true,
       }
     : undefined;
   const ottoToolPluginEntries = Object.fromEntries(

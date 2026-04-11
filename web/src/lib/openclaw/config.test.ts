@@ -66,6 +66,7 @@ describe("renderOpenClawConfig", () => {
     ]);
     assert.deepEqual(renderedConfig.channels["otto-workspace-chat"], {
       enabled: true,
+      managed: true,
     });
     assert.deepEqual(renderedConfig.skills, {
       allowBundled: ["slack"],
