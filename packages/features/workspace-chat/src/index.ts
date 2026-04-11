@@ -238,6 +238,11 @@ export type {
   WorkspaceChatRuntimeMessageCompleteRequest,
   WorkspaceChatRuntimeMessageCompleteResponse,
 } from "./schemas"
+export type {
+  WorkspaceChatRealtimeClientMessage,
+  WorkspaceChatRealtimeEvent,
+  WorkspaceChatRealtimeServerEvent,
+} from "./realtime"
 export {
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
@@ -254,3 +259,7 @@ export {
   workspaceChatRuntimeMessageCompleteResponseSchema,
   workspaceChatRuntimeSessionStatusSchema,
 } from "./schemas"
+export {
+  workspaceChatRealtimeClientMessageSchema,
+  workspaceChatRealtimeServerEventSchema,
+} from "./realtime"

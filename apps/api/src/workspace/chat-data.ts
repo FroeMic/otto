@@ -14,9 +14,11 @@ import type {
   WorkspaceChatMessage,
   WorkspaceChatMessageCreateResponse,
   WorkspaceChatMessagePart,
+  WorkspaceChatRealtimeEvent,
 } from "@otto/feature-workspace-chat"
 import { and, desc, eq, inArray, or } from "drizzle-orm"
 
+import { getWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { getOrganizationWorkspaceBySlug } from "./data"
 
 type WorkspaceChatConversationRow = {
@@ -323,6 +325,24 @@ export async function getWorkspaceChatConversationDetail(input: {
   }
 }
 
+export async function canAccessWorkspaceChatConversation(input: {
+  conversationId: string
+  orgSlug: string
+  userExternalId: string
+}): Promise<boolean> {
+  const actor = await resolveWorkspaceChatActor({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+  const conversation = await getAccessibleWorkspaceChatConversation({
+    conversationId: input.conversationId,
+    organizationId: actor.organizationId,
+    userId: actor.userId,
+  })
+
+  return Boolean(conversation)
+}
+
 export async function createWorkspaceChatMessage(input: {
   clientMessageId?: string
   conversationId: string
@@ -427,6 +447,18 @@ export async function createWorkspaceChatMessageRecord(input: {
         })
       : undefined
 
+    if (assistantMessageId) {
+      const assistantMessage = await getWorkspaceChatMessageById(assistantMessageId)
+
+      if (assistantMessage) {
+        await publishWorkspaceChatRealtimeEvent({
+          conversationId: conversation.id,
+          message: assistantMessage,
+          type: "conversation.message_upserted",
+        })
+      }
+    }
+
     return {
       assistantMessageId,
       conversationId: conversation.id,
@@ -514,6 +546,32 @@ export async function createWorkspaceChatMessageRecord(input: {
     }
   })
 
+  const [assistantMessage, conversationSummary] = await Promise.all([
+    getWorkspaceChatMessageById(createdMessage.assistantMessageId),
+    getWorkspaceChatConversationSummaryById(conversation.id),
+  ])
+
+  await publishWorkspaceChatRealtimeEvent({
+    conversationId: conversation.id,
+    message: createdMessage.message,
+    type: "conversation.message_upserted",
+  })
+
+  if (assistantMessage) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: conversation.id,
+      message: assistantMessage,
+      type: "conversation.message_upserted",
+    })
+  }
+
+  if (conversationSummary) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversation: conversationSummary,
+      type: "conversation.summary_updated",
+    })
+  }
+
   return {
     conversationId: conversation.id,
     dispatch: {
@@ -546,8 +604,7 @@ export async function completeWorkspaceChatAssistantMessage(input: {
   tenantId: string
 } | null> {
   const db = getDb()
-
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [conversation] = await tx
       .select({
         id: workspaceChatConversations.id,
@@ -695,6 +752,32 @@ export async function completeWorkspaceChatAssistantMessage(input: {
       tenantId: input.tenantId,
     }
   })
+
+  if (!result) {
+    return null
+  }
+
+  const [message, conversationSummary] = await Promise.all([
+    getWorkspaceChatMessageById(result.messageId),
+    getWorkspaceChatConversationSummaryById(result.conversationId),
+  ])
+
+  if (message) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: result.conversationId,
+      message,
+      type: "conversation.message_upserted",
+    })
+  }
+
+  if (conversationSummary) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversation: conversationSummary,
+      type: "conversation.summary_updated",
+    })
+  }
+
+  return result
 }
 
 export async function markWorkspaceChatAssistantMessageStreaming(input: {
@@ -702,8 +785,7 @@ export async function markWorkspaceChatAssistantMessageStreaming(input: {
   conversationId: string
 }) {
   const db = getDb()
-
-  await db
+  const [updatedMessage] = await db
     .update(workspaceChatMessages)
     .set({
       status: "streaming",
@@ -716,6 +798,23 @@ export async function markWorkspaceChatAssistantMessageStreaming(input: {
         inArray(workspaceChatMessages.status, ["pending", "streaming"]),
       ),
     )
+    .returning({
+      id: workspaceChatMessages.id,
+    })
+
+  if (!updatedMessage) {
+    return
+  }
+
+  const message = await getWorkspaceChatMessageById(updatedMessage.id)
+
+  if (message) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: input.conversationId,
+      message,
+      type: "conversation.message_upserted",
+    })
+  }
 }
 
 export async function markWorkspaceChatAssistantMessageFailed(input: {
@@ -724,8 +823,7 @@ export async function markWorkspaceChatAssistantMessageFailed(input: {
 }) {
   const db = getDb()
   const failedAt = new Date()
-
-  await db
+  const [updatedMessage] = await db
     .update(workspaceChatMessages)
     .set({
       completedAt: failedAt,
@@ -739,6 +837,23 @@ export async function markWorkspaceChatAssistantMessageFailed(input: {
         inArray(workspaceChatMessages.status, ["pending", "streaming"]),
       ),
     )
+    .returning({
+      id: workspaceChatMessages.id,
+    })
+
+  if (!updatedMessage) {
+    return
+  }
+
+  const message = await getWorkspaceChatMessageById(updatedMessage.id)
+
+  if (message) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: input.conversationId,
+      message,
+      type: "conversation.message_upserted",
+    })
+  }
 }
 
 function buildWorkspaceChatConversationAccessPredicate(userId: string) {
@@ -827,6 +942,72 @@ async function getExistingWorkspaceChatMessageByClientId(input: {
     message,
     parts: partRows.map(mapWorkspaceChatMessagePartRecord),
   })
+}
+
+async function getWorkspaceChatMessageById(messageId: string) {
+  const db = getDb()
+  const [message] = await db
+    .select({
+      authorExternalId: users.externalId,
+      authorKind: workspaceChatMessages.authorKind,
+      authorName: workspaceChatMessages.authorName,
+      completedAt: workspaceChatMessages.completedAt,
+      createdAt: workspaceChatMessages.createdAt,
+      id: workspaceChatMessages.id,
+      status: workspaceChatMessages.status,
+    })
+    .from(workspaceChatMessages)
+    .leftJoin(users, eq(workspaceChatMessages.authorUserId, users.id))
+    .where(eq(workspaceChatMessages.id, messageId))
+    .limit(1)
+
+  if (!message) {
+    return null
+  }
+
+  const partRows = await db
+    .select({
+      attachmentId: workspaceChatMessageParts.attachmentId,
+      durationMs: workspaceChatMessageParts.durationMs,
+      fileName: workspaceChatMessageParts.fileName,
+      mimeType: workspaceChatMessageParts.mimeType,
+      partKind: workspaceChatMessageParts.partKind,
+      textValue: workspaceChatMessageParts.textValue,
+    })
+    .from(workspaceChatMessageParts)
+    .where(eq(workspaceChatMessageParts.messageId, message.id))
+    .orderBy(workspaceChatMessageParts.ordinal)
+
+  return mapWorkspaceChatMessage({
+    message,
+    parts: partRows.map(mapWorkspaceChatMessagePartRecord),
+  })
+}
+
+async function getWorkspaceChatConversationSummaryById(conversationId: string) {
+  const db = getDb()
+  const [conversation] = await db
+    .select({
+      id: workspaceChatConversations.id,
+      kind: workspaceChatConversations.kind,
+      lastActivityAt: workspaceChatConversations.lastActivityAt,
+      latestMessagePreview: workspaceChatConversations.latestMessagePreview,
+      slug: workspaceChatConversations.slug,
+      tenantId: workspaceChatConversations.tenantId,
+      title: workspaceChatConversations.title,
+      visibility: workspaceChatConversations.visibility,
+    })
+    .from(workspaceChatConversations)
+    .where(eq(workspaceChatConversations.id, conversationId))
+    .limit(1)
+
+  return conversation ? mapWorkspaceChatConversationSummary(conversation) : null
+}
+
+async function publishWorkspaceChatRealtimeEvent(
+  event: WorkspaceChatRealtimeEvent,
+) {
+  await getWorkspaceChatRealtimeHub().publish(event)
 }
 
 function buildAssistantClientMessageId(clientMessageId: string | undefined) {

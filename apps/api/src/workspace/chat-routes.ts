@@ -26,6 +26,7 @@ import {
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
 } from "./chat-data"
+import { createWorkspaceChatRealtimeRouter } from "./chat-realtime-routes"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 import { syncUserFromSession } from "./data"
 
@@ -110,6 +111,15 @@ export function createWorkspaceChatRouter(
   }
 
   return new Hono()
+    .route(
+      "/",
+      createWorkspaceChatRealtimeRouter({
+        authenticateWorkspaceUser: dependencies.authenticateWorkspaceUser,
+        canAccessConversation: async (payload) =>
+          Boolean(await dependencies.getConversationDetail(payload)),
+        syncUserFromSession: dependencies.syncUserFromSession,
+      }),
+    )
     .get(
       "/api/workspace/:orgSlug/chat/conversations",
       zValidator("param", workspaceParamsSchema),

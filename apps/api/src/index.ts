@@ -1,4 +1,4 @@
-import { serve } from "@hono/node-server"
+import { websocket } from "hono/bun"
 
 import { createApiApp } from "./app"
 
@@ -7,8 +7,9 @@ const app = createApiApp()
 
 console.info(`[api] starting on :${port}`)
 
-serve({
+export default {
   fetch: app.fetch,
   hostname: "0.0.0.0",
   port,
-})
+  websocket,
+}
