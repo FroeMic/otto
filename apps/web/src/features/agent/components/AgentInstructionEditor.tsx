@@ -1,9 +1,7 @@
-import { CaretDownIcon, CaretRightIcon, LockIcon } from "@phosphor-icons/react"
+import { LockIcon } from "@phosphor-icons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
-
-import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,11 +14,22 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
+import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 
 import {
   agentPersonalizationDetailQueryOptions,
@@ -39,24 +48,20 @@ export function AgentInstructionEditor({
   orgSlug,
 }: AgentInstructionEditorProps) {
   const queryClient = useQueryClient()
-  const [workspaceValue, setWorkspaceValue] = useState(instruction.sharedContent)
+  const [workspaceValue, setWorkspaceValue] = useState(
+    instruction.sharedContent,
+  )
   const [savedValue, setSavedValue] = useState(instruction.sharedContent)
   const [version, setVersion] = useState(instruction.version)
-  const [isSystemOpen, setIsSystemOpen] = useState(false)
-  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true)
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
   const [isApplyingChanges, setIsApplyingChanges] = useState(false)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
-  const SystemChevronIcon = isSystemOpen ? CaretDownIcon : CaretRightIcon
-  const WorkspaceChevronIcon = isWorkspaceOpen
-    ? CaretDownIcon
-    : CaretRightIcon
 
   const isDirty = workspaceValue !== savedValue
   const instructionTextareaClassName =
-    "min-h-56 rounded-xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs"
+    "min-h-64 rounded-2xl border-border bg-muted/40 font-mono text-xs leading-5 md:text-xs"
   const systemTextareaClassName = [
     instructionTextareaClassName,
     "disabled:cursor-default disabled:border-border disabled:bg-muted/20 disabled:opacity-100 disabled:text-foreground",
@@ -66,8 +71,6 @@ export function AgentInstructionEditor({
     setWorkspaceValue(instruction.sharedContent)
     setSavedValue(instruction.sharedContent)
     setVersion(instruction.version)
-    setIsSystemOpen(false)
-    setIsWorkspaceOpen(true)
     setIsLeaveDialogOpen(false)
     setPendingHref(null)
   }, [instruction])
@@ -177,7 +180,8 @@ export function AgentInstructionEditor({
 
           await Promise.all([
             queryClient.invalidateQueries({
-              queryKey: agentPersonalizationOverviewQueryOptions(orgSlug).queryKey,
+              queryKey:
+                agentPersonalizationOverviewQueryOptions(orgSlug).queryKey,
             }),
             queryClient.invalidateQueries({
               queryKey: agentPersonalizationDetailQueryOptions({
@@ -211,74 +215,79 @@ export function AgentInstructionEditor({
         <IntegrationFloatingStatusChip message="Applying Changes" />
       ) : null}
 
-      <div className="flex flex-col gap-8">
-        <Collapsible
-          className="flex flex-col gap-3"
-          open={isSystemOpen}
-          onOpenChange={setIsSystemOpen}
-        >
-          <CollapsibleTrigger className="flex items-center gap-2 text-left">
-            <SystemChevronIcon className="size-4 text-muted-foreground" />
-            <span className="text-sm font-medium">System Instructions</span>
-            <LockIcon className="size-4 text-muted-foreground" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-1">
-            <Textarea
-              className={systemTextareaClassName}
-              defaultValue={instruction.systemContent}
-              disabled
-              readOnly
-            />
-          </CollapsibleContent>
-        </Collapsible>
+      <form ref={formRef} onSubmit={handleSubmit}>
+        <Card className="gap-0 rounded-3xl py-0 ring-1 ring-border/70">
+          <CardHeader className="gap-2 border-b border-border px-6 py-5">
+            <CardTitle>Instruction file</CardTitle>
+            <CardDescription>
+              Otto keeps the system instructions locked and appends your
+              workspace guidance below.
+            </CardDescription>
+          </CardHeader>
 
-        <Collapsible
-          className="flex flex-col gap-3"
-          open={isWorkspaceOpen}
-          onOpenChange={setIsWorkspaceOpen}
-        >
-          <CollapsibleTrigger className="flex items-center gap-2 text-left">
-            <WorkspaceChevronIcon className="size-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Workspace Instructions</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-1">
-            <form
-              ref={formRef}
-              className="flex flex-col gap-3"
-              onSubmit={handleSubmit}
+          <CardContent className="px-6 py-6">
+            <FieldGroup>
+              <Field>
+                <FieldContent className="gap-3">
+                  <FieldTitle>
+                    System instructions
+                    <LockIcon className="size-4 text-muted-foreground" />
+                  </FieldTitle>
+                  <FieldDescription>
+                    These instructions are managed by Otto and cannot be edited
+                    here.
+                  </FieldDescription>
+                  <Textarea
+                    className={systemTextareaClassName}
+                    defaultValue={instruction.systemContent}
+                    disabled
+                    readOnly
+                  />
+                </FieldContent>
+              </Field>
+
+              <Field>
+                <FieldContent className="gap-3">
+                  <FieldTitle>Workspace instructions</FieldTitle>
+                  <FieldDescription>
+                    Add workspace-specific guidance Otto should follow for this
+                    file.
+                  </FieldDescription>
+                  <Textarea
+                    className={instructionTextareaClassName}
+                    name="sharedContent"
+                    onChange={(event) => setWorkspaceValue(event.target.value)}
+                    required
+                    value={workspaceValue}
+                  />
+                </FieldContent>
+              </Field>
+            </FieldGroup>
+          </CardContent>
+
+          <CardFooter className="justify-end gap-2 border-t border-border px-6 py-4">
+            <Button
+              disabled={!isDirty || isPending}
+              onClick={handleReset}
+              type="button"
+              variant="outline"
             >
-              <Textarea
-                className={instructionTextareaClassName}
-                name="sharedContent"
-                onChange={(event) => setWorkspaceValue(event.target.value)}
-                required
-                value={workspaceValue}
-              />
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  disabled={!isDirty || isPending}
-                  onClick={handleReset}
-                  type="button"
-                  variant="outline"
-                >
-                  Cancel
-                </Button>
-                <Button disabled={!isDirty || isPending} type="submit">
-                  Save changes
-                </Button>
-              </div>
-            </form>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+              Reset
+            </Button>
+            <Button disabled={!isDirty || isPending} type="submit">
+              {isPending ? "Saving..." : "Save changes"}
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
 
       <AlertDialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved workspace instruction changes. Leave this page and
-              discard them?
+              You have unsaved workspace instruction changes. Leave this page
+              and discard them?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

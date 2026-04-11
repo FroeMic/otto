@@ -3,73 +3,52 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   SettingsPage,
   SettingsPageContent,
-  SettingsSection,
+  SettingsPageTitle,
   SettingsSectionDescription,
-  SettingsSectionTitle,
 } from "@/client/app/app-shell/SettingsLayout"
 
-import { agentPersonalizationDetailQueryOptions } from "../api/agent"
-import { AgentInstructionEditor } from "../components/AgentInstructionEditor"
+import { agentPersonalizationOverviewQueryOptions } from "../api/agent"
 import { AgentInstructionEmptyState } from "../components/AgentInstructionEmptyState"
-import { AgentInstructionHeader } from "../components/AgentInstructionHeader"
-import { AgentInstructionTabs } from "../components/AgentInstructionTabs"
+import { AgentInstructionList } from "../components/AgentInstructionList"
 
 export interface AgentPersonalizationPageProps {
-  instructionTab: string
   orgSlug: string
 }
 
 export function AgentPersonalizationPage({
-  instructionTab,
   orgSlug,
 }: AgentPersonalizationPageProps) {
   const { data } = useSuspenseQuery(
-    agentPersonalizationDetailQueryOptions({
-      instructionTab,
-      orgSlug,
-    }),
+    agentPersonalizationOverviewQueryOptions(orgSlug),
   )
 
-  if (data.state === "pending_setup" || !data.instruction) {
-    return (
-      <div className="flex flex-col gap-6">
-        <AgentInstructionHeader>
-          <AgentInstructionTabs
-            currentInstructionTab={data.selectedTab.slug}
-            orgSlug={orgSlug}
-            tabs={data.tabs}
-          />
-        </AgentInstructionHeader>
-        <AgentInstructionEmptyState />
-      </div>
-    )
+  if (data.state === "pending_setup") {
+    return <AgentInstructionEmptyState />
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <AgentInstructionHeader>
-        <AgentInstructionTabs
-          currentInstructionTab={data.selectedTab.slug}
-          orgSlug={orgSlug}
-          tabs={data.tabs}
-        />
-      </AgentInstructionHeader>
+    <SettingsPage>
+      <SettingsPageContent className="flex max-w-3xl flex-col gap-8 pb-8">
+        <div className="flex flex-col gap-2">
+          <SettingsPageTitle>Personalization</SettingsPageTitle>
+          <SettingsSectionDescription className="max-w-3xl leading-6">
+            Review and adjust the instruction files Otto uses for your
+            workspace.
+          </SettingsSectionDescription>
+        </div>
 
-      <SettingsPage>
-        <SettingsPageContent className="flex flex-col gap-8 pb-8">
-          <SettingsSection>
-            <SettingsSectionTitle>{data.selectedTab.label}</SettingsSectionTitle>
-            <SettingsSectionDescription>
-              {data.instruction.description}
-            </SettingsSectionDescription>
-          </SettingsSection>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-medium">Instruction files</h2>
+            <p className="text-sm text-muted-foreground">
+              Open a file to edit the workspace-specific guidance Otto should
+              follow in that area.
+            </p>
+          </div>
 
-          <AgentInstructionEditor
-            instruction={data.instruction}
-            orgSlug={orgSlug}
-          />
-        </SettingsPageContent>
-      </SettingsPage>
-    </div>
+          <AgentInstructionList orgSlug={orgSlug} tabs={data.tabs} />
+        </div>
+      </SettingsPageContent>
+    </SettingsPage>
   )
 }

@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
 import {
   createRootRouteWithContext,
   createRoute,
@@ -13,16 +13,16 @@ import { PlatformAuthRequiredPage } from "@/client/app/pages/PlatformAuthRequire
 import { RootPage } from "@/client/app/pages/RootPage"
 import { WorkspaceAuthRequiredPage } from "@/client/app/pages/WorkspaceAuthRequiredPage"
 import { WorkspaceSettingsRedirectPage } from "@/client/app/pages/WorkspaceSettingsRedirectPage"
-import { BillingPage } from "@/features/billing/pages/BillingPage"
-import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
-import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import {
   agentPersonalizationDetailQueryOptions,
   agentPersonalizationOverviewQueryOptions,
 } from "@/features/agent/api/agent"
+import { AgentPersonalizationDetailPage } from "@/features/agent/pages/AgentPersonalizationDetailPage"
 import { AgentPersonalizationPage } from "@/features/agent/pages/AgentPersonalizationPage"
-import { AgentPersonalizationRedirectPage } from "@/features/agent/pages/AgentPersonalizationRedirectPage"
 import { LegacyAgentRedirectPage } from "@/features/agent/pages/LegacyAgentRedirectPage"
+import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
+import { BillingPage } from "@/features/billing/pages/BillingPage"
+import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
@@ -31,22 +31,22 @@ import { IntegrationDetailLayoutPage } from "@/features/integrations/pages/Integ
 import { IntegrationDetailRedirectPage } from "@/features/integrations/pages/IntegrationDetailRedirectPage"
 import { IntegrationsPage } from "@/features/integrations/pages/IntegrationsPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
-import {
-  workspaceChatConversationDetailQueryOptions,
-  workspaceChatConversationListQueryOptions,
-} from "@/features/workspace-chat/api/chat"
-import { WorkspaceConversationPage } from "@/features/workspace-chat/pages/WorkspaceConversationPage"
+import { workspaceMembersQueryOptions } from "@/features/workspace/api/members"
 import {
   ApiResponseError,
   connectedAccountsQueryOptions,
   shellBootstrapQueryOptions,
   userProfileQueryOptions,
 } from "@/features/workspace/api/workspace"
-import { workspaceMembersQueryOptions } from "@/features/workspace/api/members"
 import { UserProfilePage } from "@/features/workspace/pages/UserProfilePage"
 import { WorkspaceMembersPage } from "@/features/workspace/pages/WorkspaceMembersPage"
 import { WorkspaceOverviewPage } from "@/features/workspace/pages/WorkspaceOverviewPage"
 import { WorkspaceSettingsPage } from "@/features/workspace/pages/WorkspaceSettingsPage"
+import {
+  workspaceChatConversationDetailQueryOptions,
+  workspaceChatConversationListQueryOptions,
+} from "@/features/workspace-chat/api/chat"
+import { WorkspaceConversationPage } from "@/features/workspace-chat/pages/WorkspaceConversationPage"
 
 function WorkspaceRouteOutlet() {
   return <Outlet />
@@ -117,18 +117,18 @@ function WorkspaceIntegrationsRoutePage() {
   return <IntegrationsPage orgSlug={orgSlug} />
 }
 
-function WorkspaceAgentPersonalizationRedirectRoutePage() {
+function WorkspaceAgentPersonalizationRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
-  return <AgentPersonalizationRedirectPage orgSlug={orgSlug} />
+  return <AgentPersonalizationPage orgSlug={orgSlug} />
 }
 
-function WorkspaceAgentPersonalizationRoutePage() {
+function WorkspaceAgentPersonalizationDetailRoutePage() {
   const { instructionTab, orgSlug } =
     workspaceAgentPersonalizationDetailRoute.useParams()
 
   return (
-    <AgentPersonalizationPage
+    <AgentPersonalizationDetailPage
       instructionTab={instructionTab}
       orgSlug={orgSlug}
     />
@@ -154,7 +154,8 @@ function LegacyWorkspaceAgentInstructionRedirectRoutePage() {
 }
 
 function WorkspaceIntegrationDetailRedirectRoutePage() {
-  const { integrationKey, orgSlug } = workspaceIntegrationRedirectRoute.useParams()
+  const { integrationKey, orgSlug } =
+    workspaceIntegrationRedirectRoute.useParams()
 
   return (
     <IntegrationDetailRedirectPage
@@ -372,7 +373,7 @@ const workspaceSettingsIntegrationsRoute = createRoute({
 })
 
 const workspaceAgentPersonalizationRoute = createRoute({
-  component: WorkspaceAgentPersonalizationRedirectRoutePage,
+  component: WorkspaceAgentPersonalizationRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
@@ -382,7 +383,7 @@ const workspaceAgentPersonalizationRoute = createRoute({
 })
 
 const workspaceAgentPersonalizationDetailRoute = createRoute({
-  component: WorkspaceAgentPersonalizationRoutePage,
+  component: WorkspaceAgentPersonalizationDetailRoutePage,
   getParentRoute: () => workspaceSettingsRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
@@ -484,7 +485,8 @@ const platformOrganizationsRoute = createRoute({
   ),
   getParentRoute: () => platformShellRoute,
   loader: async ({ context }) => {
-    const { platformOrganizationsQueryOptions } = await importPlatformApiModule()
+    const { platformOrganizationsQueryOptions } =
+      await importPlatformApiModule()
 
     return context.queryClient.ensureQueryData(
       platformOrganizationsQueryOptions(),
