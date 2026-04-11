@@ -212,6 +212,11 @@ Current implementation status for Increment 1:
   - bridge command payloads now carry `assistantMessageId` correlation so tenant claim and completion paths can target the correct placeholder
   - tenant bridge claim now advances the assistant placeholder to `streaming`, tenant bridge command failure marks it `failed`, and the runtime completion callback now fills and completes that exact assistant message instead of always inserting a new row
   - the workspace UI now renders empty-part assistant placeholders as queued/running/failed state instead of treating every missing assistant reply as an implicit spinner only
+- the first browser push slice now also exists:
+  - `apps/api` now exposes a typed Bun websocket route at `/api/workspace/:orgSlug/chat/realtime`
+  - the control plane now keeps an in-memory workspace-chat fanout hub, validates typed `subscribe` / `unsubscribe` messages, returns explicit `subscription_denied` control events, and treats websocket fanout as best-effort after successful DB writes
+  - `apps/web` now opens one websocket from the workspace shell, and active conversation pages only manage subscribe / unsubscribe while pushed events update TanStack Query caches for both the conversation detail and sidebar summary list
+  - this slice gives live queued/running/completed/failed updates without waiting for polling, aligns the browser with the intended workspace-scoped websocket model, and still stops short of token streaming
 
 ## Frameworks And Packages To Use
 
@@ -251,7 +256,7 @@ Why WebSocket is the default:
 
 - multiplayer presence and fanout need bidirectional state
 - typing and abort signals are interactive
-- streaming updates should not require opening separate per-conversation SSE channels
+- streaming updates should not require spinning up a separate transport shape from the existing websocket path
 
 Server-side persistence recommendation:
 

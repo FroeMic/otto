@@ -250,11 +250,16 @@
     - bridge command payloads now carry `assistantMessageId` correlation so claim, failure, and completion paths can update that placeholder deterministically
     - tenant bridge claim now marks the assistant message `streaming`, bridge command failure marks it `failed`, and the runtime completion callback now updates the placeholder to `completed` with its final parts
     - the workspace UI now renders queued/running/failed assistant placeholders directly instead of inferring only from the absence of an assistant message
+  - the first browser push slice now also exists:
+    - `apps/api` now exposes a typed Bun websocket route at `/api/workspace/:orgSlug/chat/realtime`
+    - the control plane now keeps an in-memory workspace-chat realtime hub plus typed `subscribe` / `unsubscribe` handling, explicit `subscription_denied` control events, and best-effort canonical message/summary fanout after successful workspace-chat writes
+    - `apps/web` now opens one websocket from the workspace shell and conversation pages only manage subscribe / unsubscribe for the active conversation while pushed events update the conversation-detail and conversation-list query caches
+    - workspace chat still stops short of token streaming, but active conversation state no longer waits on polling alone and the browser connection shape now matches the intended workspace-scoped websocket model
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree
     - the workspace shell now includes a first conversation history section with create-conversation and recency display
-    - the current browser path uses TanStack Query polling for freshness; realtime fanout and streaming are still the next slices
+    - the current browser path now uses a workspace-scoped websocket plus active-conversation subscriptions and still keeps polling as fallback elsewhere; token streaming is still the next slice
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
