@@ -16,6 +16,7 @@ describe("workspace chat dispatch", () => {
 
     const result = await dispatchWorkspaceChatMessage(
       {
+        assistantMessageId: "assistant_msg_123",
         conversationId: "conv_123",
         message: "Summarize the latest notes.",
         tenantId: "tenant_123",
@@ -33,6 +34,7 @@ describe("workspace chat dispatch", () => {
     )
 
     assert.deepEqual(queuedPayload, {
+      assistantMessageId: "assistant_msg_123",
       conversationId: "conv_123",
       message: "Summarize the latest notes.",
       tenantId: "tenant_123",

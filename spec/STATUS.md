@@ -245,6 +245,11 @@
     - tenant runtimes now expose runtime-authenticated bridge command claim and completion routes at `/api/internal/runtime/bridge/commands/*`
     - the Otto-managed runtime image now starts a lightweight `runtime-bridge-command-runner` helper that polls for `conversation.trigger_message` commands and executes them locally with `openclaw agent --deliver`
     - workspace chat still stops short of browser realtime or streaming, but the request-path SSH dependency is now removed for workspace-chat dispatch
+  - the first assistant lifecycle slice now also exists:
+    - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
+    - bridge command payloads now carry `assistantMessageId` correlation so claim, failure, and completion paths can update that placeholder deterministically
+    - tenant bridge claim now marks the assistant message `streaming`, bridge command failure marks it `failed`, and the runtime completion callback now updates the placeholder to `completed` with its final parts
+    - the workspace UI now renders queued/running/failed assistant placeholders directly instead of inferring only from the absence of an assistant message
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree

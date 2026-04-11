@@ -12,6 +12,22 @@ export function ConversationMessageBubble({
 }: ConversationMessageBubbleProps) {
   const isAssistant = message.author.kind === "assistant"
   const textParts = message.parts.filter((part) => part.type === "text")
+  const statusLabel =
+    message.status === "pending"
+      ? "Queued"
+      : message.status === "streaming"
+        ? "Running"
+        : message.status === "failed"
+          ? "Failed"
+          : null
+  const placeholderText =
+    message.status === "pending"
+      ? "Otto is queued to reply."
+      : message.status === "streaming"
+        ? "Otto is working on a reply."
+        : message.status === "failed"
+          ? "Otto could not complete this reply."
+          : null
 
   return (
     <div
@@ -36,6 +52,7 @@ export function ConversationMessageBubble({
             <Badge variant="outline">
               {isAssistant ? "Otto" : "Workspace"}
             </Badge>
+            {statusLabel ? <Badge variant="secondary">{statusLabel}</Badge> : null}
           </div>
           <p className="text-xs text-muted-foreground">
             {new Date(message.createdAt).toLocaleTimeString([], {
@@ -50,6 +67,10 @@ export function ConversationMessageBubble({
             {part.text}
           </p>
         ))}
+
+        {textParts.length === 0 && placeholderText ? (
+          <p className="text-sm text-muted-foreground">{placeholderText}</p>
+        ) : null}
       </div>
     </div>
   )

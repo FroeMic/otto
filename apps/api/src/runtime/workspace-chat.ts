@@ -15,6 +15,7 @@ export type WorkspaceChatRuntimeRouteDependencies = {
     tenantId: string
   }>
   completeAssistantMessage: (payload: {
+    assistantMessageId?: string
     assistantDisplayName?: string
     conversationId: string
     parts: WorkspaceChatRuntimeMessageCompleteRequest["message"]["parts"]
@@ -79,6 +80,7 @@ export function createWorkspaceChatRuntimeRouter(
           await context.req.json(),
         )
         const result = await dependencies.completeAssistantMessage({
+          assistantMessageId: payload.assistantMessageId,
           assistantDisplayName: payload.assistantDisplayName,
           conversationId: payload.conversationId,
           parts: payload.message.parts,

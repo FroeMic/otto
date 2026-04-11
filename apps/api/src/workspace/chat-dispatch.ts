@@ -2,6 +2,7 @@ import { enqueueWorkspaceChatBridgeCommand } from "../runtime/bridge-commands-da
 
 type WorkspaceChatDispatchDependencies = {
   enqueueBridgeCommand?: (input: {
+    assistantMessageId?: string
     conversationId: string
     message: string
     tenantId: string
@@ -13,6 +14,7 @@ type WorkspaceChatDispatchDependencies = {
 
 export async function dispatchWorkspaceChatMessage(
   input: {
+    assistantMessageId?: string
     conversationId: string
     message: string
     tenantId: string
@@ -24,6 +26,7 @@ export async function dispatchWorkspaceChatMessage(
   const enqueueBridgeCommand =
     dependencies.enqueueBridgeCommand ?? enqueueWorkspaceChatBridgeCommand
   const command = await enqueueBridgeCommand({
+    assistantMessageId: input.assistantMessageId,
     conversationId: input.conversationId,
     message: input.message,
     tenantId: input.tenantId,

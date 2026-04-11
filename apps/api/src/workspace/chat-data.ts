@@ -349,6 +349,8 @@ export async function createWorkspaceChatMessageRecord(input: {
   userExternalId: string
 }): Promise<
   WorkspaceChatMessageCreateResponse & {
+    assistantMessageId?: string
+    shouldDispatch: boolean
     tenantId: string
   }
 > {
@@ -367,35 +369,90 @@ export async function createWorkspaceChatMessageRecord(input: {
   }
 
   const db = getDb()
-  const existingMessage = input.clientMessageId?.trim()
+  const normalizedClientMessageId = input.clientMessageId?.trim() || undefined
+  const assistantClientMessageId = buildAssistantClientMessageId(
+    normalizedClientMessageId,
+  )
+  const existingMessage = normalizedClientMessageId
     ? await getExistingWorkspaceChatMessageByClientId({
-        clientMessageId: input.clientMessageId.trim(),
+        clientMessageId: normalizedClientMessageId,
         conversationId: conversation.id,
       })
     : null
 
   if (existingMessage) {
+    const existingAssistantMessage = assistantClientMessageId
+      ? await getExistingWorkspaceChatMessageByClientId({
+          clientMessageId: assistantClientMessageId,
+          conversationId: conversation.id,
+        })
+      : null
+
+    if (existingAssistantMessage) {
+      return {
+        assistantMessageId: existingAssistantMessage.id,
+        conversationId: conversation.id,
+        dispatch: {
+          status: mapDispatchStatusFromAssistantStatus(existingAssistantMessage.status),
+        },
+        message: existingMessage,
+        shouldDispatch: false,
+        tenantId: conversation.tenantId,
+      }
+    }
+
+    const assistantMessageId = assistantClientMessageId
+      ? await db.transaction(async (tx) => {
+          const assistantCreatedAt = new Date()
+          const [assistantMessage] = await tx
+            .insert(workspaceChatMessages)
+            .values({
+              authorKind: "assistant",
+              authorName: "Otto",
+              clientMessageId: assistantClientMessageId,
+              conversationId: conversation.id,
+              createdAt: assistantCreatedAt,
+              status: "pending",
+              updatedAt: assistantCreatedAt,
+            })
+            .returning({
+              id: workspaceChatMessages.id,
+            })
+
+          if (!assistantMessage) {
+            throw new Error("Failed to create workspace chat assistant placeholder.")
+          }
+
+          return assistantMessage.id
+        })
+      : undefined
+
     return {
+      assistantMessageId,
       conversationId: conversation.id,
       dispatch: {
         status: "pending_runtime_bridge",
       },
       message: existingMessage,
+      shouldDispatch: true,
       tenantId: conversation.tenantId,
     }
   }
 
   const createdMessage = await db.transaction(async (tx) => {
+    const userCreatedAt = new Date()
     const [message] = await tx
       .insert(workspaceChatMessages)
       .values({
         authorKind: "user",
         authorName: input.userDisplayName,
         authorUserId: actor.userId,
-        clientMessageId: input.clientMessageId?.trim() || null,
-        completedAt: new Date(),
+        clientMessageId: normalizedClientMessageId ?? null,
+        completedAt: userCreatedAt,
         conversationId: conversation.id,
+        createdAt: userCreatedAt,
         status: "completed",
+        updatedAt: userCreatedAt,
       })
       .returning({
         authorKind: workspaceChatMessages.authorKind,
@@ -407,6 +464,26 @@ export async function createWorkspaceChatMessageRecord(input: {
 
     if (!message) {
       throw new Error("Failed to create workspace chat message.")
+    }
+
+    const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1)
+    const [assistantMessage] = await tx
+      .insert(workspaceChatMessages)
+      .values({
+        authorKind: "assistant",
+        authorName: "Otto",
+        clientMessageId: assistantClientMessageId ?? null,
+        conversationId: conversation.id,
+        createdAt: assistantCreatedAt,
+        status: "pending",
+        updatedAt: assistantCreatedAt,
+      })
+      .returning({
+        id: workspaceChatMessages.id,
+      })
+
+    if (!assistantMessage) {
+      throw new Error("Failed to create workspace chat assistant placeholder.")
     }
 
     await insertWorkspaceChatParts({
@@ -424,14 +501,17 @@ export async function createWorkspaceChatMessageRecord(input: {
       })
       .where(eq(workspaceChatConversations.id, conversation.id))
 
-    return mapWorkspaceChatMessage({
-      message: {
-        ...message,
-        authorExternalId: actor.userExternalId,
-        completedAt: new Date(),
-      },
-      parts: input.parts,
-    })
+    return {
+      assistantMessageId: assistantMessage.id,
+      message: mapWorkspaceChatMessage({
+        message: {
+          ...message,
+          authorExternalId: actor.userExternalId,
+          completedAt: userCreatedAt,
+        },
+        parts: input.parts,
+      }),
+    }
   })
 
   return {
@@ -439,12 +519,15 @@ export async function createWorkspaceChatMessageRecord(input: {
     dispatch: {
       status: "pending_runtime_bridge",
     },
-    message: createdMessage,
+    message: createdMessage.message,
+    assistantMessageId: createdMessage.assistantMessageId,
+    shouldDispatch: true,
     tenantId: conversation.tenantId,
   }
 }
 
 export async function completeWorkspaceChatAssistantMessage(input: {
+  assistantMessageId?: string
   assistantDisplayName?: string
   conversationId: string
   parts: WorkspaceChatMessagePart[]
@@ -543,22 +626,52 @@ export async function completeWorkspaceChatAssistantMessage(input: {
       throw new Error("Failed to persist workspace chat runtime segment.")
     }
 
-    const [message] = await tx
-      .insert(workspaceChatMessages)
-      .values({
-        authorKind: "assistant",
-        authorName: input.assistantDisplayName?.trim() || "Otto",
-        completedAt: new Date(),
-        conversationId: conversation.id,
-        status: "completed",
-      })
-      .returning({
-        id: workspaceChatMessages.id,
-      })
+    const assistantCompletedAt = new Date()
+    const assistantMessageId = input.assistantMessageId?.trim() || null
+    const [updatedMessage] = assistantMessageId
+      ? await tx
+          .update(workspaceChatMessages)
+          .set({
+            authorKind: "assistant",
+            authorName: input.assistantDisplayName?.trim() || "Otto",
+            completedAt: assistantCompletedAt,
+            status: "completed",
+            updatedAt: assistantCompletedAt,
+          })
+          .where(
+            and(
+              eq(workspaceChatMessages.id, assistantMessageId),
+              eq(workspaceChatMessages.conversationId, conversation.id),
+            ),
+          )
+          .returning({
+            id: workspaceChatMessages.id,
+          })
+      : []
+
+    const [message] = updatedMessage
+      ? [updatedMessage]
+      : await tx
+          .insert(workspaceChatMessages)
+          .values({
+            authorKind: "assistant",
+            authorName: input.assistantDisplayName?.trim() || "Otto",
+            completedAt: assistantCompletedAt,
+            conversationId: conversation.id,
+            status: "completed",
+            updatedAt: assistantCompletedAt,
+          })
+          .returning({
+            id: workspaceChatMessages.id,
+          })
 
     if (!message) {
       throw new Error("Failed to persist workspace chat assistant message.")
     }
+
+    await tx
+      .delete(workspaceChatMessageParts)
+      .where(eq(workspaceChatMessageParts.messageId, message.id))
 
     await insertWorkspaceChatParts({
       messageId: message.id,
@@ -582,6 +695,50 @@ export async function completeWorkspaceChatAssistantMessage(input: {
       tenantId: input.tenantId,
     }
   })
+}
+
+export async function markWorkspaceChatAssistantMessageStreaming(input: {
+  assistantMessageId: string
+  conversationId: string
+}) {
+  const db = getDb()
+
+  await db
+    .update(workspaceChatMessages)
+    .set({
+      status: "streaming",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(workspaceChatMessages.id, input.assistantMessageId),
+        eq(workspaceChatMessages.conversationId, input.conversationId),
+        inArray(workspaceChatMessages.status, ["pending", "streaming"]),
+      ),
+    )
+}
+
+export async function markWorkspaceChatAssistantMessageFailed(input: {
+  assistantMessageId: string
+  conversationId: string
+}) {
+  const db = getDb()
+  const failedAt = new Date()
+
+  await db
+    .update(workspaceChatMessages)
+    .set({
+      completedAt: failedAt,
+      status: "failed",
+      updatedAt: failedAt,
+    })
+    .where(
+      and(
+        eq(workspaceChatMessages.id, input.assistantMessageId),
+        eq(workspaceChatMessages.conversationId, input.conversationId),
+        inArray(workspaceChatMessages.status, ["pending", "streaming"]),
+      ),
+    )
 }
 
 function buildWorkspaceChatConversationAccessPredicate(userId: string) {
@@ -672,6 +829,10 @@ async function getExistingWorkspaceChatMessageByClientId(input: {
   })
 }
 
+function buildAssistantClientMessageId(clientMessageId: string | undefined) {
+  return clientMessageId ? `assistant:${clientMessageId}` : null
+}
+
 async function insertWorkspaceChatParts(input: {
   messageId: string
   parts: WorkspaceChatMessagePart[]
@@ -734,6 +895,20 @@ function mapWorkspaceChatMessage(input: {
     parts: input.parts,
     status: input.message.status as WorkspaceChatMessage["status"],
   }
+}
+
+function mapDispatchStatusFromAssistantStatus(
+  status: WorkspaceChatMessage["status"],
+): WorkspaceChatMessageCreateResponse["dispatch"]["status"] {
+  if (status === "completed") {
+    return "sent"
+  }
+
+  if (status === "pending" || status === "streaming") {
+    return "queued"
+  }
+
+  return "pending_runtime_bridge"
 }
 
 async function resolveWorkspaceChatActor(input: {
