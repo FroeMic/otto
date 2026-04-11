@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 import { ConversationHistorySidebarSection } from "@/features/workspace-chat/components/ConversationHistorySidebarSection"
+import { WorkspaceChatRealtimeProvider } from "@/features/workspace-chat/realtime/provider"
 import { WorkspaceSwitcher } from "@/client/app/app-shell/WorkspaceSwitcher"
 
 export interface WorkspaceShellProps extends PropsWithChildren {
@@ -175,87 +176,93 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon" variant="inset">
-        <SidebarHeader>
-          <WorkspaceSwitcher
-            currentOrganization={{
-              name: data.currentOrganization.name,
-              slug: data.currentOrganization.slug,
-            }}
-            organizations={data.organizations.map((organization) => ({
-              name: organization.name,
-              slug: organization.slug,
-            }))}
-          />
-        </SidebarHeader>
+    <WorkspaceChatRealtimeProvider orgSlug={orgSlug}>
+      <SidebarProvider>
+        <Sidebar collapsible="icon" variant="inset">
+          <SidebarHeader>
+            <WorkspaceSwitcher
+              currentOrganization={{
+                name: data.currentOrganization.name,
+                slug: data.currentOrganization.slug,
+              }}
+              organizations={data.organizations.map((organization) => ({
+                name: organization.name,
+                slug: organization.slug,
+              }))}
+            />
+          </SidebarHeader>
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Otto</SidebarGroupLabel>
-            <SidebarGroupContent>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Otto</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <WorkspaceMenuLink
+                    icon={HouseLineIcon}
+                    label="Overview"
+                    params={{ orgSlug }}
+                    to="/$orgSlug"
+                  />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <ConversationHistorySidebarSection orgSlug={orgSlug} />
+          </SidebarContent>
+
+          <SidebarFooter>
+            {data.user.isPlatformAdmin ? (
               <SidebarMenu>
-                <WorkspaceMenuLink
-                  icon={HouseLineIcon}
-                  label="Overview"
-                  params={{ orgSlug }}
-                  to="/$orgSlug"
-                />
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={
+                      <Link
+                        preload="intent"
+                        search={() => ({
+                          workspace: orgSlug,
+                        })}
+                        to="/platform/organizations"
+                      />
+                    }
+                    isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
+                    tooltip="Platform"
+                  >
+                    <BuildingsIcon />
+                    <span>Platform</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+            ) : null}
+            <WorkspaceUserMenu
+              currentOrganizationSlug={orgSlug}
+              user={data.user}
+            />
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
 
-          <ConversationHistorySidebarSection orgSlug={orgSlug} />
-        </SidebarContent>
+        <SidebarInset>
+          <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
+            <SidebarTrigger />
+            <Separator
+              orientation="vertical"
+              className="data-vertical:h-4 data-vertical:self-auto"
+            />
+            <div className="min-w-0 text-sm">
+              <p className="truncate font-medium">
+                {data.currentOrganization.name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                /{data.currentOrganization.slug}
+              </p>
+            </div>
+          </header>
 
-        <SidebarFooter>
-          {data.user.isPlatformAdmin ? (
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={
-                    <Link
-                      preload="intent"
-                      search={() => ({
-                        workspace: orgSlug,
-                      })}
-                      to="/platform/organizations"
-                    />
-                  }
-                  isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
-                  tooltip="Platform"
-                >
-                  <BuildingsIcon />
-                  <span>Platform</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          ) : null}
-          <WorkspaceUserMenu
-            currentOrganizationSlug={orgSlug}
-            user={data.user}
-          />
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
-
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
-          <SidebarTrigger />
-          <Separator
-            orientation="vertical"
-            className="data-vertical:h-4 data-vertical:self-auto"
-          />
-          <div className="min-w-0 text-sm">
-            <p className="truncate font-medium">{data.currentOrganization.name}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              /{data.currentOrganization.slug}
-            </p>
+          <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
+            {children}
           </div>
-        </header>
-
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+        </SidebarInset>
+      </SidebarProvider>
+    </WorkspaceChatRealtimeProvider>
   )
 }

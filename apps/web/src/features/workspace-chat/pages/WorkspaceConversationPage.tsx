@@ -13,6 +13,7 @@ import {
 } from "../api/chat"
 import { ConversationComposer } from "../components/ConversationComposer"
 import { ConversationMessageList } from "../components/ConversationMessageList"
+import { useWorkspaceConversationRealtime } from "../realtime/useWorkspaceConversationRealtime"
 
 export interface WorkspaceConversationPageProps {
   conversationId: string
@@ -23,6 +24,10 @@ export function WorkspaceConversationPage({
   conversationId,
   orgSlug,
 }: WorkspaceConversationPageProps) {
+  useWorkspaceConversationRealtime({
+    conversationId,
+  })
+
   const queryClient = useQueryClient()
   const { data } = useSuspenseQuery(
     workspaceChatConversationDetailQueryOptions(orgSlug, conversationId),
