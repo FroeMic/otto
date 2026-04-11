@@ -11,7 +11,10 @@ describe("workspace chat dispatch", () => {
           assistantMessageId?: string
           conversationId: string
           message: string
+          senderDisplayName: string
+          senderExternalId: string
           tenantId: string
+          userMessageId: string
         }
       | null = null
 
@@ -20,7 +23,10 @@ describe("workspace chat dispatch", () => {
         assistantMessageId: "assistant_msg_123",
         conversationId: "conv_123",
         message: "Summarize the latest notes.",
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_123",
         tenantId: "tenant_123",
+        userMessageId: "msg_user_123",
       },
       {
         enqueueRunJob: async (input) => {
@@ -38,7 +44,10 @@ describe("workspace chat dispatch", () => {
       assistantMessageId: "assistant_msg_123",
       conversationId: "conv_123",
       message: "Summarize the latest notes.",
+      senderDisplayName: "Michael Froehlich",
+      senderExternalId: "user_123",
       tenantId: "tenant_123",
+      userMessageId: "msg_user_123",
     })
     assert.equal(result.status, "queued")
   })

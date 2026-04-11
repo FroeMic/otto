@@ -646,7 +646,10 @@ export class RuntimeManager {
       conversationId: string;
       gatewayToken: string;
       message: string;
+      senderDisplayName: string;
+      senderExternalId: string;
       timeoutMs?: number;
+      userMessageId: string;
     },
   ): Promise<InvokeWorkspaceChatTurnResult> {
     const params = JSON.stringify({
@@ -655,6 +658,9 @@ export class RuntimeManager {
         : {}),
       conversationId: input.conversationId,
       message: input.message,
+      senderDisplayName: input.senderDisplayName,
+      senderExternalId: input.senderExternalId,
+      userMessageId: input.userMessageId,
     });
 
     console.info("[workspace-chat] runtime manager invoking gateway call", {

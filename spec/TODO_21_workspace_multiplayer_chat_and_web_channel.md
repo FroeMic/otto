@@ -204,8 +204,8 @@ Current implementation status for Increment 1:
   - the command relay and event-stream side of the bridge protocol is still the next slice
 - the first async tenant-trigger slice now also exists:
   - `apps/api` now queues `run_workspace_chat_turn` jobs in `job_runs` instead of SSH-dispatching chat turns inline from the browser request path
-  - `apps/worker` now resolves tenant runtime access and triggers a plugin-owned OpenClaw gateway method for each queued workspace turn
-  - `runtime-plugins/otto-workspace-chat` now owns workspace-chat execution inside OpenClaw instead of depending on an Otto sidecar runner plus bridge command claim/completion routes
+  - `apps/worker` now resolves tenant runtime access and injects each queued workspace turn into the tenant gateway through `otto.workspaceChat.runTurn`
+  - `runtime-plugins/otto-workspace-chat` now treats that gateway method as a synthetic inbound channel event, builds a shared inbound context, and hands the turn to OpenClaw's shared inbound reply pipeline instead of depending on an Otto sidecar runner plus bridge command claim/completion routes
   - this slice replaces SSH for workspace-chat dispatch only; richer runtime events remain follow-on work
 - the first assistant-lifecycle slice now also exists:
   - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
@@ -220,7 +220,7 @@ Current implementation status for Increment 1:
 - the first streaming-delta slice now also exists:
   - `packages/features/workspace-chat` now defines tenant-runtime delta request/response contracts for cumulative assistant text snapshots plus monotonic `sequence`
   - `apps/api` now exposes `/api/internal/runtime/workspace-chat/messages/delta` and applies idempotent assistant placeholder updates against the canonical workspace conversation state
-  - `runtime-plugins/otto-workspace-chat` now uses `api.runtime.agent.runEmbeddedPiAgent(...)` inside a plugin-owned gateway method to batch cumulative assistant text snapshots back to the control plane before final completion
+  - `runtime-plugins/otto-workspace-chat` now builds a QA/Slack-style synthetic inbound context, uses the shared OpenClaw inbound reply pipeline for execution, and streams cumulative assistant text snapshots back to the control plane through plugin-owned callbacks
   - the old workspace-chat bridge-command runner path has been removed from the runtime image
   - the existing workspace websocket path now republishes those assistant placeholder updates as canonical `conversation.message_upserted` events so the same assistant bubble grows live until final completion marks it `completed`
 
@@ -705,7 +705,7 @@ Current implemented workspace-chat trigger model:
 
 - `apps/api` queues `run_workspace_chat_turn` jobs in `job_runs`
 - `apps/worker` triggers `otto.workspaceChat.runTurn` through the tenant gateway
-- `runtime-plugins/otto-workspace-chat` runs the turn inside OpenClaw and posts delta/final callbacks back to the Control Plane
+- `runtime-plugins/otto-workspace-chat` converts that trigger into a synthetic inbound channel event, runs it through OpenClaw's shared inbound reply pipeline, and posts delta/final callbacks back to the Control Plane
 
 Recommended Control Plane to tenant bridge command families:
 
@@ -963,9 +963,9 @@ Implementation note:
 
 - before implementing this increment, read the current data architecture and confirm how `tenant_sessions`, `tenant_runtime_*`, and current OpenClaw session routing already work
 - Increment 1 now has a first complete streamed path in code:
-  - shared contracts, persisted `apps/api` conversation and message routes, worker-triggered tenant execution, plugin-native `otto-workspace-chat` callbacks, and browser websocket fanout all exist
+  - shared contracts, persisted `apps/api` conversation and message routes, worker-triggered tenant ingress, plugin-native `otto-workspace-chat` inbound-dispatch callbacks, and browser websocket fanout all exist
   - `apps/web` now has a first conversation route, detail page, message composer, and sidebar history section on the new app surface
-  - browser updates currently rely on TanStack Query polling rather than the planned realtime transport
+  - browser updates now use the workspace-scoped websocket path for live assistant lifecycle and streamed text updates, with polling only as fallback elsewhere
 
 ### Increment 2: Shared history and sidebar
 

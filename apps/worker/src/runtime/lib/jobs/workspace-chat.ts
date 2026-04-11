@@ -29,6 +29,9 @@ type ProcessWorkspaceChatDependencies = {
     conversationId: string;
     gatewayToken: string;
     message: string;
+    senderDisplayName: string;
+    senderExternalId: string;
+    userMessageId: string;
   }) => Promise<{
     ok: true;
     sessionKey: string;
@@ -54,6 +57,9 @@ const defaultDependencies: ProcessWorkspaceChatDependencies = {
       conversationId: input.conversationId,
       gatewayToken: input.gatewayToken,
       message: input.message,
+      senderDisplayName: input.senderDisplayName,
+      senderExternalId: input.senderExternalId,
+      userMessageId: input.userMessageId,
     }),
   markAssistantMessageFailed: async (input) => {
     if (!input.assistantMessageId) {
@@ -142,7 +148,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.queued,
-      "Invoking the workspace chat turn through the tenant gateway",
+      "Injecting the workspace chat message into the tenant gateway",
       {
         conversationId: payload.conversationId,
         host: connection.host,
@@ -163,6 +169,9 @@ export async function processRunWorkspaceChatTurnJob(
       conversationId: payload.conversationId,
       gatewayToken,
       message: payload.message,
+      senderDisplayName: payload.senderDisplayName,
+      senderExternalId: payload.senderExternalId,
+      userMessageId: payload.userMessageId,
     });
 
     console.info("[workspace-chat] worker tenant gateway method succeeded", {
@@ -175,7 +184,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.succeeded,
-      "Workspace chat turn started successfully in the tenant runtime",
+      "Workspace chat message was accepted by the tenant runtime",
       {
         conversationId: payload.conversationId,
         sessionKey: result.sessionKey,
@@ -235,7 +244,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.failed,
-      "Workspace chat turn failed before the tenant runtime could complete it",
+      "Workspace chat ingress failed before the tenant runtime accepted the message",
       {
         error: message,
       },
@@ -254,7 +263,10 @@ function parseRunWorkspaceChatTurnPayload(
       : undefined;
   const conversationId = payload.conversationId;
   const message = payload.message;
+  const senderDisplayName = payload.senderDisplayName;
+  const senderExternalId = payload.senderExternalId;
   const tenantId = payload.tenantId;
+  const userMessageId = payload.userMessageId;
 
   if (typeof conversationId !== "string" || conversationId.length === 0) {
     throw new Error("Workspace chat turn payload is missing conversationId");
@@ -264,15 +276,30 @@ function parseRunWorkspaceChatTurnPayload(
     throw new Error("Workspace chat turn payload is missing message");
   }
 
+  if (typeof senderDisplayName !== "string" || senderDisplayName.length === 0) {
+    throw new Error("Workspace chat turn payload is missing senderDisplayName");
+  }
+
+  if (typeof senderExternalId !== "string" || senderExternalId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing senderExternalId");
+  }
+
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("Workspace chat turn payload is missing tenantId");
+  }
+
+  if (typeof userMessageId !== "string" || userMessageId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing userMessageId");
   }
 
   return {
     ...(assistantMessageId ? { assistantMessageId } : {}),
     conversationId,
     message,
+    senderDisplayName,
+    senderExternalId,
     tenantId,
+    userMessageId,
   };
 }
 

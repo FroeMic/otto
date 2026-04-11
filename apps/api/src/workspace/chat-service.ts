@@ -28,7 +28,10 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
     assistantMessageId?: string
     conversationId: string
     message: string
+    senderDisplayName: string
+    senderExternalId: string
     tenantId: string
+    userMessageId: string
   }) => Promise<{
     status: "queued"
   }>
@@ -83,10 +86,15 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
     })
 
     const dispatchResult = await dispatchMessage({
-      assistantMessageId: created.assistantMessageId,
+      ...(created.assistantMessageId
+        ? { assistantMessageId: created.assistantMessageId }
+        : {}),
       conversationId: created.conversationId,
       message: prompt,
+      senderDisplayName: input.userDisplayName,
+      senderExternalId: input.userExternalId,
       tenantId: created.tenantId,
+      userMessageId: created.message.id,
     })
 
     console.info("[workspace-chat] runtime turn queued", {

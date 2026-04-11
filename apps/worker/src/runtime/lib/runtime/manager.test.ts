@@ -77,6 +77,9 @@ describe("RuntimeManager.invokeWorkspaceChatTurn", () => {
           conversationId: "conv_1",
           gatewayToken: "gateway-token",
           message: "Hello",
+          senderDisplayName: "Test User",
+          senderExternalId: "user_1",
+          userMessageId: "msg_1",
         },
       ),
     ).rejects.toThrow("workspace chat plugin is not configured");

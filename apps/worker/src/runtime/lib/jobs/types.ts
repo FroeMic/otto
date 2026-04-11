@@ -92,7 +92,10 @@ export type RunWorkspaceChatTurnPayload = {
   assistantMessageId?: string;
   conversationId: string;
   message: string;
+  senderDisplayName: string;
+  senderExternalId: string;
   tenantId: string;
+  userMessageId: string;
 };
 
 export type ScheduleOauthConnectionRefreshPayload = Record<string, never>;

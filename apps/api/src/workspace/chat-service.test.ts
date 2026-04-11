@@ -6,6 +6,8 @@ import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 
 describe("workspace chat service", () => {
   it("returns queued when bridge dispatch succeeds", async () => {
+    let dispatchInput: Record<string, unknown> | null = null
+
     const result = await createAndDispatchWorkspaceChatMessage(
       {
         clientMessageId: "client-msg-1",
@@ -45,13 +47,25 @@ describe("workspace chat service", () => {
           shouldDispatch: true,
           tenantId: "tenant_1",
         }),
-        dispatchMessage: async () => ({
-          status: "queued",
-        }),
+        dispatchMessage: async (input) => {
+          dispatchInput = input
+
+          return {
+            status: "queued",
+          }
+        },
       },
     )
 
     assert.equal(result.dispatch.status, "queued")
+    assert.deepEqual(dispatchInput, {
+      conversationId: "conv_1",
+      message: "Summarize the latest notes.",
+      senderDisplayName: "Test User",
+      senderExternalId: "user_1",
+      tenantId: "tenant_1",
+      userMessageId: "msg_1",
+    })
   })
 
   it("keeps the message persisted when runtime dispatch fails", async () => {

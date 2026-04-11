@@ -6,7 +6,10 @@ type WorkspaceChatDispatchDependencies = {
     assistantMessageId?: string
     conversationId: string
     message: string
+    senderDisplayName: string
+    senderExternalId: string
     tenantId: string
+    userMessageId: string
   }) => Promise<{
     jobId: string
     status: "queued"
@@ -18,7 +21,10 @@ export async function dispatchWorkspaceChatMessage(
     assistantMessageId?: string
     conversationId: string
     message: string
+    senderDisplayName: string
+    senderExternalId: string
     tenantId: string
+    userMessageId: string
   },
   dependencies: WorkspaceChatDispatchDependencies = {},
 ): Promise<{
@@ -48,7 +54,10 @@ export async function dispatchWorkspaceChatMessage(
     assistantMessageId: input.assistantMessageId,
     conversationId: input.conversationId,
     message: input.message,
+    senderDisplayName: input.senderDisplayName,
+    senderExternalId: input.senderExternalId,
     tenantId: input.tenantId,
+    userMessageId: input.userMessageId,
   })
 
   console.info("[workspace-chat] runtime turn job enqueued", {
