@@ -5,15 +5,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { loadConfig } from "/app/dist/index.js";
+import { runEmbeddedPiAgent } from "/app/dist/plugins/runtime/runtime-embedded-pi.runtime.js";
 import {
-  resolveAgentDir,
-  resolveAgentEffectiveModelPrimary,
-  resolveAgentWorkspaceDir,
-  resolveDefaultAgentId,
-} from "/app/dist/agents/agent-scope.js";
-import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "/app/dist/agents/defaults.js";
-import { parseModelRef } from "/app/dist/agents/model-selection.js";
-import { runEmbeddedPiAgent } from "/app/dist/agents/pi-embedded.js";
+  resolveWorkspaceChatAgentRuntime,
+} from "./workspace-chat-agent-runtime.mjs";
 import {
   buildWorkspaceChatCompletionParts,
   createWorkspaceChatStreamReporter,
@@ -132,15 +127,11 @@ async function executeWorkspaceConversationTrigger(command) {
     assistantMessageId,
   );
   const cfg = await loadConfig();
-  const agentId = resolveDefaultAgentId(cfg);
-  const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
-  const agentDir = resolveAgentDir(cfg, agentId);
-  const modelRef = resolveAgentEffectiveModelPrimary(cfg, agentId);
-  const parsedModel = modelRef
-    ? parseModelRef(modelRef, DEFAULT_PROVIDER)
-    : null;
-  const provider = parsedModel?.provider ?? DEFAULT_PROVIDER;
-  const model = parsedModel?.model ?? DEFAULT_MODEL;
+  const { agentDir, agentId, model, modelRef, provider, workspaceDir } =
+    resolveWorkspaceChatAgentRuntime({
+      cfg,
+      env: process.env,
+    });
   const sessionId = `workspace-chat-${randomUUID()}`;
   const runId = `workspace-chat-run-${randomUUID()}`;
   const startedAt = new Date().toISOString();
@@ -165,6 +156,16 @@ async function executeWorkspaceConversationTrigger(command) {
   });
 
   try {
+    console.info("[otto-runtime-bridge] workspace chat run context", {
+      agentDir,
+      agentId,
+      model,
+      modelRef,
+      provider,
+      target,
+      workspaceDir,
+    });
+
     const result = await runEmbeddedPiAgent({
       agentId,
       agentDir,
