@@ -1,8 +1,14 @@
-import { DownloadSimpleIcon, FileIcon } from "@phosphor-icons/react"
+import {
+  DownloadSimpleIcon,
+  FileIcon,
+  FolderOpenIcon,
+} from "@phosphor-icons/react"
 import type { RuntimeDirectoryFileSnapshot } from "@otto/feature-runtime-core/runtime-files/types"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+
+import type { RuntimeFileSelection } from "../types"
 
 export interface RuntimeFilePreviewProps {
   buildDownloadUrl: (input: {
@@ -10,13 +16,62 @@ export interface RuntimeFilePreviewProps {
     kind?: "directory" | "file"
     path: string
   }) => string
+  directorySummary?: {
+    fileCount: number
+    totalSizeBytes: number
+  } | null
   file: RuntimeDirectoryFileSnapshot | null
+  selectedNode: RuntimeFileSelection | null
 }
 
 export function RuntimeFilePreview({
   buildDownloadUrl,
+  directorySummary,
   file,
+  selectedNode,
 }: RuntimeFilePreviewProps) {
+  if (!selectedNode) {
+    return (
+      <div className="flex h-full min-h-[28rem] items-center justify-center px-6 py-12 text-center text-sm text-muted-foreground">
+        Select a file or folder to inspect it here.
+      </div>
+    )
+  }
+
+  if (selectedNode.kind === "directory") {
+    const downloadUrl = buildDownloadUrl({
+      disposition: "attachment",
+      kind: "directory",
+      path: selectedNode.path,
+    })
+
+    return (
+      <div className="flex h-full min-h-[28rem] flex-col items-center justify-center gap-5 px-8 py-12 text-center">
+        <FolderOpenIcon className="size-10 text-muted-foreground" />
+        <div className="flex max-w-md flex-col gap-2">
+          <span className="text-base font-medium">{selectedNode.path}</span>
+          <span className="text-sm text-muted-foreground">
+            {directorySummary
+              ? `${directorySummary.fileCount} file${
+                  directorySummary.fileCount === 1 ? "" : "s"
+                } • ${formatFileSize(directorySummary.totalSizeBytes)}`
+              : "Download this folder as a zip archive."}
+          </span>
+        </div>
+        <a
+          className={buttonVariants({
+            size: "sm",
+            variant: "outline",
+          })}
+          href={downloadUrl}
+        >
+          <DownloadSimpleIcon className="size-4" />
+          Download zip
+        </a>
+      </div>
+    )
+  }
+
   if (!file) {
     return (
       <div className="flex h-full min-h-[28rem] items-center justify-center px-6 py-12 text-center text-sm text-muted-foreground">

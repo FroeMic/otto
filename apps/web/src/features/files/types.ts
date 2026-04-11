@@ -13,3 +13,8 @@ export type RuntimeFileTreeNode =
       name: string
       path: string
     }
+
+export interface RuntimeFileSelection {
+  kind: "directory" | "file"
+  path: string
+}

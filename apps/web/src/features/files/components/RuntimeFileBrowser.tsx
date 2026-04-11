@@ -18,7 +18,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { RuntimeFilePreview } from "./RuntimeFilePreview"
 import { RuntimeFileTree } from "./RuntimeFileTree"
-import type { RuntimeFileTreeNode } from "../types"
+import type {
+  RuntimeFileSelection,
+  RuntimeFileTreeNode,
+} from "../types"
 
 export interface RuntimeFileBrowserProps {
   buildDownloadUrl: (input: {
@@ -50,19 +53,27 @@ export function RuntimeFileBrowser({
   snapshot,
 }: RuntimeFileBrowserProps) {
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([])
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [selectedNode, setSelectedNode] = useState<RuntimeFileSelection | null>(
+    null,
+  )
   const visibleFiles = snapshot.files.filter(
     (file) =>
       !hiddenPaths.includes(file.path) &&
       !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
   )
   const tree = buildExplorerTree(visibleFiles)
+  const visibleDirectoryPaths = collectVisibleDirectoryPaths(visibleFiles)
   const selectedFile =
-    visibleFiles.find((file) => file.path === selectedFilePath) ??
-    visibleFiles.find((file) => isPreviewableImage(file)) ??
-    visibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
-    visibleFiles[0] ??
-    null
+    selectedNode?.kind === "file"
+      ? (visibleFiles.find((file) => file.path === selectedNode.path) ?? null)
+      : null
+  const selectedDirectorySummary =
+    selectedNode?.kind === "directory"
+      ? summarizeDirectory({
+          directoryPath: selectedNode.path,
+          files: visibleFiles,
+        })
+      : null
 
   useEffect(() => {
     const nextVisibleFiles = snapshot.files.filter(
@@ -70,15 +81,39 @@ export function RuntimeFileBrowser({
         !hiddenPaths.includes(file.path) &&
         !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
     )
+    const nextVisibleDirectoryPaths = collectVisibleDirectoryPaths(nextVisibleFiles)
 
     setExpandedDirectories(collectExpandedDirectories(nextVisibleFiles))
-    setSelectedFilePath(
-      nextVisibleFiles.find((file) => isPreviewableImage(file))?.path ??
-        nextVisibleFiles.find((file) => file.storageEncoding === "utf8_text")
-          ?.path ??
-        nextVisibleFiles[0]?.path ??
-        null,
-    )
+    setSelectedNode((current) => {
+      if (
+        current?.kind === "file" &&
+        nextVisibleFiles.some((file) => file.path === current.path)
+      ) {
+        return current
+      }
+
+      if (
+        current?.kind === "directory" &&
+        nextVisibleDirectoryPaths.includes(current.path)
+      ) {
+        return current
+      }
+
+      const defaultFile =
+        nextVisibleFiles.find((file) => isPreviewableImage(file)) ??
+        nextVisibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
+        nextVisibleFiles[0] ??
+        null
+
+      if (!defaultFile) {
+        return null
+      }
+
+      return {
+        kind: "file",
+        path: defaultFile.path,
+      }
+    })
   }, [hiddenPathPrefixes, hiddenPaths, snapshot.files, snapshot.rootExists, snapshot.rootPath])
 
   if (!snapshot.rootExists) {
@@ -128,6 +163,7 @@ export function RuntimeFileBrowser({
         </SettingsRow>
         <ScrollArea className="h-[36rem]">
           <RuntimeFileTree
+            buildDownloadUrl={buildDownloadUrl}
             expandedDirectories={expandedDirectories}
             onDirectoryToggle={(path) =>
               setExpandedDirectories((current) =>
@@ -136,8 +172,8 @@ export function RuntimeFileBrowser({
                   : [...current, path],
               )
             }
-            onFileSelect={setSelectedFilePath}
-            selectedFilePath={selectedFile?.path ?? null}
+            onNodeSelect={setSelectedNode}
+            selectedNode={selectedNode}
             tree={tree}
           />
         </ScrollArea>
@@ -146,7 +182,9 @@ export function RuntimeFileBrowser({
       <SettingsCard className="overflow-hidden">
         <RuntimeFilePreview
           buildDownloadUrl={buildDownloadUrl}
+          directorySummary={selectedDirectorySummary}
           file={selectedFile}
+          selectedNode={selectedNode}
         />
       </SettingsCard>
     </div>
@@ -204,6 +242,22 @@ function collectExpandedDirectories(files: RuntimeDirectoryFileSnapshot[]) {
   return Array.from(expanded)
 }
 
+function collectVisibleDirectoryPaths(files: RuntimeDirectoryFileSnapshot[]) {
+  const paths = new Set<string>()
+
+  for (const file of files) {
+    const segments = file.path.split("/").filter(Boolean)
+    let currentPath = ""
+
+    for (const segment of segments.slice(0, -1)) {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment
+      paths.add(currentPath)
+    }
+  }
+
+  return Array.from(paths)
+}
+
 interface MutableDirectoryNode {
   directories: Map<string, MutableDirectoryNode>
   files: RuntimeDirectoryFileSnapshot[]
@@ -246,4 +300,19 @@ function convertMutableDirectoryNode(node: MutableDirectoryNode): RuntimeFileTre
 
 function isPreviewableImage(file: RuntimeDirectoryFileSnapshot) {
   return file.contentType?.startsWith("image/") ?? false
+}
+
+function summarizeDirectory(input: {
+  directoryPath: string
+  files: RuntimeDirectoryFileSnapshot[]
+}) {
+  const directoryPrefix = `${input.directoryPath}/`
+  const files = input.files.filter((file) =>
+    file.path.startsWith(directoryPrefix),
+  )
+
+  return {
+    fileCount: files.length,
+    totalSizeBytes: files.reduce((sum, file) => sum + file.sizeBytes, 0),
+  }
 }
