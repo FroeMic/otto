@@ -48,13 +48,7 @@ describe("renderOpenClawConfig", () => {
 
     const renderedConfig = JSON.parse(renderOpenClawConfig(config));
 
-    assert.deepEqual(renderedConfig.tools.alsoAllow, [
-      "otto-managed-config",
-      "otto-managed-skills",
-      "otto-integrations",
-      "otto-session-reporter",
-      "otto-workspace-chat",
-    ]);
+    assert.equal("alsoAllow" in renderedConfig.tools, false);
     assert.deepEqual(renderedConfig.tools.exec, {
       ask: "off",
       host: "gateway",
@@ -70,6 +64,9 @@ describe("renderOpenClawConfig", () => {
       "otto-session-reporter",
       "otto-workspace-chat",
     ]);
+    assert.deepEqual(renderedConfig.channels["otto-workspace-chat"], {
+      enabled: true,
+    });
     assert.deepEqual(renderedConfig.skills, {
       allowBundled: ["slack"],
     });

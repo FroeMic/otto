@@ -193,6 +193,13 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   ];
   const ottoToolPluginIds =
     config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  const workspaceChatChannelConfig = ottoToolPluginIds.includes(
+    "otto-workspace-chat",
+  )
+    ? {
+        enabled: true,
+      }
+    : undefined;
   const ottoToolPluginEntries = Object.fromEntries(
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
@@ -238,12 +245,6 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ...ottoProviderPluginEntries,
     ...webSearchPluginEntries,
   };
-  const pluginTools =
-    ottoToolPluginIds.length > 0
-      ? {
-          alsoAllow: ottoToolPluginIds,
-        }
-      : undefined;
   const slack = config.slack;
   const whatsapp = config.whatsapp;
   const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0;
@@ -459,7 +460,6 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           }
         : {}),
       tools: {
-        ...(pluginTools ?? {}),
         ...execTools,
         experimental: {
           planTool: false,
@@ -482,7 +482,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           allow: gatewayToolsAllow,
         },
       },
-      ...(slackChannelConfig || whatsappChannelConfig
+      ...(slackChannelConfig ||
+      whatsappChannelConfig ||
+      workspaceChatChannelConfig
         ? {
             channels: {
               ...(slackChannelConfig
@@ -498,6 +500,11 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
               ...(whatsappChannelConfig
                 ? {
                     whatsapp: whatsappChannelConfig,
+                  }
+                : {}),
+              ...(workspaceChatChannelConfig
+                ? {
+                    "otto-workspace-chat": workspaceChatChannelConfig,
                   }
                 : {}),
             },
