@@ -9,6 +9,12 @@ import {
 
 function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
   return {
+    applyAssistantDelta: async ({ conversationId, tenantId }) => ({
+      applied: true,
+      conversationId,
+      messageId: "msg_assistant_1",
+      tenantId,
+    }),
     authenticateTenantRuntime: async () => ({
       tenantId: "tenant_1",
     }),
@@ -80,6 +86,59 @@ describe("workspace chat runtime routes", () => {
     assert.equal(receivedAssistantMessageId, "msg_assistant_1")
   })
 
+  it("accepts an assistant delta callback from a tenant runtime", async () => {
+    let receivedAssistantMessageId: string | undefined
+    let receivedSequence = -1
+    const appWithSpy = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      applyAssistantDelta: async ({
+        assistantMessageId,
+        conversationId,
+        sequence,
+        tenantId,
+      }) => {
+        receivedAssistantMessageId = assistantMessageId
+        receivedSequence = sequence
+
+        return {
+          applied: true,
+          conversationId,
+          messageId: assistantMessageId,
+          tenantId,
+        }
+      },
+    })
+
+    const response = await appWithSpy.request(
+      "http://api.local/api/internal/runtime/workspace-chat/messages/delta",
+      {
+        body: JSON.stringify({
+          assistantMessageId: "msg_assistant_1",
+          conversationId: "conv_1",
+          message: {
+            text: "Here is the partial answer.",
+          },
+          sequence: 3,
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applied: true,
+      conversationId: "conv_1",
+      messageId: "msg_assistant_1",
+      ok: true,
+      tenantId: "tenant_1",
+    })
+    assert.equal(receivedAssistantMessageId, "msg_assistant_1")
+    assert.equal(receivedSequence, 3)
+  })
+
   it("returns 404 when the conversation is not available to the tenant", async () => {
     const app = createWorkspaceChatRuntimeRouter({
       ...createDependencies(),
@@ -103,6 +162,36 @@ describe("workspace chat runtime routes", () => {
             sessionKey: "workspace:conv_missing",
             status: "completed",
           },
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 404)
+    assert.deepEqual(await response.json(), {
+      error: "Workspace chat conversation not found for this tenant runtime.",
+    })
+  })
+
+  it("returns 404 when a delta targets a conversation that is not available to the tenant", async () => {
+    const app = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      applyAssistantDelta: async () => null,
+    })
+
+    const response = await app.request(
+      "http://api.local/api/internal/runtime/workspace-chat/messages/delta",
+      {
+        body: JSON.stringify({
+          assistantMessageId: "msg_assistant_missing",
+          conversationId: "conv_missing",
+          message: {
+            text: "Here is the partial answer.",
+          },
+          sequence: 1,
         }),
         headers: {
           "content-type": "application/json",

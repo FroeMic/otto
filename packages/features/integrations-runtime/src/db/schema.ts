@@ -1824,6 +1824,7 @@ export const workspaceChatMessages = pgTable(
     authorName: text("author_name"),
     status: varchar("status", { length: 64 }).notNull(),
     clientMessageId: varchar("client_message_id", { length: 255 }),
+    lastStreamSequence: integer("last_stream_sequence").default(0).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

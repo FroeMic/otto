@@ -188,8 +188,8 @@ Current implementation status for Increment 1:
   - the initial migration now exists in `web/drizzle/0048_workspace_chat_increment_1.sql`
   - a tenant-authenticated runtime callback route now exists for assistant message completion and runtime-segment linkage
 - the Control Plane-to-tenant outbound dispatch now exists for the first text-only slice:
-  - `apps/api` now persists a user message, resolves the owning tenant runtime, and dispatches one `openclaw agent` turn over SSH to the tenant host
-  - the dispatch path uses the `otto-workspace-chat` channel with a stable `workspace:<conversationId>` target and `--deliver`
+  - `apps/api` now persists a user message, resolves the owning tenant runtime, and owns the first runtime callback seam for workspace-chat completions
+  - the initial callback path established the stable `workspace:<conversationId>` surface key that later bridge slices continue to use
 - the `otto-workspace-chat` runtime plugin now posts assistant completions back to the existing runtime callback route instead of throwing
 - the managed tenant OpenClaw config now enables `otto-workspace-chat` alongside the other Otto-owned plugins when the workspace base URL is available
 - the first `apps/web` workspace-chat UI slice now exists on the new app surface only:
@@ -205,8 +205,8 @@ Current implementation status for Increment 1:
 - the first tenant-bridge command relay slice now also exists:
   - `apps/api` now queues `conversation.trigger_message` workspace-chat bridge commands in `job_runs` instead of SSH-dispatching chat turns inline from the browser request path
   - tenant runtimes now claim and complete those commands through runtime-authenticated bridge routes under `/api/internal/runtime/bridge/commands/*`
-  - the Otto-managed runtime image now runs a `runtime-bridge-command-runner` helper that executes queued workspace chat turns locally with `openclaw agent --deliver`
-  - this slice replaces SSH for workspace-chat dispatch only; browser fanout, streaming deltas, and richer bridge events are still follow-on work
+  - the Otto-managed runtime image now runs a `runtime-bridge-command-runner` helper that executes queued workspace chat turns locally inside the tenant runtime and reports bridge-command completion back to the control plane
+  - this slice replaces SSH for workspace-chat dispatch only; richer bridge events remain follow-on work
 - the first assistant-lifecycle slice now also exists:
   - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
   - bridge command payloads now carry `assistantMessageId` correlation so tenant claim and completion paths can target the correct placeholder
@@ -216,7 +216,12 @@ Current implementation status for Increment 1:
   - `apps/api` now exposes a typed Bun websocket route at `/api/workspace/:orgSlug/chat/realtime`
   - the control plane now keeps an in-memory workspace-chat fanout hub, validates typed `subscribe` / `unsubscribe` messages, returns explicit `subscription_denied` control events, and treats websocket fanout as best-effort after successful DB writes
   - `apps/web` now opens one websocket from the workspace shell, and active conversation pages only manage subscribe / unsubscribe while pushed events update TanStack Query caches for both the conversation detail and sidebar summary list
-  - this slice gives live queued/running/completed/failed updates without waiting for polling, aligns the browser with the intended workspace-scoped websocket model, and still stops short of token streaming
+  - this slice gives live queued/running/completed/failed updates without waiting for polling and aligns the browser with the intended workspace-scoped websocket model
+- the first streaming-delta slice now also exists:
+  - `packages/features/workspace-chat` now defines tenant-runtime delta request/response contracts for cumulative assistant text snapshots plus monotonic `sequence`
+  - `apps/api` now exposes `/api/internal/runtime/workspace-chat/messages/delta` and applies idempotent assistant placeholder updates against the canonical workspace conversation state
+  - the Otto-managed runtime image now uses embedded OpenClaw partial-reply callbacks inside `runtime-bridge-command-runner` to batch cumulative assistant text snapshots back to the control plane before final completion
+  - the existing workspace websocket path now republishes those assistant placeholder updates as canonical `conversation.message_upserted` events so the same assistant bubble grows live until final completion marks it `completed`
 
 ## Frameworks And Packages To Use
 

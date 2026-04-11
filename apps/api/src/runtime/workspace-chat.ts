@@ -1,12 +1,18 @@
 import { jsonNoStore } from "@otto/auth"
 import {
   type WorkspaceChatRuntimeMessageCompleteRequest,
+  type WorkspaceChatRuntimeMessageDeltaRequest,
   workspaceChatRuntimeMessageCompleteRequestSchema,
   workspaceChatRuntimeMessageCompleteResponseSchema,
+  workspaceChatRuntimeMessageDeltaRequestSchema,
+  workspaceChatRuntimeMessageDeltaResponseSchema,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import * as z from "zod"
-import { completeWorkspaceChatAssistantMessage } from "../workspace/chat-data"
+import {
+  applyWorkspaceChatAssistantDelta,
+  completeWorkspaceChatAssistantMessage,
+} from "../workspace/chat-data"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
 
@@ -14,6 +20,19 @@ export type WorkspaceChatRuntimeRouteDependencies = {
   authenticateTenantRuntime?: (request: Request) => Promise<{
     tenantId: string
   }>
+  applyAssistantDelta: (payload: {
+    assistantDisplayName?: string
+    assistantMessageId: string
+    conversationId: string
+    sequence: number
+    tenantId: string
+    text: WorkspaceChatRuntimeMessageDeltaRequest["message"]["text"]
+  }) => Promise<{
+    applied: boolean
+    conversationId: string
+    messageId: string
+    tenantId: string
+  } | null>
   completeAssistantMessage: (payload: {
     assistantMessageId?: string
     assistantDisplayName?: string
@@ -31,6 +50,7 @@ export type WorkspaceChatRuntimeRouteDependencies = {
 
 function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRuntimeRouteDependencies {
   return {
+    applyAssistantDelta: applyWorkspaceChatAssistantDelta,
     authenticateTenantRuntime: authenticateTenantRuntimeRequest,
     completeAssistantMessage: completeWorkspaceChatAssistantMessage,
   }
@@ -68,6 +88,47 @@ export function createWorkspaceChatRuntimeRouter(
   dependencies: WorkspaceChatRuntimeRouteDependencies = createDefaultWorkspaceChatRuntimeRouteDependencies(),
 ) {
   const app = new Hono()
+
+  app.post("/api/internal/runtime/workspace-chat/messages/delta", async (context) => {
+    try {
+      const { tenantId } = await (dependencies.authenticateTenantRuntime
+        ? dependencies.authenticateTenantRuntime(context.req.raw)
+        : authenticateTenantRuntimeRequest(context.req.raw))
+      const payload = workspaceChatRuntimeMessageDeltaRequestSchema.parse(
+        await context.req.json(),
+      )
+      const result = await dependencies.applyAssistantDelta({
+        assistantDisplayName: payload.assistantDisplayName,
+        assistantMessageId: payload.assistantMessageId,
+        conversationId: payload.conversationId,
+        sequence: payload.sequence,
+        tenantId,
+        text: payload.message.text,
+      })
+
+      if (!result) {
+        return jsonNoStore(
+          {
+            error:
+              "Workspace chat conversation not found for this tenant runtime.",
+          },
+          404,
+        )
+      }
+
+      return jsonNoStore(
+        workspaceChatRuntimeMessageDeltaResponseSchema.parse({
+          applied: result.applied,
+          conversationId: result.conversationId,
+          messageId: result.messageId,
+          ok: true,
+          tenantId: result.tenantId,
+        }),
+      )
+    } catch (error) {
+      return buildWorkspaceChatRuntimeErrorResponse(error)
+    }
+  })
 
   app.post(
     "/api/internal/runtime/workspace-chat/messages/complete",
