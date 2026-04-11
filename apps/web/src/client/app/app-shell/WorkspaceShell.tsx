@@ -49,7 +49,7 @@ export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
   params: { orgSlug: string }
-  to: "/$orgSlug" | "/$orgSlug/settings/workspace"
+  to: "/$orgSlug"
 }
 
 export function WorkspaceMenuLink({
@@ -201,12 +201,6 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
                   params={{ orgSlug }}
                   to="/$orgSlug"
                 />
-                <WorkspaceMenuLink
-                  icon={GearIcon}
-                  label="Settings"
-                  params={{ orgSlug }}
-                  to="/$orgSlug/settings/workspace"
-                />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -214,7 +208,7 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
           <ConversationHistorySidebarSection orgSlug={orgSlug} />
         </SidebarContent>
 
-        <SidebarFooter className="border-t border-sidebar-border/70">
+        <SidebarFooter>
           {data.user.isPlatformAdmin ? (
             <SidebarMenu>
               <SidebarMenuItem>
