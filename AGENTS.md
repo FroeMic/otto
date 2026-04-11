@@ -63,6 +63,17 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 - Put shared domain logic in `packages/features/<domain>` only when that logic is genuinely used by more than one execution surface.
 - Keep worker-only logic inside `apps/worker`; do not move worker-owned code into `packages/` unless it becomes truly shared.
 - Keep browser-only UI code inside `apps/web`; do not leave React components or page-specific UI in backend/runtime packages.
+- For runtime-related backend code, keep a three-way split:
+  - `packages/features/runtime-core` owns runtime substrate and projection logic such as managed config, managed skills, scheduled-task normalization, runtime session ingest, and other runtime state that is not HTTP-specific and not provider-specific
+  - `packages/features/integrations-runtime` owns integration/provider runtime logic such as integration registry, provider settings, command discovery/execution, OAuth-connected integration state, and other provider-specific runtime behavior
+  - `apps/api/src/runtime` owns runtime HTTP adapters only, such as Hono route registration, runtime auth, request parsing, HTTP error mapping, and bridge/proxy endpoint composition
+- For workspace-facing product surfaces that project into runtime, keep the authoring surface in the product feature and only keep the projected substrate in `runtime-core`:
+  - `agent`, `workspace`, `skills`, `sessions`, and `scheduled-tasks` stay as feature folders in `apps/web` and `apps/api`
+  - only the runtime-consumed projection, ingest, and normalization logic moves into `packages/features/runtime-core`
+- Give a domain its own shared package only when it is a real cross-surface engine with meaningful shared logic across multiple services or runtimes:
+  - `integrations-runtime` qualifies because it is shared by `api`, `gateway`, and tenant runtime/plugin behavior
+  - `skills` do not automatically qualify; keep workspace-managed skills local to `apps/web` and `apps/api` unless a true shared skill catalog/library emerges
+- If Otto ships a reusable default skill set or a real skill library/catalog, that catalog should become its own shared domain package while workspace-managed skills UI/API stay in the app features and runtime projection stays in `runtime-core`
 - Within a domain package, split by capability and role, for example `contracts`, `data`, `services`, `policies`, and `types`, rather than allowing a single `index.ts`, `db.ts`, or `lib.ts` file to become a monolith.
 - Treat `lib` as a last resort name, not the default home for unrelated code.
 - Before creating a new file, decide explicitly:

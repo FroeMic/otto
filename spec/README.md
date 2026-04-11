@@ -12,6 +12,12 @@ This folder is the source of truth for implementation planning and session-to-se
   - keep `apps/*` thin and surface-specific
   - keep genuinely shared domain logic in `packages/features/<domain>`
   - avoid catch-all growth in repo-wide `lib`, `db`, or utility buckets
+  - for runtime-related backend code, use this split:
+    - `packages/features/runtime-core` for runtime substrate and projection logic that is not HTTP-specific and not provider-specific
+    - `packages/features/integrations-runtime` for provider-specific integration runtime logic
+    - `apps/api/src/runtime` for runtime HTTP adapters only
+  - for workspace-facing product surfaces that project into runtime, keep the authoring/product surface in `apps/web` and `apps/api`, and move only the runtime-consumed projection or ingest logic into `runtime-core`
+  - create a dedicated shared package only when the domain is a true cross-surface engine with meaningful shared logic across multiple services or runtimes; otherwise keep the feature local to the apps and share only the substrate that is actually runtime-wide
 - For the SPA in `apps/web`:
   - keep route registration centralized in a dedicated routing module
   - keep shell code in a dedicated app-shell area
