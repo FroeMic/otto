@@ -7,12 +7,13 @@ import {
   createBillingRouter,
   type BillingRouteDependencies,
 } from "./billing/routes"
-import { registerRuntimeRoutes } from "./runtime/routes"
+import { createFilesRouter } from "./files/routes"
 import { createIntegrationsRouter } from "./integrations/routes"
 import {
   createPlatformRouter,
   type PlatformRouteDependencies,
 } from "./platform/routes"
+import { registerRuntimeRoutes } from "./runtime/routes"
 import {
   createUserRouter,
   type UserRouteDependencies,
@@ -49,6 +50,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createAgentRouter())
     .route("/", createWorkspaceRouter())
     .route("/", createIntegrationsRouter())
+    .route("/", createFilesRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createPlatformRouter(options.platformRoutes))
     .route("/", createUserRouter(options.userRoutes))
