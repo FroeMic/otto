@@ -4,6 +4,7 @@ import {
   ChartBar,
   CreditCard,
   Gear,
+  PlugsConnected,
   User,
 } from "@phosphor-icons/react/ssr"
 import { Link, useLocation } from "@tanstack/react-router"
@@ -61,9 +62,18 @@ interface UserMenuProps {
 }
 
 const settingsNavItems: {
+  agent: SettingsNavItem[]
   user: SettingsNavItem[]
   workspace: SettingsNavItem[]
 } = {
+  agent: [
+    {
+      href: (orgSlug) => `/${orgSlug}/settings/agent/integrations`,
+      icon: <PlugsConnected />,
+      match: "section",
+      title: "Integrations",
+    },
+  ],
   user: [
     {
       href: (orgSlug) => `/${orgSlug}/settings/user`,
@@ -235,6 +245,38 @@ export function SettingsSidebar({
                         <Link
                           params={{ orgSlug: currentOrganization.slug }}
                           to="/$orgSlug/settings/user"
+                        />
+                      }
+                      isActive={isSettingsItemActive(
+                        href,
+                        item.match,
+                        location.pathname,
+                      )}
+                    >
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Agent</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNavItems.agent.map((item) => {
+                const href = item.href(currentOrganization.slug)
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      render={
+                        <Link
+                          params={{ orgSlug: currentOrganization.slug }}
+                          to="/$orgSlug/settings/agent/integrations"
                         />
                       }
                       isActive={isSettingsItemActive(

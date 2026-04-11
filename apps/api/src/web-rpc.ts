@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 
 import { createBillingRouter } from "./billing/routes"
+import { createIntegrationsRouter } from "./integrations/routes"
 import { createPlatformRouter } from "./platform/routes"
 import { createWorkspaceRouter } from "./workspace/routes"
 import { createUserRouter } from "./user/routes"
@@ -8,6 +9,7 @@ import { createWorkspaceMembersRouter } from "./workspace-members/routes"
 
 export const webRpcApp = new Hono()
   .route("/", createWorkspaceRouter())
+  .route("/", createIntegrationsRouter())
   .route("/", createBillingRouter())
   .route("/", createPlatformRouter())
   .route("/", createUserRouter())

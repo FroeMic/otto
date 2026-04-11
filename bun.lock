@@ -59,6 +59,7 @@
         "@fontsource-variable/geist": "^5.2.8",
         "@hono/node-server": "^1.19.6",
         "@otto/feature-billing": "workspace:*",
+        "@otto/feature-integrations-runtime": "workspace:*",
         "@otto/feature-platform": "workspace:*",
         "@otto/feature-user-profile": "workspace:*",
         "@otto/feature-workspace-chat": "workspace:*",

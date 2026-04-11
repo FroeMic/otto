@@ -554,6 +554,7 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
 }
 
 export async function validateRuntimeIntegrationSettingsForTenant(input: {
+  allowDestructiveChanges?: boolean
   integrationKey: string
   patch: Record<string, unknown>
   tenantId: string
@@ -574,6 +575,7 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
       )
     case "slack":
       return validateSlackRuntimeIntegrationSettingsForTenant({
+        allowDestructiveChanges: input.allowDestructiveChanges,
         integration,
         patch: input.patch,
         tenantId: input.tenantId,
@@ -584,6 +586,7 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
 }
 
 export async function applyRuntimeIntegrationSettingsForTenant(input: {
+  allowDestructiveChanges?: boolean
   expectedEntryVersion?: number
   integrationKey: string
   patch: Record<string, unknown>
@@ -606,6 +609,7 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
       )
     case "slack":
       return applySlackRuntimeIntegrationSettingsForTenant({
+        allowDestructiveChanges: input.allowDestructiveChanges,
         expectedEntryVersion: input.expectedEntryVersion,
         integration,
         patch: input.patch,

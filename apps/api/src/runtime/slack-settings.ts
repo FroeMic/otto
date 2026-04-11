@@ -677,6 +677,7 @@ export async function getSlackRuntimeIntegrationSettingsForTenant(input: {
 }
 
 export async function validateSlackRuntimeIntegrationSettingsForTenant(input: {
+  allowDestructiveChanges?: boolean
   integration: RuntimeIntegrationSummaryResponse
   patch: Record<string, unknown>
   tenantId: string
@@ -708,7 +709,7 @@ export async function validateSlackRuntimeIntegrationSettingsForTenant(input: {
     wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
   })
 
-  if (destructiveChangeError) {
+  if (destructiveChangeError && input.allowDestructiveChanges !== true) {
     throw new Error(destructiveChangeError)
   }
 
@@ -730,6 +731,7 @@ export async function validateSlackRuntimeIntegrationSettingsForTenant(input: {
 }
 
 export async function applySlackRuntimeIntegrationSettingsForTenant(input: {
+  allowDestructiveChanges?: boolean
   expectedEntryVersion?: number
   integration: RuntimeIntegrationSummaryResponse
   patch: Record<string, unknown>
@@ -779,7 +781,7 @@ export async function applySlackRuntimeIntegrationSettingsForTenant(input: {
     wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
   })
 
-  if (destructiveChangeError) {
+  if (destructiveChangeError && input.allowDestructiveChanges !== true) {
     throw new Error(destructiveChangeError)
   }
 
