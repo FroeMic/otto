@@ -1,14 +1,26 @@
 import {
+  CaretUpDownIcon,
   BuildingsIcon,
   GearIcon,
   HouseLineIcon,
   SignOutIcon,
-  SparkleIcon,
+  UserIcon,
 } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useMatchRoute } from "@tanstack/react-router"
 import type { ComponentType, PropsWithChildren } from "react"
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -36,8 +48,8 @@ export interface WorkspaceShellProps extends PropsWithChildren {
 export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
-  params?: { orgSlug: string }
-  to: "/$orgSlug" | "/$orgSlug/settings/workspace" | "/platform"
+  params: { orgSlug: string }
+  to: "/$orgSlug" | "/$orgSlug/settings/workspace"
 }
 
 export function WorkspaceMenuLink({
@@ -47,20 +59,12 @@ export function WorkspaceMenuLink({
   to,
 }: WorkspaceMenuLinkProps) {
   const matchRoute = useMatchRoute()
-  const isActive = Boolean(
-    params ? matchRoute({ fuzzy: true, params, to }) : matchRoute({ fuzzy: true, to }),
-  )
+  const isActive = Boolean(matchRoute({ fuzzy: true, params, to }))
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        render={
-          params ? (
-            <Link params={params} preload="intent" to={to} />
-          ) : (
-            <Link preload="intent" to={to} />
-          )
-        }
+        render={<Link params={params} preload="intent" to={to} />}
         isActive={isActive}
         tooltip={label}
       >
@@ -71,25 +75,109 @@ export function WorkspaceMenuLink({
   )
 }
 
+export interface WorkspaceUserMenuProps {
+  currentOrganizationSlug: string
+  user: {
+    email: string
+    id: string
+    isPlatformAdmin: boolean
+    name: string
+  }
+}
+
+export function WorkspaceUserMenu({
+  currentOrganizationSlug,
+  user,
+}: WorkspaceUserMenuProps) {
+  const fallback = user.name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((value) => value[0])
+    .join("")
+    .toUpperCase()
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+            }
+          >
+            <Avatar>
+              <AvatarFallback>{fallback || "OT"}</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs">{user.email}</span>
+            </div>
+            <CaretUpDownIcon className="ml-auto size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-56 rounded-lg" align="end">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar>
+                    <AvatarFallback>{fallback || "OT"}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="truncate text-xs">{user.email}</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    params={{ orgSlug: currentOrganizationSlug }}
+                    to="/$orgSlug/settings/user"
+                  />
+                }
+              >
+                <UserIcon />
+                User settings
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    params={{ orgSlug: currentOrganizationSlug }}
+                    to="/$orgSlug/settings/workspace"
+                  />
+                }
+              >
+                <GearIcon />
+                Workspace settings
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                window.location.assign("/auth/sign-out")
+              }}
+            >
+              <SignOutIcon />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
 export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
   const matchRoute = useMatchRoute()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="gap-4 border-b border-sidebar-border/70">
-          <div className="flex items-center gap-3 px-2">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
-              <SparkleIcon weight="fill" />
-            </div>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="text-sm font-medium">Otto</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">
-                Workspace app
-              </p>
-            </div>
-          </div>
+      <Sidebar collapsible="icon" variant="inset">
+        <SidebarHeader>
           <WorkspaceSwitcher
             currentOrganization={{
               name: data.currentOrganization.name,
@@ -104,7 +192,7 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupLabel>Otto</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <WorkspaceMenuLink
@@ -124,78 +212,48 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
           </SidebarGroup>
 
           <ConversationHistorySidebarSection orgSlug={orgSlug} />
-
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {data.organizations.map((organization) => (
-                  <WorkspaceMenuLink
-                    key={organization.id}
-                    icon={BuildingsIcon}
-                    label={organization.name}
-                    params={{ orgSlug: organization.slug }}
-                    to="/$orgSlug"
-                  />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {data.user.isPlatformAdmin ? (
-            <SidebarGroup>
-              <SidebarGroupLabel>Operator</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      render={
-                        <Link
-                          preload="intent"
-                          search={() => ({
-                            workspace: orgSlug,
-                          })}
-                          to="/platform/organizations"
-                        />
-                      }
-                      isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
-                      tooltip="Platform"
-                    >
-                      <BuildingsIcon />
-                      <span>Platform</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ) : null}
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border/70">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  window.location.assign("/auth/sign-out")
-                }}
-                tooltip="Sign out"
-              >
-                <SignOutIcon />
-                <span>Sign out</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          {data.user.isPlatformAdmin ? (
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={
+                    <Link
+                      preload="intent"
+                      search={() => ({
+                        workspace: orgSlug,
+                      })}
+                      to="/platform/organizations"
+                    />
+                  }
+                  isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
+                  tooltip="Platform"
+                >
+                  <BuildingsIcon />
+                  <span>Platform</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          ) : null}
+          <WorkspaceUserMenu
+            currentOrganizationSlug={orgSlug}
+            user={data.user}
+          />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur md:px-6">
+      <SidebarInset>
+        <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
           <SidebarTrigger />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {data.currentOrganization.name}
-            </p>
+          <Separator
+            orientation="vertical"
+            className="data-vertical:h-4 data-vertical:self-auto"
+          />
+          <div className="min-w-0 text-sm">
+            <p className="truncate font-medium">{data.currentOrganization.name}</p>
             <p className="truncate text-xs text-muted-foreground">
               /{data.currentOrganization.slug}
             </p>
