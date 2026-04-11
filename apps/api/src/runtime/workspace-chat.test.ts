@@ -23,12 +23,30 @@ function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
 
 describe("workspace chat runtime routes", () => {
   it("accepts an assistant completion callback from a tenant runtime", async () => {
-    const app = createWorkspaceChatRuntimeRouter(createDependencies())
+    let receivedAssistantMessageId: string | undefined
+    const appWithSpy = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      completeAssistantMessage: async ({
+        assistantMessageId,
+        conversationId,
+        tenantId,
+      }) => {
+        receivedAssistantMessageId = assistantMessageId
 
-    const response = await app.request(
+        return {
+          conversationId,
+          messageId: assistantMessageId ?? "msg_assistant_1",
+          runtimeSegmentId: "segment_1",
+          tenantId,
+        }
+      },
+    })
+
+    const response = await appWithSpy.request(
       "http://api.local/api/internal/runtime/workspace-chat/messages/complete",
       {
         body: JSON.stringify({
+          assistantMessageId: "msg_assistant_1",
           conversationId: "conv_1",
           message: {
             parts: [
@@ -59,6 +77,7 @@ describe("workspace chat runtime routes", () => {
       runtimeSegmentId: "segment_1",
       tenantId: "tenant_1",
     })
+    assert.equal(receivedAssistantMessageId, "msg_assistant_1")
   })
 
   it("returns 404 when the conversation is not available to the tenant", async () => {

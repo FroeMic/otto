@@ -73,7 +73,7 @@ export const workspaceChatMessageSchema = z.object({
   author: workspaceChatMessageAuthorSchema,
   createdAt: z.string().trim().min(1),
   id: z.string().trim().min(1),
-  parts: z.array(workspaceChatMessagePartSchema).min(1),
+  parts: z.array(workspaceChatMessagePartSchema),
   status: workspaceChatMessageStatusSchema,
 })
 
@@ -122,6 +122,7 @@ export const workspaceChatRuntimeSessionStatusSchema = z.enum([
 ])
 
 export const workspaceChatRuntimeMessageCompleteRequestSchema = z.object({
+  assistantMessageId: z.string().trim().min(1).optional(),
   assistantDisplayName: z.string().trim().min(1).optional(),
   conversationId: z.string().trim().min(1),
   message: z.object({

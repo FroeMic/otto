@@ -121,6 +121,16 @@ describe("workspace chat feature", () => {
             ],
             status: "completed",
           },
+          {
+            author: {
+              kind: "assistant",
+              name: "Otto",
+            },
+            createdAt: "2026-04-10T09:31:05.000Z",
+            id: "msg_2",
+            parts: [],
+            status: "pending",
+          },
         ],
       }),
       conversationId: "conv_1",
@@ -156,6 +166,16 @@ describe("workspace chat feature", () => {
           ],
           status: "completed",
         },
+        {
+          author: {
+            kind: "assistant",
+            name: "Otto",
+          },
+          createdAt: "2026-04-10T09:31:05.000Z",
+          id: "msg_2",
+          parts: [],
+          status: "pending",
+        },
       ],
     })
   })
@@ -164,7 +184,7 @@ describe("workspace chat feature", () => {
     const response = await handleWorkspaceChatMessageCreateRequest({
       createMessage: async ({ conversationId, parts }) => ({
         dispatch: {
-          status: "pending_runtime_bridge",
+          status: "queued",
         },
         message: {
           author: {
@@ -207,7 +227,7 @@ describe("workspace chat feature", () => {
     assert.deepEqual(await response.json(), {
       conversationId: "conv_1",
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "queued",
       },
       message: {
         author: {

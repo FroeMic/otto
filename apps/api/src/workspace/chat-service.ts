@@ -3,7 +3,10 @@ import type {
   WorkspaceChatMessageCreateResponse,
 } from "@otto/feature-workspace-chat"
 
-import { createWorkspaceChatMessageRecord } from "./chat-data"
+import {
+  createWorkspaceChatMessageRecord,
+  markWorkspaceChatAssistantMessageFailed,
+} from "./chat-data"
 import { dispatchWorkspaceChatMessage } from "./chat-dispatch"
 
 type CreateAndDispatchWorkspaceChatMessageDependencies = {
@@ -16,16 +19,23 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
     userExternalId: string
   }) => Promise<
     WorkspaceChatMessageCreateResponse & {
+      assistantMessageId?: string
+      shouldDispatch: boolean
       tenantId: string
     }
   >
   dispatchMessage?: (input: {
+    assistantMessageId?: string
     conversationId: string
     message: string
     tenantId: string
   }) => Promise<{
-    status: "sent"
+    status: "queued"
   }>
+  markAssistantMessageFailed?: (input: {
+    assistantMessageId: string
+    conversationId: string
+  }) => Promise<void>
 }
 
 export async function createAndDispatchWorkspaceChatMessage(input: {
@@ -40,10 +50,22 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
     dependencies.createMessageRecord ?? createWorkspaceChatMessageRecord
   const dispatchMessage =
     dependencies.dispatchMessage ?? dispatchWorkspaceChatMessage
+  const markAssistantMessageFailed =
+    dependencies.markAssistantMessageFailed ??
+    markWorkspaceChatAssistantMessageFailed
   const created = await createMessageRecord(input)
+
+  if (!created.shouldDispatch) {
+    return {
+      conversationId: created.conversationId,
+      dispatch: created.dispatch,
+      message: created.message,
+    } satisfies WorkspaceChatMessageCreateResponse
+  }
 
   try {
     const dispatchResult = await dispatchMessage({
+      assistantMessageId: created.assistantMessageId,
       conversationId: created.conversationId,
       message: flattenWorkspaceChatPartsToPrompt(created.message.parts),
       tenantId: created.tenantId,
@@ -59,6 +81,13 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
       "[workspace-chat] runtime dispatch failed",
       error instanceof Error ? error.message : error,
     )
+
+    if (created.assistantMessageId) {
+      await markAssistantMessageFailed({
+        assistantMessageId: created.assistantMessageId,
+        conversationId: created.conversationId,
+      })
+    }
 
     return {
       conversationId: created.conversationId,

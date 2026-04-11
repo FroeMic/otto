@@ -8,6 +8,7 @@ export async function sendWorkspaceChatText({
   const target = parseWorkspaceTarget(to);
   const response = await requestControlPlane({
     body: {
+      assistantMessageId: target.assistantMessageId,
       assistantDisplayName: "Otto",
       conversationId: target.conversationId,
       message: {
@@ -48,13 +49,16 @@ function normalizeWorkspaceTarget(raw) {
 
 function parseWorkspaceTarget(raw) {
   const target = normalizeWorkspaceTarget(raw);
-  const conversationId = target.replace(/^workspace:/, "");
+  const [conversationId, query = ""] = target.replace(/^workspace:/, "").split("?", 2);
+  const assistantMessageId =
+    new URLSearchParams(query).get("assistantMessageId")?.trim() || undefined;
 
   if (!conversationId) {
     throw new Error("Workspace chat target must include a conversation id.");
   }
 
   return {
+    assistantMessageId,
     conversationId,
     target,
   };
