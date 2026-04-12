@@ -9,6 +9,7 @@ import {
 } from "./billing/routes"
 import { createFilesRouter } from "./files/routes"
 import { createIntegrationsRouter } from "./integrations/routes"
+import { createIntegrationsOauthRouter } from "./integrations/oauth-routes"
 import {
   createPlatformRouter,
   type PlatformRouteDependencies,
@@ -53,6 +54,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createAgentRouter())
     .route("/", createWorkspaceRouter())
     .route("/", createIntegrationsRouter())
+    .route("/", createIntegrationsOauthRouter())
     .route("/", createFilesRouter())
     .route("/", createSessionsRouter())
     .route("/", createScheduledTasksRouter())

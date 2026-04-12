@@ -641,6 +641,28 @@ async function createNextDesiredStateVersionForSlack(input: {
   return createdDesiredState
 }
 
+export async function createDesiredStateVersionForConnectedSlackIntegration(
+  tenantId: string,
+) {
+  const slackIntegration = await getConnectedSlackIntegrationForTenant(tenantId)
+
+  if (!slackIntegration) {
+    throw new Error("Slack must be connected before its desired state can be created")
+  }
+
+  const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(tenantId)
+
+  if (currentEntry.installState !== "installed") {
+    throw new Error("Slack config must be installed before its desired state can be created")
+  }
+
+  return createNextDesiredStateVersionForSlack({
+    config: currentEntry.config,
+    profile: slackIntegration.profile,
+    tenantId,
+  })
+}
+
 export async function getSlackRuntimeIntegrationSettingsForTenant(input: {
   integration: RuntimeIntegrationSummaryResponse
   tenantId: string
