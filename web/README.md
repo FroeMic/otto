@@ -1,6 +1,39 @@
-# Otto Control Plane (`web`)
+# Otto Legacy Control Plane (`web`)
 
-`web/` is the control-plane application for Otto tenant onboarding, provisioning, and operations.
+`web/` is no longer the live workspace app.
+
+The extracted workspace and platform UI now live in:
+
+- [apps/web](/Users/michaelfrohlich/Repositories/otto/apps/web)
+- [apps/api](/Users/michaelfrohlich/Repositories/otto/apps/api)
+- [apps/worker](/Users/michaelfrohlich/Repositories/otto/apps/worker)
+
+`web/` currently remains only as a transitional home for:
+
+- Drizzle migrations and schema history
+- selected operator scripts
+- backend/runtime logic that has not yet been re-homed or deleted
+
+The cleanup track for this directory is:
+
+- [spec/TODO_24_web_codebase_contraction.md](/Users/michaelfrohlich/Repositories/otto/spec/TODO_24_web_codebase_contraction.md)
+
+Do not add new workspace product UI here.
+
+## Current role
+
+Treat `web/` as a shrinking legacy area, not as a first-class product surface.
+
+Current intent:
+
+- keep only code that is still operationally required
+- re-home shared or service-owned backend/runtime logic into the extracted apps and packages
+- delete dead legacy workspace and onboarding UI
+
+If new browser-facing workspace functionality is needed, put it in:
+
+- `apps/web/src/features/*`
+- `apps/api/src/*`
 
 ## Responsibilities
 

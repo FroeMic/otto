@@ -87,14 +87,14 @@
   - `LANDING_PAGE_DOMAIN/api/*` routes to `apps/api`
   - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` routes to `apps/gateway`
   - runtime control-plane base URL resolution prefers `LANDING_PAGE_DOMAIN`, so `OTTO_CONTROL_PLANE_BASE_URL` can point tenant runtime callbacks and Otto-owned plugins at the extracted API surface
-- Legacy workspace retirement now has an explicit follow-on plan:
-  - `TODO_23_legacy_web_retirement_and_domain_cutover.md` defines the shutdown sequence
-  - PR 1 has retired `legacy-web` as the org-scoped workspace surface
-  - PR 2 removes the legacy onboarding table and callback flow now that extracted `apps/api` OAuth routes handle managed integration connects
-  - PR 3 collapses the remaining split-domain and split-auth env assumptions down to one public origin
-- PR 3 is now in progress:
-  - env parsing should stop accepting `CONTROL_PLANE_DOMAIN`, `WORKOS_BASE_URL_BETA`, and `WORKOS_REDIRECT_URI_BETA`
-  - production compose, Caddy, and env examples should describe only `LANDING_PAGE_DOMAIN` as the public browser origin
+- Legacy workspace retirement and domain cutover are now complete:
+  - `DONE_23_legacy_web_retirement_and_domain_cutover.md` records the completed shutdown sequence
+  - production workspace traffic no longer depends on `legacy-web`
+  - the onboarding table and callback flow have been removed
+  - the temporary split-domain and split-auth env assumptions have been collapsed to one public origin
+- The next cleanup track is now explicit:
+  - `TODO_24_web_codebase_contraction.md` owns the follow-on contraction of `web/`
+  - this includes refreshing stale spec state, classifying what in `web/` is still truly required, and deleting or quarantining duplicated backend/runtime logic
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
@@ -668,7 +668,13 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_16_runtime_ai_provider_proxy.md` by:
+- Start `TODO_24_web_codebase_contraction.md` in this order:
+  - reconcile `spec/STATUS.md` and other stale spec references with the now-completed legacy cutover
+  - inventory `web/` into keep, quarantine, and delete buckets
+  - remove dead legacy workspace/product UI first
+  - move migration ownership out of `web/`
+  - then delete duplicated backend/runtime logic once extracted owners are verified
+- In parallel, continue `TODO_16_runtime_ai_provider_proxy.md` by:
   - broadening canary coverage for `openai-proxy/gpt-5.4` plus proxied audio transcription on tenant runtimes
   - deciding whether TTS, voice-call, and embeddings should be proxied next or kept unsupported
   - adding request attribution metadata for proxied OpenAI calls so later billing and reconciliation can tie requests to the active provider credential revision

@@ -1,4 +1,4 @@
-# TODO 23: Legacy Web Retirement And Domain Cutover
+# DONE 23: Legacy Web Retirement And Domain Cutover
 
 ## Goal
 
@@ -24,22 +24,13 @@ Retire the legacy `web/` workspace app after feature parity is complete, remove 
 - `TODO_08_signup_to_slack_onboarding_flow.md`
 - `TODO_20_unified_frontend_and_hono_migration.md`
 
-## Current state
+## Final state
 
-- the new extracted workspace shell in `apps/web` now owns the main org-scoped surfaces:
-  - agent personalization
-  - integrations
-  - files
-  - sessions
-  - scheduled tasks
-  - skills
-- runtime-projected workspace links now need to point only at extracted workspace routes
-- the old onboarding UI still exists only in legacy `web/`
-- the onboarding persistence model still exists and is still referenced by Slack OAuth / provisioning code
-- deployment still carries follow-on env and docs cleanup from the parallel-launch phase:
-  - `CONTROL_PLANE_DOMAIN`
-  - `WORKOS_BASE_URL_BETA`
-  - `WORKOS_REDIRECT_URI_BETA`
+- the extracted workspace shell in `apps/web` owns the live org-scoped workspace surfaces
+- `legacy-web` is no longer part of production routing for the workspace app
+- runtime-projected workspace links point at extracted workspace routes
+- the legacy onboarding table and callback flow were removed
+- the temporary split-domain and split-auth env model was collapsed to one public origin
 
 ## Why this work exists
 
@@ -65,7 +56,7 @@ Work:
 - remove `legacy-web` from production compose and Caddy routing
 - route the workspace app only through the extracted origin
 - delete org-scoped legacy workspace UI pages under `web/src/app/[orgSlug]/(app)` once cutover is verified
-- retain only code in `web/` that is still needed temporarily for OAuth/provisioning callbacks if those have not yet moved
+- retain only code in `web/` that is still needed temporarily for migrations, operator scripts, or backend/runtime logic not yet re-homed
 
 Acceptance criteria:
 - no org-scoped user workspace traffic depends on `legacy-web`
@@ -143,11 +134,10 @@ Owns:
 
 Should only remain until the above PRs eliminate the last legitimate dependency.
 
-## Open questions
+## Follow-on work
 
-- whether any Slack OAuth callback behavior still needs a temporary home in `web/` before full retirement
-- whether `OTTO_CONTROL_PLANE_BASE_URL` should keep its current name after cutover or be renamed in a separate migration
-- whether any other legacy-only tables remain after `tenant_onboarding_sessions` is removed
+- `web/` still carries duplicated backend/runtime code and migration ownership that now need a dedicated cleanup pass
+- that follow-on is tracked in `TODO_24_web_codebase_contraction.md`
 
 ## Acceptance criteria
 
@@ -160,10 +150,10 @@ Should only remain until the above PRs eliminate the last legitimate dependency.
 
 - [x] PR 1 planned
 - [x] PR 1 implemented
-- [ ] PR 1 deployed and verified
+- [x] PR 1 deployed and verified
 - [x] PR 2 planned
 - [x] PR 2 implemented
-- [ ] PR 2 deployed and verified
+- [x] PR 2 deployed and verified
 - [x] PR 3 planned
-- [ ] PR 3 implemented
-- [ ] PR 3 deployed and verified
+- [x] PR 3 implemented
+- [x] PR 3 deployed and verified
