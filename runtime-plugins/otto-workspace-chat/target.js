@@ -13,19 +13,32 @@ export function normalizeWorkspaceTarget(raw) {
 
 export function buildWorkspaceTarget(input) {
   const base = normalizeWorkspaceTarget(input.conversationId);
+  const params = new URLSearchParams();
 
-  if (!input.assistantMessageId) {
+  if (typeof input.assistantMessageId === "string" && input.assistantMessageId.trim()) {
+    params.set("assistantMessageId", input.assistantMessageId.trim());
+  }
+
+  if (input.conversationVisibility === "personal") {
+    params.set("visibility", "personal");
+  }
+
+  const query = params.toString();
+
+  if (!query) {
     return base;
   }
 
-  return `${base}?assistantMessageId=${encodeURIComponent(input.assistantMessageId)}`;
+  return `${base}?${query}`;
 }
 
 export function parseWorkspaceTarget(raw) {
   const target = normalizeWorkspaceTarget(raw);
   const [conversationId, query = ""] = target.replace(/^workspace:/u, "").split("?", 2);
-  const assistantMessageId =
-    new URLSearchParams(query).get("assistantMessageId")?.trim() || undefined;
+  const params = new URLSearchParams(query);
+  const assistantMessageId = params.get("assistantMessageId")?.trim() || undefined;
+  const conversationVisibility =
+    params.get("visibility")?.trim() === "personal" ? "personal" : "open";
 
   if (!conversationId) {
     throw new Error("Workspace chat target must include a conversation id.");
@@ -34,6 +47,13 @@ export function parseWorkspaceTarget(raw) {
   return {
     assistantMessageId,
     conversationId,
+    conversationVisibility,
     target,
   };
+}
+
+export function inferWorkspaceTargetChatType(raw) {
+  return parseWorkspaceTarget(raw).conversationVisibility === "personal"
+    ? "direct"
+    : "group";
 }

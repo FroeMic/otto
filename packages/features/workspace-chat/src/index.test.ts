@@ -180,7 +180,7 @@ describe("workspace chat feature", () => {
     })
   })
 
-  it("accepts a message and records dispatch state for the runtime bridge", async () => {
+  it("accepts a message and records dispatch state for runtime ingress", async () => {
     const response = await handleWorkspaceChatMessageCreateRequest({
       createMessage: async ({ conversationId, parts }) => ({
         dispatch: {

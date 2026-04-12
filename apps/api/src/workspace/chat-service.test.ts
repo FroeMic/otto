@@ -5,7 +5,7 @@ import { describe, it } from "vitest"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 
 describe("workspace chat service", () => {
-  it("returns queued when bridge dispatch succeeds", async () => {
+  it("returns queued when runtime ingress enqueue succeeds", async () => {
     let dispatchInput: Record<string, unknown> | null = null
 
     const result = await createAndDispatchWorkspaceChatMessage(
@@ -26,7 +26,7 @@ describe("workspace chat service", () => {
         createMessageRecord: async () => ({
           conversationId: "conv_1",
           dispatch: {
-            status: "pending_runtime_bridge",
+            status: "queued",
           },
           conversationKind: "ad_hoc",
           conversationTitle: "Portfolio review",
@@ -92,7 +92,7 @@ describe("workspace chat service", () => {
         createMessageRecord: async () => ({
           conversationId: "conv_1",
           dispatch: {
-            status: "pending_runtime_bridge",
+            status: "queued",
           },
           conversationKind: "ad_hoc",
           conversationTitle: "Portfolio review",
@@ -122,10 +122,10 @@ describe("workspace chat service", () => {
       },
     )
 
-    assert.equal(result.dispatch.status, "pending_runtime_bridge")
+    assert.equal(result.dispatch.status, "failed")
   })
 
-  it("does not redispatch a duplicate client message that already has bridge state", async () => {
+  it("does not redispatch a duplicate client message that already has runtime dispatch state", async () => {
     let dispatchCalled = false
 
     const result = await createAndDispatchWorkspaceChatMessage(

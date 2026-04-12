@@ -33,6 +33,7 @@ type ProcessWorkspaceChatDependencies = {
     senderExternalId: string;
     userMessageId: string;
   }) => Promise<{
+    accepted: true;
     ok: true;
     sessionKey: string;
   }>;

@@ -139,7 +139,7 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
     return {
       conversationId: created.conversationId,
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "failed",
       },
       message: created.message,
     } satisfies WorkspaceChatMessageCreateResponse

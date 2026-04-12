@@ -483,7 +483,7 @@ export async function createWorkspaceChatMessageRecord(input: {
         conversation.visibility,
       ),
       dispatch: {
-        status: "pending_runtime_bridge",
+        status: "queued",
       },
       message: existingMessage,
       shouldDispatch: true,
@@ -600,7 +600,7 @@ export async function createWorkspaceChatMessageRecord(input: {
       conversation.visibility,
     ),
     dispatch: {
-      status: "pending_runtime_bridge",
+      status: "queued",
     },
     message: createdMessage.message,
     assistantMessageId: createdMessage.assistantMessageId,
@@ -1278,7 +1278,7 @@ function mapDispatchStatusFromAssistantStatus(
     return "queued"
   }
 
-  return "pending_runtime_bridge"
+  return "failed"
 }
 
 function normalizeWorkspaceChatConversationKind(

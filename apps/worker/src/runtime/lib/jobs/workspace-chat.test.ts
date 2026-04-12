@@ -6,6 +6,7 @@ describe("workspace chat worker job", () => {
   it("posts the queued workspace turn to the tenant ingress route", async () => {
     const appendJobEvent = vi.fn(async () => undefined)
     const forwardWorkspaceChatIngressRequest = vi.fn(async () => ({
+      accepted: true as const,
       ok: true as const,
       sessionKey: "workspace:conv_1?assistantMessageId=msg_1",
     }))

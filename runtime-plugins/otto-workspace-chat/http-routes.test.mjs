@@ -34,6 +34,10 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
   const previousTenantToken = process.env.TENANT_TOKEN;
   const previousFetch = globalThis.fetch;
+  let backgroundFinished = Promise.resolve();
+  let finishBackground = () => undefined;
+  let releaseDispatch = () => undefined;
+  let pending = null;
   const req = Readable.from([
     JSON.stringify({
       assistantMessageId: "msg_1",
@@ -54,17 +58,28 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
 
   process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
   process.env.TENANT_TOKEN = "tenant-token";
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+  backgroundFinished = new Promise((resolve) => {
+    finishBackground = resolve;
+  });
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/api/internal/runtime/workspace-chat/messages/complete")) {
+      finishBackground();
+    }
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
       headers: { "content-type": "application/json" },
       status: 200,
     });
+  };
 
   try {
     const response = createResponseRecorder();
     const dispatchCalls = [];
+    const dispatchGate = new Promise((resolve) => {
+      releaseDispatch = resolve;
+    });
 
-    const handled = await handleWorkspaceChatHttpRequest(req, response, {
+    pending = handleWorkspaceChatHttpRequest(req, response, {
       cfg: {
         session: {
           store: {
@@ -74,15 +89,25 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
       },
       dispatchInboundReplyWithBase: async (params) => {
         dispatchCalls.push(params);
+        await dispatchGate;
         await params.replyOptions?.onPartialReply?.({ text: "Hello" });
         await params.deliver({ text: "Hello there" });
       },
       runtime: createRuntime(),
     });
 
+    const accepted = await Promise.race([
+      pending.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), 0)),
+    ]);
+
+    assert.equal(accepted, true);
+    const handled = await pending;
+
     assert.equal(handled, true);
-    assert.equal(response.statusCode, 200);
+    assert.equal(response.statusCode, 202);
     assert.deepEqual(JSON.parse(response.body), {
+      accepted: true,
       ok: true,
       sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
     });
@@ -91,6 +116,104 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
       dispatchCalls[0].ctxPayload.SessionKey,
       "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
     );
+  } finally {
+    releaseDispatch();
+    if (pending) {
+      await pending;
+    }
+    if (finishBackground) {
+      await backgroundFinished;
+    }
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
+test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own post-acceptance failures", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const req = Readable.from([
+    JSON.stringify({
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      conversationKind: "ad_hoc",
+      conversationTitle: "Portfolio review",
+      conversationVisibility: "open",
+      message: "Hello there",
+      senderDisplayName: "Michael Froehlich",
+      senderExternalId: "user_1",
+      userMessageId: "user_msg_1",
+    }),
+  ]);
+  req.method = "POST";
+  req.headers = {
+    "content-type": "application/json",
+  };
+
+  const fetchCalls = [];
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body ? JSON.parse(init.body) : null,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    const response = createResponseRecorder();
+    const handled = await handleWorkspaceChatHttpRequest(req, response, {
+      cfg: {
+        session: {
+          store: {
+            path: "/tmp/sessions.json",
+          },
+        },
+      },
+      dispatchInboundReplyWithBase: async () => {
+        throw new Error("dispatch failed after acceptance");
+      },
+      runtime: createRuntime(),
+    });
+
+    assert.equal(handled, true);
+    assert.equal(response.statusCode, 202);
+    assert.deepEqual(JSON.parse(response.body), {
+      accepted: true,
+      ok: true,
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(fetchCalls.length, 1);
+    assert.equal(
+      fetchCalls[0].url,
+      "https://workspace.example/api/internal/runtime/workspace-chat/messages/fail",
+    );
+    assert.deepEqual(fetchCalls[0].body, {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      error: "dispatch failed after acceptance",
+    });
   } finally {
     globalThis.fetch = previousFetch;
     if (previousBaseUrl === undefined) {

@@ -53,6 +53,57 @@ describe("RuntimeManager.applyTenantConfig", () => {
 });
 
 describe("RuntimeManager.forwardWorkspaceChatIngressRequest", () => {
+  it("accepts a tenant ingress acknowledgment without waiting for turn completion", async () => {
+    const sshClient = {
+      exec: vi.fn(async () => ({
+        exitCode: 0,
+        stderr: "",
+        stdout: JSON.stringify({
+          bodyBase64: Buffer.from(
+            JSON.stringify({
+              accepted: true,
+              ok: true,
+              sessionKey: "workspace:conv_1?assistantMessageId=msg_1",
+            }),
+            "utf8",
+          ).toString("base64"),
+          headersBase64: Buffer.from("content-type: application/json\r\n", "utf8").toString(
+            "base64",
+          ),
+          status: 202,
+        }),
+      })),
+      writeFileAtomic: vi.fn(async () => undefined),
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await expect(
+      manager.forwardWorkspaceChatIngressRequest(
+        {
+          host: "tenant.test",
+          port: 22,
+          username: "root",
+        },
+        {
+          assistantMessageId: "msg_1",
+          conversationKind: "ad_hoc",
+          conversationId: "conv_1",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
+          gatewayToken: "gateway-token",
+          message: "Hello",
+          senderDisplayName: "Test User",
+          senderExternalId: "user_1",
+          userMessageId: "user_msg_1",
+        },
+      ),
+    ).resolves.toEqual({
+      accepted: true,
+      ok: true,
+      sessionKey: "workspace:conv_1?assistantMessageId=msg_1",
+    });
+  });
+
   it("surfaces the tenant ingress error payload when the workspace event POST fails", async () => {
     const sshClient = {
       exec: vi.fn(async () => ({

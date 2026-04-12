@@ -110,7 +110,7 @@ export const workspaceChatMessageCreateRequestSchema = z.object({
 export const workspaceChatMessageCreateResponseSchema = z.object({
   conversationId: z.string().trim().min(1),
   dispatch: z.object({
-    status: z.enum(["pending_runtime_bridge", "queued", "sent"]),
+    status: z.enum(["queued", "failed", "sent"]),
   }),
   message: workspaceChatMessageSchema,
 })
