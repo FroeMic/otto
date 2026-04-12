@@ -92,12 +92,12 @@
   - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
 - Legacy workspace retirement now has an explicit follow-on plan:
   - `TODO_23_legacy_web_retirement_and_domain_cutover.md` defines the shutdown sequence
-  - PR 1 retires `legacy-web` as the org-scoped workspace surface
-  - PR 2 removes legacy onboarding tables and code once OAuth/provisioning no longer depend on them
+  - PR 1 has retired `legacy-web` as the org-scoped workspace surface
+  - PR 2 removes the legacy onboarding table and callback flow now that extracted `apps/api` OAuth routes handle managed integration connects
   - PR 3 collapses the temporary `LANDING_PAGE_DOMAIN` plus `CONTROL_PLANE_DOMAIN` split and removes the `_BETA` auth envs
-- PR 1 is now in progress:
-  - production routing and compose should stop depending on a separate `legacy-web` container
-  - if `CONTROL_PLANE_DOMAIN` still exists temporarily, it should point at the extracted `web` + `api` + `gateway` stack rather than the legacy Next.js app
+- PR 2 is now in progress:
+  - `tenant_onboarding_sessions` should be dropped after the extracted OAuth path is the only remaining live integration-connect flow
+  - the remaining legacy onboarding pages and callback routes should be deleted rather than preserved as compatibility aliases
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
@@ -181,20 +181,14 @@
     - the billing cycle spend cap includes tax and is checked against a previewed next Stripe top-up invoice before Otto attempts the charge
     - successful top-up invoices now create positive top-up credit grants in Otto's ledger through the same grant path as other funded credits
     - manual top-up checkout is still not implemented yet
-- Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during Slack OAuth onboarding.
+- Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during managed integration OAuth.
 - The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
-- The first onboarding-flow slice is now implemented:
-  - tenant onboarding drafts are persisted in Postgres
-  - signed-in users with no provisioned tenants now land in an onboarding UI instead of immediate provisioning
-  - workspace creation now creates an onboarding draft instead of provisioning a tenant immediately
-  - provisioning remains intentionally blocked until the Slack OAuth step exists
-- Slack onboarding and managed reconnect now both use the generic managed integration OAuth routes under `/oauth/start/integration/slack` and `/oauth/callback/integration/slack`.
-- The provisioning path can now project a tenant-specific Slack bot token from the onboarding record into the tenant runtime instead of relying only on the global fallback env var.
+- The old onboarding-only Slack callback path is now being retired in favor of the extracted managed integration OAuth routes under `/oauth/start/integration/slack` and `/oauth/callback/integration/slack`.
+- The provisioning path can now project a tenant-specific Slack bot token from the managed integration connection record into the tenant runtime instead of relying only on the global fallback env var.
 - Slack control-plane state is now more durable:
   - `tenant_integrations`, `integration_slack_installations`, and `integration_credentials` now persist the canonical Slack installation state
   - generic `integration_messaging_workspaces`, `integration_messaging_workspace_members`, and `integration_messaging_conversations` tables now cache connected workspace directories in provider-agnostic naming
-  - Slack OAuth failures are now recorded on the onboarding session and surfaced back in the onboarding and Slack integration pages
-  - reconnect / retry is now supported while an organization is still in setup
+  - Slack OAuth failures are now recorded on the managed integration state and surfaced back in the Slack integration page
   - reconnect after the tenant runtime is already ready is now supported through desired-state versioning plus `apply_tenant_config`
 - The config-apply slice is now implemented:
   - `tenant_desired_states` versions are now unique per tenant and Slack reconnects create new desired-state versions instead of mutating prior state
@@ -736,7 +730,7 @@
   - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
   - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
   - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`
-  - a follow-up cleanup branch now removes the legacy Slack-only OAuth routes and moves onboarding onto the same canonical `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` flow as managed Slack reconnect
+  - the legacy Slack-only OAuth routes are now being removed so the canonical `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` flow is the only remaining connect path
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user

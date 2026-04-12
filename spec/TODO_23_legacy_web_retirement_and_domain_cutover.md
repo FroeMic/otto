@@ -159,11 +159,11 @@ Should only remain until the above PRs eliminate the last legitimate dependency.
 
 ## Status checklist
 
-- [ ] PR 1 planned
-- [ ] PR 1 implemented
+- [x] PR 1 planned
+- [x] PR 1 implemented
 - [ ] PR 1 deployed and verified
-- [ ] PR 2 planned
-- [ ] PR 2 implemented
+- [x] PR 2 planned
+- [x] PR 2 implemented
 - [ ] PR 2 deployed and verified
 - [ ] PR 3 planned
 - [ ] PR 3 implemented
