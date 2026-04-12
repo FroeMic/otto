@@ -287,7 +287,7 @@
     - the current browser path now uses a workspace-scoped websocket plus active-conversation subscriptions, and active conversations now render streamed assistant text in-place while polling remains fallback elsewhere
 - The workspace-chat transparency slice in `DONE_22_workspace_chat_activity_events_and_transparency.md` is now implemented:
   - workspace chat now persists a canonical `workspace_chat_message_events` stream attached to assistant messages instead of overloading `message.parts`
-  - `otto-workspace-chat` now emits normalized runtime `lifecycle`, `item`, `tool`, and `approval` activity events from `api.runtime.events.onAgentEvent(...)` while a turn is running
+  - `otto-workspace-chat` now emits normalized runtime activity from direct OpenClaw `replyOptions` callbacks instead of depending on the global `onAgentEvent(...)` bus and its control-UI session visibility behavior
   - `apps/api` now persists and fans out those events over the existing workspace websocket so the same collapsed activity lane can render both during live streaming and when loading old chats later
   - `apps/web` now renders a first assistant activity lane beneath assistant messages using canonical persisted events rather than raw session logs
   - the canonical event shape remains surface-agnostic so Slack and other external surfaces can reconcile into it later from session logs or transcript updates
