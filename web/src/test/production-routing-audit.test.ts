@@ -50,31 +50,13 @@ describe("production routing audit", () => {
     );
   });
 
-  it("routes the secondary workspace domain to the extracted web, api, and gateway services", () => {
+  it("does not keep a secondary workspace hostname block in caddy", () => {
     const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
-
-    assert.match(
-      caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/internal\/runtime\/integrations\/execute\* \{[\s\S]*?reverse_proxy integration-gateway:3001/,
-      "Secondary workspace domain must send integration execute traffic to integration-gateway:3001 in web/Caddyfile",
-    );
-
-    assert.match(
-      caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/\* \{[\s\S]*?reverse_proxy api:3002/,
-      "Secondary workspace domain must send /api/* traffic to api:3002 in web/Caddyfile",
-    );
-
-    assert.match(
-      caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
-      "Secondary workspace domain must default to web:3000 in web/Caddyfile",
-    );
 
     assert.doesNotMatch(
       caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy legacy-web:3000/,
-      "Secondary workspace domain must not proxy to legacy-web:3000 in web/Caddyfile",
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{/,
+      "Production Caddy must not keep a secondary CONTROL_PLANE_DOMAIN host block",
     );
   });
 
@@ -154,6 +136,17 @@ describe("production routing audit", () => {
       webService,
       /WORKSPACE_APP_ORIGIN:\s+https:\/\/\$\{LANDING_PAGE_DOMAIN\}/,
       "web must treat the apex landing domain as the workspace origin in production compose",
+    );
+  });
+
+  it("points the api service at the unified apex origin", () => {
+    const compose = readFileSync(COMPOSE_PATH, "utf8");
+    const apiService = getServiceBlock(compose, "api");
+
+    assert.match(
+      apiService,
+      /WORKSPACE_APP_ORIGIN:\s+https:\/\/\$\{LANDING_PAGE_DOMAIN\}/,
+      "api must treat the landing domain as the public workspace origin in production compose",
     );
   });
 

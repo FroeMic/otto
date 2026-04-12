@@ -26,32 +26,3 @@
 
   reverse_proxy web:3000
 }
-
-{$CONTROL_PLANE_DOMAIN} {
-  encode gzip zstd
-
-  header {
-    Referrer-Policy "strict-origin-when-cross-origin"
-    Strict-Transport-Security "max-age=31536000; includeSubDomains"
-    X-Content-Type-Options "nosniff"
-    X-Frame-Options "DENY"
-  }
-
-  handle /api/internal/runtime/integrations/execute* {
-    reverse_proxy integration-gateway:3001
-  }
-
-  handle /auth/* {
-    reverse_proxy api:3002
-  }
-
-  handle /oauth/* {
-    reverse_proxy api:3002
-  }
-
-  handle /api/* {
-    reverse_proxy api:3002
-  }
-
-  reverse_proxy web:3000
-}

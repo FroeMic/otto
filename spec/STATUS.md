@@ -82,22 +82,19 @@
 - Runtime-projected workspace URLs are now almost fully aligned with the extracted shell:
   - managed bootstrap links in `apps/api` already point at extracted settings and workspace routes
   - the remaining stale projected integration URLs have now been corrected in shared integration definitions and worker-managed bootstrap content so runtime-generated integration links point at `/$orgSlug/settings/agent/integrations/...` instead of the old `/integrations2/...` paths
-- The apex-domain parallel launch shape is now wired in repo config:
-  - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
-  - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`
-  - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` is intended to route to `apps/gateway`
-  - `CONTROL_PLANE_DOMAIN` is intended to keep serving the legacy Next.js workspace app during parallel launch
-  - for the extracted `web` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
-  - runtime control-plane base URL resolution now also prefers `LANDING_PAGE_DOMAIN`, so `OTTO_CONTROL_PLANE_BASE_URL` can point tenant runtime callbacks and Otto-owned plugins at the extracted apex-domain API surface during cutover
-  - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
+- The production domain model is now converging on one public workspace/app origin:
+  - `LANDING_PAGE_DOMAIN` serves the extracted Otto web app
+  - `LANDING_PAGE_DOMAIN/api/*` routes to `apps/api`
+  - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` routes to `apps/gateway`
+  - runtime control-plane base URL resolution prefers `LANDING_PAGE_DOMAIN`, so `OTTO_CONTROL_PLANE_BASE_URL` can point tenant runtime callbacks and Otto-owned plugins at the extracted API surface
 - Legacy workspace retirement now has an explicit follow-on plan:
   - `TODO_23_legacy_web_retirement_and_domain_cutover.md` defines the shutdown sequence
   - PR 1 has retired `legacy-web` as the org-scoped workspace surface
   - PR 2 removes the legacy onboarding table and callback flow now that extracted `apps/api` OAuth routes handle managed integration connects
-  - PR 3 collapses the temporary `LANDING_PAGE_DOMAIN` plus `CONTROL_PLANE_DOMAIN` split and removes the `_BETA` auth envs
-- PR 2 is now in progress:
-  - `tenant_onboarding_sessions` should be dropped after the extracted OAuth path is the only remaining live integration-connect flow
-  - the remaining legacy onboarding pages and callback routes should be deleted rather than preserved as compatibility aliases
+  - PR 3 collapses the remaining split-domain and split-auth env assumptions down to one public origin
+- PR 3 is now in progress:
+  - env parsing should stop accepting `CONTROL_PLANE_DOMAIN`, `WORKOS_BASE_URL_BETA`, and `WORKOS_REDIRECT_URI_BETA`
+  - production compose, Caddy, and env examples should describe only `LANDING_PAGE_DOMAIN` as the public browser origin
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
@@ -730,7 +727,7 @@
   - use the new `TODO_17` `Full Webhook Support` chapter as the source of truth for future Slack ingress shaping: implement only what the current shared Slack app needs, but do it in a way that can later extend to provider-keyed inbound endpoints and additional setup modes such as `platform_managed`, `provider_managed`, `workspace_managed`, and `manual`
   - the current first Slack ingress framework slice already exists on the implementation branch: Slack now declares `platform_managed` ingress metadata, provider-owned ingress logic lives under `web/src/integrations/library/slack/ingress`, the generic route family exists at `/api/webhooks/integrations/[provider]/[endpointKey]`, and the old `/api/integrations/slack/*` paths remain compatibility wrappers
   - the same branch now also replaces `slack_ingress_deliveries` with the generic `integration_ingress_deliveries` model, using normalized external workspace/account columns plus `provider_metadata`
-  - the legacy Slack-only OAuth routes are now being removed so the canonical `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` flow is the only remaining connect path
+  - the legacy Slack-only OAuth routes have been removed so the canonical `/oauth/start/integration/slack` and `/oauth/callback/integration/slack` flow is the only remaining connect path
 - In parallel, continue `TODO_09_ui_app_shell_and_onboarding_rebuild.md` by:
   - running the new slug migration in active environments
   - running the new `user_platform_roles` migration in active environments and seeding at least one `PLATFORM_ADMIN` user

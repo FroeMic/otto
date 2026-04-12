@@ -5,7 +5,6 @@ import crypto from "node:crypto"
 import { z } from "zod"
 
 const envSchema = z.object({
-  CONTROL_PLANE_DOMAIN: z.string().optional(),
   CONTROL_PLANE_ENCRYPTION_SECRET: z.string().optional(),
   CONTROL_PLANE_OAUTH_STATE_SECRET: z.string().optional(),
   DATABASE_URL: z.url(),
@@ -87,7 +86,6 @@ export function getControlPlaneBaseUrl() {
 
   return (
     deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
-    deriveBaseUrlFromDomain(env.CONTROL_PLANE_DOMAIN) ??
     env.WORKOS_BASE_URL ??
     deriveBaseUrlFromUri(
       env.WORKOS_REDIRECT_URI ?? env.SLACK_REDIRECT_URI ?? env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,

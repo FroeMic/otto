@@ -882,7 +882,7 @@ Exit criteria:
     - `LANDING_PAGE_DOMAIN` on `web`
     - `LANDING_PAGE_DOMAIN/api/*` on `apps/api`
     - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` on `apps/gateway`
-    - `CONTROL_PLANE_DOMAIN` may temporarily remain as a second public hostname, but it should no longer require `legacy-web` once PR 1 of `TODO_23_legacy_web_retirement_and_domain_cutover.md` lands
+    - the temporary secondary public hostname from the parallel-launch phase should be removed by PR 3 of `TODO_23_legacy_web_retirement_and_domain_cutover.md`
 
 ### Immediate execution order
 

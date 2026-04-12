@@ -4,7 +4,7 @@ import test from "node:test";
 process.env.DATABASE_URL ??= "https://example.com/db";
 process.env.CONTROL_PLANE_ENCRYPTION_SECRET ??= "test-encryption-secret";
 process.env.CONTROL_PLANE_OAUTH_STATE_SECRET ??= "test-oauth-state-secret";
-process.env.CONTROL_PLANE_DOMAIN = "app.example.com";
+process.env.LANDING_PAGE_DOMAIN = "app.example.com";
 process.env.WORKOS_BASE_URL = "https://app.example.com";
 process.env.LINEAR_CLIENT_ID ??= "linear-client-id";
 process.env.LINEAR_CLIENT_SECRET ??= "linear-client-secret";

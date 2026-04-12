@@ -10,7 +10,7 @@ Retire the legacy `web/` workspace app after feature parity is complete, remove 
 - remove legacy-only workspace route compatibility that is no longer needed
 - delete legacy onboarding UI and backend code once no runtime or OAuth path depends on it
 - remove legacy-only onboarding tables and related schema/model code
-- collapse the current `LANDING_PAGE_DOMAIN` plus `CONTROL_PLANE_DOMAIN` split into one public workspace/app origin model
+- collapse the remaining split-domain and split-auth env model down to one public workspace/app origin
 
 ## Non-goals
 
@@ -36,8 +36,7 @@ Retire the legacy `web/` workspace app after feature parity is complete, remove 
 - runtime-projected workspace links now need to point only at extracted workspace routes
 - the old onboarding UI still exists only in legacy `web/`
 - the onboarding persistence model still exists and is still referenced by Slack OAuth / provisioning code
-- deployment still carries a parallel-launch split:
-  - `LANDING_PAGE_DOMAIN`
+- deployment still carries follow-on env and docs cleanup from the parallel-launch phase:
   - `CONTROL_PLANE_DOMAIN`
   - `WORKOS_BASE_URL_BETA`
   - `WORKOS_REDIRECT_URI_BETA`
@@ -102,7 +101,7 @@ Goal:
 Work:
 - make one public workspace/app origin authoritative
 - remove the `*_BETA` WorkOS URL vars
-- remove `CONTROL_PLANE_DOMAIN` fallback behavior where it only exists for the parallel-launch phase
+- remove `CONTROL_PLANE_DOMAIN` fallback behavior where it only existed for the parallel-launch phase
 - simplify env parsing in:
   - `apps/api`
   - `apps/worker`
@@ -165,6 +164,6 @@ Should only remain until the above PRs eliminate the last legitimate dependency.
 - [x] PR 2 planned
 - [x] PR 2 implemented
 - [ ] PR 2 deployed and verified
-- [ ] PR 3 planned
+- [x] PR 3 planned
 - [ ] PR 3 implemented
 - [ ] PR 3 deployed and verified
