@@ -65,6 +65,16 @@ function WorkspaceRouteOutlet() {
   return <Outlet />
 }
 
+function WorkspaceShellOutlet() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return (
+    <WorkspaceShell orgSlug={orgSlug}>
+      <Outlet />
+    </WorkspaceShell>
+  )
+}
+
 function PlatformRouteOutlet() {
   return <Outlet />
 }
@@ -73,26 +83,20 @@ async function importPlatformApiModule() {
   return import("@/features/platform/api/platform")
 }
 
-function WorkspaceShellRoute() {
+function WorkspaceOverviewRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
-  return (
-    <WorkspaceShell orgSlug={orgSlug}>
-      <WorkspaceOverviewPage orgSlug={orgSlug} />
-    </WorkspaceShell>
-  )
+  return <WorkspaceOverviewPage orgSlug={orgSlug} />
 }
 
 function WorkspaceConversationRoutePage() {
   const { conversationId, orgSlug } = workspaceConversationRoute.useParams()
 
   return (
-    <WorkspaceShell orgSlug={orgSlug}>
-      <WorkspaceConversationPage
-        conversationId={conversationId}
-        orgSlug={orgSlug}
-      />
-    </WorkspaceShell>
+    <WorkspaceConversationPage
+      conversationId={conversationId}
+      orgSlug={orgSlug}
+    />
   )
 }
 
@@ -334,15 +338,21 @@ export const workspaceRoute = createRoute({
   path: "/$orgSlug",
 })
 
-const workspaceIndexRoute = createRoute({
-  component: WorkspaceShellRoute,
+const workspaceShellRoute = createRoute({
+  component: WorkspaceShellOutlet,
   getParentRoute: () => workspaceRoute,
+  id: "workspace-shell",
+})
+
+const workspaceIndexRoute = createRoute({
+  component: WorkspaceOverviewRoutePage,
+  getParentRoute: () => workspaceShellRoute,
   path: "/",
 })
 
 const workspaceConversationRoute = createRoute({
   component: WorkspaceConversationRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     Promise.all([
       context.queryClient.ensureQueryData(
@@ -360,37 +370,37 @@ const workspaceConversationRoute = createRoute({
 
 const workspaceLegacyAgentRoute = createRoute({
   component: LegacyWorkspaceAgentRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: "/agent",
 })
 
 const workspaceLegacyAgentStatusRoute = createRoute({
   component: LegacyWorkspaceAgentRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: "/agent/status",
 })
 
 const workspaceLegacyAgentPromptsRoute = createRoute({
   component: LegacyWorkspaceAgentRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: "/agent/prompts",
 })
 
 const workspaceLegacyAgentInstructionRoute = createRoute({
   component: LegacyWorkspaceAgentInstructionRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: "/agent/$instructionTab",
 })
 
 const workspaceLegacyFilesRoute = createRoute({
   component: LegacyWorkspaceFilesRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   path: "/files",
 })
 
 const workspaceSkillsRoute = createRoute({
   component: WorkspaceSkillsRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceSkillsQueryOptions(params.orgSlug),
@@ -400,7 +410,7 @@ const workspaceSkillsRoute = createRoute({
 
 const workspaceSkillRedirectRoute = createRoute({
   component: WorkspaceSkillDetailRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceSkillDetailQueryOptions({
@@ -413,7 +423,7 @@ const workspaceSkillRedirectRoute = createRoute({
 
 const workspaceSkillOverviewLegacyRoute = createRoute({
   component: WorkspaceSkillDetailRedirectRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceSkillDetailQueryOptions({
@@ -426,7 +436,7 @@ const workspaceSkillOverviewLegacyRoute = createRoute({
 
 const workspaceSkillStatusRoute = createRoute({
   component: WorkspaceSkillStatusRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceSkillDetailQueryOptions({
@@ -439,7 +449,7 @@ const workspaceSkillStatusRoute = createRoute({
 
 const workspaceSkillFilesRoute = createRoute({
   component: WorkspaceSkillFilesRoutePage,
-  getParentRoute: () => workspaceRoute,
+  getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     Promise.all([
       context.queryClient.ensureQueryData(
@@ -738,18 +748,20 @@ const platformOrganizationLogsRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   workspaceRoute.addChildren([
-    workspaceIndexRoute,
-    workspaceConversationRoute,
-    workspaceLegacyAgentRoute,
-    workspaceLegacyAgentStatusRoute,
-    workspaceLegacyAgentPromptsRoute,
-    workspaceLegacyAgentInstructionRoute,
-    workspaceLegacyFilesRoute,
-    workspaceSkillsRoute,
-    workspaceSkillRedirectRoute,
-    workspaceSkillOverviewLegacyRoute,
-    workspaceSkillStatusRoute,
-    workspaceSkillFilesRoute,
+    workspaceShellRoute.addChildren([
+      workspaceIndexRoute,
+      workspaceConversationRoute,
+      workspaceLegacyAgentRoute,
+      workspaceLegacyAgentStatusRoute,
+      workspaceLegacyAgentPromptsRoute,
+      workspaceLegacyAgentInstructionRoute,
+      workspaceLegacyFilesRoute,
+      workspaceSkillsRoute,
+      workspaceSkillRedirectRoute,
+      workspaceSkillOverviewLegacyRoute,
+      workspaceSkillStatusRoute,
+      workspaceSkillFilesRoute,
+    ]),
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,
