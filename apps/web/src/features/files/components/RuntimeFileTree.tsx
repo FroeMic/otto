@@ -88,7 +88,7 @@ function RuntimeFileTreeNodeRow({
       <div>
         <div
           className={cn(
-            "flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
+            "group flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
             depth > 0 && "pl-6",
             isSelected && "bg-muted/60 text-foreground",
           )}
@@ -122,7 +122,7 @@ function RuntimeFileTreeNodeRow({
                 size: "icon",
                 variant: "ghost",
               }),
-              "size-8 shrink-0",
+              "size-8 shrink-0 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
             )}
             href={downloadUrl}
             title="Download folder as zip"
@@ -155,7 +155,7 @@ function RuntimeFileTreeNodeRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
+        "group flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
         depth > 0 && "pl-10",
         isSelected && "bg-muted/60 text-foreground",
       )}
@@ -179,7 +179,7 @@ function RuntimeFileTreeNodeRow({
             size: "icon",
             variant: "ghost",
           }),
-          "size-8 shrink-0",
+          "size-8 shrink-0 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
         )}
         href={downloadUrl}
         title="Download file"
