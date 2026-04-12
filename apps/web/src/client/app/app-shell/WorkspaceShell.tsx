@@ -1,9 +1,9 @@
 import {
   CaretUpDownIcon,
   BuildingsIcon,
-  FileIcon,
   GearIcon,
-  HouseLineIcon,
+  ChatsTeardropIcon,
+  LightningIcon,
   SignOutIcon,
   UserIcon,
 } from "@phosphor-icons/react"
@@ -51,7 +51,7 @@ export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
   params: { orgSlug: string }
-  to: "/$orgSlug" | "/$orgSlug/skills"
+  to: "/$orgSlug/skills" | "/$orgSlug/sessions"
 }
 
 export function WorkspaceMenuLink({
@@ -195,17 +195,16 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
 
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel>Otto</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <WorkspaceMenuLink
-                    icon={HouseLineIcon}
-                    label="Overview"
+                    icon={ChatsTeardropIcon}
+                    label="Sessions"
                     params={{ orgSlug }}
-                    to="/$orgSlug"
+                    to="/$orgSlug/sessions"
                   />
                   <WorkspaceMenuLink
-                    icon={FileIcon}
+                    icon={LightningIcon}
                     label="Skills"
                     params={{ orgSlug }}
                     to="/$orgSlug/skills"

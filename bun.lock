@@ -61,6 +61,7 @@
         "@otto/feature-billing": "workspace:*",
         "@otto/feature-integrations-runtime": "workspace:*",
         "@otto/feature-platform": "workspace:*",
+        "@otto/feature-runtime-core": "workspace:*",
         "@otto/feature-user-profile": "workspace:*",
         "@otto/feature-workspace-chat": "workspace:*",
         "@otto/feature-workspace-core": "workspace:*",
@@ -183,6 +184,8 @@
       "version": "0.1.0",
       "dependencies": {
         "@otto/auth": "workspace:*",
+        "@otto/feature-integrations-runtime": "workspace:*",
+        "drizzle-orm": "^0.44.6",
         "zod": "^4.1.12",
       },
       "devDependencies": {
