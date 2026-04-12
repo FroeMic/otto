@@ -2,6 +2,8 @@ import { jsonNoStore, RuntimeAuthError } from "@otto/auth"
 import * as z from "zod"
 
 export * from "./managed-config/agent-personalization-contracts"
+export * from "./managed-skills/markdown"
+export * from "./managed-skills/workspace-contracts"
 
 export type ManagedConfigVersionConflictLike = {
   currentVersion: number
