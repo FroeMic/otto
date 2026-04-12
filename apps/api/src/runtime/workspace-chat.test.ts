@@ -321,4 +321,52 @@ describe("workspace chat runtime routes", () => {
     assert.equal(receivedSequence, 1)
     assert.equal(receivedType, "tool.started")
   })
+
+  it("accepts richer assistant activity event types from a tenant runtime", async () => {
+    let receivedType = ""
+    const appWithSpy = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      applyAssistantEvent: async ({
+        assistantMessageId,
+        conversationId,
+        event,
+        tenantId,
+      }) => {
+        receivedType = event.type
+
+        return {
+          conversationId,
+          eventId: "evt_2",
+          messageId: assistantMessageId,
+          tenantId,
+        }
+      },
+    })
+
+    const response = await appWithSpy.request(
+      "http://api.local/api/internal/runtime/workspace-chat/messages/events",
+      {
+        body: JSON.stringify({
+          assistantMessageId: "msg_assistant_1",
+          conversationId: "conv_1",
+          event: {
+            payload: {
+              text: "Inspecting the code path",
+            },
+            sequence: 2,
+            status: "running",
+            title: "Thinking",
+            type: "thinking.delta",
+          },
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(receivedType, "thinking.delta")
+  })
 })

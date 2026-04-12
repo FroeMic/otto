@@ -142,6 +142,94 @@ test("normalizeWorkspaceChatRuntimeActivityEvent maps direct runtime callback pa
       type: "command_output.delta",
     },
   );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        mediaUrls: ["https://example.com/file.png"],
+        text: "Tool produced a chart",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "tool_result",
+    }),
+    {
+      payload: {
+        mediaUrls: ["https://example.com/file.png"],
+        text: "Tool produced a chart",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "completed",
+      summary: "Tool produced a chart",
+      title: "Tool result",
+      type: "tool.result",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        text: "Inspecting the issue",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "thinking",
+    }),
+    {
+      payload: {
+        text: "Inspecting the issue",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      summary: "Inspecting the issue",
+      title: "Thinking",
+      type: "thinking.delta",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "assistant_message",
+    }),
+    {
+      payload: {
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      title: "Assistant message",
+      type: "assistant_message.started",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "compaction",
+    }),
+    {
+      payload: {
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      title: "Context compaction",
+      type: "compaction.started",
+    },
+  );
 });
 
 test("createWorkspaceChatActivityEventReporter forwards direct runtime callback activity in sequence order", async () => {
@@ -197,6 +285,17 @@ test("createWorkspaceChatActivityEventReporter forwards direct runtime callback 
     phase: "completed",
     runId: "run_1",
   });
+  await reporter.replyOptions.onToolResult?.({
+    mediaUrls: ["https://example.com/result.png"],
+    text: "Rendered chart",
+  });
+  await reporter.replyOptions.onAssistantMessageStart?.();
+  await reporter.replyOptions.onReasoningStream?.({
+    text: "Inspecting the code",
+  });
+  await reporter.replyOptions.onReasoningEnd?.();
+  await reporter.replyOptions.onCompactionStart?.();
+  await reporter.replyOptions.onCompactionEnd?.();
 
   await reporter.flush();
 
@@ -307,6 +406,114 @@ test("createWorkspaceChatActivityEventReporter forwards direct runtime callback 
         summary: "Completed successfully",
         title: "Completed",
         type: "lifecycle.completed",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          mediaUrls: ["https://example.com/result.png"],
+          text: "Rendered chart",
+        },
+        runId: "run_1",
+        sequence: 7,
+        sessionKey: "session_1",
+        status: "completed",
+        summary: "Rendered chart",
+        title: "Tool result",
+        type: "tool.result",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          phase: "start",
+        },
+        runId: "run_1",
+        sequence: 8,
+        sessionKey: "session_1",
+        status: "running",
+        title: "Assistant message",
+        type: "assistant_message.started",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          phase: "start",
+        },
+        runId: "run_1",
+        sequence: 9,
+        sessionKey: "session_1",
+        status: "running",
+        title: "Thinking",
+        type: "thinking.started",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          text: "Inspecting the code",
+        },
+        runId: "run_1",
+        sequence: 10,
+        sessionKey: "session_1",
+        status: "running",
+        summary: "Inspecting the code",
+        title: "Thinking",
+        type: "thinking.delta",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          phase: "completed",
+        },
+        runId: "run_1",
+        sequence: 11,
+        sessionKey: "session_1",
+        status: "completed",
+        title: "Thinking",
+        type: "thinking.completed",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          phase: "start",
+        },
+        runId: "run_1",
+        sequence: 12,
+        sessionKey: "session_1",
+        status: "running",
+        title: "Context compaction",
+        type: "compaction.started",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          phase: "completed",
+        },
+        runId: "run_1",
+        sequence: 13,
+        sessionKey: "session_1",
+        status: "completed",
+        title: "Context compaction",
+        type: "compaction.completed",
       },
     },
   ]);

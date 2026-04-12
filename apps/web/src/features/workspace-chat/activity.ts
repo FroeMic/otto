@@ -25,6 +25,10 @@ export function buildWorkspaceChatActivityView(
   const rowsById = new Map<string, WorkspaceChatActivityRow>()
 
   for (const messageEvent of sortedEvents) {
+    if (!shouldRenderActivityEvent(messageEvent)) {
+      continue
+    }
+
     const kind = getActivityKind(messageEvent.type)
     const rowId = getActivityRowId(messageEvent, kind)
     const existingRow = rowsById.get(rowId)
@@ -64,6 +68,26 @@ export function buildWorkspaceChatActivityView(
         : `Activity (${rows.length} steps)`,
     totalEvents: sortedEvents.length,
   }
+}
+
+function shouldRenderActivityEvent(messageEvent: WorkspaceChatMessageEvent) {
+  const prefix = messageEvent.type.split(".")[0]
+
+  if (
+    prefix !== "approval" &&
+    prefix !== "command_output" &&
+    prefix !== "item" &&
+    prefix !== "lifecycle" &&
+    prefix !== "tool"
+  ) {
+    return false
+  }
+
+  if (prefix === "tool" && !messageEvent.itemId) {
+    return false
+  }
+
+  return true
 }
 
 function getActivityKind(
