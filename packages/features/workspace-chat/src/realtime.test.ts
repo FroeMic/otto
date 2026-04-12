@@ -76,4 +76,28 @@ describe("workspace chat realtime server event schema", () => {
     assert.equal(event.type, "conversation.summary_updated")
     assert.equal(event.conversation.id, "conv_1")
   })
+
+  it("parses message event upserted events", () => {
+    const event = workspaceChatRealtimeServerEventSchema.parse({
+      conversationId: "conv_1",
+      event: {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:00.000Z",
+        id: "evt_1",
+        messageId: "msg_1",
+        payload: {
+          toolName: "read_file",
+        },
+        sequence: 1,
+        status: "running",
+        title: "Read file",
+        type: "tool.started",
+      },
+      type: "conversation.message_event_upserted",
+    })
+
+    assert.equal(event.type, "conversation.message_event_upserted")
+    assert.equal(event.event.messageId, "msg_1")
+    assert.equal(event.event.type, "tool.started")
+  })
 })

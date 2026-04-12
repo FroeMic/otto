@@ -1876,6 +1876,53 @@ export const workspaceChatMessageParts = pgTable(
   }),
 );
 
+export const workspaceChatMessageEvents = pgTable(
+  "workspace_chat_message_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    conversationId: uuid("conversation_id")
+      .references(() => workspaceChatConversations.id, { onDelete: "cascade" })
+      .notNull(),
+    messageId: uuid("message_id")
+      .references(() => workspaceChatMessages.id, { onDelete: "cascade" })
+      .notNull(),
+    runtimeSegmentId: uuid("runtime_segment_id"),
+    sessionKey: text("session_key"),
+    runId: text("run_id"),
+    sequence: integer("sequence").notNull(),
+    eventType: varchar("event_type", { length: 128 }).notNull(),
+    itemId: text("item_id"),
+    status: varchar("status", { length: 64 }),
+    title: text("title"),
+    summary: text("summary"),
+    payloadJson: jsonb("payload_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    conversationCreatedAtIdx: index(
+      "workspace_chat_message_events_conversation_id_created_at_idx",
+    ).on(table.conversationId, table.createdAt),
+    messageSequenceUniqueIdx: uniqueIndex(
+      "workspace_chat_message_events_message_id_sequence_idx",
+    ).on(table.messageId, table.sequence),
+    messageItemIdx: index("workspace_chat_message_events_message_id_item_id_idx").on(
+      table.messageId,
+      table.itemId,
+    ),
+  }),
+);
+
 export const tenantSessions = pgTable(
   "tenant_sessions",
   {

@@ -2,11 +2,14 @@ import { jsonNoStore } from "@otto/auth"
 import {
   type WorkspaceChatRuntimeMessageCompleteRequest,
   type WorkspaceChatRuntimeMessageDeltaRequest,
+  type WorkspaceChatRuntimeMessageEventMutation,
   type WorkspaceChatRuntimeMessageFailRequest,
   workspaceChatRuntimeMessageCompleteRequestSchema,
   workspaceChatRuntimeMessageCompleteResponseSchema,
   workspaceChatRuntimeMessageDeltaRequestSchema,
   workspaceChatRuntimeMessageDeltaResponseSchema,
+  workspaceChatRuntimeMessageEventUpsertRequestSchema,
+  workspaceChatRuntimeMessageEventUpsertResponseSchema,
   workspaceChatRuntimeMessageFailRequestSchema,
   workspaceChatRuntimeMessageFailResponseSchema,
 } from "@otto/feature-workspace-chat"
@@ -16,6 +19,7 @@ import {
   applyWorkspaceChatAssistantDelta,
   completeWorkspaceChatAssistantMessage,
   markWorkspaceChatAssistantMessageFailed,
+  upsertWorkspaceChatAssistantEvent,
 } from "../workspace/chat-data"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
@@ -34,6 +38,17 @@ export type WorkspaceChatRuntimeRouteDependencies = {
   }) => Promise<{
     applied: boolean
     conversationId: string
+    messageId: string
+    tenantId: string
+  } | null>
+  applyAssistantEvent?: (payload: {
+    assistantMessageId: string
+    conversationId: string
+    event: WorkspaceChatRuntimeMessageEventMutation
+    tenantId: string
+  }) => Promise<{
+    conversationId: string
+    eventId: string
     messageId: string
     tenantId: string
   } | null>
@@ -66,6 +81,7 @@ export type WorkspaceChatRuntimeRouteDependencies = {
 function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRuntimeRouteDependencies {
   return {
     applyAssistantDelta: applyWorkspaceChatAssistantDelta,
+    applyAssistantEvent: upsertWorkspaceChatAssistantEvent,
     authenticateTenantRuntime: authenticateTenantRuntimeRequest,
     completeAssistantMessage: completeWorkspaceChatAssistantMessage,
     failAssistantMessage: async (payload) => {
@@ -125,68 +141,74 @@ export function createWorkspaceChatRuntimeRouter(
 ) {
   const app = new Hono()
 
-  app.post("/api/internal/runtime/workspace-chat/messages/delta", async (context) => {
-    try {
-      const { tenantId } = await (dependencies.authenticateTenantRuntime
-        ? dependencies.authenticateTenantRuntime(context.req.raw)
-        : authenticateTenantRuntimeRequest(context.req.raw))
-      const payload = workspaceChatRuntimeMessageDeltaRequestSchema.parse(
-        await context.req.json(),
-      )
+  app.post(
+    "/api/internal/runtime/workspace-chat/messages/delta",
+    async (context) => {
+      try {
+        const { tenantId } = await (dependencies.authenticateTenantRuntime
+          ? dependencies.authenticateTenantRuntime(context.req.raw)
+          : authenticateTenantRuntimeRequest(context.req.raw))
+        const payload = workspaceChatRuntimeMessageDeltaRequestSchema.parse(
+          await context.req.json(),
+        )
 
-      console.info("[workspace-chat] runtime delta callback received", {
-        assistantMessageId: payload.assistantMessageId ?? null,
-        conversationId: payload.conversationId,
-        sequence: payload.sequence,
-        tenantId,
-        textLength: payload.message.text.length,
-      })
-
-      const result = await dependencies.applyAssistantDelta({
-        assistantDisplayName: payload.assistantDisplayName,
-        assistantMessageId: payload.assistantMessageId,
-        conversationId: payload.conversationId,
-        sequence: payload.sequence,
-        tenantId,
-        text: payload.message.text,
-      })
-
-      if (!result) {
-        console.warn("[workspace-chat] runtime delta callback target missing", {
+        console.info("[workspace-chat] runtime delta callback received", {
           assistantMessageId: payload.assistantMessageId ?? null,
           conversationId: payload.conversationId,
           sequence: payload.sequence,
           tenantId,
+          textLength: payload.message.text.length,
         })
-        return jsonNoStore(
-          {
-            error:
-              "Workspace chat conversation not found for this tenant runtime.",
-          },
-          404,
-        )
-      }
 
-      console.info("[workspace-chat] runtime delta callback applied", {
-        applied: result.applied,
-        conversationId: result.conversationId,
-        messageId: result.messageId,
-        tenantId: result.tenantId,
-      })
+        const result = await dependencies.applyAssistantDelta({
+          assistantDisplayName: payload.assistantDisplayName,
+          assistantMessageId: payload.assistantMessageId,
+          conversationId: payload.conversationId,
+          sequence: payload.sequence,
+          tenantId,
+          text: payload.message.text,
+        })
 
-      return jsonNoStore(
-        workspaceChatRuntimeMessageDeltaResponseSchema.parse({
+        if (!result) {
+          console.warn(
+            "[workspace-chat] runtime delta callback target missing",
+            {
+              assistantMessageId: payload.assistantMessageId ?? null,
+              conversationId: payload.conversationId,
+              sequence: payload.sequence,
+              tenantId,
+            },
+          )
+          return jsonNoStore(
+            {
+              error:
+                "Workspace chat conversation not found for this tenant runtime.",
+            },
+            404,
+          )
+        }
+
+        console.info("[workspace-chat] runtime delta callback applied", {
           applied: result.applied,
           conversationId: result.conversationId,
           messageId: result.messageId,
-          ok: true,
           tenantId: result.tenantId,
-        }),
-      )
-    } catch (error) {
-      return buildWorkspaceChatRuntimeErrorResponse(error)
-    }
-  })
+        })
+
+        return jsonNoStore(
+          workspaceChatRuntimeMessageDeltaResponseSchema.parse({
+            applied: result.applied,
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            ok: true,
+            tenantId: result.tenantId,
+          }),
+        )
+      } catch (error) {
+        return buildWorkspaceChatRuntimeErrorResponse(error)
+      }
+    },
+  )
 
   app.post(
     "/api/internal/runtime/workspace-chat/messages/complete",
@@ -255,63 +277,143 @@ export function createWorkspaceChatRuntimeRouter(
     },
   )
 
-  app.post("/api/internal/runtime/workspace-chat/messages/fail", async (context) => {
-    try {
-      const { tenantId } = await (dependencies.authenticateTenantRuntime
-        ? dependencies.authenticateTenantRuntime(context.req.raw)
-        : authenticateTenantRuntimeRequest(context.req.raw))
-      const payload = workspaceChatRuntimeMessageFailRequestSchema.parse(
-        await context.req.json(),
-      )
+  app.post(
+    "/api/internal/runtime/workspace-chat/messages/fail",
+    async (context) => {
+      try {
+        const { tenantId } = await (dependencies.authenticateTenantRuntime
+          ? dependencies.authenticateTenantRuntime(context.req.raw)
+          : authenticateTenantRuntimeRequest(context.req.raw))
+        const payload = workspaceChatRuntimeMessageFailRequestSchema.parse(
+          await context.req.json(),
+        )
 
-      console.info("[workspace-chat] runtime failure callback received", {
-        assistantMessageId: payload.assistantMessageId ?? null,
-        conversationId: payload.conversationId,
-        error: payload.error ?? null,
-        tenantId,
-      })
-
-      const result = await dependencies.failAssistantMessage?.({
-        assistantDisplayName: payload.assistantDisplayName,
-        assistantMessageId: payload.assistantMessageId,
-        conversationId: payload.conversationId,
-        error: payload.error,
-        tenantId,
-      })
-
-      if (!result) {
-        console.warn("[workspace-chat] runtime failure callback target missing", {
+        console.info("[workspace-chat] runtime failure callback received", {
           assistantMessageId: payload.assistantMessageId ?? null,
           conversationId: payload.conversationId,
+          error: payload.error ?? null,
           tenantId,
         })
-        return jsonNoStore(
-          {
-            error:
-              "Workspace chat conversation not found for this tenant runtime.",
-          },
-          404,
-        )
-      }
 
-      console.info("[workspace-chat] runtime failure callback applied", {
-        conversationId: result.conversationId,
-        messageId: result.messageId,
-        tenantId: result.tenantId,
-      })
+        const result = await dependencies.failAssistantMessage?.({
+          assistantDisplayName: payload.assistantDisplayName,
+          assistantMessageId: payload.assistantMessageId,
+          conversationId: payload.conversationId,
+          error: payload.error,
+          tenantId,
+        })
 
-      return jsonNoStore(
-        workspaceChatRuntimeMessageFailResponseSchema.parse({
+        if (!result) {
+          console.warn(
+            "[workspace-chat] runtime failure callback target missing",
+            {
+              assistantMessageId: payload.assistantMessageId ?? null,
+              conversationId: payload.conversationId,
+              tenantId,
+            },
+          )
+          return jsonNoStore(
+            {
+              error:
+                "Workspace chat conversation not found for this tenant runtime.",
+            },
+            404,
+          )
+        }
+
+        console.info("[workspace-chat] runtime failure callback applied", {
           conversationId: result.conversationId,
           messageId: result.messageId,
-          ok: true,
           tenantId: result.tenantId,
-        }),
-      )
-    } catch (error) {
-      return buildWorkspaceChatRuntimeErrorResponse(error)
-    }
-  })
+        })
+
+        return jsonNoStore(
+          workspaceChatRuntimeMessageFailResponseSchema.parse({
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            ok: true,
+            tenantId: result.tenantId,
+          }),
+        )
+      } catch (error) {
+        return buildWorkspaceChatRuntimeErrorResponse(error)
+      }
+    },
+  )
+
+  app.post(
+    "/api/internal/runtime/workspace-chat/messages/events",
+    async (context) => {
+      try {
+        const { tenantId } = await (dependencies.authenticateTenantRuntime
+          ? dependencies.authenticateTenantRuntime(context.req.raw)
+          : authenticateTenantRuntimeRequest(context.req.raw))
+        const payload =
+          workspaceChatRuntimeMessageEventUpsertRequestSchema.parse(
+            await context.req.json(),
+          )
+
+        console.info(
+          "[workspace-chat] runtime activity event callback received",
+          {
+            assistantMessageId: payload.assistantMessageId,
+            conversationId: payload.conversationId,
+            eventType: payload.event.type,
+            sequence: payload.event.sequence,
+            tenantId,
+          },
+        )
+
+        const result = await dependencies.applyAssistantEvent?.({
+          assistantMessageId: payload.assistantMessageId,
+          conversationId: payload.conversationId,
+          event: payload.event,
+          tenantId,
+        })
+
+        if (!result) {
+          console.warn(
+            "[workspace-chat] runtime activity event callback target missing",
+            {
+              assistantMessageId: payload.assistantMessageId,
+              conversationId: payload.conversationId,
+              sequence: payload.event.sequence,
+              tenantId,
+            },
+          )
+          return jsonNoStore(
+            {
+              error:
+                "Workspace chat conversation not found for this tenant runtime.",
+            },
+            404,
+          )
+        }
+
+        console.info(
+          "[workspace-chat] runtime activity event callback applied",
+          {
+            conversationId: result.conversationId,
+            eventId: result.eventId,
+            messageId: result.messageId,
+            tenantId: result.tenantId,
+          },
+        )
+
+        return jsonNoStore(
+          workspaceChatRuntimeMessageEventUpsertResponseSchema.parse({
+            conversationId: result.conversationId,
+            eventId: result.eventId,
+            messageId: result.messageId,
+            ok: true,
+            tenantId: result.tenantId,
+          }),
+        )
+      } catch (error) {
+        return buildWorkspaceChatRuntimeErrorResponse(error)
+      }
+    },
+  )
 
   return app
 }

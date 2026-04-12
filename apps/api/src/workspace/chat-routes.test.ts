@@ -54,6 +54,7 @@ function createDependencies(): WorkspaceChatRouteDependencies {
         title: "Portfolio review",
         visibility: "open",
       },
+      messageEvents: [],
       messages: [],
     }),
     listConversations: async () => [
@@ -142,6 +143,7 @@ describe("workspace chat routes", () => {
         title: "Portfolio review",
         visibility: "open",
       },
+      messageEvents: [],
       messages: [],
     })
   })

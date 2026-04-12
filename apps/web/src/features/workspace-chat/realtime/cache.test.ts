@@ -19,6 +19,7 @@ describe("workspace chat realtime cache helpers", () => {
           title: "New conversation",
           visibility: "open",
         },
+        messageEvents: [],
         messages: [
           {
             author: {
@@ -83,5 +84,54 @@ describe("workspace chat realtime cache helpers", () => {
     )
 
     assert.equal(conversations[0]?.latestMessagePreview, "new preview")
+  })
+
+  it("appends a message event to the active conversation detail", () => {
+    const detail = applyWorkspaceChatRealtimeEventToConversationDetail(
+      {
+        conversation: {
+          id: "conv_1",
+          kind: "ad_hoc",
+          lastActivityAt: "2026-04-11T18:00:00.000Z",
+          latestMessagePreview: "hello",
+          title: "New conversation",
+          visibility: "open",
+        },
+        messageEvents: [],
+        messages: [
+          {
+            author: {
+              kind: "assistant",
+              name: "Otto",
+            },
+            createdAt: "2026-04-11T18:00:00.000Z",
+            id: "msg_1",
+            parts: [],
+            status: "pending",
+          },
+        ],
+      },
+      {
+        conversationId: "conv_1",
+        event: {
+          conversationId: "conv_1",
+          createdAt: "2026-04-11T18:00:01.000Z",
+          id: "evt_1",
+          messageId: "msg_1",
+          payload: {
+            toolName: "read_file",
+          },
+          sequence: 1,
+          status: "running",
+          title: "Read file",
+          type: "tool.started",
+        },
+        type: "conversation.message_event_upserted",
+      },
+    )
+
+    assert.equal(detail.messageEvents.length, 1)
+    assert.equal(detail.messageEvents[0]?.messageId, "msg_1")
+    assert.equal(detail.messageEvents[0]?.type, "tool.started")
   })
 })

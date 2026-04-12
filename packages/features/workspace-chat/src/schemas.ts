@@ -27,6 +27,35 @@ export const workspaceChatMessageStatusSchema = z.enum([
   "canceled",
 ])
 
+export const workspaceChatMessageEventTypeSchema = z.enum([
+  "lifecycle.started",
+  "lifecycle.completed",
+  "lifecycle.failed",
+  "item.started",
+  "item.updated",
+  "item.completed",
+  "item.failed",
+  "tool.started",
+  "tool.updated",
+  "tool.completed",
+  "tool.failed",
+  "approval.requested",
+  "approval.resolved",
+  "command_output.delta",
+  "command_output.completed",
+])
+
+export const workspaceChatMessageEventStatusSchema = z.enum([
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "blocked",
+  "approved",
+  "denied",
+  "unavailable",
+])
+
 export const workspaceChatTextPartSchema = z.object({
   text: z.string().trim().min(1),
   type: z.literal("text"),
@@ -77,6 +106,23 @@ export const workspaceChatMessageSchema = z.object({
   status: workspaceChatMessageStatusSchema,
 })
 
+export const workspaceChatMessageEventSchema = z.object({
+  conversationId: z.string().trim().min(1),
+  createdAt: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+  itemId: z.string().trim().min(1).optional(),
+  messageId: z.string().trim().min(1),
+  payload: z.record(z.string(), z.unknown()),
+  runId: z.string().trim().min(1).optional(),
+  runtimeSegmentId: z.string().trim().min(1).optional(),
+  sequence: z.number().int().positive(),
+  sessionKey: z.string().trim().min(1).optional(),
+  status: workspaceChatMessageEventStatusSchema.optional(),
+  summary: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  type: workspaceChatMessageEventTypeSchema,
+})
+
 export const workspaceChatConversationListResponseSchema = z.object({
   conversations: z.array(workspaceChatConversationSummarySchema),
 })
@@ -99,6 +145,7 @@ export const workspaceChatConversationCreateResponseSchema = z.object({
 
 export const workspaceChatConversationDetailResponseSchema = z.object({
   conversation: workspaceChatConversationSummarySchema,
+  messageEvents: z.array(workspaceChatMessageEventSchema),
   messages: z.array(workspaceChatMessageSchema),
 })
 
@@ -154,6 +201,25 @@ export const workspaceChatRuntimeMessageFailRequestSchema = z.object({
   error: z.string().trim().min(1).optional(),
 })
 
+export const workspaceChatRuntimeMessageEventMutationSchema = z.object({
+  itemId: z.string().trim().min(1).optional(),
+  payload: z.record(z.string(), z.unknown()),
+  runId: z.string().trim().min(1).optional(),
+  runtimeSegmentId: z.string().trim().min(1).optional(),
+  sequence: z.number().int().positive(),
+  sessionKey: z.string().trim().min(1).optional(),
+  status: workspaceChatMessageEventStatusSchema.optional(),
+  summary: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  type: workspaceChatMessageEventTypeSchema,
+})
+
+export const workspaceChatRuntimeMessageEventUpsertRequestSchema = z.object({
+  assistantMessageId: z.string().trim().min(1),
+  conversationId: z.string().trim().min(1),
+  event: workspaceChatRuntimeMessageEventMutationSchema,
+})
+
 export const workspaceChatRuntimeMessageCompleteResponseSchema = z.object({
   conversationId: z.string().trim().min(1),
   messageId: z.string().trim().min(1),
@@ -177,6 +243,14 @@ export const workspaceChatRuntimeMessageFailResponseSchema = z.object({
   tenantId: z.string().trim().min(1),
 })
 
+export const workspaceChatRuntimeMessageEventUpsertResponseSchema = z.object({
+  conversationId: z.string().trim().min(1),
+  eventId: z.string().trim().min(1),
+  messageId: z.string().trim().min(1),
+  ok: z.literal(true),
+  tenantId: z.string().trim().min(1),
+})
+
 export type WorkspaceChatConversationSummary = z.infer<
   typeof workspaceChatConversationSummarySchema
 >
@@ -185,6 +259,9 @@ export type WorkspaceChatConversationCreateRequest = z.infer<
 >
 export type WorkspaceChatConversationDetailResponse = z.infer<
   typeof workspaceChatConversationDetailResponseSchema
+>
+export type WorkspaceChatMessageEvent = z.infer<
+  typeof workspaceChatMessageEventSchema
 >
 export type WorkspaceChatMessage = z.infer<typeof workspaceChatMessageSchema>
 export type WorkspaceChatMessageCreateRequest = z.infer<
@@ -205,6 +282,12 @@ export type WorkspaceChatRuntimeMessageDeltaRequest = z.infer<
 export type WorkspaceChatRuntimeMessageFailRequest = z.infer<
   typeof workspaceChatRuntimeMessageFailRequestSchema
 >
+export type WorkspaceChatRuntimeMessageEventMutation = z.infer<
+  typeof workspaceChatRuntimeMessageEventMutationSchema
+>
+export type WorkspaceChatRuntimeMessageEventUpsertRequest = z.infer<
+  typeof workspaceChatRuntimeMessageEventUpsertRequestSchema
+>
 export type WorkspaceChatRuntimeMessageCompleteResponse = z.infer<
   typeof workspaceChatRuntimeMessageCompleteResponseSchema
 >
@@ -213,4 +296,7 @@ export type WorkspaceChatRuntimeMessageDeltaResponse = z.infer<
 >
 export type WorkspaceChatRuntimeMessageFailResponse = z.infer<
   typeof workspaceChatRuntimeMessageFailResponseSchema
+>
+export type WorkspaceChatRuntimeMessageEventUpsertResponse = z.infer<
+  typeof workspaceChatRuntimeMessageEventUpsertResponseSchema
 >

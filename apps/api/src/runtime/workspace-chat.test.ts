@@ -15,6 +15,16 @@ function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
       messageId: "msg_assistant_1",
       tenantId,
     }),
+    applyAssistantEvent: async ({
+      assistantMessageId,
+      conversationId,
+      tenantId,
+    }) => ({
+      conversationId,
+      eventId: "evt_1",
+      messageId: assistantMessageId,
+      tenantId,
+    }),
     authenticateTenantRuntime: async () => ({
       tenantId: "tenant_1",
     }),
@@ -252,5 +262,63 @@ describe("workspace chat runtime routes", () => {
     })
     assert.equal(receivedAssistantMessageId, "msg_assistant_1")
     assert.equal(receivedError, "embedded run failed")
+  })
+
+  it("accepts an assistant activity event callback from a tenant runtime", async () => {
+    let receivedSequence = -1
+    let receivedType = ""
+    const appWithSpy = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      applyAssistantEvent: async ({
+        assistantMessageId,
+        conversationId,
+        event,
+        tenantId,
+      }) => {
+        receivedSequence = event.sequence
+        receivedType = event.type
+
+        return {
+          conversationId,
+          eventId: "evt_1",
+          messageId: assistantMessageId,
+          tenantId,
+        }
+      },
+    })
+
+    const response = await appWithSpy.request(
+      "http://api.local/api/internal/runtime/workspace-chat/messages/events",
+      {
+        body: JSON.stringify({
+          assistantMessageId: "msg_assistant_1",
+          conversationId: "conv_1",
+          event: {
+            payload: {
+              toolName: "read_file",
+            },
+            sequence: 1,
+            status: "running",
+            title: "Read file",
+            type: "tool.started",
+          },
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      conversationId: "conv_1",
+      eventId: "evt_1",
+      messageId: "msg_assistant_1",
+      ok: true,
+      tenantId: "tenant_1",
+    })
+    assert.equal(receivedSequence, 1)
+    assert.equal(receivedType, "tool.started")
   })
 })

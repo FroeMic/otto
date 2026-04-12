@@ -208,7 +208,9 @@ export async function handleWorkspaceChatMessageCreateRequest<
 
     const message = input.body
       ? workspaceChatMessageCreateRequestSchema.parse(input.body)
-      : workspaceChatMessageCreateRequestSchema.parse(await input.request.json())
+      : workspaceChatMessageCreateRequestSchema.parse(
+          await input.request.json(),
+        )
     const result = await input.createMessage({
       clientMessageId: message.clientMessageId,
       conversationId: input.conversationId,
@@ -228,25 +230,33 @@ export async function handleWorkspaceChatMessageCreateRequest<
 }
 
 export type {
+  WorkspaceChatRealtimeClientMessage,
+  WorkspaceChatRealtimeEvent,
+  WorkspaceChatRealtimeServerEvent,
+} from "./realtime"
+export {
+  workspaceChatRealtimeClientMessageSchema,
+  workspaceChatRealtimeServerEventSchema,
+} from "./realtime"
+export type {
   WorkspaceChatConversationCreateRequest,
   WorkspaceChatConversationDetailResponse,
   WorkspaceChatConversationSummary,
   WorkspaceChatMessage,
   WorkspaceChatMessageCreateRequest,
   WorkspaceChatMessageCreateResponse,
+  WorkspaceChatMessageEvent,
   WorkspaceChatMessagePart,
   WorkspaceChatRuntimeMessageCompleteRequest,
   WorkspaceChatRuntimeMessageCompleteResponse,
   WorkspaceChatRuntimeMessageDeltaRequest,
   WorkspaceChatRuntimeMessageDeltaResponse,
+  WorkspaceChatRuntimeMessageEventMutation,
+  WorkspaceChatRuntimeMessageEventUpsertRequest,
+  WorkspaceChatRuntimeMessageEventUpsertResponse,
   WorkspaceChatRuntimeMessageFailRequest,
   WorkspaceChatRuntimeMessageFailResponse,
 } from "./schemas"
-export type {
-  WorkspaceChatRealtimeClientMessage,
-  WorkspaceChatRealtimeEvent,
-  WorkspaceChatRealtimeServerEvent,
-} from "./realtime"
 export {
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
@@ -257,17 +267,16 @@ export {
   workspaceChatConversationVisibilitySchema,
   workspaceChatMessageCreateRequestSchema,
   workspaceChatMessageCreateResponseSchema,
+  workspaceChatMessageEventSchema,
   workspaceChatMessagePartSchema,
   workspaceChatMessageSchema,
   workspaceChatRuntimeMessageCompleteRequestSchema,
   workspaceChatRuntimeMessageCompleteResponseSchema,
   workspaceChatRuntimeMessageDeltaRequestSchema,
   workspaceChatRuntimeMessageDeltaResponseSchema,
+  workspaceChatRuntimeMessageEventUpsertRequestSchema,
+  workspaceChatRuntimeMessageEventUpsertResponseSchema,
   workspaceChatRuntimeMessageFailRequestSchema,
   workspaceChatRuntimeMessageFailResponseSchema,
   workspaceChatRuntimeSessionStatusSchema,
 } from "./schemas"
-export {
-  workspaceChatRealtimeClientMessageSchema,
-  workspaceChatRealtimeServerEventSchema,
-} from "./realtime"
