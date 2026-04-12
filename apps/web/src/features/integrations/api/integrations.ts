@@ -1,5 +1,4 @@
 import {
-  workspaceJobStatusResponseSchema,
   workspaceIntegrationCapabilityPolicyResponseSchema,
   workspaceIntegrationCapabilityPolicyUpdateSchema,
   workspaceIntegrationDetailSchema,
@@ -11,12 +10,12 @@ import {
   workspaceSlackChannelMembershipUpdateSchema,
   workspaceSlackSettingsPatchSchema,
   workspaceSlackSettingsUpdateResponseSchema,
-  type WorkspaceJobStatusResponse,
   type WorkspaceIntegrationDetail,
 } from "@otto/feature-integrations-runtime/workspace"
 import { queryOptions } from "@tanstack/react-query"
 
 import { apiClient } from "@/client/app/rpc"
+import { fetchWorkspaceJobStatus } from "@/features/workspace/api/jobs"
 import { fetchApiResponse } from "@/features/workspace/api/workspace"
 
 export function workspaceIntegrationsQueryOptions(orgSlug: string) {
@@ -167,22 +166,5 @@ export async function enqueueWorkspaceSlackDirectoryResync(input: {
 
   return fetchApiResponse(response, (data) =>
     workspaceSlackDirectoryResyncResponseSchema.parse(data),
-  )
-}
-
-export async function fetchWorkspaceJobStatus(input: {
-  jobId: string
-  orgSlug: string
-}): Promise<WorkspaceJobStatusResponse> {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].jobs[":jobId"].status.$get({
-      param: {
-        jobId: input.jobId,
-        orgSlug: input.orgSlug,
-      },
-    })
-
-  return fetchApiResponse(response, (data) =>
-    workspaceJobStatusResponseSchema.parse(data),
   )
 }

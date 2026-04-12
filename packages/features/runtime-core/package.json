@@ -6,6 +6,8 @@
   "packageManager": "bun@1.3.5",
   "exports": {
     ".": "./src/index.ts",
+    "./sessions/queries": "./src/sessions/queries.ts",
+    "./sessions/workspace-contracts": "./src/sessions/workspace-contracts.ts",
     "./runtime-files/download": "./src/runtime-files/download.ts",
     "./runtime-files/snapshot": "./src/runtime-files/snapshot.ts",
     "./runtime-files/types": "./src/runtime-files/types.ts"
@@ -21,6 +23,8 @@
   },
   "dependencies": {
     "@otto/auth": "workspace:*",
+    "@otto/feature-integrations-runtime": "workspace:*",
+    "drizzle-orm": "^0.44.6",
     "zod": "^4.1.12"
   },
   "devDependencies": {

@@ -69,7 +69,9 @@
   - `apps/api` now also owns the current apex-domain auth, WorkOS webhook, Stripe webhook, and internal runtime routes without falling through to legacy Next route code
   - the TanStack Router SPA now mounts on real slug and platform routes with a persistent workspace layout, nested workspace settings layout, and a lazy platform surface
   - the new settings shell now also owns `Agent > Personalization`, `Agent > Integrations`, and `Agent > Files`, with the files page reading the live tenant runtime workspace through native `apps/api` routes and `packages/features/runtime-core` runtime-files helpers instead of importing the legacy Next.js files surface
+  - the main workspace shell now also owns `Sessions` as a first-class sidebar feature, with native `apps/api/src/sessions` Hono RPC routes, `apps/web/src/features/sessions` list and transcript-detail pages, and runtime session ingest/query substrate moved into `packages/features/runtime-core` instead of staying in `apps/api/src/runtime`
   - the main workspace shell now also owns `Skills` as a first-class sidebar feature, with native `apps/api/src/skills` routes, reusable managed-skill contracts in `packages/features/runtime-core`, and a skill-files page that reuses the new shared runtime file browser instead of importing the legacy Next.js skills surface
+  - the primary workspace sidebar no longer advertises `Overview` and no longer renders the old `Otto` section header; `Sessions` now appears above `Skills` as the first primary workspace item
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

@@ -2,31 +2,27 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import {
-  workspaceIntegrationDetailQueryOptions,
-  workspaceIntegrationsQueryOptions,
-} from "@/features/integrations/api/integrations"
+import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 import { fetchWorkspaceJobStatus } from "@/features/workspace/api/jobs"
-import { IntegrationFloatingStatusChip } from "./IntegrationFloatingStatusChip"
+
+import { workspaceSessionsQueryOptions } from "../api/sessions"
 
 const MIN_DISPLAY_MS = 10_000
 const POLL_INTERVAL_MS = 1_000
 
-export interface IntegrationSyncNotificationProps {
-  integrationKey: string
+export interface SessionsSyncNotificationProps {
   jobId: string
   message: string
   onDone: () => void
   orgSlug: string
 }
 
-export function IntegrationSyncNotification({
-  integrationKey,
+export function SessionsSyncNotification({
   jobId,
   message,
   onDone,
   orgSlug,
-}: IntegrationSyncNotificationProps) {
+}: SessionsSyncNotificationProps) {
   const queryClient = useQueryClient()
   const [visible, setVisible] = useState(true)
   const startedAt = useRef(Date.now())
@@ -56,20 +52,12 @@ export function IntegrationSyncNotification({
           window.setTimeout(async () => {
             setVisible(false)
 
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: workspaceIntegrationsQueryOptions(orgSlug).queryKey,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: workspaceIntegrationDetailQueryOptions({
-                  integrationKey,
-                  orgSlug,
-                }).queryKey,
-              }),
-            ])
+            await queryClient.invalidateQueries({
+              queryKey: workspaceSessionsQueryOptions(orgSlug).queryKey,
+            })
 
             if (status.status === "failed") {
-              toast.error("Sync failed", {
+              toast.error("Session sync failed", {
                 description: status.error ?? "The sync job failed.",
               })
             }
@@ -85,7 +73,7 @@ export function IntegrationSyncNotification({
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [integrationKey, jobId, onDone, orgSlug, queryClient])
+  }, [jobId, onDone, orgSlug, queryClient])
 
   if (!visible) {
     return null

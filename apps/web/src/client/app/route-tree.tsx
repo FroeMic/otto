@@ -27,6 +27,12 @@ import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import { workspaceFilesQueryOptions } from "@/features/files/api/files"
 import { LegacyFilesRedirectPage } from "@/features/files/pages/LegacyFilesRedirectPage"
 import { WorkspaceFilesPage } from "@/features/files/pages/WorkspaceFilesPage"
+import {
+  workspaceSessionDetailQueryOptions,
+  workspaceSessionsQueryOptions,
+} from "@/features/sessions/api/sessions"
+import { SessionDetailPage } from "@/features/sessions/pages/SessionDetailPage"
+import { SessionsPage } from "@/features/sessions/pages/SessionsPage"
 import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
 import {
   workspaceSkillDetailQueryOptions,
@@ -138,6 +144,18 @@ function WorkspaceFilesRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <WorkspaceFilesPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSessionsRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <SessionsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSessionDetailRoutePage() {
+  const { orgSlug, sessionKey } = workspaceSessionDetailRoute.useParams()
+
+  return <SessionDetailPage orgSlug={orgSlug} sessionKey={sessionKey} />
 }
 
 function WorkspaceSkillsRoutePage() {
@@ -286,6 +304,29 @@ function WorkspaceRouteErrorPage(props: { error: unknown }) {
   throw props.error
 }
 
+function WorkspaceSessionDetailRouteErrorPage(props: { error: unknown }) {
+  if (
+    props.error instanceof ApiResponseError &&
+    props.error.status === 404 &&
+    props.error.code === "session_not_found"
+  ) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center px-6 py-16">
+        <div className="flex max-w-lg flex-col gap-3 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Session not found
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            This session does not exist or you do not have access to it.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  throw props.error
+}
+
 function PlatformRouteErrorPage(props: { error: unknown }) {
   if (props.error instanceof ApiResponseError) {
     if (props.error.status === 401) {
@@ -396,6 +437,30 @@ const workspaceLegacyFilesRoute = createRoute({
   component: LegacyWorkspaceFilesRedirectRoutePage,
   getParentRoute: () => workspaceShellRoute,
   path: "/files",
+})
+
+const workspaceSessionsRoute = createRoute({
+  component: WorkspaceSessionsRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSessionsQueryOptions(params.orgSlug),
+    ),
+  path: "/sessions",
+})
+
+const workspaceSessionDetailRoute = createRoute({
+  component: WorkspaceSessionDetailRoutePage,
+  errorComponent: WorkspaceSessionDetailRouteErrorPage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSessionDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        sessionKey: params.sessionKey,
+      }),
+    ),
+  path: "/sessions/$sessionKey",
 })
 
 const workspaceSkillsRoute = createRoute({
@@ -756,6 +821,8 @@ export const routeTree = rootRoute.addChildren([
       workspaceLegacyAgentPromptsRoute,
       workspaceLegacyAgentInstructionRoute,
       workspaceLegacyFilesRoute,
+      workspaceSessionsRoute,
+      workspaceSessionDetailRoute,
       workspaceSkillsRoute,
       workspaceSkillRedirectRoute,
       workspaceSkillOverviewLegacyRoute,

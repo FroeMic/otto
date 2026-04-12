@@ -1,5 +1,6 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { tenantSessions } from "@otto/feature-integrations-runtime/db/schema"
+import { and, desc, eq, notInArray } from "drizzle-orm"
 
 export type TenantSessionUpsertInput = {
   cacheReadTokens?: number | null
@@ -182,4 +183,123 @@ export async function upsertTenantSessionBatch(
         ],
       })
   }
+}
+
+export async function listTenantSessions(input: {
+  limit?: number
+  offset?: number
+  tenantId: string
+}) {
+  const db = getDb()
+  const limit = input.limit ?? 100
+  const offset = input.offset ?? 0
+
+  return db
+    .select({
+      createdAt: tenantSessions.createdAt,
+      displayName: tenantSessions.displayName,
+      endedAt: tenantSessions.endedAt,
+      estimatedCostUsd: tenantSessions.estimatedCostUsd,
+      externalSessionId: tenantSessions.externalSessionId,
+      id: tenantSessions.id,
+      inputTokens: tenantSessions.inputTokens,
+      label: tenantSessions.label,
+      lastMessageAt: tenantSessions.lastMessageAt,
+      lastSyncedAt: tenantSessions.lastSyncedAt,
+      messageCount: tenantSessions.messageCount,
+      model: tenantSessions.model,
+      modelProvider: tenantSessions.modelProvider,
+      originFrom: tenantSessions.originFrom,
+      parentSessionKey: tenantSessions.parentSessionKey,
+      runtimeMs: tenantSessions.runtimeMs,
+      sessionKey: tenantSessions.sessionKey,
+      sessionUpdatedAt: tenantSessions.sessionUpdatedAt,
+      spawnDepth: tenantSessions.spawnDepth,
+      startedAt: tenantSessions.startedAt,
+      status: tenantSessions.status,
+      subject: tenantSessions.subject,
+      subagentRole: tenantSessions.subagentRole,
+      totalTokens: tenantSessions.totalTokens,
+    })
+    .from(tenantSessions)
+    .where(eq(tenantSessions.tenantId, input.tenantId))
+    .orderBy(desc(tenantSessions.lastMessageAt))
+    .limit(limit)
+    .offset(offset)
+}
+
+export async function getTenantSession(input: {
+  sessionKey: string
+  tenantId: string
+}) {
+  const db = getDb()
+
+  const [session] = await db
+    .select({
+      channel: tenantSessions.channel,
+      channelProvider: tenantSessions.channelProvider,
+      chatType: tenantSessions.chatType,
+      displayName: tenantSessions.displayName,
+      endedAt: tenantSessions.endedAt,
+      estimatedCostUsd: tenantSessions.estimatedCostUsd,
+      externalSessionId: tenantSessions.externalSessionId,
+      id: tenantSessions.id,
+      inputTokens: tenantSessions.inputTokens,
+      label: tenantSessions.label,
+      lastSyncedAt: tenantSessions.lastSyncedAt,
+      messageCount: tenantSessions.messageCount,
+      model: tenantSessions.model,
+      modelProvider: tenantSessions.modelProvider,
+      originFrom: tenantSessions.originFrom,
+      runtimeMs: tenantSessions.runtimeMs,
+      sessionKey: tenantSessions.sessionKey,
+      startedAt: tenantSessions.startedAt,
+      status: tenantSessions.status,
+      subject: tenantSessions.subject,
+      totalTokens: tenantSessions.totalTokens,
+      transcriptJsonl: tenantSessions.transcriptJsonl,
+    })
+    .from(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, input.tenantId),
+        eq(tenantSessions.sessionKey, input.sessionKey),
+      ),
+    )
+    .orderBy(desc(tenantSessions.updatedAt))
+    .limit(1)
+
+  return session ?? null
+}
+
+export async function deleteStaleTenantSessions(
+  tenantId: string,
+  activeSessionKeys: string[],
+) {
+  const db = getDb()
+
+  if (activeSessionKeys.length === 0) {
+    const deletedRows = await db
+      .delete(tenantSessions)
+      .where(eq(tenantSessions.tenantId, tenantId))
+      .returning({
+        id: tenantSessions.id,
+      })
+
+    return deletedRows.length
+  }
+
+  const deletedRows = await db
+    .delete(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, tenantId),
+        notInArray(tenantSessions.sessionKey, activeSessionKeys),
+      ),
+    )
+    .returning({
+      id: tenantSessions.id,
+    })
+
+  return deletedRows.length
 }

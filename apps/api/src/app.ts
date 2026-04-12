@@ -14,6 +14,7 @@ import {
   type PlatformRouteDependencies,
 } from "./platform/routes"
 import { registerRuntimeRoutes } from "./runtime/routes"
+import { createSessionsRouter } from "./sessions/routes"
 import { createSkillsRouter } from "./skills/routes"
 import {
   createUserRouter,
@@ -52,6 +53,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createWorkspaceRouter())
     .route("/", createIntegrationsRouter())
     .route("/", createFilesRouter())
+    .route("/", createSessionsRouter())
     .route("/", createSkillsRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createPlatformRouter(options.platformRoutes))
