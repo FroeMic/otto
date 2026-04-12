@@ -3,7 +3,7 @@
 This deploy target assumes one public control-plane VPS on Hetzner:
 
 - public HTTPS for both the apex Otto web app and the legacy workspace subdomain
-- local Docker Compose services for `caddy`, `web`, `api`, `legacy-web`, `integration-gateway`, `worker`, and `postgres`
+- local Docker Compose services for `caddy`, `web`, `api`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
 ## 1. Provision the host
@@ -35,7 +35,7 @@ cp .env.production.example .env
 Set at least:
 
 - `LANDING_PAGE_DOMAIN` for the apex Otto domain such as `getyourotto.com`
-- `CONTROL_PLANE_DOMAIN` for the legacy workspace subdomain such as `app.getyourotto.com`
+- `CONTROL_PLANE_DOMAIN` for an optional secondary public hostname such as `app.getyourotto.com`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `WORKOS_CLIENT_ID`
@@ -150,21 +150,21 @@ Verify:
 - `https://<your-domain>/healthz` returns `200`
 - `https://<your-landing-domain>/api/workspace/<org-slug>/usage` reaches the extracted API on the apex domain
 - the apex or landing hostname resolves to the same VPS that runs Caddy
-- the `web`, `api`, `legacy-web`, `integration-gateway`, and `worker` containers stay healthy
+- the `web`, `api`, `integration-gateway`, and `worker` containers stay healthy
 - `docker compose -f docker-compose.prod.yml exec caddy sh -lc "cat /etc/caddy/Caddyfile"` shows:
   - `reverse_proxy integration-gateway:3001` for `{$LANDING_PAGE_DOMAIN}/api/internal/runtime/integrations/execute*`
   - `reverse_proxy api:3002` for `{$LANDING_PAGE_DOMAIN}/api/*`
   - `reverse_proxy web:3000` as the apex default
-  - `reverse_proxy legacy-web:3000` under `{$CONTROL_PLANE_DOMAIN}`
+  - the same extracted `web` and `api` routes under `{$CONTROL_PLANE_DOMAIN}`
 - `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing web app is deployed
 - Postgres answers on `127.0.0.1:5433` on the host
 - `LANDING_PAGE_DOMAIN` matches the public apex Otto hostname
-- `CONTROL_PLANE_DOMAIN` matches the legacy app subdomain
+- `CONTROL_PLANE_DOMAIN`, if set, points at the same VPS and serves the same extracted workspace stack
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public apex origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain
 - WorkOS, Slack, and Linear redirect URIs point at the apex domain
-- tenant runtimes keep using the current legacy app origin until you explicitly cut over `OTTO_CONTROL_PLANE_BASE_URL`
+- tenant runtimes use the extracted app/API origin exposed through `OTTO_CONTROL_PLANE_BASE_URL`
 
 If Brave web search is enabled, also verify a real tenant projection:
 
