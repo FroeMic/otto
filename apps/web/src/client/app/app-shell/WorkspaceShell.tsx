@@ -1,6 +1,7 @@
 import {
   CaretUpDownIcon,
   BuildingsIcon,
+  FileIcon,
   GearIcon,
   HouseLineIcon,
   SignOutIcon,
@@ -50,7 +51,7 @@ export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
   params: { orgSlug: string }
-  to: "/$orgSlug"
+  to: "/$orgSlug" | "/$orgSlug/skills"
 }
 
 export function WorkspaceMenuLink({
@@ -202,6 +203,12 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
                     label="Overview"
                     params={{ orgSlug }}
                     to="/$orgSlug"
+                  />
+                  <WorkspaceMenuLink
+                    icon={FileIcon}
+                    label="Skills"
+                    params={{ orgSlug }}
+                    to="/$orgSlug/skills"
                   />
                 </SidebarMenu>
               </SidebarGroupContent>

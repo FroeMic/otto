@@ -27,6 +27,15 @@ import { BillingPlansPage } from "@/features/billing/pages/BillingPlansPage"
 import { workspaceFilesQueryOptions } from "@/features/files/api/files"
 import { LegacyFilesRedirectPage } from "@/features/files/pages/LegacyFilesRedirectPage"
 import { WorkspaceFilesPage } from "@/features/files/pages/WorkspaceFilesPage"
+import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
+import {
+  workspaceSkillDetailQueryOptions,
+  workspaceSkillsQueryOptions,
+} from "@/features/skills/api/skills"
+import { SkillDetailRedirectPage } from "@/features/skills/pages/SkillDetailRedirectPage"
+import { SkillFilesPage } from "@/features/skills/pages/SkillFilesPage"
+import { SkillsPage } from "@/features/skills/pages/SkillsPage"
+import { SkillStatusPage } from "@/features/skills/pages/SkillStatusPage"
 import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
@@ -125,6 +134,30 @@ function WorkspaceFilesRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <WorkspaceFilesPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSkillsRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <SkillsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSkillDetailRedirectRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillRedirectRoute.useParams()
+
+  return <SkillDetailRedirectPage orgSlug={orgSlug} skillKey={skillKey} />
+}
+
+function WorkspaceSkillStatusRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillStatusRoute.useParams()
+
+  return <SkillStatusPage orgSlug={orgSlug} skillKey={skillKey} />
+}
+
+function WorkspaceSkillFilesRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillFilesRoute.useParams()
+
+  return <SkillFilesPage orgSlug={orgSlug} skillKey={skillKey} />
 }
 
 function WorkspaceAgentPersonalizationRoutePage() {
@@ -353,6 +386,76 @@ const workspaceLegacyFilesRoute = createRoute({
   component: LegacyWorkspaceFilesRedirectRoutePage,
   getParentRoute: () => workspaceRoute,
   path: "/files",
+})
+
+const workspaceSkillsRoute = createRoute({
+  component: WorkspaceSkillsRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillsQueryOptions(params.orgSlug),
+    ),
+  path: "/skills",
+})
+
+const workspaceSkillRedirectRoute = createRoute({
+  component: WorkspaceSkillDetailRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/$skillKey",
+})
+
+const workspaceSkillOverviewLegacyRoute = createRoute({
+  component: WorkspaceSkillDetailRedirectRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/$skillKey/overview",
+})
+
+const workspaceSkillStatusRoute = createRoute({
+  component: WorkspaceSkillStatusRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/$skillKey/status",
+})
+
+const workspaceSkillFilesRoute = createRoute({
+  component: WorkspaceSkillFilesRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(
+        workspaceSkillDetailQueryOptions({
+          orgSlug: params.orgSlug,
+          skillKey: params.skillKey,
+        }),
+      ),
+      context.queryClient.ensureQueryData(
+        workspaceSkillFilesQueryOptions({
+          orgSlug: params.orgSlug,
+          skillKey: params.skillKey,
+        }),
+      ),
+    ]),
+  path: "/skills/$skillKey/files",
 })
 
 const workspaceSettingsRoute = createRoute({
@@ -642,6 +745,11 @@ export const routeTree = rootRoute.addChildren([
     workspaceLegacyAgentPromptsRoute,
     workspaceLegacyAgentInstructionRoute,
     workspaceLegacyFilesRoute,
+    workspaceSkillsRoute,
+    workspaceSkillRedirectRoute,
+    workspaceSkillOverviewLegacyRoute,
+    workspaceSkillStatusRoute,
+    workspaceSkillFilesRoute,
     workspaceSettingsRoute.addChildren([
       workspaceSettingsIndexRoute,
       workspaceSettingsUserRoute,
