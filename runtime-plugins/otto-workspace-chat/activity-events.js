@@ -1,6 +1,8 @@
 import { sendWorkspaceChatActivityEvent } from "./control-plane-client.js";
 
 const DEFAULT_COMMAND_OUTPUT_TITLE = "Command output";
+const DEFAULT_ASSISTANT_MESSAGE_TITLE = "Assistant message";
+const DEFAULT_COMPACTION_TITLE = "Context compaction";
 const DEFAULT_LIFECYCLE_COMPLETE_TITLE = "Completed";
 const DEFAULT_LIFECYCLE_FAILED_TITLE = "Failed";
 const DEFAULT_LIFECYCLE_START_TITLE = "Started";
@@ -9,13 +11,16 @@ const DEFAULT_ITEM_TITLE = "Working";
 const DEFAULT_PLAN_ITEM_ID = "plan";
 const DEFAULT_PLAN_TITLE = "Plan update";
 const DEFAULT_PATCH_TITLE = "Apply patch";
+const DEFAULT_THINKING_TITLE = "Thinking";
 const DEFAULT_TOOL_TITLE = "Tool call";
+const DEFAULT_TOOL_RESULT_TITLE = "Tool result";
 
 export function createWorkspaceChatActivityEventReporter(
   input,
   dependencies = {},
 ) {
   let activeRunId;
+  let thinkingActive = false;
   let nextSequence = 1;
   let pending = Promise.resolve();
 
@@ -81,6 +86,9 @@ export function createWorkspaceChatActivityEventReporter(
     recordCommandOutputEvent(payload) {
       queueRuntimeActivity("command_output", payload);
     },
+    recordCompactionEvent(payload) {
+      queueRuntimeActivity("compaction", payload);
+    },
     recordLifecycleEvent(payload) {
       queueRuntimeActivity("lifecycle", payload, {
         runId: readString(payload?.runId) ?? activeRunId,
@@ -95,8 +103,17 @@ export function createWorkspaceChatActivityEventReporter(
     recordPlanUpdateEvent(payload) {
       queueRuntimeActivity("plan", payload);
     },
+    recordAssistantMessageEvent(payload) {
+      queueRuntimeActivity("assistant_message", payload);
+    },
+    recordThinkingEvent(payload) {
+      queueRuntimeActivity("thinking", payload);
+    },
     recordToolEvent(payload) {
       queueRuntimeActivity("tool", payload);
+    },
+    recordToolResultEvent(payload) {
+      queueRuntimeActivity("tool_result", payload);
     },
     replyOptions: {
       onAgentRunStart: (runId) => {
@@ -117,6 +134,16 @@ export function createWorkspaceChatActivityEventReporter(
       onCommandOutput: async (payload) => {
         queueRuntimeActivity("command_output", payload);
       },
+      onCompactionEnd: async () => {
+        queueRuntimeActivity("compaction", {
+          phase: "completed",
+        });
+      },
+      onCompactionStart: async () => {
+        queueRuntimeActivity("compaction", {
+          phase: "start",
+        });
+      },
       onItemEvent: async (payload) => {
         queueRuntimeActivity("item", payload);
       },
@@ -126,8 +153,36 @@ export function createWorkspaceChatActivityEventReporter(
       onPlanUpdate: async (payload) => {
         queueRuntimeActivity("plan", payload);
       },
+      onAssistantMessageStart: async () => {
+        queueRuntimeActivity("assistant_message", {
+          phase: "start",
+        });
+      },
+      onReasoningEnd: async () => {
+        if (!thinkingActive) {
+          return;
+        }
+
+        thinkingActive = false;
+        queueRuntimeActivity("thinking", {
+          phase: "completed",
+        });
+      },
+      onReasoningStream: async (payload) => {
+        if (!thinkingActive) {
+          thinkingActive = true;
+          queueRuntimeActivity("thinking", {
+            phase: "start",
+          });
+        }
+
+        queueRuntimeActivity("thinking", payload);
+      },
       onToolStart: async (payload) => {
         queueRuntimeActivity("tool", payload);
+      },
+      onToolResult: async (payload) => {
+        queueRuntimeActivity("tool_result", payload);
       },
     },
     async flush() {
@@ -172,19 +227,41 @@ export function normalizeWorkspaceChatRuntimeActivityEvent(event) {
       return normalizeApprovalEvent(event, payload);
     case "command_output":
       return normalizeCommandOutputEvent(event, payload);
+    case "compaction":
+      return normalizeCompactionEvent(event, payload);
     case "item":
       return normalizeItemEvent(event, payload);
+    case "assistant_message":
+      return normalizeAssistantMessageEvent(event, payload);
     case "lifecycle":
       return normalizeLifecycleEvent(event, payload);
     case "patch":
       return normalizePatchEvent(event, payload);
     case "plan":
       return normalizePlanEvent(event, payload);
+    case "thinking":
+      return normalizeThinkingEvent(event, payload);
     case "tool":
       return normalizeToolEvent(event, payload);
+    case "tool_result":
+      return normalizeToolResultEvent(event, payload);
     default:
       return null;
   }
+}
+
+function normalizeAssistantMessageEvent(event, payload) {
+  const phase = readString(payload.phase);
+
+  if (phase !== "start" && phase !== "started") {
+    return null;
+  }
+
+  return buildNormalizedEvent(event, payload, {
+    status: "running",
+    title: DEFAULT_ASSISTANT_MESSAGE_TITLE,
+    type: "assistant_message.started",
+  });
 }
 
 function normalizeApprovalEvent(event, payload) {
@@ -237,6 +314,25 @@ function normalizeCommandOutputEvent(event, payload) {
       phase === "failed"
         ? "command_output.completed"
         : "command_output.delta",
+  });
+}
+
+function normalizeCompactionEvent(event, payload) {
+  const phase = readString(payload.phase);
+
+  return buildNormalizedEvent(event, payload, {
+    status:
+      phase === "start" || phase === "started"
+        ? "running"
+        : phase === "completed" || phase === "end"
+          ? "completed"
+          : undefined,
+    summary: readString(payload.message),
+    title: DEFAULT_COMPACTION_TITLE,
+    type:
+      phase === "start" || phase === "started"
+        ? "compaction.started"
+        : "compaction.completed",
   });
 }
 
@@ -409,6 +505,44 @@ function normalizeToolEvent(event, payload) {
   });
 }
 
+function normalizeThinkingEvent(event, payload) {
+  const phase = readString(payload.phase);
+
+  if (phase === "start" || phase === "started") {
+    return buildNormalizedEvent(event, payload, {
+      status: "running",
+      title: DEFAULT_THINKING_TITLE,
+      type: "thinking.started",
+    });
+  }
+
+  if (phase === "completed" || phase === "end") {
+    return buildNormalizedEvent(event, payload, {
+      status: "completed",
+      title: DEFAULT_THINKING_TITLE,
+      type: "thinking.completed",
+    });
+  }
+
+  return buildNormalizedEvent(event, payload, {
+    status: "running",
+    summary: readString(payload.text),
+    title: DEFAULT_THINKING_TITLE,
+    type: "thinking.delta",
+  });
+}
+
+function normalizeToolResultEvent(event, payload) {
+  return buildNormalizedEvent(event, payload, {
+    status: "completed",
+    summary:
+      readString(payload.text) ??
+      summarizeMediaUrls(payload.mediaUrls),
+    title: DEFAULT_TOOL_RESULT_TITLE,
+    type: "tool.result",
+  });
+}
+
 function buildNormalizedEvent(event, payload, normalized) {
   return {
     ...(normalized.itemId ? { itemId: normalized.itemId } : {}),
@@ -473,6 +607,21 @@ function summarizePatchFiles(payload) {
   }
 
   return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function summarizeMediaUrls(value) {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const count = value.filter((entry) => typeof entry === "string" && entry.trim().length > 0)
+    .length;
+
+  if (count === 0) {
+    return undefined;
+  }
+
+  return count === 1 ? "1 media attachment" : `${count} media attachments`;
 }
 
 function normalizeStatus(status) {
