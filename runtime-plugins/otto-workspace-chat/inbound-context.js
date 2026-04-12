@@ -5,6 +5,7 @@ import {
 import { buildWorkspaceTarget } from "./target.js";
 
 const DEFAULT_CONVERSATION_LABEL_PREFIX = "Workspace conversation";
+const CONTROL_UI_SURFACE = "webchat";
 
 export function buildWorkspaceChatInboundContext(input) {
   const cfg = input.cfg ?? {};
@@ -79,12 +80,15 @@ export function buildWorkspaceChatInboundContext(input) {
       NativeChannelId: input.conversationId,
       OriginatingChannel: WORKSPACE_CHAT_CHANNEL_ID,
       OriginatingTo: target,
-      Provider: WORKSPACE_CHAT_CHANNEL_ID,
+      // Mark the run as a control-UI-visible surface so OpenClaw includes
+      // session keys on agent events while the actual routing channel remains
+      // otto-workspace-chat.
+      Provider: CONTROL_UI_SURFACE,
       RawBody: input.message,
       SenderId: senderExternalId,
       SenderName: senderDisplayName,
       SessionKey: route.sessionKey,
-      Surface: WORKSPACE_CHAT_CHANNEL_ID,
+      Surface: CONTROL_UI_SURFACE,
       Timestamp: timestamp,
       To: target,
     }),
