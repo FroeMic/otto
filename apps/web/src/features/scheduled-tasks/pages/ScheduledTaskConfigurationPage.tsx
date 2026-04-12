@@ -36,8 +36,10 @@ export function ScheduledTaskConfigurationPage({
     <ScheduledTasksShell
       currentSection="tasks"
       dateTimePreferences={data.dateTimePreferences}
+      hideHeader
       lastSyncedAt={data.latestSyncedAt}
       orgSlug={orgSlug}
+      showTabs={false}
       syncState={syncState}
     >
       {data.state === "pending_setup" || !data.task ? (
@@ -64,4 +66,3 @@ export function ScheduledTaskConfigurationPage({
     </ScheduledTasksShell>
   )
 }
-
