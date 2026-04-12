@@ -1,10 +1,8 @@
 import {
-  ArrowLeftIcon,
   CalendarBlankIcon,
   CaretDownIcon,
   ToolboxIcon,
 } from "@phosphor-icons/react"
-import { Link } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -440,19 +438,6 @@ export function TranscriptViewer({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link
-            className="inline-flex items-center gap-1 hover:text-foreground"
-            params={{
-              orgSlug,
-            }}
-            to="/$orgSlug/sessions"
-          >
-            <ArrowLeftIcon className="size-4" />
-            Sessions
-          </Link>
-        </div>
-
         <div className="flex items-start gap-3">
           {session.channel === "cron" ? (
             <CalendarBlankIcon className="size-5 shrink-0 text-muted-foreground" />

@@ -8,7 +8,7 @@ import {
   UserIcon,
 } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link, useMatchRoute } from "@tanstack/react-router"
+import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import type { ComponentType, PropsWithChildren } from "react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -47,11 +47,92 @@ export interface WorkspaceShellProps extends PropsWithChildren {
   orgSlug: string
 }
 
+interface BreadcrumbSegment {
+  href: string | null
+  label: string
+}
+
 export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
   params: { orgSlug: string }
   to: "/$orgSlug/skills" | "/$orgSlug/sessions"
+}
+
+function decodePathSegment(segment: string) {
+  let value = segment
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const decoded = decodeURIComponent(value)
+
+      if (decoded === value) {
+        break
+      }
+
+      value = decoded
+    } catch {
+      break
+    }
+  }
+
+  return value
+}
+
+function formatSectionLabel(section: string) {
+  return section.charAt(0).toUpperCase() + section.slice(1)
+}
+
+function useWorkspaceBreadcrumbs(
+  orgSlug: string,
+  orgName: string,
+): BreadcrumbSegment[] {
+  const location = useLocation()
+  const workspacePath = location.pathname.replace(`/${orgSlug}`, "")
+  const segments = workspacePath.split("/").filter(Boolean)
+  const base = `/${orgSlug}`
+
+  if (segments[0] === "sessions") {
+    const sessionKey = segments[1] ?? null
+    const breadcrumbs: BreadcrumbSegment[] = [
+      { href: `${base}/sessions`, label: "Sessions" },
+    ]
+
+    if (sessionKey) {
+      breadcrumbs.push({
+        href: null,
+        label: decodePathSegment(sessionKey),
+      })
+    }
+
+    return breadcrumbs
+  }
+
+  if (segments[0] === "skills") {
+    const skillKey = segments[1] ?? null
+    const section = segments[2] ?? null
+    const breadcrumbs: BreadcrumbSegment[] = [
+      { href: `${base}/skills`, label: "Skills" },
+    ]
+
+    if (skillKey) {
+      breadcrumbs.push({
+        href: section ? `${base}/skills/${skillKey}/status` : null,
+        label: decodePathSegment(skillKey),
+      })
+    }
+
+    if (section) {
+      breadcrumbs.push({
+        href: null,
+        label: formatSectionLabel(section),
+      })
+    }
+
+    return breadcrumbs
+  }
+
+  return [{ href: null, label: orgName }]
 }
 
 export function WorkspaceMenuLink({
@@ -175,6 +256,10 @@ export function WorkspaceUserMenu({
 export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
   const matchRoute = useMatchRoute()
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const breadcrumbs = useWorkspaceBreadcrumbs(
+    data.currentOrganization.slug,
+    data.currentOrganization.name,
+  )
 
   return (
     <WorkspaceChatRealtimeProvider orgSlug={orgSlug}>
@@ -255,12 +340,31 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
               className="data-vertical:h-4 data-vertical:self-auto"
             />
             <div className="min-w-0 text-sm">
-              <p className="truncate font-medium">
+              <Link
+                className="font-medium hover:underline"
+                params={{ orgSlug: data.currentOrganization.slug }}
+                to="/$orgSlug"
+              >
                 {data.currentOrganization.name}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                /{data.currentOrganization.slug}
-              </p>
+              </Link>
+              {breadcrumbs.map((segment) => (
+                <span key={segment.label}>
+                  <span className="mx-2 text-muted-foreground">/</span>
+                  {segment.href ? (
+                    <Link
+                      className="truncate text-muted-foreground hover:text-foreground hover:underline"
+                      preload="intent"
+                      to={segment.href}
+                    >
+                      {segment.label}
+                    </Link>
+                  ) : (
+                    <span className="truncate text-muted-foreground">
+                      {segment.label}
+                    </span>
+                  )}
+                </span>
+              ))}
             </div>
           </header>
 
