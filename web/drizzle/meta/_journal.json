@@ -358,6 +358,13 @@
       "when": 1775929200000,
       "tag": "0050_workspace_chat_streaming_deltas",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1776003600000,
+      "tag": "0052_workspace_chat_message_events_reconcile",
+      "breakpoints": true
     }
   ]
 }
