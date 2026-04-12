@@ -7,5 +7,5 @@ export function buildIntegrationSectionPath(input: {
   const integrationKey = encodeURIComponent(input.integrationKey);
   const section = encodeURIComponent(input.section);
 
-  return `/${orgSlug}/integrations2/${integrationKey}/${section}`;
+  return `/${orgSlug}/settings/agent/integrations/${integrationKey}/${section}`;
 }

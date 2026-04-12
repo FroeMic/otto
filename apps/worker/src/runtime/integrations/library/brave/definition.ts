@@ -58,6 +58,7 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
       "Brave is platform-managed by Otto, so workspace users cannot change or disable it here.",
     ],
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/brave/status`,
+  settingsPath: (orgSlug) =>
+    `/${orgSlug}/settings/agent/integrations/brave/status`,
   showInWorkspaceCatalog: true,
 };

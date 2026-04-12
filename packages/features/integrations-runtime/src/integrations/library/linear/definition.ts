@@ -8320,7 +8320,8 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
       "Read Linear workspace, team, issue, comment, project, document, initiative, and customer context through Otto's managed integration runtime surface.",
     toolName: "linear",
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/linear/status`,
+  settingsPath: (orgSlug) =>
+    `/${orgSlug}/settings/agent/integrations/linear/status`,
   showInWorkspaceCatalog: true,
 };
 

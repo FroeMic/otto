@@ -25,7 +25,8 @@ const settingsDefinition = {
     description: "Manage Slack behavior.",
     label: "Configuration",
   },
-  settingsPath: (orgSlug: string) => `/${orgSlug}/integrations2/slack/status`,
+    settingsPath: (orgSlug: string) =>
+      `/${orgSlug}/settings/agent/integrations/slack/status`,
   showInWorkspaceCatalog: true,
 } satisfies IntegrationDefinition & {
   runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;

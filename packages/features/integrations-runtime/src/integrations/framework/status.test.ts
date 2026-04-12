@@ -23,7 +23,8 @@ const baseDefinition: IntegrationDefinition = {
     toolDescription: "Test tool.",
     toolName: "test",
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/test/status`,
+  settingsPath: (orgSlug) =>
+    `/${orgSlug}/settings/agent/integrations/test/status`,
   showInWorkspaceCatalog: true,
 };
 
