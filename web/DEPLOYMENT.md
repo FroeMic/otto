@@ -2,7 +2,7 @@
 
 This deploy target assumes one public control-plane VPS on Hetzner:
 
-- public HTTPS for both the apex Otto web app and the legacy workspace subdomain
+- public HTTPS for one Otto workspace/app origin
 - local Docker Compose services for `caddy`, `web`, `api`, `integration-gateway`, `worker`, and `postgres`
 - Tailscale-only operator access for SSH
 
@@ -35,7 +35,6 @@ cp .env.production.example .env
 Set at least:
 
 - `LANDING_PAGE_DOMAIN` for the apex Otto domain such as `getyourotto.com`
-- `CONTROL_PLANE_DOMAIN` for an optional secondary public hostname such as `app.getyourotto.com`
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `WORKOS_CLIENT_ID`
@@ -155,11 +154,9 @@ Verify:
   - `reverse_proxy integration-gateway:3001` for `{$LANDING_PAGE_DOMAIN}/api/internal/runtime/integrations/execute*`
   - `reverse_proxy api:3002` for `{$LANDING_PAGE_DOMAIN}/api/*`
   - `reverse_proxy web:3000` as the apex default
-  - the same extracted `web` and `api` routes under `{$CONTROL_PLANE_DOMAIN}`
 - `curl -s https://<your-landing-domain>/ | grep -n "New frontend preview"` returns a match after the new landing web app is deployed
 - Postgres answers on `127.0.0.1:5433` on the host
 - `LANDING_PAGE_DOMAIN` matches the public apex Otto hostname
-- `CONTROL_PLANE_DOMAIN`, if set, points at the same VPS and serves the same extracted workspace stack
 - `WORKOS_REDIRECT_URI` points at the public callback URL
 - `WORKOS_BASE_URL` matches the public apex origin
 - `WORKOS_CLIENT_ID` and `WORKOS_API_KEY` come from the production WorkOS environment so hosted AuthKit uses the production `*.authkit.app` domain

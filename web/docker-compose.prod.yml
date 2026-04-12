@@ -56,7 +56,7 @@ services:
       API_PORT: 3002
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
-      WORKSPACE_APP_ORIGIN: https://${CONTROL_PLANE_DOMAIN}
+      WORKSPACE_APP_ORIGIN: https://${LANDING_PAGE_DOMAIN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -144,7 +144,6 @@ services:
         condition: service_healthy
     environment:
       LANDING_PAGE_DOMAIN: ${LANDING_PAGE_DOMAIN:?set LANDING_PAGE_DOMAIN in .env}
-      CONTROL_PLANE_DOMAIN: ${CONTROL_PLANE_DOMAIN:?set CONTROL_PLANE_DOMAIN in .env}
     ports:
       - "80:80"
       - "443:443"

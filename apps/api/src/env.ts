@@ -2,7 +2,6 @@ import * as z from "zod"
 
 const rawApiEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3002),
-  CONTROL_PLANE_DOMAIN: z.string().optional(),
   LANDING_PAGE_DOMAIN: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -24,17 +23,14 @@ const rawApiEnvSchema = z.object({
   RUNTIME_OPENCLAW_IMAGE: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
-  WORKOS_BASE_URL_BETA: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
   WORKOS_COOKIE_NAME: z.string().optional(),
   WORKOS_COOKIE_PASSWORD: z.string().optional(),
   WORKOS_REDIRECT_URI: z.string().url().optional(),
-  WORKOS_REDIRECT_URI_BETA: z.string().url().optional(),
 })
 
 export type ApiEnv = {
   API_PORT: number
-  CONTROL_PLANE_DOMAIN: string
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
   PUBLIC_APP_BASE_URL: string
@@ -90,40 +86,16 @@ function deriveBaseUrlFromRedirectUri(redirectUri: string | undefined) {
   }
 }
 
-function deriveControlPlaneDomain(input: {
-  CONTROL_PLANE_DOMAIN?: string
-  LANDING_PAGE_DOMAIN?: string
-  publicAppBaseUrl: string
-}) {
-  if (input.LANDING_PAGE_DOMAIN?.trim()) {
-    return input.LANDING_PAGE_DOMAIN.trim()
-  }
-
-  if (input.CONTROL_PLANE_DOMAIN?.trim()) {
-    return input.CONTROL_PLANE_DOMAIN.trim()
-  }
-
-  return new URL(input.publicAppBaseUrl).host
-}
-
 export function resolveApiEnv(input: Record<string, string | undefined>) {
   const raw = rawApiEnvSchema.parse(input)
   const publicAppBaseUrl =
-    raw.WORKOS_BASE_URL_BETA ??
     deriveBaseUrlFromDomain(raw.LANDING_PAGE_DOMAIN) ??
-    deriveBaseUrlFromDomain(raw.CONTROL_PLANE_DOMAIN) ??
     raw.WORKOS_BASE_URL ??
     deriveBaseUrlFromRedirectUri(raw.WORKOS_REDIRECT_URI) ??
     "http://127.0.0.1:3002"
-  const controlPlaneDomain = deriveControlPlaneDomain({
-    CONTROL_PLANE_DOMAIN: raw.CONTROL_PLANE_DOMAIN,
-    LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN,
-    publicAppBaseUrl,
-  })
 
   return {
     API_PORT: raw.API_PORT,
-    CONTROL_PLANE_DOMAIN: controlPlaneDomain,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,
@@ -141,9 +113,7 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     WORKOS_COOKIE_NAME: raw.WORKOS_COOKIE_NAME?.trim() || undefined,
     WORKOS_COOKIE_PASSWORD: raw.WORKOS_COOKIE_PASSWORD?.trim() || undefined,
     WORKOS_REDIRECT_URI:
-      raw.WORKOS_REDIRECT_URI_BETA ??
-      raw.WORKOS_REDIRECT_URI ??
-      `${publicAppBaseUrl}/auth/callback`,
+      raw.WORKOS_REDIRECT_URI ?? `${publicAppBaseUrl}/auth/callback`,
   } satisfies ApiEnv
 }
 
