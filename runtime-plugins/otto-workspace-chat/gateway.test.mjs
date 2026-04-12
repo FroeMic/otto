@@ -175,8 +175,14 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
       "Portfolio review",
     );
     assert.equal(dispatchCalls[0].ctxPayload.ChatType, "group");
+    assert.equal(
+      dispatchCalls[0].ctxPayload.OriginatingChannel,
+      "otto-workspace-chat",
+    );
+    assert.equal(dispatchCalls[0].ctxPayload.Provider, "webchat");
     assert.equal(dispatchCalls[0].ctxPayload.SenderName, "Michael Froehlich");
     assert.equal(dispatchCalls[0].ctxPayload.SenderId, "user_1");
+    assert.equal(dispatchCalls[0].ctxPayload.Surface, "webchat");
     assert.equal(dispatchCalls[0].ctxPayload.From, "workspace-user:user_1@conv_1");
     assert.equal(dispatchCalls[0].ctxPayload.MessageSid, "user_msg_1");
 
