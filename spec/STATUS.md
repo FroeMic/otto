@@ -271,11 +271,12 @@
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree
     - the workspace shell now includes a first conversation history section with create-conversation and recency display
     - the current browser path now uses a workspace-scoped websocket plus active-conversation subscriptions, and active conversations now render streamed assistant text in-place while polling remains fallback elsewhere
-- The next workspace-chat transparency slice is now captured in `TODO_22_workspace_chat_activity_events_and_transparency.md`:
-  - workspace chat should persist a canonical assistant activity-event stream attached to assistant messages instead of overloading `message.parts`
-  - `otto-workspace-chat` should emit normalized runtime progress events from `api.runtime.events.onAgentEvent(...)` while a turn is running
-  - `apps/api` should persist and fan out those events so the same collapsed activity lane can render both during live streaming and when loading old chats later
-  - the canonical event shape should stay surface-agnostic so Slack and other external surfaces can reconcile into it later from session logs or transcript updates
+- The workspace-chat transparency slice in `DONE_22_workspace_chat_activity_events_and_transparency.md` is now implemented:
+  - workspace chat now persists a canonical `workspace_chat_message_events` stream attached to assistant messages instead of overloading `message.parts`
+  - `otto-workspace-chat` now emits normalized runtime `lifecycle`, `item`, `tool`, and `approval` activity events from `api.runtime.events.onAgentEvent(...)` while a turn is running
+  - `apps/api` now persists and fans out those events over the existing workspace websocket so the same collapsed activity lane can render both during live streaming and when loading old chats later
+  - `apps/web` now renders a first assistant activity lane beneath assistant messages using canonical persisted events rather than raw session logs
+  - the canonical event shape remains surface-agnostic so Slack and other external surfaces can reconcile into it later from session logs or transcript updates
 - `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
 - `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
 - `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
