@@ -8,14 +8,3 @@ export function buildSlackWorkspaceOauthStartUrl(input: {
 
   return `/oauth/start/integration/slack?orgSlug=${encodeURIComponent(input.orgSlug)}`;
 }
-
-export function buildSlackOnboardingOauthStartUrl(input: {
-  hasSlackOAuthConfig: boolean;
-  onboardingSessionId: string | null;
-}) {
-  if (!input.hasSlackOAuthConfig || !input.onboardingSessionId) {
-    return null;
-  }
-
-  return `/oauth/start/integration/slack?onboardingSessionId=${encodeURIComponent(input.onboardingSessionId)}`;
-}

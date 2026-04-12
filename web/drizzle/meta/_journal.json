@@ -365,6 +365,13 @@
       "when": 1776003600000,
       "tag": "0052_workspace_chat_message_events_reconcile",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1776030183000,
+      "tag": "0053_remove_onboarding_sessions",
+      "breakpoints": true
     }
   ]
 }
