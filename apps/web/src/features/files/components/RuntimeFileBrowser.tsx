@@ -40,12 +40,14 @@ export interface RuntimeFileBrowserProps {
   snapshot: RuntimeDirectorySnapshot
 }
 
+const EMPTY_HIDDEN_PATHS: string[] = []
+
 export function RuntimeFileBrowser({
   buildDownloadUrl,
   emptyDirectoryMessage = "This directory is currently empty.",
   explorerLabel,
-  hiddenPathPrefixes = [],
-  hiddenPaths = [],
+  hiddenPathPrefixes = EMPTY_HIDDEN_PATHS,
+  hiddenPaths = EMPTY_HIDDEN_PATHS,
   isRefreshing = false,
   missingRootMessage,
   onRefresh,
