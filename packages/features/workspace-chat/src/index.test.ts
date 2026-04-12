@@ -104,6 +104,21 @@ describe("workspace chat feature", () => {
           title: "Portfolio review",
           visibility: "open",
         },
+        messageEvents: [
+          {
+            conversationId: "conv_1",
+            createdAt: "2026-04-10T09:31:03.000Z",
+            id: "evt_1",
+            messageId: "msg_2",
+            payload: {
+              toolName: "list_issues",
+            },
+            sequence: 1,
+            status: "running",
+            title: "List issues",
+            type: "tool.started",
+          },
+        ],
         messages: [
           {
             author: {
@@ -149,6 +164,21 @@ describe("workspace chat feature", () => {
         title: "Portfolio review",
         visibility: "open",
       },
+      messageEvents: [
+        {
+          conversationId: "conv_1",
+          createdAt: "2026-04-10T09:31:03.000Z",
+          id: "evt_1",
+          messageId: "msg_2",
+          payload: {
+            toolName: "list_issues",
+          },
+          sequence: 1,
+          status: "running",
+          title: "List issues",
+          type: "tool.started",
+        },
+      ],
       messages: [
         {
           author: {

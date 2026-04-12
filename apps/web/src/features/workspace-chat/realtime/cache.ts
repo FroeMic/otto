@@ -29,6 +29,29 @@ export function applyWorkspaceChatRealtimeEventToConversationDetail(
     return detail
   }
 
+  if (event.type === "conversation.message_event_upserted") {
+    const existingIndex = detail.messageEvents.findIndex(
+      (messageEvent) => messageEvent.id === event.event.id,
+    )
+
+    if (existingIndex === -1) {
+      return {
+        ...detail,
+        messageEvents: [...detail.messageEvents, event.event].sort(
+          (left, right) => left.sequence - right.sequence,
+        ),
+      }
+    }
+
+    const nextMessageEvents = [...detail.messageEvents]
+    nextMessageEvents[existingIndex] = event.event
+
+    return {
+      ...detail,
+      messageEvents: nextMessageEvents,
+    }
+  }
+
   const existingIndex = detail.messages.findIndex(
     (message) => message.id === event.message.id,
   )

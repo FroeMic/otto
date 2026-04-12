@@ -36,6 +36,21 @@ describe("workspace chat api helpers", () => {
         title: "Portfolio review",
         visibility: "open",
       },
+      messageEvents: [
+        {
+          conversationId: "conv_1",
+          createdAt: "2026-04-10T12:00:30.000Z",
+          id: "evt_1",
+          messageId: "msg_1",
+          payload: {
+            toolName: "read_file",
+          },
+          sequence: 1,
+          status: "running",
+          title: "Read file",
+          type: "tool.started",
+        },
+      ],
       messages: [
         {
           author: {
@@ -56,6 +71,7 @@ describe("workspace chat api helpers", () => {
     })
 
     assert.equal(detail.conversation.id, "conv_1")
+    assert.equal(detail.messageEvents[0]?.type, "tool.started")
     assert.equal(detail.messages[0]?.author.kind, "assistant")
   })
 })

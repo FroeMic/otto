@@ -4,6 +4,7 @@ import {
   tenants,
   users,
   workspaceChatConversations,
+  workspaceChatMessageEvents,
   workspaceChatMessageParts,
   workspaceChatMessages,
   workspaceChatRuntimeSegments,
@@ -13,8 +14,10 @@ import type {
   WorkspaceChatConversationSummary,
   WorkspaceChatMessage,
   WorkspaceChatMessageCreateResponse,
+  WorkspaceChatMessageEvent,
   WorkspaceChatMessagePart,
   WorkspaceChatRealtimeEvent,
+  WorkspaceChatRuntimeMessageEventMutation,
 } from "@otto/feature-workspace-chat"
 import { and, desc, eq, inArray, or } from "drizzle-orm"
 
@@ -49,6 +52,23 @@ type WorkspaceChatMessageRow = {
   createdAt: Date
   id: string
   status: string
+}
+
+type WorkspaceChatMessageEventRow = {
+  conversationId: string
+  createdAt: Date
+  eventType: string
+  id: string
+  itemId: string | null
+  messageId: string
+  payloadJson: Record<string, unknown>
+  runId: string | null
+  runtimeSegmentId: string | null
+  sequence: number
+  sessionKey: string | null
+  status: string | null
+  summary: string | null
+  title: string | null
 }
 
 type WorkspaceChatActor = {
@@ -128,6 +148,29 @@ export function mapWorkspaceChatMessagePartRecord(
   }
 
   throw new Error(`Unsupported workspace chat part kind: ${record.partKind}`)
+}
+
+export function mapWorkspaceChatMessageEventRecord(
+  record: WorkspaceChatMessageEventRow,
+): WorkspaceChatMessageEvent {
+  return {
+    conversationId: record.conversationId,
+    createdAt: record.createdAt.toISOString(),
+    id: record.id,
+    itemId: record.itemId ?? undefined,
+    messageId: record.messageId,
+    payload: record.payloadJson,
+    runId: record.runId ?? undefined,
+    runtimeSegmentId: record.runtimeSegmentId ?? undefined,
+    sequence: record.sequence,
+    sessionKey: record.sessionKey ?? undefined,
+    status:
+      (record.status as WorkspaceChatMessageEvent["status"] | null) ??
+      undefined,
+    summary: record.summary ?? undefined,
+    title: record.title ?? undefined,
+    type: record.eventType as WorkspaceChatMessageEvent["type"],
+  }
 }
 
 export async function listWorkspaceChatConversations(input: {
@@ -303,6 +346,32 @@ export async function getWorkspaceChatConversationDetail(input: {
             workspaceChatMessageParts.messageId,
             workspaceChatMessageParts.ordinal,
           )
+  const eventRows =
+    messageIds.length === 0
+      ? []
+      : await db
+          .select({
+            conversationId: workspaceChatMessageEvents.conversationId,
+            createdAt: workspaceChatMessageEvents.createdAt,
+            eventType: workspaceChatMessageEvents.eventType,
+            id: workspaceChatMessageEvents.id,
+            itemId: workspaceChatMessageEvents.itemId,
+            messageId: workspaceChatMessageEvents.messageId,
+            payloadJson: workspaceChatMessageEvents.payloadJson,
+            runId: workspaceChatMessageEvents.runId,
+            runtimeSegmentId: workspaceChatMessageEvents.runtimeSegmentId,
+            sequence: workspaceChatMessageEvents.sequence,
+            sessionKey: workspaceChatMessageEvents.sessionKey,
+            status: workspaceChatMessageEvents.status,
+            summary: workspaceChatMessageEvents.summary,
+            title: workspaceChatMessageEvents.title,
+          })
+          .from(workspaceChatMessageEvents)
+          .where(inArray(workspaceChatMessageEvents.messageId, messageIds))
+          .orderBy(
+            workspaceChatMessageEvents.messageId,
+            workspaceChatMessageEvents.sequence,
+          )
 
   const partsByMessageId = new Map<string, WorkspaceChatMessagePart[]>()
 
@@ -323,6 +392,7 @@ export async function getWorkspaceChatConversationDetail(input: {
 
   return {
     conversation: mapWorkspaceChatConversationSummary(conversation),
+    messageEvents: eventRows.map(mapWorkspaceChatMessageEventRecord),
     messages: messageRows.map((message) =>
       mapWorkspaceChatMessage({
         message,
@@ -421,14 +491,18 @@ export async function createWorkspaceChatMessageRecord(input: {
     if (existingAssistantMessage) {
       return {
         assistantMessageId: existingAssistantMessage.id,
-        conversationKind: normalizeWorkspaceChatConversationKind(conversation.kind),
+        conversationKind: normalizeWorkspaceChatConversationKind(
+          conversation.kind,
+        ),
         conversationId: conversation.id,
         conversationTitle: conversation.title,
         conversationVisibility: normalizeWorkspaceChatConversationVisibility(
           conversation.visibility,
         ),
         dispatch: {
-          status: mapDispatchStatusFromAssistantStatus(existingAssistantMessage.status),
+          status: mapDispatchStatusFromAssistantStatus(
+            existingAssistantMessage.status,
+          ),
         },
         message: existingMessage,
         shouldDispatch: false,
@@ -455,7 +529,9 @@ export async function createWorkspaceChatMessageRecord(input: {
             })
 
           if (!assistantMessage) {
-            throw new Error("Failed to create workspace chat assistant placeholder.")
+            throw new Error(
+              "Failed to create workspace chat assistant placeholder.",
+            )
           }
 
           return assistantMessage.id
@@ -463,7 +539,8 @@ export async function createWorkspaceChatMessageRecord(input: {
       : undefined
 
     if (assistantMessageId) {
-      const assistantMessage = await getWorkspaceChatMessageById(assistantMessageId)
+      const assistantMessage =
+        await getWorkspaceChatMessageById(assistantMessageId)
 
       if (assistantMessage) {
         await publishWorkspaceChatRealtimeEvent({
@@ -476,7 +553,9 @@ export async function createWorkspaceChatMessageRecord(input: {
 
     return {
       assistantMessageId,
-      conversationKind: normalizeWorkspaceChatConversationKind(conversation.kind),
+      conversationKind: normalizeWorkspaceChatConversationKind(
+        conversation.kind,
+      ),
       conversationId: conversation.id,
       conversationTitle: conversation.title,
       conversationVisibility: normalizeWorkspaceChatConversationVisibility(
@@ -959,6 +1038,145 @@ export async function applyWorkspaceChatAssistantDelta(input: {
   return result
 }
 
+export async function upsertWorkspaceChatAssistantEvent(input: {
+  assistantMessageId: string
+  conversationId: string
+  event: WorkspaceChatRuntimeMessageEventMutation
+  tenantId: string
+}): Promise<{
+  conversationId: string
+  eventId: string
+  messageId: string
+  tenantId: string
+} | null> {
+  const db = getDb()
+  const result = await db.transaction(async (tx) => {
+    const [conversation] = await tx
+      .select({
+        id: workspaceChatConversations.id,
+      })
+      .from(workspaceChatConversations)
+      .where(
+        and(
+          eq(workspaceChatConversations.id, input.conversationId),
+          eq(workspaceChatConversations.tenantId, input.tenantId),
+        ),
+      )
+      .limit(1)
+
+    if (!conversation) {
+      return null
+    }
+
+    const [assistantMessage] = await tx
+      .select({
+        id: workspaceChatMessages.id,
+      })
+      .from(workspaceChatMessages)
+      .where(
+        and(
+          eq(workspaceChatMessages.id, input.assistantMessageId),
+          eq(workspaceChatMessages.conversationId, conversation.id),
+          eq(workspaceChatMessages.authorKind, "assistant"),
+        ),
+      )
+      .limit(1)
+
+    if (!assistantMessage) {
+      return null
+    }
+
+    const [runtimeSegment] = input.event.sessionKey
+      ? await tx
+          .select({
+            id: workspaceChatRuntimeSegments.id,
+          })
+          .from(workspaceChatRuntimeSegments)
+          .where(
+            and(
+              eq(workspaceChatRuntimeSegments.conversationId, conversation.id),
+              eq(
+                workspaceChatRuntimeSegments.sessionKey,
+                input.event.sessionKey,
+              ),
+            ),
+          )
+          .limit(1)
+      : []
+
+    const now = new Date()
+    const [messageEvent] = await tx
+      .insert(workspaceChatMessageEvents)
+      .values({
+        conversationId: conversation.id,
+        createdAt: now,
+        eventType: input.event.type,
+        itemId: input.event.itemId ?? null,
+        messageId: assistantMessage.id,
+        payloadJson: input.event.payload,
+        runId: input.event.runId ?? null,
+        runtimeSegmentId:
+          input.event.runtimeSegmentId ?? runtimeSegment?.id ?? null,
+        sequence: input.event.sequence,
+        sessionKey: input.event.sessionKey ?? null,
+        status: input.event.status ?? null,
+        summary: input.event.summary ?? null,
+        tenantId: input.tenantId,
+        title: input.event.title ?? null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        set: {
+          eventType: input.event.type,
+          itemId: input.event.itemId ?? null,
+          payloadJson: input.event.payload,
+          runId: input.event.runId ?? null,
+          runtimeSegmentId:
+            input.event.runtimeSegmentId ?? runtimeSegment?.id ?? null,
+          sessionKey: input.event.sessionKey ?? null,
+          status: input.event.status ?? null,
+          summary: input.event.summary ?? null,
+          title: input.event.title ?? null,
+          updatedAt: now,
+        },
+        target: [
+          workspaceChatMessageEvents.messageId,
+          workspaceChatMessageEvents.sequence,
+        ],
+      })
+      .returning({
+        id: workspaceChatMessageEvents.id,
+      })
+
+    if (!messageEvent) {
+      throw new Error("Failed to persist workspace chat message event.")
+    }
+
+    return {
+      conversationId: conversation.id,
+      eventId: messageEvent.id,
+      messageId: assistantMessage.id,
+      tenantId: input.tenantId,
+    }
+  })
+
+  if (!result) {
+    return null
+  }
+
+  const messageEvent = await getWorkspaceChatMessageEventById(result.eventId)
+
+  if (messageEvent) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: result.conversationId,
+      event: messageEvent,
+      type: "conversation.message_event_upserted",
+    })
+  }
+
+  return result
+}
+
 export async function markWorkspaceChatAssistantMessageStreaming(input: {
   assistantMessageId: string
   conversationId: string
@@ -1163,6 +1381,32 @@ async function getWorkspaceChatMessageById(messageId: string) {
   })
 }
 
+async function getWorkspaceChatMessageEventById(eventId: string) {
+  const db = getDb()
+  const [messageEvent] = await db
+    .select({
+      conversationId: workspaceChatMessageEvents.conversationId,
+      createdAt: workspaceChatMessageEvents.createdAt,
+      eventType: workspaceChatMessageEvents.eventType,
+      id: workspaceChatMessageEvents.id,
+      itemId: workspaceChatMessageEvents.itemId,
+      messageId: workspaceChatMessageEvents.messageId,
+      payloadJson: workspaceChatMessageEvents.payloadJson,
+      runId: workspaceChatMessageEvents.runId,
+      runtimeSegmentId: workspaceChatMessageEvents.runtimeSegmentId,
+      sequence: workspaceChatMessageEvents.sequence,
+      sessionKey: workspaceChatMessageEvents.sessionKey,
+      status: workspaceChatMessageEvents.status,
+      summary: workspaceChatMessageEvents.summary,
+      title: workspaceChatMessageEvents.title,
+    })
+    .from(workspaceChatMessageEvents)
+    .where(eq(workspaceChatMessageEvents.id, eventId))
+    .limit(1)
+
+  return messageEvent ? mapWorkspaceChatMessageEventRecord(messageEvent) : null
+}
+
 async function getWorkspaceChatConversationSummaryById(conversationId: string) {
   const db = getDb()
   const [conversation] = await db
@@ -1193,7 +1437,9 @@ function buildAssistantClientMessageId(clientMessageId: string | undefined) {
   return clientMessageId ? `assistant:${clientMessageId}` : null
 }
 
-function buildWorkspaceChatAssistantDeltaParts(text: string): WorkspaceChatMessagePart[] {
+function buildWorkspaceChatAssistantDeltaParts(
+  text: string,
+): WorkspaceChatMessagePart[] {
   return text
     ? [
         {
