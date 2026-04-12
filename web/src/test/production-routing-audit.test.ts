@@ -50,19 +50,31 @@ describe("production routing audit", () => {
     );
   });
 
-  it("keeps the legacy app domain on legacy-web", () => {
+  it("routes the secondary workspace domain to the extracted web, api, and gateway services", () => {
     const caddyfile = readFileSync(CADDYFILE_PATH, "utf8");
 
     assert.match(
       caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy legacy-web:3000/,
-      "Legacy app domain must proxy to legacy-web:3000 in web/Caddyfile",
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/internal\/runtime\/integrations\/execute\* \{[\s\S]*?reverse_proxy integration-gateway:3001/,
+      "Secondary workspace domain must send integration execute traffic to integration-gateway:3001 in web/Caddyfile",
+    );
+
+    assert.match(
+      caddyfile,
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/\* \{[\s\S]*?reverse_proxy api:3002/,
+      "Secondary workspace domain must send /api/* traffic to api:3002 in web/Caddyfile",
+    );
+
+    assert.match(
+      caddyfile,
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
+      "Secondary workspace domain must default to web:3000 in web/Caddyfile",
     );
 
     assert.doesNotMatch(
       caddyfile,
-      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
-      "Legacy app domain must not proxy to the new web:3000 service in web/Caddyfile",
+      /\{\$CONTROL_PLANE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy legacy-web:3000/,
+      "Secondary workspace domain must not proxy to legacy-web:3000 in web/Caddyfile",
     );
   });
 

@@ -39,7 +39,7 @@ Replace the current split `www/` marketing site and `web/` Next.js control-plane
 - the production stack historically ran separate browser-facing and workspace boundaries in `www/` and `web/`
 - the current transition stack now keeps:
   - `apps/web`
-  - `legacy-web`
+  - `legacy-web` during the parallel-launch phase only
   - `integration-gateway`
   - `worker`
   - `caddy`
@@ -867,7 +867,7 @@ Exit criteria:
   - apex `/oauth/*` on `api`
   - apex `/api/*` on `api`
   - apex `/api/internal/runtime/integrations/execute*` on `gateway`
-  - legacy app subdomain on `legacy-web`
+  - legacy app subdomain on `legacy-web` only until PR 1 of `TODO_23_legacy_web_retirement_and_domain_cutover.md` removes it from production routing
 - target apex routing behavior for workspace paths:
   - reserved public and system paths remain explicitly routed
   - `/auth/*`, `/oauth/*`, and `/api/*` should be treated as edge-routed reserved namespaces
@@ -882,7 +882,7 @@ Exit criteria:
     - `LANDING_PAGE_DOMAIN` on `web`
     - `LANDING_PAGE_DOMAIN/api/*` on `apps/api`
     - `LANDING_PAGE_DOMAIN/api/internal/runtime/integrations/execute*` on `apps/gateway`
-    - `CONTROL_PLANE_DOMAIN` on legacy `legacy-web`
+    - `CONTROL_PLANE_DOMAIN` may temporarily remain as a second public hostname, but it should no longer require `legacy-web` once PR 1 of `TODO_23_legacy_web_retirement_and_domain_cutover.md` lands
 
 ### Immediate execution order
 
@@ -922,7 +922,7 @@ Current checkpoint:
 - cutover still pending
 - the legacy `integration-gateway` service remains present and untouched as the gateway fallback
 - the legacy `web/` worker entrypoint remains present and untouched as the worker fallback
-- the legacy `web/` route handlers remain present and untouched as the legacy app fallback on `legacy-web`
+- the legacy `web/` route handlers remain present only as a temporary codebase dependency until the retirement plan in `TODO_23_legacy_web_retirement_and_domain_cutover.md` is complete
 - next implementation targets are expanding `apps/web` slice coverage on top of the new slug-based shell and only porting the next `apps/api` families that the migrated shell actually needs
 
 ### Phase checklist

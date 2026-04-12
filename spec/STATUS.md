@@ -95,6 +95,9 @@
   - PR 1 retires `legacy-web` as the org-scoped workspace surface
   - PR 2 removes legacy onboarding tables and code once OAuth/provisioning no longer depend on them
   - PR 3 collapses the temporary `LANDING_PAGE_DOMAIN` plus `CONTROL_PLANE_DOMAIN` split and removes the `_BETA` auth envs
+- PR 1 is now in progress:
+  - production routing and compose should stop depending on a separate `legacy-web` container
+  - if `CONTROL_PLANE_DOMAIN` still exists temporarily, it should point at the extracted `web` + `api` + `gateway` stack rather than the legacy Next.js app
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`

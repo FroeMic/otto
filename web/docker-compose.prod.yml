@@ -45,30 +45,6 @@ services:
     profiles: ["ops"]
     restart: "no"
 
-  legacy-web:
-    <<: *app-env
-    build:
-      context: ..
-      dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
-        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/healthz').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   api:
     env_file:
       - .env
@@ -165,8 +141,6 @@ services:
       web:
         condition: service_healthy
       integration-gateway:
-        condition: service_healthy
-      legacy-web:
         condition: service_healthy
     environment:
       LANDING_PAGE_DOMAIN: ${LANDING_PAGE_DOMAIN:?set LANDING_PAGE_DOMAIN in .env}
