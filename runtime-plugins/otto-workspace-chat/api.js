@@ -74,9 +74,6 @@ export const workspaceChatChannelPlugin = createChatChannelPlugin({
         });
       },
     },
-    gateway: {
-      startAccount: async () => undefined,
-    },
   },
   outbound: {
     base: {

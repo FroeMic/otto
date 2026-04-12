@@ -9,4 +9,6 @@ test("otto-workspace-chat source registers a bundled workspace channel entry", a
   assert.match(source, /id:\s*"otto-workspace-chat"/);
   assert.match(source, /specifier:\s*"\.\/api\.js"/);
   assert.match(source, /specifier:\s*"\.\/runtime-api\.js"/);
+  assert.match(source, /registerWorkspaceChatPluginHttpRoutes/);
+  assert.doesNotMatch(source, /registerWorkspaceChatGatewayMethods/);
 });

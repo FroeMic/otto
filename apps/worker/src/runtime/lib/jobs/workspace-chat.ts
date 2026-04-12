@@ -20,10 +20,7 @@ const WORKSPACE_CHAT_EVENTS = {
 
 type ProcessWorkspaceChatDependencies = {
   appendJobEvent: typeof appendJobEvent;
-  getTenantRuntimeConnection: typeof getTenantRuntimeConnection;
-  getTenantRuntimeGatewayToken: typeof getTenantRuntimeGatewayToken;
-  getTenantRuntimeTenantToken: typeof getTenantRuntimeTenantToken;
-  invokeWorkspaceChatTurn: (input: {
+  forwardWorkspaceChatIngressRequest: (input: {
     assistantMessageId?: string;
     connection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>;
     conversationKind: "ad_hoc" | "durable_named" | "external_surface";
@@ -39,6 +36,9 @@ type ProcessWorkspaceChatDependencies = {
     ok: true;
     sessionKey: string;
   }>;
+  getTenantRuntimeConnection: typeof getTenantRuntimeConnection;
+  getTenantRuntimeGatewayToken: typeof getTenantRuntimeGatewayToken;
+  getTenantRuntimeTenantToken: typeof getTenantRuntimeTenantToken;
   markAssistantMessageFailed: (input: {
     assistantMessageId?: string;
     conversationId: string;
@@ -51,11 +51,8 @@ type ProcessWorkspaceChatDependencies = {
 
 const defaultDependencies: ProcessWorkspaceChatDependencies = {
   appendJobEvent,
-  getTenantRuntimeConnection,
-  getTenantRuntimeGatewayToken,
-  getTenantRuntimeTenantToken,
-  invokeWorkspaceChatTurn: async (input) =>
-    await runtimeManager.invokeWorkspaceChatTurn(input.connection, {
+  forwardWorkspaceChatIngressRequest: async (input) =>
+    await runtimeManager.forwardWorkspaceChatIngressRequest(input.connection, {
       assistantMessageId: input.assistantMessageId,
       conversationKind: input.conversationKind,
       conversationId: input.conversationId,
@@ -67,6 +64,9 @@ const defaultDependencies: ProcessWorkspaceChatDependencies = {
       senderExternalId: input.senderExternalId,
       userMessageId: input.userMessageId,
     }),
+  getTenantRuntimeConnection,
+  getTenantRuntimeGatewayToken,
+  getTenantRuntimeTenantToken,
   markAssistantMessageFailed: async (input) => {
     if (!input.assistantMessageId) {
       return;
@@ -154,14 +154,14 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.queued,
-      "Injecting the workspace chat message into the tenant gateway",
+      "Posting the workspace chat event to the tenant ingress route",
       {
         conversationId: payload.conversationId,
         host: connection.host,
       },
     );
 
-    console.info("[workspace-chat] worker invoking tenant gateway method", {
+    console.info("[workspace-chat] worker invoking tenant ingress route", {
       assistantMessageId: payload.assistantMessageId ?? null,
       conversationId: payload.conversationId,
       host: connection.host,
@@ -169,7 +169,7 @@ export async function processRunWorkspaceChatTurnJob(
       tenantId: payload.tenantId,
     })
 
-    const result = await dependencies.invokeWorkspaceChatTurn({
+    const result = await dependencies.forwardWorkspaceChatIngressRequest({
       assistantMessageId: payload.assistantMessageId,
       connection,
       conversationKind: payload.conversationKind,
@@ -183,7 +183,7 @@ export async function processRunWorkspaceChatTurnJob(
       userMessageId: payload.userMessageId,
     });
 
-    console.info("[workspace-chat] worker tenant gateway method succeeded", {
+    console.info("[workspace-chat] worker tenant ingress route succeeded", {
       conversationId: payload.conversationId,
       jobId: job.id,
       sessionKey: result.sessionKey,
@@ -207,7 +207,7 @@ export async function processRunWorkspaceChatTurnJob(
   } catch (error) {
     const message = getErrorMessage(error);
 
-    console.error("[workspace-chat] worker tenant gateway method failed", {
+    console.error("[workspace-chat] worker tenant ingress route failed", {
       assistantMessageId: payload.assistantMessageId ?? null,
       conversationId: payload.conversationId,
       error: message,

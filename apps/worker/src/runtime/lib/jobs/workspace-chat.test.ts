@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest"
 import { processRunWorkspaceChatTurnJob } from "./workspace-chat"
 
 describe("workspace chat worker job", () => {
-  it("invokes the tenant gateway method for a queued workspace turn", async () => {
+  it("posts the queued workspace turn to the tenant ingress route", async () => {
     const appendJobEvent = vi.fn(async () => undefined)
-    const invokeWorkspaceChatTurn = vi.fn(async () => ({
+    const forwardWorkspaceChatIngressRequest = vi.fn(async () => ({
       ok: true as const,
       sessionKey: "workspace:conv_1?assistantMessageId=msg_1",
     }))
@@ -39,14 +39,14 @@ describe("workspace chat worker job", () => {
         }),
         getTenantRuntimeGatewayToken: async () => "gateway-token",
         getTenantRuntimeTenantToken: async () => "tenant-token",
-        invokeWorkspaceChatTurn,
+        forwardWorkspaceChatIngressRequest,
         markAssistantMessageFailed: vi.fn(async () => undefined),
         markJobFailed: vi.fn(async () => undefined),
         markJobSucceeded,
       },
     )
 
-    expect(invokeWorkspaceChatTurn).toHaveBeenCalledWith({
+    expect(forwardWorkspaceChatIngressRequest).toHaveBeenCalledWith({
       assistantMessageId: "msg_1",
       connection: {
         host: "203.0.113.10",
@@ -103,7 +103,7 @@ describe("workspace chat worker job", () => {
         }),
         getTenantRuntimeGatewayToken: async () => "gateway-token",
         getTenantRuntimeTenantToken: async () => "tenant-token",
-        invokeWorkspaceChatTurn: vi.fn(async () => {
+        forwardWorkspaceChatIngressRequest: vi.fn(async () => {
           throw new Error("gateway call failed")
         }),
         markAssistantMessageFailed,

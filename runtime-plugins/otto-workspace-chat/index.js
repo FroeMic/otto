@@ -1,5 +1,6 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-import { registerWorkspaceChatGatewayMethods } from "./gateway.js";
+import { dispatchInboundReplyWithBase } from "openclaw/plugin-sdk/inbound-reply-dispatch";
+import { registerWorkspaceChatPluginHttpRoutes } from "./http-routes.js";
 
 export default defineBundledChannelEntry({
   id: "otto-workspace-chat",
@@ -15,6 +16,8 @@ export default defineBundledChannelEntry({
     exportName: "setWorkspaceChatRuntime",
   },
   registerFull(api) {
-    registerWorkspaceChatGatewayMethods(api);
+    registerWorkspaceChatPluginHttpRoutes(api, {
+      dispatchInboundReplyWithBase,
+    });
   },
 });

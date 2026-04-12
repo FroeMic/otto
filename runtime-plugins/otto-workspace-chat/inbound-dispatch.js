@@ -7,9 +7,12 @@ const DEFAULT_ASSISTANT_NAME = "Otto";
 export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
   const cfg = dependencies.cfg ?? {};
   const runtime = dependencies.runtime;
-  const dispatchInboundReply =
-    dependencies.dispatchInboundReplyWithBase ??
-    (await loadDispatchInboundReplyWithBase());
+  const dispatchInboundReply = dependencies.dispatchInboundReplyWithBase;
+  if (typeof dispatchInboundReply !== "function") {
+    throw new Error(
+      "Workspace chat inbound dispatch requires dispatchInboundReplyWithBase",
+    );
+  }
   const assistantDisplayName =
     typeof input.assistantDisplayName === "string" &&
     input.assistantDisplayName.trim().length > 0
@@ -98,11 +101,6 @@ export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
 
     throw error;
   }
-}
-
-async function loadDispatchInboundReplyWithBase() {
-  const module = await import("./runtime-api.js");
-  return module.dispatchInboundReplyWithBase;
 }
 
 function getErrorMessage(error) {
