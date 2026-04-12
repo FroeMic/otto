@@ -20,10 +20,6 @@ export interface AgentInstructionListProps {
   tabs: AgentInstructionTab[]
 }
 
-function getInstructionMonogram(label: string) {
-  return label.replace(".md", "").slice(0, 2).toUpperCase()
-}
-
 export function AgentInstructionList({
   orgSlug,
   tabs,
@@ -41,17 +37,12 @@ export function AgentInstructionList({
           preload="intent"
           to="/$orgSlug/settings/agent/personalization/$instructionTab"
         >
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-muted text-xs font-semibold text-muted-foreground">
-              {getInstructionMonogram(tab.label)}
-            </div>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-sm font-medium">{tab.label}</span>
-              <span className="text-sm text-muted-foreground">
-                {INSTRUCTION_DESCRIPTIONS[tab.slug] ??
-                  "Workspace-specific guidance for this Otto instruction file."}
-              </span>
-            </div>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm font-medium">{tab.label}</span>
+            <span className="text-sm text-muted-foreground">
+              {INSTRUCTION_DESCRIPTIONS[tab.slug] ??
+                "Workspace-specific guidance for this Otto instruction file."}
+            </span>
           </div>
 
           <CaretRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
