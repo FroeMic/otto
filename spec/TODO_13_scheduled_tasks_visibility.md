@@ -4,6 +4,16 @@
 
 Expose scheduled task definitions and scheduled task sessions in the Otto control plane, with one clear source of truth for schedules and one clear sync model for keeping execution state current.
 
+## Implementation status
+
+The read-only visibility slice is now implemented in the new app stack:
+
+- `apps/web/src/features/scheduled-tasks` owns the workspace UI
+- `apps/api/src/scheduled-tasks` owns the browser-facing Hono RPC routes
+- `packages/features/runtime-core/src/scheduled-tasks` owns normalized task/run substrate
+
+What remains open from this spec is the stronger runtime-originated push-sync/watcher path and any later create/edit/delete task authoring flows.
+
 ## Scope
 
 - add a real scheduled-tasks area under the org-scoped app shell

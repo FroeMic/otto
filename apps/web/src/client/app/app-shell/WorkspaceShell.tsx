@@ -1,8 +1,9 @@
 import {
-  CaretUpDownIcon,
   BuildingsIcon,
-  GearIcon,
+  CalendarBlankIcon,
+  CaretUpDownIcon,
   ChatsTeardropIcon,
+  GearIcon,
   LightningIcon,
   SignOutIcon,
   UserIcon,
@@ -28,7 +29,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -56,7 +56,10 @@ export interface WorkspaceMenuLinkProps {
   icon: ComponentType<{ className?: string }>
   label: string
   params: { orgSlug: string }
-  to: "/$orgSlug/skills" | "/$orgSlug/sessions"
+  to:
+    | "/$orgSlug/scheduled-tasks/tasks"
+    | "/$orgSlug/skills"
+    | "/$orgSlug/sessions"
 }
 
 function decodePathSegment(segment: string) {
@@ -119,6 +122,52 @@ function useWorkspaceBreadcrumbs(
       breadcrumbs.push({
         href: section ? `${base}/skills/${skillKey}/status` : null,
         label: decodePathSegment(skillKey),
+      })
+    }
+
+    if (section) {
+      breadcrumbs.push({
+        href: null,
+        label: formatSectionLabel(section),
+      })
+    }
+
+    return breadcrumbs
+  }
+
+  if (segments[0] === "scheduled-tasks") {
+    const secondSegment = segments[1] ?? null
+    const taskKey = secondSegment === "tasks" ? segments[2] ?? null : null
+    const section = taskKey ? segments[3] ?? null : null
+    const breadcrumbs: BreadcrumbSegment[] = [
+      {
+        href: `${base}/scheduled-tasks/tasks`,
+        label: "Scheduled Tasks",
+      },
+    ]
+
+    if (secondSegment === "task-runs") {
+      breadcrumbs.push({
+        href: null,
+        label: "Task Runs",
+      })
+
+      return breadcrumbs
+    }
+
+    if (secondSegment === "tasks") {
+      breadcrumbs.push({
+        href: taskKey ? `${base}/scheduled-tasks/tasks` : null,
+        label: "Tasks",
+      })
+    }
+
+    if (taskKey) {
+      breadcrumbs.push({
+        href: section
+          ? `${base}/scheduled-tasks/tasks/${taskKey}/overview`
+          : null,
+        label: decodePathSegment(taskKey),
       })
     }
 
@@ -287,6 +336,12 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
                     label="Sessions"
                     params={{ orgSlug }}
                     to="/$orgSlug/sessions"
+                  />
+                  <WorkspaceMenuLink
+                    icon={CalendarBlankIcon}
+                    label="Scheduled Tasks"
+                    params={{ orgSlug }}
+                    to="/$orgSlug/scheduled-tasks/tasks"
                   />
                   <WorkspaceMenuLink
                     icon={LightningIcon}

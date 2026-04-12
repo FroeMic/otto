@@ -10,6 +10,17 @@ import {
   type ManagedSkillVersionConflictLike,
 } from "@otto/feature-runtime-core"
 import {
+  listTenantScheduledTasks,
+  replaceTenantScheduledTasksSnapshot,
+  upsertTenantScheduledTaskRuns,
+} from "@otto/feature-runtime-core/scheduled-tasks/queries"
+import {
+  normalizeRuntimeRun,
+  normalizeRuntimeTask,
+  type RuntimeCronJob,
+  type RuntimeCronRun,
+} from "@otto/feature-runtime-core/scheduled-tasks/sync"
+import {
   type TenantSessionUpsertInput,
   upsertTenantSessionBatch,
 } from "@otto/feature-runtime-core/sessions/queries"
@@ -48,17 +59,6 @@ import {
   proxyOpenAiAudioTranscriptionsRequest,
   proxyOpenAiResponsesRequest,
 } from "./openai-proxy"
-import {
-  listTenantScheduledTasks,
-  replaceTenantScheduledTasksSnapshot,
-  upsertTenantScheduledTaskRuns,
-} from "./scheduled-tasks-data"
-import {
-  normalizeRuntimeRun,
-  normalizeRuntimeTask,
-  type RuntimeCronJob,
-  type RuntimeCronRun,
-} from "./scheduled-tasks-sync"
 import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,

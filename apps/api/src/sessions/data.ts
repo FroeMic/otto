@@ -2,6 +2,7 @@ import {
   getTenantSession,
   listTenantSessions,
 } from "@otto/feature-runtime-core/sessions/queries"
+import { getCronSessionTaskKeyMap } from "@otto/feature-runtime-core/scheduled-tasks/queries"
 import type {
   WorkspaceSessionDetailResponse,
   WorkspaceSessionsListResponse,
@@ -13,12 +14,11 @@ import {
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
   tenantIntegrations,
-  tenantScheduledTaskSessions,
   tenants,
   userChannelIdentities,
   users,
 } from "@otto/feature-integrations-runtime/db/schema"
-import { and, desc, eq, not } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
@@ -202,32 +202,6 @@ async function getMemberNameMap(input: { organizationId: string }) {
 
     map.set(row.externalId, name)
     map.set(row.externalId.toLowerCase(), name)
-  }
-
-  return map
-}
-
-async function getCronSessionTaskKeyMap(input: { tenantId: string }) {
-  const db = getDb()
-  const rows = await db
-    .select({
-      runtimeSessionKey: tenantScheduledTaskSessions.runtimeSessionKey,
-      taskKey: tenantScheduledTaskSessions.taskKey,
-    })
-    .from(tenantScheduledTaskSessions)
-    .where(
-      and(
-        eq(tenantScheduledTaskSessions.tenantId, input.tenantId),
-        not(eq(tenantScheduledTaskSessions.runtimeSessionKey, "")),
-      ),
-    )
-
-  const map = new Map<string, string>()
-
-  for (const row of rows) {
-    if (row.runtimeSessionKey) {
-      map.set(row.runtimeSessionKey, row.taskKey)
-    }
   }
 
   return map

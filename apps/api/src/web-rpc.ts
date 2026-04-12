@@ -5,6 +5,7 @@ import { createBillingRouter } from "./billing/routes"
 import { createFilesRouter } from "./files/routes"
 import { createIntegrationsRouter } from "./integrations/routes"
 import { createPlatformRouter } from "./platform/routes"
+import { createScheduledTasksRouter } from "./scheduled-tasks/routes"
 import { createSessionsRouter } from "./sessions/routes"
 import { createWorkspaceRouter } from "./workspace/routes"
 import { createSkillsRouter } from "./skills/routes"
@@ -17,6 +18,7 @@ export const webRpcApp = new Hono()
   .route("/", createIntegrationsRouter())
   .route("/", createFilesRouter())
   .route("/", createSessionsRouter())
+  .route("/", createScheduledTasksRouter())
   .route("/", createSkillsRouter())
   .route("/", createBillingRouter())
   .route("/", createPlatformRouter())

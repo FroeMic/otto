@@ -33,6 +33,18 @@ import {
 } from "@/features/sessions/api/sessions"
 import { SessionDetailPage } from "@/features/sessions/pages/SessionDetailPage"
 import { SessionsPage } from "@/features/sessions/pages/SessionsPage"
+import {
+  workspaceScheduledTaskDetailQueryOptions,
+  workspaceScheduledTaskRunsQueryOptions,
+  workspaceScheduledTasksQueryOptions,
+} from "@/features/scheduled-tasks/api/scheduled-tasks"
+import { ScheduledTaskConfigurationPage } from "@/features/scheduled-tasks/pages/ScheduledTaskConfigurationPage"
+import { ScheduledTaskDetailRedirectPage } from "@/features/scheduled-tasks/pages/ScheduledTaskDetailRedirectPage"
+import { ScheduledTaskDetailRunsPage } from "@/features/scheduled-tasks/pages/ScheduledTaskDetailRunsPage"
+import { ScheduledTaskOverviewPage } from "@/features/scheduled-tasks/pages/ScheduledTaskOverviewPage"
+import { ScheduledTaskRunsPage } from "@/features/scheduled-tasks/pages/ScheduledTaskRunsPage"
+import { ScheduledTasksPage } from "@/features/scheduled-tasks/pages/ScheduledTasksPage"
+import { ScheduledTasksRedirectPage } from "@/features/scheduled-tasks/pages/ScheduledTasksRedirectPage"
 import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
 import {
   workspaceSkillDetailQueryOptions,
@@ -162,6 +174,52 @@ function WorkspaceSkillsRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <SkillsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceScheduledTasksRedirectRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <ScheduledTasksRedirectPage orgSlug={orgSlug} />
+}
+
+function WorkspaceScheduledTasksRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <ScheduledTasksPage orgSlug={orgSlug} />
+}
+
+function WorkspaceScheduledTaskRunsRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <ScheduledTaskRunsPage orgSlug={orgSlug} />
+}
+
+function WorkspaceScheduledTaskDetailRedirectRoutePage() {
+  const { orgSlug, taskKey } = workspaceScheduledTaskRedirectRoute.useParams()
+
+  return <ScheduledTaskDetailRedirectPage orgSlug={orgSlug} taskKey={taskKey} />
+}
+
+function WorkspaceScheduledTaskOverviewRoutePage() {
+  const { orgSlug, taskKey } = workspaceScheduledTaskOverviewRoute.useParams()
+
+  return <ScheduledTaskOverviewPage orgSlug={orgSlug} taskKey={taskKey} />
+}
+
+function WorkspaceScheduledTaskConfigurationRoutePage() {
+  const { orgSlug, taskKey } =
+    workspaceScheduledTaskConfigurationRoute.useParams()
+
+  return (
+    <ScheduledTaskConfigurationPage orgSlug={orgSlug} taskKey={taskKey} />
+  )
+}
+
+function WorkspaceScheduledTaskRunsDetailRoutePage() {
+  const { orgSlug, taskKey } =
+    workspaceScheduledTaskDetailRunsRoute.useParams()
+
+  return <ScheduledTaskDetailRunsPage orgSlug={orgSlug} taskKey={taskKey} />
 }
 
 function WorkspaceSkillDetailRedirectRoutePage() {
@@ -327,6 +385,30 @@ function WorkspaceSessionDetailRouteErrorPage(props: { error: unknown }) {
   throw props.error
 }
 
+function WorkspaceScheduledTaskDetailRouteErrorPage(props: { error: unknown }) {
+  if (
+    props.error instanceof ApiResponseError &&
+    props.error.status === 404 &&
+    props.error.code === "scheduled_task_not_found"
+  ) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center px-6 py-16">
+        <div className="flex max-w-lg flex-col gap-3 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Scheduled task not found
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            This scheduled task does not exist or is no longer available in the
+            runtime snapshot.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  throw props.error
+}
+
 function PlatformRouteErrorPage(props: { error: unknown }) {
   if (props.error instanceof ApiResponseError) {
     if (props.error.status === 401) {
@@ -471,6 +553,88 @@ const workspaceSkillsRoute = createRoute({
       workspaceSkillsQueryOptions(params.orgSlug),
     ),
   path: "/skills",
+})
+
+const workspaceScheduledTasksRedirectRoute = createRoute({
+  component: WorkspaceScheduledTasksRedirectRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  path: "/scheduled-tasks",
+})
+
+const workspaceScheduledTasksRoute = createRoute({
+  component: WorkspaceScheduledTasksRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTasksQueryOptions(params.orgSlug),
+    ),
+  path: "/scheduled-tasks/tasks",
+})
+
+const workspaceScheduledTaskRunsRoute = createRoute({
+  component: WorkspaceScheduledTaskRunsRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTaskRunsQueryOptions(params.orgSlug),
+    ),
+  path: "/scheduled-tasks/task-runs",
+})
+
+const workspaceScheduledTaskRedirectRoute = createRoute({
+  component: WorkspaceScheduledTaskDetailRedirectRoutePage,
+  errorComponent: WorkspaceScheduledTaskDetailRouteErrorPage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTaskDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        taskKey: params.taskKey,
+      }),
+    ),
+  path: "/scheduled-tasks/tasks/$taskKey",
+})
+
+const workspaceScheduledTaskOverviewRoute = createRoute({
+  component: WorkspaceScheduledTaskOverviewRoutePage,
+  errorComponent: WorkspaceScheduledTaskDetailRouteErrorPage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTaskDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        taskKey: params.taskKey,
+      }),
+    ),
+  path: "/scheduled-tasks/tasks/$taskKey/overview",
+})
+
+const workspaceScheduledTaskConfigurationRoute = createRoute({
+  component: WorkspaceScheduledTaskConfigurationRoutePage,
+  errorComponent: WorkspaceScheduledTaskDetailRouteErrorPage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTaskDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        taskKey: params.taskKey,
+      }),
+    ),
+  path: "/scheduled-tasks/tasks/$taskKey/configuration",
+})
+
+const workspaceScheduledTaskDetailRunsRoute = createRoute({
+  component: WorkspaceScheduledTaskRunsDetailRoutePage,
+  errorComponent: WorkspaceScheduledTaskDetailRouteErrorPage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceScheduledTaskDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        taskKey: params.taskKey,
+      }),
+    ),
+  path: "/scheduled-tasks/tasks/$taskKey/task-runs",
 })
 
 const workspaceSkillRedirectRoute = createRoute({
@@ -823,6 +987,13 @@ export const routeTree = rootRoute.addChildren([
       workspaceLegacyFilesRoute,
       workspaceSessionsRoute,
       workspaceSessionDetailRoute,
+      workspaceScheduledTasksRedirectRoute,
+      workspaceScheduledTasksRoute,
+      workspaceScheduledTaskRunsRoute,
+      workspaceScheduledTaskRedirectRoute,
+      workspaceScheduledTaskOverviewRoute,
+      workspaceScheduledTaskConfigurationRoute,
+      workspaceScheduledTaskDetailRunsRoute,
       workspaceSkillsRoute,
       workspaceSkillRedirectRoute,
       workspaceSkillOverviewLegacyRoute,
