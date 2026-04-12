@@ -9,6 +9,10 @@ import {
   type ManagedConfigVersionConflictLike,
   type ManagedSkillVersionConflictLike,
 } from "@otto/feature-runtime-core"
+import {
+  type TenantSessionUpsertInput,
+  upsertTenantSessionBatch,
+} from "@otto/feature-runtime-core/sessions/queries"
 import type { Hono } from "hono"
 import { z } from "zod"
 
@@ -55,10 +59,6 @@ import {
   type RuntimeCronJob,
   type RuntimeCronRun,
 } from "./scheduled-tasks-sync"
-import {
-  type TenantSessionUpsertInput,
-  upsertTenantSessionBatch,
-} from "./sessions"
 import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,
