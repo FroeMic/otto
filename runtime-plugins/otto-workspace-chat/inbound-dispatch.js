@@ -7,7 +7,7 @@ const DEFAULT_ASSISTANT_NAME = "Otto";
 export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
   const cfg = dependencies.cfg ?? {};
   const runtime = dependencies.runtime;
-  const dispatchInboundReplyWithBase =
+  const dispatchInboundReply =
     dependencies.dispatchInboundReplyWithBase ??
     (await loadDispatchInboundReplyWithBase());
   const assistantDisplayName =
@@ -45,7 +45,7 @@ export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
   });
 
   try {
-    await dispatchInboundReplyWithBase({
+    await dispatchInboundReply({
       accountId: inbound.accountId,
       cfg,
       channel: inbound.channel,
@@ -101,7 +101,7 @@ export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
 }
 
 async function loadDispatchInboundReplyWithBase() {
-  const module = await import("openclaw/plugin-sdk/inbound-reply-dispatch");
+  const module = await import("./runtime-api.js");
   return module.dispatchInboundReplyWithBase;
 }
 
