@@ -264,6 +264,7 @@
     - the old fake `startAccount` provider loop has been removed from `otto-workspace-chat`; the always-on ingress surface is now the plugin-owned tenant HTTP route, matching the Slack HTTP shape more closely
     - the old workspace-chat bridge-command runner path has been removed from the runtime image
     - the existing workspace websocket path now pushes repeated canonical `conversation.message_upserted` events so the same assistant bubble grows live until the final completion seals it as `completed`
+    - `apps/web` now interpolates the last assistant text part locally between canonical cumulative snapshots so runtime block streaming feels smoother without changing callback cadence or delaying final completion
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree

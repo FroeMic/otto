@@ -225,6 +225,7 @@ Current implementation status for Increment 1:
   - the channel plugin no longer registers a fake no-op provider lifecycle; the long-lived ingress surface is the plugin HTTP route itself
   - the old workspace-chat bridge-command runner path has been removed from the runtime image
   - the existing workspace websocket path now republishes those assistant placeholder updates as canonical `conversation.message_upserted` events so the same assistant bubble grows live until final completion marks it `completed`
+  - `apps/web` now interpolates the last assistant text part locally between canonical cumulative snapshots so browser streaming reads more continuously without changing the canonical transport contract
 
 ## Frameworks And Packages To Use
 

@@ -3,6 +3,8 @@ import type { WorkspaceChatMessage } from "@otto/feature-workspace-chat"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
+import { useStreamingText } from "../hooks/useStreamingText"
+
 export interface ConversationMessageBubbleProps {
   message: WorkspaceChatMessage
 }
@@ -12,6 +14,7 @@ export function ConversationMessageBubble({
 }: ConversationMessageBubbleProps) {
   const isAssistant = message.author.kind === "assistant"
   const textParts = message.parts.filter((part) => part.type === "text")
+  const lastTextPartIndex = textParts.length - 1
   const statusLabel =
     message.status === "pending"
       ? "Queued"
@@ -28,6 +31,12 @@ export function ConversationMessageBubble({
         : message.status === "failed"
           ? "Otto could not complete this reply."
           : null
+  const animatedLastTextPart = useStreamingText({
+    isEnabled: isAssistant,
+    messageId: message.id,
+    status: message.status,
+    targetText: textParts[lastTextPartIndex]?.text ?? "",
+  })
 
   return (
     <div
@@ -62,11 +71,21 @@ export function ConversationMessageBubble({
           </p>
         </div>
 
-        {textParts.map((part, index) => (
-          <p key={`${message.id}:${index}`} className="whitespace-pre-wrap text-sm leading-6">
-            {part.text}
-          </p>
-        ))}
+        {textParts.map((part, index) => {
+          const displayText =
+            isAssistant && index === lastTextPartIndex
+              ? animatedLastTextPart
+              : part.text
+
+          return (
+            <p
+              key={`${message.id}:${index}`}
+              className="whitespace-pre-wrap text-sm leading-6"
+            >
+              {displayText}
+            </p>
+          )
+        })}
 
         {textParts.length === 0 && placeholderText ? (
           <p className="text-sm text-muted-foreground">{placeholderText}</p>
