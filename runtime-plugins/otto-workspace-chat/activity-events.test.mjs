@@ -3,14 +3,14 @@ import test from "node:test";
 
 import {
   createWorkspaceChatActivityEventReporter,
-  normalizeWorkspaceChatAgentEvent,
+  normalizeWorkspaceChatRuntimeActivityEvent,
 } from "./activity-events.js";
 
-test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace activity events", () => {
+test("normalizeWorkspaceChatRuntimeActivityEvent maps direct runtime callback payloads into workspace activity events", () => {
   assert.deepEqual(
-    normalizeWorkspaceChatAgentEvent({
-      data: {
-        phase: "start",
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        phase: "started",
       },
       runId: "run_1",
       sessionKey: "session_1",
@@ -18,7 +18,7 @@ test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace 
     }),
     {
       payload: {
-        phase: "start",
+        phase: "started",
       },
       runId: "run_1",
       sessionKey: "session_1",
@@ -29,8 +29,8 @@ test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace 
   );
 
   assert.deepEqual(
-    normalizeWorkspaceChatAgentEvent({
-      data: {
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
         itemId: "item_1",
         phase: "update",
         progressText: "Reviewing issues",
@@ -60,22 +60,19 @@ test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace 
   );
 
   assert.deepEqual(
-    normalizeWorkspaceChatAgentEvent({
-      data: {
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
         name: "read_file",
         phase: "start",
-        toolCallId: "tool_1",
       },
       runId: "run_1",
       sessionKey: "session_1",
       stream: "tool",
     }),
     {
-      itemId: "tool_1",
       payload: {
         name: "read_file",
         phase: "start",
-        toolCallId: "tool_1",
       },
       runId: "run_1",
       sessionKey: "session_1",
@@ -86,8 +83,8 @@ test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace 
   );
 
   assert.deepEqual(
-    normalizeWorkspaceChatAgentEvent({
-      data: {
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
         approvalId: "approval_1",
         message: "Waiting on approval",
         phase: "requested",
@@ -115,26 +112,45 @@ test("normalizeWorkspaceChatAgentEvent maps core runtime streams into workspace 
       type: "approval.requested",
     },
   );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        itemId: "command:exec-1",
+        output: "README.md",
+        phase: "delta",
+        title: "command ls",
+        toolCallId: "exec-1",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "command_output",
+    }),
+    {
+      itemId: "command:exec-1",
+      payload: {
+        itemId: "command:exec-1",
+        output: "README.md",
+        phase: "delta",
+        title: "command ls",
+        toolCallId: "exec-1",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      summary: "README.md",
+      title: "command ls",
+      type: "command_output.delta",
+    },
+  );
 });
 
-test("createWorkspaceChatActivityEventReporter forwards matching runtime events in sequence order", async () => {
+test("createWorkspaceChatActivityEventReporter forwards direct runtime callback activity in sequence order", async () => {
   const sentEvents = [];
-  let listener = null;
 
   const reporter = createWorkspaceChatActivityEventReporter(
     {
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
-      runtime: {
-        events: {
-          onAgentEvent(callback) {
-            listener = callback;
-            return () => {
-              listener = null;
-            };
-          },
-        },
-      },
       sessionKey: "session_1",
     },
     {
@@ -144,62 +160,72 @@ test("createWorkspaceChatActivityEventReporter forwards matching runtime events 
     },
   );
 
-  listener?.({
-    data: {
-      phase: "start",
-      toolCallId: "tool_1",
-      name: "read_file",
-    },
+  reporter.recordLifecycleEvent({
+    phase: "started",
     runId: "run_1",
-    seq: 1,
-    sessionKey: "session_1",
-    stream: "tool",
-    ts: Date.now(),
   });
-  listener?.({
-    data: {
-      phase: "requested",
-      approvalId: "approval_1",
-      status: "pending",
-      title: "Run command",
-    },
+  reporter.recordToolEvent({
+    name: "read_file",
+    phase: "start",
     runId: "run_1",
-    seq: 2,
-    sessionKey: "other_session",
-    stream: "approval",
-    ts: Date.now(),
   });
-  listener?.({
-    data: {
-      itemId: "item_1",
-      phase: "update",
-      progressText: "Reviewing issues",
-      status: "running",
-      title: "Assessing user issues",
-    },
+  reporter.recordItemEvent({
+    itemId: "item_1",
+    phase: "update",
+    progressText: "Reviewing issues",
     runId: "run_1",
-    seq: 3,
-    sessionKey: "session_1",
-    stream: "item",
-    ts: Date.now(),
+    status: "running",
+    title: "Assessing user issues",
+  });
+  reporter.recordApprovalEvent({
+    approvalId: "approval_1",
+    phase: "requested",
+    runId: "run_1",
+    status: "pending",
+    title: "Run command",
+  });
+  reporter.recordCommandOutputEvent({
+    itemId: "command:exec-1",
+    output: "README.md",
+    phase: "delta",
+    runId: "run_1",
+    title: "command ls",
+    toolCallId: "exec_1",
+  });
+  reporter.recordLifecycleEvent({
+    message: "Completed successfully",
+    phase: "completed",
+    runId: "run_1",
   });
 
   await reporter.flush();
-  reporter.stop();
 
   assert.deepEqual(sentEvents, [
     {
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       event: {
-        itemId: "tool_1",
         payload: {
-          name: "read_file",
-          phase: "start",
-          toolCallId: "tool_1",
+          phase: "started",
         },
         runId: "run_1",
         sequence: 1,
+        sessionKey: "session_1",
+        status: "running",
+        title: "Started",
+        type: "lifecycle.started",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          name: "read_file",
+          phase: "start",
+        },
+        runId: "run_1",
+        sequence: 2,
         sessionKey: "session_1",
         status: "running",
         title: "read_file",
@@ -219,7 +245,7 @@ test("createWorkspaceChatActivityEventReporter forwards matching runtime events 
           title: "Assessing user issues",
         },
         runId: "run_1",
-        sequence: 2,
+        sequence: 3,
         sessionKey: "session_1",
         status: "running",
         summary: "Reviewing issues",
@@ -227,5 +253,63 @@ test("createWorkspaceChatActivityEventReporter forwards matching runtime events 
         type: "item.updated",
       },
     },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        itemId: "approval_1",
+        payload: {
+          approvalId: "approval_1",
+          phase: "requested",
+          status: "pending",
+          title: "Run command",
+        },
+        runId: "run_1",
+        sequence: 4,
+        sessionKey: "session_1",
+        status: "pending",
+        title: "Run command",
+        type: "approval.requested",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        itemId: "command:exec-1",
+        payload: {
+          itemId: "command:exec-1",
+          output: "README.md",
+          phase: "delta",
+          title: "command ls",
+          toolCallId: "exec_1",
+        },
+        runId: "run_1",
+        sequence: 5,
+        sessionKey: "session_1",
+        summary: "README.md",
+        title: "command ls",
+        type: "command_output.delta",
+      },
+    },
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          message: "Completed successfully",
+          phase: "completed",
+        },
+        runId: "run_1",
+        sequence: 6,
+        sessionKey: "session_1",
+        status: "completed",
+        summary: "Completed successfully",
+        title: "Completed",
+        type: "lifecycle.completed",
+      },
+    },
   ]);
+
+  reporter.stop();
 });

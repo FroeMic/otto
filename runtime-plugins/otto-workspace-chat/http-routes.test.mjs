@@ -203,7 +203,7 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.equal(fetchCalls.length, 1);
+    assert.equal(fetchCalls.length, 2);
     assert.equal(
       fetchCalls[0].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/fail",
@@ -213,6 +213,27 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       error: "dispatch failed after acceptance",
+    });
+    assert.equal(
+      fetchCalls[1].url,
+      "https://workspace.example/api/internal/runtime/workspace-chat/messages/events",
+    );
+    assert.deepEqual(fetchCalls[1].body, {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          error: "dispatch failed after acceptance",
+          phase: "failed",
+        },
+        sequence: 1,
+        sessionKey:
+          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "failed",
+        summary: "dispatch failed after acceptance",
+        title: "Failed",
+        type: "lifecycle.failed",
+      },
     });
   } finally {
     globalThis.fetch = previousFetch;
