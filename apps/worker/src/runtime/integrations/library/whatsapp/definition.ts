@@ -62,6 +62,7 @@ export const whatsappIntegrationDefinition: IntegrationDefinition = {
       "Use action=apply with expectedEntryVersion from the most recent action=get response to persist the change.",
     ],
   },
-  settingsPath: (orgSlug) => `/${orgSlug}/integrations2/whatsapp/status`,
+  settingsPath: (orgSlug) =>
+    `/${orgSlug}/settings/agent/integrations/whatsapp/status`,
   showInWorkspaceCatalog: true,
 };

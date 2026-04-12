@@ -79,6 +79,9 @@
   - `/app` is no longer served by the new web shell
   - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
   - workspace bootstrap now falls back to a direct authorized slug lookup so the current workspace can still load when broader org-list projection refresh fails
+- Runtime-projected workspace URLs are now almost fully aligned with the extracted shell:
+  - managed bootstrap links in `apps/api` already point at extracted settings and workspace routes
+  - the remaining stale projected integration URLs have now been corrected in shared integration definitions and worker-managed bootstrap content so runtime-generated integration links point at `/$orgSlug/settings/agent/integrations/...` instead of the old `/integrations2/...` paths
 - The apex-domain parallel launch shape is now wired in repo config:
   - `LANDING_PAGE_DOMAIN` is intended to serve the new unified Otto web app
   - `LANDING_PAGE_DOMAIN/api/*` is intended to route to `apps/api`
@@ -87,6 +90,11 @@
   - for the extracted `web` and `api`, the effective public app/auth origin should now derive from `LANDING_PAGE_DOMAIN` during the parallel-launch phase even while legacy `web` continues to serve `CONTROL_PLANE_DOMAIN`
   - runtime control-plane base URL resolution now also prefers `LANDING_PAGE_DOMAIN`, so `OTTO_CONTROL_PLANE_BASE_URL` can point tenant runtime callbacks and Otto-owned plugins at the extracted apex-domain API surface during cutover
   - during the parallel-launch phase, extracted auth should prefer `WORKOS_BASE_URL_BETA` and `WORKOS_REDIRECT_URI_BETA`, while legacy `web` keeps using the non-`_BETA` WorkOS URL vars
+- Legacy workspace retirement now has an explicit follow-on plan:
+  - `TODO_23_legacy_web_retirement_and_domain_cutover.md` defines the shutdown sequence
+  - PR 1 retires `legacy-web` as the org-scoped workspace surface
+  - PR 2 removes legacy onboarding tables and code once OAuth/provisioning no longer depend on them
+  - PR 3 collapses the temporary `LANDING_PAGE_DOMAIN` plus `CONTROL_PLANE_DOMAIN` split and removes the `_BETA` auth envs
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
