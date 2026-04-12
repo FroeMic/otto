@@ -135,7 +135,8 @@ Do that by reconciling the spec state, inventorying what is still truly required
 - the remaining notable keepers inside `web/src/app/[orgSlug]` are now mostly shared helper files still imported by:
   - legacy platform pages
   - legacy integration UI
-- after those deletions, `bun run --cwd web build` still passes
+- the legacy `web/src/app/platform/**` operator route tree has also been removed
+- after removing both the legacy workspace and legacy platform route trees, `bun run --cwd web build` still passes
 
 ## Directory inventory
 
