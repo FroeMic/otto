@@ -11,7 +11,11 @@ import {
   WORKSPACE_CHAT_DEFAULT_ACCOUNT_ID as DEFAULT_ACCOUNT_ID,
 } from "./channel-config.js";
 import { sendWorkspaceChatText } from "./outbound.js";
-import { normalizeWorkspaceTarget, parseWorkspaceTarget } from "./target.js";
+import {
+  inferWorkspaceTargetChatType,
+  normalizeWorkspaceTarget,
+  parseWorkspaceTarget,
+} from "./target.js";
 
 const meta = { ...getChatChannelMeta(CHANNEL_ID) };
 
@@ -20,7 +24,7 @@ export const workspaceChatChannelPlugin = createChatChannelPlugin({
     id: CHANNEL_ID,
     meta,
     capabilities: {
-      chatTypes: ["group"],
+      chatTypes: ["direct", "group"],
     },
     reload: { configPrefixes: ["channels.otto-workspace-chat"] },
     configSchema: {
@@ -46,17 +50,24 @@ export const workspaceChatChannelPlugin = createChatChannelPlugin({
     },
     messaging: {
       normalizeTarget: normalizeWorkspaceTarget,
-      parseExplicitTarget: ({ raw }) => ({
-        chatType: "group",
-        to: normalizeWorkspaceTarget(raw),
-      }),
-      inferTargetChatType: () => "group",
+      parseExplicitTarget: ({ raw }) => {
+        const target = normalizeWorkspaceTarget(raw);
+
+        return {
+          chatType: inferWorkspaceTargetChatType(target),
+          to: target,
+        };
+      },
+      inferTargetChatType: ({ raw, target }) =>
+        inferWorkspaceTargetChatType(target ?? raw ?? ""),
       targetResolver: {
         looksLikeId: (raw) => normalizeWorkspaceTarget(raw).length > 0,
         hint: "workspace:<conversation-id>",
       },
       resolveOutboundSessionRoute: ({ cfg, agentId, accountId, target, threadId }) => {
         const parsed = parseWorkspaceTarget(target);
+        const chatType =
+          parsed.conversationVisibility === "personal" ? "direct" : "group";
 
         return buildChannelOutboundSessionRoute({
           cfg,
@@ -64,10 +75,10 @@ export const workspaceChatChannelPlugin = createChatChannelPlugin({
           channel: CHANNEL_ID,
           accountId,
           peer: {
-            kind: "channel",
+            kind: chatType === "direct" ? "direct" : "channel",
             id: parsed.conversationId,
           },
-          chatType: "group",
+          chatType,
           from: `${CHANNEL_ID}:${accountId ?? DEFAULT_ACCOUNT_ID}`,
           to: parsed.target,
           threadId,

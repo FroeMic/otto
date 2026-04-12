@@ -1,4 +1,4 @@
-import { dispatchWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
+import { prepareWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
 
 export const WORKSPACE_CHAT_HTTP_INGRESS_PATH = "/otto/workspace-chat/events";
 
@@ -35,21 +35,38 @@ export async function handleWorkspaceChatHttpRequest(req, res, dependencies) {
       userMessageId: params.userMessageId ?? null,
     });
 
-    const result = await dispatchWorkspaceChatInboundTurn(params, {
+    const acceptedTurn = prepareWorkspaceChatInboundTurn(params, {
       cfg: dependencies.cfg ?? {},
       dispatchInboundReplyWithBase: dependencies.dispatchInboundReplyWithBase,
       runtime: dependencies.runtime,
     });
 
-    console.info("[workspace-chat] http ingress completed", {
-      assistantMessageId: params.assistantMessageId ?? null,
-      conversationId: params.conversationId,
-      sessionKey: result.sessionKey,
+    queueMicrotask(() => {
+      void acceptedTurn.run().catch((error) => {
+        console.error("[workspace-chat] accepted turn execution rejected", {
+          assistantMessageId: params.assistantMessageId ?? null,
+          conversationId: params.conversationId,
+          error: getErrorMessage(error),
+          sessionKey: acceptedTurn.sessionKey,
+        });
+      });
     });
 
-    res.statusCode = 200;
+    console.info("[workspace-chat] http ingress accepted", {
+      assistantMessageId: params.assistantMessageId ?? null,
+      conversationId: params.conversationId,
+      sessionKey: acceptedTurn.sessionKey,
+    });
+
+    res.statusCode = 202;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify(result));
+    res.end(
+      JSON.stringify({
+        accepted: true,
+        ok: true,
+        sessionKey: acceptedTurn.sessionKey,
+      }),
+    );
     return true;
   } catch (error) {
     const message = getErrorMessage(error);

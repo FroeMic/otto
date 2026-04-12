@@ -14,6 +14,7 @@ export function buildWorkspaceChatInboundContext(input) {
   const target = buildWorkspaceTarget({
     assistantMessageId: input.assistantMessageId,
     conversationId: input.conversationId,
+    conversationVisibility: input.conversationVisibility,
   });
   const route = runtime.channel.routing.resolveAgentRoute({
     accountId: WORKSPACE_CHAT_DEFAULT_ACCOUNT_ID,

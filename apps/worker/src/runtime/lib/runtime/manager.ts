@@ -51,13 +51,14 @@ export type WhatsAppLinkStatus = {
   lastError: string | null;
 };
 
-export type ForwardedSlackHttpResponse = {
+export type ForwardedGatewayHttpResponse = {
   body: string;
   headers: Record<string, string>;
   status: number;
 };
 
-export type InvokeWorkspaceChatTurnResult = {
+export type WorkspaceChatIngressAcceptanceResult = {
+  accepted: true;
   ok: true;
   sessionKey: string;
 };
@@ -655,7 +656,7 @@ export class RuntimeManager {
       timeoutMs?: number;
       userMessageId: string;
     },
-  ): Promise<InvokeWorkspaceChatTurnResult> {
+  ): Promise<WorkspaceChatIngressAcceptanceResult> {
     const body = JSON.stringify({
       ...(input.assistantMessageId
         ? { assistantMessageId: input.assistantMessageId }
@@ -675,7 +676,7 @@ export class RuntimeManager {
       conversationId: input.conversationId,
       host: connection.host,
       messageLength: input.message.length,
-      timeoutMs: input.timeoutMs ?? 600_000,
+      timeoutMs: input.timeoutMs ?? 30_000,
     });
 
     const response = await this.forwardGatewayHttpRequest(connection, {
@@ -685,7 +686,7 @@ export class RuntimeManager {
         "content-type": "application/json",
       },
       path: WORKSPACE_CHAT_HTTP_INGRESS_PATH,
-      timeoutMs: input.timeoutMs ?? 620_000,
+      timeoutMs: input.timeoutMs ?? 30_000,
     });
 
     console.info("[workspace-chat] runtime manager tenant ingress returned", {
@@ -706,7 +707,7 @@ export class RuntimeManager {
       path?: string;
       timeoutMs?: number;
     },
-  ): Promise<ForwardedSlackHttpResponse> {
+  ): Promise<ForwardedGatewayHttpResponse> {
     return await this.forwardGatewayHttpRequest(connection, {
       body: input.body,
       headers: input.headers,
@@ -723,7 +724,7 @@ export class RuntimeManager {
       path: string;
       timeoutMs?: number;
     },
-  ): Promise<ForwardedSlackHttpResponse> {
+  ): Promise<ForwardedGatewayHttpResponse> {
     const requestBodyPath = `/tmp/otto-plugin-ingress-${randomUUID()}.body`;
     await this.sshClient.writeFileAtomic(
       connection,
@@ -740,12 +741,12 @@ export class RuntimeManager {
     const script = [
       "set -euo pipefail",
       `request_body_path=${shellQuoteForShell(requestBodyPath)}`,
-      "response_body=$(mktemp /tmp/otto-slack-response-body.XXXXXX)",
-      "response_headers=$(mktemp /tmp/otto-slack-response-headers.XXXXXX)",
+      "response_body=$(mktemp /tmp/otto-plugin-response-body.XXXXXX)",
+      "response_headers=$(mktemp /tmp/otto-plugin-response-headers.XXXXXX)",
       'trap \'rm -f "$request_body_path" "$response_body" "$response_headers"\' EXIT',
       [
         "status=$(curl -sS",
-        "--max-time 15",
+        `--max-time ${Math.max(5, Math.ceil((input.timeoutMs ?? 30_000) / 1000))}`,
         '-o "$response_body"',
         '-D "$response_headers"',
         "-X POST",
@@ -766,7 +767,7 @@ export class RuntimeManager {
     const result = await this.sshClient.exec(
       connection,
       `bash -lc ${shellQuote(script)}`,
-      { timeoutMs: input.timeoutMs ?? 20_000 },
+      { timeoutMs: Math.max((input.timeoutMs ?? 30_000) + 5_000, 20_000) },
     );
 
     if (result.exitCode !== 0) {
@@ -775,7 +776,7 @@ export class RuntimeManager {
       );
     }
 
-    return parseForwardedSlackHttpPayload(result.stdout);
+    return parseForwardedGatewayHttpPayload(result.stdout);
   }
 
   async startWhatsAppLoginWithQr(
@@ -1230,8 +1231,8 @@ function extractWorkspaceChatGatewayError(payload: Record<string, unknown>) {
 }
 
 function parseWorkspaceChatHttpIngressPayload(
-  response: ForwardedSlackHttpResponse,
-): InvokeWorkspaceChatTurnResult {
+  response: ForwardedGatewayHttpResponse,
+): WorkspaceChatIngressAcceptanceResult {
   const payload =
     response.body.trim().length > 0 ? parseJsonObject(response.body) : {};
   const sessionKey = payload.sessionKey;
@@ -1244,7 +1245,7 @@ function parseWorkspaceChatHttpIngressPayload(
     );
   }
 
-  if (payload.ok !== true) {
+  if (payload.ok !== true || payload.accepted !== true) {
     throw new Error(
       explicitError || "Tenant runtime workspace chat ingress did not acknowledge the event",
     );
@@ -1258,19 +1259,20 @@ function parseWorkspaceChatHttpIngressPayload(
   }
 
   return {
+    accepted: true,
     ok: true,
     sessionKey,
   };
 }
 
-function parseForwardedSlackHttpPayload(
+function parseForwardedGatewayHttpPayload(
   value: string,
-): ForwardedSlackHttpResponse {
+): ForwardedGatewayHttpResponse {
   const envelope = parseJsonObject(value);
   const status = envelope.status;
 
   if (typeof status !== "number") {
-    throw new Error("Tenant runtime Slack forward response is missing status");
+    throw new Error("Tenant runtime forwarded HTTP response is missing status");
   }
 
   const headersRaw = Buffer.from(

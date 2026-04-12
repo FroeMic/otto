@@ -346,7 +346,7 @@ test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct rou
     );
 
     assert.deepEqual(routeCalls[0].peer, {
-      id: "workspace:conv_1?assistantMessageId=msg_1",
+      id: "workspace:conv_1?assistantMessageId=msg_1&visibility=personal",
       kind: "direct",
     });
     assert.deepEqual(JSON.parse(fetchCalls.at(-1).body), {

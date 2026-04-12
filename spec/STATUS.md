@@ -247,10 +247,11 @@
     - `apps/worker` now claims those jobs, resolves tenant runtime access, and POSTs workspace chat ingress events to a plugin-owned tenant HTTP route instead of calling a custom gateway RPC
     - workspace-chat execution no longer depends on an Otto sidecar runner or runtime-authenticated bridge command claim/completion routes
     - request-path SSH is now removed for workspace-chat dispatch, and the runtime-side execution path is owned by the background worker plus the tenant HTTP ingress route instead of the browser request
+    - the tenant ingress route now acknowledges accepted events quickly with a `sessionKey`, so worker delivery is decoupled from full-turn runtime duration
   - the first assistant lifecycle slice now also exists:
     - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
     - worker job payloads and plugin callbacks now carry `assistantMessageId` correlation so streaming, failure, and completion paths can update that placeholder deterministically
-    - the first runtime delta callback now marks the assistant message `streaming`, worker/plugin failure callbacks mark it `failed`, and the runtime completion callback now updates the placeholder to `completed` with its final parts
+    - the first runtime delta callback now marks the assistant message `streaming`, plugin failure callbacks now own post-acceptance failure state, worker failures only apply before tenant acceptance, and the runtime completion callback now updates the placeholder to `completed` with its final parts
     - the workspace UI now renders queued/running/failed assistant placeholders directly instead of inferring only from the absence of an assistant message
   - the first browser push slice now also exists:
     - `apps/api` now exposes a typed Bun websocket route at `/api/workspace/:orgSlug/chat/realtime`

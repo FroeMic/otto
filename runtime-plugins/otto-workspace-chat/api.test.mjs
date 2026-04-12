@@ -164,3 +164,81 @@ test("otto-workspace-chat posts assistant completions back to the workspace API"
     }
   }
 });
+
+test("otto-workspace-chat preserves personal chat targets in completion callbacks", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    calls.push({
+      body: init?.body,
+      headers: init?.headers,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(
+      JSON.stringify({
+        conversationId: "conv_1",
+        messageId: "msg_assistant_1",
+        ok: true,
+        runtimeSegmentId: "segment_1",
+        tenantId: "tenant_1",
+      }),
+      {
+        headers: {
+          "content-type": "application/json",
+        },
+        status: 200,
+      },
+    );
+  };
+
+  try {
+    const result = await sendWorkspaceChatText({
+      accountId: "default",
+      text: "Here is the answer.",
+      to: "workspace:conv_1?visibility=personal",
+    });
+
+    assert.deepEqual(result, {
+      channel: "otto-workspace-chat",
+      messageId: "msg_assistant_1",
+    });
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].body), {
+      assistantDisplayName: "Otto",
+      conversationId: "conv_1",
+      message: {
+        parts: [
+          {
+            text: "Here is the answer.",
+            type: "text",
+          },
+        ],
+      },
+      session: {
+        sessionKey: "workspace:conv_1?visibility=personal",
+        status: "completed",
+      },
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
