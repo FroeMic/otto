@@ -422,12 +422,12 @@ To avoid scattering product-specific behavior across the repo, important Otto do
 
 Example shape:
 
-- `packages/features/scheduled-tasks`
-- `packages/features/sessions`
-- `packages/features/integrations`
+- `packages/features/runtime-core`
+- `packages/features/integrations-runtime`
 - `packages/features/billing`
+- `packages/features/workspace-core`
 
-For each feature package, keep together as much of the domain-specific code as practical:
+For each shared feature package, keep together as much of the genuinely shared domain-specific code as practical:
 
 - Zod schemas and typed contracts
 - server-side service functions
@@ -440,6 +440,11 @@ Then keep app integration layers thin:
 - `apps/api/src/features/<feature-name>` for Hono route wiring only
 - `apps/worker/src/features/<feature-name>` for job wiring only
 - `apps/web/src/features/<feature-name>` for route components, feature hooks, and feature-local UI state
+
+For workspace-facing product surfaces that project into runtime, keep the product feature local to the app and move only the runtime-consumed substrate into a shared package. For example:
+
+- `apps/web/src/features/sessions` and `apps/api/src/sessions` own the browser and workspace-facing API surface
+- `packages/features/runtime-core/src/sessions/*` owns runtime ingest, normalized session state, and shared session queries
 
 Anti-goal:
 
@@ -680,10 +685,10 @@ Recommended first feature packages:
 
 1. `packages/features/runtime-core`
 2. `packages/features/webhooks`
-3. `packages/features/sessions`
-4. `packages/features/scheduled-tasks`
-5. `packages/features/integrations`
-6. `packages/features/workspace-settings`
+3. `packages/features/integrations-runtime`
+4. `packages/features/billing`
+5. `packages/features/workspace-core`
+6. add new shared packages only when a domain becomes a true cross-surface engine rather than a workspace-local product surface
 
 Verification for each extraction slice:
 
