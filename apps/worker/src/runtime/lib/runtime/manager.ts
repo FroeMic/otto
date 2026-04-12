@@ -643,18 +643,30 @@ export class RuntimeManager {
     connection: SshConnection,
     input: {
       assistantMessageId?: string;
+      conversationKind: "ad_hoc" | "durable_named" | "external_surface";
       conversationId: string;
+      conversationTitle: string;
+      conversationVisibility: "open" | "personal";
       gatewayToken: string;
       message: string;
+      senderDisplayName: string;
+      senderExternalId: string;
       timeoutMs?: number;
+      userMessageId: string;
     },
   ): Promise<InvokeWorkspaceChatTurnResult> {
     const params = JSON.stringify({
       ...(input.assistantMessageId
         ? { assistantMessageId: input.assistantMessageId }
         : {}),
+      conversationKind: input.conversationKind,
       conversationId: input.conversationId,
+      conversationTitle: input.conversationTitle,
+      conversationVisibility: input.conversationVisibility,
       message: input.message,
+      senderDisplayName: input.senderDisplayName,
+      senderExternalId: input.senderExternalId,
+      userMessageId: input.userMessageId,
     });
 
     console.info("[workspace-chat] runtime manager invoking gateway call", {

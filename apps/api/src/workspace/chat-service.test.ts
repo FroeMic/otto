@@ -6,6 +6,8 @@ import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 
 describe("workspace chat service", () => {
   it("returns queued when bridge dispatch succeeds", async () => {
+    let dispatchInput: Record<string, unknown> | null = null
+
     const result = await createAndDispatchWorkspaceChatMessage(
       {
         clientMessageId: "client-msg-1",
@@ -26,6 +28,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "pending_runtime_bridge",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",
@@ -45,13 +50,28 @@ describe("workspace chat service", () => {
           shouldDispatch: true,
           tenantId: "tenant_1",
         }),
-        dispatchMessage: async () => ({
-          status: "queued",
-        }),
+        dispatchMessage: async (input) => {
+          dispatchInput = input
+
+          return {
+            status: "queued",
+          }
+        },
       },
     )
 
     assert.equal(result.dispatch.status, "queued")
+    assert.deepEqual(dispatchInput, {
+      conversationKind: "ad_hoc",
+      conversationId: "conv_1",
+      conversationTitle: "Portfolio review",
+      conversationVisibility: "open",
+      message: "Summarize the latest notes.",
+      senderDisplayName: "Test User",
+      senderExternalId: "user_1",
+      tenantId: "tenant_1",
+      userMessageId: "msg_1",
+    })
   })
 
   it("keeps the message persisted when runtime dispatch fails", async () => {
@@ -74,6 +94,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "pending_runtime_bridge",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",
@@ -125,6 +148,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "queued",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",

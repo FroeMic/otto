@@ -90,9 +90,15 @@ export type RefreshRuntimeImagePayload = {
 
 export type RunWorkspaceChatTurnPayload = {
   assistantMessageId?: string;
+  conversationKind: "ad_hoc" | "durable_named" | "external_surface";
   conversationId: string;
+  conversationTitle: string;
+  conversationVisibility: "open" | "personal";
   message: string;
+  senderDisplayName: string;
+  senderExternalId: string;
   tenantId: string;
+  userMessageId: string;
 };
 
 export type ScheduleOauthConnectionRefreshPayload = Record<string, never>;

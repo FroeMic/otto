@@ -26,9 +26,15 @@ type ProcessWorkspaceChatDependencies = {
   invokeWorkspaceChatTurn: (input: {
     assistantMessageId?: string;
     connection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>;
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface";
     conversationId: string;
+    conversationTitle: string;
+    conversationVisibility: "open" | "personal";
     gatewayToken: string;
     message: string;
+    senderDisplayName: string;
+    senderExternalId: string;
+    userMessageId: string;
   }) => Promise<{
     ok: true;
     sessionKey: string;
@@ -51,9 +57,15 @@ const defaultDependencies: ProcessWorkspaceChatDependencies = {
   invokeWorkspaceChatTurn: async (input) =>
     await runtimeManager.invokeWorkspaceChatTurn(input.connection, {
       assistantMessageId: input.assistantMessageId,
+      conversationKind: input.conversationKind,
       conversationId: input.conversationId,
+      conversationTitle: input.conversationTitle,
+      conversationVisibility: input.conversationVisibility,
       gatewayToken: input.gatewayToken,
       message: input.message,
+      senderDisplayName: input.senderDisplayName,
+      senderExternalId: input.senderExternalId,
+      userMessageId: input.userMessageId,
     }),
   markAssistantMessageFailed: async (input) => {
     if (!input.assistantMessageId) {
@@ -142,7 +154,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.queued,
-      "Invoking the workspace chat turn through the tenant gateway",
+      "Injecting the workspace chat message into the tenant gateway",
       {
         conversationId: payload.conversationId,
         host: connection.host,
@@ -160,9 +172,15 @@ export async function processRunWorkspaceChatTurnJob(
     const result = await dependencies.invokeWorkspaceChatTurn({
       assistantMessageId: payload.assistantMessageId,
       connection,
+      conversationKind: payload.conversationKind,
       conversationId: payload.conversationId,
+      conversationTitle: payload.conversationTitle,
+      conversationVisibility: payload.conversationVisibility,
       gatewayToken,
       message: payload.message,
+      senderDisplayName: payload.senderDisplayName,
+      senderExternalId: payload.senderExternalId,
+      userMessageId: payload.userMessageId,
     });
 
     console.info("[workspace-chat] worker tenant gateway method succeeded", {
@@ -175,7 +193,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.succeeded,
-      "Workspace chat turn started successfully in the tenant runtime",
+      "Workspace chat message was accepted by the tenant runtime",
       {
         conversationId: payload.conversationId,
         sessionKey: result.sessionKey,
@@ -235,7 +253,7 @@ export async function processRunWorkspaceChatTurnJob(
     await dependencies.appendJobEvent(
       job.id,
       WORKSPACE_CHAT_EVENTS.failed,
-      "Workspace chat turn failed before the tenant runtime could complete it",
+      "Workspace chat ingress failed before the tenant runtime accepted the message",
       {
         error: message,
       },
@@ -252,27 +270,67 @@ function parseRunWorkspaceChatTurnPayload(
     payload.assistantMessageId.length > 0
       ? payload.assistantMessageId
       : undefined;
+  const conversationKind = payload.conversationKind;
   const conversationId = payload.conversationId;
+  const conversationTitle = payload.conversationTitle;
+  const conversationVisibility = payload.conversationVisibility;
   const message = payload.message;
+  const senderDisplayName = payload.senderDisplayName;
+  const senderExternalId = payload.senderExternalId;
   const tenantId = payload.tenantId;
+  const userMessageId = payload.userMessageId;
+
+  if (
+    conversationKind !== "ad_hoc" &&
+    conversationKind !== "durable_named" &&
+    conversationKind !== "external_surface"
+  ) {
+    throw new Error("Workspace chat turn payload is missing conversationKind");
+  }
 
   if (typeof conversationId !== "string" || conversationId.length === 0) {
     throw new Error("Workspace chat turn payload is missing conversationId");
+  }
+
+  if (typeof conversationTitle !== "string" || conversationTitle.length === 0) {
+    throw new Error("Workspace chat turn payload is missing conversationTitle");
+  }
+
+  if (conversationVisibility !== "open" && conversationVisibility !== "personal") {
+    throw new Error("Workspace chat turn payload is missing conversationVisibility");
   }
 
   if (typeof message !== "string" || message.length === 0) {
     throw new Error("Workspace chat turn payload is missing message");
   }
 
+  if (typeof senderDisplayName !== "string" || senderDisplayName.length === 0) {
+    throw new Error("Workspace chat turn payload is missing senderDisplayName");
+  }
+
+  if (typeof senderExternalId !== "string" || senderExternalId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing senderExternalId");
+  }
+
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("Workspace chat turn payload is missing tenantId");
   }
 
+  if (typeof userMessageId !== "string" || userMessageId.length === 0) {
+    throw new Error("Workspace chat turn payload is missing userMessageId");
+  }
+
   return {
     ...(assistantMessageId ? { assistantMessageId } : {}),
+    conversationKind,
     conversationId,
+    conversationTitle,
+    conversationVisibility,
     message,
+    senderDisplayName,
+    senderExternalId,
     tenantId,
+    userMessageId,
   };
 }
 

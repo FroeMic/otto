@@ -11,6 +11,16 @@ export function normalizeWorkspaceTarget(raw) {
   return trimmed.startsWith("workspace:") ? trimmed : `workspace:${trimmed}`;
 }
 
+export function buildWorkspaceTarget(input) {
+  const base = normalizeWorkspaceTarget(input.conversationId);
+
+  if (!input.assistantMessageId) {
+    return base;
+  }
+
+  return `${base}?assistantMessageId=${encodeURIComponent(input.assistantMessageId)}`;
+}
+
 export function parseWorkspaceTarget(raw) {
   const target = normalizeWorkspaceTarget(raw);
   const [conversationId, query = ""] = target.replace(/^workspace:/u, "").split("?", 2);

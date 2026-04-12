@@ -1,50 +1,80 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runWorkspaceChatTurn } from "./gateway.js";
+import { dispatchWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
 
 function createRuntime() {
-  const calls = [];
+  const finalizeCalls = [];
+  const formatCalls = [];
+  const routeCalls = [];
+  const storePathCalls = [];
+  const timestampCalls = [];
+
   const runtime = {
-    agent: {
-      defaults: {
-        model: "gpt-5.4",
-        provider: "openai",
-      },
-      ensureAgentWorkspace: async () => undefined,
-      resolveAgentDir: () => "/tmp/agent",
-      resolveAgentIdentity: () => ({ name: "Otto" }),
-      resolveAgentTimeoutMs: () => 30_000,
-      resolveAgentWorkspaceDir: () => "/tmp/workspace",
-      resolveThinkingDefault: () => "off",
-      runEmbeddedPiAgent: async (input) => {
-        calls.push(input);
-        await input.onPartialReply?.({ text: "Hel" });
-        await input.onPartialReply?.({ text: "Hello there" });
-        return {
-          meta: {
-            agentMeta: {
-              sessionId: "external_session_1",
-            },
-          },
-          payloads: [{ text: "Hello there" }],
-        };
+    channel: {
+      routing: {
+        resolveAgentRoute: (input) => {
+          routeCalls.push(input);
+          return {
+            accountId: "default",
+            agentId: "main",
+            sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+          };
+        },
       },
       session: {
-        resolveSessionFilePath: (_cfg, sessionId) => `/tmp/${sessionId}.jsonl`,
+        readSessionUpdatedAt: (input) => {
+          timestampCalls.push(input);
+          return "2026-04-12T10:00:00.000Z";
+        },
+        resolveStorePath: (store, input) => {
+          storePathCalls.push({ input, store });
+          return "/tmp/sessions.json";
+        },
+      },
+      reply: {
+        finalizeInboundContext: (input) => {
+          finalizeCalls.push(input);
+          return {
+            ...input,
+            Body: input.Body,
+          };
+        },
+        formatAgentEnvelope: (input) => {
+          formatCalls.push(input);
+          return `[${input.channel}] ${input.from}: ${input.body}`;
+        },
+        resolveEnvelopeFormatOptions: () => ({
+          includeReplyPrefix: true,
+        }),
       },
     },
   };
 
-  return { calls, runtime };
+  return {
+    finalizeCalls,
+    formatCalls,
+    routeCalls,
+    runtime,
+    storePathCalls,
+    timestampCalls,
+  };
 }
 
-test("runWorkspaceChatTurn streams deltas and completes through the control-plane callbacks", async () => {
+test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event and posts delta plus completion callbacks", async () => {
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
   const previousTenantToken = process.env.TENANT_TOKEN;
   const previousFetch = globalThis.fetch;
   const fetchCalls = [];
-  const { calls, runtime } = createRuntime();
+  const {
+    finalizeCalls,
+    formatCalls,
+    routeCalls,
+    runtime,
+    storePathCalls,
+    timestampCalls,
+  } = createRuntime();
+  const dispatchCalls = [];
 
   process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
   process.env.TENANT_TOKEN = "tenant-token";
@@ -62,27 +92,87 @@ test("runWorkspaceChatTurn streams deltas and completes through the control-plan
   };
 
   try {
-    const result = await runWorkspaceChatTurn({
-      assistantMessageId: "msg_1",
-      cfg: {},
-      conversationId: "conv_1",
-      message: "Summarize the latest notes.",
-      runtime,
+    const result = await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
+        message: "Summarize the latest notes.",
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {
+          session: {
+            store: {
+              path: "/tmp/sessions.json",
+            },
+          },
+        },
+        dispatchInboundReplyWithBase: async (params) => {
+          dispatchCalls.push(params);
+          await params.replyOptions?.onPartialReply?.({ text: "Hel" });
+          await params.replyOptions?.onPartialReply?.({ text: "Hello there" });
+          await params.deliver({ text: "Hello there" });
+        },
+        runtime,
+      },
+    );
+
+    assert.deepEqual(result, {
+      ok: true,
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
     });
+    assert.equal(routeCalls.length, 1);
+    assert.deepEqual(routeCalls[0], {
+      accountId: "default",
+      cfg: {
+        session: {
+          store: {
+            path: "/tmp/sessions.json",
+          },
+        },
+      },
+      channel: "otto-workspace-chat",
+      peer: {
+        id: "workspace:conv_1?assistantMessageId=msg_1",
+        kind: "channel",
+      },
+    });
+    assert.equal(storePathCalls.length, 1);
+    assert.deepEqual(storePathCalls[0], {
+      input: {
+        agentId: "main",
+      },
+      store: {
+        path: "/tmp/sessions.json",
+      },
+    });
+    assert.equal(timestampCalls.length, 1);
+    assert.equal(formatCalls.length, 1);
+    assert.equal(finalizeCalls.length, 1);
+    assert.equal(dispatchCalls.length, 1);
+    assert.equal(dispatchCalls[0].route.sessionKey, result.sessionKey);
+    assert.equal(
+      dispatchCalls[0].ctxPayload.ConversationLabel,
+      "Portfolio review",
+    );
+    assert.equal(dispatchCalls[0].ctxPayload.ChatType, "group");
+    assert.equal(dispatchCalls[0].ctxPayload.SenderName, "Michael Froehlich");
+    assert.equal(dispatchCalls[0].ctxPayload.SenderId, "user_1");
+    assert.equal(dispatchCalls[0].ctxPayload.From, "workspace-user:user_1@conv_1");
+    assert.equal(dispatchCalls[0].ctxPayload.MessageSid, "user_msg_1");
 
-    assert.equal(result.sessionKey, "workspace:conv_1?assistantMessageId=msg_1");
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].messageChannel, "otto-workspace-chat");
-    assert.equal(calls[0].messageTo, "workspace:conv_1?assistantMessageId=msg_1");
-    assert.equal(calls[0].prompt, "Summarize the latest notes.");
-
-    assert.equal(fetchCalls.length, 4);
+    assert.equal(fetchCalls.length, 3);
     assert.equal(
       fetchCalls[0].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/delta",
     );
     assert.equal(
-      fetchCalls[3].url,
+      fetchCalls[2].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/complete",
     );
     assert.deepEqual(JSON.parse(fetchCalls[0].body), {
@@ -90,11 +180,20 @@ test("runWorkspaceChatTurn streams deltas and completes through the control-plan
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       message: {
-        text: "",
+        text: "Hel",
       },
       sequence: 1,
     });
-    assert.deepEqual(JSON.parse(fetchCalls[3].body), {
+    assert.deepEqual(JSON.parse(fetchCalls[1].body), {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      message: {
+        text: "Hello there",
+      },
+      sequence: 2,
+    });
+    assert.deepEqual(JSON.parse(fetchCalls[2].body), {
       assistantDisplayName: "Otto",
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
@@ -107,8 +206,7 @@ test("runWorkspaceChatTurn streams deltas and completes through the control-plan
         ],
       },
       session: {
-        externalSessionId: "external_session_1",
-        sessionKey: "workspace:conv_1?assistantMessageId=msg_1",
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
         status: "completed",
       },
     });
@@ -127,7 +225,7 @@ test("runWorkspaceChatTurn streams deltas and completes through the control-plan
   }
 });
 
-test("runWorkspaceChatTurn reports a failed assistant message when execution throws", async () => {
+test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when shared dispatch throws", async () => {
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
   const previousTenantToken = process.env.TENANT_TOKEN;
   const previousFetch = globalThis.fetch;
@@ -151,45 +249,126 @@ test("runWorkspaceChatTurn reports a failed assistant message when execution thr
   try {
     await assert.rejects(
       () =>
-        runWorkspaceChatTurn({
-          assistantMessageId: "msg_1",
-          cfg: {},
-          conversationId: "conv_1",
-          message: "Summarize the latest notes.",
-          runtime: {
-            agent: {
-              defaults: {
-                model: "gpt-5.4",
-                provider: "openai",
-              },
-              ensureAgentWorkspace: async () => undefined,
-              resolveAgentDir: () => "/tmp/agent",
-              resolveAgentIdentity: () => ({ name: "Otto" }),
-              resolveAgentTimeoutMs: () => 30_000,
-              resolveAgentWorkspaceDir: () => "/tmp/workspace",
-              resolveThinkingDefault: () => "off",
-              runEmbeddedPiAgent: async () => {
-                throw new Error("embedded run failed");
-              },
-              session: {
-                resolveSessionFilePath: (_cfg, sessionId) => `/tmp/${sessionId}.jsonl`,
-              },
-            },
+        dispatchWorkspaceChatInboundTurn(
+          {
+            assistantMessageId: "msg_1",
+            conversationKind: "ad_hoc",
+            conversationId: "conv_1",
+            conversationTitle: "Portfolio review",
+            conversationVisibility: "open",
+            message: "Summarize the latest notes.",
+            senderDisplayName: "Michael Froehlich",
+            senderExternalId: "user_1",
+            userMessageId: "user_msg_1",
           },
-        }),
-      /embedded run failed/,
+          {
+            cfg: {},
+            dispatchInboundReplyWithBase: async () => {
+              throw new Error("shared inbound dispatch failed");
+            },
+            runtime: createRuntime().runtime,
+          },
+        ),
+      /shared inbound dispatch failed/,
     );
 
-    assert.equal(fetchCalls.length, 2);
+    assert.equal(fetchCalls.length, 1);
     assert.equal(
-      fetchCalls[1].url,
+      fetchCalls[0].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/fail",
     );
-    assert.deepEqual(JSON.parse(fetchCalls[1].body), {
+    assert.deepEqual(JSON.parse(fetchCalls[0].body), {
       assistantDisplayName: "Otto",
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
-      error: "embedded run failed",
+      error: "shared inbound dispatch failed",
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
+test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct routing and preserves media references in the final completion", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const fetchCalls = [];
+  const { routeCalls, runtime } = createRuntime();
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Direct with Otto",
+        conversationVisibility: "personal",
+        message: "Show me the artifact",
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {},
+        dispatchInboundReplyWithBase: async (params) => {
+          await params.deliver({
+            mediaUrl: "https://files.example/output.png",
+            text: "Artifact ready",
+          });
+        },
+        runtime,
+      },
+    );
+
+    assert.deepEqual(routeCalls[0].peer, {
+      id: "workspace:conv_1?assistantMessageId=msg_1",
+      kind: "direct",
+    });
+    assert.deepEqual(JSON.parse(fetchCalls.at(-1).body), {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      message: {
+        parts: [
+          {
+            text: "Artifact ready",
+            type: "text",
+          },
+          {
+            text: "[Media] https://files.example/output.png",
+            type: "text",
+          },
+        ],
+      },
+      session: {
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "completed",
+      },
     });
   } finally {
     globalThis.fetch = previousFetch;
