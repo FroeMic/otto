@@ -76,6 +76,7 @@ This folder is the source of truth for implementation planning and session-to-se
 20. `TODO_19_oauth_connected_accounts_substrate.md`
 21. `TODO_20_unified_frontend_and_hono_migration.md`
 22. `TODO_21_workspace_multiplayer_chat_and_web_channel.md`
+23. `TODO_22_workspace_chat_activity_events_and_transparency.md`
 
 ## Trigger.dev decision
 
