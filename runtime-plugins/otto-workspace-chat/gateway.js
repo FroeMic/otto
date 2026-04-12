@@ -15,6 +15,19 @@ export function registerWorkspaceChatGatewayMethods(api) {
           params.assistantMessageId.trim().length > 0
             ? params.assistantMessageId.trim()
             : undefined;
+        const conversationKind =
+          params?.conversationKind === "ad_hoc" ||
+          params?.conversationKind === "durable_named" ||
+          params?.conversationKind === "external_surface"
+            ? params.conversationKind
+            : "ad_hoc";
+        const conversationTitle =
+          typeof params?.conversationTitle === "string" &&
+          params.conversationTitle.trim().length > 0
+            ? params.conversationTitle.trim()
+            : `Workspace conversation ${conversationId || "unknown"}`;
+        const conversationVisibility =
+          params?.conversationVisibility === "personal" ? "personal" : "open";
         const senderDisplayName =
           typeof params?.senderDisplayName === "string" &&
           params.senderDisplayName.trim().length > 0
@@ -55,7 +68,10 @@ export function registerWorkspaceChatGatewayMethods(api) {
         const result = await dispatchWorkspaceChatInboundTurn(
           {
             ...(assistantMessageId ? { assistantMessageId } : {}),
+            conversationKind,
             conversationId,
+            conversationTitle,
+            conversationVisibility,
             message,
             senderDisplayName,
             senderExternalId,

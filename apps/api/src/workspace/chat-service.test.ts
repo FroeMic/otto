@@ -28,6 +28,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "pending_runtime_bridge",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",
@@ -59,7 +62,10 @@ describe("workspace chat service", () => {
 
     assert.equal(result.dispatch.status, "queued")
     assert.deepEqual(dispatchInput, {
+      conversationKind: "ad_hoc",
       conversationId: "conv_1",
+      conversationTitle: "Portfolio review",
+      conversationVisibility: "open",
       message: "Summarize the latest notes.",
       senderDisplayName: "Test User",
       senderExternalId: "user_1",
@@ -88,6 +94,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "pending_runtime_bridge",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",
@@ -139,6 +148,9 @@ describe("workspace chat service", () => {
           dispatch: {
             status: "queued",
           },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           message: {
             author: {
               kind: "user",

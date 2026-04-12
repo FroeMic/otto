@@ -377,6 +377,9 @@ export async function createWorkspaceChatMessageRecord(input: {
 }): Promise<
   WorkspaceChatMessageCreateResponse & {
     assistantMessageId?: string
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface"
+    conversationTitle: string
+    conversationVisibility: "open" | "personal"
     shouldDispatch: boolean
     tenantId: string
   }
@@ -418,7 +421,12 @@ export async function createWorkspaceChatMessageRecord(input: {
     if (existingAssistantMessage) {
       return {
         assistantMessageId: existingAssistantMessage.id,
+        conversationKind: normalizeWorkspaceChatConversationKind(conversation.kind),
         conversationId: conversation.id,
+        conversationTitle: conversation.title,
+        conversationVisibility: normalizeWorkspaceChatConversationVisibility(
+          conversation.visibility,
+        ),
         dispatch: {
           status: mapDispatchStatusFromAssistantStatus(existingAssistantMessage.status),
         },
@@ -468,7 +476,12 @@ export async function createWorkspaceChatMessageRecord(input: {
 
     return {
       assistantMessageId,
+      conversationKind: normalizeWorkspaceChatConversationKind(conversation.kind),
       conversationId: conversation.id,
+      conversationTitle: conversation.title,
+      conversationVisibility: normalizeWorkspaceChatConversationVisibility(
+        conversation.visibility,
+      ),
       dispatch: {
         status: "pending_runtime_bridge",
       },
@@ -580,7 +593,12 @@ export async function createWorkspaceChatMessageRecord(input: {
   }
 
   return {
+    conversationKind: normalizeWorkspaceChatConversationKind(conversation.kind),
     conversationId: conversation.id,
+    conversationTitle: conversation.title,
+    conversationVisibility: normalizeWorkspaceChatConversationVisibility(
+      conversation.visibility,
+    ),
     dispatch: {
       status: "pending_runtime_bridge",
     },
@@ -1223,13 +1241,12 @@ function mapWorkspaceChatConversationSummary(
 ): WorkspaceChatConversationSummary {
   return {
     id: row.id,
-    kind: row.kind as WorkspaceChatConversationSummary["kind"],
+    kind: normalizeWorkspaceChatConversationKind(row.kind),
     lastActivityAt: row.lastActivityAt.toISOString(),
     latestMessagePreview: row.latestMessagePreview,
     slug: row.slug ?? undefined,
     title: row.title,
-    visibility:
-      row.visibility as WorkspaceChatConversationSummary["visibility"],
+    visibility: normalizeWorkspaceChatConversationVisibility(row.visibility),
   }
 }
 
@@ -1262,6 +1279,22 @@ function mapDispatchStatusFromAssistantStatus(
   }
 
   return "pending_runtime_bridge"
+}
+
+function normalizeWorkspaceChatConversationKind(
+  value: string,
+): WorkspaceChatConversationSummary["kind"] {
+  if (value === "durable_named" || value === "external_surface") {
+    return value
+  }
+
+  return "ad_hoc"
+}
+
+function normalizeWorkspaceChatConversationVisibility(
+  value: string,
+): WorkspaceChatConversationSummary["visibility"] {
+  return value === "personal" ? "personal" : "open"
 }
 
 async function resolveWorkspaceChatActor(input: {

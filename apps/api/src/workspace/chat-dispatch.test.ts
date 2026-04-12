@@ -9,7 +9,10 @@ describe("workspace chat dispatch", () => {
     let queuedPayload:
       | {
           assistantMessageId?: string
+          conversationKind: "ad_hoc" | "durable_named" | "external_surface"
           conversationId: string
+          conversationTitle: string
+          conversationVisibility: "open" | "personal"
           message: string
           senderDisplayName: string
           senderExternalId: string
@@ -21,7 +24,10 @@ describe("workspace chat dispatch", () => {
     const result = await dispatchWorkspaceChatMessage(
       {
         assistantMessageId: "assistant_msg_123",
+        conversationKind: "ad_hoc",
         conversationId: "conv_123",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
         message: "Summarize the latest notes.",
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_123",
@@ -42,7 +48,10 @@ describe("workspace chat dispatch", () => {
 
     assert.deepEqual(queuedPayload, {
       assistantMessageId: "assistant_msg_123",
+      conversationKind: "ad_hoc",
       conversationId: "conv_123",
+      conversationTitle: "Portfolio review",
+      conversationVisibility: "open",
       message: "Summarize the latest notes.",
       senderDisplayName: "Michael Froehlich",
       senderExternalId: "user_123",

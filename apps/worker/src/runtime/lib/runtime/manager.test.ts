@@ -74,7 +74,10 @@ describe("RuntimeManager.invokeWorkspaceChatTurn", () => {
           username: "root",
         },
         {
+          conversationKind: "ad_hoc",
           conversationId: "conv_1",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
           gatewayToken: "gateway-token",
           message: "Hello",
           senderDisplayName: "Test User",

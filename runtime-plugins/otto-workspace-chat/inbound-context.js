@@ -10,6 +10,7 @@ export function buildWorkspaceChatInboundContext(input) {
   const cfg = input.cfg ?? {};
   const runtime = input.runtime;
   const timestamp = new Date().toISOString();
+  const chatType = input.conversationVisibility === "personal" ? "direct" : "group";
   const target = buildWorkspaceTarget({
     assistantMessageId: input.assistantMessageId,
     conversationId: input.conversationId,
@@ -20,7 +21,7 @@ export function buildWorkspaceChatInboundContext(input) {
     channel: WORKSPACE_CHAT_CHANNEL_ID,
     peer: {
       id: target,
-      kind: "channel",
+      kind: chatType === "direct" ? "direct" : "channel",
     },
   });
   const storePath = runtime.channel.session.resolveStorePath(cfg.session?.store, {
@@ -39,6 +40,11 @@ export function buildWorkspaceChatInboundContext(input) {
   const conversationLabel =
     normalizeOptionalString(input.conversationTitle) ||
     `${DEFAULT_CONVERSATION_LABEL_PREFIX} ${input.conversationId}`;
+  const from = buildWorkspaceChatSenderAddress({
+    conversationId: input.conversationId,
+    senderExternalId,
+    visibility: input.conversationVisibility,
+  });
   const body = runtime.channel.reply.formatAgentEnvelope({
     body: input.message,
     channel: "Workspace Chat",
@@ -56,13 +62,13 @@ export function buildWorkspaceChatInboundContext(input) {
       Body: body,
       BodyForAgent: input.message,
       BodyForCommands: input.message,
-      ChatType: "group",
+      ChatType: chatType,
       CommandAuthorized: true,
       CommandBody: input.message,
       ConversationLabel: conversationLabel,
-      From: `workspace-user:${senderExternalId}`,
-      GroupChannel: input.conversationId,
-      GroupSubject: conversationLabel,
+      From: from,
+      GroupChannel: chatType === "group" ? input.conversationId : undefined,
+      GroupSubject: chatType === "group" ? conversationLabel : undefined,
       MessageSid:
         normalizeOptionalString(input.userMessageId) ||
         `workspace-user-message:${input.conversationId}`,
@@ -90,4 +96,12 @@ export function buildWorkspaceChatInboundContext(input) {
 
 function normalizeOptionalString(value) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function buildWorkspaceChatSenderAddress(input) {
+  if (input.visibility === "personal") {
+    return `workspace-dm-user:${input.senderExternalId}`;
+  }
+
+  return `workspace-user:${input.senderExternalId}@${input.conversationId}`;
 }

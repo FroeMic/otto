@@ -18,8 +18,10 @@ export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
   const inbound = buildWorkspaceChatInboundContext({
     assistantMessageId: input.assistantMessageId,
     cfg,
+    conversationKind: input.conversationKind,
     conversationId: input.conversationId,
     conversationTitle: input.conversationTitle,
+    conversationVisibility: input.conversationVisibility,
     message: input.message,
     runtime,
     senderDisplayName: input.senderDisplayName,

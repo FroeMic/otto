@@ -643,7 +643,10 @@ export class RuntimeManager {
     connection: SshConnection,
     input: {
       assistantMessageId?: string;
+      conversationKind: "ad_hoc" | "durable_named" | "external_surface";
       conversationId: string;
+      conversationTitle: string;
+      conversationVisibility: "open" | "personal";
       gatewayToken: string;
       message: string;
       senderDisplayName: string;
@@ -656,7 +659,10 @@ export class RuntimeManager {
       ...(input.assistantMessageId
         ? { assistantMessageId: input.assistantMessageId }
         : {}),
+      conversationKind: input.conversationKind,
       conversationId: input.conversationId,
+      conversationTitle: input.conversationTitle,
+      conversationVisibility: input.conversationVisibility,
       message: input.message,
       senderDisplayName: input.senderDisplayName,
       senderExternalId: input.senderExternalId,

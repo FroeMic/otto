@@ -26,7 +26,10 @@ type ProcessWorkspaceChatDependencies = {
   invokeWorkspaceChatTurn: (input: {
     assistantMessageId?: string;
     connection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>;
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface";
     conversationId: string;
+    conversationTitle: string;
+    conversationVisibility: "open" | "personal";
     gatewayToken: string;
     message: string;
     senderDisplayName: string;
@@ -54,7 +57,10 @@ const defaultDependencies: ProcessWorkspaceChatDependencies = {
   invokeWorkspaceChatTurn: async (input) =>
     await runtimeManager.invokeWorkspaceChatTurn(input.connection, {
       assistantMessageId: input.assistantMessageId,
+      conversationKind: input.conversationKind,
       conversationId: input.conversationId,
+      conversationTitle: input.conversationTitle,
+      conversationVisibility: input.conversationVisibility,
       gatewayToken: input.gatewayToken,
       message: input.message,
       senderDisplayName: input.senderDisplayName,
@@ -166,7 +172,10 @@ export async function processRunWorkspaceChatTurnJob(
     const result = await dependencies.invokeWorkspaceChatTurn({
       assistantMessageId: payload.assistantMessageId,
       connection,
+      conversationKind: payload.conversationKind,
       conversationId: payload.conversationId,
+      conversationTitle: payload.conversationTitle,
+      conversationVisibility: payload.conversationVisibility,
       gatewayToken,
       message: payload.message,
       senderDisplayName: payload.senderDisplayName,
@@ -261,15 +270,34 @@ function parseRunWorkspaceChatTurnPayload(
     payload.assistantMessageId.length > 0
       ? payload.assistantMessageId
       : undefined;
+  const conversationKind = payload.conversationKind;
   const conversationId = payload.conversationId;
+  const conversationTitle = payload.conversationTitle;
+  const conversationVisibility = payload.conversationVisibility;
   const message = payload.message;
   const senderDisplayName = payload.senderDisplayName;
   const senderExternalId = payload.senderExternalId;
   const tenantId = payload.tenantId;
   const userMessageId = payload.userMessageId;
 
+  if (
+    conversationKind !== "ad_hoc" &&
+    conversationKind !== "durable_named" &&
+    conversationKind !== "external_surface"
+  ) {
+    throw new Error("Workspace chat turn payload is missing conversationKind");
+  }
+
   if (typeof conversationId !== "string" || conversationId.length === 0) {
     throw new Error("Workspace chat turn payload is missing conversationId");
+  }
+
+  if (typeof conversationTitle !== "string" || conversationTitle.length === 0) {
+    throw new Error("Workspace chat turn payload is missing conversationTitle");
+  }
+
+  if (conversationVisibility !== "open" && conversationVisibility !== "personal") {
+    throw new Error("Workspace chat turn payload is missing conversationVisibility");
   }
 
   if (typeof message !== "string" || message.length === 0) {
@@ -294,7 +322,10 @@ function parseRunWorkspaceChatTurnPayload(
 
   return {
     ...(assistantMessageId ? { assistantMessageId } : {}),
+    conversationKind,
     conversationId,
+    conversationTitle,
+    conversationVisibility,
     message,
     senderDisplayName,
     senderExternalId,

@@ -95,7 +95,10 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
     const result = await dispatchWorkspaceChatInboundTurn(
       {
         assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
         conversationId: "conv_1",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
         message: "Summarize the latest notes.",
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_1",
@@ -155,10 +158,12 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
     assert.equal(dispatchCalls[0].route.sessionKey, result.sessionKey);
     assert.equal(
       dispatchCalls[0].ctxPayload.ConversationLabel,
-      "Workspace conversation conv_1",
+      "Portfolio review",
     );
+    assert.equal(dispatchCalls[0].ctxPayload.ChatType, "group");
     assert.equal(dispatchCalls[0].ctxPayload.SenderName, "Michael Froehlich");
     assert.equal(dispatchCalls[0].ctxPayload.SenderId, "user_1");
+    assert.equal(dispatchCalls[0].ctxPayload.From, "workspace-user:user_1@conv_1");
     assert.equal(dispatchCalls[0].ctxPayload.MessageSid, "user_msg_1");
 
     assert.equal(fetchCalls.length, 3);
@@ -247,7 +252,10 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
         dispatchWorkspaceChatInboundTurn(
           {
             assistantMessageId: "msg_1",
+            conversationKind: "ad_hoc",
             conversationId: "conv_1",
+            conversationTitle: "Portfolio review",
+            conversationVisibility: "open",
             message: "Summarize the latest notes.",
             senderDisplayName: "Michael Froehlich",
             senderExternalId: "user_1",
@@ -274,6 +282,93 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       error: "shared inbound dispatch failed",
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
+test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct routing and preserves media references in the final completion", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const fetchCalls = [];
+  const { routeCalls, runtime } = createRuntime();
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Direct with Otto",
+        conversationVisibility: "personal",
+        message: "Show me the artifact",
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {},
+        dispatchInboundReplyWithBase: async (params) => {
+          await params.deliver({
+            mediaUrl: "https://files.example/output.png",
+            text: "Artifact ready",
+          });
+        },
+        runtime,
+      },
+    );
+
+    assert.deepEqual(routeCalls[0].peer, {
+      id: "workspace:conv_1?assistantMessageId=msg_1",
+      kind: "direct",
+    });
+    assert.deepEqual(JSON.parse(fetchCalls.at(-1).body), {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      message: {
+        parts: [
+          {
+            text: "Artifact ready",
+            type: "text",
+          },
+          {
+            text: "[Media] https://files.example/output.png",
+            type: "text",
+          },
+        ],
+      },
+      session: {
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "completed",
+      },
     });
   } finally {
     globalThis.fetch = previousFetch;

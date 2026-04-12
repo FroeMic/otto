@@ -2,10 +2,7 @@ import {
   sendWorkspaceChatCompletion,
   sendWorkspaceChatDelta,
 } from "./control-plane-client.js";
-import {
-  buildWorkspaceChatCompletionParts,
-  createWorkspaceChatStreamReporter,
-} from "./stream-reporter.js";
+import { createWorkspaceChatStreamReporter } from "./stream-reporter.js";
 
 export function createWorkspaceChatReplyDispatcher(input) {
   const deliveredPayloads = [];
@@ -65,7 +62,28 @@ export function createWorkspaceChatReplyDispatcher(input) {
 }
 
 function resolveCompletionParts(deliveredPayloads, latestPartialText) {
-  const parts = buildWorkspaceChatCompletionParts(deliveredPayloads);
+  const parts = [];
+
+  for (const payload of Array.isArray(deliveredPayloads) ? deliveredPayloads : []) {
+    const text =
+      typeof payload?.text === "string" ? payload.text.trim() : "";
+
+    if (text) {
+      parts.push({
+        text,
+        type: "text",
+      });
+    }
+
+    const mediaUrls = resolveMediaUrls(payload);
+
+    for (const mediaUrl of mediaUrls) {
+      parts.push({
+        text: `[Media] ${mediaUrl}`,
+        type: "text",
+      });
+    }
+  }
 
   if (parts.length > 0) {
     return parts;
@@ -82,4 +100,19 @@ function resolveCompletionParts(deliveredPayloads, latestPartialText) {
         },
       ]
     : [];
+}
+
+function resolveMediaUrls(payload) {
+  if (Array.isArray(payload?.mediaUrls)) {
+    return payload.mediaUrls
+      .filter((entry) => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof payload?.mediaUrl === "string" && payload.mediaUrl.trim().length > 0) {
+    return [payload.mediaUrl.trim()];
+  }
+
+  return [];
 }

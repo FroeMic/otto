@@ -20,13 +20,19 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
   }) => Promise<
     WorkspaceChatMessageCreateResponse & {
       assistantMessageId?: string
+      conversationKind: "ad_hoc" | "durable_named" | "external_surface"
+      conversationTitle: string
+      conversationVisibility: "open" | "personal"
       shouldDispatch: boolean
       tenantId: string
     }
   >
   dispatchMessage?: (input: {
     assistantMessageId?: string
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface"
     conversationId: string
+    conversationTitle: string
+    conversationVisibility: "open" | "personal"
     message: string
     senderDisplayName: string
     senderExternalId: string
@@ -89,7 +95,10 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
       ...(created.assistantMessageId
         ? { assistantMessageId: created.assistantMessageId }
         : {}),
+      conversationKind: created.conversationKind,
       conversationId: created.conversationId,
+      conversationTitle: created.conversationTitle,
+      conversationVisibility: created.conversationVisibility,
       message: prompt,
       senderDisplayName: input.userDisplayName,
       senderExternalId: input.userExternalId,

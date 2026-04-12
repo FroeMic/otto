@@ -4,7 +4,10 @@ import { JOB_TYPES } from "../jobs/types"
 type WorkspaceChatDispatchDependencies = {
   enqueueRunJob?: (input: {
     assistantMessageId?: string
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface"
     conversationId: string
+    conversationTitle: string
+    conversationVisibility: "open" | "personal"
     message: string
     senderDisplayName: string
     senderExternalId: string
@@ -19,7 +22,10 @@ type WorkspaceChatDispatchDependencies = {
 export async function dispatchWorkspaceChatMessage(
   input: {
     assistantMessageId?: string
+    conversationKind: "ad_hoc" | "durable_named" | "external_surface"
     conversationId: string
+    conversationTitle: string
+    conversationVisibility: "open" | "personal"
     message: string
     senderDisplayName: string
     senderExternalId: string
@@ -52,7 +58,10 @@ export async function dispatchWorkspaceChatMessage(
     })
   const job = await enqueueRunJob({
     assistantMessageId: input.assistantMessageId,
+    conversationKind: input.conversationKind,
     conversationId: input.conversationId,
+    conversationTitle: input.conversationTitle,
+    conversationVisibility: input.conversationVisibility,
     message: input.message,
     senderDisplayName: input.senderDisplayName,
     senderExternalId: input.senderExternalId,
