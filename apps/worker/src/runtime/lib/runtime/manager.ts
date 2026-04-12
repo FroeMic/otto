@@ -75,6 +75,7 @@ const MANAGED_SKILL_LOCAL_DIRECTORY_NAMES = [
   "scripts",
   "state",
 ] as const;
+const WORKSPACE_CHAT_HTTP_INGRESS_PATH = "/otto/workspace-chat/events";
 
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
@@ -639,7 +640,7 @@ export class RuntimeManager {
     return parseToolInvokePayload(result.stdout);
   }
 
-  async invokeWorkspaceChatTurn(
+  async forwardWorkspaceChatIngressRequest(
     connection: SshConnection,
     input: {
       assistantMessageId?: string;
@@ -655,7 +656,7 @@ export class RuntimeManager {
       userMessageId: string;
     },
   ): Promise<InvokeWorkspaceChatTurnResult> {
-    const params = JSON.stringify({
+    const body = JSON.stringify({
       ...(input.assistantMessageId
         ? { assistantMessageId: input.assistantMessageId }
         : {}),
@@ -669,7 +670,7 @@ export class RuntimeManager {
       userMessageId: input.userMessageId,
     });
 
-    console.info("[workspace-chat] runtime manager invoking gateway call", {
+    console.info("[workspace-chat] runtime manager posting tenant ingress request", {
       assistantMessageId: input.assistantMessageId ?? null,
       conversationId: input.conversationId,
       host: connection.host,
@@ -677,38 +678,24 @@ export class RuntimeManager {
       timeoutMs: input.timeoutMs ?? 600_000,
     });
 
-    const command = buildShellCommand([
-      "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-      [
-        "docker exec openclaw-gateway",
-        "node",
-        "dist/index.js",
-        "gateway",
-        "call",
-        "otto.workspaceChat.runTurn",
-        "--url",
-        shellQuoteForShell(`ws://127.0.0.1:${OPENCLAW_GATEWAY_CONTAINER_PORT}`),
-        "--token",
-        shellQuoteForShell(input.gatewayToken),
-        "--timeout",
-        shellQuoteForShell(String(input.timeoutMs ?? 600_000)),
-        "--json",
-        "--params",
-        shellQuoteForShell(params),
-      ].join(" "),
-    ]);
-    const result = await this.execChecked(connection, command, {
+    const response = await this.forwardGatewayHttpRequest(connection, {
+      body,
+      headers: {
+        authorization: `Bearer ${input.gatewayToken}`,
+        "content-type": "application/json",
+      },
+      path: WORKSPACE_CHAT_HTTP_INGRESS_PATH,
       timeoutMs: input.timeoutMs ?? 620_000,
     });
 
-    console.info("[workspace-chat] runtime manager gateway call returned", {
+    console.info("[workspace-chat] runtime manager tenant ingress returned", {
       assistantMessageId: input.assistantMessageId ?? null,
       conversationId: input.conversationId,
       host: connection.host,
-      stdoutLength: result.stdout.length,
+      status: response.status,
     });
 
-    return parseWorkspaceChatGatewayPayload(result.stdout);
+    return parseWorkspaceChatHttpIngressPayload(response);
   }
 
   async forwardSlackHttpRequest(
@@ -720,7 +707,24 @@ export class RuntimeManager {
       timeoutMs?: number;
     },
   ): Promise<ForwardedSlackHttpResponse> {
-    const requestBodyPath = `/tmp/otto-slack-ingress-${randomUUID()}.body`;
+    return await this.forwardGatewayHttpRequest(connection, {
+      body: input.body,
+      headers: input.headers,
+      path: input.path ?? TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+      timeoutMs: input.timeoutMs,
+    });
+  }
+
+  private async forwardGatewayHttpRequest(
+    connection: SshConnection,
+    input: {
+      body: string;
+      headers: Record<string, string>;
+      path: string;
+      timeoutMs?: number;
+    },
+  ): Promise<ForwardedSlackHttpResponse> {
+    const requestBodyPath = `/tmp/otto-plugin-ingress-${randomUUID()}.body`;
     await this.sshClient.writeFileAtomic(
       connection,
       requestBodyPath,
@@ -732,7 +736,7 @@ export class RuntimeManager {
       .filter(([, value]) => value.trim().length > 0)
       .map(([name, value]) => `-H ${shellQuoteForShell(`${name}: ${value}`)}`)
       .join(" ");
-    const targetUrl = `http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}${input.path ?? TENANT_RUNTIME_SLACK_WEBHOOK_PATH}`;
+    const targetUrl = `http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}${input.path}`;
     const script = [
       "set -euo pipefail",
       `request_body_path=${shellQuoteForShell(requestBodyPath)}`,
@@ -767,7 +771,7 @@ export class RuntimeManager {
 
     if (result.exitCode !== 0) {
       throw new Error(
-        `Slack HTTP forward failed: ${result.stderr || result.stdout || "Remote command failed"}`,
+        `Tenant gateway HTTP forward failed: ${result.stderr || result.stdout || "Remote command failed"}`,
       );
     }
 
@@ -1177,30 +1181,6 @@ function parseToolInvokePayload(value: string) {
   );
 }
 
-function parseWorkspaceChatGatewayPayload(value: string): InvokeWorkspaceChatTurnResult {
-  const payload = parseJsonObject(value);
-  const sessionKey = payload.sessionKey;
-  const explicitError = extractWorkspaceChatGatewayError(payload);
-
-  if (payload.ok !== true) {
-    throw new Error(
-      explicitError || "Tenant runtime workspace chat gateway call failed",
-    );
-  }
-
-  if (typeof sessionKey !== "string" || sessionKey.length === 0) {
-    throw new Error(
-      explicitError ||
-        "Tenant runtime workspace chat gateway call did not return a sessionKey",
-    );
-  }
-
-  return {
-    ok: true,
-    sessionKey,
-  };
-}
-
 function extractWorkspaceChatGatewayError(payload: Record<string, unknown>) {
   const directError =
     typeof payload.error === "string" && payload.error.trim().length > 0
@@ -1247,6 +1227,40 @@ function extractWorkspaceChatGatewayError(payload: Record<string, unknown>) {
   }
 
   return null;
+}
+
+function parseWorkspaceChatHttpIngressPayload(
+  response: ForwardedSlackHttpResponse,
+): InvokeWorkspaceChatTurnResult {
+  const payload =
+    response.body.trim().length > 0 ? parseJsonObject(response.body) : {};
+  const sessionKey = payload.sessionKey;
+  const explicitError = extractWorkspaceChatGatewayError(payload);
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(
+      explicitError ||
+        `Tenant runtime workspace chat ingress returned ${response.status}`,
+    );
+  }
+
+  if (payload.ok !== true) {
+    throw new Error(
+      explicitError || "Tenant runtime workspace chat ingress did not acknowledge the event",
+    );
+  }
+
+  if (typeof sessionKey !== "string" || sessionKey.length === 0) {
+    throw new Error(
+      explicitError ||
+        "Tenant runtime workspace chat ingress did not return a sessionKey",
+    );
+  }
+
+  return {
+    ok: true,
+    sessionKey,
+  };
 }
 
 function parseForwardedSlackHttpPayload(

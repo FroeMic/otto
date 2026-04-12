@@ -52,22 +52,31 @@ describe("RuntimeManager.applyTenantConfig", () => {
   });
 });
 
-describe("RuntimeManager.invokeWorkspaceChatTurn", () => {
-  it("surfaces the tenant gateway error payload when the workspace chat call fails", async () => {
-    const manager = new RuntimeManager({} as never);
-    const execCheckedSpy = vi
-      .spyOn(manager as never, "execChecked")
-      .mockResolvedValue({
+describe("RuntimeManager.forwardWorkspaceChatIngressRequest", () => {
+  it("surfaces the tenant ingress error payload when the workspace event POST fails", async () => {
+    const sshClient = {
+      exec: vi.fn(async () => ({
         exitCode: 0,
         stderr: "",
         stdout: JSON.stringify({
-          error: "workspace chat plugin is not configured",
-          ok: false,
+          bodyBase64: Buffer.from(
+            JSON.stringify({
+              error: "workspace chat plugin is not configured",
+            }),
+            "utf8",
+          ).toString("base64"),
+          headersBase64: Buffer.from("content-type: application/json\r\n", "utf8").toString(
+            "base64",
+          ),
+          status: 500,
         }),
-      });
+      })),
+      writeFileAtomic: vi.fn(async () => undefined),
+    };
+    const manager = new RuntimeManager(sshClient as never);
 
     await expect(
-      manager.invokeWorkspaceChatTurn(
+      manager.forwardWorkspaceChatIngressRequest(
         {
           host: "tenant.test",
           port: 22,
@@ -87,6 +96,15 @@ describe("RuntimeManager.invokeWorkspaceChatTurn", () => {
       ),
     ).rejects.toThrow("workspace chat plugin is not configured");
 
-    expect(execCheckedSpy).toHaveBeenCalled();
+    expect(sshClient.writeFileAtomic).toHaveBeenCalled();
+    expect(sshClient.exec).toHaveBeenCalled();
+    const firstExecCall = sshClient.exec.mock.calls.at(0) as unknown[] | undefined;
+    const executedCommand =
+      firstExecCall && typeof firstExecCall[1] === "string" ? firstExecCall[1] : "";
+
+    expect(executedCommand).toContain("/otto/workspace-chat/events");
+    expect(executedCommand).toContain(
+      "authorization: Bearer gateway-token",
+    );
   });
 });

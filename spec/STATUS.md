@@ -243,9 +243,9 @@
     - the control plane now persists the latest bridge status per tenant in `tenant_runtime_bridge_statuses`
   - the first async tenant-trigger slice now also exists:
     - `apps/api` now queues `run_workspace_chat_turn` jobs in the existing `job_runs` table instead of SSH-dispatching chat turns inline from the request path
-    - `apps/worker` now claims those jobs, resolves tenant runtime access, and injects workspace chat turns into the tenant gateway through `otto.workspaceChat.runTurn`
+    - `apps/worker` now claims those jobs, resolves tenant runtime access, and POSTs workspace chat ingress events to a plugin-owned tenant HTTP route instead of calling a custom gateway RPC
     - workspace-chat execution no longer depends on an Otto sidecar runner or runtime-authenticated bridge command claim/completion routes
-    - request-path SSH is now removed for workspace-chat dispatch, and the runtime-side execution path is owned by the background worker plus the tenant gateway trigger instead of the browser request
+    - request-path SSH is now removed for workspace-chat dispatch, and the runtime-side execution path is owned by the background worker plus the tenant HTTP ingress route instead of the browser request
   - the first assistant lifecycle slice now also exists:
     - creating a workspace chat turn now persists a pending assistant placeholder message alongside the completed user message
     - worker job payloads and plugin callbacks now carry `assistantMessageId` correlation so streaming, failure, and completion paths can update that placeholder deterministically
@@ -259,7 +259,8 @@
   - the first streaming-delta slice now also exists:
     - `packages/features/workspace-chat` now defines tenant-runtime delta request/response contracts for cumulative assistant text snapshots
     - `apps/api` now exposes `/api/internal/runtime/workspace-chat/messages/delta` and applies idempotent assistant placeholder updates by `assistantMessageId` plus monotonic `sequence`
-    - `runtime-plugins/otto-workspace-chat` now treats `otto.workspaceChat.runTurn` as a synthetic inbound channel event, builds a shared inbound context, routes execution through OpenClaw's shared inbound reply pipeline, and sends cumulative assistant deltas back to `apps/api` through plugin-owned callbacks
+    - `runtime-plugins/otto-workspace-chat` now accepts workspace events through a gateway-authenticated plugin HTTP route, builds a shared inbound context, routes execution through OpenClaw's shared inbound reply pipeline, and sends cumulative assistant deltas back to `apps/api` through plugin-owned callbacks
+    - the old fake `startAccount` provider loop has been removed from `otto-workspace-chat`; the always-on ingress surface is now the plugin-owned tenant HTTP route, matching the Slack HTTP shape more closely
     - the old workspace-chat bridge-command runner path has been removed from the runtime image
     - the existing workspace websocket path now pushes repeated canonical `conversation.message_upserted` events so the same assistant bubble grows live until the final completion seals it as `completed`
   - the first `apps/web` chat UI slice now also exists on the new app surface:
