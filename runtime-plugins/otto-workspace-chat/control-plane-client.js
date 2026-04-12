@@ -57,6 +57,18 @@ export async function sendWorkspaceChatFailure(input) {
   });
 }
 
+export async function sendWorkspaceChatActivityEvent(input) {
+  return await requestControlPlane({
+    body: {
+      assistantMessageId: input.assistantMessageId,
+      conversationId: input.conversationId,
+      event: input.event,
+    },
+    method: "POST",
+    path: "/api/internal/runtime/workspace-chat/messages/events",
+  });
+}
+
 async function requestControlPlane(input) {
   const baseUrl = resolveControlPlaneBaseUrl();
   const token = resolveTenantToken();

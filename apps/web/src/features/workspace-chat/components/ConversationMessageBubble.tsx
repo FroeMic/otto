@@ -1,15 +1,21 @@
-import type { WorkspaceChatMessage } from "@otto/feature-workspace-chat"
+import type {
+  WorkspaceChatMessage,
+  WorkspaceChatMessageEvent,
+} from "@otto/feature-workspace-chat"
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 import { useStreamingText } from "../hooks/useStreamingText"
+import { ConversationMessageActivityLane } from "./ConversationMessageActivityLane"
 
 export interface ConversationMessageBubbleProps {
+  events: WorkspaceChatMessageEvent[]
   message: WorkspaceChatMessage
 }
 
 export function ConversationMessageBubble({
+  events,
   message,
 }: ConversationMessageBubbleProps) {
   const isAssistant = message.author.kind === "assistant"
@@ -61,7 +67,9 @@ export function ConversationMessageBubble({
             <Badge variant="outline">
               {isAssistant ? "Otto" : "Workspace"}
             </Badge>
-            {statusLabel ? <Badge variant="secondary">{statusLabel}</Badge> : null}
+            {statusLabel ? (
+              <Badge variant="secondary">{statusLabel}</Badge>
+            ) : null}
           </div>
           <p className="text-xs text-muted-foreground">
             {new Date(message.createdAt).toLocaleTimeString([], {
@@ -89,6 +97,10 @@ export function ConversationMessageBubble({
 
         {textParts.length === 0 && placeholderText ? (
           <p className="text-sm text-muted-foreground">{placeholderText}</p>
+        ) : null}
+
+        {isAssistant ? (
+          <ConversationMessageActivityLane events={events} />
         ) : null}
       </div>
     </div>

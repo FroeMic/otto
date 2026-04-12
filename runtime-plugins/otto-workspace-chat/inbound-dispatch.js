@@ -1,3 +1,4 @@
+import { createWorkspaceChatActivityEventReporter } from "./activity-events.js";
 import { sendWorkspaceChatFailure } from "./control-plane-client.js";
 import { buildWorkspaceChatInboundContext } from "./inbound-context.js";
 import { createWorkspaceChatReplyDispatcher } from "./reply-dispatcher.js";
@@ -64,6 +65,13 @@ async function runWorkspaceChatInboundTurn({
     target: inbound.target,
   });
 
+  const activityEventReporter = createWorkspaceChatActivityEventReporter({
+    assistantMessageId: input.assistantMessageId,
+    conversationId: input.conversationId,
+    runtime,
+    sessionKey: inbound.sessionKey,
+  });
+
   try {
     await dispatchInboundReply({
       accountId: inbound.accountId,
@@ -87,6 +95,7 @@ async function runWorkspaceChatInboundTurn({
       storePath: inbound.storePath,
     });
 
+    await activityEventReporter.flush();
     await replyDispatcher.sendCompletion();
 
     console.info("[workspace-chat] plugin completion sent", {
@@ -124,6 +133,19 @@ async function runWorkspaceChatInboundTurn({
     if (rethrowOnFailure) {
       throw error;
     }
+  } finally {
+    try {
+      await activityEventReporter.flush();
+    } catch (error) {
+      console.error("[workspace-chat] plugin activity event flush failed", {
+        assistantMessageId: input.assistantMessageId ?? null,
+        conversationId: input.conversationId,
+        error: getErrorMessage(error),
+        sessionKey: inbound.sessionKey,
+      });
+    }
+
+    activityEventReporter.stop();
   }
 }
 

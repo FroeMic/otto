@@ -1,6 +1,10 @@
 "use client"
 
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -92,6 +96,7 @@ export function WorkspaceConversationPage({
 
       <ConversationMessageList
         isWaitingForReply={isWaitingForReply}
+        messageEvents={data.messageEvents}
         messages={data.messages}
       />
 

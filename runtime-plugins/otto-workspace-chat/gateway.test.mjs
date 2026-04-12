@@ -4,6 +4,7 @@ import test from "node:test";
 import { dispatchWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
 
 function createRuntime() {
+  const agentEventListeners = [];
   const finalizeCalls = [];
   const formatCalls = [];
   const routeCalls = [];
@@ -11,6 +12,18 @@ function createRuntime() {
   const timestampCalls = [];
 
   const runtime = {
+    events: {
+      onAgentEvent(callback) {
+        agentEventListeners.push(callback);
+        return () => {
+          const index = agentEventListeners.indexOf(callback);
+
+          if (index >= 0) {
+            agentEventListeners.splice(index, 1);
+          }
+        };
+      },
+    },
     channel: {
       routing: {
         resolveAgentRoute: (input) => {
@@ -52,6 +65,7 @@ function createRuntime() {
   };
 
   return {
+    agentEventListeners,
     finalizeCalls,
     formatCalls,
     routeCalls,
@@ -208,6 +222,108 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
       session: {
         sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
         status: "completed",
+      },
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
+test("dispatchWorkspaceChatInboundTurn forwards normalized runtime activity events", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const fetchCalls = [];
+  const { agentEventListeners, runtime } = createRuntime();
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
+        message: "Summarize the latest notes.",
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {
+          session: {
+            store: {
+              path: "/tmp/sessions.json",
+            },
+          },
+        },
+        dispatchInboundReplyWithBase: async () => {
+          const listener = agentEventListeners[0];
+          listener?.({
+            data: {
+              phase: "start",
+              toolCallId: "tool_1",
+              name: "read_file",
+            },
+            runId: "run_1",
+            seq: 1,
+            sessionKey:
+              "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+            stream: "tool",
+            ts: Date.now(),
+          });
+        },
+        runtime,
+      },
+    );
+
+    const activityEventCall = fetchCalls.find((call) =>
+      String(call.url).endsWith("/api/internal/runtime/workspace-chat/messages/events"),
+    );
+
+    assert.ok(activityEventCall);
+    assert.deepEqual(JSON.parse(activityEventCall.body), {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        itemId: "tool_1",
+        payload: {
+          name: "read_file",
+          phase: "start",
+          toolCallId: "tool_1",
+        },
+        runId: "run_1",
+        sequence: 1,
+        sessionKey:
+          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "running",
+        title: "read_file",
+        type: "tool.started",
       },
     });
   } finally {
