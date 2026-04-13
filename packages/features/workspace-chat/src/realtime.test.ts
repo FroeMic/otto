@@ -67,6 +67,7 @@ describe("workspace chat realtime server event schema", () => {
         kind: "ad_hoc",
         lastActivityAt: "2026-04-11T18:00:00.000Z",
         latestMessagePreview: "hello",
+        originKind: "manual",
         title: "New conversation",
         visibility: "open",
       },

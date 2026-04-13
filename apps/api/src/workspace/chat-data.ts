@@ -80,6 +80,7 @@ type WorkspaceChatActor = {
 
 const PERSONAL_VISIBILITY = "personal"
 const OPEN_VISIBILITY = "open"
+const DEFAULT_CONVERSATION_TITLE = "New conversation"
 
 export function shouldApplyWorkspaceChatAssistantDeltaSequence(input: {
   incomingSequence: number
@@ -116,6 +117,54 @@ export function buildWorkspaceChatMessagePreview(
   }
 
   return null
+}
+
+export function deriveWorkspaceChatConversationOriginKind(
+  kind: string,
+): WorkspaceChatConversationSummary["originKind"] {
+  if (kind === "external_surface") {
+    return "trigger"
+  }
+
+  if (kind === "durable_named") {
+    return "scheduled"
+  }
+
+  return "manual"
+}
+
+export function shouldAutoGenerateWorkspaceConversationTitle(title: string) {
+  return title.trim() === DEFAULT_CONVERSATION_TITLE
+}
+
+export function generateWorkspaceConversationTitle(
+  parts: WorkspaceChatMessagePart[],
+) {
+  const preview = buildWorkspaceChatMessagePreview(parts)?.trim()
+
+  if (!preview) {
+    return DEFAULT_CONVERSATION_TITLE
+  }
+
+  const collapsed = preview.replace(/\s+/g, " ").trim()
+
+  if (!collapsed) {
+    return DEFAULT_CONVERSATION_TITLE
+  }
+
+  const firstSentence = collapsed.split(/[.!?]\s/)[0]?.trim() ?? collapsed
+  const preferred = firstSentence.length > 0 ? firstSentence : collapsed
+
+  if (preferred.length <= 48) {
+    return preferred
+  }
+
+  const truncated = preferred.slice(0, 45).trimEnd()
+  const wordBoundary = truncated.lastIndexOf(" ")
+  const safeTruncation =
+    wordBoundary >= 24 ? truncated.slice(0, wordBoundary).trimEnd() : truncated
+
+  return `${safeTruncation}...`
 }
 
 export function mapWorkspaceChatMessagePartRecord(
@@ -628,6 +677,9 @@ export async function createWorkspaceChatMessageRecord(input: {
       .set({
         lastActivityAt: new Date(),
         latestMessagePreview: buildWorkspaceChatMessagePreview(input.parts),
+        title: shouldAutoGenerateWorkspaceConversationTitle(conversation.title)
+          ? generateWorkspaceConversationTitle(input.parts)
+          : conversation.title,
         updatedAt: new Date(),
       })
       .where(eq(workspaceChatConversations.id, conversation.id))
@@ -1490,6 +1542,7 @@ function mapWorkspaceChatConversationSummary(
     kind: normalizeWorkspaceChatConversationKind(row.kind),
     lastActivityAt: row.lastActivityAt.toISOString(),
     latestMessagePreview: row.latestMessagePreview,
+    originKind: deriveWorkspaceChatConversationOriginKind(row.kind),
     slug: row.slug ?? undefined,
     title: row.title,
     visibility: normalizeWorkspaceChatConversationVisibility(row.visibility),

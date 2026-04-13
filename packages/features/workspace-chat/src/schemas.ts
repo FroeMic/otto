@@ -11,6 +11,12 @@ export const workspaceChatConversationVisibilitySchema = z.enum([
   "personal",
 ])
 
+export const workspaceChatConversationOriginKindSchema = z.enum([
+  "manual",
+  "scheduled",
+  "trigger",
+])
+
 export const workspaceChatMessageAuthorKindSchema = z.enum([
   "user",
   "assistant",
@@ -100,6 +106,7 @@ export const workspaceChatConversationSummarySchema = z.object({
   kind: workspaceChatConversationKindSchema,
   lastActivityAt: z.string().trim().min(1),
   latestMessagePreview: z.string().nullable(),
+  originKind: workspaceChatConversationOriginKindSchema,
   slug: z.string().trim().min(1).optional(),
   title: z.string().trim().min(1),
   visibility: workspaceChatConversationVisibilitySchema,

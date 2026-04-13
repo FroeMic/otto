@@ -37,6 +37,7 @@ describe("workspace chat realtime hub", () => {
         kind: "ad_hoc",
         lastActivityAt: "2026-04-11T18:00:01.000Z",
         latestMessagePreview: "ignore me",
+        originKind: "manual",
         title: "Other conversation",
         visibility: "open",
       },
