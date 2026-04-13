@@ -150,7 +150,7 @@ Current known limitation:
 
 ## Code Areas To Know
 
-- `web/src/app/page.tsx`
+- `apps/web/src/server/app.tsx`
   - current onboarding/dashboard entrypoint
 - `web/src/app/oauth/start/slack/route.ts`
   - Slack OAuth start
