@@ -1,4 +1,7 @@
-import type { WorkspaceChatMessageEvent } from "@otto/feature-workspace-chat"
+import type {
+  WorkspaceChatMessage,
+  WorkspaceChatMessageEvent,
+} from "@otto/feature-workspace-chat"
 import { useEffect, useState } from "react"
 
 import {
@@ -23,7 +26,10 @@ import { TraceCaretIcon } from "./TraceCaretIcon"
 export interface ConversationAssistantTraceProps {
   events: WorkspaceChatMessageEvent[]
   startedAt: string
-  status: WorkspaceChatMessageEvent["status"]
+  status:
+    | WorkspaceChatMessage["status"]
+    | WorkspaceChatMessageEvent["status"]
+    | undefined
 }
 
 export function ConversationAssistantTrace({
@@ -35,7 +41,8 @@ export function ConversationAssistantTrace({
   const visibleEntries = activityModel.sections
     .flatMap((section) => section.entries)
     .filter((entry) => entry.visibility !== "debug")
-  const isActive = status === "pending" || status === "running"
+  const isActive =
+    status === "pending" || status === "running" || status === "streaming"
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
