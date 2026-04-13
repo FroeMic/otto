@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
+import { buildVoiceNoteFileName, normalizeVoiceNoteMimeType } from "../voice-note"
+
 const DEFAULT_BAR_COUNT = 32
 const PREFERRED_AUDIO_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -125,10 +127,9 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       }
 
       recorder.onstop = () => {
-        const mimeType =
-          recorder.mimeType ||
-          chunksRef.current[0]?.type ||
-          "audio/webm"
+        const mimeType = normalizeVoiceNoteMimeType(
+          recorder.mimeType || chunksRef.current[0]?.type || "audio/webm",
+        )
         const durationMs = Math.max(1, Date.now() - startTimeRef.current)
         const blob = new Blob(chunksRef.current, {
           type: mimeType,
@@ -197,11 +198,13 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     const audioContext = new AudioContext()
     const analyser = audioContext.createAnalyser()
     const source = audioContext.createMediaStreamSource(stream)
-    const data = new Uint8Array(analyser.frequencyBinCount)
 
-    analyser.fftSize = 128
-    analyser.smoothingTimeConstant = 0.82
+    analyser.fftSize = 256
+    analyser.smoothingTimeConstant = 0.72
     source.connect(analyser)
+    await audioContext.resume()
+
+    const data = new Uint8Array(analyser.fftSize)
 
     audioContextRef.current = audioContext
     analyserRef.current = analyser
@@ -211,18 +214,23 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
         return
       }
 
-      analyserRef.current.getByteFrequencyData(data)
+      analyserRef.current.getByteTimeDomainData(data)
       const nextLevels = Array.from({ length: DEFAULT_BAR_COUNT }, (_, index) => {
         const start = Math.floor((index * data.length) / DEFAULT_BAR_COUNT)
         const end = Math.max(
           start + 1,
           Math.floor(((index + 1) * data.length) / DEFAULT_BAR_COUNT),
         )
-        const bucket = data.slice(start, end)
-        const average =
-          bucket.reduce((sum, value) => sum + value, 0) / bucket.length || 0
 
-        return Math.max(0.08, average / 255)
+        let amplitudeSum = 0
+
+        for (let cursor = start; cursor < end; cursor += 1) {
+          amplitudeSum += Math.abs((data[cursor] - 128) / 128)
+        }
+
+        const averageAmplitude = amplitudeSum / Math.max(1, end - start)
+
+        return Math.min(1, Math.max(0.08, averageAmplitude * 7.5))
       })
 
       setLevels(nextLevels)
@@ -265,19 +273,4 @@ function resolveVoiceNoteMimeType() {
   }
 
   return "audio/webm"
-}
-
-function buildVoiceNoteFileName(mimeType: string) {
-  const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
-  const extension = resolveVoiceNoteExtension(mimeType)
-
-  return `voice-note-${timestamp}${extension}`
-}
-
-function resolveVoiceNoteExtension(mimeType: string) {
-  if (mimeType.includes("mp4")) {
-    return ".m4a"
-  }
-
-  return ".webm"
 }

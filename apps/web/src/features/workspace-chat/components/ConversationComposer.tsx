@@ -1,5 +1,6 @@
 import {
   FileIcon,
+  MicrophoneIcon,
   PaperPlaneTiltIcon,
   PaperclipIcon,
   WaveformIcon,
@@ -17,6 +18,7 @@ import {
   buildWorkspaceChatComposerParts,
   type WorkspaceChatComposerAttachmentDraft,
 } from "../composer-parts"
+import { formatVoiceNoteDuration } from "../voice-note"
 import { ConversationVoiceNoteRecorder } from "./ConversationVoiceNoteRecorder"
 
 export interface ConversationComposerProps {
@@ -41,6 +43,7 @@ export function ConversationComposer({
     WorkspaceChatComposerAttachmentDraft[]
   >([])
   const [isUploading, setIsUploading] = useState(false)
+  const [isVoiceMode, setIsVoiceMode] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -70,10 +73,35 @@ export function ConversationComposer({
     setDraft("")
   }
 
+  async function attachVoiceNote(input: {
+    durationMs: number
+    file: File
+  }) {
+    if (!onUploadAttachment) {
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      const attachment = await onUploadAttachment(input.file)
+      setAttachments((current) => [
+        ...current,
+        {
+          attachment,
+          durationMs: input.durationMs,
+          kind: "audio",
+        },
+      ])
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   return (
     <div
       className={cn(
-        "rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 backdrop-blur-xl",
+        "rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl",
         className,
       )}
     >
@@ -113,36 +141,9 @@ export function ConversationComposer({
         </div>
       ) : null}
 
-      <div className="mb-3">
-        <ConversationVoiceNoteRecorder
-          disabled={disabled || isUploading}
-          onAttachVoiceNote={async (input) => {
-            if (!onUploadAttachment) {
-              return
-            }
-
-            setIsUploading(true)
-
-            try {
-              const attachment = await onUploadAttachment(input.file)
-              setAttachments((current) => [
-                ...current,
-                {
-                  attachment,
-                  durationMs: input.durationMs,
-                  kind: "audio",
-                },
-              ])
-            } finally {
-              setIsUploading(false)
-            }
-          }}
-        />
-      </div>
-
       <Textarea
-        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 pr-28 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
-        disabled={disabled || isUploading}
+        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
+        disabled={disabled || isUploading || isVoiceMode}
         onChange={(event) => {
           setDraft(event.target.value)
         }}
@@ -157,80 +158,101 @@ export function ConversationComposer({
         value={draft}
       />
 
-      <input
-        className="hidden"
-        multiple
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? [])
+      <div className="mt-3 border-t border-border/55 pt-3">
+        {isVoiceMode ? (
+          <ConversationVoiceNoteRecorder
+            disabled={disabled || isUploading}
+            onAttachVoiceNote={attachVoiceNote}
+            onCancel={() => {
+              setIsVoiceMode(false)
+            }}
+          />
+        ) : (
+          <>
+            <input
+              className="hidden"
+              multiple
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? [])
 
-          if (files.length === 0 || !onUploadAttachment) {
-            return
-          }
+                if (files.length === 0 || !onUploadAttachment) {
+                  return
+                }
 
-          setIsUploading(true)
+                setIsUploading(true)
 
-          void Promise.all(files.map((file) => onUploadAttachment(file)))
-            .then((uploaded) => {
-              setAttachments((current) => [
-                ...current,
-                ...uploaded.map((attachment) => ({
-                  attachment,
-                  kind: "file" as const,
-                })),
-              ])
-            })
-            .catch((error) => {
-              toast.error(
-                error instanceof Error
-                  ? error.message
-                  : "Failed to upload attachment.",
-              )
-            })
-            .finally(() => {
-              setIsUploading(false)
-              if (fileInputRef.current) {
-                fileInputRef.current.value = ""
-              }
-            })
-        }}
-        ref={fileInputRef}
-        type="file"
-      />
+                void Promise.all(files.map((file) => onUploadAttachment(file)))
+                  .then((uploaded) => {
+                    setAttachments((current) => [
+                      ...current,
+                      ...uploaded.map((attachment) => ({
+                        attachment,
+                        kind: "file" as const,
+                      })),
+                    ])
+                  })
+                  .catch((error) => {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Failed to upload attachment.",
+                    )
+                  })
+                  .finally(() => {
+                    setIsUploading(false)
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = ""
+                    }
+                  })
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
 
-      <div className="mt-3 flex items-center justify-end gap-3">
-        <Button
-          className="size-11 rounded-full"
-          disabled={disabled || isUploading || !onUploadAttachment}
-          onClick={() => {
-            fileInputRef.current?.click()
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <PaperclipIcon />
-        </Button>
-        <Button
-          className="rounded-full px-4"
-          disabled={
-            disabled ||
-            isUploading ||
-            (draft.trim().length === 0 && attachments.length === 0)
-          }
-          onClick={() => void submitDraft()}
-        >
-          <PaperPlaneTiltIcon data-icon="inline-start" />
-          Send
-        </Button>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  className="size-10 rounded-full text-muted-foreground"
+                  disabled={disabled || isUploading || !onUploadAttachment}
+                  onClick={() => {
+                    fileInputRef.current?.click()
+                  }}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <PaperclipIcon />
+                </Button>
+                <Button
+                  className="size-10 rounded-full text-muted-foreground"
+                  disabled={disabled || isUploading || !onUploadAttachment}
+                  onClick={() => {
+                    setIsVoiceMode(true)
+                  }}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <MicrophoneIcon />
+                </Button>
+              </div>
+
+              <Button
+                className="rounded-full bg-primary px-5 text-primary-foreground shadow-none hover:bg-primary/90"
+                disabled={
+                  disabled ||
+                  isUploading ||
+                  (draft.trim().length === 0 && attachments.length === 0)
+                }
+                onClick={() => void submitDraft()}
+              >
+                <PaperPlaneTiltIcon data-icon="inline-start" />
+                Send
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
-}
-
-function formatVoiceNoteDuration(durationMs: number) {
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
