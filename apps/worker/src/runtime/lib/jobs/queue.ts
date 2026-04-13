@@ -6,7 +6,7 @@ import { getEnv } from "../env";
 
 import {
   getJobTypesForLane,
-  getTenantMutexJobTypes,
+  getTenantMutexGuardJobTypesForLane,
   type JobLane,
   laneUsesTenantMutex,
 } from "./lanes";
@@ -53,6 +53,7 @@ export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
   return claimJobs({
     jobTypes: null,
     limit,
+    tenantMutexJobTypes: [],
     useTenantMutex: false,
   });
 }
@@ -61,9 +62,12 @@ export async function claimAvailableJobsForLane(input: {
   lane: JobLane;
   limit: number;
 }): Promise<ClaimedJob[]> {
+  const tenantMutexJobTypes = getTenantMutexGuardJobTypesForLane(input.lane);
+
   return claimJobs({
     jobTypes: getJobTypesForLane(input.lane),
     limit: input.limit,
+    tenantMutexJobTypes,
     useTenantMutex: laneUsesTenantMutex(input.lane),
   });
 }
@@ -75,9 +79,7 @@ export async function reclaimStaleRunningJobsForLane(input: {
   const db = getDb();
   const now = input.now ?? new Date();
   const defaultStaleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
-  const jobTypes = laneUsesTenantMutex(input.lane)
-    ? getTenantMutexJobTypes()
-    : getJobTypesForLane(input.lane);
+  const jobTypes = getJobTypesForLane(input.lane);
 
   const runningJobs = await db
     .select({
@@ -190,6 +192,7 @@ export async function hasQueuedOrRunningJobOfType(jobType: string) {
 async function claimJobs(input: {
   jobTypes: string[] | null;
   limit: number;
+  tenantMutexJobTypes: string[];
   useTenantMutex: boolean;
 }): Promise<ClaimedJob[]> {
   if (input.limit <= 0) {
@@ -211,10 +214,13 @@ async function claimJobs(input: {
   const laneJobTypesFilterSql = laneJobTypesSql
     ? sql`and ${jobRuns.jobType} in (${laneJobTypesSql})`
     : sql``;
-  const tenantMutexJobTypesSql = sql.join(
-    getTenantMutexJobTypes().map((jobType) => sql`${jobType}`),
-    sql`, `,
-  );
+  const tenantMutexJobTypesSql =
+    input.tenantMutexJobTypes.length > 0
+      ? sql.join(
+          input.tenantMutexJobTypes.map((jobType) => sql`${jobType}`),
+          sql`, `,
+        )
+      : null;
   const tenantMutexCandidateLimit = Math.max(input.limit * 8, input.limit);
 
   const claimedJobs = input.useTenantMutex

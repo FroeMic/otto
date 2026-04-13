@@ -32,10 +32,14 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
 };
 
 const ALL_JOB_TYPES = Object.values(JOB_TYPES);
-const TENANT_MUTEX_LANES = new Set<JobLane>([
-  JOB_LANES.runtime,
-  JOB_LANES.integrations,
-]);
+const TENANT_MUTEX_GUARD_JOB_TYPES = [
+  JOB_TYPES.provisionTenantServer,
+  JOB_TYPES.provisionTenantOpenAiKey,
+  JOB_TYPES.applyTenantConfig,
+  JOB_TYPES.refreshRuntimeImage,
+  JOB_TYPES.whatsappLinkSession,
+  JOB_TYPES.whatsappDisconnect,
+] as const satisfies readonly JobType[];
 
 export function getJobLane(jobType: JobType) {
   return JOB_TYPE_TO_LANE[jobType];
@@ -46,13 +50,15 @@ export function getJobTypesForLane(lane: JobLane): JobType[] {
 }
 
 export function laneUsesTenantMutex(lane: JobLane) {
-  return TENANT_MUTEX_LANES.has(lane);
+  return getTenantMutexGuardJobTypesForLane(lane).length > 0;
 }
 
-export function getTenantMutexJobTypes(): JobType[] {
-  return ALL_JOB_TYPES.filter((jobType) =>
-    TENANT_MUTEX_LANES.has(JOB_TYPE_TO_LANE[jobType]),
-  );
+export function getTenantMutexGuardJobTypesForLane(lane: JobLane): JobType[] {
+  if (lane === JOB_LANES.runtime || lane === JOB_LANES.integrations) {
+    return [...TENANT_MUTEX_GUARD_JOB_TYPES];
+  }
+
+  return [];
 }
 
 export function getRecurringSchedulerJobTypes(): RecurringSchedulerJobType[] {
