@@ -131,7 +131,7 @@ describe("worker startup", () => {
         }),
         getLaneConcurrency: () => 1,
         getRuntimeSshAuthSource: () => "env",
-        getWorkerLanes: () => ["runtime", "integrations"],
+        getWorkerLanes: () => ["chat", "runtime", "integrations"],
         processClaimedJob: async () => {},
         reclaimStaleRunningJobsForLane: async () => 0,
       },
@@ -142,10 +142,11 @@ describe("worker startup", () => {
 
     assert.deepEqual(events, [
       "seed",
+      "loop:chat:125",
       "loop:runtime:125",
       "loop:integrations:125",
     ])
-    expect(runWorkerLaneSlotLoop).toHaveBeenCalledTimes(2)
+    expect(runWorkerLaneSlotLoop).toHaveBeenCalledTimes(3)
   })
 
   it("starts one slot loop per lane concurrency so one hung slot does not block the whole lane", async () => {
@@ -161,9 +162,10 @@ describe("worker startup", () => {
         getEnv: () => ({
           WORKER_POLL_INTERVAL_MS: 125,
         }),
-        getLaneConcurrency: (lane) => (lane === "runtime" ? 2 : 1),
+        getLaneConcurrency: (lane) =>
+          lane === "chat" ? 2 : lane === "runtime" ? 2 : 1,
         getRuntimeSshAuthSource: () => "env",
-        getWorkerLanes: () => ["runtime", "integrations"],
+        getWorkerLanes: () => ["chat", "runtime", "integrations"],
         processClaimedJob: async () => {},
         reclaimStaleRunningJobsForLane: async () => 0,
       },
@@ -185,6 +187,8 @@ describe("worker startup", () => {
     await vi.waitFor(() => {
       assert.deepEqual(events, [
         "seed",
+        "loop:chat:0:125",
+        "loop:chat:1:125",
         "loop:runtime:0:125",
         "loop:runtime:1:125",
         "loop:integrations:0:125",

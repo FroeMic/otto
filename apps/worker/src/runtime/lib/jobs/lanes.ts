@@ -1,6 +1,7 @@
 import { JOB_TYPES, type JobType } from "./types";
 
 export const JOB_LANES = {
+  chat: "chat",
   runtime: "runtime",
   integrations: "integrations",
   metering: "metering",
@@ -14,7 +15,7 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.provisionTenantOpenAiKey]: JOB_LANES.runtime,
   [JOB_TYPES.applyTenantConfig]: JOB_LANES.runtime,
   [JOB_TYPES.refreshRuntimeImage]: JOB_LANES.runtime,
-  [JOB_TYPES.runWorkspaceChatTurn]: JOB_LANES.runtime,
+  [JOB_TYPES.runWorkspaceChatTurn]: JOB_LANES.chat,
   [JOB_TYPES.whatsappLinkSession]: JOB_LANES.runtime,
   [JOB_TYPES.whatsappDisconnect]: JOB_LANES.runtime,
   [JOB_TYPES.scheduleOauthConnectionRefresh]: JOB_LANES.integrations,
@@ -54,7 +55,11 @@ export function laneUsesTenantMutex(lane: JobLane) {
 }
 
 export function getTenantMutexGuardJobTypesForLane(lane: JobLane): JobType[] {
-  if (lane === JOB_LANES.runtime || lane === JOB_LANES.integrations) {
+  if (
+    lane === JOB_LANES.chat ||
+    lane === JOB_LANES.runtime ||
+    lane === JOB_LANES.integrations
+  ) {
     return [...TENANT_MUTEX_GUARD_JOB_TYPES];
   }
 

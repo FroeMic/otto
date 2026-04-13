@@ -113,6 +113,7 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
 }
 
 const WORKER_LANE_ORDER: JobLane[] = [
+  JOB_LANES.chat,
   JOB_LANES.runtime,
   JOB_LANES.integrations,
   JOB_LANES.metering,
@@ -120,6 +121,7 @@ const WORKER_LANE_ORDER: JobLane[] = [
 ];
 
 const WORKER_LANE_CONCURRENCY: Record<JobLane, number> = {
+  [JOB_LANES.chat]: 2,
   [JOB_LANES.runtime]: 2,
   [JOB_LANES.integrations]: 2,
   [JOB_LANES.metering]: 4,
