@@ -16,7 +16,7 @@ import {
   LandingHomePage,
   LandingPricingPage,
   LandingSecurityPage,
-} from "./landing-pages"
+} from "./landing"
 
 type PageDocumentProps = {
   children: React.ReactNode
@@ -146,7 +146,13 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
-function LoginPage({ returnTo }: { returnTo: string }) {
+function LoginPage({
+  prompt,
+  returnTo,
+}: {
+  prompt?: string
+  returnTo: string
+}) {
   return (
     <main className="min-h-svh bg-background px-6 py-16 text-foreground">
       <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-card px-8 py-10 shadow-sm">
@@ -161,6 +167,14 @@ function LoginPage({ returnTo }: { returnTo: string }) {
             The new frontend now keeps authentication on the same origin. Sign
             in with WorkOS, then continue directly into the workspace shell.
           </p>
+          {prompt ? (
+            <div className="rounded-[1.5rem] border border-border/70 bg-muted/35 px-4 py-4 text-left">
+              <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
+                Your business brief
+              </p>
+              <p className="mt-2 text-sm leading-6 text-foreground">{prompt}</p>
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
           <a
@@ -202,11 +216,16 @@ export function createApp(env: FrontendEnv = getEnv()) {
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
 
   app.get("/login", (c) => {
+    const prompt = c.req.query("prompt")?.trim()
     const returnTo = c.req.query("returnTo") ?? "/"
+    const effectiveReturnTo =
+      prompt && prompt.length > 0
+        ? `${returnTo}${returnTo.includes("?") ? "&" : "?"}prompt=${encodeURIComponent(prompt)}`
+        : returnTo
 
     return c.html(
       renderDocument({
-        children: <LoginPage returnTo={returnTo} />,
+        children: <LoginPage prompt={prompt} returnTo={effectiveReturnTo} />,
         description: "Sign in to Otto",
         path: "/login",
         title: "Otto Sign In",
@@ -219,9 +238,9 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.get("/", (c) =>
     c.html(
       renderDocument({
-        children: <LandingHomePage />,
+        children: <LandingHomePage prompt={c.req.query("prompt")?.trim()} />,
         description:
-          "Otto helps teams run real work from one workspace with a warm, product-first AI experience.",
+          "Otto is the AI that helps founders and teams run the software business around the product.",
         path: "/",
         title: "Otto",
       }),
