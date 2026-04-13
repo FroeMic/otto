@@ -8,6 +8,8 @@
     "packages/features/*"
   ],
   "scripts": {
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "node scripts/wait-for-db.mjs && drizzle-kit migrate --config=drizzle.config.ts",
     "dev": "bun run dev:web",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:frontend": "bun run dev:web",
@@ -59,5 +61,11 @@
     "check:workspace-slugs": "bun run lint:workspace-slugs && bun run test:workspace-slugs && bun run build:workspace-slugs",
     "check:workspace-core": "bun run lint:workspace-core && bun run test:workspace-core && bun run build:workspace-core",
     "runtime:image:publish": "./publish-runtime-image.sh"
+  },
+  "devDependencies": {
+    "dotenv": "17.4.1",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.44.7",
+    "postgres": "3.4.9"
   }
 }

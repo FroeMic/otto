@@ -33,12 +33,8 @@ services:
     <<: *app-env
     build:
       context: .
-      dockerfile: web/Dockerfile
-      args:
-        NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-}
-        NEXT_PUBLIC_POSTHOG_TOKEN: ${NEXT_PUBLIC_POSTHOG_TOKEN:-}
-    command: ["npm", "run", "db:migrate"]
+      dockerfile: Dockerfile.migrate
+    command: ["bun", "run", "db:migrate"]
     depends_on:
       postgres:
         condition: service_healthy

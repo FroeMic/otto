@@ -110,8 +110,8 @@ From repo root:
 
 ```bash
 docker compose -f docker-compose.yml up -d
-cd web && bun run db:migrate
-cd .. && bun run dev:all
+bun run db:migrate
+bun run dev:all
 ```
 
 In another terminal:

@@ -41,21 +41,19 @@ Do that by reconciling the spec state, inventorying what is still truly required
 - the workspace app cutover is done, but `web/` still looks more alive than it should
 - spec state is now behind the actual implementation state
 - duplicated backend/runtime code in `web/` increases confusion and future regression risk
-- migration ownership still lives under `web/`, which blocks full retirement
+- migration ownership no longer lives under `web/`, so the remaining blocker is the backend/runtime residue still parked there
 
 ## Current assessment
 
 ### Required now
 
-- `web/drizzle/*`
-  - migration ownership still lives here
-- `web/package.json`
-  - still owns `db:migrate` and `db:generate`
+- root `drizzle/*`
+  - migration ownership now lives at the repo root
+- root `package.json`, `drizzle.config.ts`, and `Dockerfile.migrate`
+  - these now own `db:migrate`, `db:generate`, and the production migrate image
 - selected operator scripts
   - for example `web/src/scripts/tenant-runtime.ts`
   - these should eventually move, but they are not dead just because the workspace UI moved
-- `web/src/app/api/internal/runtime/integrations/[integrationKey]/settings/route.ts`
-  - this still looks like a runtime-facing compatibility seam and must be verified before deletion
 - `web/src/lib/hetzner/*`
   - this still appears to be the main Hetzner provisioning home and does not yet have an extracted owner
 - `web/src/lib/ssh/*`
@@ -137,12 +135,17 @@ Do that by reconciling the spec state, inventorying what is still truly required
   - legacy integration UI
 - the legacy `web/src/app/platform/**` operator route tree has also been removed
 - after removing both the legacy workspace and legacy platform route trees, `bun run --cwd web build` still passes
+- migration ownership has now been moved to the repo root:
+  - `drizzle/*` is now the migration directory
+  - `drizzle.config.ts` is the active Drizzle config
+  - root `package.json` now owns `db:migrate` and `db:generate`
+  - `Dockerfile.migrate` is now the active production migrate image
 
 ## Directory inventory
 
 ### Keep for now
 
-- `web/drizzle/*`
+- root `drizzle/*`
 - `web/src/lib/hetzner/*`
 - `web/src/lib/ssh/*`
 - `web/src/lib/providers/*`
@@ -311,8 +314,8 @@ Should own:
 ### `web/`
 
 Should become:
-- either a small temporary migrations-and-scripts area
-- or fully removable after ownership moves
+- either a very small temporary home for scripts that have not been re-homed yet
+- or fully removable after the remaining runtime/backend residue is deleted or moved
 
 ## Acceptance criteria
 
@@ -328,12 +331,11 @@ Should become:
 - [x] follow-up spec created
 - [x] spec/state reconciliation complete
 - [x] `web/` inventory completed
-- [ ] dead legacy workspace/product code removed
-- [ ] migration ownership moved out of `web/`
+- [x] dead legacy workspace/product code removed
+- [x] migration ownership moved out of `web/`
 - [ ] duplicated backend/runtime logic removed or re-homed
 
 ## Open questions
 
-- should schema/migration ownership move into a dedicated package or into one of the extracted apps
 - which operator scripts still justify living outside `apps/worker`
 - whether any platform-only legacy routes remain that should be ported before final `web/` deletion

@@ -15,7 +15,7 @@
 - Repository state is still mostly bootstrap.
 - The newer long-term browser-app direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - the landing page and workspace should converge into one browser-facing frontend over time
-  - `web/` remains the legacy Next.js workspace boundary during the planned migration rather than the desired steady state
+  - `web/` is now a shrinking legacy residue rather than the active workspace boundary
 - The unified frontend migration has now moved from planning into the first implementation slice:
   - Phase 0 has started
   - the first complete port target was the `www/` port into `apps/web`
@@ -94,7 +94,8 @@
   - the temporary split-domain and split-auth env assumptions have been collapsed to one public origin
 - The next cleanup track is now explicit:
   - `TODO_24_web_codebase_contraction.md` owns the follow-on contraction of `web/`
-  - this includes refreshing stale spec state, classifying what in `web/` is still truly required, and deleting or quarantining duplicated backend/runtime logic
+  - spec reconciliation, dead workspace UI removal, and migration ownership cutover to the repo root are now done
+  - the remaining work is deleting or re-homing the backend/runtime residue still parked in `web/`
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
@@ -609,13 +610,13 @@
   - no further OAuth substrate expansion is recommended ahead of the next provider; add only the provider-specific pieces and the shared deltas that provider proves necessary
 - The previously added WhatsApp integration slice has now been removed from `main` and deferred:
   - the workspace routes, provider-owned UI, API routes, worker handlers, runtime manager helpers, and OpenClaw projection for `channel/whatsapp` are deleted
-  - `integration_whatsapp_installations` and `integration_whatsapp_link_sessions` are dropped by `web/drizzle/0046_remove_whatsapp_integration.sql`, and the migration also clears WhatsApp rows from shared tables such as `tenant_integrations`, `tenant_runtime_config_entries`, `user_channel_identities`, and `job_runs`
+  - `integration_whatsapp_installations` and `integration_whatsapp_link_sessions` are dropped by `drizzle/0046_remove_whatsapp_integration.sql`, and the migration also clears WhatsApp rows from shared tables such as `tenant_integrations`, `tenant_runtime_config_entries`, `user_channel_identities`, and `job_runs`
   - the legacy runtime-surface compatibility layer remained in place at that point because it still powered shared runtime-surface management for non-WhatsApp integrations
   - if a dedicated-number messaging integration returns later, it should be treated as a fresh scope decision rather than reviving the removed partial implementation
 - Slack now treats the generic OAuth substrate as canonical:
   - `integration_slack_installations` and `integration_credentials` are replaced by `integration_oauth_connections` and `integration_oauth_credentials`
   - Slack installation metadata now persists on `integration_oauth_connections.provider_metadata_json`
-  - `web/drizzle/0047_slack_oauth_canonicalization.sql` adds that metadata column and drops the legacy Slack-only tables
+  - `drizzle/0047_slack_oauth_canonicalization.sql` adds that metadata column and drops the legacy Slack-only tables
 - The runtime image no longer includes the old runtime-surface compatibility plugin:
   - `runtime-plugins/otto-runtime-config` is removed from the repo
   - tenant runtime plugin bundles now include `otto-managed-config`, `otto-managed-skills`, `otto-integrations`, `otto-session-reporter`, and provider plugins as needed
@@ -651,7 +652,7 @@
   - `web/src/lib/providers/openai/provisioning.ts` can create an OpenAI project and service account using `CONTROL_PLANE_OPENAI_ADMIN_API_KEY`
   - `bun run tenant:openai:provision -- <org-slug>` now provisions and stores a tenant-specific OpenAI API key, with optional verification against the Responses API
   - initial tenant bootstrap now provisions the first tenant-specific OpenAI API key before runtime files are rendered, so runtime apply and bootstrap no longer rely on a shared fallback key
-  - `web/drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
+  - `drizzle/meta/0023_snapshot.json` was repaired so `drizzle-kit generate` works again after an existing snapshot-chain collision on `main`
 - The platform operator surface can now provision or rotate tenant-specific OpenAI keys from `/platform/organizations/[orgSlug]/overview`:
   - the three-dot organization action menu now exposes `Provision OpenAI API key` or `Rotate OpenAI API key` based on current tenant provider state
   - the action runs through a queued control-plane job instead of an inline request handler
@@ -669,11 +670,9 @@
 ## Next recommended implementation step
 
 - Start `TODO_24_web_codebase_contraction.md` in this order:
-  - reconcile `spec/STATUS.md` and other stale spec references with the now-completed legacy cutover
-  - inventory `web/` into keep, quarantine, and delete buckets
-  - remove dead legacy workspace/product UI first
-  - move migration ownership out of `web/`
-  - then delete duplicated backend/runtime logic once extracted owners are verified
+  - delete or re-home the remaining backend/runtime residue in `web/`
+  - remove obsolete `web`-local package, Docker, and docs entrypoints once no live code still needs them
+  - delete the `web/` folder entirely
 - In parallel, continue `TODO_16_runtime_ai_provider_proxy.md` by:
   - broadening canary coverage for `openai-proxy/gpt-5.4` plus proxied audio transcription on tenant runtimes
   - deciding whether TTS, voice-call, and embeddings should be proxied next or kept unsupported

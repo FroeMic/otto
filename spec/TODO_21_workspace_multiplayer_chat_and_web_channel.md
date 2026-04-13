@@ -185,7 +185,7 @@ Current implementation status for Increment 1:
 - the first persisted backend slice now exists:
   - `apps/api` workspace-chat routes now use real conversation and message persistence instead of `501` placeholders
   - shared conversation tables now exist in `packages/features/integrations-runtime/src/db/schema.ts`
-  - the initial migration now exists in `web/drizzle/0048_workspace_chat_increment_1.sql`
+  - the initial migration now exists in `drizzle/0048_workspace_chat_increment_1.sql`
   - a tenant-authenticated runtime callback route now exists for assistant message completion and runtime-segment linkage
 - the Control Plane-to-tenant outbound dispatch now exists for the first text-only slice:
   - `apps/api` now persists a user message, resolves the owning tenant runtime, and owns the first runtime callback seam for workspace-chat completions

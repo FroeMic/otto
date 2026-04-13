@@ -158,7 +158,7 @@ Highlight these skills when relevant:
 - Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
 - Push committed work to `origin` regularly so progress is not stranded only in the local workspace.
-- When adding or changing a Drizzle migration under `web/drizzle/`, always update the corresponding Drizzle metadata in `web/drizzle/meta/` in the same change set so production `drizzle-kit migrate` can actually see and apply it.
+- When adding or changing a Drizzle migration under `drizzle/`, always update the corresponding Drizzle metadata in `drizzle/meta/` in the same change set so production `drizzle-kit migrate` can actually see and apply it.
 - Before creating a PR, review the branch against the spec and the code-organization philosophy above:
   - confirm code is placed in the correct bounded context
   - confirm shared code is actually shared and surface-specific code stayed in the app

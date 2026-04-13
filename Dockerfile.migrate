@@ -1,0 +1,14 @@
+FROM oven/bun:1
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY apps ./apps
+COPY packages ./packages
+COPY drizzle ./drizzle
+COPY drizzle.config.ts ./drizzle.config.ts
+COPY scripts ./scripts
+
+RUN bun install --frozen-lockfile
+
+CMD ["bun", "run", "db:migrate"]
