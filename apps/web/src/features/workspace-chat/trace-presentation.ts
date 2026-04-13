@@ -1,4 +1,7 @@
-import type { WorkspaceChatMessage } from "@otto/feature-workspace-chat";
+import type {
+  WorkspaceChatMessage,
+  WorkspaceChatMessageEvent,
+} from "@otto/feature-workspace-chat";
 
 import type {
   WorkspaceChatActivityEntry,
@@ -78,13 +81,24 @@ export function getWorkspaceChatLoadingVerb(elapsedMs: number) {
 
 export function getWorkspaceChatPendingLabel(input: {
   elapsedMs: number;
-  status: WorkspaceChatMessage["status"];
+  status:
+    | WorkspaceChatMessage["status"]
+    | WorkspaceChatMessageEvent["status"]
+    | undefined;
 }) {
   if (input.status === "failed") {
     return "Otto could not complete this reply.";
   }
 
-  if (input.status === "pending" || input.status === "streaming") {
+  if (input.status === "blocked") {
+    return "Waiting for approval…";
+  }
+
+  if (
+    input.status === "pending" ||
+    input.status === "running" ||
+    input.status === "streaming"
+  ) {
     return `${getWorkspaceChatLoadingVerb(input.elapsedMs)}…`;
   }
 

@@ -1,5 +1,6 @@
 import type { WorkspaceChatMessageEvent } from "@otto/feature-workspace-chat"
 
+import { buildWorkspaceChatActivityModel } from "../activity-model"
 import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
 
 export interface ConversationMessageActivityLaneProps {
@@ -9,31 +10,13 @@ export interface ConversationMessageActivityLaneProps {
 export function ConversationMessageActivityLane({
   events,
 }: ConversationMessageActivityLaneProps) {
+  const activityModel = buildWorkspaceChatActivityModel(events)
+
   return (
     <ConversationAssistantTrace
       events={events}
       startedAt={events[0]?.createdAt ?? new Date().toISOString()}
-      status={getActivityLaneStatus(events)}
+      status={activityModel.status}
     />
   )
-}
-
-function getActivityLaneStatus(
-  events: WorkspaceChatMessageEvent[],
-): "completed" | "failed" | "pending" | "streaming" {
-  const latestStatus = events.at(-1)?.status
-
-  if (latestStatus === "pending") {
-    return "pending"
-  }
-
-  if (latestStatus === "failed") {
-    return "failed"
-  }
-
-  if (latestStatus === "running") {
-    return "streaming"
-  }
-
-  return "completed"
 }

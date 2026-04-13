@@ -8,12 +8,15 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { WorkspaceSidebar } from "@/client/app/app-shell/WorkspaceSidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 import {
   workspaceChatConversationDetailQueryOptions,
 } from "@/features/workspace-chat/api/chat"
 import { WorkspaceChatRealtimeProvider } from "@/features/workspace-chat/realtime/provider"
+
+import { ShellStage } from "./ShellStage"
+import { ShellViewport } from "./ShellViewport"
+import { WorkspaceSidebar } from "./WorkspaceSidebar"
 
 export interface WorkspaceShellProps extends PropsWithChildren {
   orgSlug: string
@@ -190,61 +193,65 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
 
   return (
     <WorkspaceChatRealtimeProvider orgSlug={orgSlug}>
-      <SidebarProvider>
-        <WorkspaceSidebar
-          currentOrganization={{
-            name: data.currentOrganization.name,
-            slug: data.currentOrganization.slug,
-          }}
-          organizations={data.organizations.map((organization) => ({
-            name: organization.name,
-            slug: organization.slug,
-          }))}
-          orgSlug={orgSlug}
-          user={data.user}
-        />
-
-        <SidebarInset>
-          <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
-            <SidebarTrigger />
-            <Separator
-              orientation="vertical"
-              className="data-vertical:h-4 data-vertical:self-auto"
+      <ShellViewport>
+        <ShellStage>
+          <SidebarProvider className="h-full min-h-0">
+            <WorkspaceSidebar
+              currentOrganization={{
+                name: data.currentOrganization.name,
+                slug: data.currentOrganization.slug,
+              }}
+              organizations={data.organizations.map((organization) => ({
+                name: organization.name,
+                slug: organization.slug,
+              }))}
+              orgSlug={orgSlug}
+              user={data.user}
             />
-            <div className="min-w-0 text-sm">
-              <Link
-                className="font-medium hover:underline"
-                params={{ orgSlug: data.currentOrganization.slug }}
-                to="/$orgSlug"
-              >
-                {data.currentOrganization.name}
-              </Link>
-              {breadcrumbs.map((segment) => (
-                <span key={segment.label}>
-                  <span className="mx-2 text-muted-foreground">/</span>
-                  {segment.href ? (
-                    <Link
-                      className="truncate text-muted-foreground hover:text-foreground hover:underline"
-                      preload="intent"
-                      to={segment.href}
-                    >
-                      {segment.label}
-                    </Link>
-                  ) : (
-                    <span className="truncate text-muted-foreground">
-                      {segment.label}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          </header>
 
-          <div className="flex flex-1 flex-col px-4 py-6 md:px-6">
-            {children}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+            <SidebarInset className="min-h-0 overflow-hidden">
+              <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4 md:px-6">
+                <SidebarTrigger />
+                <Separator
+                  orientation="vertical"
+                  className="data-vertical:h-4 data-vertical:self-auto"
+                />
+                <div className="min-w-0 text-sm">
+                  <Link
+                    className="font-medium hover:underline"
+                    params={{ orgSlug: data.currentOrganization.slug }}
+                    to="/$orgSlug"
+                  >
+                    {data.currentOrganization.name}
+                  </Link>
+                  {breadcrumbs.map((segment) => (
+                    <span key={segment.label}>
+                      <span className="mx-2 text-muted-foreground">/</span>
+                      {segment.href ? (
+                        <Link
+                          className="truncate text-muted-foreground hover:text-foreground hover:underline"
+                          preload="intent"
+                          to={segment.href}
+                        >
+                          {segment.label}
+                        </Link>
+                      ) : (
+                        <span className="truncate text-muted-foreground">
+                          {segment.label}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </header>
+
+              <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-6 md:px-6">
+                {children}
+              </div>
+            </SidebarInset>
+          </SidebarProvider>
+        </ShellStage>
+      </ShellViewport>
     </WorkspaceChatRealtimeProvider>
   )
 }
