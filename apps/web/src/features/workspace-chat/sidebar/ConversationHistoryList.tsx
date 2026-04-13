@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import type { WorkspaceChatConversationSummary } from "@otto/feature-workspace-chat"
 
 import {
@@ -18,18 +19,57 @@ import { ConversationHistorySkeleton } from "./ConversationHistorySkeleton"
 export interface ConversationHistoryListProps {
   conversations: WorkspaceChatConversationSummary[] | undefined
   filter: ConversationHistoryFilter
+  hasNextPage: boolean
   isError: boolean
+  isFetchingNextPage: boolean
   isLoading: boolean
+  onLoadMore: () => void
   orgSlug: string
 }
 
 export function ConversationHistoryList({
   conversations,
   filter,
+  hasNextPage,
   isError,
+  isFetchingNextPage,
   isLoading,
+  onLoadMore,
   orgSlug,
 }: ConversationHistoryListProps) {
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!hasNextPage) {
+      return
+    }
+
+    const node = loadMoreRef.current
+
+    if (!node) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            onLoadMore()
+          }
+        }
+      },
+      {
+        rootMargin: "120px 0px",
+      },
+    )
+
+    observer.observe(node)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasNextPage, onLoadMore])
+
   if (isLoading) {
     return <ConversationHistorySkeleton />
   }
@@ -66,7 +106,7 @@ export function ConversationHistoryList({
   }
 
   return (
-    <SidebarMenu className="gap-1 px-2 py-2">
+    <SidebarMenu className="gap-0.5 px-2 py-2">
       {filteredConversations.map((conversation) => (
         <ConversationHistoryListItem
           key={conversation.id}
@@ -74,7 +114,8 @@ export function ConversationHistoryList({
           orgSlug={orgSlug}
         />
       ))}
+      {isFetchingNextPage ? <ConversationHistorySkeleton compact /> : null}
+      {hasNextPage ? <div ref={loadMoreRef} className="h-2 w-full" /> : null}
     </SidebarMenu>
   )
 }
-

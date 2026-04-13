@@ -4,6 +4,8 @@ import * as z from "zod"
 import {
   type WorkspaceChatConversationCreateRequest,
   type WorkspaceChatConversationDetailResponse,
+  type WorkspaceChatConversationListQuery,
+  type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
   type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
@@ -74,9 +76,12 @@ export async function handleWorkspaceChatConversationListRequest<
   TUser extends WorkspaceChatUser,
 >(input: {
   listConversations: (payload: {
+    cursor?: string
+    limit?: number
     orgSlug: string
     userExternalId: string
-  }) => Promise<WorkspaceChatConversationSummary[]>
+  }) => Promise<WorkspaceChatConversationListResponse>
+  query?: WorkspaceChatConversationListQuery
   orgSlug: string
   syncUserFromSession: (user: TUser) => Promise<unknown>
   user: TUser
@@ -85,15 +90,13 @@ export async function handleWorkspaceChatConversationListRequest<
     await input.syncUserFromSession(input.user)
 
     const conversations = await input.listConversations({
+      cursor: input.query?.cursor,
+      limit: input.query?.limit,
       orgSlug: input.orgSlug,
       userExternalId: input.user.id,
     })
 
-    return jsonNoStore(
-      workspaceChatConversationListResponseSchema.parse({
-        conversations,
-      }),
-    )
+    return jsonNoStore(workspaceChatConversationListResponseSchema.parse(conversations))
   } catch (error) {
     return buildWorkspaceChatErrorResponse(error)
   }
@@ -241,6 +244,8 @@ export {
 export type {
   WorkspaceChatConversationCreateRequest,
   WorkspaceChatConversationDetailResponse,
+  WorkspaceChatConversationListQuery,
+  WorkspaceChatConversationListResponse,
   WorkspaceChatConversationSummary,
   WorkspaceChatMessage,
   WorkspaceChatMessageCreateRequest,
@@ -258,6 +263,7 @@ export type {
   WorkspaceChatRuntimeMessageFailResponse,
 } from "./schemas"
 export {
+  workspaceChatConversationListQuerySchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
   workspaceChatConversationDetailResponseSchema,

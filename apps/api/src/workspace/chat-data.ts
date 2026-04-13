@@ -11,6 +11,7 @@ import {
 } from "@otto/feature-integrations-runtime/db/schema"
 import type {
   WorkspaceChatConversationDetailResponse,
+  WorkspaceChatConversationListResponse,
   WorkspaceChatConversationSummary,
   WorkspaceChatMessage,
   WorkspaceChatMessageCreateResponse,
@@ -19,7 +20,7 @@ import type {
   WorkspaceChatRealtimeEvent,
   WorkspaceChatRuntimeMessageEventMutation,
 } from "@otto/feature-workspace-chat"
-import { and, desc, eq, inArray, or } from "drizzle-orm"
+import { and, desc, eq, inArray, lt, or } from "drizzle-orm"
 
 import { getWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { getOrganizationWorkspaceBySlug } from "./data"
@@ -81,6 +82,12 @@ type WorkspaceChatActor = {
 const PERSONAL_VISIBILITY = "personal"
 const OPEN_VISIBILITY = "open"
 const DEFAULT_CONVERSATION_TITLE = "New conversation"
+const DEFAULT_CONVERSATION_PAGE_SIZE = 30
+
+type WorkspaceChatConversationCursor = {
+  id: string
+  lastActivityAt: string
+}
 
 export function shouldApplyWorkspaceChatAssistantDeltaSequence(input: {
   incomingSequence: number
@@ -222,15 +229,58 @@ export function mapWorkspaceChatMessageEventRecord(
   }
 }
 
+export function encodeWorkspaceChatConversationCursor(
+  input: WorkspaceChatConversationCursor,
+) {
+  return Buffer.from(JSON.stringify(input), "utf8").toString("base64url")
+}
+
+export function decodeWorkspaceChatConversationCursor(
+  cursor: string,
+): WorkspaceChatConversationCursor {
+  const raw = Buffer.from(cursor, "base64url").toString("utf8")
+  const parsed = JSON.parse(raw) as Partial<WorkspaceChatConversationCursor>
+
+  if (
+    typeof parsed.id !== "string" ||
+    parsed.id.trim().length === 0 ||
+    typeof parsed.lastActivityAt !== "string" ||
+    parsed.lastActivityAt.trim().length === 0
+  ) {
+    throw new Error("Invalid workspace chat conversation cursor.")
+  }
+
+  return {
+    id: parsed.id,
+    lastActivityAt: parsed.lastActivityAt,
+  }
+}
+
 export async function listWorkspaceChatConversations(input: {
+  cursor?: string
+  limit?: number
   orgSlug: string
   userExternalId: string
-}): Promise<WorkspaceChatConversationSummary[]> {
+}): Promise<WorkspaceChatConversationListResponse> {
   const actor = await resolveWorkspaceChatActor({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
   })
   const db = getDb()
+  const pageSize = Math.min(
+    Math.max(input.limit ?? DEFAULT_CONVERSATION_PAGE_SIZE, 1),
+    100,
+  )
+  const decodedCursor = input.cursor
+    ? decodeWorkspaceChatConversationCursor(input.cursor)
+    : null
+  const cursorDate = decodedCursor
+    ? new Date(decodedCursor.lastActivityAt)
+    : null
+
+  if (cursorDate && Number.isNaN(cursorDate.getTime())) {
+    throw new Error("Invalid workspace chat conversation cursor.")
+  }
 
   const rows = await db
     .select({
@@ -248,14 +298,35 @@ export async function listWorkspaceChatConversations(input: {
       and(
         eq(workspaceChatConversations.organizationId, actor.organizationId),
         buildWorkspaceChatConversationAccessPredicate(actor.userId),
+        decodedCursor && cursorDate
+          ? or(
+              lt(workspaceChatConversations.lastActivityAt, cursorDate),
+              and(
+                eq(workspaceChatConversations.lastActivityAt, cursorDate),
+                lt(workspaceChatConversations.id, decodedCursor.id),
+              ),
+            )
+          : undefined,
       ),
     )
     .orderBy(
       desc(workspaceChatConversations.lastActivityAt),
-      desc(workspaceChatConversations.createdAt),
+      desc(workspaceChatConversations.id),
     )
+    .limit(pageSize + 1)
 
-  return rows.map(mapWorkspaceChatConversationSummary)
+  const pageRows = rows.slice(0, pageSize)
+  const nextRow = rows.length > pageSize ? pageRows.at(-1) ?? null : null
+
+  return {
+    conversations: pageRows.map(mapWorkspaceChatConversationSummary),
+    nextCursor: nextRow
+      ? encodeWorkspaceChatConversationCursor({
+          id: nextRow.id,
+          lastActivityAt: nextRow.lastActivityAt.toISOString(),
+        })
+      : null,
+  }
 }
 
 export async function createWorkspaceChatConversation(input: {

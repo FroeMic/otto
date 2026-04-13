@@ -19,17 +19,20 @@ const user = {
 describe("workspace chat feature", () => {
   it("lists the current user's conversations", async () => {
     const response = await handleWorkspaceChatConversationListRequest({
-      listConversations: async () => [
-        {
-          id: "conv_1",
-          kind: "ad_hoc",
-          lastActivityAt: "2026-04-10T09:30:00.000Z",
-          latestMessagePreview: "Hello from Otto",
-          originKind: "manual",
-          title: "Portfolio review",
-          visibility: "open",
-        },
-      ],
+      listConversations: async () => ({
+        conversations: [
+          {
+            id: "conv_1",
+            kind: "ad_hoc",
+            lastActivityAt: "2026-04-10T09:30:00.000Z",
+            latestMessagePreview: "Hello from Otto",
+            originKind: "manual",
+            title: "Portfolio review",
+            visibility: "open",
+          },
+        ],
+        nextCursor: null,
+      }),
       orgSlug: "otto",
       syncUserFromSession: async () => undefined,
       user,
@@ -48,6 +51,7 @@ describe("workspace chat feature", () => {
           visibility: "open",
         },
       ],
+      nextCursor: null,
     })
   })
 

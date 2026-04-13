@@ -8,7 +8,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-import { formatConversationHistoryTitle } from "./conversation-history-filters"
+import {
+  describeConversationHistoryType,
+  formatConversationHistoryTitle,
+  getConversationHistoryIndicatorClassName,
+} from "./conversation-history-filters"
 
 export interface ConversationHistoryListItemProps {
   conversation: WorkspaceChatConversationSummary
@@ -45,8 +49,15 @@ export function ConversationHistoryListItem({
           />
         }
         tooltip={conversation.title}
-        className="gap-3 pr-2.5"
+        className="h-8 gap-2 pr-2.5"
       >
+        <span
+          aria-label={describeConversationHistoryType(conversation)}
+          className={`size-1.5 shrink-0 rounded-full ${getConversationHistoryIndicatorClassName(
+            conversation,
+          )}`}
+          title={describeConversationHistoryType(conversation)}
+        />
         <span className="min-w-0 flex-1 truncate">
           {formatConversationHistoryTitle(conversation.title)}
         </span>
@@ -55,4 +66,3 @@ export function ConversationHistoryListItem({
     </SidebarMenuItem>
   )
 }
-

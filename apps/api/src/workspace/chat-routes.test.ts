@@ -59,17 +59,20 @@ function createDependencies(): WorkspaceChatRouteDependencies {
       messageEvents: [],
       messages: [],
     }),
-    listConversations: async () => [
-      {
-        id: "conv_1",
-        kind: "ad_hoc",
-        lastActivityAt: "2026-04-10T09:30:00.000Z",
-        latestMessagePreview: "Hello from Otto",
-        originKind: "manual",
-        title: "Portfolio review",
-        visibility: "open",
-      },
-    ],
+    listConversations: async () => ({
+      conversations: [
+        {
+          id: "conv_1",
+          kind: "ad_hoc",
+          lastActivityAt: "2026-04-10T09:30:00.000Z",
+          latestMessagePreview: "Hello from Otto",
+          originKind: "manual",
+          title: "Portfolio review",
+          visibility: "open",
+        },
+      ],
+      nextCursor: null,
+    }),
     syncUserFromSession: async () => undefined,
   }
 }
@@ -98,7 +101,35 @@ describe("workspace chat routes", () => {
           visibility: "open",
         },
       ],
+      nextCursor: null,
     })
+  })
+
+  it("forwards pagination query params for conversation history", async () => {
+    const listConversations = vi.fn(async () => ({
+      conversations: [],
+      nextCursor: null,
+    }))
+    const app = createWorkspaceChatRouter({
+      ...createDependencies(),
+      listConversations,
+    })
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/conversations?cursor=cursor_123&limit=20",
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(listConversations.mock.calls.length, 1)
+    assert.deepEqual(
+      ((listConversations.mock.calls[0] as unknown as [unknown]) ?? [])[0],
+      {
+      cursor: "cursor_123",
+      limit: 20,
+      orgSlug: "otto",
+      userExternalId: "user_123",
+      },
+    )
   })
 
   it("creates a conversation through the workspace chat route", async () => {

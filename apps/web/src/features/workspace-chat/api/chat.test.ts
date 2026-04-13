@@ -21,10 +21,12 @@ describe("workspace chat api helpers", () => {
           visibility: "open",
         },
       ],
+      nextCursor: null,
     })
 
-    assert.equal(conversations.length, 1)
-    assert.equal(conversations[0]?.id, "conv_1")
+    assert.equal(conversations.conversations.length, 1)
+    assert.equal(conversations.conversations[0]?.id, "conv_1")
+    assert.equal(conversations.nextCursor, null)
   })
 
   it("parses a workspace chat conversation detail response", () => {

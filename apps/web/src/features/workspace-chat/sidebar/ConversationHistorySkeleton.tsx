@@ -5,14 +5,19 @@ import {
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar"
 
-export function ConversationHistorySkeleton() {
+export interface ConversationHistorySkeletonProps {
+  compact?: boolean
+}
+
+export function ConversationHistorySkeleton({
+  compact = false,
+}: ConversationHistorySkeletonProps) {
   return (
-    <SidebarMenu className="gap-1 px-2 py-2">
+    <SidebarMenu className={compact ? "gap-0.5 px-2 py-0.5" : "gap-0.5 px-2 py-2"}>
       <SidebarMenuSkeleton />
       <SidebarMenuSkeleton />
       <SidebarMenuSkeleton />
-      <SidebarMenuSkeleton />
+      {compact ? null : <SidebarMenuSkeleton />}
     </SidebarMenu>
   )
 }
-

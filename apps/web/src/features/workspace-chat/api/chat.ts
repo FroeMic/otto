@@ -1,23 +1,25 @@
 import {
   type WorkspaceChatConversationDetailResponse,
+  type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
   type WorkspaceChatMessageCreateResponse,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
   workspaceChatConversationDetailResponseSchema,
+  workspaceChatConversationListQuerySchema,
   workspaceChatConversationListResponseSchema,
   workspaceChatMessageCreateRequestSchema,
   workspaceChatMessageCreateResponseSchema,
 } from "@otto/feature-workspace-chat"
-import { queryOptions } from "@tanstack/react-query"
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query"
 
 import { apiClient } from "@/client/app/rpc"
 import { fetchApiResponse } from "@/features/workspace/api/workspace"
 
 export function parseWorkspaceChatConversationList(
   data: unknown,
-): WorkspaceChatConversationSummary[] {
-  return workspaceChatConversationListResponseSchema.parse(data).conversations
+): WorkspaceChatConversationListResponse {
+  return workspaceChatConversationListResponseSchema.parse(data)
 }
 
 export function parseWorkspaceChatConversationDetail(
@@ -27,17 +29,27 @@ export function parseWorkspaceChatConversationDetail(
 }
 
 export function workspaceChatConversationListQueryOptions(orgSlug: string) {
-  return queryOptions({
-    queryFn: async () => {
+  return infiniteQueryOptions({
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      const query = workspaceChatConversationListQuerySchema.parse({
+        cursor: pageParam,
+        limit: 30,
+      })
       const response =
         await apiClient.api.workspace[":orgSlug"].chat.conversations.$get({
           param: {
             orgSlug,
           },
+          query: {
+            cursor: query.cursor,
+            limit: query.limit ? String(query.limit) : undefined,
+          },
         })
 
       return fetchApiResponse(response, parseWorkspaceChatConversationList)
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     queryKey: ["workspace-chat-conversations", orgSlug],
     refetchInterval: 5_000,
     staleTime: 2_000,

@@ -11,11 +11,14 @@ import {
   handleWorkspaceChatMessageCreateRequest,
   type WorkspaceChatConversationCreateRequest,
   type WorkspaceChatConversationDetailResponse,
+  type WorkspaceChatConversationListQuery,
+  type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
   type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
   type WorkspaceChatUser,
   workspaceChatConversationCreateRequestSchema,
+  workspaceChatConversationListQuerySchema,
   workspaceChatMessageCreateRequestSchema,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
@@ -64,9 +67,11 @@ export type WorkspaceChatRouteDependencies = {
     userExternalId: string
   }) => Promise<WorkspaceChatConversationDetailResponse | null>
   listConversations: (payload: {
+    cursor?: WorkspaceChatConversationListQuery["cursor"]
+    limit?: WorkspaceChatConversationListQuery["limit"]
     orgSlug: string
     userExternalId: string
-  }) => Promise<WorkspaceChatConversationSummary[]>
+  }) => Promise<WorkspaceChatConversationListResponse>
   syncUserFromSession: (user: WorkspaceChatUser) => Promise<unknown>
 }
 
@@ -123,6 +128,7 @@ export function createWorkspaceChatRouter(
     .get(
       "/api/workspace/:orgSlug/chat/conversations",
       zValidator("param", workspaceParamsSchema),
+      zValidator("query", workspaceChatConversationListQuerySchema),
       async (context) => {
         const authResult = await authenticateUser(context.req.raw)
 
@@ -133,6 +139,7 @@ export function createWorkspaceChatRouter(
         return handleWorkspaceChatConversationListRequest({
           listConversations: dependencies.listConversations,
           orgSlug: context.req.valid("param").orgSlug,
+          query: context.req.valid("query"),
           syncUserFromSession: dependencies.syncUserFromSession,
           user: authResult.user,
         })

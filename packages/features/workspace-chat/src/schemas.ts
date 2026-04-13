@@ -112,6 +112,11 @@ export const workspaceChatConversationSummarySchema = z.object({
   visibility: workspaceChatConversationVisibilitySchema,
 })
 
+export const workspaceChatConversationListQuerySchema = z.object({
+  cursor: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+})
+
 export const workspaceChatMessageSchema = z.object({
   author: workspaceChatMessageAuthorSchema,
   createdAt: z.string().trim().min(1),
@@ -139,6 +144,7 @@ export const workspaceChatMessageEventSchema = z.object({
 
 export const workspaceChatConversationListResponseSchema = z.object({
   conversations: z.array(workspaceChatConversationSummarySchema),
+  nextCursor: z.string().trim().min(1).nullable(),
 })
 
 export const workspaceChatConversationCreateRequestSchema = z.object({
@@ -267,6 +273,12 @@ export const workspaceChatRuntimeMessageEventUpsertResponseSchema = z.object({
 
 export type WorkspaceChatConversationSummary = z.infer<
   typeof workspaceChatConversationSummarySchema
+>
+export type WorkspaceChatConversationListQuery = z.infer<
+  typeof workspaceChatConversationListQuerySchema
+>
+export type WorkspaceChatConversationListResponse = z.infer<
+  typeof workspaceChatConversationListResponseSchema
 >
 export type WorkspaceChatConversationCreateRequest = z.infer<
   typeof workspaceChatConversationCreateRequestSchema
