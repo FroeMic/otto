@@ -183,12 +183,12 @@
 @keyframes workspace-trace-flip {
   0% {
     opacity: 0;
-    transform: perspective(720px) rotateX(-88deg) translateY(-8px);
+    transform: translateY(-0.7rem);
   }
 
   100% {
     opacity: 1;
-    transform: perspective(720px) rotateX(0deg) translateY(0);
+    transform: translateY(0);
   }
 }
 
@@ -210,7 +210,6 @@
   }
 
   .workspace-trace-flip {
-    transform-origin: center top;
-    animation: workspace-trace-flip 320ms ease-out;
+    animation: workspace-trace-flip 220ms ease-out;
   }
 }

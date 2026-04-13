@@ -230,13 +230,19 @@ function getActivityEntryVisibility(
 ): WorkspaceChatActivityEntryVisibility {
   if (
     kind === "assistant_message" ||
+    kind === "command_output" ||
     kind === "compaction" ||
+    kind === "lifecycle" ||
     (kind === "tool" && !messageEvent.itemId)
   ) {
     return "debug"
   }
 
-  if (kind === "command_output" || kind === "thinking") {
+  if (isInternalExecutionTitle(messageEvent.title)) {
+    return "debug"
+  }
+
+  if (kind === "thinking") {
     return "secondary"
   }
 
@@ -258,7 +264,7 @@ function getActivityPresentation(
     return undefined
   }
 
-  return deriveInternalReadPresentation(messageEvent.title)
+  return deriveInternalPresentation(messageEvent.title)
 }
 
 function getExplicitActivityPresentation(
@@ -357,10 +363,17 @@ function getActivityPresentationSource(
   return undefined
 }
 
-function deriveInternalReadPresentation(
+function deriveInternalPresentation(
   title: string,
 ): WorkspaceChatActivityPresentation | undefined {
-  const dailyMemoryMatch = title.match(
+  const normalizedReadMatch = title.match(
+    /^read(?: lines \d+-\d+)? from (?<path>.+)$/,
+  )
+  const normalizedReadTitle = normalizedReadMatch?.groups?.path
+    ? `read from ${normalizedReadMatch.groups.path}`
+    : title
+
+  const dailyMemoryMatch = normalizedReadTitle.match(
     /^read from (?<path>~\/\.openclaw\/workspace\/memory\/\d{4}-\d{2}-\d{2}\.md)$/,
   )
 
@@ -377,7 +390,7 @@ function deriveInternalReadPresentation(
     }
   }
 
-  const workspaceMemoryMatch = title.match(
+  const workspaceMemoryMatch = normalizedReadTitle.match(
     /^read from (?<path>~\/\.openclaw\/workspace\/MEMORY\.md)$/,
   )
 
@@ -394,7 +407,7 @@ function deriveInternalReadPresentation(
     }
   }
 
-  const skillDocumentMatch = title.match(
+  const skillDocumentMatch = normalizedReadTitle.match(
     /^read from (?<path>~\/\.openclaw\/workspace\/skills\/(?<skillKey>[^/]+)\/(?<documentKind>SKILL|DETAILS)\.md)$/,
   )
 
@@ -420,7 +433,45 @@ function deriveInternalReadPresentation(
     }
   }
 
+  const attachmentDocumentMatch = normalizedReadTitle.match(
+    /^read from (?<path>~\/\.openclaw\/workspace-chat-attachments\/[^/]+\/(?<stagedFileName>[^/]+))$/,
+  )
+
+  const stagedAttachmentFileName =
+    attachmentDocumentMatch?.groups?.stagedFileName
+
+  if (stagedAttachmentFileName) {
+    const fileName = stagedAttachmentFileName.replace(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/iu,
+      "",
+    )
+
+    return {
+      kind: "read",
+      title: `Reviewed attached file ${fileName}`,
+    }
+  }
+
+  if (normalizedReadTitle === "get_integration_details") {
+    return {
+      kind: "read",
+      title: "Reviewed integration details",
+    }
+  }
+
   return undefined
+}
+
+function isInternalExecutionTitle(title: string | undefined) {
+  if (!title) {
+    return false
+  }
+
+  return (
+    /^(exec|command) run /u.test(title) ||
+    /^canvas(?: target)?\b/u.test(title) ||
+    /^read(?: lines \d+-\d+)? from \/tmp\//u.test(title)
+  )
 }
 
 function getActivitySectionKind(
