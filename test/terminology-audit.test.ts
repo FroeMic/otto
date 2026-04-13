@@ -3,16 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-const WEB_ROOT = process.cwd();
-const REPO_ROOT = path.resolve(WEB_ROOT, "..");
+const REPO_ROOT = process.cwd();
 
 const TARGET_ROOTS = [
-  path.join(WEB_ROOT, "src/app"),
-  path.join(WEB_ROOT, "src/components"),
-  path.join(WEB_ROOT, "src/lib/openclaw"),
-  path.join(WEB_ROOT, "src/tools"),
-  path.join(WEB_ROOT, "src/lib/web-search-config.ts"),
-  path.join(REPO_ROOT, "runtime-plugins"),
+  path.join(REPO_ROOT, "apps/web/src"),
 ] as const;
 
 const ALLOWED_PATHS = new Set<string>();
@@ -39,11 +33,7 @@ const BANNED_PATTERNS = [
 function walkFiles(targetPath: string): string[] {
   const entryName = path.basename(targetPath);
 
-  if (
-    entryName === "api" ||
-    entryName.endsWith(".test.ts") ||
-    entryName.endsWith(".test.tsx")
-  ) {
+  if (entryName === "api" || entryName.endsWith(".test.ts")) {
     return [];
   }
 

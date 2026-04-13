@@ -134,7 +134,7 @@ Do that by reconciling the spec state, inventorying what is still truly required
   - legacy platform pages
   - legacy integration UI
 - the legacy `web/src/app/platform/**` operator route tree has also been removed
-- after removing both the legacy workspace and legacy platform route trees, `bun run --cwd web build` still passes
+- the obsolete `web` package/Docker/docs/config scaffold is now removed, and the still-useful routing/terminology audits have been moved to repo-root `test/`
 - migration ownership has now been moved to the repo root:
   - `drizzle/*` is now the migration directory
   - `drizzle.config.ts` is the active Drizzle config
@@ -202,7 +202,6 @@ Goal:
 - classify the remaining `web/` code before deleting anything substantial
 
 Work:
-- add a `web/README.md` section or replacement note stating `web/` is no longer the live workspace app
 - produce a concrete file-group inventory:
   - required now
   - required temporarily

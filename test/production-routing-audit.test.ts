@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT = path.resolve(path.dirname(__filename), "../../..");
+const REPO_ROOT = process.cwd();
 const CADDYFILE_PATH = path.join(REPO_ROOT, "Caddyfile");
 const COMPOSE_PATH = path.join(REPO_ROOT, "docker-compose.prod.yml");
 
