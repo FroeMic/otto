@@ -3,12 +3,14 @@ import type { WorkspaceChatMessageEvent } from "@otto/feature-workspace-chat"
 import {
   buildWorkspaceChatActivityModel,
   type WorkspaceChatActivityEntry,
+  type WorkspaceChatActivityPresentation,
 } from "./activity-model"
 
 export interface WorkspaceChatActivityRow {
   events: WorkspaceChatMessageEvent["type"][]
   id: string
   kind: "approval" | "command_output" | "item" | "lifecycle" | "tool"
+  presentation?: WorkspaceChatActivityPresentation
   status: WorkspaceChatMessageEvent["status"]
   summary?: string
   title: string
@@ -32,6 +34,7 @@ export function buildWorkspaceChatActivityView(
         events: entry.events.map((event) => event.type),
         id: entry.id,
         kind: getActivityRowKind(entry),
+        ...(entry.presentation ? { presentation: entry.presentation } : {}),
         status: entry.status,
         summary: entry.summary,
         title: entry.title,

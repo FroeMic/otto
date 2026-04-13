@@ -15,6 +15,27 @@ export type IntegrationCapabilityPolicy = {
 
 export type IntegrationCommandEffect = "read" | "write";
 
+export type IntegrationCommandActivityPresentationKind =
+  | "config"
+  | "memory"
+  | "read"
+  | "search"
+  | "skill"
+  | "write"
+  | (string & {});
+
+export type IntegrationCommandActivityPresentationIconKey =
+  | "linear"
+  | "memory"
+  | "skill"
+  | (string & {});
+
+export type IntegrationCommandActivityPresentation = {
+  iconKey?: IntegrationCommandActivityPresentationIconKey;
+  kind: IntegrationCommandActivityPresentationKind;
+  title: string;
+};
+
 export type RuntimeCapabilityState = {
   reason?: string;
   status: "disabled" | "enabled" | "needs_attention";
@@ -25,6 +46,7 @@ export type IntegrationCommandDefinition = {
     available: boolean;
     reason: string;
   };
+  activityPresentation?: IntegrationCommandActivityPresentation;
   argumentsSchema: Record<string, unknown>;
   commandKey: string;
   commandPath: string[];
@@ -172,6 +194,7 @@ export type RuntimeIntegrationSummaryResponse = {
 };
 
 export type RuntimeIntegrationCommandDetails = {
+  activityPresentation?: IntegrationCommandActivityPresentation;
   argumentsSchema: Record<string, unknown>;
   capabilityState: RuntimeCapabilityState;
   commandKey: string;

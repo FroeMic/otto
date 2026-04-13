@@ -86,4 +86,37 @@ describe("runtime integration response settings guidance", () => {
       /expectedEntryVersion/,
     );
   });
+
+  it("includes activity presentation hints for commands in detail responses", () => {
+    const response = buildRuntimeIntegrationDetailsResponse({
+      definition: settingsDefinition,
+      detail: {
+        activityPresentation: {
+          iconKey: "linear",
+          kind: "search",
+          title: "Search Linear issues",
+        },
+        commandKey: "issue.search",
+        commandPath: ["issue", "search"],
+        description: "Search issues.",
+        argumentsSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        inputMode: "json",
+        label: "Search issues",
+        resultMode: "json",
+        execute: async () => ({}),
+      },
+      detailType: "command",
+      status: connectedStatus,
+    });
+
+    assert.deepEqual(response.command?.activityPresentation, {
+      iconKey: "linear",
+      kind: "search",
+      title: "Search Linear issues",
+    });
+  });
 });
