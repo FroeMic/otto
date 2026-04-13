@@ -84,7 +84,7 @@ export function WorkspaceAgentPage({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
           <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
