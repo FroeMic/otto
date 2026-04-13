@@ -17,10 +17,12 @@ export function LandingPromptComposer({
   returnTo = "/",
 }: LandingPromptComposerProps) {
   return (
-    <div className={cn("flex w-full max-w-4xl flex-col gap-4", className)}>
+    <div
+      className={cn("mx-auto flex w-full max-w-4xl flex-col gap-4", className)}
+    >
       <form
         action="/login"
-        className="rounded-[2rem] border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
+        className="rounded-[1.5rem] border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
         method="get"
       >
         <input name="returnTo" type="hidden" value={returnTo} />
@@ -50,11 +52,11 @@ export function LandingPromptComposer({
         </div>
       </form>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 text-center">
         <p className="text-sm font-medium text-muted-foreground">
           {examplesHeading}
         </p>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           {landingExamplePrompts.map((examplePrompt) => (
             <a
               className="inline-flex rounded-full border border-border/70 bg-background px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
