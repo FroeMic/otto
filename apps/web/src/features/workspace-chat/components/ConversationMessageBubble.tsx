@@ -16,6 +16,7 @@ import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
+import { formatVoiceNoteDuration } from "../voice-note"
 
 export interface ConversationMessageBubbleProps {
   currentUserId?: string
@@ -178,9 +179,5 @@ function formatAudioPartLabel(durationMs?: number) {
     return "Voice note"
   }
 
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  return `Voice note · ${minutes}:${String(seconds).padStart(2, "0")}`
+  return `Voice note · ${formatVoiceNoteDuration(durationMs)}`
 }

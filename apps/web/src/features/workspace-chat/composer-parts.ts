@@ -3,6 +3,8 @@ import type {
   WorkspaceChatMessagePart,
 } from "@otto/feature-workspace-chat"
 
+import { normalizeVoiceNoteMimeType } from "./voice-note"
+
 export type WorkspaceChatComposerAttachmentDraft =
   | {
       attachment: WorkspaceChatAttachment
@@ -36,7 +38,7 @@ export function buildWorkspaceChatComposerParts(input: {
         ...(typeof attachment.durationMs === "number"
           ? { durationMs: attachment.durationMs }
           : {}),
-        mimeType: attachment.attachment.mimeType,
+        mimeType: normalizeVoiceNoteMimeType(attachment.attachment.mimeType),
         ...(attachment.transcript?.trim()
           ? { transcript: attachment.transcript.trim() }
           : {}),

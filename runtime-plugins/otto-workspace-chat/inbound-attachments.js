@@ -42,9 +42,12 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
     if (part.type === "audio") {
       const transcript =
         typeof part.transcript === "string" ? part.transcript.trim() : "";
+      const mimeType = normalizeWorkspaceChatAudioMimeType(
+        part.mimeType || attachment.mimeType,
+      );
       mediaAttachments.push({
         localPath,
-        mimeType: attachment.mimeType,
+        mimeType,
       });
 
       if (transcript) {
@@ -79,6 +82,21 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
     transcript:
       transcripts.length === 1 ? transcripts[0] : undefined,
   };
+}
+
+function normalizeWorkspaceChatAudioMimeType(mimeType) {
+  const normalized =
+    typeof mimeType === "string" ? mimeType.trim().toLowerCase() : "";
+
+  if (normalized === "video/webm" || normalized.startsWith("video/webm;")) {
+    return normalized.replace("video/webm", "audio/webm");
+  }
+
+  if (normalized === "video/mp4" || normalized.startsWith("video/mp4;")) {
+    return normalized.replace("video/mp4", "audio/mp4");
+  }
+
+  return normalized || "audio/webm";
 }
 
 async function stageWorkspaceChatAttachmentFile(input) {
