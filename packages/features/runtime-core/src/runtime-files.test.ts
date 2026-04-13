@@ -81,7 +81,7 @@ describe("runtime files download", () => {
         }),
       }),
       kind: "file",
-      relativePath: "docs/readme.txt",
+      relativePath: "_docs/readme.txt",
       rootPath: "/opt/openclaw/home/workspace",
     })
 

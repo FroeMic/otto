@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep implementation aligned with the repo plan, preserve state across sessions, and guide work across both the legacy apps and the planned Hono/Bun migration.
+Keep implementation aligned with the repo plan, preserve state across sessions, and guide work across the extracted apps, shared packages, and runtime concerns.
 
 ## Naming and audience
 
@@ -18,17 +18,17 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 ## Start here every session
 
-1. Read `spec/README.md`.
-2. Read `spec/STATUS.md`.
-3. Read `spec/FIRST_INCREMENT_PLAN.md` if the work is still aimed at the first shipping slice.
-4. Read the first incomplete `spec/TODO_*.md` in sequence unless the user explicitly redirects the priority.
-5. If the task touches the migration track, read `spec/TODO_20_unified_frontend_and_hono_migration.md`.
+1. Read `_specs/README.md`.
+2. Read `_specs/STATUS.md`.
+3. Read `_specs/FIRST_INCREMENT_PLAN.md` if the work is still aimed at the first shipping slice.
+4. Read the first incomplete `_specs/TODO_*.md` in sequence unless the user explicitly redirects the priority.
+5. If the task touches the migration track, read `_specs/TODO_20_unified_frontend_and_hono_migration.md`.
 6. Skim the related code before proposing architecture changes.
 
 ## Planning rules
 
-- Treat `spec/` as the authoritative plan.
-- When implementation order changes, update `spec/STATUS.md` and the affected spec files.
+- Treat `_specs/` as the authoritative plan.
+- When implementation order changes, update `_specs/STATUS.md` and the affected spec files.
 - When a spec is completed, rename it from `TODO_` to `DONE_` and update any references.
 - Do not create side plans in random markdown files unless the user explicitly asks for that.
 
@@ -97,10 +97,11 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 ## Repository shape
 
-- `spec/` stores planning state and implementation sequencing.
-- `web/` is the current legacy control-plane app and worker/gateway home.
+- `_specs/` stores planning state and implementation sequencing.
+- `apps/web`, `apps/api`, `apps/worker`, and `apps/gateway` are the active execution surfaces.
+- `drizzle/` at the repo root owns the active Drizzle migrations.
 - `runtime-image/` and `runtime-plugins/` are separate runtime concerns and should not be conflated with the browser-app migration.
-- The planned long-term direction is captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
+- The planned long-term direction is captured in `_specs/TODO_20_unified_frontend_and_hono_migration.md`:
   - unified frontend
   - extracted API
   - extracted gateway
@@ -110,7 +111,6 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 ## Package manager and command expectations
 
 - Bun is the preferred package manager and local task runner for new repo-level work, especially the planned `apps/` and `packages/` layout.
-- For existing `web/` work, use `bun run ...` inside `web/` by default unless a task specifically requires `npm`.
 - During migration, do not treat Bun package-manager adoption and Bun runtime adoption as the same decision:
   - Bun should be the default tooling choice
   - runtime selection can remain service-specific until compatibility is proven
@@ -120,7 +120,7 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 Highlight these skills when relevant:
 
 - `shadcn`
-  - use for shadcn CLI usage, component selection, forms, navigation, and UI composition in `web/`
+  - use for shadcn CLI usage, component selection, forms, navigation, and UI composition in `apps/web`
 - `test-driven-development`
   - use when implementing behavior with a test-first or test-led workflow
 - `typescript-advanced-types`
@@ -136,20 +136,19 @@ Highlight these skills when relevant:
 
 ## Skill trigger rules
 
-- If working in `web/` on UI, layout, forms, navigation, settings, onboarding, or shadcn components, use `shadcn` first.
+- If working in `apps/web` on UI, layout, forms, navigation, settings, onboarding, or shadcn components, use `shadcn` first.
 - If designing React component APIs anywhere in the repo, use `vercel-composition-patterns`.
 - If implementing React or Next.js UI behavior anywhere in the repo, use `vercel-react-best-practices`.
 - If doing visual or layout planning for browser-facing UI, use `web-design-guidelines`.
 - If the task centers on advanced TypeScript modeling, use `typescript-advanced-types`.
 - If the task centers on TanStack Router route structure, typed navigation, loaders, or search-param design, use `tanstack-router`.
 - If the task is explicitly test-led or should be driven by executable tests first, use `test-driven-development`.
-- When working in `web/`, also inspect the local skill files under `web/.agents/skills/` before implementing UI changes.
 
 ## Repo expectations
 
 - Placeholder docs should be replaced when they become misleading.
 - Update the relevant spec checklist as work progresses.
-- Update `spec/STATUS.md` if the next recommended step, architecture decision, or blockers change.
+- Update `_specs/STATUS.md` if the next recommended step, architecture decision, or blockers change.
 - Audit new UI copy, prompt text, and tool descriptions for the terminology split above before finishing.
 - Prefer small, reviewable increments that satisfy one spec at a time.
 - Prefer focused commits that land one complete sub-package or command slice at a time.
@@ -158,7 +157,7 @@ Highlight these skills when relevant:
 - Prefer the smallest testable slice over speculative setup for later phases.
 - Regularly create small commits as meaningful milestones are reached.
 - Push committed work to `origin` regularly so progress is not stranded only in the local workspace.
-- When adding or changing a Drizzle migration under `web/drizzle/`, always update the corresponding Drizzle metadata in `web/drizzle/meta/` in the same change set so production `drizzle-kit migrate` can actually see and apply it.
+- When adding or changing a Drizzle migration under `drizzle/`, always update the corresponding Drizzle metadata in `drizzle/meta/` in the same change set so production `drizzle-kit migrate` can actually see and apply it.
 - Before creating a PR, review the branch against the spec and the code-organization philosophy above:
   - confirm code is placed in the correct bounded context
   - confirm shared code is actually shared and surface-specific code stayed in the app
