@@ -8,15 +8,19 @@ import type {
 export const WORKSPACE_CHAT_LOADING_VERBS = [
   "Accomplishing",
   "Actioning",
+  "Actualizing",
   "Architecting",
+  "Bootstrapping",
   "Brewing",
   "Calculating",
   "Cerebrating",
+  "Choreographing",
   "Cogitating",
   "Composing",
   "Concocting",
   "Considering",
   "Contemplating",
+  "Cooking",
   "Crafting",
   "Crunching",
   "Deciphering",
@@ -35,10 +39,11 @@ export const WORKSPACE_CHAT_LOADING_VERBS = [
   "Marinating",
   "Mulling",
   "Musing",
+  "Orbiting",
+  "Perusing",
   "Noodling",
   "Orchestrating",
   "Percolating",
-  "Perusing",
   "Pondering",
   "Processing",
   "Proofing",
@@ -129,6 +134,19 @@ export function getActivityLeadLine(input: {
 }
 
 export function getActivityLeadTitle(input: {
+  activityModel: WorkspaceChatActivityModel;
+  fallback: string;
+}) {
+  const latestEntry = getLatestVisibleActivityEntry(input.activityModel);
+
+  if (!latestEntry) {
+    return input.fallback;
+  }
+
+  return latestEntry.title;
+}
+
+export function getActiveTraceLabel(input: {
   activityModel: WorkspaceChatActivityModel;
   fallback: string;
 }) {

@@ -2,9 +2,9 @@ import type {
   WorkspaceChatMessage,
   WorkspaceChatMessageEvent,
 } from "@otto/feature-workspace-chat"
+import { useEffect, useRef } from "react"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
 
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
 import { ConversationPendingState } from "./ConversationPendingState"
@@ -14,6 +14,7 @@ import {
 } from "./ConversationTurnPrimitives"
 
 export interface ConversationMessageListProps {
+  bottomInset?: number
   currentUserId?: string
   isWaitingForReply: boolean
   messageEvents: WorkspaceChatMessageEvent[]
@@ -21,12 +22,35 @@ export interface ConversationMessageListProps {
 }
 
 export function ConversationMessageList({
+  bottomInset = 0,
   currentUserId,
   isWaitingForReply,
   messageEvents,
   messages,
 }: ConversationMessageListProps) {
   const lastMessage = messages.at(-1)
+  const messageRefs = useRef(new Map<string, HTMLDivElement>())
+  const previousUserMessageIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (
+      !lastMessage ||
+      lastMessage.author.kind !== "user" ||
+      !currentUserId ||
+      lastMessage.author.userId !== currentUserId
+    ) {
+      return
+    }
+
+    if (previousUserMessageIdRef.current === lastMessage.id) {
+      return
+    }
+
+    previousUserMessageIdRef.current = lastMessage.id
+    messageRefs.current
+      .get(lastMessage.id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [currentUserId, lastMessage])
 
   if (messages.length === 0) {
     return (
@@ -48,19 +72,35 @@ export function ConversationMessageList({
 
   return (
     <ScrollArea className="h-full min-h-0">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 md:py-8">
+      <div
+        className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 md:py-10"
+        style={{
+          paddingBottom: `${bottomInset + 32}px`,
+        }}
+      >
         {messages.map((message) => {
           const events = messageEvents.filter(
             (messageEvent) => messageEvent.messageId === message.id,
           )
 
           return (
-            <ConversationMessageBubble
-              currentUserId={currentUserId}
+            <div
               key={message.id}
-              events={events}
-              message={message}
-            />
+              ref={(node) => {
+                if (node) {
+                  messageRefs.current.set(message.id, node)
+                  return
+                }
+
+                messageRefs.current.delete(message.id)
+              }}
+            >
+              <ConversationMessageBubble
+                currentUserId={currentUserId}
+                events={events}
+                message={message}
+              />
+            </div>
           )
         })}
 
@@ -78,14 +118,12 @@ export function ConversationMessageList({
                 })}
               />
               <div className="pl-10">
-                <div className={cn("max-w-xl")}>
-                  <ConversationPendingState
-                    startedAt={
-                      lastMessage?.createdAt ?? new Date().toISOString()
-                    }
-                    status="pending"
-                  />
-                </div>
+                <ConversationPendingState
+                  startedAt={
+                    lastMessage?.createdAt ?? new Date().toISOString()
+                  }
+                  status="pending"
+                />
               </div>
             </div>
           </ConversationTurnShell>

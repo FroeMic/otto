@@ -74,6 +74,7 @@ export function ConversationMessageBubble({
             <ConversationAssistantTrace
               events={events}
               startedAt={message.createdAt}
+              status={message.status}
             />
             <div className="flex flex-col gap-3">
               {textParts.map((part, index) => {
@@ -101,10 +102,14 @@ export function ConversationMessageBubble({
         ) : (
           <div
             className={cn(
-              "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+              "max-w-[85%] px-4 py-3",
+              turnKind === "current_user" ? "mr-10 self-end" : "ml-10 self-start",
+              turnKind === "other_user"
+                ? "rounded-[1.15rem] bg-muted/65 text-foreground"
+                : "rounded-[1.15rem]",
               turnKind === "current_user"
                 ? "bg-secondary text-foreground"
-                : "bg-muted/70 text-foreground",
+                : "text-foreground",
             )}
           >
             {textParts.map((part, index) => (
