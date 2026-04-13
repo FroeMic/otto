@@ -85,23 +85,19 @@ export function ConversationAssistantTrace({
     now,
     startedAt,
   })
-  const defaultExpandedEntryId = [...visibleEntries]
-    .reverse()
-    .find((entry) => shouldCollapseEntry(entry))?.id
 
   return (
     <Collapsible className="w-full">
-      <CollapsibleTrigger className="group flex items-center gap-1.5 py-1 text-left">
-        <span className="text-sm font-medium text-foreground/78">
+      <CollapsibleTrigger className="group flex items-center gap-1 py-0.5 text-left">
+        <span className="text-xs font-medium text-foreground/70">
           {durationLabel}
         </span>
         <TraceCaretIcon className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pt-3">
-        <div className="flex flex-col gap-4">
+      <CollapsibleContent className="pt-1.5">
+        <div className="flex flex-col gap-0">
           {visibleEntries.map((entry) => (
             <ConversationTraceEntry
-              defaultOpen={entry.id === defaultExpandedEntryId}
               entry={entry}
               key={entry.id}
             />
@@ -113,38 +109,25 @@ export function ConversationAssistantTrace({
 }
 
 interface ConversationTraceEntryProps {
-  defaultOpen: boolean
   entry: WorkspaceChatActivityEntry
 }
 
-function ConversationTraceEntry({
-  defaultOpen,
-  entry,
-}: ConversationTraceEntryProps) {
+function ConversationTraceEntry({ entry }: ConversationTraceEntryProps) {
   if (!entry.summary) {
     return (
-      <p className={getEntryTitleClassName(entry)}>
+      <p className={cn(getEntryTitleClassName(entry), "py-1.5")}>
         {entry.title}
       </p>
     )
   }
 
-  if (!shouldCollapseEntry(entry)) {
-    return (
-      <div className="flex flex-col gap-2">
-        <p className={getEntryTitleClassName(entry)}>{entry.title}</p>
-        <ConversationTraceEntrySummary>{entry.summary}</ConversationTraceEntrySummary>
-      </div>
-    )
-  }
-
   return (
-    <Collapsible defaultOpen={defaultOpen}>
-      <CollapsibleTrigger className="group flex items-center gap-1.5 py-0.5 text-left">
+    <Collapsible defaultOpen={false}>
+      <CollapsibleTrigger className="group flex items-center gap-1 py-1.5 text-left">
         <p className={getEntryTitleClassName(entry)}>{entry.title}</p>
-        <TraceCaretIcon className="mt-0.5 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+        <TraceCaretIcon className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pt-3">
+      <CollapsibleContent className="pt-0.5 pb-1">
         <ConversationTraceEntrySummary>{entry.summary}</ConversationTraceEntrySummary>
       </CollapsibleContent>
     </Collapsible>
@@ -157,7 +140,7 @@ function ConversationTraceEntrySummary({
   children: string
 }) {
   return (
-    <blockquote className="border-l border-border/80 pl-4 text-sm leading-8 text-muted-foreground">
+    <blockquote className="ml-2 border-l border-border/65 pl-3 text-xs leading-5 text-muted-foreground/88">
       {children}
     </blockquote>
   )
@@ -165,17 +148,9 @@ function ConversationTraceEntrySummary({
 
 function getEntryTitleClassName(entry: WorkspaceChatActivityEntry) {
   return cn(
-    "text-sm leading-7",
+    "text-xs leading-5",
     entry.status === "failed"
-      ? "text-foreground/75"
-      : "text-foreground/84",
+      ? "text-foreground/66"
+      : "text-foreground/74",
   )
-}
-
-function shouldCollapseEntry(entry: WorkspaceChatActivityEntry) {
-  if (!entry.summary) {
-    return false
-  }
-
-  return entry.kind === "thinking" || entry.summary.length > 140
 }

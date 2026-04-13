@@ -162,4 +162,63 @@ describe("enrichWorkspaceChatMessageEventsWithTranscripts", () => {
       title: "Already enriched",
     })
   })
+
+  it("humanizes get_integration_details events from the linked transcript tool call", () => {
+    const events = enrichWorkspaceChatMessageEventsWithTranscripts({
+      events: [
+        {
+          conversationId: "conv_1",
+          createdAt: "2026-04-13T11:00:00.000Z",
+          id: "evt_1",
+          itemId: "tool:call_details_1",
+          messageId: "msg_1",
+          payload: {
+            name: "get_integration_details",
+          },
+          sequence: 1,
+          sessionKey: "agent:main:otto-workspace-chat:channel:workspace:conv_1",
+          status: "completed",
+          title: "get_integration_details",
+          type: "item.completed",
+        },
+      ],
+      transcriptJsonlBySessionKey: new Map([
+        [
+          "agent:main:otto-workspace-chat:channel:workspace:conv_1",
+          [
+            JSON.stringify({
+              message: {
+                content: [
+                  {
+                    arguments: {
+                      commandPath: ["issue", "search"],
+                      detailType: "command",
+                      integrationKey: "linear",
+                    },
+                    id: "call_details_1",
+                    name: "get_integration_details",
+                    type: "tool_call",
+                  },
+                ],
+                role: "assistant",
+                timestamp: 1,
+              },
+              type: "message",
+            }),
+          ].join("\n"),
+        ],
+      ]),
+    })
+
+    assert.equal(events[0]?.title, "Reviewed Search Linear issues details")
+    assert.deepEqual(events[0]?.payload.activityPresentation, {
+      kind: "read",
+      source: {
+        commandKey: "issue.search",
+        integrationKey: "linear",
+        kind: "integration_command",
+      },
+      title: "Reviewed Search Linear issues details",
+    })
+  })
 })
