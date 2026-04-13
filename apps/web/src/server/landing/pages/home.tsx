@@ -24,19 +24,12 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
       footerPromptSlot={
         <div className="flex w-full max-w-4xl flex-col items-center gap-5 text-center">
           <div className="flex flex-col gap-3">
-            <LandingSectionEyebrow>
-              Start with one business brief
-            </LandingSectionEyebrow>
             <h2 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-              Tell Otto what you are building and what is breaking down
+              Just tell Otto what you are building
             </h2>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              The chat window is the fastest path in. Tomorrow the live
-              qualification loop plugs into the same surface.
-            </p>
           </div>
           <LandingPromptComposer
-            examplesHeading="Or start with one of these business briefs"
+            examplesHeading="Or try one of these"
             prompt={finalPrompt}
           />
         </div>
@@ -137,14 +130,13 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
       <LandingSection className="pb-18 md:pb-24" id="how-it-works">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:items-start">
           <div className="flex flex-col gap-5">
-            <LandingSectionEyebrow>How Otto helps</LandingSectionEyebrow>
+            <LandingSectionEyebrow>How it works</LandingSectionEyebrow>
             <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              From one business brief to a clearer next move
+              Just tell Otto what you are building
             </h2>
             <p className="max-w-xl text-base leading-7 text-muted-foreground">
-              The interaction model is simple: start with the business. Otto
-              helps qualify the operating gaps, the next step, and the system
-              needed around the product.
+              Otto figures out the gaps, puts together a plan, and helps you go
+              from there — through launch and beyond.
             </p>
 
             <div className="mt-2 flex flex-col gap-6">
@@ -169,8 +161,8 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
           <div className="grid gap-4">
             <div className="rounded-[1.25rem] border border-border/70 bg-[#f7f4ef] p-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Otto operating brief</span>
-                <span>Qualify the next step</span>
+                <span>Chat with Otto</span>
+                <span>What happens next</span>
               </div>
 
               <div className="mt-5 rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
@@ -197,8 +189,8 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
                     Immediate outcome
                   </p>
                   <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                    Otto turns the brief into a clearer operating plan instead
-                    of leaving the founders to improvise the next move.
+                    Otto turns the conversation into a clear plan — and stays
+                    with you through implementation and launch.
                   </p>
                 </div>
               </div>
