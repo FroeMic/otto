@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
+import { ShellStage } from "./ShellStage"
+import { ShellViewport } from "./ShellViewport"
 import { SettingsSidebar } from "./SettingsSidebar"
 
 interface BreadcrumbSegment {
@@ -134,51 +136,57 @@ export function SettingsShell({ children, orgSlug }: SettingsShellProps) {
   )
 
   return (
-    <SidebarProvider>
-      <SettingsSidebar
-        currentOrganization={{
-          name: shellData.currentOrganization.name,
-          slug: shellData.currentOrganization.slug,
-        }}
-        user={shellData.user}
-      />
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b px-4 md:px-6">
-          <SidebarTrigger />
-          <Separator
-            orientation="vertical"
-            className="data-vertical:h-4 data-vertical:self-auto"
+    <ShellViewport>
+      <ShellStage>
+        <SidebarProvider className="h-full min-h-0">
+          <SettingsSidebar
+            currentOrganization={{
+              name: shellData.currentOrganization.name,
+              slug: shellData.currentOrganization.slug,
+            }}
+            user={shellData.user}
           />
-          <div className="min-w-0 text-sm">
-            <Link
-              className="font-medium hover:underline"
-              params={{ orgSlug: shellData.currentOrganization.slug }}
-              to="/$orgSlug/settings/workspace"
-            >
-              Settings
-            </Link>
-            {breadcrumbs.map((segment) => (
-              <span key={segment.label}>
-                <span className="mx-2 text-muted-foreground">/</span>
-                {segment.href ? (
-                  <Link
-                    className="truncate text-muted-foreground hover:text-foreground hover:underline"
-                    preload="intent"
-                    to={segment.href}
-                  >
-                    {segment.label}
-                  </Link>
-                ) : (
-                  <span className="truncate text-muted-foreground">
-                    {segment.label}
+          <SidebarInset className="min-h-0 overflow-hidden">
+            <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4 md:px-6">
+              <SidebarTrigger />
+              <Separator
+                orientation="vertical"
+                className="data-vertical:h-4 data-vertical:self-auto"
+              />
+              <div className="min-w-0 text-sm">
+                <Link
+                  className="font-medium hover:underline"
+                  params={{ orgSlug: shellData.currentOrganization.slug }}
+                  to="/$orgSlug/settings/workspace"
+                >
+                  Settings
+                </Link>
+                {breadcrumbs.map((segment) => (
+                  <span key={segment.label}>
+                    <span className="mx-2 text-muted-foreground">/</span>
+                    {segment.href ? (
+                      <Link
+                        className="truncate text-muted-foreground hover:text-foreground hover:underline"
+                        preload="intent"
+                        to={segment.href}
+                      >
+                        {segment.label}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-muted-foreground">
+                        {segment.label}
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-            ))}
-          </div>
-        </header>
-        <div className="flex flex-1 flex-col px-4 py-6 md:px-6">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+                ))}
+              </div>
+            </header>
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-6 md:px-6">
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </ShellStage>
+    </ShellViewport>
   )
 }
