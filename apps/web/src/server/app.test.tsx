@@ -28,8 +28,21 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Public site placeholder")
+    expect(text).toContain("Otto is the AI that runs your software business")
+    expect(text).toContain(
+      "Developing software is solved. Running a software business is not.",
+    )
     expect(text).toContain("/assets/workspace.css")
+  })
+
+  it("prefills the landing prompt from the query string", async () => {
+    const response = await app.request(
+      `http://localhost/?prompt=${encodeURIComponent("Help me run support and onboarding.")}`,
+    )
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain("Help me run support and onboarding.")
   })
 
   it("renders the pricing page", async () => {
@@ -37,7 +50,7 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Keep the first pricing story simple.")
+    expect(text).toContain("Start with one clear path into Otto")
   })
 
   it("renders a same-origin login page that preserves the return target", async () => {
@@ -51,6 +64,17 @@ describe("web app", () => {
     expect(text).toContain(
       "/auth/sign-in?returnTo=%2Facme%2Fsettings%2Fworkspace",
     )
+  })
+
+  it("keeps a submitted landing brief visible on the login page", async () => {
+    const response = await app.request(
+      `http://localhost/login?returnTo=%2F&prompt=${encodeURIComponent("I need help with SaaS onboarding.")}`,
+    )
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain("Your business brief")
+    expect(text).toContain("I need help with SaaS onboarding.")
   })
 
   it("does not own auth routes at the web layer", async () => {
