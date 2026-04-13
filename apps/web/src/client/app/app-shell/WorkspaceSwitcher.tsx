@@ -55,21 +55,21 @@ export function WorkspaceSwitcher({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size="lg"
+                className="h-11 rounded-2xl px-2 aria-expanded:bg-muted"
+              />
             }
           >
-            <Avatar>
+            <Avatar className="size-9">
               <AvatarFallback>{fallback || "OT"}</AvatarFallback>
             </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">
+            <div className="min-w-0 flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold">
                 {currentOrganization.name}
               </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {currentOrganization.slug}
-              </span>
             </div>
-            <CaretUpDown className="ml-auto size-4" />
+            <CaretUpDown className="size-4 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"

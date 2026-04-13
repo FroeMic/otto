@@ -1,5 +1,9 @@
 "use client"
 
+import { PlusIcon } from "@phosphor-icons/react"
+import { Link } from "@tanstack/react-router"
+
+import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -42,11 +46,24 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset">
-      <SidebarHeader className="shrink-0 gap-3">
-        <WorkspaceSwitcher
-          currentOrganization={currentOrganization}
-          organizations={organizations}
-        />
+      <SidebarHeader className="shrink-0 gap-3 border-b border-sidebar-border/70 pb-3">
+        <div className="flex items-center gap-2 px-2 pt-1">
+          <WorkspaceSwitcher
+            className="min-w-0 flex-1"
+            currentOrganization={currentOrganization}
+            organizations={organizations}
+          />
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="shrink-0 rounded-full border-sidebar-border bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            render={<Link params={{ orgSlug }} preload="intent" to="/$orgSlug" />}
+            aria-label="Open agent"
+            title="Open agent"
+          >
+            <PlusIcon />
+          </Button>
+        </div>
         <WorkspacePrimaryNav orgSlug={orgSlug} />
       </SidebarHeader>
 
@@ -54,7 +71,7 @@ export function WorkspaceSidebar({
         <ConversationHistorySection orgSlug={orgSlug} />
       </SidebarContent>
 
-      <SidebarFooter className="shrink-0">
+      <SidebarFooter className="shrink-0 border-t border-sidebar-border/70 pt-3">
         {user.isPlatformAdmin ? (
           <WorkspaceFooterPlatformLink orgSlug={orgSlug} />
         ) : null}
@@ -67,4 +84,3 @@ export function WorkspaceSidebar({
     </Sidebar>
   )
 }
-

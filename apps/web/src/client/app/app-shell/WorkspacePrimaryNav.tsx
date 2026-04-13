@@ -4,6 +4,7 @@ import {
   CalendarBlankIcon,
   ChatsTeardropIcon,
   LightningIcon,
+  SparkleIcon,
 } from "@phosphor-icons/react"
 import { Link, useMatchRoute } from "@tanstack/react-router"
 import type { ComponentType } from "react"
@@ -23,6 +24,7 @@ interface WorkspacePrimaryNavItemProps {
   label: string
   orgSlug: string
   to:
+    | "/$orgSlug"
     | "/$orgSlug/scheduled-tasks/tasks"
     | "/$orgSlug/skills"
     | "/$orgSlug/sessions"
@@ -36,7 +38,9 @@ function WorkspacePrimaryNavItem({
 }: WorkspacePrimaryNavItemProps) {
   const matchRoute = useMatchRoute()
   const isActive = Boolean(
-    matchRoute({ fuzzy: true, params: { orgSlug }, to }),
+    to === "/$orgSlug"
+      ? matchRoute({ params: { orgSlug }, to })
+      : matchRoute({ fuzzy: true, params: { orgSlug }, to }),
   )
 
   return (
@@ -56,6 +60,12 @@ function WorkspacePrimaryNavItem({
 export function WorkspacePrimaryNav({ orgSlug }: WorkspacePrimaryNavProps) {
   return (
     <SidebarMenu>
+      <WorkspacePrimaryNavItem
+        icon={SparkleIcon}
+        label="Agent"
+        orgSlug={orgSlug}
+        to="/$orgSlug"
+      />
       <WorkspacePrimaryNavItem
         icon={ChatsTeardropIcon}
         label="Sessions"
@@ -77,4 +87,3 @@ export function WorkspacePrimaryNav({ orgSlug }: WorkspacePrimaryNavProps) {
     </SidebarMenu>
   )
 }
-

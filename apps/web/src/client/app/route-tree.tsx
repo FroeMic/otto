@@ -71,12 +71,12 @@ import {
 } from "@/features/workspace/api/workspace"
 import { UserProfilePage } from "@/features/workspace/pages/UserProfilePage"
 import { WorkspaceMembersPage } from "@/features/workspace/pages/WorkspaceMembersPage"
-import { WorkspaceOverviewPage } from "@/features/workspace/pages/WorkspaceOverviewPage"
 import { WorkspaceSettingsPage } from "@/features/workspace/pages/WorkspaceSettingsPage"
 import {
   workspaceChatConversationDetailQueryOptions,
   workspaceChatConversationListQueryOptions,
 } from "@/features/workspace-chat/api/chat"
+import { WorkspaceAgentPage } from "@/features/workspace-chat/pages/WorkspaceAgentPage"
 import { WorkspaceConversationPage } from "@/features/workspace-chat/pages/WorkspaceConversationPage"
 
 function WorkspaceRouteOutlet() {
@@ -104,7 +104,7 @@ async function importPlatformApiModule() {
 function WorkspaceOverviewRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
-  return <WorkspaceOverviewPage orgSlug={orgSlug} />
+  return <WorkspaceAgentPage orgSlug={orgSlug} />
 }
 
 function WorkspaceConversationRoutePage() {
@@ -478,7 +478,7 @@ const workspaceConversationRoute = createRoute({
   getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(
+      context.queryClient.fetchInfiniteQuery(
         workspaceChatConversationListQueryOptions(params.orgSlug),
       ),
       context.queryClient.ensureQueryData(

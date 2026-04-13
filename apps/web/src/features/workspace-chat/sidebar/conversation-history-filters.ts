@@ -46,3 +46,38 @@ export function formatConversationHistoryTitle(title: string) {
   return title.trim() || "Untitled conversation"
 }
 
+export function describeConversationHistoryType(
+  conversation: WorkspaceChatConversationSummary,
+) {
+  if (conversation.originKind === "trigger") {
+    return "Trigger conversation"
+  }
+
+  if (conversation.originKind === "scheduled") {
+    return "Scheduled conversation"
+  }
+
+  if (conversation.visibility === "personal") {
+    return "Personal conversation"
+  }
+
+  return "Team conversation"
+}
+
+export function getConversationHistoryIndicatorClassName(
+  conversation: WorkspaceChatConversationSummary,
+) {
+  if (conversation.originKind === "trigger") {
+    return "bg-sky-500/70"
+  }
+
+  if (conversation.originKind === "scheduled") {
+    return "bg-amber-500/75"
+  }
+
+  if (conversation.visibility === "personal") {
+    return "bg-slate-400/80"
+  }
+
+  return "bg-emerald-500/75"
+}

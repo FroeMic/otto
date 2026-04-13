@@ -54,6 +54,10 @@ function useWorkspaceBreadcrumbs(
   const segments = workspacePath.split("/").filter(Boolean)
   const base = `/${orgSlug}`
 
+  if (segments.length === 0) {
+    return [{ href: null, label: "Agent" }]
+  }
+
   if (segments[0] === "sessions") {
     const sessionKey = segments[1] ?? null
     const breadcrumbs: BreadcrumbSegment[] = [
