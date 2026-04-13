@@ -166,22 +166,22 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-border/70 bg-background p-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
-            <div className="rounded-[1.2rem] border border-border/65 bg-[#f7f4ef] p-5">
+          <div className="grid gap-4">
+            <div className="rounded-[1.25rem] border border-border/70 bg-[#f7f4ef] p-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Otto operating brief</span>
                 <span>Qualify the next step</span>
               </div>
 
-              <div className="mt-5 rounded-[1rem] border border-border/65 bg-background px-4 py-4">
+              <div className="mt-5 rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
                 <p className="text-sm font-medium leading-6 text-foreground">
                   We launched our SaaS, but onboarding, support, and follow-up
                   are still handled manually by the founders.
                 </p>
               </div>
 
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-[1rem] border border-border/65 bg-background px-4 py-4">
+              <div className="mt-5 grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
                   <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
                     What Otto sees
                   </p>
@@ -192,27 +192,32 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
                   </ul>
                 </div>
 
-                <div className="rounded-[1rem] border border-border/65 bg-background px-4 py-4">
+                <div className="rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
                   <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
-                    What Otto helps run
+                    Immediate outcome
                   </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    {landingOperatingPillars.map((pillar) => (
-                      <div
-                        className="rounded-[0.85rem] border border-border/60 bg-[#fdfcf8] px-3 py-3"
-                        key={pillar.title}
-                      >
-                        <p className="text-sm font-medium text-foreground">
-                          {pillar.title}
-                        </p>
-                        <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                          {pillar.description}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                    Otto turns the brief into a clearer operating plan instead
+                    of leaving the founders to improvise the next move.
+                  </p>
                 </div>
               </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {landingOperatingPillars.map((pillar) => (
+                <article
+                  className="rounded-[1.1rem] border border-border/70 bg-background px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+                  key={pillar.title}
+                >
+                  <h3 className="text-xl font-semibold tracking-tight text-foreground">
+                    {pillar.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                    {pillar.description}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
         </div>
