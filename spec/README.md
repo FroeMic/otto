@@ -78,7 +78,7 @@ This folder is the source of truth for implementation planning and session-to-se
 22. `TODO_21_workspace_multiplayer_chat_and_web_channel.md`
 23. `DONE_22_workspace_chat_activity_events_and_transparency.md`
 24. `DONE_23_legacy_web_retirement_and_domain_cutover.md`
-25. `TODO_24_web_codebase_contraction.md`
+25. `DONE_24_web_codebase_contraction.md`
 
 ## Trigger.dev decision
 

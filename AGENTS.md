@@ -98,7 +98,8 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 ## Repository shape
 
 - `spec/` stores planning state and implementation sequencing.
-- `web/` is the current legacy control-plane app and worker/gateway home.
+- `apps/web`, `apps/api`, `apps/worker`, and `apps/gateway` are the active execution surfaces.
+- `drizzle/` at the repo root owns the active Drizzle migrations.
 - `runtime-image/` and `runtime-plugins/` are separate runtime concerns and should not be conflated with the browser-app migration.
 - The planned long-term direction is captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - unified frontend
@@ -110,7 +111,6 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 ## Package manager and command expectations
 
 - Bun is the preferred package manager and local task runner for new repo-level work, especially the planned `apps/` and `packages/` layout.
-- For existing `web/` work, use `bun run ...` inside `web/` by default unless a task specifically requires `npm`.
 - During migration, do not treat Bun package-manager adoption and Bun runtime adoption as the same decision:
   - Bun should be the default tooling choice
   - runtime selection can remain service-specific until compatibility is proven
@@ -120,7 +120,7 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 Highlight these skills when relevant:
 
 - `shadcn`
-  - use for shadcn CLI usage, component selection, forms, navigation, and UI composition in `web/`
+  - use for shadcn CLI usage, component selection, forms, navigation, and UI composition in `apps/web`
 - `test-driven-development`
   - use when implementing behavior with a test-first or test-led workflow
 - `typescript-advanced-types`
@@ -136,14 +136,13 @@ Highlight these skills when relevant:
 
 ## Skill trigger rules
 
-- If working in `web/` on UI, layout, forms, navigation, settings, onboarding, or shadcn components, use `shadcn` first.
+- If working in `apps/web` on UI, layout, forms, navigation, settings, onboarding, or shadcn components, use `shadcn` first.
 - If designing React component APIs anywhere in the repo, use `vercel-composition-patterns`.
 - If implementing React or Next.js UI behavior anywhere in the repo, use `vercel-react-best-practices`.
 - If doing visual or layout planning for browser-facing UI, use `web-design-guidelines`.
 - If the task centers on advanced TypeScript modeling, use `typescript-advanced-types`.
 - If the task centers on TanStack Router route structure, typed navigation, loaders, or search-param design, use `tanstack-router`.
 - If the task is explicitly test-led or should be driven by executable tests first, use `test-driven-development`.
-- When working in `web/`, also inspect the local skill files under `web/.agents/skills/` before implementing UI changes.
 
 ## Repo expectations
 

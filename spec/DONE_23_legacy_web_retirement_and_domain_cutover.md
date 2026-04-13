@@ -137,7 +137,7 @@ Should only remain until the above PRs eliminate the last legitimate dependency.
 ## Follow-on work
 
 - `web/` still carries duplicated backend/runtime code and migration ownership that now need a dedicated cleanup pass
-- that follow-on is tracked in `TODO_24_web_codebase_contraction.md`
+- that follow-on is tracked in `DONE_24_web_codebase_contraction.md`
 
 ## Acceptance criteria
 

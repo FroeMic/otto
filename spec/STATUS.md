@@ -4,7 +4,7 @@
 
 - `Otto` means the product/brand and the user-facing agent experience.
 - `workspace` means the user-facing web UI, org-scoped area, and link into the app.
-- `control plane` means the backend system: `web/`, API routes, worker, orchestration logic, and DB-backed management.
+- `control plane` means the backend system: API routes, worker, orchestration logic, and DB-backed management.
 - `tenant runtime` means the provisioned runtime running on a tenant server.
 - `tenant server` means the provisioned VPS/host.
 - `control plane` stays internal. Avoid `control plane`, `control-plane`, and `Otto link` in user-facing or agent-facing copy.
@@ -15,7 +15,7 @@
 - Repository state is still mostly bootstrap.
 - The newer long-term browser-app direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
   - the landing page and workspace should converge into one browser-facing frontend over time
-  - `web/` is now a shrinking legacy residue rather than the active workspace boundary
+  - the legacy `web/` folder is now gone; extracted apps and packages are the only live owners
 - The unified frontend migration has now moved from planning into the first implementation slice:
   - Phase 0 has started
   - the first complete port target was the `www/` port into `apps/web`
@@ -38,7 +38,7 @@
   - `apps/worker` now owns its env, queue, and execution behavior directly under `apps/worker/src/runtime`, so worker-only runtime logic no longer lives in a repo-level shared package
   - the Bun worker now runs per-lane slot loops instead of waiting for one lane-wide `Promise.allSettled(...)` batch, so one hung job only ties up one slot instead of stalling the whole lane
   - tenant apply jobs now use shorter stale-reclaim windows: 1 minute for config-only apply and 3 minutes for pull-image-first apply, while other jobs keep the default worker stale timeout
-  - the legacy `web/src/worker/index.ts` path remains untouched as the rollback target until the new worker container wiring is deployed and verified
+  - the worker runtime now lives under `apps/worker/src/runtime` without a legacy `web/` fallback copy in the repo
 - The first API extraction slice now also exists in parallel:
   - Phase 3 API extraction has started
   - `apps/api` is a Bun-managed Hono service with package-level `format`, `lint`, `test`, and `build` gates
@@ -59,7 +59,7 @@
   - `packages/features/workspace-core` now owns workspace shell bootstrap, usage, and workspace settings route logic
   - `packages/features/integrations-runtime` now owns shared gateway and API runtime auth, execute, registry, and integration command behavior without carrying dormant browser UI files
   - the extracted apps consume shared packages only where the logic is actually shared
-  - legacy `web/` keeps local copies of the runtime and workspace route logic so the legacy Next.js image does not depend on repo-level shared packages
+  - the extracted apps and shared packages are now the only active runtime and workspace owners in the repo
   - `packages/legacy-control-plane-runtime` has been deleted now that no extracted service depends on it
 - The first real frontend shell now exists:
   - `apps/web` proxies `/api/*` to `apps/api` and keeps one browser origin for the new shell
@@ -75,7 +75,7 @@
   - the primary workspace sidebar no longer advertises `Overview` and no longer renders the old `Otto` section header; `Sessions`, `Scheduled Tasks`, and `Skills` now appear as the primary workspace items in that order
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
-  - `web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
+  - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
   - `/app` is no longer served by the new web shell
   - because `/auth/*`, `/oauth/*`, and `/api/*` are reserved namespaces, the edge should route those paths directly to `apps/api` instead of depending on an app-level proxy hop through `apps/web`
   - workspace bootstrap now falls back to a direct authorized slug lookup so the current workspace can still load when broader org-list projection refresh fails
@@ -92,10 +92,11 @@
   - production workspace traffic no longer depends on `legacy-web`
   - the onboarding table and callback flow have been removed
   - the temporary split-domain and split-auth env assumptions have been collapsed to one public origin
-- The next cleanup track is now explicit:
-  - `TODO_24_web_codebase_contraction.md` owns the follow-on contraction of `web/`
-  - spec reconciliation, dead workspace UI removal, and migration ownership cutover to the repo root are now done
-  - the remaining work is deleting or re-homing the backend/runtime residue still parked in `web/`
+- Legacy web contraction is now also complete:
+  - `DONE_24_web_codebase_contraction.md` records the repo-root migration cutover and final deletion of `web/`
+  - root `drizzle/` now owns migrations
+  - root Docker/env entrypoints now own local and production operations
+  - the legacy `web/` folder has been deleted from the repo
 - The unified-origin API shape is now explicit in the migration plan:
   - the long-term public API surface should live under `/api/v1/*`
   - Otto-internal and runtime-control routes should live under `/api/internal/*`
@@ -104,15 +105,14 @@
   - `packages/features/workspace-slugs` is the shared source of truth for protected top-level namespaces
   - workspace onboarding, workspace slug updates, and generated slugs must reject reserved public and system paths
   - the reserved namespace list is documented in [spec/RESERVED_WORKSPACE_SLUGS.md](./RESERVED_WORKSPACE_SLUGS.md)
-- `web/` now has initial env, schema, worker, and service scaffolding.
-- Agents should use `bun run ...` by default for `web/` scripts.
-- WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in `web/`.
+- Historical milestone notes below may still mention former `web/` paths as implementation history. Treat those as breadcrumbs, not current ownership.
+- WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in the extracted app surfaces.
 - The local fake provisioning slice now works end to end:
   - queued `provision_tenant_server` jobs are claimed by the worker
   - job steps are persisted and resumable across claims
   - tenant and server rows advance to `ready`
   - fake provider metadata and IPs are written back to the dashboard
-- The Hetzner client and minimal cloud-init renderer now exist in `web/`, and the worker will use the real provider when `HETZNER_API_TOKEN` is configured.
+- The Hetzner client and minimal cloud-init renderer now live under the extracted runtime/worker code, and the worker will use the real provider when `HETZNER_API_TOKEN` is configured.
 - The real Hetzner path now waits for an SSH banner before finishing provisioning.
 - The real Hetzner path now performs an initial runtime bootstrap over SSH before marking the tenant ready.
 - The control plane can now:
@@ -669,11 +669,7 @@
 
 ## Next recommended implementation step
 
-- Start `TODO_24_web_codebase_contraction.md` in this order:
-  - delete or re-home the remaining backend/runtime residue in `web/`
-  - remove obsolete `web`-local package, Docker, and docs entrypoints once no live code still needs them
-  - delete the `web/` folder entirely
-- In parallel, continue `TODO_16_runtime_ai_provider_proxy.md` by:
+- Continue `TODO_16_runtime_ai_provider_proxy.md` by:
   - broadening canary coverage for `openai-proxy/gpt-5.4` plus proxied audio transcription on tenant runtimes
   - deciding whether TTS, voice-call, and embeddings should be proxied next or kept unsupported
   - adding request attribution metadata for proxied OpenAI calls so later billing and reconciliation can tie requests to the active provider credential revision
