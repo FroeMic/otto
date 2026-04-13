@@ -11,6 +11,7 @@ import {
   getWorkspaceConversationTurnName,
 } from "../presentation"
 import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
+import { ConversationPendingState } from "./ConversationPendingState"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
@@ -46,14 +47,6 @@ export function ConversationMessageBubble({
         : message.status === "failed"
           ? "Failed"
           : null
-  const placeholderText =
-    message.status === "pending"
-      ? "Otto is queued to reply."
-      : message.status === "streaming"
-        ? "Otto is working on a reply."
-        : message.status === "failed"
-          ? "Otto could not complete this reply."
-          : null
   const animatedLastTextPart = useStreamingText({
     isEnabled: isAssistant,
     messageId: message.id,
@@ -78,7 +71,10 @@ export function ConversationMessageBubble({
 
         {isAssistant ? (
           <div className="flex w-full flex-col gap-3 pl-10">
-            <ConversationAssistantTrace events={events} />
+            <ConversationAssistantTrace
+              events={events}
+              startedAt={message.createdAt}
+            />
             <div className="flex flex-col gap-3">
               {textParts.map((part, index) => {
                 const displayText =
@@ -94,26 +90,18 @@ export function ConversationMessageBubble({
                 )
               })}
 
-              {textParts.length === 0 && placeholderText ? (
-                <div className="flex flex-col gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
-                  <p className="text-sm text-muted-foreground">
-                    {placeholderText}
-                  </p>
-                  {message.status === "streaming" ? (
-                    <div className="flex gap-1">
-                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.2s]" />
-                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.1s]" />
-                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40" />
-                    </div>
-                  ) : null}
-                </div>
+              {textParts.length === 0 ? (
+                <ConversationPendingState
+                  startedAt={message.createdAt}
+                  status={message.status}
+                />
               ) : null}
             </div>
           </div>
         ) : (
           <div
             className={cn(
-              "max-w-[85%] rounded-[1.5rem] px-4 py-3 shadow-sm",
+              "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
               turnKind === "current_user"
                 ? "bg-secondary text-foreground"
                 : "bg-muted/70 text-foreground",
