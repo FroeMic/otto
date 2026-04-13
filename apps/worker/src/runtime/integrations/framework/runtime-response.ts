@@ -148,7 +148,10 @@ function buildCommandDetails(input: {
   status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationCommandDetails {
   return {
-    activityPresentation: input.command.activityPresentation,
+    activityPresentation: buildActivityPresentation({
+      command: input.command,
+      integrationKey: input.integrationKey,
+    }),
     argumentsSchema: input.command.argumentsSchema,
     capabilityState: resolveCommandCapabilityState({
       command: input.command,
@@ -266,6 +269,10 @@ export function buildRuntimeIntegrationCommandMatch(input: {
   status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationCommandMatch {
   return {
+    activityPresentation: buildActivityPresentation({
+      command: input.command,
+      integrationKey: input.definition.key,
+    }),
     commandGroupPath: input.command.commandPath.slice(0, -1),
     commandKey: input.command.commandKey,
     commandLabel: input.command.label,
@@ -275,5 +282,23 @@ export function buildRuntimeIntegrationCommandMatch(input: {
     integrationLabel: input.definition.label,
     needsAttention: input.status.needsAttention,
     reason: input.reason,
+  };
+}
+
+function buildActivityPresentation(input: {
+  command: IntegrationRuntimeCommandDefinition;
+  integrationKey: string;
+}) {
+  if (!input.command.activityPresentation) {
+    return undefined;
+  }
+
+  return {
+    ...input.command.activityPresentation,
+    source: {
+      commandKey: input.command.commandKey,
+      integrationKey: input.integrationKey,
+      kind: "integration_command" as const,
+    },
   };
 }

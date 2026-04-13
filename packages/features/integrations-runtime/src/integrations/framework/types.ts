@@ -30,9 +30,16 @@ export type IntegrationCommandActivityPresentationIconKey =
   | "skill"
   | (string & {});
 
+export type IntegrationCommandActivityPresentationSource = {
+  commandKey: string;
+  integrationKey: string;
+  kind: "integration_command";
+};
+
 export type IntegrationCommandActivityPresentation = {
   iconKey?: IntegrationCommandActivityPresentationIconKey;
   kind: IntegrationCommandActivityPresentationKind;
+  source?: IntegrationCommandActivityPresentationSource;
   title: string;
 };
 
@@ -234,6 +241,7 @@ export type RuntimeIntegrationDetailsResponse = {
 };
 
 export type RuntimeIntegrationCommandMatch = {
+  activityPresentation?: IntegrationCommandActivityPresentation;
   commandGroupPath: string[];
   commandKey: string;
   commandLabel: string;

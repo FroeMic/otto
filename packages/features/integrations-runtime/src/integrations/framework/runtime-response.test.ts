@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildRuntimeIntegrationCommandMatch,
   buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationSummaryResponse,
 } from "./runtime-response";
@@ -116,6 +117,49 @@ describe("runtime integration response settings guidance", () => {
     assert.deepEqual(response.command?.activityPresentation, {
       iconKey: "linear",
       kind: "search",
+      source: {
+        commandKey: "issue.search",
+        integrationKey: "slack",
+        kind: "integration_command",
+      },
+      title: "Search Linear issues",
+    });
+  });
+
+  it("includes activity presentation hints for command matches", () => {
+    const response = buildRuntimeIntegrationCommandMatch({
+      command: {
+        activityPresentation: {
+          iconKey: "linear",
+          kind: "search",
+          title: "Search Linear issues",
+        },
+        commandKey: "issue.search",
+        commandPath: ["issue", "search"],
+        description: "Search issues.",
+        argumentsSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        inputMode: "json",
+        label: "Search issues",
+        resultMode: "json",
+        execute: async () => ({}),
+      },
+      definition: settingsDefinition,
+      reason: "Search issues is the best matching command.",
+      status: connectedStatus,
+    });
+
+    assert.deepEqual(response.activityPresentation, {
+      iconKey: "linear",
+      kind: "search",
+      source: {
+        commandKey: "issue.search",
+        integrationKey: "slack",
+        kind: "integration_command",
+      },
       title: "Search Linear issues",
     });
   });
