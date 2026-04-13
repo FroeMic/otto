@@ -132,8 +132,20 @@
   - when `RUNTIME_MODEL_PRIMARY` is set to `openai-proxy/...`, tenant `openclaw.json` now projects `models.providers.openai-proxy` plus the bundled `otto-ai-provider` plugin
   - runtime inference requests now target a runtime-authenticated control-plane OpenAI Responses proxy at `/api/internal/runtime/ai/openai/v1/responses`
   - tenant audio transcription can now also route through the same `openai-proxy` provider using the control-plane OpenAI audio transcription proxy at `/api/internal/runtime/ai/openai/v1/audio/transcriptions`
+  - Otto does not yet proxy OpenAI-compatible embeddings, so managed memory still needs a dedicated `/api/internal/runtime/ai/openai/v1/embeddings` follow-on before tenant runtimes can use proxy-owned embedding credentials
   - tenant runtime `.env` no longer receives `OPENAI_API_KEY`
   - OpenAI key rotation now updates Otto DB state only and no longer reapplies or verifies tenant runtime env
+- Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
+  - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
+  - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes
+  - `memory-core` is currently disabled by default in rendered tenant config, so managed memory requires explicit config projection and allowlist updates
+  - OpenClaw `Active Memory` is present in current docs/main but not in the stable `v2026.4.9` tag Otto is currently aligned to, so it is a canary/follow-on feature rather than part of the first stable spec
+- The OpenClaw `2026.4.12` runtime-base upgrade planning now lives in `TODO_27_openclaw_2026_4_12_runtime_upgrade.md`:
+  - the latest verified upstream release is `v2026.4.12` published April 13, 2026
+  - the main Otto-side risk is stricter plugin loading and activation around manifest-declared metadata, not model or memory behavior
+  - Otto's bundled runtime plugins now all carry `package.json` metadata plus `openclaw.extensions`, including `otto-web-provider`, `otto-integrations`, `otto-session-reporter`, and `otto-workspace-chat`
+  - the repo defaults and custom runtime image baseline are now bumped from `2026.4.8` to `2026.4.12`
+  - because nothing is in production yet, the recommended strategy remains: metadata normalization first, then the base-image bump, then local and canary validation, rather than building a long-lived compatibility layer
 - The first raw OpenAI usage-ingestion foundation now exists:
   - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
   - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
@@ -221,7 +233,7 @@
   - rendered tenant runtime config now enables both Otto plugins and allowlists them as optional tools when the control plane can derive a public base URL
   - rendered tenant runtime config now also emits explicit `enabled: false` entries for non-selected bundled provider and memory plugins, so managed runtimes do not inherit OpenClaw's upstream provider defaults accidentally
   - `publish-runtime-image.sh` now provides a repeatable GHCR publish path for the custom runtime image and prints the exact `RUNTIME_OPENCLAW_IMAGE` value to deploy
-  - the plugin packaging is now aligned with the released OpenClaw `2026.4.8` native plugin layout (`definePluginEntry`, `package.json` `openclaw.extensions`, and manifest-declared tool contracts)
+  - the plugin packaging is now aligned with current bundled OpenClaw plugin layout expectations, including `package.json` `openclaw.extensions` on every Otto-bundled runtime plugin
   - the obsolete legacy `web/src/app/api/internal/runtime/surfaces/*` handlers and the old runtime-surface verifier script have now been removed because active tenant-runtime traffic no longer depends on that surface family
 - Runtime release rollout planning is now captured in `TODO_11_runtime_release_rollout.md`:
   - replace `RUNTIME_OPENCLAW_IMAGE` with a DB-backed active runtime release
@@ -538,8 +550,16 @@
   - managed-skill seeding now installs an Otto-owned `skill-creator` system skill into each workspace with higher precedence than the bundled OpenClaw copy
   - the Otto `skill-creator` override is visible in the Skills UI and available to Otto, but it is system-managed and non-editable through the workspace or runtime-managed skills surface
   - the managed-skills spec has now been tightened so every workspace-visible skill should be managed, `SKILL.md` lifecycle changes must flow through the managed APIs, and `references/`, `scripts/`, and `state/` should use the normal workspace file surface
-  - the next recommended slice is Increment 9: reduce the runtime plugin and APIs to the authoritative managed lifecycle surface (`list`, `get`, `create`, `update`, `delete`) with patch-oriented updates and explicit delete semantics
-  - after that, finish Increment 5 through the normal workspace file surface for runtime-local `references/`, `scripts/`, and `state/`, then implement Increment 10 for unmanaged-skill enforcement and drift handling
+  - the next planning extension now also captures skill distribution, permanence, and catalog behavior:
+    - current application state has one Otto-owned system skill (`skill-creator`) and a binary mutability rule based mostly on `sourceType`
+    - Otto still lacks a simple first-class model for canonical skill definitions plus per-workspace installation state
+    - Otto still lacks a discoverable catalog surface for Otto-owned but uninstalled skills
+    - the requested direction is now to support:
+      - canonical Otto-owned skill definitions stored in the control plane
+      - locked workspace installations for permanent Otto skills that remain visible and projected but not editable, disableable, renamable, or deletable
+      - normal unlocked skills that Otto may later delete when they are workspace-created or otherwise removable by policy
+      - a separate Otto-owned skill catalog that Otto can search when a relevant skill is missing and install into a workspace without exposing uninstalled entries as native runtime skills
+  - the next recommended slice is now: extract shared canonical-definition and installation-state logic into one bounded-context package, then implement Increment 12 for canonical Otto definitions and locked installations and Increment 13 for catalog discovery and install, then return to Increment 9, Increment 5, and Increment 10
 - OAuth connected-accounts planning is now captured in `TODO_19_oauth_connected_accounts_substrate.md`:
   - OAuth session state, durable connections, encrypted credentials, and refresh lifecycle should live in Postgres under Otto ownership
   - provider-specific quirks such as Linear `actor=app`, PKCE, and scope formatting should live behind a small provider definition interface

@@ -80,6 +80,8 @@ This folder is the source of truth for implementation planning and session-to-se
 24. `DONE_23_legacy_web_retirement_and_domain_cutover.md`
 25. `DONE_24_web_codebase_contraction.md`
 26. `TODO_25_app_shell_layout_and_notifications.md`
+27. `TODO_26_managed_runtime_memory.md`
+28. `TODO_27_openclaw_2026_4_12_runtime_upgrade.md`
 
 ## Trigger.dev decision
 
