@@ -29,16 +29,16 @@ export function LandingSecurityPage() {
             Make the trust story operationally legible
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            Otto should make operating controls, connected systems, and runtime
-            behavior visible early, instead of treating security as a vague
-            afterthought.
+            Otto should make connected systems, operating controls, and runtime
+            behavior visible early, instead of hiding them behind vague AI
+            claims.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
           {securityCards.map((card) => (
             <article
-              className="rounded-[2rem] border border-border/60 bg-card/75 p-8 shadow-sm"
+              className="rounded-[2rem] border border-border/70 bg-background p-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]"
               key={card.title}
             >
               <h2 className="text-2xl font-semibold tracking-tight">
