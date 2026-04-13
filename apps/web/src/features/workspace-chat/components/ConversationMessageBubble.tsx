@@ -12,7 +12,6 @@ import {
   getWorkspaceConversationTurnName,
 } from "../presentation"
 import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
-import { ConversationPendingState } from "./ConversationPendingState"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
@@ -93,16 +92,6 @@ export function ConversationMessageBubble({
                   </p>
                 )
               })}
-
-              {textParts.length === 0 ? (
-                events.length === 0 ? (
-                  <ConversationPendingState
-                    startedAt={message.createdAt}
-                    status={message.status}
-                  />
-                ) : null
-              ) : null}
-
               {fileParts.length > 0 || audioParts.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {fileParts.map((part, index) => (

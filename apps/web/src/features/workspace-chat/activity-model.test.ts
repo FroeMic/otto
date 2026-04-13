@@ -218,7 +218,7 @@ describe("workspace chat activity model", () => {
           kind: "lifecycle",
           status: "completed",
           title: "Completed",
-          visibility: "primary",
+          visibility: "debug",
         },
         {
           events: ["assistant_message.started"],
@@ -258,6 +258,19 @@ describe("workspace chat activity model", () => {
         title: "read from ~/.openclaw/workspace/skills/linear-triage/SKILL.md",
         type: "item.completed",
       },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:02.000Z",
+        id: "evt_3",
+        itemId: "tool:call_3",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 3,
+        status: "completed",
+        title:
+          "read lines 1-250 from ~/.openclaw/workspace-chat-attachments/conv_1/78b7f653-7866-4fd0-8d17-da5ed100b93f-background-agents-deck.html",
+        type: "item.completed",
+      },
     ])
 
     assert.deepEqual(
@@ -295,6 +308,76 @@ describe("workspace chat activity model", () => {
             title: "Reviewed linear-triage instructions",
           },
           title: "Reviewed linear-triage instructions",
+        },
+        {
+          id: "item:tool:call_3",
+          presentation: {
+            kind: "read",
+            title: "Reviewed attached file background-agents-deck.html",
+          },
+          title: "Reviewed attached file background-agents-deck.html",
+        },
+      ],
+    )
+  })
+
+  it("hides raw internal execution entries from the user-facing trace", () => {
+    const model = buildWorkspaceChatActivityModel([
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:00.000Z",
+        id: "evt_1",
+        itemId: "tool:call_1",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 1,
+        status: "completed",
+        title: "exec run python3 inline script (heredoc)",
+        type: "item.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:01.000Z",
+        id: "evt_2",
+        itemId: "tool:call_2",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 2,
+        status: "completed",
+        title: "canvas target deck, node abc123",
+        type: "item.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:02.000Z",
+        id: "evt_3",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 3,
+        status: "failed",
+        summary: "ModuleNotFoundError: No module named 'bs4'",
+        title: "command run python3 inline script (heredoc)",
+        type: "command_output.completed",
+      },
+    ])
+
+    assert.deepEqual(
+      model.sections[0]?.entries.map((entry) => ({
+        title: entry.title,
+        visibility: entry.visibility,
+      })),
+      [
+        {
+          title: "exec run python3 inline script (heredoc)",
+          visibility: "debug",
+        },
+        {
+          title: "canvas target deck, node abc123",
+          visibility: "debug",
+        },
+        {
+          title: "command run python3 inline script (heredoc)",
+          visibility: "debug",
         },
       ],
     )
