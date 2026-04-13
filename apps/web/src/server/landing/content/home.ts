@@ -8,7 +8,7 @@ export const landingPrimaryNavigation = [
 export const landingExamplePrompts = [
   "We have users, but onboarding and support are still manual and fragmented.",
   "Help me set up the business operations around my SaaS product.",
-  "I need an AI operating layer for customer onboarding and follow-through.",
+  "We're getting customers but losing them because follow-up is a mess.",
   "We ship fast, but the business side still runs on scattered tools and manual work.",
 ] as const
 
@@ -50,19 +50,19 @@ export const landingAudienceCards = [
 
 export const landingHowItWorks = [
   {
-    body: "Describe what you are building, where you are in the journey, and where the business side is breaking down.",
+    body: "Just chat. Tell Otto where you are and what is not working yet.",
     step: "01",
-    title: "Start with a business brief",
+    title: "Talk to Otto",
   },
   {
-    body: "Use one prompt to clarify the stage, the operating gaps, and the next practical move. This is where the live qualification loop will plug in.",
+    body: "Otto maps out the gaps and figures out what to tackle first.",
     step: "02",
-    title: "Let Otto qualify what matters next",
+    title: "Get a plan",
   },
   {
-    body: "Turn that brief into a working system for onboarding, support, handoffs, and recurring business operations.",
+    body: "Otto helps you go from plan to live — and keeps the business running after launch.",
     step: "03",
-    title: "Build the business around the product",
+    title: "Build it, launch it, run it",
   },
 ] as const
 
