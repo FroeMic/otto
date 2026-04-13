@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-const WEB_ROOT = process.cwd();
-const CADDYFILE_PATH = path.join(WEB_ROOT, "Caddyfile");
-const COMPOSE_PATH = path.join(WEB_ROOT, "docker-compose.prod.yml");
+const __filename = fileURLToPath(import.meta.url);
+const REPO_ROOT = path.resolve(path.dirname(__filename), "../../..");
+const CADDYFILE_PATH = path.join(REPO_ROOT, "Caddyfile");
+const COMPOSE_PATH = path.join(REPO_ROOT, "docker-compose.prod.yml");
 
 function getServiceBlock(compose: string, serviceName: string) {
   const pattern = new RegExp(
@@ -28,25 +30,25 @@ describe("production routing audit", () => {
     assert.match(
       caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/internal\/runtime\/integrations\/execute\* \{[\s\S]*?reverse_proxy integration-gateway:3001/,
-      "Apex domain must send integration execute traffic to integration-gateway:3001 in web/Caddyfile",
+      "Apex domain must send integration execute traffic to integration-gateway:3001 in the repo-root Caddyfile",
     );
 
     assert.match(
       caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?handle \/api\/\* \{[\s\S]*?reverse_proxy api:3002/,
-      "Apex domain must send /api/* traffic to api:3002 in web/Caddyfile",
+      "Apex domain must send /api/* traffic to api:3002 in the repo-root Caddyfile",
     );
 
     assert.match(
       caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy web:3000/,
-      "Apex domain must default to web:3000 in web/Caddyfile",
+      "Apex domain must default to web:3000 in the repo-root Caddyfile",
     );
 
     assert.doesNotMatch(
       caddyfile,
       /\{\$LANDING_PAGE_DOMAIN\}\s*\{[\s\S]*?reverse_proxy www:3000/,
-      "Apex domain must not proxy to legacy www:3000 in web/Caddyfile",
+      "Apex domain must not proxy to legacy www:3000 in the repo-root Caddyfile",
     );
   });
 

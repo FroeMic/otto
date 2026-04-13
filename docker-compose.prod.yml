@@ -32,7 +32,7 @@ services:
   migrate:
     <<: *app-env
     build:
-      context: ..
+      context: .
       dockerfile: web/Dockerfile
       args:
         NEXT_PUBLIC_POSTHOG_ENABLED: ${NEXT_PUBLIC_POSTHOG_ENABLED:-}
@@ -50,7 +50,7 @@ services:
       - .env
     image: ${OTTO_API_IMAGE:-otto-control-plane-api:local}
     build:
-      context: ..
+      context: .
       dockerfile: apps/api/Dockerfile
     environment:
       API_PORT: 3002
@@ -77,7 +77,7 @@ services:
     <<: *app-env
     image: ${OTTO_GATEWAY_IMAGE:-otto-control-plane-gateway:local}
     build:
-      context: ..
+      context: .
       dockerfile: apps/gateway/Dockerfile
     environment:
       HOSTNAME: 0.0.0.0
@@ -108,7 +108,7 @@ services:
       NODE_ENV: production
       WORKSPACE_APP_ORIGIN: https://${LANDING_PAGE_DOMAIN}
     build:
-      context: ..
+      context: .
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     healthcheck:
@@ -127,7 +127,7 @@ services:
     <<: *app-env
     image: ${OTTO_WORKER_IMAGE:-otto-control-plane-worker:local}
     build:
-      context: ..
+      context: .
       dockerfile: apps/worker/Dockerfile
     depends_on:
       postgres:

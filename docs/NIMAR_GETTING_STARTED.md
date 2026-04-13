@@ -55,7 +55,7 @@ Current flow:
 - Bun
 - Docker
 - ngrok
-- Postgres via `web/docker-compose.yml`
+- Postgres via `docker-compose.yml`
 - WorkOS credentials
 - Hetzner Cloud API token
 - Slack app credentials
@@ -63,7 +63,7 @@ Current flow:
 
 ### Important env vars
 
-In `web/.env`:
+In `.env`:
 
 ```env
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5433/otto
@@ -109,7 +109,7 @@ Notes:
 From repo root:
 
 ```bash
-docker compose -f web/docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d
 cd web && bun run db:migrate
 cd .. && bun run dev:all
 ```
