@@ -1,7 +1,12 @@
 {
   "name": "otto-session-reporter",
-  "version": "2026.4.8.1",
+  "version": "2026.4.12.1",
   "private": true,
   "type": "module",
-  "main": "index.js"
+  "main": "index.js",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
 }

@@ -1,7 +1,12 @@
 {
   "name": "@otto/openclaw-otto-integrations",
-  "version": "2026.4.8.1",
+  "version": "2026.4.12.1",
   "private": true,
   "type": "module",
-  "description": "Otto managed integrations runtime plugin"
+  "description": "Otto managed integrations runtime plugin",
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
 }
