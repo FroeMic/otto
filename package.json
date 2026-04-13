@@ -8,21 +8,23 @@
     "packages/features/*"
   ],
   "scripts": {
-    "dev": "npm --prefix web run dev",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "node scripts/wait-for-db.mjs && drizzle-kit migrate --config=drizzle.config.ts",
+    "dev": "bun run dev:web",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:frontend": "bun run dev:web",
     "dev:gateway": "bun run --cwd apps/gateway dev",
     "dev:api": "bun run --cwd apps/api dev",
     "dev:worker": "bun run --cwd apps/worker dev",
-    "worker": "npm --prefix web run worker",
-    "dev:all": "npm --prefix web run dev:all",
-    "lint": "npm --prefix web run lint",
+    "worker": "bun run dev:worker",
+    "dev:all": "sh -c 'trap \"kill 0\" EXIT INT TERM; bun run dev:api & bun run dev:gateway & bun run dev:worker & bun run dev:web'",
+    "lint": "bun run lint:web",
     "lint:web": "bun run --cwd apps/web lint",
     "lint:frontend": "bun run lint:web",
     "lint:gateway": "bun run --cwd apps/gateway lint",
     "lint:api": "bun run --cwd apps/api lint",
     "lint:worker": "bun run --cwd apps/worker lint",
-    "build": "npm --prefix web run build",
+    "build": "bun run build:web",
     "build:web": "bun run --cwd apps/web build",
     "build:frontend": "bun run build:web",
     "build:gateway": "bun run --cwd apps/gateway build",
@@ -59,5 +61,11 @@
     "check:workspace-slugs": "bun run lint:workspace-slugs && bun run test:workspace-slugs && bun run build:workspace-slugs",
     "check:workspace-core": "bun run lint:workspace-core && bun run test:workspace-core && bun run build:workspace-core",
     "runtime:image:publish": "./publish-runtime-image.sh"
+  },
+  "devDependencies": {
+    "dotenv": "17.4.1",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.44.7",
+    "postgres": "3.4.9"
   }
 }
