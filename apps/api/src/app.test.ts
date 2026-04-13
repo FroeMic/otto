@@ -130,6 +130,30 @@ describe("api app", () => {
     })
   })
 
+  it("exposes integration webhooks natively", async () => {
+    const app = createApiApp()
+    const response = await app.request(
+      "http://api.local/api/webhooks/integrations/slack/events",
+      {
+        body: JSON.stringify({
+          challenge: "challenge_123",
+          type: "url_verification",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(await response.text(), "challenge_123")
+    assert.equal(
+      response.headers.get("content-type"),
+      "text/plain; charset=utf-8",
+    )
+  })
+
   it("exposes user profile update natively", async () => {
     const app = createApiApp({
       userRoutes: {

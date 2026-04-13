@@ -64,6 +64,7 @@ import {
   RuntimeWebSearchProxyError,
 } from "./web-search"
 import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
+import { handleIntegrationWebhookRequest } from "./integration-webhooks"
 import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
 import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
@@ -72,6 +73,14 @@ import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 export function registerRuntimeRoutes(app: Hono) {
   registerWorkspaceChatRuntimeRoutes(app)
   registerTenantRuntimeBridgeStatusRoutes(app)
+
+  app.post("/api/webhooks/integrations/:provider/:endpointKey", (context) => {
+    return handleIntegrationWebhookRequest({
+      endpointKey: context.req.param("endpointKey") ?? "",
+      provider: context.req.param("provider") ?? "",
+      request: context.req.raw,
+    })
+  })
 
   app.get("/api/internal/runtime/integrations", async (context) => {
     try {
