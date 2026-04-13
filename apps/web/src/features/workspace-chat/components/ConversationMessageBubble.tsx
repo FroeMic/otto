@@ -3,24 +3,41 @@ import type {
   WorkspaceChatMessageEvent,
 } from "@otto/feature-workspace-chat"
 
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 import { useStreamingText } from "../hooks/useStreamingText"
-import { ConversationMessageActivityLane } from "./ConversationMessageActivityLane"
+import {
+  getWorkspaceConversationTurnKind,
+  getWorkspaceConversationTurnName,
+} from "../presentation"
+import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
+import {
+  ConversationTurnHeader,
+  ConversationTurnShell,
+} from "./ConversationTurnPrimitives"
 
 export interface ConversationMessageBubbleProps {
+  currentUserId?: string
   events: WorkspaceChatMessageEvent[]
   message: WorkspaceChatMessage
 }
 
 export function ConversationMessageBubble({
+  currentUserId,
   events,
   message,
 }: ConversationMessageBubbleProps) {
-  const isAssistant = message.author.kind === "assistant"
+  const turnKind = getWorkspaceConversationTurnKind({
+    currentUserId,
+    message,
+  })
+  const isAssistant = turnKind === "assistant"
   const textParts = message.parts.filter((part) => part.type === "text")
   const lastTextPartIndex = textParts.length - 1
+  const displayName = getWorkspaceConversationTurnName({
+    message,
+    turnKind,
+  })
   const statusLabel =
     message.status === "pending"
       ? "Queued"
@@ -43,66 +60,76 @@ export function ConversationMessageBubble({
     status: message.status,
     targetText: textParts[lastTextPartIndex]?.text ?? "",
   })
+  const timestampLabel = new Date(message.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 
   return (
-    <div
-      className={cn(
-        "flex w-full",
-        isAssistant ? "justify-start" : "justify-end",
-      )}
-    >
-      <div
-        className={cn(
-          "flex w-full max-w-3xl flex-col gap-3 rounded-[1.5rem] border px-4 py-3 shadow-sm",
-          isAssistant
-            ? "border-border/70 bg-card text-card-foreground"
-            : "border-primary/20 bg-primary/8 text-foreground",
-        )}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium">
-              {message.author.name || (isAssistant ? "Otto" : "You")}
-            </p>
-            <Badge variant="outline">
-              {isAssistant ? "Otto" : "Workspace"}
-            </Badge>
-            {statusLabel ? (
-              <Badge variant="secondary">{statusLabel}</Badge>
-            ) : null}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {new Date(message.createdAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-
-        {textParts.map((part, index) => {
-          const displayText =
-            isAssistant && index === lastTextPartIndex
-              ? animatedLastTextPart
-              : part.text
-
-          return (
-            <p
-              key={`${message.id}:${index}`}
-              className="whitespace-pre-wrap text-sm leading-6"
-            >
-              {displayText}
-            </p>
-          )
-        })}
-
-        {textParts.length === 0 && placeholderText ? (
-          <p className="text-sm text-muted-foreground">{placeholderText}</p>
-        ) : null}
+    <ConversationTurnShell kind={turnKind}>
+      <div className="flex w-full max-w-3xl flex-col gap-2">
+        <ConversationTurnHeader
+          badgeLabel={isAssistant ? "Otto" : undefined}
+          kind={turnKind}
+          name={displayName}
+          statusLabel={statusLabel}
+          timestampLabel={timestampLabel}
+        />
 
         {isAssistant ? (
-          <ConversationMessageActivityLane events={events} />
-        ) : null}
+          <div className="flex w-full flex-col gap-3 pl-10">
+            <ConversationAssistantTrace events={events} />
+            <div className="flex flex-col gap-3">
+              {textParts.map((part, index) => {
+                const displayText =
+                  index === lastTextPartIndex ? animatedLastTextPart : part.text
+
+                return (
+                  <p
+                    key={`${message.id}:${index}`}
+                    className="whitespace-pre-wrap text-sm leading-7 text-foreground"
+                  >
+                    {displayText}
+                  </p>
+                )
+              })}
+
+              {textParts.length === 0 && placeholderText ? (
+                <div className="flex flex-col gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    {placeholderText}
+                  </p>
+                  {message.status === "streaming" ? (
+                    <div className="flex gap-1">
+                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.2s]" />
+                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.1s]" />
+                      <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40" />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "max-w-[85%] rounded-[1.5rem] px-4 py-3 shadow-sm",
+              turnKind === "current_user"
+                ? "bg-secondary text-foreground"
+                : "bg-muted/70 text-foreground",
+            )}
+          >
+            {textParts.map((part, index) => (
+              <p
+                key={`${message.id}:${index}`}
+                className="whitespace-pre-wrap text-sm leading-6"
+              >
+                {part.text}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </ConversationTurnShell>
   )
 }

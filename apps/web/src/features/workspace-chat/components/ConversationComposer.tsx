@@ -27,7 +27,7 @@ export function ConversationComposer({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-card p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-card/95 p-4 shadow-sm backdrop-blur">
       <Textarea
         className="min-h-28 resize-none border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
         disabled={disabled}
@@ -48,7 +48,10 @@ export function ConversationComposer({
         <p className="text-xs text-muted-foreground">
           Press Enter to send. Shift+Enter adds a new line.
         </p>
-        <Button disabled={disabled || draft.trim().length === 0} onClick={() => void submitDraft()}>
+        <Button
+          disabled={disabled || draft.trim().length === 0}
+          onClick={() => void submitDraft()}
+        >
           <PaperPlaneTiltIcon data-icon="inline-start" />
           Send
         </Button>
