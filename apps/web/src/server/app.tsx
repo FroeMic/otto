@@ -154,18 +154,18 @@ function LoginPage({
   returnTo: string
 }) {
   return (
-    <main className="min-h-svh bg-background px-6 py-16 text-foreground">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-card px-8 py-10 shadow-sm">
+    <main className="min-h-svh bg-[#faf8f3] px-6 py-16 text-foreground">
+      <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-background px-8 py-10 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
         <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
           Otto
         </p>
         <div className="flex flex-col gap-3">
           <h1 className="text-4xl font-semibold tracking-tight">
-            Sign in to your workspace
+            Sign in to continue with Otto
           </h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            The new frontend now keeps authentication on the same origin. Sign
-            in with WorkOS, then continue directly into the workspace shell.
+            Sign in with WorkOS to continue from your business brief into the
+            Otto workspace.
           </p>
           {prompt ? (
             <div className="rounded-[1.5rem] border border-border/70 bg-muted/35 px-4 py-4 text-left">
@@ -179,13 +179,19 @@ function LoginPage({
         <div className="flex flex-wrap gap-3">
           <a
             href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(buttonVariants())}
+            className={cn(
+              buttonVariants(),
+              "rounded-full bg-foreground text-background shadow-none hover:bg-foreground/92",
+            )}
           >
             Sign in
           </a>
           <a
             href={`/auth/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(buttonVariants({ variant: "outline" }))}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "rounded-full border-border/75 bg-transparent shadow-none",
+            )}
           >
             Create account
           </a>
@@ -240,7 +246,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
       renderDocument({
         children: <LandingHomePage prompt={c.req.query("prompt")?.trim()} />,
         description:
-          "Otto is the AI that helps founders and teams run the software business around the product.",
+          "Otto helps founders turn product momentum into a functioning software business.",
         path: "/",
         title: "Otto",
       }),

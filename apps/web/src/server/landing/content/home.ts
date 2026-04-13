@@ -1,74 +1,93 @@
 export const landingPrimaryNavigation = [
-  { href: "/#product", label: "Product" },
+  { href: "/#for-whom", label: "Product" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/pricing", label: "Pricing" },
   { href: "/security", label: "Security" },
 ] as const
 
 export const landingExamplePrompts = [
-  "I have a SaaS product and need help with onboarding, support, and retention.",
-  "Help me turn my AI product into a real software business with repeatable operations.",
-  "I need an operating system for customer support, handoffs, and follow-through.",
-  "We ship product quickly, but the business around it is still messy and manual.",
+  "We have users, but onboarding and support are still manual and fragmented.",
+  "Help me set up the business operations around my SaaS product.",
+  "I need an AI operating layer for customer onboarding and follow-through.",
+  "We ship fast, but the business side still runs on scattered tools and manual work.",
 ] as const
 
-export const landingCapabilityCards = [
+export const landingPainCards = [
   {
     description:
-      "Bring support, customer success, and execution into one shared operating rhythm.",
-    title: "Support and customer ops",
+      "Customer success still lives in scattered docs, inboxes, and founder memory.",
+    title: "Onboarding slips through the cracks",
   },
   {
     description:
-      "Set up onboarding, follow-ups, and internal workflows without building a second company in Notion and Slack.",
-    title: "Onboarding and delivery",
+      "Context gets lost between support requests, product decisions, and follow-up work.",
+    title: "Support context is scattered",
   },
   {
     description:
-      "Make growth, workflows, and operational decisions visible in one place instead of scattered prompts and docs.",
-    title: "Growth and operating cadence",
+      "Nobody consistently owns the next operational step after a customer conversation or launch milestone.",
+    title: "Follow-through stays manual",
   },
 ] as const
 
-export const landingNumbers = [
+export const landingAudienceCards = [
   {
-    description: "Support, operations, and growth should run in one system.",
-    value: "3 core loops",
+    description:
+      "You can build the product, but the business side is still founder-driven and manual.",
+    title: "Solo founders",
   },
   {
     description:
-      "Keep decisions, instructions, and execution in one operating workspace.",
-    value: "1 operating layer",
+      "You move quickly on product, but onboarding, support, and execution still need structure.",
+    title: "Small software teams",
   },
   {
     description:
-      "Reduce scattered prompts, manual handoffs, and copy-pasted runbooks.",
-    value: "0 extra sprawl",
+      "You need one operating layer that complements product and technical skills.",
+    title: "Technical builders",
   },
 ] as const
 
 export const landingHowItWorks = [
   {
-    body: "Start with the business problem, not a giant setup checklist. Otto should understand what you are trying to build and where the business is currently breaking down.",
+    body: "Describe what you are building, where you are in the journey, and where the business side is breaking down.",
     step: "01",
-    title: "Describe the business you want to run",
+    title: "Start with a business brief",
   },
   {
-    body: "Use one prompt to qualify the business, the stage, and the operating gaps. This is where a later onboarding agent loop will take over.",
+    body: "Use one prompt to clarify the stage, the operating gaps, and the next practical move. This is where the live qualification loop will plug in.",
     step: "02",
-    title: "Let Otto qualify the operating needs",
+    title: "Let Otto qualify what matters next",
   },
   {
-    body: "Move from an idea to a real operating system for support, execution, workflows, and the business around the product.",
+    body: "Turn that brief into a working system for onboarding, support, handoffs, and recurring business operations.",
     step: "03",
-    title: "Turn the brief into a working business system",
+    title: "Build the business around the product",
+  },
+] as const
+
+export const landingOperatingPillars = [
+  {
+    description:
+      "Qualify new customers, drive onboarding, and keep every next step visible.",
+    title: "Onboarding",
+  },
+  {
+    description:
+      "Centralize customer context, responses, and follow-up across the team.",
+    title: "Support",
+  },
+  {
+    description:
+      "Turn recurring business work into tracked, repeatable execution instead of founder memory.",
+    title: "Operations",
   },
 ] as const
 
 export const landingFooterColumns = [
   {
     links: [
-      { href: "/#product", label: "Product" },
+      { href: "/#for-whom", label: "Product" },
       { href: "/pricing", label: "Pricing" },
       { href: "/security", label: "Security" },
     ],
@@ -84,7 +103,7 @@ export const landingFooterColumns = [
   {
     links: [
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/#examples", label: "Examples" },
+      { href: "/#proof", label: "How Otto helps" },
     ],
     title: "Resources",
   },

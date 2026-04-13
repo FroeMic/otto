@@ -28,10 +28,11 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Otto is the AI that runs your software business")
+    expect(text).toContain("Build the product. Otto helps build the business.")
     expect(text).toContain(
-      "Developing software is solved. Running a software business is not.",
+      "Building software is getting solved. Running the business is not.",
     )
+    expect(text).toContain("Where founders get stuck")
     expect(text).toContain("/assets/workspace.css")
   })
 
@@ -60,7 +61,7 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Sign in to your workspace")
+    expect(text).toContain("Sign in to continue with Otto")
     expect(text).toContain(
       "/auth/sign-in?returnTo=%2Facme%2Fsettings%2Fworkspace",
     )

@@ -12,7 +12,7 @@ export interface LandingPageShellProps extends PropsWithChildren {
 function OttoMark() {
   return (
     <span className="inline-flex items-center gap-3">
-      <span className="size-4 rounded-[0.45rem] bg-[linear-gradient(135deg,#4f7cff_0%,#8f7cff_45%,#ff6b4a_100%)] shadow-[0_6px_20px_rgba(109,120,255,0.35)]" />
+      <span className="size-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#8ba7ff_0%,#6f7df4_42%,#ff875f_100%)]" />
       <span className="font-semibold tracking-tight text-foreground">Otto</span>
     </span>
   )
@@ -20,7 +20,7 @@ function OttoMark() {
 
 export function LandingHeader() {
   return (
-    <header className="sticky top-0 z-20 border-b border-border/55 bg-background/75 backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b border-border/70 bg-background/92 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 md:px-10 lg:px-12">
         <a href="/" className="inline-flex items-center">
           <OttoMark />
@@ -42,12 +42,19 @@ export function LandingHeader() {
           <a
             className={cn(
               buttonVariants({ size: "default", variant: "outline" }),
+              "rounded-full border-border/75 bg-transparent px-4 shadow-none",
             )}
             href="/login"
           >
             Log in
           </a>
-          <a className={cn(buttonVariants({ size: "default" }))} href="/login">
+          <a
+            className={cn(
+              buttonVariants({ size: "default" }),
+              "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
+            )}
+            href="/login"
+          >
             Get started
           </a>
         </div>
@@ -90,7 +97,7 @@ export function LandingPageShell({
   footerPromptSlot,
 }: LandingPageShellProps) {
   return (
-    <main className="min-h-svh bg-background text-foreground">
+    <main className="min-h-svh bg-[#faf8f3] text-foreground">
       <LandingHeader />
       {children}
       <LandingFooter promptSlot={footerPromptSlot} />
@@ -104,23 +111,21 @@ export interface LandingFooterProps {
 
 export function LandingFooter({ promptSlot }: LandingFooterProps) {
   return (
-    <footer className="relative overflow-hidden pb-16 pt-24">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 bg-[radial-gradient(circle_at_20%_10%,rgba(126,163,255,0.25),transparent_32%),radial-gradient(circle_at_82%_84%,rgba(255,120,84,0.2),transparent_24%),linear-gradient(180deg,transparent_0%,rgba(120,154,255,0.08)_62%,rgba(255,106,160,0.15)_100%)]" />
-
+    <footer className="border-t border-border/65 pb-16 pt-24">
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 md:px-10 lg:px-12">
         {promptSlot ? (
           <div className="flex justify-center">{promptSlot}</div>
         ) : null}
 
-        <div className="rounded-[2rem] border border-border/60 bg-background/85 px-8 py-10 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur">
+        <div className="rounded-[2rem] border border-border/70 bg-background px-8 py-10 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
           <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
             <div className="flex flex-col gap-4">
               <a href="/" className="inline-flex items-center">
                 <OttoMark />
               </a>
               <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                Otto helps founders and teams run the business around the
-                product, not just the code.
+                Otto helps founders turn product momentum into a functioning
+                software business.
               </p>
             </div>
 
