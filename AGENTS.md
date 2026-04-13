@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep implementation aligned with the repo plan, preserve state across sessions, and guide work across both the legacy apps and the planned Hono/Bun migration.
+Keep implementation aligned with the repo plan, preserve state across sessions, and guide work across the extracted apps, shared packages, and runtime concerns.
 
 ## Naming and audience
 
@@ -18,17 +18,17 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 ## Start here every session
 
-1. Read `spec/README.md`.
-2. Read `spec/STATUS.md`.
-3. Read `spec/FIRST_INCREMENT_PLAN.md` if the work is still aimed at the first shipping slice.
-4. Read the first incomplete `spec/TODO_*.md` in sequence unless the user explicitly redirects the priority.
-5. If the task touches the migration track, read `spec/TODO_20_unified_frontend_and_hono_migration.md`.
+1. Read `_specs/README.md`.
+2. Read `_specs/STATUS.md`.
+3. Read `_specs/FIRST_INCREMENT_PLAN.md` if the work is still aimed at the first shipping slice.
+4. Read the first incomplete `_specs/TODO_*.md` in sequence unless the user explicitly redirects the priority.
+5. If the task touches the migration track, read `_specs/TODO_20_unified_frontend_and_hono_migration.md`.
 6. Skim the related code before proposing architecture changes.
 
 ## Planning rules
 
-- Treat `spec/` as the authoritative plan.
-- When implementation order changes, update `spec/STATUS.md` and the affected spec files.
+- Treat `_specs/` as the authoritative plan.
+- When implementation order changes, update `_specs/STATUS.md` and the affected spec files.
 - When a spec is completed, rename it from `TODO_` to `DONE_` and update any references.
 - Do not create side plans in random markdown files unless the user explicitly asks for that.
 
@@ -97,11 +97,11 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 
 ## Repository shape
 
-- `spec/` stores planning state and implementation sequencing.
+- `_specs/` stores planning state and implementation sequencing.
 - `apps/web`, `apps/api`, `apps/worker`, and `apps/gateway` are the active execution surfaces.
 - `drizzle/` at the repo root owns the active Drizzle migrations.
 - `runtime-image/` and `runtime-plugins/` are separate runtime concerns and should not be conflated with the browser-app migration.
-- The planned long-term direction is captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
+- The planned long-term direction is captured in `_specs/TODO_20_unified_frontend_and_hono_migration.md`:
   - unified frontend
   - extracted API
   - extracted gateway
@@ -148,7 +148,7 @@ Highlight these skills when relevant:
 
 - Placeholder docs should be replaced when they become misleading.
 - Update the relevant spec checklist as work progresses.
-- Update `spec/STATUS.md` if the next recommended step, architecture decision, or blockers change.
+- Update `_specs/STATUS.md` if the next recommended step, architecture decision, or blockers change.
 - Audit new UI copy, prompt text, and tool descriptions for the terminology split above before finishing.
 - Prefer small, reviewable increments that satisfy one spec at a time.
 - Prefer focused commits that land one complete sub-package or command slice at a time.

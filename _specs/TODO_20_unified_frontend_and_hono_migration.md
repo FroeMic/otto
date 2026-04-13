@@ -314,7 +314,7 @@ Implementation note:
 - `/`
 - `/pricing`
 - `/about`
-- `/docs/...`
+- `/_docs/...`
 - `/login`
 
 These routes go to `web`.
@@ -802,7 +802,7 @@ The branch should be considered ready to merge for first-container replacement p
 - `apps/api` owns native behavior for the first cutover route family
 - `apps/web` has a real auth-aware shell instead of only a placeholder workspace entry
 - infra wiring can boot the new containers in parallel without deleting legacy services
-- the first container replacement target and rollback path are documented in `spec/STATUS.md`
+- the first container replacement target and rollback path are documented in `_specs/STATUS.md`
 
 ### Phase 6: Vertical slice cutovers
 
@@ -989,7 +989,7 @@ Whenever migration work advances:
 
 - update this spec's phase checklist
 - update the service cutover tracker statuses
-- update `spec/STATUS.md` with:
+- update `_specs/STATUS.md` with:
   - active phase
   - the branch or workstream in progress
   - the next recommended migration step

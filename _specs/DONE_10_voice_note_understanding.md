@@ -191,7 +191,7 @@ Exit check:
 Deliverables:
 
 - `TODO_06_integrations_and_oauth.md` notes the raw attachment compatibility requirement
-- `spec/STATUS.md` records voice-note support as an active or upcoming slice
+- `_specs/STATUS.md` records voice-note support as an active or upcoming slice
 
 Exit check:
 
@@ -215,7 +215,7 @@ Exit check:
 - [x] surface reconnect-needed state for pre-scope-change Slack installs
 - [x] add unit coverage for desired-state compilation and config rendering
 - [x] verify end-to-end Slack voice-note transcription manually
-- [x] update `spec/STATUS.md` with progress and dependency notes
+- [x] update `_specs/STATUS.md` with progress and dependency notes
 - [x] update `TODO_06_integrations_and_oauth.md` with Slack ingress compatibility notes
 
 ## Open questions

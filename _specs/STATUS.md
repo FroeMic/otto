@@ -13,7 +13,7 @@
 ## Current state
 
 - Repository state is still mostly bootstrap.
-- The newer long-term browser-app direction is now captured in `spec/TODO_20_unified_frontend_and_hono_migration.md`:
+- The newer long-term browser-app direction is now captured in `_specs/TODO_20_unified_frontend_and_hono_migration.md`:
   - the landing page and workspace should converge into one browser-facing frontend over time
   - the legacy `web/` folder is now gone; extracted apps and packages are the only live owners
 - The unified frontend migration has now moved from planning into the first implementation slice:
@@ -104,7 +104,7 @@
 - Landing-page-first cutover now has an explicit reserved-slug rule:
   - `packages/features/workspace-slugs` is the shared source of truth for protected top-level namespaces
   - workspace onboarding, workspace slug updates, and generated slugs must reject reserved public and system paths
-  - the reserved namespace list is documented in [spec/RESERVED_WORKSPACE_SLUGS.md](./RESERVED_WORKSPACE_SLUGS.md)
+  - the reserved namespace list is documented in [_specs/RESERVED_WORKSPACE_SLUGS.md](./RESERVED_WORKSPACE_SLUGS.md)
 - Historical milestone notes below may still mention former `web/` paths as implementation history. Treat those as breadcrumbs, not current ownership.
 - WorkOS auth, workspace creation, tenant creation, and queued provisioning job inserts are implemented in the extracted app surfaces.
 - The local fake provisioning slice now works end to end:
@@ -283,9 +283,9 @@
   - `apps/api` now persists and fans out those events over the existing workspace websocket so the same collapsed activity lane can render both during live streaming and when loading old chats later
   - `apps/web` now renders a first assistant activity lane beneath assistant messages using canonical persisted events rather than raw session logs
   - the canonical event shape remains surface-agnostic so Slack and other external surfaces can reconcile into it later from session logs or transcript updates
-- `spec/TODO_03_provisioning_workflow.md` and `spec/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
-- `spec/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
-- `spec/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
+- `_specs/TODO_03_provisioning_workflow.md` and `_specs/TODO_05_config_apply_and_reconciliation.md` now include concrete wrapper boundaries for Hetzner and SSH/runtime work.
+- `_specs/TODO_06_integrations_and_oauth.md` now captures a Slack-first integration plan built around one shared Slack app, centralized OAuth/token storage, and a shared ingress router.
+- `_specs/TODO_09_ui_app_shell_and_onboarding_rebuild.md` now captures the broader app-shell rebuild plan around org-scoped routes, gated onboarding, shadcn sidebar composition, and prefixed IDs.
 - The first app-shell rebuild slice is now implemented in `web/`:
   - a dedicated `/login` page exists and public signup now hands off directly to WorkOS
   - organizations now carry a unique slug for user-facing routes
@@ -366,7 +366,7 @@
 - The plan also assumes a thin Hetzner client built on server-side `fetch`, with validated env for the API token and default provisioning settings instead of a JS-specific Hetzner SDK.
 - The stale Nango Linear path is no longer part of the active integration stack:
   - Linear now uses the first-party OAuth substrate and direct Linear OAuth env/config only
-  - Nango-specific env/docs/helpers are being removed
+  - Nango-specific env/_docs/helpers are being removed
   - Linear-specific installation state should not live in a provider-specific table; the design direction is generic `tenant_integrations` plus shared OAuth state by default
 - The `otto-integrations` runtime contract is being made more self-describing for agents:
   - discovery is now a first-class metatool concern instead of an optional follow-up

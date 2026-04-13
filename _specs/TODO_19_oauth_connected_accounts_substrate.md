@@ -271,7 +271,7 @@ The first shipping slice for this spec should:
 - [x] migrate Linear onto the shared substrate
 - [x] remove Linear's Nango dependency from the active path
 - [x] update `TODO_17_managed_integrations_architecture.md`
-- [x] update `spec/STATUS.md`
+- [x] update `_specs/STATUS.md`
 
 ## Open Questions
 

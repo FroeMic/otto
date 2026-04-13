@@ -62,7 +62,7 @@ The current implementation is still not working reliably end to end, so runtime 
 - [x] add a server-only control-plane read path for the current tenant gateway token in the platform organization access page
 - [x] add an operator access surface that shows dashboard URL, SSH tunnel command, and masked token controls
 - [x] keep the token out of the shared dashboard shell payload
-- [x] update `spec/STATUS.md` with the new follow-up slice
+- [x] update `_specs/STATUS.md` with the new follow-up slice
 - [ ] fix the current end-to-end runtime dashboard access regression
 - [ ] verify the dashboard login flow manually through an SSH tunnel
 
