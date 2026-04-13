@@ -56,12 +56,12 @@ export function WorkspaceSwitcher({
           <DropdownMenuTrigger
             render={
               <SidebarMenuButton
-                size="lg"
-                className="h-12 rounded-2xl px-2.5 aria-expanded:bg-muted"
+                size="default"
+                className="rounded-full px-2.5 aria-expanded:bg-muted"
               />
             }
           >
-            <Avatar className="size-9">
+            <Avatar className="size-7">
               <AvatarFallback>{fallback || "OT"}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1 text-left text-sm leading-tight">
@@ -69,7 +69,7 @@ export function WorkspaceSwitcher({
                 {currentOrganization.name}
               </span>
             </div>
-            <CaretUpDown className="mr-0.5 size-4 text-muted-foreground" />
+            <CaretUpDown className="size-4 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"

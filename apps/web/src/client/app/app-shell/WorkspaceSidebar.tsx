@@ -47,16 +47,16 @@ export function WorkspaceSidebar({
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader className="shrink-0 gap-2 pb-2">
-        <div className="flex items-center gap-2 px-3 pt-2">
+        <div className="flex items-center justify-between gap-2 px-2.5 pt-2">
           <WorkspaceSwitcher
-            className="min-w-0 flex-1"
+            className="min-w-0 max-w-[calc(100%-2.75rem)]"
             currentOrganization={currentOrganization}
             organizations={organizations}
           />
           <Button
             variant="outline"
-            size="icon-sm"
-            className="size-10 shrink-0 rounded-full border-sidebar-border bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            size="icon"
+            className="shrink-0 rounded-full border-sidebar-border bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             render={<Link params={{ orgSlug }} preload="intent" to="/$orgSlug" />}
             aria-label="Open agent"
             title="Open agent"
