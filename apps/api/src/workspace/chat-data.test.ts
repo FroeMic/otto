@@ -37,7 +37,7 @@ describe("workspace chat data helpers", () => {
           type: "text",
         },
       ]),
-      "Please review the API key segmentation plan f..."
+      "Please review the API key segmentation plan..."
     )
   })
 })

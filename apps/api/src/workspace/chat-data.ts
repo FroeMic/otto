@@ -155,9 +155,16 @@ export function generateWorkspaceConversationTitle(
   const firstSentence = collapsed.split(/[.!?]\s/)[0]?.trim() ?? collapsed
   const preferred = firstSentence.length > 0 ? firstSentence : collapsed
 
-  return preferred.length > 48
-    ? `${preferred.slice(0, 45).trimEnd()}...`
-    : preferred
+  if (preferred.length <= 48) {
+    return preferred
+  }
+
+  const truncated = preferred.slice(0, 45).trimEnd()
+  const wordBoundary = truncated.lastIndexOf(" ")
+  const safeTruncation =
+    wordBoundary >= 24 ? truncated.slice(0, wordBoundary).trimEnd() : truncated
+
+  return `${safeTruncation}...`
 }
 
 export function mapWorkspaceChatMessagePartRecord(
