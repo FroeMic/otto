@@ -23,6 +23,7 @@ type EnrichedActivityPresentation = {
 const GENERIC_INTEGRATION_TOOL_NAMES = new Set([
   "execute_integration_command",
   "find_integration_commands",
+  "get_integration_details",
 ])
 
 const TOOL_CALL_BLOCK_TYPES = new Set([
@@ -98,6 +99,8 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
         ? deriveExecuteIntegrationCommandEnrichment(toolCall.args)
         : toolCall.name === "find_integration_commands"
           ? deriveFindIntegrationCommandsEnrichment(toolCall.args)
+          : toolCall.name === "get_integration_details"
+            ? deriveGetIntegrationDetailsEnrichment(toolCall.args)
           : null
 
     if (!enriched) {
@@ -242,6 +245,86 @@ function deriveFindIntegrationCommandsEnrichment(args: Record<string, unknown>) 
   }
 }
 
+function deriveGetIntegrationDetailsEnrichment(args: Record<string, unknown>) {
+  const integrationKey = readString(args.integrationKey)?.toLowerCase()
+  const detailType = readString(args.detailType)
+
+  if (!integrationKey || !detailType) {
+    return null
+  }
+
+  const integration = getIntegrationDefinition(integrationKey)
+  const integrationLabel = integration?.label ?? humanizeCommandKey(integrationKey)
+
+  if (detailType === "command") {
+    const commandKey =
+      readString(args.commandKey) ?? resolvePathKey(args.commandPath)
+
+    if (!commandKey) {
+      return {
+        presentation: {
+          kind: "read",
+          source: {
+            commandKey: "details",
+            integrationKey,
+            kind: "integration_command",
+          },
+          title: `Reviewed ${integrationLabel} command details`,
+        } satisfies EnrichedActivityPresentation,
+        summary: undefined,
+      }
+    }
+
+    const command = integration?.runtimeSurface
+      ? collectCommands(integration.runtimeSurface).find(
+          (entry) => entry.commandKey === commandKey,
+        ) ?? null
+      : null
+    const label =
+      command?.activityPresentation?.title ??
+      command?.label ??
+      humanizeCommandKey(commandKey)
+
+    return {
+      presentation: {
+        kind: "read",
+        source: {
+          commandKey,
+          integrationKey,
+          kind: "integration_command",
+        },
+        title: `Reviewed ${label} details`,
+      } satisfies EnrichedActivityPresentation,
+      summary: undefined,
+    }
+  }
+
+  if (detailType === "command_group") {
+    const groupPath = readStringArray(args.groupPath)
+    const groupLabel = findIntegrationGroupLabel({
+      groupPath,
+      integration,
+    })
+
+    return {
+      presentation: {
+        kind: "read",
+        source: {
+          commandKey: groupPath?.join(".") ?? "group",
+          integrationKey,
+          kind: "integration_command",
+        },
+        title: groupLabel
+          ? `Reviewed ${groupLabel} commands`
+          : `Reviewed ${integrationLabel} command group`,
+      } satisfies EnrichedActivityPresentation,
+      summary: undefined,
+    }
+  }
+
+  return null
+}
+
 function buildCommandPresentationBase(input: {
   command: ReturnType<typeof collectCommands>[number] | null
   commandKey: string
@@ -320,6 +403,11 @@ function resolveCommandKey(args: Record<string, unknown>) {
     .filter(Boolean)
 
   return parts.length > 0 ? parts.join(".") : undefined
+}
+
+function resolvePathKey(value: unknown) {
+  const parts = readStringArray(value)
+  return parts?.length ? parts.join(".") : undefined
 }
 
 function resolveEventToolCallId(event: WorkspaceChatMessageEvent) {
@@ -408,6 +496,43 @@ function humanizeCommandKey(commandKey: string) {
         .join(" "),
     )
     .join(" ")
+}
+
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const parts = value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean)
+
+  return parts.length > 0 ? parts : undefined
+}
+
+function findIntegrationGroupLabel(input: {
+  groupPath?: string[]
+  integration: ReturnType<typeof getIntegrationDefinition> | null | undefined
+}) {
+  if (!input.groupPath?.length || !input.integration?.runtimeSurface) {
+    return undefined
+  }
+
+  let currentGroups = input.integration.runtimeSurface.commandGroups
+  let currentLabel: string | undefined
+
+  for (const segment of input.groupPath) {
+    const group = currentGroups.find((entry) => entry.groupKey === segment)
+
+    if (!group) {
+      return currentLabel
+    }
+
+    currentLabel = group.label
+    currentGroups = group.childGroups ?? []
+  }
+
+  return currentLabel
 }
 
 function readFirstStringLike(
