@@ -696,7 +696,7 @@ test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for r
           {
             attachmentId: "att_audio_1",
             durationMs: 12_000,
-            mimeType: "audio/webm",
+            mimeType: "video/webm",
             type: "audio",
           },
         ],
@@ -714,7 +714,7 @@ test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for r
           attachmentId: "att_audio_1",
           bytes: new Uint8Array([1, 2, 3, 4]),
           fileName: "voice-note.webm",
-          mimeType: "audio/webm",
+          mimeType: "video/webm",
           sha256: "sha256-audio-1",
         }),
         runtime: runtimeState.runtime,

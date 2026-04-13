@@ -75,4 +75,29 @@ describe("workspace chat composer parts", () => {
       },
     ])
   })
+
+  it("normalizes browser voice notes that arrive as video webm", () => {
+    const parts = buildWorkspaceChatComposerParts({
+      attachments: [
+        {
+          attachment: {
+            fileName: "voice-note.webm",
+            id: "att_audio_1",
+            mimeType: "video/webm;codecs=opus",
+            sizeBytes: 128,
+          },
+          kind: "audio",
+        },
+      ],
+      text: "  ",
+    })
+
+    assert.deepEqual(parts, [
+      {
+        attachmentId: "att_audio_1",
+        mimeType: "audio/webm;codecs=opus",
+        type: "audio",
+      },
+    ])
+  })
 })

@@ -1,13 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { StopIcon, XIcon } from "@phosphor-icons/react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
 import { cn } from "@/lib/utils"
 
 import { useVoiceNoteRecorder } from "../hooks/useVoiceNoteRecorder"
@@ -18,152 +15,129 @@ export interface ConversationVoiceNoteRecorderProps {
     durationMs: number
     file: File
   }) => Promise<void>
+  onCancel: () => void
 }
 
 export function ConversationVoiceNoteRecorder({
   disabled = false,
   onAttachVoiceNote,
+  onCancel,
 }: ConversationVoiceNoteRecorderProps) {
   const recorder = useVoiceNoteRecorder()
   const [isUploading, setIsUploading] = useState(false)
+  const hasStartedRef = useRef(false)
 
-  async function attachDraft() {
-    if (!recorder.draft) {
+  useEffect(() => {
+    if (!recorder.isSupported || disabled || hasStartedRef.current) {
       return
     }
 
-    setIsUploading(true)
+    hasStartedRef.current = true
+    void recorder.startRecording()
+  }, [disabled, recorder.isSupported])
 
-    try {
-      await onAttachVoiceNote({
-        durationMs: recorder.draft.durationMs,
-        file: new File([recorder.draft.blob], recorder.draft.fileName, {
-          type: recorder.draft.mimeType,
-        }),
-      })
-      recorder.clearDraft()
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to attach voice note.",
-      )
-    } finally {
-      setIsUploading(false)
+  useEffect(() => {
+    if (recorder.status !== "recorded" || !recorder.draft) {
+      return
     }
-  }
+
+    const draft = recorder.draft
+    let isCancelled = false
+
+    async function uploadDraft() {
+      setIsUploading(true)
+
+      try {
+        await onAttachVoiceNote({
+          durationMs: draft.durationMs,
+          file: new File([draft.blob], draft.fileName, {
+            type: draft.mimeType,
+          }),
+        })
+
+        if (!isCancelled) {
+          recorder.clearDraft()
+          onCancel()
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Failed to attach voice note.",
+          )
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsUploading(false)
+        }
+      }
+    }
+
+    void uploadDraft()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [onAttachVoiceNote, onCancel, recorder.draft, recorder.status])
+
+  useEffect(() => {
+    if (recorder.errorMessage) {
+      toast.error(recorder.errorMessage)
+      recorder.clearDraft()
+      onCancel()
+    }
+  }, [onCancel, recorder.errorMessage])
 
   if (!recorder.isSupported) {
     return null
   }
 
   return (
-    <div className="rounded-[1.6rem] border border-border/70 bg-muted/20 px-3 py-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          className="min-w-44"
-          disabled={disabled || isUploading || recorder.status === "recording"}
-          onChange={(event) => {
-            recorder.setSelectedDeviceId(event.target.value)
-          }}
-          value={recorder.selectedDeviceId}
-        >
-          {recorder.devices.length === 0 ? (
-            <NativeSelectOption value="">Microphone</NativeSelectOption>
-          ) : null}
-          {recorder.devices.map((device) => (
-            <NativeSelectOption
-              key={device.deviceId}
-              value={device.deviceId}
-            >
-              {device.label}
-            </NativeSelectOption>
+    <div className="flex min-h-14 items-center gap-3 rounded-full border border-border/70 bg-muted/15 px-4 py-2">
+      <div className="flex min-w-0 flex-1 items-center overflow-hidden">
+        <div className="flex h-8 w-full items-center gap-1 overflow-hidden">
+          {recorder.levels.map((level, index) => (
+            <span
+              aria-hidden
+              className={cn(
+                "block w-1 shrink-0 rounded-full bg-foreground/70 transition-[height,opacity] duration-75",
+                recorder.status === "recording" ? "opacity-100" : "opacity-35",
+              )}
+              key={index}
+              style={{
+                height: `${Math.max(10, Math.round(level * 30))}px`,
+              }}
+            />
           ))}
-        </NativeSelect>
-
-        <div className="flex min-h-10 min-w-0 flex-1 items-center overflow-hidden rounded-full bg-background/75 px-3">
-          <div className="flex h-8 w-full items-center gap-1">
-            {recorder.levels.map((level, index) => (
-              <span
-                aria-hidden
-                className={cn(
-                  "block w-1 rounded-full bg-foreground/60 transition-[height,opacity] duration-100",
-                  recorder.status === "idle" ? "opacity-25" : "opacity-100",
-                )}
-                key={index}
-                style={{
-                  height: `${Math.max(10, Math.round(level * 28))}px`,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {recorder.status === "idle" ? (
-            <Button
-              disabled={disabled}
-              onClick={() => {
-                void recorder.startRecording()
-              }}
-              type="button"
-              variant="ghost"
-            >
-              Record
-            </Button>
-          ) : null}
-
-          {recorder.status === "recording" ? (
-            <Button
-              disabled={disabled}
-              onClick={() => {
-                recorder.stopRecording()
-              }}
-              type="button"
-              variant="ghost"
-            >
-              Stop
-            </Button>
-          ) : null}
-
-          {recorder.status === "recorded" ? (
-            <>
-              <span className="text-xs text-muted-foreground">
-                {formatVoiceNoteDuration(recorder.draft?.durationMs ?? 0)}
-              </span>
-              <Button
-                disabled={disabled || isUploading}
-                onClick={() => {
-                  recorder.clearDraft()
-                }}
-                type="button"
-                variant="ghost"
-              >
-                Discard
-              </Button>
-              <Button
-                disabled={disabled || isUploading}
-                onClick={() => void attachDraft()}
-                type="button"
-              >
-                Add
-              </Button>
-            </>
-          ) : null}
         </div>
       </div>
 
-      {recorder.errorMessage ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {recorder.errorMessage}
-        </p>
-      ) : null}
+      <div className="flex items-center gap-2">
+        <Button
+          disabled={isUploading}
+          onClick={() => {
+            recorder.clearDraft()
+            onCancel()
+          }}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <XIcon />
+        </Button>
+        <Button
+          disabled={disabled || isUploading || recorder.status !== "recording"}
+          onClick={() => {
+            recorder.stopRecording()
+          }}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <StopIcon weight="fill" />
+        </Button>
+      </div>
     </div>
   )
-}
-
-function formatVoiceNoteDuration(durationMs: number) {
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
