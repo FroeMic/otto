@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
+import { ConversationPendingState } from "./ConversationPendingState"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
@@ -25,6 +26,8 @@ export function ConversationMessageList({
   messageEvents,
   messages,
 }: ConversationMessageListProps) {
+  const lastMessage = messages.at(-1)
+
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-[20rem] items-center justify-center">
@@ -75,19 +78,13 @@ export function ConversationMessageList({
                 })}
               />
               <div className="pl-10">
-                <div
-                  className={cn(
-                    "flex max-w-xl flex-col gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3",
-                  )}
-                >
-                  <p className="text-sm text-muted-foreground">
-                    Otto is preparing a response.
-                  </p>
-                  <div className="flex gap-1">
-                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.2s]" />
-                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.1s]" />
-                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40" />
-                  </div>
+                <div className={cn("max-w-xl")}>
+                  <ConversationPendingState
+                    startedAt={
+                      lastMessage?.createdAt ?? new Date().toISOString()
+                    }
+                    status="pending"
+                  />
                 </div>
               </div>
             </div>

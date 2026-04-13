@@ -8,14 +8,12 @@ import {
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
 import {
   sendWorkspaceChatMessage,
   workspaceChatConversationDetailQueryOptions,
-  workspaceChatConversationListQueryOptions,
 } from "../api/chat"
 import { ConversationComposer } from "../components/ConversationComposer"
 import { ConversationMessageList } from "../components/ConversationMessageList"
@@ -72,32 +70,19 @@ export function WorkspaceConversationPage({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-4 pt-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                Conversation
-              </p>
-              <Badge variant="outline">{data.conversation.visibility}</Badge>
-            </div>
-            <h1 className="truncate text-3xl font-semibold tracking-tight">
-              {data.conversation.title}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              /{orgSlug}/c/{data.conversation.id}
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+              Conversation
             </p>
+            <Badge variant="outline">{data.conversation.visibility}</Badge>
           </div>
-
-          <Button
-            onClick={() => {
-              void queryClient.invalidateQueries(
-                workspaceChatConversationListQueryOptions(orgSlug),
-              )
-            }}
-            variant="outline"
-          >
-            Refresh
-          </Button>
+          <h1 className="truncate text-3xl font-semibold tracking-tight">
+            {data.conversation.title}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            /{orgSlug}/c/{data.conversation.id}
+          </p>
         </div>
       </div>
 

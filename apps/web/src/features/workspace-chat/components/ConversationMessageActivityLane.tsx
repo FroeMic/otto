@@ -9,5 +9,10 @@ export interface ConversationMessageActivityLaneProps {
 export function ConversationMessageActivityLane({
   events,
 }: ConversationMessageActivityLaneProps) {
-  return <ConversationAssistantTrace events={events} />
+  return (
+    <ConversationAssistantTrace
+      events={events}
+      startedAt={events[0]?.createdAt ?? new Date().toISOString()}
+    />
+  )
 }
