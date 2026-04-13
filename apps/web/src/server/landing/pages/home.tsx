@@ -80,7 +80,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
         <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-3">
           {landingAudienceCards.map((card) => (
             <article
-              className="rounded-[1.5rem] border border-border/70 bg-background px-6 py-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+              className="rounded-xl border border-border/70 bg-background px-6 py-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
               key={card.title}
             >
               <h3 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -112,7 +112,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
         <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-3">
           {landingPainCards.map((card) => (
             <article
-              className="rounded-[1.5rem] border border-border/70 bg-[#fdfcf8] px-6 py-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+              className="rounded-xl border border-border/70 bg-[#fdfcf8] px-6 py-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
               key={card.title}
             >
               <h3 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -159,13 +159,13 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
           </div>
 
           <div className="grid gap-4">
-            <div className="rounded-[1.25rem] border border-border/70 bg-[#f7f4ef] p-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
+            <div className="rounded-xl border border-border/70 bg-[#f7f4ef] p-6 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Chat with Otto</span>
                 <span>What happens next</span>
               </div>
 
-              <div className="mt-5 rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
+              <div className="mt-5 rounded-lg border border-border/65 bg-background px-4 py-4">
                 <p className="text-sm font-medium leading-6 text-foreground">
                   We launched our SaaS, but onboarding, support, and follow-up
                   are still handled manually by the founders.
@@ -173,7 +173,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
+                <div className="rounded-lg border border-border/65 bg-background px-4 py-4">
                   <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
                     What Otto sees
                   </p>
@@ -184,7 +184,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
                   </ul>
                 </div>
 
-                <div className="rounded-[0.95rem] border border-border/65 bg-background px-4 py-4">
+                <div className="rounded-lg border border-border/65 bg-background px-4 py-4">
                   <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
                     Immediate outcome
                   </p>
@@ -199,7 +199,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
             <div className="grid gap-4 sm:grid-cols-3">
               {landingOperatingPillars.map((pillar) => (
                 <article
-                  className="rounded-[1.1rem] border border-border/70 bg-background px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+                  className="rounded-lg border border-border/70 bg-background px-5 py-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
                   key={pillar.title}
                 >
                   <h3 className="text-xl font-semibold tracking-tight text-foreground">
@@ -217,7 +217,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
 
       {/* biome-ignore lint/correctness/useUniqueElementIds: static SSR anchor target for landing navigation */}
       <LandingSection className="pb-20 md:pb-28" id="proof">
-        <div className="mx-auto max-w-6xl rounded-[1.5rem] border border-border/70 bg-background px-8 py-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
+        <div className="mx-auto max-w-6xl rounded-xl border border-border/70 bg-background px-8 py-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div className="flex flex-col gap-4 text-center lg:text-left">
               <LandingSectionEyebrow>
@@ -235,7 +235,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
             <div className="grid gap-4 sm:grid-cols-3">
               {landingOperatingPillars.map((pillar) => (
                 <article
-                  className="rounded-[1.1rem] border border-border/70 bg-[#f7f4ef] px-5 py-5"
+                  className="rounded-lg border border-border/70 bg-[#f7f4ef] px-5 py-5"
                   key={pillar.title}
                 >
                   <h3 className="text-xl font-semibold tracking-tight text-foreground">

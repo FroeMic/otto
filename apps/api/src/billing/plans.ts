@@ -1,16 +1,14 @@
-export const BILLING_PLAN_KEYS = {
-  basicMonthly: "basic_monthly",
-  maxMonthly: "max_monthly",
-  plusMonthly: "plus_monthly",
-  proMonthly: "pro_monthly",
-} as const
+import {
+  BILLING_PAID_PLAN_DEFINITIONS,
+  BILLING_PLAN_KEYS,
+} from "@otto/feature-billing"
 
-export type BillingPlanKey =
-  (typeof BILLING_PLAN_KEYS)[keyof typeof BILLING_PLAN_KEYS]
+export { BILLING_PLAN_KEYS } from "@otto/feature-billing"
+export type { BillingPlanKey } from "@otto/feature-billing"
 
 export type BillingPlan = {
   creditsIncluded: number
-  key: BillingPlanKey
+  key: string
   monthlyPriceUsd: number
   name: string
 }
@@ -23,32 +21,11 @@ export type AutoTopOffPack = {
 }
 
 export function getBillingPlans(): BillingPlan[] {
-  return [
-    {
-      creditsIncluded: 10_000,
-      key: BILLING_PLAN_KEYS.basicMonthly,
-      monthlyPriceUsd: 20,
-      name: "Basic",
-    },
-    {
-      creditsIncluded: 30_000,
-      key: BILLING_PLAN_KEYS.plusMonthly,
-      monthlyPriceUsd: 50,
-      name: "Plus",
-    },
-    {
-      creditsIncluded: 70_000,
-      key: BILLING_PLAN_KEYS.proMonthly,
-      monthlyPriceUsd: 100,
-      name: "Pro",
-    },
-    {
-      creditsIncluded: 150_000,
-      key: BILLING_PLAN_KEYS.maxMonthly,
-      monthlyPriceUsd: 200,
-      name: "Max",
-    },
-  ]
+  return BILLING_PAID_PLAN_DEFINITIONS
+}
+
+export function getBillingPlanByKey(key: string) {
+  return getBillingPlans().find((plan) => plan.key === key) ?? null
 }
 
 export function getAutoTopOffPacks(): AutoTopOffPack[] {
@@ -78,10 +55,6 @@ export function getAutoTopOffPacks(): AutoTopOffPack[] {
       lookupKey: "top_up_200",
     },
   ]
-}
-
-export function getBillingPlanByKey(key: string) {
-  return getBillingPlans().find((plan) => plan.key === key) ?? null
 }
 
 export function getAutoTopOffPackByLookupKey(lookupKey: string) {
