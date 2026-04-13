@@ -73,6 +73,11 @@
   - the main workspace shell now also owns `Scheduled Tasks` as a first-class sidebar feature under `Sessions`, with native `apps/api/src/scheduled-tasks` Hono RPC routes, `apps/web/src/features/scheduled-tasks` tasks/task-runs/detail pages, and normalized task/run substrate moved into `packages/features/runtime-core/src/scheduled-tasks`
   - the main workspace shell now also owns `Skills` as a first-class sidebar feature, with native `apps/api/src/skills` routes, reusable managed-skill contracts in `packages/features/runtime-core`, and a skill-files page that reuses the new shared runtime file browser instead of importing the legacy Next.js skills surface
   - the primary workspace sidebar no longer advertises `Overview` and no longer renders the old `Otto` section header; `Sessions`, `Scheduled Tasks`, and `Skills` now appear as the primary workspace items in that order
+- The next shell-quality slice is now explicitly tracked in `_specs/TODO_25_app_shell_layout_and_notifications.md`:
+  - add a shared bounded shell viewport across workspace, settings, and platform shells
+  - add a shell-level in-flow notification provider and renderer registry
+  - add a reusable page-frame primitive with explicit main and optional aside scroll ownership
+  - keep Otto's current sidebar visual language and persistent header toggle while improving shell mechanics underneath
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
@@ -766,6 +771,15 @@
     - the next bridge slice is command relay and normalized runtime event delivery, so workspace chat can stop depending on per-turn SSH dispatch
   - then add the browser realtime protocol and multiplayer fanout layer
   - then implement durable named conversations, delivery targets, and favorites support
+
+## Next recommended step
+
+Implement Phase 1 from `_specs/TODO_25_app_shell_layout_and_notifications.md`:
+
+- introduce a shared `ShellViewport` and `ShellStage` in `apps/web/src/client/app/app-shell`
+- adopt them in `WorkspaceShell`, `SettingsShell`, and `PlatformShell`
+- keep the current Otto sidebar styling and current persistent shell header toggle
+- make shell height and scroll ownership explicit before adding shell-notification infrastructure
 
 ## Open questions
 

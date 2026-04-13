@@ -26,7 +26,10 @@ import { TraceCaretIcon } from "./TraceCaretIcon"
 export interface ConversationAssistantTraceProps {
   events: WorkspaceChatMessageEvent[]
   startedAt: string
-  status: WorkspaceChatMessage["status"]
+  status:
+    | WorkspaceChatMessage["status"]
+    | WorkspaceChatMessageEvent["status"]
+    | undefined
 }
 
 export function ConversationAssistantTrace({
@@ -38,7 +41,8 @@ export function ConversationAssistantTrace({
   const visibleEntries = activityModel.sections
     .flatMap((section) => section.entries)
     .filter((entry) => entry.visibility !== "debug")
-  const isActive = status === "pending" || status === "streaming"
+  const isActive =
+    status === "pending" || status === "running" || status === "streaming"
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
