@@ -67,6 +67,15 @@ Current responsibilities:
 - `drizzle/`
   Owns schema migrations at the repo root.
 
+Why it is split this way:
+
+- `apps/web` stays browser-only so UI, routing, and app-shell work do not get mixed with backend orchestration.
+- `apps/api` stays request/response focused so browser-facing HTTP logic, auth, and RPC contracts remain thin and type-safe.
+- `apps/worker` is isolated because provisioning, apply, sync, and billing work are long-running and failure-prone by nature; they should not block request handlers.
+- `apps/gateway` is separate because tenant runtime integration execution is proxied through it; keeping that traffic in its own service reduces blast radius and avoids coupling runtime execute load to the browser/API surface.
+- `packages/features/runtime-core` exists for runtime substrate that is shared across services, such as managed config, runtime files, sessions, and scheduled-task normalization.
+- `packages/features/integrations-runtime` exists separately because provider-specific integration behavior is a real shared engine used by API, gateway, and runtime-facing flows.
+
 Design rule:
 
 - product surfaces stay local to `apps/web` and `apps/api`
