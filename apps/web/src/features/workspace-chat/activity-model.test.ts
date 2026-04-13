@@ -130,6 +130,7 @@ describe("workspace chat activity model", () => {
         events: entry.events.map((event) => event.type),
         id: entry.id,
         kind: entry.kind,
+        presentation: entry.presentation,
         status: entry.status,
         summary: entry.summary,
         title: entry.title,
@@ -140,6 +141,7 @@ describe("workspace chat activity model", () => {
           events: ["item.started", "item.completed"],
           id: "item:item_1",
           kind: "item",
+          presentation: undefined,
           status: "completed",
           summary: "Loaded AGENTS.md",
           title: "Read file",
@@ -149,6 +151,7 @@ describe("workspace chat activity model", () => {
           events: ["tool.started"],
           id: "tool:evt_4",
           kind: "tool",
+          presentation: undefined,
           status: "running",
           summary: undefined,
           title: "read",
@@ -224,6 +227,74 @@ describe("workspace chat activity model", () => {
           status: "running",
           title: "Assistant message",
           visibility: "debug",
+        },
+      ],
+    )
+  })
+
+  it("derives structured presentation metadata for internal file reads", () => {
+    const model = buildWorkspaceChatActivityModel([
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:00.000Z",
+        id: "evt_1",
+        itemId: "tool:call_1",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 1,
+        status: "completed",
+        title: "read from ~/.openclaw/workspace/memory/2026-04-12.md",
+        type: "item.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:01.000Z",
+        id: "evt_2",
+        itemId: "tool:call_2",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 2,
+        status: "completed",
+        title: "read from ~/.openclaw/workspace/skills/linear-triage/SKILL.md",
+        type: "item.completed",
+      },
+    ])
+
+    assert.deepEqual(
+      model.sections[0]?.entries.map((entry) => ({
+        id: entry.id,
+        presentation: entry.presentation,
+        title: entry.title,
+      })),
+      [
+        {
+          id: "item:tool:call_1",
+          presentation: {
+            iconKey: "memory",
+            kind: "memory",
+            source: {
+              kind: "memory_file",
+              memoryKind: "daily_note",
+              path: "~/.openclaw/workspace/memory/2026-04-12.md",
+            },
+            title: "Checked daily memory note",
+          },
+          title: "Checked daily memory note",
+        },
+        {
+          id: "item:tool:call_2",
+          presentation: {
+            iconKey: "skill",
+            kind: "skill",
+            source: {
+              documentKind: "skill",
+              kind: "skill_document",
+              path: "~/.openclaw/workspace/skills/linear-triage/SKILL.md",
+              skillKey: "linear-triage",
+            },
+            title: "Reviewed linear-triage instructions",
+          },
+          title: "Reviewed linear-triage instructions",
         },
       ],
     )

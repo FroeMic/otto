@@ -4,29 +4,39 @@ import type {
 } from "@otto/feature-workspace-chat"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Spinner } from "@/components/ui/spinner"
+import { cn } from "@/lib/utils"
 
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
+import {
+  ConversationTurnHeader,
+  ConversationTurnShell,
+} from "./ConversationTurnPrimitives"
 
 export interface ConversationMessageListProps {
+  currentUserId?: string
   isWaitingForReply: boolean
   messageEvents: WorkspaceChatMessageEvent[]
   messages: WorkspaceChatMessage[]
 }
 
 export function ConversationMessageList({
+  currentUserId,
   isWaitingForReply,
   messageEvents,
   messages,
 }: ConversationMessageListProps) {
   if (messages.length === 0) {
     return (
-      <div className="flex min-h-[18rem] items-center justify-center rounded-[1.5rem] border border-dashed border-border/70 bg-card/40 px-6 py-10 text-center">
-        <div className="flex max-w-sm flex-col gap-2">
-          <p className="text-sm font-medium">Start the conversation</p>
-          <p className="text-sm text-muted-foreground">
-            Messages you send here go through the workspace backend to the
-            tenant runtime and return through the new workspace chat channel.
+      <div className="flex h-full min-h-[20rem] items-center justify-center">
+        <div className="flex max-w-lg flex-col gap-3 px-6 text-center">
+          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+            Workspace Chat
+          </p>
+          <h2 className="text-3xl font-semibold tracking-tight">
+            Start a conversation with Otto
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Ask Otto to research, summarize, or take action in this workspace.
           </p>
         </div>
       </div>
@@ -34,8 +44,8 @@ export function ConversationMessageList({
   }
 
   return (
-    <ScrollArea className="min-h-[20rem] rounded-[1.5rem] border border-border/70 bg-muted/15">
-      <div className="flex flex-col gap-4 p-4 md:p-5">
+    <ScrollArea className="h-full min-h-0">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 md:py-8">
         {messages.map((message) => {
           const events = messageEvents.filter(
             (messageEvent) => messageEvent.messageId === message.id,
@@ -43,6 +53,7 @@ export function ConversationMessageList({
 
           return (
             <ConversationMessageBubble
+              currentUserId={currentUserId}
               key={message.id}
               events={events}
               message={message}
@@ -51,10 +62,36 @@ export function ConversationMessageList({
         })}
 
         {isWaitingForReply ? (
-          <div className="flex items-center gap-2 rounded-[1.25rem] border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
-            <Spinner />
-            <span>Waiting for Otto…</span>
-          </div>
+          <ConversationTurnShell kind="assistant">
+            <div className="flex w-full max-w-3xl flex-col gap-2">
+              <ConversationTurnHeader
+                badgeLabel="Otto"
+                kind="assistant"
+                name="Otto"
+                statusLabel="Queued"
+                timestampLabel={new Date().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              />
+              <div className="pl-10">
+                <div
+                  className={cn(
+                    "flex max-w-xl flex-col gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3",
+                  )}
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Otto is preparing a response.
+                  </p>
+                  <div className="flex gap-1">
+                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.2s]" />
+                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40 [animation-delay:-0.1s]" />
+                    <span className="size-2 animate-pulse rounded-full bg-muted-foreground/40" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ConversationTurnShell>
         ) : null}
       </div>
     </ScrollArea>

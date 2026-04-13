@@ -148,6 +148,7 @@ function buildCommandDetails(input: {
   status: RuntimeIntegrationStatus;
 }): RuntimeIntegrationCommandDetails {
   return {
+    activityPresentation: input.command.activityPresentation,
     argumentsSchema: input.command.argumentsSchema,
     capabilityState: resolveCommandCapabilityState({
       command: input.command,

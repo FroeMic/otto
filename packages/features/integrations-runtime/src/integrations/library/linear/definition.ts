@@ -6429,6 +6429,11 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["issue", "search"],
             description:
               "Search issues across Linear projects, teams, assignees, and states.",
+            activityPresentation: {
+              iconKey: "linear",
+              kind: "search",
+              title: "Search Linear issues",
+            },
             exampleArguments: {
               limit: 5,
               query: "credit",

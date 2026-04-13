@@ -10,6 +10,8 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
+import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
+
 import {
   sendWorkspaceChatMessage,
   workspaceChatConversationDetailQueryOptions,
@@ -33,6 +35,9 @@ export function WorkspaceConversationPage({
   })
 
   const queryClient = useQueryClient()
+  const { data: shellBootstrap } = useSuspenseQuery(
+    shellBootstrapQueryOptions(orgSlug),
+  )
   const { data } = useSuspenseQuery(
     workspaceChatConversationDetailQueryOptions(orgSlug, conversationId),
   )
@@ -65,47 +70,56 @@ export function WorkspaceConversationPage({
   const isWaitingForReply = lastMessage?.author.kind === "user"
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              Conversation
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-4 pt-2">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+                Conversation
+              </p>
+              <Badge variant="outline">{data.conversation.visibility}</Badge>
+            </div>
+            <h1 className="truncate text-3xl font-semibold tracking-tight">
+              {data.conversation.title}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              /{orgSlug}/c/{data.conversation.id}
             </p>
-            <Badge variant="outline">{data.conversation.visibility}</Badge>
           </div>
-          <h1 className="truncate text-3xl font-semibold tracking-tight">
-            {data.conversation.title}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            /{orgSlug}/c/{data.conversation.id}
-          </p>
-        </div>
 
-        <Button
-          onClick={() => {
-            void queryClient.invalidateQueries(
-              workspaceChatConversationListQueryOptions(orgSlug),
-            )
-          }}
-          variant="outline"
-        >
-          Refresh
-        </Button>
+          <Button
+            onClick={() => {
+              void queryClient.invalidateQueries(
+                workspaceChatConversationListQueryOptions(orgSlug),
+              )
+            }}
+            variant="outline"
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      <ConversationMessageList
-        isWaitingForReply={isWaitingForReply}
-        messageEvents={data.messageEvents}
-        messages={data.messages}
-      />
+      <div className="min-h-0 flex-1">
+        <ConversationMessageList
+          currentUserId={shellBootstrap.user.id}
+          isWaitingForReply={isWaitingForReply}
+          messageEvents={data.messageEvents}
+          messages={data.messages}
+        />
+      </div>
 
-      <ConversationComposer
-        disabled={sendMessageMutation.isPending}
-        onSubmit={async (text) => {
-          await sendMessageMutation.mutateAsync(text)
-        }}
-      />
+      <div className="border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-4 pt-3">
+          <ConversationComposer
+            disabled={sendMessageMutation.isPending}
+            onSubmit={async (text) => {
+              await sendMessageMutation.mutateAsync(text)
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
