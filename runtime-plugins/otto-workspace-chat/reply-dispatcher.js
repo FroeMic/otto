@@ -18,13 +18,6 @@ export function createWorkspaceChatReplyDispatcher(input) {
         sequence,
         text,
       });
-
-      console.info("[workspace-chat] plugin delta sent", {
-        assistantMessageId: input.assistantMessageId ?? null,
-        conversationId: input.conversationId,
-        sequence,
-        textLength: text.length,
-      });
     },
     startingSequence: 1,
   });

@@ -67,13 +67,18 @@ export const WORKSPACE_CHAT_LOADING_VERBS = [
 
 const LOADING_VERB_INTERVAL_MS = 1600;
 
-export function getWorkspaceChatLoadingVerb(elapsedMs: number) {
-  if (elapsedMs <= 0) {
-    return WORKSPACE_CHAT_LOADING_VERBS[0];
+export function getWorkspaceChatLoadingVerb(input: {
+  elapsedMs: number;
+  seed?: string;
+}) {
+  const seedOffset = resolveLoadingVerbSeedOffset(input.seed);
+
+  if (input.elapsedMs <= 0) {
+    return WORKSPACE_CHAT_LOADING_VERBS[seedOffset];
   }
 
   const index =
-    Math.floor(elapsedMs / LOADING_VERB_INTERVAL_MS) %
+    (seedOffset + Math.floor(input.elapsedMs / LOADING_VERB_INTERVAL_MS)) %
     WORKSPACE_CHAT_LOADING_VERBS.length;
 
   return WORKSPACE_CHAT_LOADING_VERBS[index];
@@ -81,6 +86,7 @@ export function getWorkspaceChatLoadingVerb(elapsedMs: number) {
 
 export function getWorkspaceChatPendingLabel(input: {
   elapsedMs: number;
+  seed?: string;
   status:
     | WorkspaceChatMessage["status"]
     | WorkspaceChatMessageEvent["status"]
@@ -99,10 +105,27 @@ export function getWorkspaceChatPendingLabel(input: {
     input.status === "running" ||
     input.status === "streaming"
   ) {
-    return `${getWorkspaceChatLoadingVerb(input.elapsedMs)}…`;
+    return `${getWorkspaceChatLoadingVerb({
+      elapsedMs: input.elapsedMs,
+      seed: input.seed,
+    })}…`;
   }
 
   return null;
+}
+
+function resolveLoadingVerbSeedOffset(seed?: string) {
+  if (!seed) {
+    return 0;
+  }
+
+  let hash = 0;
+
+  for (const character of seed) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return hash % WORKSPACE_CHAT_LOADING_VERBS.length;
 }
 
 export function formatWorkspaceChatActivityDuration(input: {

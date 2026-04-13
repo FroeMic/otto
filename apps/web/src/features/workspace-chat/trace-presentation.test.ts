@@ -12,19 +12,47 @@ import {
 } from "./trace-presentation";
 
 describe("workspace chat trace presentation helpers", () => {
-  it("rotates through the loading verbs over time", () => {
-    assert.equal(getWorkspaceChatLoadingVerb(0), "Accomplishing");
-    assert.equal(getWorkspaceChatLoadingVerb(1600), "Actioning");
+  it("rotates through the loading verbs over time with a stable per-message seed", () => {
+    assert.equal(
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
+        seed: "msg_alpha",
+      }),
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
+        seed: "msg_alpha",
+      }),
+    );
+    assert.notEqual(
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
+        seed: "msg_alpha",
+      }),
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
+        seed: "msg_beta",
+      }),
+    );
+    assert.notEqual(
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
+        seed: "msg_alpha",
+      }),
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 1600,
+        seed: "msg_alpha",
+      }),
+    );
   });
 
   it("uses the rotating verb for pending and streaming states", () => {
-    assert.equal(
-      getWorkspaceChatPendingLabel({
-        elapsedMs: 3200,
-        status: "pending",
-      }),
-      "Actualizing…",
-    );
+    const label = getWorkspaceChatPendingLabel({
+      elapsedMs: 3200,
+      seed: "msg_alpha",
+      status: "pending",
+    });
+
+    assert.match(label ?? "", /^[A-Z][a-z]+…$/);
     assert.equal(
       getWorkspaceChatPendingLabel({
         elapsedMs: 0,

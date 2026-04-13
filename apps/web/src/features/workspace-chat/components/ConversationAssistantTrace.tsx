@@ -69,6 +69,7 @@ export function ConversationAssistantTrace({
     )[0]
     const pendingLabel = getWorkspaceChatPendingLabel({
       elapsedMs: Math.max(0, now - Date.parse(startedAt)),
+      seed: startedAt,
       status,
     })
     const liveLabel = getActiveTraceLabel({

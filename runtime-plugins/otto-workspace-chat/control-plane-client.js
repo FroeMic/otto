@@ -1,4 +1,8 @@
 const DEFAULT_TIMEOUT_MS = 15_000;
+const QUIET_CONTROL_PLANE_PATHS = new Set([
+  "/api/internal/runtime/workspace-chat/messages/delta",
+  "/api/internal/runtime/workspace-chat/messages/events",
+]);
 
 export async function sendWorkspaceChatDelta(input) {
   return await requestControlPlane({
@@ -144,11 +148,13 @@ async function requestControlPlane(input) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   const requestUrl = `${baseUrl}${input.path}`;
 
-  console.info("[workspace-chat] control-plane callback request starting", {
-    bodyKeys: input.body ? Object.keys(input.body) : [],
-    method: input.method,
-    path: input.path,
-  });
+  if (shouldLogControlPlaneCallback(input.path)) {
+    console.info("[workspace-chat] control-plane callback request starting", {
+      bodyKeys: input.body ? Object.keys(input.body) : [],
+      method: input.method,
+      path: input.path,
+    });
+  }
 
   try {
     const response = await fetch(requestUrl, {
@@ -179,16 +185,22 @@ async function requestControlPlane(input) {
       );
     }
 
-    console.info("[workspace-chat] control-plane callback request succeeded", {
-      method: input.method,
-      path: input.path,
-      status: response.status,
-    });
+    if (shouldLogControlPlaneCallback(input.path)) {
+      console.info("[workspace-chat] control-plane callback request succeeded", {
+        method: input.method,
+        path: input.path,
+        status: response.status,
+      });
+    }
 
     return payload;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function shouldLogControlPlaneCallback(path) {
+  return !QUIET_CONTROL_PLANE_PATHS.has(path);
 }
 
 function tryParseJson(value) {
