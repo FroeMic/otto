@@ -38,7 +38,7 @@ export function LandingSecurityPage() {
         <div className="grid gap-6 md:grid-cols-3">
           {securityCards.map((card) => (
             <article
-              className="rounded-[2rem] border border-border/70 bg-background p-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]"
+              className="rounded-2xl border border-border/70 bg-background p-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]"
               key={card.title}
             >
               <h2 className="text-2xl font-semibold tracking-tight">

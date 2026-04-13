@@ -1,5 +1,56 @@
 import { z } from "zod"
 
+// ─── Plan constants (shared between API, worker, and web) ─────────────────────
+
+export const BILLING_PLAN_KEYS = {
+  basicMonthly: "basic_monthly",
+  maxMonthly: "max_monthly",
+  plusMonthly: "plus_monthly",
+  proMonthly: "pro_monthly",
+} as const
+
+export type BillingPlanKey =
+  (typeof BILLING_PLAN_KEYS)[keyof typeof BILLING_PLAN_KEYS]
+
+export interface BillingPlanDefinition {
+  creditsIncluded: number
+  key: string
+  monthlyPriceUsd: number
+  name: string
+}
+
+/** Credits included in the free tier per month (no Stripe subscription). */
+export const FREE_PLAN_CREDITS = 1_000
+
+export const BILLING_PAID_PLAN_DEFINITIONS: BillingPlanDefinition[] = [
+  {
+    creditsIncluded: 10_000,
+    key: BILLING_PLAN_KEYS.basicMonthly,
+    monthlyPriceUsd: 20,
+    name: "Basic",
+  },
+  {
+    creditsIncluded: 30_000,
+    key: BILLING_PLAN_KEYS.plusMonthly,
+    monthlyPriceUsd: 50,
+    name: "Plus",
+  },
+  {
+    creditsIncluded: 70_000,
+    key: BILLING_PLAN_KEYS.proMonthly,
+    monthlyPriceUsd: 100,
+    name: "Pro",
+  },
+  {
+    creditsIncluded: 150_000,
+    key: BILLING_PLAN_KEYS.maxMonthly,
+    monthlyPriceUsd: 200,
+    name: "Max",
+  },
+]
+
+// ─── Zod schemas ──────────────────────────────────────────────────────────────
+
 function createJsonDateSchema() {
   return z.union([z.date(), z.string()]).transform((value) => {
     return value instanceof Date ? value.toISOString() : value

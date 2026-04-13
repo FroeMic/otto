@@ -22,7 +22,7 @@ export function LandingPromptComposer({
     >
       <form
         action="/login"
-        className="rounded-[1.5rem] border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
+        className="rounded-xl border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
         method="get"
       >
         <input name="returnTo" type="hidden" value={returnTo} />
