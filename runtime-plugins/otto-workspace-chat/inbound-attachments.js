@@ -16,6 +16,8 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
   const stagingRoot = dependencies.stagingRoot ?? ATTACHMENT_STAGING_ROOT;
   const textSegments = [];
   const attachmentLines = [];
+  const mediaAttachments = [];
+  const transcripts = [];
 
   for (const part of input.parts) {
     if (part.type === "text") {
@@ -40,11 +42,13 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
     if (part.type === "audio") {
       const transcript =
         typeof part.transcript === "string" ? part.transcript.trim() : "";
-
-      attachmentLines.push(baseLine);
+      mediaAttachments.push({
+        localPath,
+        mimeType: attachment.mimeType,
+      });
 
       if (transcript) {
-        attachmentLines.push(`  transcript: ${transcript}`);
+        transcripts.push(transcript);
       }
 
       continue;
@@ -65,12 +69,15 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
 
   const promptText = sections.join("\n\n").trim();
 
-  if (!promptText) {
+  if (!promptText && mediaAttachments.length === 0) {
     throw new Error("workspace chat inbound parts did not produce prompt text");
   }
 
   return {
-    promptText,
+    mediaAttachments,
+    promptText: promptText || "Voice note attached.",
+    transcript:
+      transcripts.length === 1 ? transcripts[0] : undefined,
   };
 }
 

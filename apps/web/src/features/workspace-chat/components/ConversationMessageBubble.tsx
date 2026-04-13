@@ -104,15 +104,18 @@ export function ConversationMessageBubble({
                     </div>
                   ))}
                   {audioParts.map((part, index) => (
-                    <div
-                      key={`${message.id}:audio:${index}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
-                    >
+                  <div
+                    key={`${message.id}:audio:${index}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+                  >
                       <WaveformIcon className="size-3.5 shrink-0" />
-                      <span>{part.transcript?.trim() || "Voice note"}</span>
-                    </div>
-                  ))}
-                </div>
+                      <span>
+                        {part.transcript?.trim() ||
+                          formatAudioPartLabel(part.durationMs)}
+                      </span>
+                  </div>
+                ))}
+              </div>
               ) : null}
             </div>
           </div>
@@ -155,7 +158,10 @@ export function ConversationMessageBubble({
                     className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs text-muted-foreground"
                   >
                     <WaveformIcon className="size-3.5 shrink-0" />
-                    <span>{part.transcript?.trim() || "Voice note"}</span>
+                    <span>
+                      {part.transcript?.trim() ||
+                        formatAudioPartLabel(part.durationMs)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -165,4 +171,16 @@ export function ConversationMessageBubble({
       </div>
     </ConversationTurnShell>
   )
+}
+
+function formatAudioPartLabel(durationMs?: number) {
+  if (typeof durationMs !== "number") {
+    return "Voice note"
+  }
+
+  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `Voice note · ${minutes}:${String(seconds).padStart(2, "0")}`
 }

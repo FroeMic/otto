@@ -55,6 +55,12 @@ export function buildWorkspaceChatInboundContext(input) {
     previousTimestamp,
     timestamp,
   });
+  const mediaAttachments = Array.isArray(input.mediaAttachments)
+    ? input.mediaAttachments.filter(isWorkspaceChatMediaAttachment)
+    : [];
+  const mediaPaths = mediaAttachments.map((attachment) => attachment.localPath);
+  const mediaTypes = mediaAttachments.map((attachment) => attachment.mimeType);
+  const transcript = normalizeOptionalString(input.transcript);
 
   return {
     accountId: route.accountId ?? WORKSPACE_CHAT_DEFAULT_ACCOUNT_ID,
@@ -91,12 +97,32 @@ export function buildWorkspaceChatInboundContext(input) {
       Surface: CONTROL_UI_SURFACE,
       Timestamp: timestamp,
       To: target,
+      ...(mediaPaths.length > 0
+        ? {
+            MediaPath: mediaPaths[0],
+            MediaPaths: mediaPaths,
+            MediaType: mediaTypes[0] ?? "application/octet-stream",
+            MediaTypes: mediaTypes,
+          }
+        : {}),
+      ...(transcript ? { Transcript: transcript } : {}),
     }),
     route,
     sessionKey: route.sessionKey,
     storePath,
     target,
   };
+}
+
+function isWorkspaceChatMediaAttachment(value) {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof value.localPath === "string" &&
+    value.localPath.trim().length > 0 &&
+    typeof value.mimeType === "string" &&
+    value.mimeType.trim().length > 0
+  );
 }
 
 function normalizeOptionalString(value) {
