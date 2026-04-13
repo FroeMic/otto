@@ -169,3 +169,48 @@
     @apply font-sans;
   }
 }
+
+@keyframes workspace-trace-shimmer {
+  from {
+    background-position: 100% center;
+  }
+
+  to {
+    background-position: 0% center;
+  }
+}
+
+@keyframes workspace-trace-flip {
+  0% {
+    opacity: 0;
+    transform: perspective(720px) rotateX(-88deg) translateY(-8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: perspective(720px) rotateX(0deg) translateY(0);
+  }
+}
+
+@layer utilities {
+  .workspace-trace-shimmer {
+    background-image:
+      linear-gradient(
+        90deg,
+        color-mix(in oklch, var(--muted-foreground) 45%, transparent) 0%,
+        color-mix(in oklch, var(--foreground) 68%, white) 48%,
+        color-mix(in oklch, var(--muted-foreground) 45%, transparent) 100%
+      ),
+      linear-gradient(var(--muted-foreground), var(--muted-foreground));
+    background-size: 220% 100%, 100% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: workspace-trace-shimmer 2.2s linear infinite;
+  }
+
+  .workspace-trace-flip {
+    transform-origin: center top;
+    animation: workspace-trace-flip 320ms ease-out;
+  }
+}

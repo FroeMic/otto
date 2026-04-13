@@ -62,20 +62,37 @@ export function WorkspaceAgentPage({
   })
 
   return (
-    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[2rem] border border-border/60 bg-background">
+    <div className="relative flex min-h-0 flex-1 overflow-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-border/35 opacity-60" />
-        <div className="absolute left-1/2 top-1/2 h-72 w-16 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-full bg-border/12" />
+        <div className="absolute left-1/2 top-[34%] size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-border/30 opacity-55" />
+        <div className="absolute left-1/2 top-[38%] h-72 w-16 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-full bg-border/10" />
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-col px-6">
-        <div className="mx-auto w-full max-w-2xl">
-          <WorkspaceAgentPromptCard
-            disabled={startConversationMutation.isPending}
-            onSubmit={async (text) => {
-              await startConversationMutation.mutateAsync(text)
-            }}
-          />
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pb-44 pt-14 text-center">
+          <div className="mx-auto max-w-2xl space-y-4">
+            <p className="text-sm font-medium tracking-[0.18em] text-primary/80 uppercase">
+              Workspace conversation
+            </p>
+            <h1 className="text-4xl font-semibold tracking-tight text-foreground/94">
+              Ask Otto to work through something in this workspace
+            </h1>
+            <p className="text-base leading-8 text-muted-foreground">
+              Research, summarize, or take action. The conversation will open as
+              soon as you send the first message.
+            </p>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+          <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5">
+            <WorkspaceAgentPromptCard
+              disabled={startConversationMutation.isPending}
+              onSubmit={async (text) => {
+                await startConversationMutation.mutateAsync(text)
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

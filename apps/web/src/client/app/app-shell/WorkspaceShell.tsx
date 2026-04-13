@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useLocation } from "@tanstack/react-router"
 import type { PropsWithChildren } from "react"
 
@@ -10,6 +10,9 @@ import {
 } from "@/components/ui/sidebar"
 import { WorkspaceSidebar } from "@/client/app/app-shell/WorkspaceSidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
+import {
+  workspaceChatConversationDetailQueryOptions,
+} from "@/features/workspace-chat/api/chat"
 import { WorkspaceChatRealtimeProvider } from "@/features/workspace-chat/realtime/provider"
 
 export interface WorkspaceShellProps extends PropsWithChildren {
@@ -46,6 +49,7 @@ function formatSectionLabel(section: string) {
 }
 
 function useWorkspaceBreadcrumbs(
+  conversationLabel: string | undefined,
   orgSlug: string,
   orgName: string,
 ): BreadcrumbSegment[] {
@@ -56,6 +60,20 @@ function useWorkspaceBreadcrumbs(
 
   if (segments.length === 0) {
     return [{ href: null, label: "Agent" }]
+  }
+
+  if (segments[0] === "c") {
+    const conversationId = segments[1] ?? null
+
+    return [
+      { href: `${base}`, label: "Agent" },
+      {
+        href: null,
+        label:
+          conversationLabel ??
+          (conversationId ? decodePathSegment(conversationId) : "Conversation"),
+      },
+    ]
   }
 
   if (segments[0] === "sessions") {
@@ -149,7 +167,23 @@ function useWorkspaceBreadcrumbs(
 
 export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const location = useLocation()
+  const pathSegments = location.pathname
+    .replace(`/${orgSlug}`, "")
+    .split("/")
+    .filter(Boolean)
+  const conversationId =
+    pathSegments[0] === "c" ? pathSegments[1] ?? null : null
+  const { data: conversationDetail } = useQuery({
+    ...workspaceChatConversationDetailQueryOptions(
+      orgSlug,
+      conversationId ?? "",
+    ),
+    enabled: Boolean(conversationId),
+    select: (conversation) => conversation.conversation.title,
+  })
   const breadcrumbs = useWorkspaceBreadcrumbs(
+    conversationDetail,
     data.currentOrganization.slug,
     data.currentOrganization.name,
   )

@@ -5,9 +5,8 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-
-import { Badge } from "@/components/ui/badge"
 
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
@@ -28,6 +27,9 @@ export function WorkspaceConversationPage({
   conversationId,
   orgSlug,
 }: WorkspaceConversationPageProps) {
+  const composerRef = useRef<HTMLDivElement | null>(null)
+  const [composerHeight, setComposerHeight] = useState(0)
+
   useWorkspaceConversationRealtime({
     conversationId,
   })
@@ -64,30 +66,35 @@ export function WorkspaceConversationPage({
     },
   })
 
+  useEffect(() => {
+    const composerElement = composerRef.current
+
+    if (!composerElement) {
+      return
+    }
+
+    const updateHeight = () => {
+      setComposerHeight(composerElement.getBoundingClientRect().height)
+    }
+
+    updateHeight()
+
+    const resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(composerElement)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
   const lastMessage = data.messages.at(-1)
   const isWaitingForReply = lastMessage?.author.kind === "user"
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-4 pt-2">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              Conversation
-            </p>
-            <Badge variant="outline">{data.conversation.visibility}</Badge>
-          </div>
-          <h1 className="truncate text-3xl font-semibold tracking-tight">
-            {data.conversation.title}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            /{orgSlug}/c/{data.conversation.id}
-          </p>
-        </div>
-      </div>
-
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1">
         <ConversationMessageList
+          bottomInset={composerHeight + 32}
           currentUserId={shellBootstrap.user.id}
           isWaitingForReply={isWaitingForReply}
           messageEvents={data.messageEvents}
@@ -95,8 +102,11 @@ export function WorkspaceConversationPage({
         />
       </div>
 
-      <div className="border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-4 pt-3">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+        <div
+          className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
+          ref={composerRef}
+        >
           <ConversationComposer
             disabled={sendMessageMutation.isPending}
             onSubmit={async (text) => {

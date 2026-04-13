@@ -23,7 +23,7 @@ describe("workspace chat trace presentation helpers", () => {
         elapsedMs: 3200,
         status: "pending",
       }),
-      "Architecting…",
+      "Actualizing…",
     );
     assert.equal(
       getWorkspaceChatPendingLabel({
