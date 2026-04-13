@@ -22,6 +22,7 @@ import type {
 } from "@otto/feature-workspace-chat"
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm"
 
+import { enrichWorkspaceChatMessageEventsWithTranscripts } from "./chat-activity-enrichment"
 import { getWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { getOrganizationWorkspaceBySlug } from "./data"
 
@@ -510,9 +511,45 @@ export async function getWorkspaceChatConversationDetail(input: {
     partsByMessageId.set(partRow.messageId, parts)
   }
 
+  const mappedEvents = eventRows.map(mapWorkspaceChatMessageEventRecord)
+  const sessionKeys = [...new Set(
+    mappedEvents
+      .map((event) => event.sessionKey)
+      .filter((sessionKey): sessionKey is string => Boolean(sessionKey)),
+  )]
+  const sessionRows =
+    sessionKeys.length === 0
+      ? []
+      : await db
+          .select({
+            sessionKey: tenantSessions.sessionKey,
+            transcriptJsonl: tenantSessions.transcriptJsonl,
+          })
+          .from(tenantSessions)
+          .where(
+            and(
+              eq(tenantSessions.tenantId, conversation.tenantId),
+              inArray(tenantSessions.sessionKey, sessionKeys),
+            ),
+          )
+          .orderBy(desc(tenantSessions.updatedAt))
+  const transcriptJsonlBySessionKey = new Map<string, string | null>()
+
+  for (const sessionRow of sessionRows) {
+    if (!transcriptJsonlBySessionKey.has(sessionRow.sessionKey)) {
+      transcriptJsonlBySessionKey.set(
+        sessionRow.sessionKey,
+        sessionRow.transcriptJsonl,
+      )
+    }
+  }
+
   return {
     conversation: mapWorkspaceChatConversationSummary(conversation),
-    messageEvents: eventRows.map(mapWorkspaceChatMessageEventRecord),
+    messageEvents: enrichWorkspaceChatMessageEventsWithTranscripts({
+      events: mappedEvents,
+      transcriptJsonlBySessionKey,
+    }),
     messages: messageRows.map((message) =>
       mapWorkspaceChatMessage({
         message,
