@@ -70,7 +70,7 @@ export function ConversationMessageBubble({
         />
 
         {isAssistant ? (
-          <div className="flex w-full flex-col gap-3 pl-10">
+          <div className="flex w-full flex-col gap-3">
             <ConversationAssistantTrace
               events={events}
               startedAt={message.createdAt}
@@ -92,10 +92,12 @@ export function ConversationMessageBubble({
               })}
 
               {textParts.length === 0 ? (
-                <ConversationPendingState
-                  startedAt={message.createdAt}
-                  status={message.status}
-                />
+                events.length === 0 ? (
+                  <ConversationPendingState
+                    startedAt={message.createdAt}
+                    status={message.status}
+                  />
+                ) : null
               ) : null}
             </div>
           </div>
@@ -103,7 +105,7 @@ export function ConversationMessageBubble({
           <div
             className={cn(
               "max-w-[85%] px-4 py-3",
-              turnKind === "current_user" ? "mr-10 self-end" : "ml-10 self-start",
+              turnKind === "current_user" ? "self-end" : "self-start",
               turnKind === "other_user"
                 ? "rounded-[1.15rem] bg-muted/65 text-foreground"
                 : "rounded-[1.15rem]",

@@ -91,7 +91,7 @@ export function WorkspaceConversationPage({
   const isWaitingForReply = lastMessage?.author.kind === "user"
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1">
         <ConversationMessageList
           bottomInset={composerHeight + 32}
@@ -102,7 +102,7 @@ export function WorkspaceConversationPage({
         />
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
         <div
           className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
           ref={composerRef}
