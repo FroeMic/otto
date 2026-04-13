@@ -14,11 +14,11 @@ import {
 import { ConversationHistorySection } from "@/features/workspace-chat/sidebar/ConversationHistorySection"
 
 import { WorkspacePrimaryNav } from "./WorkspacePrimaryNav"
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher"
 import {
   WorkspaceFooterPlatformLink,
   WorkspaceUserMenu,
 } from "./WorkspaceUserMenu"
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher"
 
 export interface WorkspaceSidebarProps {
   currentOrganization: {
@@ -47,7 +47,7 @@ export function WorkspaceSidebar({
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader className="shrink-0 gap-2 pb-2">
-        <div className="flex items-center justify-between gap-2 px-2.5 pt-2">
+        <div className="flex items-center justify-between gap-2 pt-2">
           <WorkspaceSwitcher
             className="min-w-0 max-w-[calc(100%-2.75rem)]"
             currentOrganization={currentOrganization}
@@ -56,8 +56,10 @@ export function WorkspaceSidebar({
           <Button
             variant="outline"
             size="icon"
-            className="shrink-0 rounded-full border-sidebar-border bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            render={<Link params={{ orgSlug }} preload="intent" to="/$orgSlug" />}
+            className="shrink-0 rounded-full border-sidebar-border bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground size-7"
+            render={
+              <Link params={{ orgSlug }} preload="intent" to="/$orgSlug" />
+            }
             aria-label="Open agent"
             title="Open agent"
           >
@@ -75,10 +77,7 @@ export function WorkspaceSidebar({
         {user.isPlatformAdmin ? (
           <WorkspaceFooterPlatformLink orgSlug={orgSlug} />
         ) : null}
-        <WorkspaceUserMenu
-          currentOrganizationSlug={orgSlug}
-          user={user}
-        />
+        <WorkspaceUserMenu currentOrganizationSlug={orgSlug} user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

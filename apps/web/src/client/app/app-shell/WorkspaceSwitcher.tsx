@@ -1,15 +1,8 @@
-import {
-  BuildingOffice,
-  CaretUpDown,
-  Gear,
-} from "@phosphor-icons/react/ssr"
+import { BuildingOffice, CaretUpDown, Gear } from "@phosphor-icons/react/ssr"
 import { Link } from "@tanstack/react-router"
 import type { ComponentProps } from "react"
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,7 +54,7 @@ export function WorkspaceSwitcher({
               />
             }
           >
-            <Avatar className="size-7">
+            <Avatar className="size-6">
               <AvatarFallback>{fallback || "OT"}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1 text-left text-sm leading-tight">
@@ -100,7 +93,10 @@ export function WorkspaceSwitcher({
                 <DropdownMenuItem
                   key={organization.slug}
                   render={
-                    <Link params={{ orgSlug: organization.slug }} to="/$orgSlug" />
+                    <Link
+                      params={{ orgSlug: organization.slug }}
+                      to="/$orgSlug"
+                    />
                   }
                 >
                   <BuildingOffice />
