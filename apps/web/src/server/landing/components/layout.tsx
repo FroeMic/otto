@@ -117,7 +117,7 @@ export function LandingFooter({ promptSlot }: LandingFooterProps) {
           <div className="flex justify-center">{promptSlot}</div>
         ) : null}
 
-        <div className="rounded-[2rem] border border-border/70 bg-background px-8 py-10 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
+        <div className="rounded-[1.5rem] border border-border/70 bg-background px-8 py-10 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
           <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
             <div className="flex flex-col gap-4">
               <a href="/" className="inline-flex items-center">
