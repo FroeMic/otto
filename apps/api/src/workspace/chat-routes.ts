@@ -9,6 +9,7 @@ import {
   handleWorkspaceChatConversationDetailRequest,
   handleWorkspaceChatConversationListRequest,
   handleWorkspaceChatMessageCreateRequest,
+  type WorkspaceChatAttachmentUploadResponse,
   type WorkspaceChatConversationCreateRequest,
   type WorkspaceChatConversationDetailResponse,
   type WorkspaceChatConversationListQuery,
@@ -17,6 +18,7 @@ import {
   type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
   type WorkspaceChatUser,
+  workspaceChatAttachmentUploadResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationListQuerySchema,
   workspaceChatMessageCreateRequestSchema,
@@ -29,6 +31,7 @@ import {
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
 } from "./chat-data"
+import { createWorkspaceChatAttachment } from "./chat-attachments-service"
 import { createWorkspaceChatRealtimeRouter } from "./chat-realtime-routes"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 import { syncUserFromSession } from "./data"
@@ -53,6 +56,11 @@ export type WorkspaceChatRouteDependencies = {
   }) => Promise<{
     createdConversation: WorkspaceChatConversationSummary
   }>
+  createAttachment: (payload: {
+    file: File
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<WorkspaceChatAttachmentUploadResponse["attachment"]>
   createMessage: (payload: {
     clientMessageId?: string
     conversationId: string
@@ -79,6 +87,7 @@ function createDefaultWorkspaceChatRouteDependencies(): WorkspaceChatRouteDepend
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
+    createAttachment: createWorkspaceChatAttachment,
     createConversation: createWorkspaceChatConversation,
     createMessage: createAndDispatchWorkspaceChatMessage,
     getConversationDetail: getWorkspaceChatConversationDetail,
@@ -188,6 +197,57 @@ export function createWorkspaceChatRouter(
       },
     )
     .post(
+      "/api/workspace/:orgSlug/chat/attachments",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        await dependencies.syncUserFromSession(authResult.user)
+
+        try {
+          const formData = await context.req.raw.formData()
+          const fileValue = formData.get("file")
+
+          if (!isWorkspaceChatUploadFile(fileValue)) {
+            return jsonNoStore(
+              {
+                error: "Workspace chat attachment file is required.",
+              },
+              400,
+            )
+          }
+
+          const attachment = await dependencies.createAttachment({
+            file: fileValue,
+            orgSlug: context.req.valid("param").orgSlug,
+            userExternalId: authResult.user.id,
+          })
+
+          return jsonNoStore(
+            workspaceChatAttachmentUploadResponseSchema.parse({
+              attachment,
+            }),
+            201,
+          )
+        } catch (error) {
+          if (error instanceof Error) {
+            return jsonNoStore(
+              {
+                error: error.message,
+              },
+              400,
+            )
+          }
+
+          throw error
+        }
+      },
+    )
+    .post(
       "/api/workspace/:orgSlug/chat/conversations/:conversationId/messages",
       zValidator("param", workspaceConversationParamsSchema),
       zValidator("json", workspaceChatMessageCreateRequestSchema),
@@ -217,4 +277,13 @@ export function createWorkspaceChatRouter(
         })
       },
     )
+}
+
+function isWorkspaceChatUploadFile(value: unknown): value is File {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof (value as File).arrayBuffer === "function" &&
+    typeof (value as File).name === "string"
+  )
 }

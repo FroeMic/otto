@@ -45,7 +45,12 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
       conversationKind: "ad_hoc",
       conversationTitle: "Portfolio review",
       conversationVisibility: "open",
-      message: "Hello there",
+      parts: [
+        {
+          text: "Hello there",
+          type: "text",
+        },
+      ],
       senderDisplayName: "Michael Froehlich",
       senderExternalId: "user_1",
       userMessageId: "user_msg_1",
@@ -149,7 +154,12 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
       conversationKind: "ad_hoc",
       conversationTitle: "Portfolio review",
       conversationVisibility: "open",
-      message: "Hello there",
+      parts: [
+        {
+          text: "Hello there",
+          type: "text",
+        },
+      ],
       senderDisplayName: "Michael Froehlich",
       senderExternalId: "user_1",
       userMessageId: "user_msg_1",
@@ -253,7 +263,12 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
 test("handleWorkspaceChatHttpRequest rejects missing conversation ids", async () => {
   const req = Readable.from([
     JSON.stringify({
-      message: "Hello there",
+      parts: [
+        {
+          text: "Hello there",
+          type: "text",
+        },
+      ],
     }),
   ]);
   req.method = "POST";

@@ -1,3 +1,4 @@
+import { FileIcon, WaveformIcon } from "@phosphor-icons/react"
 import type {
   WorkspaceChatMessage,
   WorkspaceChatMessageEvent,
@@ -34,6 +35,8 @@ export function ConversationMessageBubble({
   })
   const isAssistant = turnKind === "assistant"
   const textParts = message.parts.filter((part) => part.type === "text")
+  const fileParts = message.parts.filter((part) => part.type === "file")
+  const audioParts = message.parts.filter((part) => part.type === "audio")
   const lastTextPartIndex = textParts.length - 1
   const displayName = getWorkspaceConversationTurnName({
     message,
@@ -99,6 +102,29 @@ export function ConversationMessageBubble({
                   />
                 ) : null
               ) : null}
+
+              {fileParts.length > 0 || audioParts.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {fileParts.map((part, index) => (
+                    <div
+                      key={`${message.id}:file:${index}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+                    >
+                      <FileIcon className="size-3.5 shrink-0" />
+                      <span>{part.fileName}</span>
+                    </div>
+                  ))}
+                  {audioParts.map((part, index) => (
+                    <div
+                      key={`${message.id}:audio:${index}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+                    >
+                      <WaveformIcon className="size-3.5 shrink-0" />
+                      <span>{part.transcript?.trim() || "Voice note"}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -122,6 +148,29 @@ export function ConversationMessageBubble({
                 {part.text}
               </p>
             ))}
+
+            {fileParts.length > 0 || audioParts.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {fileParts.map((part, index) => (
+                  <div
+                    key={`${message.id}:file:${index}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    <FileIcon className="size-3.5 shrink-0" />
+                    <span>{part.fileName}</span>
+                  </div>
+                ))}
+                {audioParts.map((part, index) => (
+                  <div
+                    key={`${message.id}:audio:${index}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    <WaveformIcon className="size-3.5 shrink-0" />
+                    <span>{part.transcript?.trim() || "Voice note"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

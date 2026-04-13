@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { dispatchWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
@@ -113,7 +116,12 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
         conversationId: "conv_1",
         conversationTitle: "Portfolio review",
         conversationVisibility: "open",
-        message: "Summarize the latest notes.",
+        parts: [
+          {
+            text: "Summarize the latest notes.",
+            type: "text",
+          },
+        ],
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_1",
         userMessageId: "user_msg_1",
@@ -291,7 +299,12 @@ test("dispatchWorkspaceChatInboundTurn forwards normalized direct runtime callba
         conversationId: "conv_1",
         conversationTitle: "Portfolio review",
         conversationVisibility: "open",
-        message: "Summarize the latest notes.",
+        parts: [
+          {
+            text: "Summarize the latest notes.",
+            type: "text",
+          },
+        ],
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_1",
         userMessageId: "user_msg_1",
@@ -386,7 +399,12 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
             conversationId: "conv_1",
             conversationTitle: "Portfolio review",
             conversationVisibility: "open",
-            message: "Summarize the latest notes.",
+            parts: [
+              {
+                text: "Summarize the latest notes.",
+                type: "text",
+              },
+            ],
             senderDisplayName: "Michael Froehlich",
             senderExternalId: "user_1",
             userMessageId: "user_msg_1",
@@ -479,7 +497,12 @@ test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct rou
         conversationId: "conv_1",
         conversationTitle: "Direct with Otto",
         conversationVisibility: "personal",
-        message: "Show me the artifact",
+        parts: [
+          {
+            text: "Show me the artifact",
+            type: "text",
+          },
+        ],
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_1",
         userMessageId: "user_msg_1",
@@ -533,5 +556,107 @@ test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct rou
     } else {
       process.env.TENANT_TOKEN = previousTenantToken;
     }
+  }
+});
+
+test("dispatchWorkspaceChatInboundTurn stages uploaded attachments and injects their local paths into the agent prompt", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const runtimeState = createRuntime();
+  const fetchCalls = [];
+  const stagingRoot = await mkdtemp(
+    path.join(os.tmpdir(), "otto-workspace-chat-"),
+  );
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    const dispatchCalls = [];
+
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
+        parts: [
+          {
+            text: "Please inspect the attached file.",
+            type: "text",
+          },
+          {
+            attachmentId: "att_1",
+            fileName: "notes.txt",
+            mimeType: "text/plain",
+            type: "file",
+          },
+        ],
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {},
+        dispatchInboundReplyWithBase: async (params) => {
+          dispatchCalls.push(params);
+          await params.deliver({ text: "Done" });
+        },
+        fetchAttachment: async () => ({
+          attachmentId: "att_1",
+          bytes: new TextEncoder().encode("hello world"),
+          fileName: "notes.txt",
+          mimeType: "text/plain",
+          sha256: "sha256-1",
+        }),
+        runtime: runtimeState.runtime,
+        stagingRoot,
+      },
+    );
+
+    assert.equal(dispatchCalls.length, 1);
+
+    const expectedPath = path.join(
+      stagingRoot,
+      "conv_1",
+      "att_1-notes.txt",
+    );
+
+    assert.match(
+      dispatchCalls[0].ctxPayload.BodyForAgent,
+      /Attached files:\n- notes\.txt \(text\/plain\) at .*att_1-notes\.txt/u,
+    );
+    assert.equal(await readFile(expectedPath, "utf8"), "hello world");
+    assert.equal(
+      fetchCalls.at(-1).url,
+      "https://workspace.example/api/internal/runtime/workspace-chat/messages/complete",
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+    await rm(stagingRoot, { force: true, recursive: true });
   }
 });

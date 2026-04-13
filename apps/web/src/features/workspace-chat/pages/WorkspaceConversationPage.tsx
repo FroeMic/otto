@@ -12,6 +12,7 @@ import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 
 import {
   sendWorkspaceChatMessage,
+  uploadWorkspaceChatAttachment,
   workspaceChatConversationDetailQueryOptions,
 } from "../api/chat"
 import { ConversationComposer } from "../components/ConversationComposer"
@@ -44,12 +45,34 @@ export function WorkspaceConversationPage({
     workspaceChatConversationDetailQueryOptions(orgSlug, conversationId),
   )
   const sendMessageMutation = useMutation({
-    mutationFn: async (text: string) =>
+    mutationFn: async (input: {
+      attachments: Array<{
+        fileName: string
+        id: string
+        mimeType: string
+      }>
+      text: string
+    }) =>
       sendWorkspaceChatMessage({
         clientMessageId: crypto.randomUUID(),
         conversationId,
         orgSlug,
-        text,
+        parts: [
+          ...(input.text
+            ? [
+                {
+                  text: input.text,
+                  type: "text" as const,
+                },
+              ]
+            : []),
+          ...input.attachments.map((attachment) => ({
+            attachmentId: attachment.id,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            type: "file" as const,
+          })),
+        ],
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -119,8 +142,14 @@ export function WorkspaceConversationPage({
         >
           <ConversationComposer
             disabled={sendMessageMutation.isPending}
-            onSubmit={async (text) => {
-              await sendMessageMutation.mutateAsync(text)
+            onSubmit={async (input) => {
+              await sendMessageMutation.mutateAsync(input)
+            }}
+            onUploadAttachment={async (file) => {
+              return await uploadWorkspaceChatAttachment({
+                file,
+                orgSlug,
+              })
             }}
           />
         </div>

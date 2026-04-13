@@ -95,6 +95,13 @@ export const workspaceChatMessagePartSchema = z.discriminatedUnion("type", [
   workspaceChatAudioPartSchema,
 ])
 
+export const workspaceChatAttachmentSchema = z.object({
+  fileName: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+  mimeType: z.string().trim().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+})
+
 export const workspaceChatMessageAuthorSchema = z.object({
   kind: workspaceChatMessageAuthorKindSchema,
   name: z.string().trim().min(1).optional(),
@@ -182,6 +189,10 @@ export const workspaceChatMessageCreateResponseSchema = z.object({
   message: workspaceChatMessageSchema,
 })
 
+export const workspaceChatAttachmentUploadResponseSchema = z.object({
+  attachment: workspaceChatAttachmentSchema,
+})
+
 export const workspaceChatRuntimeSessionStatusSchema = z.enum([
   "active",
   "completed",
@@ -263,6 +274,24 @@ export const workspaceChatRuntimeMessageFailResponseSchema = z.object({
   tenantId: z.string().trim().min(1),
 })
 
+export const workspaceChatRuntimeIngressRequestSchema = z.object({
+  assistantMessageId: z.string().trim().min(1).optional(),
+  conversationId: z.string().trim().min(1),
+  conversationKind: workspaceChatConversationKindSchema,
+  conversationTitle: z.string().trim().min(1),
+  conversationVisibility: workspaceChatConversationVisibilitySchema,
+  parts: z.array(workspaceChatMessagePartSchema).min(1),
+  senderDisplayName: z.string().trim().min(1),
+  senderExternalId: z.string().trim().min(1),
+  userMessageId: z.string().trim().min(1).optional(),
+})
+
+export const workspaceChatRuntimeIngressAcceptanceResponseSchema = z.object({
+  accepted: z.literal(true),
+  ok: z.literal(true),
+  sessionKey: z.string().trim().min(1),
+})
+
 export const workspaceChatRuntimeMessageEventUpsertResponseSchema = z.object({
   conversationId: z.string().trim().min(1),
   eventId: z.string().trim().min(1),
@@ -296,6 +325,12 @@ export type WorkspaceChatMessageCreateRequest = z.infer<
 export type WorkspaceChatMessageCreateResponse = z.infer<
   typeof workspaceChatMessageCreateResponseSchema
 >
+export type WorkspaceChatAttachment = z.infer<
+  typeof workspaceChatAttachmentSchema
+>
+export type WorkspaceChatAttachmentUploadResponse = z.infer<
+  typeof workspaceChatAttachmentUploadResponseSchema
+>
 export type WorkspaceChatMessagePart = z.infer<
   typeof workspaceChatMessagePartSchema
 >
@@ -322,6 +357,12 @@ export type WorkspaceChatRuntimeMessageDeltaResponse = z.infer<
 >
 export type WorkspaceChatRuntimeMessageFailResponse = z.infer<
   typeof workspaceChatRuntimeMessageFailResponseSchema
+>
+export type WorkspaceChatRuntimeIngressRequest = z.infer<
+  typeof workspaceChatRuntimeIngressRequestSchema
+>
+export type WorkspaceChatRuntimeIngressAcceptanceResponse = z.infer<
+  typeof workspaceChatRuntimeIngressAcceptanceResponseSchema
 >
 export type WorkspaceChatRuntimeMessageEventUpsertResponse = z.infer<
   typeof workspaceChatRuntimeMessageEventUpsertResponseSchema

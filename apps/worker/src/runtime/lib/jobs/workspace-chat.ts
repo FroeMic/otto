@@ -1,3 +1,4 @@
+import { workspaceChatMessagePartSchema } from "@otto/feature-workspace-chat";
 import { getTenantRuntimeGatewayToken, getTenantRuntimeTenantToken } from "../../db/control-plane";
 import { getControlPlaneBaseUrl } from "../env";
 import { getTenantRuntimeConnection } from "../runtime/connection";
@@ -28,7 +29,7 @@ type ProcessWorkspaceChatDependencies = {
     conversationTitle: string;
     conversationVisibility: "open" | "personal";
     gatewayToken: string;
-    message: string;
+    parts: RunWorkspaceChatTurnPayload["parts"];
     senderDisplayName: string;
     senderExternalId: string;
     userMessageId: string;
@@ -60,7 +61,7 @@ const defaultDependencies: ProcessWorkspaceChatDependencies = {
       conversationTitle: input.conversationTitle,
       conversationVisibility: input.conversationVisibility,
       gatewayToken: input.gatewayToken,
-      message: input.message,
+      parts: input.parts,
       senderDisplayName: input.senderDisplayName,
       senderExternalId: input.senderExternalId,
       userMessageId: input.userMessageId,
@@ -178,7 +179,7 @@ export async function processRunWorkspaceChatTurnJob(
       conversationTitle: payload.conversationTitle,
       conversationVisibility: payload.conversationVisibility,
       gatewayToken,
-      message: payload.message,
+      parts: payload.parts,
       senderDisplayName: payload.senderDisplayName,
       senderExternalId: payload.senderExternalId,
       userMessageId: payload.userMessageId,
@@ -275,7 +276,7 @@ function parseRunWorkspaceChatTurnPayload(
   const conversationId = payload.conversationId;
   const conversationTitle = payload.conversationTitle;
   const conversationVisibility = payload.conversationVisibility;
-  const message = payload.message;
+  const parts = payload.parts;
   const senderDisplayName = payload.senderDisplayName;
   const senderExternalId = payload.senderExternalId;
   const tenantId = payload.tenantId;
@@ -301,8 +302,8 @@ function parseRunWorkspaceChatTurnPayload(
     throw new Error("Workspace chat turn payload is missing conversationVisibility");
   }
 
-  if (typeof message !== "string" || message.length === 0) {
-    throw new Error("Workspace chat turn payload is missing message");
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error("Workspace chat turn payload is missing parts");
   }
 
   if (typeof senderDisplayName !== "string" || senderDisplayName.length === 0) {
@@ -327,7 +328,7 @@ function parseRunWorkspaceChatTurnPayload(
     conversationId,
     conversationTitle,
     conversationVisibility,
-    message,
+    parts: parts.map((part) => workspaceChatMessagePartSchema.parse(part)),
     senderDisplayName,
     senderExternalId,
     tenantId,

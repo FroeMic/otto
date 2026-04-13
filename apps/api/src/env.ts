@@ -21,6 +21,7 @@ const rawApiEnvSchema = z.object({
   RUNTIME_SSH_PORT: z.coerce.number().int().positive().default(22),
   RUNTIME_SSH_USERNAME: z.string().default("root"),
   RUNTIME_OPENCLAW_IMAGE: z.string().optional(),
+  WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_BASE_URL: z.string().url().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
@@ -41,6 +42,7 @@ export type ApiEnv = {
   RUNTIME_SSH_PORT: number
   RUNTIME_SSH_USERNAME: string
   RUNTIME_OPENCLAW_IMAGE?: string
+  WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT?: string
   WORKOS_API_KEY?: string
   WORKOS_CLIENT_ID?: string
   WORKOS_COOKIE_NAME?: string
@@ -108,6 +110,8 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     RUNTIME_SSH_PORT: raw.RUNTIME_SSH_PORT,
     RUNTIME_SSH_USERNAME: raw.RUNTIME_SSH_USERNAME,
     RUNTIME_OPENCLAW_IMAGE: raw.RUNTIME_OPENCLAW_IMAGE?.trim() || undefined,
+    WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT:
+      raw.WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT?.trim() || undefined,
     WORKOS_API_KEY: raw.WORKOS_API_KEY?.trim() || undefined,
     WORKOS_CLIENT_ID: raw.WORKOS_CLIENT_ID?.trim() || undefined,
     WORKOS_COOKIE_NAME: raw.WORKOS_COOKIE_NAME?.trim() || undefined,

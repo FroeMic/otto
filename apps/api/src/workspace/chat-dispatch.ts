@@ -1,3 +1,5 @@
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat"
+
 import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
 
@@ -8,7 +10,7 @@ type WorkspaceChatDispatchDependencies = {
     conversationId: string
     conversationTitle: string
     conversationVisibility: "open" | "personal"
-    message: string
+    parts: WorkspaceChatMessagePart[]
     senderDisplayName: string
     senderExternalId: string
     tenantId: string
@@ -26,7 +28,7 @@ export async function dispatchWorkspaceChatMessage(
     conversationId: string
     conversationTitle: string
     conversationVisibility: "open" | "personal"
-    message: string
+    parts: WorkspaceChatMessagePart[]
     senderDisplayName: string
     senderExternalId: string
     tenantId: string
@@ -39,7 +41,7 @@ export async function dispatchWorkspaceChatMessage(
   console.info("[workspace-chat] enqueueing runtime turn job", {
     assistantMessageId: input.assistantMessageId ?? null,
     conversationId: input.conversationId,
-    messageLength: input.message.length,
+    partsCount: input.parts.length,
     tenantId: input.tenantId,
   })
 
@@ -62,7 +64,7 @@ export async function dispatchWorkspaceChatMessage(
     conversationId: input.conversationId,
     conversationTitle: input.conversationTitle,
     conversationVisibility: input.conversationVisibility,
-    message: input.message,
+    parts: input.parts,
     senderDisplayName: input.senderDisplayName,
     senderExternalId: input.senderExternalId,
     tenantId: input.tenantId,

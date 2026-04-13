@@ -30,14 +30,15 @@ export async function handleWorkspaceChatHttpRequest(req, res, dependencies) {
     console.info("[workspace-chat] http ingress received", {
       assistantMessageId: params.assistantMessageId ?? null,
       conversationId: params.conversationId,
-      messageLength: params.message.length,
+      partsCount: params.parts.length,
       senderExternalId: params.senderExternalId,
       userMessageId: params.userMessageId ?? null,
     });
 
-    const acceptedTurn = prepareWorkspaceChatInboundTurn(params, {
+    const acceptedTurn = await prepareWorkspaceChatInboundTurn(params, {
       cfg: dependencies.cfg ?? {},
       dispatchInboundReplyWithBase: dependencies.dispatchInboundReplyWithBase,
+      fetchAttachment: dependencies.fetchAttachment,
       runtime: dependencies.runtime,
     });
 
@@ -78,7 +79,7 @@ export async function handleWorkspaceChatHttpRequest(req, res, dependencies) {
     const statusCode =
       error instanceof Error &&
       (error.message === "conversationId required" ||
-        error.message === "message required")
+        error.message === "parts required")
         ? 400
         : 500;
 
@@ -92,7 +93,6 @@ export async function handleWorkspaceChatHttpRequest(req, res, dependencies) {
 function parseWorkspaceChatIngressPayload(params) {
   const conversationId =
     typeof params?.conversationId === "string" ? params.conversationId.trim() : "";
-  const message = typeof params?.message === "string" ? params.message.trim() : "";
   const assistantMessageId =
     typeof params?.assistantMessageId === "string" &&
     params.assistantMessageId.trim().length > 0
@@ -111,6 +111,11 @@ function parseWorkspaceChatIngressPayload(params) {
       : `Workspace conversation ${conversationId || "unknown"}`;
   const conversationVisibility =
     params?.conversationVisibility === "personal" ? "personal" : "open";
+  const parts = Array.isArray(params?.parts)
+    ? params.parts
+        .map((part) => normalizeWorkspaceChatIngressPart(part))
+        .filter(Boolean)
+    : [];
   const senderDisplayName =
     typeof params?.senderDisplayName === "string" &&
     params.senderDisplayName.trim().length > 0
@@ -130,8 +135,8 @@ function parseWorkspaceChatIngressPayload(params) {
     throw new Error("conversationId required");
   }
 
-  if (!message) {
-    throw new Error("message required");
+  if (parts.length === 0) {
+    throw new Error("parts required");
   }
 
   return {
@@ -140,7 +145,7 @@ function parseWorkspaceChatIngressPayload(params) {
     conversationId,
     conversationTitle,
     conversationVisibility,
-    message,
+    parts,
     senderDisplayName,
     senderExternalId,
     ...(userMessageId ? { userMessageId } : {}),
@@ -169,4 +174,62 @@ function getErrorMessage(error) {
   }
 
   return "Workspace chat ingress failed";
+}
+
+function normalizeWorkspaceChatIngressPart(part) {
+  if (part?.type === "text" && typeof part.text === "string") {
+    const text = part.text.trim();
+
+    return text
+      ? {
+          text,
+          type: "text",
+        }
+      : null;
+  }
+
+  if (
+    part?.type === "file" &&
+    typeof part.attachmentId === "string" &&
+    typeof part.fileName === "string" &&
+    typeof part.mimeType === "string"
+  ) {
+    const attachmentId = part.attachmentId.trim();
+    const fileName = part.fileName.trim();
+    const mimeType = part.mimeType.trim();
+
+    return attachmentId && fileName && mimeType
+      ? {
+          attachmentId,
+          fileName,
+          mimeType,
+          type: "file",
+        }
+      : null;
+  }
+
+  if (
+    part?.type === "audio" &&
+    typeof part.attachmentId === "string" &&
+    typeof part.mimeType === "string"
+  ) {
+    const attachmentId = part.attachmentId.trim();
+    const mimeType = part.mimeType.trim();
+    const transcript =
+      typeof part.transcript === "string" && part.transcript.trim().length > 0
+        ? part.transcript.trim()
+        : undefined;
+
+    return attachmentId && mimeType
+      ? {
+          attachmentId,
+          ...(typeof part.durationMs === "number" ? { durationMs: part.durationMs } : {}),
+          mimeType,
+          ...(transcript ? { transcript } : {}),
+          type: "audio",
+        }
+      : null;
+  }
+
+  return null;
 }

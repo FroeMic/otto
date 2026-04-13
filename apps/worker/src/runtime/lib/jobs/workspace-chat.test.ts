@@ -23,7 +23,12 @@ describe("workspace chat worker job", () => {
           conversationId: "conv_1",
           conversationTitle: "Portfolio review",
           conversationVisibility: "open",
-          message: "Summarize the latest notes.",
+          parts: [
+            {
+              text: "Summarize the latest notes.",
+              type: "text",
+            },
+          ],
           senderDisplayName: "Test User",
           senderExternalId: "user_1",
           tenantId: "tenant_1",
@@ -59,7 +64,12 @@ describe("workspace chat worker job", () => {
       conversationTitle: "Portfolio review",
       conversationVisibility: "open",
       gatewayToken: "gateway-token",
-      message: "Summarize the latest notes.",
+      parts: [
+        {
+          text: "Summarize the latest notes.",
+          type: "text",
+        },
+      ],
       senderDisplayName: "Test User",
       senderExternalId: "user_1",
       userMessageId: "user_msg_1",
@@ -87,7 +97,12 @@ describe("workspace chat worker job", () => {
           conversationId: "conv_1",
           conversationTitle: "Portfolio review",
           conversationVisibility: "open",
-          message: "Summarize the latest notes.",
+          parts: [
+            {
+              text: "Summarize the latest notes.",
+              type: "text",
+            },
+          ],
           senderDisplayName: "Test User",
           senderExternalId: "user_1",
           tenantId: "tenant_1",

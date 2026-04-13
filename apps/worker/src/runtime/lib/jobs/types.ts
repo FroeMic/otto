@@ -1,3 +1,4 @@
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat";
 import type { ProviderUsageType } from "../providers/types";
 
 export const JOB_TYPES = {
@@ -94,7 +95,7 @@ export type RunWorkspaceChatTurnPayload = {
   conversationId: string;
   conversationTitle: string;
   conversationVisibility: "open" | "personal";
-  message: string;
+  parts: WorkspaceChatMessagePart[];
   senderDisplayName: string;
   senderExternalId: string;
   tenantId: string;

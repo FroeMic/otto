@@ -69,6 +69,63 @@ export async function sendWorkspaceChatActivityEvent(input) {
   });
 }
 
+export async function fetchWorkspaceChatAttachment(attachmentId) {
+  const baseUrl = resolveControlPlaneBaseUrl();
+  const token = resolveTenantToken();
+
+  if (!baseUrl) {
+    throw new Error(
+      "OTTO_CONTROL_PLANE_BASE_URL is not set in the runtime environment.",
+    );
+  }
+
+  if (!token) {
+    throw new Error("TENANT_TOKEN is not set in the runtime environment.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/internal/runtime/workspace-chat/attachments/${encodeURIComponent(attachmentId)}`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+        method: "GET",
+        signal: controller.signal,
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      const payload = text ? tryParseJson(text) : null;
+
+      throw new Error(
+        payload?.error ||
+          `Workspace chat attachment fetch failed with status ${response.status}.`,
+      );
+    }
+
+    const fileNameHeader = response.headers.get("x-workspace-chat-file-name");
+
+    return {
+      attachmentId:
+        response.headers.get("x-workspace-chat-attachment-id") ?? attachmentId,
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      fileName: fileNameHeader
+        ? decodeURIComponent(fileNameHeader)
+        : "attachment",
+      mimeType:
+        response.headers.get("content-type") ?? "application/octet-stream",
+      sha256: response.headers.get("x-workspace-chat-sha256") ?? "",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function requestControlPlane(input) {
   const baseUrl = resolveControlPlaneBaseUrl();
   const token = resolveTenantToken();
@@ -131,6 +188,14 @@ async function requestControlPlane(input) {
     return payload;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function tryParseJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
   }
 }
 

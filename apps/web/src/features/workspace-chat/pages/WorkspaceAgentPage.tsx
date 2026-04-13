@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import {
   createWorkspaceChatConversation,
   sendWorkspaceChatMessage,
+  uploadWorkspaceChatAttachment,
 } from "../api/chat"
 import { WorkspaceAgentPromptCard } from "../components/WorkspaceAgentPromptCard"
 import { useViewportDockBounds } from "../hooks/useViewportDockBounds"
@@ -23,7 +24,14 @@ export function WorkspaceAgentPage({
   const queryClient = useQueryClient()
   const { boundsRef, dockStyle } = useViewportDockBounds()
   const startConversationMutation = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async (input: {
+      attachments: Array<{
+        fileName: string
+        id: string
+        mimeType: string
+      }>
+      text: string
+    }) => {
       const conversation = await createWorkspaceChatConversation({
         orgSlug,
       })
@@ -42,7 +50,22 @@ export function WorkspaceAgentPage({
         clientMessageId: crypto.randomUUID(),
         conversationId: conversation.id,
         orgSlug,
-        text,
+        parts: [
+          ...(input.text
+            ? [
+                {
+                  text: input.text,
+                  type: "text" as const,
+                },
+              ]
+            : []),
+          ...input.attachments.map((attachment) => ({
+            attachmentId: attachment.id,
+            fileName: attachment.fileName,
+            mimeType: attachment.mimeType,
+            type: "file" as const,
+          })),
+        ],
       })
 
       await Promise.all([
@@ -98,8 +121,14 @@ export function WorkspaceAgentPage({
           <div className="pointer-events-auto w-full px-4 pb-5">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
-              onSubmit={async (text) => {
-                await startConversationMutation.mutateAsync(text)
+              onSubmit={async (input) => {
+                await startConversationMutation.mutateAsync(input)
+              }}
+              onUploadAttachment={async (file) => {
+                return await uploadWorkspaceChatAttachment({
+                  file,
+                  orgSlug,
+                })
               }}
             />
           </div>

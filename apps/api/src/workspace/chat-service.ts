@@ -1,4 +1,5 @@
 import type {
+  WorkspaceChatMessagePart,
   WorkspaceChatMessageCreateRequest,
   WorkspaceChatMessageCreateResponse,
 } from "@otto/feature-workspace-chat"
@@ -7,6 +8,7 @@ import {
   createWorkspaceChatMessageRecord,
   markWorkspaceChatAssistantMessageFailed,
 } from "./chat-data"
+import { validateWorkspaceChatAttachmentOwnership } from "./chat-attachments-service"
 import { dispatchWorkspaceChatMessage } from "./chat-dispatch"
 
 type CreateAndDispatchWorkspaceChatMessageDependencies = {
@@ -33,7 +35,7 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
     conversationId: string
     conversationTitle: string
     conversationVisibility: "open" | "personal"
-    message: string
+    parts: WorkspaceChatMessagePart[]
     senderDisplayName: string
     senderExternalId: string
     tenantId: string
@@ -41,6 +43,11 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
   }) => Promise<{
     status: "queued"
   }>
+  validateAttachmentOwnership?: (input: {
+    attachmentIds: string[]
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<void>
   markAssistantMessageFailed?: (input: {
     assistantMessageId: string
     conversationId: string
@@ -59,9 +66,19 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
     dependencies.createMessageRecord ?? createWorkspaceChatMessageRecord
   const dispatchMessage =
     dependencies.dispatchMessage ?? dispatchWorkspaceChatMessage
+  const validateAttachmentOwnership =
+    dependencies.validateAttachmentOwnership ??
+    validateWorkspaceChatAttachmentOwnership
   const markAssistantMessageFailed =
     dependencies.markAssistantMessageFailed ??
     markWorkspaceChatAssistantMessageFailed
+  const attachmentIds = collectWorkspaceChatAttachmentIds(input.parts)
+
+  await validateAttachmentOwnership({
+    attachmentIds,
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
   const created = await createMessageRecord(input)
 
   console.info("[workspace-chat] message record created", {
@@ -82,12 +99,10 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
   }
 
   try {
-    const prompt = flattenWorkspaceChatPartsToPrompt(created.message.parts)
-
     console.info("[workspace-chat] dispatching runtime turn", {
       assistantMessageId: created.assistantMessageId ?? null,
       conversationId: created.conversationId,
-      promptLength: prompt.length,
+      partsCount: created.message.parts.length,
       tenantId: created.tenantId,
     })
 
@@ -99,7 +114,7 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
       conversationId: created.conversationId,
       conversationTitle: created.conversationTitle,
       conversationVisibility: created.conversationVisibility,
-      message: prompt,
+      parts: created.message.parts,
       senderDisplayName: input.userDisplayName,
       senderExternalId: input.userExternalId,
       tenantId: created.tenantId,
@@ -146,30 +161,14 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
   }
 }
 
-function flattenWorkspaceChatPartsToPrompt(
+function collectWorkspaceChatAttachmentIds(
   parts: WorkspaceChatMessageCreateRequest["parts"],
 ) {
-  const segments = parts.flatMap((part) => {
+  return parts.flatMap((part) => {
     if (part.type === "text") {
-      return [part.text.trim()]
+      return []
     }
 
-    if (part.type === "file") {
-      return [`[File: ${part.fileName}]`]
-    }
-
-    if (part.type === "audio") {
-      return [part.transcript?.trim() || "[Voice note]"]
-    }
-
-    return []
+    return [part.attachmentId]
   })
-
-  const prompt = segments.filter(Boolean).join("\n\n").trim()
-
-  if (!prompt) {
-    throw new Error("Workspace chat dispatch requires at least one promptable part.")
-  }
-
-  return prompt
 }
