@@ -27,6 +27,18 @@ export interface ShellNotificationContextValue {
   notify: (draft: ShellNotificationDraft) => string
 }
 
+export interface ShellNotificationDebugApi {
+  dismiss: () => void
+  notify: (draft: ShellNotificationDraft) => string
+  test: () => string
+}
+
+declare global {
+  interface Window {
+    __ottoShellNotifications?: ShellNotificationDebugApi
+  }
+}
+
 const ShellNotificationContext =
   createContext<ShellNotificationContextValue | null>(null)
 
@@ -86,6 +98,25 @@ export function ShellNotificationProvider({
       }
     }
   }, [currentNotification])
+
+  useEffect(() => {
+    window.__ottoShellNotifications = {
+      dismiss: dismissCurrent,
+      notify,
+      test: () =>
+        notify({
+          detail:
+            "This banner is rendered by the shell notification center in normal flow.",
+          dismissAfterMs: 8_000,
+          title: "Shell notifications are working",
+          tone: "info",
+        }),
+    }
+
+    return () => {
+      delete window.__ottoShellNotifications
+    }
+  }, [dismissCurrent, notify])
 
   const value = useMemo(
     () => ({
