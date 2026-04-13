@@ -160,7 +160,6 @@ import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-m
 import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
 import { executeLinearWorkspaceMemberUpdate } from "./commands/workspace-member/update";
 import { linearOAuthProvider } from "./oauth/provider";
-import { LinearIntegrationListItem } from "./ui/list-item";
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
@@ -8323,11 +8322,6 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations/linear/status`,
   showInWorkspaceCatalog: true,
-  ui: {
-    loadDetailPage: async () =>
-      (await import("./ui/page")).LinearIntegrationPage,
-    overviewItem: LinearIntegrationListItem,
-  },
 };
 
 function buildCapability(input: {

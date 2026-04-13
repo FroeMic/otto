@@ -6,8 +6,6 @@ import {
   slackSettingsExamples,
 } from "./settings-metadata";
 
-import { SlackIntegrationListItem } from "./ui/list-item";
-
 export const slackIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: slackAgentCapabilities,
   categoryLabel: "Messaging",
@@ -43,9 +41,4 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations/slack/status`,
   showInWorkspaceCatalog: true,
-  ui: {
-    loadDetailPage: () =>
-      import("./ui/page").then((module) => module.SlackManagedIntegrationPage),
-    overviewItem: SlackIntegrationListItem,
-  },
 };

@@ -5,7 +5,6 @@ import {
   braveAgentCapabilities,
   braveSettingsExamples,
 } from "./settings-metadata";
-import { BraveIntegrationListItem } from "./ui/list-item";
 
 export const braveIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: braveAgentCapabilities,
@@ -61,9 +60,4 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
   },
   settingsPath: (orgSlug) => `/${orgSlug}/integrations/brave/status`,
   showInWorkspaceCatalog: true,
-  ui: {
-    loadDetailPage: () =>
-      import("./ui/page").then((module) => module.BraveManagedIntegrationPage),
-    overviewItem: BraveIntegrationListItem,
-  },
 };
