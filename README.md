@@ -23,6 +23,56 @@ Otto is a Bun-based monorepo for the workspace app, API, worker, gateway, and sh
 - `_docs/`
   Focused reference docs.
 
+## Architecture
+
+Otto is split by execution surface first, with shared runtime logic extracted into packages.
+
+```text
+browser
+  |
+  v
+apps/web
+  |
+  +--> apps/api -----------------------------+
+  |      |                                   |
+  |      +--> Postgres                       |
+  |      +--> packages/features/runtime-core |
+  |      +--> packages/features/integrations-runtime
+  |
+  +--> apps/gateway
+  |      |
+  |      +--> packages/features/integrations-runtime
+  |
+  +--> apps/worker
+         |
+         +--> Postgres
+         +--> packages/features/runtime-core
+         +--> tenant runtimes over SSH / runtime callbacks
+```
+
+Current responsibilities:
+
+- `apps/web`
+  Owns the browser app, app shell, settings shell, and feature UI under `src/features/*`.
+- `apps/api`
+  Owns the browser-facing Hono API, OAuth/webhook routes, and runtime-facing HTTP adapters.
+- `apps/worker`
+  Owns background execution: provisioning, apply, sync jobs, billing jobs, and runtime operations.
+- `apps/gateway`
+  Owns integration execute traffic for tenant runtimes.
+- `packages/features/runtime-core`
+  Owns runtime substrate that is not HTTP-specific and not provider-specific.
+- `packages/features/integrations-runtime`
+  Owns provider-specific runtime integration logic shared across API, gateway, and runtime flows.
+- `drizzle/`
+  Owns schema migrations at the repo root.
+
+Design rule:
+
+- product surfaces stay local to `apps/web` and `apps/api`
+- worker-only orchestration stays in `apps/worker`
+- only genuinely shared runtime substrate moves into `packages/features/*`
+
 ## Start here
 
 If you are orienting yourself in the codebase:
