@@ -7,8 +7,7 @@ import { ConversationComposer } from "./ConversationComposer"
 export interface WorkspaceAgentPromptCardProps {
   disabled?: boolean
   onSubmit: (input: {
-    attachments: WorkspaceChatAttachment[]
-    text: string
+    parts: ReturnType<typeof import("../composer-parts").buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
   onUploadAttachment?: (file: File) => Promise<WorkspaceChatAttachment>
 }

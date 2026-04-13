@@ -189,10 +189,12 @@ async function buildPreparedTurn(input, dependencies) {
     conversationId: input.conversationId,
     conversationTitle: input.conversationTitle,
     conversationVisibility: input.conversationVisibility,
+    mediaAttachments: preparedParts.mediaAttachments,
     message: preparedParts.promptText,
     runtime,
     senderDisplayName: input.senderDisplayName,
     senderExternalId: input.senderExternalId,
+    transcript: preparedParts.transcript,
     userMessageId: input.userMessageId,
   });
   const replyDispatcher = createWorkspaceChatReplyDispatcher({

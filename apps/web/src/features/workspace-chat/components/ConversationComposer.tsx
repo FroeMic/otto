@@ -2,6 +2,7 @@ import {
   FileIcon,
   PaperPlaneTiltIcon,
   PaperclipIcon,
+  WaveformIcon,
   XIcon,
 } from "@phosphor-icons/react"
 import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
@@ -12,12 +13,17 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
+import {
+  buildWorkspaceChatComposerParts,
+  type WorkspaceChatComposerAttachmentDraft,
+} from "../composer-parts"
+import { ConversationVoiceNoteRecorder } from "./ConversationVoiceNoteRecorder"
+
 export interface ConversationComposerProps {
   className?: string
   disabled?: boolean
   onSubmit: (input: {
-    attachments: WorkspaceChatAttachment[]
-    text: string
+    parts: ReturnType<typeof buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
   onUploadAttachment?: (file: File) => Promise<WorkspaceChatAttachment>
   placeholder?: string
@@ -31,7 +37,9 @@ export function ConversationComposer({
   placeholder = "Message Otto in this workspace conversation",
 }: ConversationComposerProps) {
   const [draft, setDraft] = useState("")
-  const [attachments, setAttachments] = useState<WorkspaceChatAttachment[]>([])
+  const [attachments, setAttachments] = useState<
+    WorkspaceChatComposerAttachmentDraft[]
+  >([])
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -48,16 +56,16 @@ export function ConversationComposer({
   }, [draft])
 
   async function submitDraft() {
-    const nextDraft = draft.trim()
+    const parts = buildWorkspaceChatComposerParts({
+      attachments,
+      text: draft,
+    })
 
-    if ((nextDraft.length === 0 && attachments.length === 0) || disabled) {
+    if (parts.length === 0 || disabled) {
       return
     }
 
-    await onSubmit({
-      attachments,
-      text: nextDraft,
-    })
+    await onSubmit({ parts })
     setAttachments([])
     setDraft("")
   }
@@ -73,17 +81,27 @@ export function ConversationComposer({
         <div className="mb-3 flex flex-wrap gap-2">
           {attachments.map((attachment) => (
             <div
-              key={attachment.id}
+              key={attachment.attachment.id}
               className="flex items-center gap-2 rounded-full border border-border/80 bg-muted/45 px-3 py-1 text-xs text-muted-foreground"
             >
-              <FileIcon className="size-3.5 shrink-0" />
-              <span className="max-w-44 truncate">{attachment.fileName}</span>
+              {attachment.kind === "audio" ? (
+                <WaveformIcon className="size-3.5 shrink-0" />
+              ) : (
+                <FileIcon className="size-3.5 shrink-0" />
+              )}
+              <span className="max-w-44 truncate">
+                {attachment.kind === "audio"
+                  ? `Voice note${typeof attachment.durationMs === "number" ? ` · ${formatVoiceNoteDuration(attachment.durationMs)}` : ""}`
+                  : attachment.attachment.fileName}
+              </span>
               <button
                 className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/80 transition hover:text-foreground"
                 disabled={disabled || isUploading}
                 onClick={() => {
                   setAttachments((current) =>
-                    current.filter((entry) => entry.id !== attachment.id),
+                    current.filter(
+                      (entry) => entry.attachment.id !== attachment.attachment.id,
+                    ),
                   )
                 }}
                 type="button"
@@ -94,6 +112,33 @@ export function ConversationComposer({
           ))}
         </div>
       ) : null}
+
+      <div className="mb-3">
+        <ConversationVoiceNoteRecorder
+          disabled={disabled || isUploading}
+          onAttachVoiceNote={async (input) => {
+            if (!onUploadAttachment) {
+              return
+            }
+
+            setIsUploading(true)
+
+            try {
+              const attachment = await onUploadAttachment(input.file)
+              setAttachments((current) => [
+                ...current,
+                {
+                  attachment,
+                  durationMs: input.durationMs,
+                  kind: "audio",
+                },
+              ])
+            } finally {
+              setIsUploading(false)
+            }
+          }}
+        />
+      </div>
 
       <Textarea
         className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 pr-28 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
@@ -126,7 +171,13 @@ export function ConversationComposer({
 
           void Promise.all(files.map((file) => onUploadAttachment(file)))
             .then((uploaded) => {
-              setAttachments((current) => [...current, ...uploaded])
+              setAttachments((current) => [
+                ...current,
+                ...uploaded.map((attachment) => ({
+                  attachment,
+                  kind: "file" as const,
+                })),
+              ])
             })
             .catch((error) => {
               toast.error(
@@ -174,4 +225,12 @@ export function ConversationComposer({
       </div>
     </div>
   )
+}
+
+function formatVoiceNoteDuration(durationMs: number) {
+  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }

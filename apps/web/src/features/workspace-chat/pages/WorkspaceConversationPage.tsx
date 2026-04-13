@@ -46,33 +46,13 @@ export function WorkspaceConversationPage({
   )
   const sendMessageMutation = useMutation({
     mutationFn: async (input: {
-      attachments: Array<{
-        fileName: string
-        id: string
-        mimeType: string
-      }>
-      text: string
+      parts: Parameters<typeof sendWorkspaceChatMessage>[0]["parts"]
     }) =>
       sendWorkspaceChatMessage({
         clientMessageId: crypto.randomUUID(),
         conversationId,
         orgSlug,
-        parts: [
-          ...(input.text
-            ? [
-                {
-                  text: input.text,
-                  type: "text" as const,
-                },
-              ]
-            : []),
-          ...input.attachments.map((attachment) => ({
-            attachmentId: attachment.id,
-            fileName: attachment.fileName,
-            mimeType: attachment.mimeType,
-            type: "file" as const,
-          })),
-        ],
+        parts: input.parts,
       }),
     onSuccess: async () => {
       await Promise.all([

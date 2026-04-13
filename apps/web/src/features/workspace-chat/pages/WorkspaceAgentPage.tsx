@@ -25,12 +25,7 @@ export function WorkspaceAgentPage({
   const { boundsRef, dockStyle } = useViewportDockBounds()
   const startConversationMutation = useMutation({
     mutationFn: async (input: {
-      attachments: Array<{
-        fileName: string
-        id: string
-        mimeType: string
-      }>
-      text: string
+      parts: Parameters<typeof sendWorkspaceChatMessage>[0]["parts"]
     }) => {
       const conversation = await createWorkspaceChatConversation({
         orgSlug,
@@ -50,22 +45,7 @@ export function WorkspaceAgentPage({
         clientMessageId: crypto.randomUUID(),
         conversationId: conversation.id,
         orgSlug,
-        parts: [
-          ...(input.text
-            ? [
-                {
-                  text: input.text,
-                  type: "text" as const,
-                },
-              ]
-            : []),
-          ...input.attachments.map((attachment) => ({
-            attachmentId: attachment.id,
-            fileName: attachment.fileName,
-            mimeType: attachment.mimeType,
-            type: "file" as const,
-          })),
-        ],
+        parts: input.parts,
       })
 
       await Promise.all([

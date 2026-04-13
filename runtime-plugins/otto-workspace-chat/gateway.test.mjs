@@ -660,3 +660,97 @@ test("dispatchWorkspaceChatInboundTurn stages uploaded attachments and injects t
     await rm(stagingRoot, { force: true, recursive: true });
   }
 });
+
+test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for runtime transcription", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const runtimeState = createRuntime();
+  const stagingRoot = await mkdtemp(
+    path.join(os.tmpdir(), "otto-workspace-chat-audio-"),
+  );
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+
+  try {
+    const dispatchCalls = [];
+
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Voice notes",
+        conversationVisibility: "open",
+        parts: [
+          {
+            text: "Please summarize this voice note.",
+            type: "text",
+          },
+          {
+            attachmentId: "att_audio_1",
+            durationMs: 12_000,
+            mimeType: "audio/webm",
+            type: "audio",
+          },
+        ],
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {},
+        dispatchInboundReplyWithBase: async (params) => {
+          dispatchCalls.push(params);
+          await params.deliver({ text: "Done" });
+        },
+        fetchAttachment: async () => ({
+          attachmentId: "att_audio_1",
+          bytes: new Uint8Array([1, 2, 3, 4]),
+          fileName: "voice-note.webm",
+          mimeType: "audio/webm",
+          sha256: "sha256-audio-1",
+        }),
+        runtime: runtimeState.runtime,
+        stagingRoot,
+      },
+    );
+
+    assert.equal(dispatchCalls.length, 1);
+
+    const expectedPath = path.join(
+      stagingRoot,
+      "conv_1",
+      "att_audio_1-voice-note.webm",
+    );
+    const ctxPayload = dispatchCalls[0].ctxPayload;
+
+    assert.equal(ctxPayload.BodyForAgent, "Please summarize this voice note.");
+    assert.equal(ctxPayload.CommandBody, "Please summarize this voice note.");
+    assert.equal(ctxPayload.MediaPath, expectedPath);
+    assert.deepEqual(ctxPayload.MediaPaths, [expectedPath]);
+    assert.equal(ctxPayload.MediaType, "audio/webm");
+    assert.deepEqual(ctxPayload.MediaTypes, ["audio/webm"]);
+    assert.equal(ctxPayload.Transcript, undefined);
+    assert.deepEqual(await readFile(expectedPath), Buffer.from([1, 2, 3, 4]));
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+    await rm(stagingRoot, { force: true, recursive: true });
+  }
+});
