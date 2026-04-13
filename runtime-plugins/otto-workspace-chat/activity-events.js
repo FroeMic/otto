@@ -60,13 +60,6 @@ export function createWorkspaceChatActivityEventReporter(
             sequence,
           },
         });
-
-        console.info("[workspace-chat] plugin activity event sent", {
-          assistantMessageId: input.assistantMessageId ?? null,
-          conversationId: input.conversationId,
-          sequence,
-          type: normalizedEvent.type,
-        });
       })
       .catch((error) => {
         console.error("[workspace-chat] plugin activity event failed", {

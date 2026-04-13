@@ -20,15 +20,15 @@ export function ConversationLiveTraceLine({
   }, [sequenceKey])
 
   return (
-    <div className="min-w-0">
-      <p
+    <div className="min-w-0 overflow-hidden">
+      <span
         className={cn(
-          "workspace-trace-flip truncate text-sm font-medium text-muted-foreground",
+          "workspace-trace-roll block truncate text-sm font-medium leading-6 text-muted-foreground",
         )}
         key={animationKey}
       >
         <ShimmerText>{label}</ShimmerText>
-      </p>
+      </span>
     </div>
   )
 }

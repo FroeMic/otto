@@ -180,10 +180,10 @@
   }
 }
 
-@keyframes workspace-trace-flip {
+@keyframes workspace-trace-roll {
   0% {
     opacity: 0;
-    transform: translateY(-0.7rem);
+    transform: translateY(-0.55rem);
   }
 
   100% {
@@ -209,7 +209,7 @@
     animation: workspace-trace-shimmer 2.2s linear infinite;
   }
 
-  .workspace-trace-flip {
-    animation: workspace-trace-flip 220ms ease-out;
+  .workspace-trace-roll {
+    animation: workspace-trace-roll 240ms ease-out;
   }
 }

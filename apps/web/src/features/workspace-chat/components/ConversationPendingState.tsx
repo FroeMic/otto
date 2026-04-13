@@ -35,6 +35,7 @@ export function ConversationPendingState({
     Number.isFinite(startedAtMs) && now >= startedAtMs ? now - startedAtMs : 0
   const label = getWorkspaceChatPendingLabel({
     elapsedMs,
+    seed: startedAt,
     status,
   })
 
