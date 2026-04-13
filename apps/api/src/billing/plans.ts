@@ -1,6 +1,7 @@
 import {
   BILLING_PAID_PLAN_DEFINITIONS,
   BILLING_PLAN_KEYS,
+  type BillingPlanKey,
 } from "@otto/feature-billing"
 
 export { BILLING_PLAN_KEYS } from "@otto/feature-billing"
@@ -8,7 +9,7 @@ export type { BillingPlanKey } from "@otto/feature-billing"
 
 export type BillingPlan = {
   creditsIncluded: number
-  key: string
+  key: BillingPlanKey
   monthlyPriceUsd: number
   name: string
 }
