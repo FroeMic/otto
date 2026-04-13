@@ -45,7 +45,10 @@ export function PlatformUserMenu(_props: PlatformUserMenuProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size="lg"
+                className="px-2.5 aria-expanded:bg-muted"
+              />
             }
           >
             <Avatar>

@@ -46,7 +46,8 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
                 render={
                   <Link params={{ orgSlug: sourceWorkspaceSlug }} to="/$orgSlug" />
                 }
-                size="lg"
+                size="default"
+                className="h-10 rounded-full px-4"
               >
                 <ArrowLeftIcon />
                 <span>Back to Otto</span>
@@ -75,6 +76,7 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
                     />
                   }
                   tooltip="Organizations"
+                  className="px-2.5"
                 >
                   <BuildingsIcon />
                   <span>Organizations</span>

@@ -49,6 +49,7 @@ function WorkspacePrimaryNavItem({
         render={<Link params={{ orgSlug }} preload="intent" to={to} />}
         isActive={isActive}
         tooltip={label}
+        className="px-2.5"
       >
         <Icon />
         <span>{label}</span>

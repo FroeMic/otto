@@ -149,7 +149,10 @@ function UserMenu({ currentOrganizationSlug, user }: UserMenuProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size="lg"
+                className="px-2.5 aria-expanded:bg-muted"
+              />
             }
           >
             <Avatar>
@@ -235,7 +238,7 @@ export function SettingsSidebar({
                   to="/$orgSlug"
                 />
               }
-              className="h-9 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              className="h-9 rounded-full px-4 text-sidebar-foreground/70 hover:text-sidebar-foreground"
             >
               <ArrowLeft />
               <span>Back to app</span>
@@ -258,6 +261,7 @@ export function SettingsSidebar({
                       render={
                         <Link to={href} />
                       }
+                      className="px-2.5"
                       isActive={isSettingsItemActive(
                         href,
                         item.match,
@@ -287,6 +291,7 @@ export function SettingsSidebar({
                       render={
                         <Link to={href} />
                       }
+                      className="px-2.5"
                       isActive={isSettingsItemActive(
                         href,
                         item.match,
@@ -327,6 +332,7 @@ export function SettingsSidebar({
                           to={to}
                         />
                       }
+                      className="px-2.5"
                       isActive={isSettingsItemActive(
                         href,
                         item.match,
