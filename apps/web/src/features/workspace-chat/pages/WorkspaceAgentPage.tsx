@@ -10,6 +10,7 @@ import {
   sendWorkspaceChatMessage,
 } from "../api/chat"
 import { WorkspaceAgentPromptCard } from "../components/WorkspaceAgentPromptCard"
+import { useViewportDockBounds } from "../hooks/useViewportDockBounds"
 
 export interface WorkspaceAgentPageProps {
   orgSlug: string
@@ -20,6 +21,7 @@ export function WorkspaceAgentPage({
 }: WorkspaceAgentPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { boundsRef, dockStyle } = useViewportDockBounds()
   const startConversationMutation = useMutation({
     mutationFn: async (text: string) => {
       const conversation = await createWorkspaceChatConversation({
@@ -69,6 +71,11 @@ export function WorkspaceAgentPage({
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+        <div
+          aria-hidden
+          className="mx-auto h-0 w-full max-w-3xl px-4"
+          ref={boundsRef}
+        />
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pb-44 pt-14 text-center">
           <div className="mx-auto max-w-2xl space-y-4">
             <p className="text-sm font-medium tracking-[0.18em] text-primary/80 uppercase">
@@ -84,8 +91,11 @@ export function WorkspaceAgentPage({
           </div>
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
-          <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5">
+        <div
+          className="pointer-events-none fixed bottom-0 z-30"
+          style={dockStyle}
+        >
+          <div className="pointer-events-auto w-full px-4 pb-5">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
               onSubmit={async (text) => {

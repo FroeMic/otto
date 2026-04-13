@@ -16,6 +16,7 @@ import {
 } from "../api/chat"
 import { ConversationComposer } from "../components/ConversationComposer"
 import { ConversationMessageList } from "../components/ConversationMessageList"
+import { useViewportDockBounds } from "../hooks/useViewportDockBounds"
 import { useWorkspaceConversationRealtime } from "../realtime/useWorkspaceConversationRealtime"
 
 export interface WorkspaceConversationPageProps {
@@ -29,6 +30,7 @@ export function WorkspaceConversationPage({
 }: WorkspaceConversationPageProps) {
   const composerRef = useRef<HTMLDivElement | null>(null)
   const [composerHeight, setComposerHeight] = useState(0)
+  const { boundsRef, dockStyle } = useViewportDockBounds()
 
   useWorkspaceConversationRealtime({
     conversationId,
@@ -92,6 +94,11 @@ export function WorkspaceConversationPage({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        aria-hidden
+        className="mx-auto h-0 w-full max-w-3xl px-4"
+        ref={boundsRef}
+      />
       <div className="min-h-0 flex-1">
         <ConversationMessageList
           bottomInset={composerHeight + 32}
@@ -102,9 +109,12 @@ export function WorkspaceConversationPage({
         />
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
+      <div
+        className="pointer-events-none fixed bottom-0 z-30"
+        style={dockStyle}
+      >
         <div
-          className="pointer-events-auto mx-auto w-full max-w-3xl px-4 pb-5"
+          className="pointer-events-auto w-full px-4 pb-5"
           ref={composerRef}
         >
           <ConversationComposer
