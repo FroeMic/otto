@@ -26,6 +26,7 @@ export function ConversationVoiceNoteRecorder({
   const recorder = useVoiceNoteRecorder()
   const [isUploading, setIsUploading] = useState(false)
   const hasStartedRef = useRef(false)
+  const uploadedDraftRef = useRef<Blob | null>(null)
 
   useEffect(() => {
     if (!recorder.isSupported || disabled || hasStartedRef.current) {
@@ -42,6 +43,10 @@ export function ConversationVoiceNoteRecorder({
     }
 
     const draft = recorder.draft
+    if (uploadedDraftRef.current === draft.blob) {
+      return
+    }
+    uploadedDraftRef.current = draft.blob
     let isCancelled = false
 
     async function uploadDraft() {
@@ -56,10 +61,12 @@ export function ConversationVoiceNoteRecorder({
         })
 
         if (!isCancelled) {
+          uploadedDraftRef.current = null
           recorder.clearDraft()
           onCancel()
         }
       } catch (error) {
+        uploadedDraftRef.current = null
         if (!isCancelled) {
           toast.error(
             error instanceof Error
@@ -83,6 +90,7 @@ export function ConversationVoiceNoteRecorder({
 
   useEffect(() => {
     if (recorder.errorMessage) {
+      uploadedDraftRef.current = null
       toast.error(recorder.errorMessage)
       recorder.clearDraft()
       onCancel()

@@ -199,8 +199,8 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     const analyser = audioContext.createAnalyser()
     const source = audioContext.createMediaStreamSource(stream)
 
-    analyser.fftSize = 128
-    analyser.smoothingTimeConstant = 0.82
+    analyser.fftSize = 256
+    analyser.smoothingTimeConstant = 0.72
     source.connect(analyser)
     await audioContext.resume()
 
@@ -215,18 +215,25 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       }
 
       analyserRef.current.getByteTimeDomainData(data)
+      const nextLevels = Array.from({ length: DEFAULT_BAR_COUNT }, (_, index) => {
+        const start = Math.floor((index * data.length) / DEFAULT_BAR_COUNT)
+        const end = Math.max(
+          start + 1,
+          Math.floor(((index + 1) * data.length) / DEFAULT_BAR_COUNT),
+        )
 
-      let sumSquares = 0
+        let amplitudeSum = 0
 
-      for (const value of data) {
-        const centered = (value - 128) / 128
-        sumSquares += centered * centered
-      }
+        for (let cursor = start; cursor < end; cursor += 1) {
+          amplitudeSum += Math.abs((data[cursor] - 128) / 128)
+        }
 
-      const rootMeanSquare = Math.sqrt(sumSquares / data.length)
-      const nextLevel = Math.min(1, Math.max(0.08, rootMeanSquare * 6))
+        const averageAmplitude = amplitudeSum / Math.max(1, end - start)
 
-      setLevels((current) => [...current.slice(1), nextLevel])
+        return Math.min(1, Math.max(0.08, averageAmplitude * 7.5))
+      })
+
+      setLevels(nextLevels)
       animationFrameRef.current = window.requestAnimationFrame(updateLevels)
     }
 
