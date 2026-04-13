@@ -1,3 +1,5 @@
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat"
+
 import assert from "node:assert/strict"
 
 import { describe, it } from "vitest"
@@ -13,7 +15,7 @@ describe("workspace chat dispatch", () => {
           conversationId: string
           conversationTitle: string
           conversationVisibility: "open" | "personal"
-          message: string
+          parts: WorkspaceChatMessagePart[]
           senderDisplayName: string
           senderExternalId: string
           tenantId: string
@@ -28,7 +30,12 @@ describe("workspace chat dispatch", () => {
         conversationId: "conv_123",
         conversationTitle: "Portfolio review",
         conversationVisibility: "open",
-        message: "Summarize the latest notes.",
+        parts: [
+          {
+            text: "Summarize the latest notes.",
+            type: "text",
+          },
+        ],
         senderDisplayName: "Michael Froehlich",
         senderExternalId: "user_123",
         tenantId: "tenant_123",
@@ -52,7 +59,12 @@ describe("workspace chat dispatch", () => {
       conversationId: "conv_123",
       conversationTitle: "Portfolio review",
       conversationVisibility: "open",
-      message: "Summarize the latest notes.",
+      parts: [
+        {
+          text: "Summarize the latest notes.",
+          type: "text",
+        },
+      ],
       senderDisplayName: "Michael Froehlich",
       senderExternalId: "user_123",
       tenantId: "tenant_123",

@@ -226,6 +226,12 @@ Current implementation status for Increment 1:
   - the old workspace-chat bridge-command runner path has been removed from the runtime image
   - the existing workspace websocket path now republishes those assistant placeholder updates as canonical `conversation.message_upserted` events so the same assistant bubble grows live until final completion marks it `completed`
   - `apps/web` now interpolates the last assistant text part locally between canonical cumulative snapshots so browser streaming reads more continuously without changing the canonical transport contract
+- the first browser-upload and plugin-owned attachment-ingress slice now also exists:
+  - `apps/api` now stores durable `workspace_chat_attachments` records plus staged upload bytes under control-plane ownership and exposes both a user-facing upload route and a tenant-authenticated internal attachment fetch route
+  - workspace chat send now preserves structured `parts` end to end through `apps/api`, `apps/worker`, and the tenant ingress contract instead of flattening everything to one text prompt string
+  - `runtime-plugins/otto-workspace-chat` now owns inbound attachment processing for workspace chat, fetching uploaded files from the control plane, staging them into a runtime-managed attachments directory, and injecting those local file paths into the agent-visible prompt context
+  - `apps/web` now supports file upload in the workspace composer and renders attached file chips in sent messages
+  - this slice currently covers browser file upload only; recorded voice upload remains follow-on work
 
 ## Frameworks And Packages To Use
 

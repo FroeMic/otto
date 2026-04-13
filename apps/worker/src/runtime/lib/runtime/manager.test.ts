@@ -91,7 +91,12 @@ describe("RuntimeManager.forwardWorkspaceChatIngressRequest", () => {
           conversationTitle: "Portfolio review",
           conversationVisibility: "open",
           gatewayToken: "gateway-token",
-          message: "Hello",
+          parts: [
+            {
+              text: "Hello",
+              type: "text",
+            },
+          ],
           senderDisplayName: "Test User",
           senderExternalId: "user_1",
           userMessageId: "user_msg_1",
@@ -139,7 +144,12 @@ describe("RuntimeManager.forwardWorkspaceChatIngressRequest", () => {
           conversationTitle: "Portfolio review",
           conversationVisibility: "open",
           gatewayToken: "gateway-token",
-          message: "Hello",
+          parts: [
+            {
+              text: "Hello",
+              type: "text",
+            },
+          ],
           senderDisplayName: "Test User",
           senderExternalId: "user_1",
           userMessageId: "msg_1",

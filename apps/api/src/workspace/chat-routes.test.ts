@@ -29,6 +29,12 @@ function createDependencies(): WorkspaceChatRouteDependencies {
         visibility,
       },
     }),
+    createAttachment: async (payload) => ({
+      fileName: payload.file.name,
+      id: "att_1",
+      mimeType: payload.file.type || "application/octet-stream",
+      sizeBytes: payload.file.size,
+    }),
     createMessage: async ({ conversationId, parts }) => ({
       conversationId,
       dispatch: {
@@ -228,6 +234,50 @@ describe("workspace chat routes", () => {
         ],
         status: "completed",
       },
+    })
+  })
+
+  it("uploads a workspace chat attachment through the workspace route", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
+    const formData = new FormData()
+    formData.set(
+      "file",
+      new File(["hello world"], "notes.txt", { type: "text/plain" }),
+    )
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/attachments",
+      {
+        body: formData,
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 201)
+    assert.deepEqual(await response.json(), {
+      attachment: {
+        fileName: "notes.txt",
+        id: "att_1",
+        mimeType: "text/plain",
+        sizeBytes: 11,
+      },
+    })
+  })
+
+  it("returns 400 when a workspace chat attachment upload omits the file", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/attachments",
+      {
+        body: new FormData(),
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 400)
+    assert.deepEqual(await response.json(), {
+      error: "Workspace chat attachment file is required.",
     })
   })
 

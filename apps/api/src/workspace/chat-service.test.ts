@@ -57,6 +57,7 @@ describe("workspace chat service", () => {
             status: "queued",
           }
         },
+        validateAttachmentOwnership: async () => undefined,
       },
     )
 
@@ -66,7 +67,12 @@ describe("workspace chat service", () => {
       conversationId: "conv_1",
       conversationTitle: "Portfolio review",
       conversationVisibility: "open",
-      message: "Summarize the latest notes.",
+      parts: [
+        {
+          text: "Summarize the latest notes.",
+          type: "text",
+        },
+      ],
       senderDisplayName: "Test User",
       senderExternalId: "user_1",
       tenantId: "tenant_1",
@@ -119,6 +125,7 @@ describe("workspace chat service", () => {
         dispatchMessage: async () => {
           throw new Error("tenant runtime unreachable")
         },
+        validateAttachmentOwnership: async () => undefined,
       },
     )
 
@@ -177,10 +184,68 @@ describe("workspace chat service", () => {
             status: "queued",
           }
         },
+        validateAttachmentOwnership: async () => undefined,
       },
     )
 
     assert.equal(dispatchCalled, false)
     assert.equal(result.dispatch.status, "queued")
+  })
+
+  it("validates uploaded attachment ownership before persisting the message", async () => {
+    let validatedAttachmentIds: string[] | null = null
+
+    await createAndDispatchWorkspaceChatMessage(
+      {
+        conversationId: "conv_1",
+        orgSlug: "otto",
+        parts: [
+          {
+            attachmentId: "att_1",
+            fileName: "notes.txt",
+            mimeType: "text/plain",
+            type: "file",
+          },
+        ],
+        userDisplayName: "Test User",
+        userExternalId: "user_1",
+      },
+      {
+        createMessageRecord: async () => ({
+          conversationId: "conv_1",
+          dispatch: {
+            status: "queued",
+          },
+          conversationKind: "ad_hoc",
+          conversationTitle: "Portfolio review",
+          conversationVisibility: "open",
+          message: {
+            author: {
+              kind: "user",
+              name: "Test User",
+              userId: "user_1",
+            },
+            createdAt: "2026-04-10T12:00:00.000Z",
+            id: "msg_1",
+            parts: [
+              {
+                attachmentId: "att_1",
+                fileName: "notes.txt",
+                mimeType: "text/plain",
+                type: "file",
+              },
+            ],
+            status: "completed",
+          },
+          shouldDispatch: false,
+          tenantId: "tenant_1",
+        }),
+        validateAttachmentOwnership: async ({ attachmentIds }) => {
+          validatedAttachmentIds = attachmentIds
+        },
+      },
+    )
+
+    assert.deepEqual(validatedAttachmentIds, ["att_1"])
   })
 })

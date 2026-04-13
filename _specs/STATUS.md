@@ -277,6 +277,12 @@
     - the old workspace-chat bridge-command runner path has been removed from the runtime image
     - the existing workspace websocket path now pushes repeated canonical `conversation.message_upserted` events so the same assistant bubble grows live until the final completion seals it as `completed`
     - `apps/web` now interpolates the last assistant text part locally between canonical cumulative snapshots so runtime block streaming feels smoother without changing callback cadence or delaying final completion
+  - the first browser-upload and plugin-owned attachment-ingress slice now also exists:
+    - `apps/api` now stores durable `workspace_chat_attachments` records plus staged upload bytes under control-plane ownership and exposes both a user-facing upload route and a tenant-authenticated internal attachment fetch route
+    - workspace chat dispatch now carries structured `parts` end to end through `apps/api`, `apps/worker`, and the tenant ingress contract instead of flattening everything to one text prompt string
+    - `runtime-plugins/otto-workspace-chat` now owns inbound attachment processing for workspace chat, fetching uploaded files from the control plane, staging them into a runtime-managed attachments directory, and injecting those local file paths into the agent-visible prompt context
+    - `apps/web` now supports browser file upload in the workspace composer and renders attached file chips in sent messages
+    - this slice covers file upload only; recorded voice upload is still follow-on work
   - the first `apps/web` chat UI slice now also exists on the new app surface:
     - `apps/web/src/features/workspace-chat` owns the first feature-local API helpers, sidebar history section, conversation page, and message composer
     - the first conversation route is `/{workspaceSlug}/c/{conversationId}` and is mounted from the TanStack Router route tree

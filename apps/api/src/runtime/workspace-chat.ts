@@ -21,6 +21,7 @@ import {
   markWorkspaceChatAssistantMessageFailed,
   upsertWorkspaceChatAssistantEvent,
 } from "../workspace/chat-data"
+import { getWorkspaceChatAttachmentContentForTenant } from "../workspace/chat-attachments-service"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
 
@@ -65,6 +66,19 @@ export type WorkspaceChatRuntimeRouteDependencies = {
     runtimeSegmentId: string
     tenantId: string
   } | null>
+  getAttachmentContent?: (payload: {
+    attachmentId: string
+    tenantId: string
+  }) => Promise<{
+    attachment: {
+      fileName: string
+      id: string
+      mimeType: string
+      sizeBytes: number
+    }
+    bytes: Uint8Array
+    sha256: string
+  } | null>
   failAssistantMessage?: (payload: {
     assistantDisplayName?: string
     assistantMessageId: string
@@ -84,6 +98,7 @@ function createDefaultWorkspaceChatRuntimeRouteDependencies(): WorkspaceChatRunt
     applyAssistantEvent: upsertWorkspaceChatAssistantEvent,
     authenticateTenantRuntime: authenticateTenantRuntimeRequest,
     completeAssistantMessage: completeWorkspaceChatAssistantMessage,
+    getAttachmentContent: getWorkspaceChatAttachmentContentForTenant,
     failAssistantMessage: async (payload) => {
       await markWorkspaceChatAssistantMessageFailed({
         assistantMessageId: payload.assistantMessageId,
@@ -140,6 +155,57 @@ export function createWorkspaceChatRuntimeRouter(
   dependencies: WorkspaceChatRuntimeRouteDependencies = createDefaultWorkspaceChatRuntimeRouteDependencies(),
 ) {
   const app = new Hono()
+
+  app.get(
+    "/api/internal/runtime/workspace-chat/attachments/:attachmentId",
+    async (context) => {
+      try {
+        const { tenantId } = await (dependencies.authenticateTenantRuntime
+          ? dependencies.authenticateTenantRuntime(context.req.raw)
+          : authenticateTenantRuntimeRequest(context.req.raw))
+        const attachmentId = context.req.param("attachmentId")?.trim()
+
+        if (!attachmentId) {
+          return jsonNoStore(
+            {
+              error: "Workspace chat attachment id is required.",
+            },
+            400,
+          )
+        }
+
+        const result = await dependencies.getAttachmentContent?.({
+          attachmentId,
+          tenantId,
+        })
+
+        if (!result) {
+          return jsonNoStore(
+            {
+              error: "Workspace chat attachment not found for this tenant runtime.",
+            },
+            404,
+          )
+        }
+
+        return new Response(result.bytes, {
+          headers: {
+            "cache-control": "no-store",
+            "content-length": String(result.attachment.sizeBytes),
+            "content-type": result.attachment.mimeType,
+            "x-workspace-chat-attachment-id": result.attachment.id,
+            "x-workspace-chat-file-name": encodeURIComponent(
+              result.attachment.fileName,
+            ),
+            "x-workspace-chat-sha256": result.sha256,
+          },
+          status: 200,
+        })
+      } catch (error) {
+        return buildWorkspaceChatRuntimeErrorResponse(error)
+      }
+    },
+  )
 
   app.post(
     "/api/internal/runtime/workspace-chat/messages/delta",

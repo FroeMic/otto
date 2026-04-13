@@ -242,6 +242,8 @@ export {
   workspaceChatRealtimeServerEventSchema,
 } from "./realtime"
 export type {
+  WorkspaceChatAttachment,
+  WorkspaceChatAttachmentUploadResponse,
   WorkspaceChatConversationCreateRequest,
   WorkspaceChatConversationDetailResponse,
   WorkspaceChatConversationListQuery,
@@ -261,8 +263,12 @@ export type {
   WorkspaceChatRuntimeMessageEventUpsertResponse,
   WorkspaceChatRuntimeMessageFailRequest,
   WorkspaceChatRuntimeMessageFailResponse,
+  WorkspaceChatRuntimeIngressAcceptanceResponse,
+  WorkspaceChatRuntimeIngressRequest,
 } from "./schemas"
 export {
+  workspaceChatAttachmentSchema,
+  workspaceChatAttachmentUploadResponseSchema,
   workspaceChatConversationListQuerySchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
@@ -284,5 +290,7 @@ export {
   workspaceChatRuntimeMessageEventUpsertResponseSchema,
   workspaceChatRuntimeMessageFailRequestSchema,
   workspaceChatRuntimeMessageFailResponseSchema,
+  workspaceChatRuntimeIngressAcceptanceResponseSchema,
+  workspaceChatRuntimeIngressRequestSchema,
   workspaceChatRuntimeSessionStatusSchema,
 } from "./schemas"

@@ -1,8 +1,12 @@
 import {
+  type WorkspaceChatAttachment,
+  type WorkspaceChatAttachmentUploadResponse,
   type WorkspaceChatConversationDetailResponse,
   type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
+  type WorkspaceChatMessagePart,
   type WorkspaceChatMessageCreateResponse,
+  workspaceChatAttachmentUploadResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
   workspaceChatConversationDetailResponseSchema,
@@ -105,7 +109,7 @@ export async function sendWorkspaceChatMessage(input: {
   clientMessageId?: string
   conversationId: string
   orgSlug: string
-  text: string
+  parts: WorkspaceChatMessagePart[]
 }) {
   const response =
     await apiClient.api.workspace[":orgSlug"].chat.conversations[
@@ -113,12 +117,7 @@ export async function sendWorkspaceChatMessage(input: {
     ].messages.$post({
       json: workspaceChatMessageCreateRequestSchema.parse({
         clientMessageId: input.clientMessageId,
-        parts: [
-          {
-            text: input.text,
-            type: "text",
-          },
-        ],
+        parts: input.parts,
       }),
       param: {
         conversationId: input.conversationId,
@@ -129,4 +128,27 @@ export async function sendWorkspaceChatMessage(input: {
   return fetchApiResponse(response, (data) =>
     workspaceChatMessageCreateResponseSchema.parse(data),
   ) satisfies Promise<WorkspaceChatMessageCreateResponse>
+}
+
+export async function uploadWorkspaceChatAttachment(input: {
+  file: File
+  orgSlug: string
+}): Promise<WorkspaceChatAttachment> {
+  const formData = new FormData()
+  formData.set("file", input.file)
+
+  const response = await fetch(
+    `/api/workspace/${encodeURIComponent(input.orgSlug)}/chat/attachments`,
+    {
+      body: formData,
+      method: "POST",
+    },
+  )
+
+  return fetchApiResponse(response, (data) =>
+    workspaceChatAttachmentUploadResponseSchema.parse(data),
+  ).then(
+    (payload) =>
+      payload.attachment satisfies WorkspaceChatAttachmentUploadResponse["attachment"],
+  )
 }

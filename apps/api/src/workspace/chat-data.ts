@@ -1704,7 +1704,7 @@ function normalizeWorkspaceChatConversationVisibility(
   return value === "personal" ? "personal" : "open"
 }
 
-async function resolveWorkspaceChatActor(input: {
+export async function resolveWorkspaceChatActor(input: {
   includeTenant?: boolean
   orgSlug: string
   userExternalId: string

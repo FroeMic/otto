@@ -1,12 +1,13 @@
 import { createWorkspaceChatActivityEventReporter } from "./activity-events.js";
+import { prepareWorkspaceChatInboundParts } from "./inbound-attachments.js";
 import { sendWorkspaceChatFailure } from "./control-plane-client.js";
 import { buildWorkspaceChatInboundContext } from "./inbound-context.js";
 import { createWorkspaceChatReplyDispatcher } from "./reply-dispatcher.js";
 
 const DEFAULT_ASSISTANT_NAME = "Otto";
 
-export function prepareWorkspaceChatInboundTurn(input, dependencies) {
-  const prepared = buildPreparedTurn(input, dependencies);
+export async function prepareWorkspaceChatInboundTurn(input, dependencies) {
+  const prepared = await buildPreparedTurn(input, dependencies);
 
   const run = async () => {
     await runWorkspaceChatInboundTurn({
@@ -29,7 +30,7 @@ export function prepareWorkspaceChatInboundTurn(input, dependencies) {
 }
 
 export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
-  const prepared = buildPreparedTurn(input, dependencies);
+  const prepared = await buildPreparedTurn(input, dependencies);
 
   await runWorkspaceChatInboundTurn({
     assistantDisplayName: prepared.assistantDisplayName,
@@ -161,7 +162,7 @@ async function runWorkspaceChatInboundTurn({
   }
 }
 
-function buildPreparedTurn(input, dependencies) {
+async function buildPreparedTurn(input, dependencies) {
   const cfg = dependencies.cfg ?? {};
   const runtime = dependencies.runtime;
   const dispatchInboundReply = dependencies.dispatchInboundReplyWithBase;
@@ -177,6 +178,10 @@ function buildPreparedTurn(input, dependencies) {
     input.assistantDisplayName.trim().length > 0
       ? input.assistantDisplayName.trim()
       : DEFAULT_ASSISTANT_NAME;
+  const preparedParts = await prepareWorkspaceChatInboundParts(input, {
+    fetchAttachment: dependencies.fetchAttachment,
+    stagingRoot: dependencies.stagingRoot,
+  });
   const inbound = buildWorkspaceChatInboundContext({
     assistantMessageId: input.assistantMessageId,
     cfg,
@@ -184,7 +189,7 @@ function buildPreparedTurn(input, dependencies) {
     conversationId: input.conversationId,
     conversationTitle: input.conversationTitle,
     conversationVisibility: input.conversationVisibility,
-    message: input.message,
+    message: preparedParts.promptText,
     runtime,
     senderDisplayName: input.senderDisplayName,
     senderExternalId: input.senderExternalId,

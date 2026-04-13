@@ -34,10 +34,54 @@ function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
       runtimeSegmentId: "segment_1",
       tenantId,
     }),
+    getAttachmentContent: async ({ attachmentId }) => ({
+      attachment: {
+        fileName: "notes.txt",
+        id: attachmentId,
+        mimeType: "text/plain",
+        sizeBytes: 11,
+      },
+      bytes: new TextEncoder().encode("hello world"),
+      sha256:
+        "b94d27b9934d3e08a52e52d7da7dabfade4f7d6d4b1f2e5d7e5f8d6f7d6f5f6",
+    }),
   }
 }
 
 describe("workspace chat runtime routes", () => {
+  it("streams a workspace chat attachment to the tenant runtime", async () => {
+    const app = createWorkspaceChatRuntimeRouter(createDependencies())
+
+    const response = await app.request(
+      "http://api.local/api/internal/runtime/workspace-chat/attachments/att_1",
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get("content-type"), "text/plain")
+    assert.equal(response.headers.get("x-workspace-chat-attachment-id"), "att_1")
+    assert.equal(
+      response.headers.get("x-workspace-chat-file-name"),
+      encodeURIComponent("notes.txt"),
+    )
+    assert.equal(await response.text(), "hello world")
+  })
+
+  it("returns 404 when a workspace chat attachment is not available to the tenant runtime", async () => {
+    const app = createWorkspaceChatRuntimeRouter({
+      ...createDependencies(),
+      getAttachmentContent: async () => null,
+    })
+
+    const response = await app.request(
+      "http://api.local/api/internal/runtime/workspace-chat/attachments/att_missing",
+    )
+
+    assert.equal(response.status, 404)
+    assert.deepEqual(await response.json(), {
+      error: "Workspace chat attachment not found for this tenant runtime.",
+    })
+  })
+
   it("accepts an assistant completion callback from a tenant runtime", async () => {
     let receivedAssistantMessageId: string | undefined
     const appWithSpy = createWorkspaceChatRuntimeRouter({

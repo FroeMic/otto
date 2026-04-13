@@ -650,7 +650,7 @@ export class RuntimeManager {
       conversationTitle: string;
       conversationVisibility: "open" | "personal";
       gatewayToken: string;
-      message: string;
+      parts: WorkspaceChatMessagePart[];
       senderDisplayName: string;
       senderExternalId: string;
       timeoutMs?: number;
@@ -665,7 +665,7 @@ export class RuntimeManager {
       conversationId: input.conversationId,
       conversationTitle: input.conversationTitle,
       conversationVisibility: input.conversationVisibility,
-      message: input.message,
+      parts: input.parts,
       senderDisplayName: input.senderDisplayName,
       senderExternalId: input.senderExternalId,
       userMessageId: input.userMessageId,
@@ -675,7 +675,7 @@ export class RuntimeManager {
       assistantMessageId: input.assistantMessageId ?? null,
       conversationId: input.conversationId,
       host: connection.host,
-      messageLength: input.message.length,
+      partsCount: input.parts.length,
       timeoutMs: input.timeoutMs ?? 30_000,
     });
 
@@ -1476,3 +1476,4 @@ function pathDirname(path: string) {
 
   return path.slice(0, lastSlashIndex);
 }
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat";

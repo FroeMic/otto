@@ -1698,6 +1698,48 @@ export const workspaceChatMessages = pgTable(
   }),
 );
 
+export const workspaceChatAttachments = pgTable(
+  "workspace_chat_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    storageKey: text("storage_key").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: varchar("mime_type", { length: 255 }).notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    status: varchar("status", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("workspace_chat_attachments_organization_id_idx").on(
+      table.organizationId,
+    ),
+    tenantIdx: index("workspace_chat_attachments_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    uploadedByUserIdx: index("workspace_chat_attachments_uploaded_by_user_id_idx").on(
+      table.uploadedByUserId,
+    ),
+    storageKeyUniqueIdx: uniqueIndex(
+      "workspace_chat_attachments_storage_key_idx",
+    ).on(table.storageKey),
+  }),
+);
+
 export const workspaceChatMessageParts = pgTable(
   "workspace_chat_message_parts",
   {

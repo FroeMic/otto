@@ -53,10 +53,13 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       WORKSPACE_APP_ORIGIN: https://${LANDING_PAGE_DOMAIN}
+      WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT: /var/lib/otto/workspace-chat-attachments
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - otto_control_plane_workspace_chat_attachments:/var/lib/otto/workspace-chat-attachments
     healthcheck:
       test:
         [
@@ -153,3 +156,4 @@ volumes:
   otto_control_plane_caddy_config:
   otto_control_plane_caddy_data:
   otto_control_plane_postgres_data:
+  otto_control_plane_workspace_chat_attachments:
