@@ -116,7 +116,7 @@ Browser
   -> apps/api: create user message + assistant placeholder
   -> apps/worker: deliver workspace event to tenant
   -> otto-workspace-chat plugin: accept ingress and start turn
-  -> otto-workspace-chat plugin: subscribe to runtime activity events
+  -> otto-workspace-chat plugin: receive direct runtime reply callbacks
   -> plugin: POST assistant text deltas/completion/failure to apps/api
   -> plugin: POST normalized assistant activity events to apps/api
   -> apps/api: persist canonical message + event state
@@ -216,12 +216,17 @@ If thinking is surfaced later, keep it optional and collapsed by default:
 
 ## Runtime Source Of Truth
 
-For workspace chat, the plugin should observe native OpenClaw runtime events using:
+For workspace chat, the plugin should observe native OpenClaw runtime activity at the shared reply-dispatch seam using direct `replyOptions` callbacks such as:
 
-- `api.runtime.events.onAgentEvent(...)`
-- optionally `api.runtime.events.onSessionTranscriptUpdate(...)` for reconciliation support or transcript-linked metadata
+- `onAgentRunStart`
+- `onToolStart`
+- `onItemEvent`
+- `onPlanUpdate`
+- `onApprovalEvent`
+- `onCommandOutput`
+- `onPatchSummary`
 
-The concrete runtime seam already exists in OpenClaw and exposes structured streams such as:
+Those callbacks are emitted from the same run-execution path that powers the internal webchat experience and carry structured runtime state for:
 
 - `item`
 - `tool`
@@ -421,7 +426,7 @@ The main product goal is transparency at a glance, not transcript dumping.
 
 ### Increment 2: Workspace live runtime emission
 
-- subscribe to `onAgentEvent(...)` in `otto-workspace-chat`
+- wire direct `replyOptions` runtime callbacks in `otto-workspace-chat`
 - normalize lifecycle, item, tool, and approval events
 - persist them through the new callback route
 

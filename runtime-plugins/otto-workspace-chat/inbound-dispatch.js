@@ -90,11 +90,18 @@ async function runWorkspaceChatInboundTurn({
           ? error
           : new Error(`workspace chat session record failed: ${String(error)}`);
       },
-      replyOptions: replyDispatcher.replyOptions,
+      replyOptions: {
+        ...replyDispatcher.replyOptions,
+        ...activityEventReporter.replyOptions,
+      },
       route: inbound.route,
       storePath: inbound.storePath,
     });
 
+    activityEventReporter.recordLifecycleEvent({
+      message: "Completed successfully",
+      phase: "completed",
+    });
     await activityEventReporter.flush();
     await replyDispatcher.sendCompletion();
 
@@ -105,6 +112,11 @@ async function runWorkspaceChatInboundTurn({
     });
   } catch (error) {
     const message = getErrorMessage(error);
+
+    activityEventReporter.recordLifecycleEvent({
+      error: message,
+      phase: "failed",
+    });
 
     console.error("[workspace-chat] plugin turn failed", {
       assistantMessageId: input.assistantMessageId ?? null,

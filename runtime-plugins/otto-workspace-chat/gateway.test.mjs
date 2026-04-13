@@ -186,13 +186,13 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
     assert.equal(dispatchCalls[0].ctxPayload.From, "workspace-user:user_1@conv_1");
     assert.equal(dispatchCalls[0].ctxPayload.MessageSid, "user_msg_1");
 
-    assert.equal(fetchCalls.length, 3);
+    assert.equal(fetchCalls.length, 4);
     assert.equal(
       fetchCalls[0].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/delta",
     );
     assert.equal(
-      fetchCalls[2].url,
+      fetchCalls[3].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/complete",
     );
     assert.deepEqual(JSON.parse(fetchCalls[0].body), {
@@ -214,6 +214,22 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
       sequence: 2,
     });
     assert.deepEqual(JSON.parse(fetchCalls[2].body), {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          message: "Completed successfully",
+          phase: "completed",
+        },
+        sequence: 1,
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "completed",
+        summary: "Completed successfully",
+        title: "Completed",
+        type: "lifecycle.completed",
+      },
+    });
+    assert.deepEqual(JSON.parse(fetchCalls[3].body), {
       assistantDisplayName: "Otto",
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
@@ -245,12 +261,12 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
   }
 });
 
-test("dispatchWorkspaceChatInboundTurn forwards normalized runtime activity events", async () => {
+test("dispatchWorkspaceChatInboundTurn forwards normalized direct runtime callback activity events", async () => {
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
   const previousTenantToken = process.env.TENANT_TOKEN;
   const previousFetch = globalThis.fetch;
   const fetchCalls = [];
-  const { agentEventListeners, runtime } = createRuntime();
+  const { runtime } = createRuntime();
 
   process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
   process.env.TENANT_TOKEN = "tenant-token";
@@ -288,43 +304,35 @@ test("dispatchWorkspaceChatInboundTurn forwards normalized runtime activity even
             },
           },
         },
-        dispatchInboundReplyWithBase: async () => {
-          const listener = agentEventListeners[0];
-          listener?.({
-            data: {
-              phase: "start",
-              toolCallId: "tool_1",
-              name: "read_file",
-            },
-            runId: "run_1",
-            seq: 1,
-            sessionKey:
-              "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
-            stream: "tool",
-            ts: Date.now(),
+        dispatchInboundReplyWithBase: async (params) => {
+          params.replyOptions?.onAgentRunStart?.("run_1");
+          await params.replyOptions?.onToolStart?.({
+            name: "read_file",
+            phase: "start",
           });
         },
         runtime,
       },
     );
 
-    const activityEventCall = fetchCalls.find((call) =>
+    const activityEventCalls = fetchCalls.filter((call) =>
       String(call.url).endsWith("/api/internal/runtime/workspace-chat/messages/events"),
     );
+    const toolEventCall = activityEventCalls.find(
+      (call) => JSON.parse(call.body).event?.type === "tool.started",
+    );
 
-    assert.ok(activityEventCall);
-    assert.deepEqual(JSON.parse(activityEventCall.body), {
+    assert.ok(toolEventCall);
+    assert.deepEqual(JSON.parse(toolEventCall.body), {
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       event: {
-        itemId: "tool_1",
         payload: {
           name: "read_file",
           phase: "start",
-          toolCallId: "tool_1",
         },
         runId: "run_1",
-        sequence: 1,
+        sequence: 2,
         sessionKey:
           "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
         status: "running",
@@ -394,7 +402,7 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
       /shared inbound dispatch failed/,
     );
 
-    assert.equal(fetchCalls.length, 1);
+    assert.equal(fetchCalls.length, 2);
     assert.equal(
       fetchCalls[0].url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/fail",
@@ -404,6 +412,27 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
       assistantMessageId: "msg_1",
       conversationId: "conv_1",
       error: "shared inbound dispatch failed",
+    });
+    assert.equal(
+      fetchCalls[1].url,
+      "https://workspace.example/api/internal/runtime/workspace-chat/messages/events",
+    );
+    assert.deepEqual(JSON.parse(fetchCalls[1].body), {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          error: "shared inbound dispatch failed",
+          phase: "failed",
+        },
+        sequence: 1,
+        sessionKey:
+          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        status: "failed",
+        summary: "shared inbound dispatch failed",
+        title: "Failed",
+        type: "lifecycle.failed",
+      },
     });
   } finally {
     globalThis.fetch = previousFetch;
