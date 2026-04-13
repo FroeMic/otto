@@ -1,5 +1,10 @@
 import type { WorkspaceChatMessageEvent } from "@otto/feature-workspace-chat"
 
+import {
+  buildWorkspaceChatActivityModel,
+  type WorkspaceChatActivityEntry,
+} from "./activity-model"
+
 export interface WorkspaceChatActivityRow {
   events: WorkspaceChatMessageEvent["type"][]
   id: string
@@ -19,45 +24,20 @@ export interface WorkspaceChatActivityView {
 export function buildWorkspaceChatActivityView(
   messageEvents: WorkspaceChatMessageEvent[],
 ): WorkspaceChatActivityView {
-  const sortedEvents = [...messageEvents].sort(
-    (left, right) => left.sequence - right.sequence,
+  const activityModel = buildWorkspaceChatActivityModel(messageEvents)
+  const rows = activityModel.sections.flatMap((section) =>
+    section.entries
+      .filter((entry) => shouldRenderActivityEntry(entry))
+      .map((entry) => ({
+        events: entry.events.map((event) => event.type),
+        id: entry.id,
+        kind: getActivityRowKind(entry),
+        status: entry.status,
+        summary: entry.summary,
+        title: entry.title,
+      })),
   )
-  const rowsById = new Map<string, WorkspaceChatActivityRow>()
-
-  for (const messageEvent of sortedEvents) {
-    if (!shouldRenderActivityEvent(messageEvent)) {
-      continue
-    }
-
-    const kind = getActivityKind(messageEvent.type)
-    const rowId = getActivityRowId(messageEvent, kind)
-    const existingRow = rowsById.get(rowId)
-
-    if (!existingRow) {
-      rowsById.set(rowId, {
-        events: [messageEvent.type],
-        id: rowId,
-        kind,
-        status: messageEvent.status,
-        summary: messageEvent.summary,
-        title: messageEvent.title ?? getFallbackTitle(kind),
-      })
-      continue
-    }
-
-    existingRow.events.push(messageEvent.type)
-    existingRow.status = messageEvent.status
-    existingRow.summary = messageEvent.summary ?? existingRow.summary
-    existingRow.title = messageEvent.title ?? existingRow.title
-  }
-
-  const rows = [...rowsById.values()]
-  const activeCount = rows.filter(
-    (row) =>
-      row.status === "running" ||
-      row.status === "pending" ||
-      row.status === "blocked",
-  ).length
+  const activeCount = rows.filter((row) => isActiveStatus(row.status)).length
 
   return {
     activeCount,
@@ -66,79 +46,30 @@ export function buildWorkspaceChatActivityView(
       activeCount > 0
         ? `Activity (${activeCount} active)`
         : `Activity (${rows.length} steps)`,
-    totalEvents: sortedEvents.length,
+    totalEvents: activityModel.eventCount,
   }
 }
 
-function shouldRenderActivityEvent(messageEvent: WorkspaceChatMessageEvent) {
-  const prefix = messageEvent.type.split(".")[0]
-
-  if (
-    prefix !== "approval" &&
-    prefix !== "command_output" &&
-    prefix !== "item" &&
-    prefix !== "lifecycle" &&
-    prefix !== "tool"
-  ) {
-    return false
-  }
-
-  if (prefix === "tool" && !messageEvent.itemId) {
-    return false
-  }
-
-  return true
+function shouldRenderActivityEntry(entry: WorkspaceChatActivityEntry) {
+  return entry.visibility === "primary"
 }
 
-function getActivityKind(
-  type: WorkspaceChatMessageEvent["type"],
+function getActivityRowKind(
+  entry: WorkspaceChatActivityEntry,
 ): WorkspaceChatActivityRow["kind"] {
-  const prefix = type.split(".")[0]
-
   if (
-    prefix === "approval" ||
-    prefix === "command_output" ||
-    prefix === "item" ||
-    prefix === "lifecycle" ||
-    prefix === "tool"
+    entry.kind === "approval" ||
+    entry.kind === "command_output" ||
+    entry.kind === "item" ||
+    entry.kind === "lifecycle" ||
+    entry.kind === "tool"
   ) {
-    return prefix
+    return entry.kind
   }
 
   return "item"
 }
 
-function getActivityRowId(
-  messageEvent: WorkspaceChatMessageEvent,
-  kind: WorkspaceChatActivityRow["kind"],
-) {
-  if (messageEvent.itemId) {
-    return `${kind}:${messageEvent.itemId}`
-  }
-
-  if (kind === "lifecycle") {
-    return "lifecycle"
-  }
-
-  return `${kind}:${messageEvent.id}`
-}
-
-function getFallbackTitle(kind: WorkspaceChatActivityRow["kind"]) {
-  if (kind === "approval") {
-    return "Approval"
-  }
-
-  if (kind === "command_output") {
-    return "Command output"
-  }
-
-  if (kind === "lifecycle") {
-    return "Lifecycle"
-  }
-
-  if (kind === "tool") {
-    return "Tool call"
-  }
-
-  return "Working"
+function isActiveStatus(status: WorkspaceChatMessageEvent["status"]) {
+  return status === "blocked" || status === "pending" || status === "running"
 }
