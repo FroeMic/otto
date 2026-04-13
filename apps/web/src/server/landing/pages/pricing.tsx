@@ -34,7 +34,7 @@ export function LandingPricingPage() {
         </div>
 
         {/* Free tier */}
-        <article className="rounded-2xl border border-border/70 bg-background p-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
+        <article className="rounded-lg border border-border/70 bg-background p-8 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="flex flex-col gap-4">
               <div>
@@ -49,7 +49,7 @@ export function LandingPricingPage() {
                 </div>
               </div>
               <p className="text-base text-muted-foreground">
-                {billingPlanDescriptions["free"]}
+                {billingPlanDescriptions.free}
               </p>
               <div className="text-2xl font-semibold tracking-tight">
                 {formatCredits(FREE_PLAN_CREDITS)}
@@ -58,7 +58,7 @@ export function LandingPricingPage() {
                 </span>
               </div>
               <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground">
-                {(billingPlanFeatures["free"] ?? []).map((feature) => (
+                {(billingPlanFeatures.free ?? []).map((feature) => (
                   <li key={feature} className="flex items-center gap-2">
                     <span className="size-1.5 shrink-0 rounded-full bg-foreground/30" />
                     {feature}
@@ -81,7 +81,7 @@ export function LandingPricingPage() {
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {BILLING_PAID_PLAN_DEFINITIONS.map((plan) => (
             <article
-              className="flex flex-col gap-5 rounded-2xl border border-border/70 bg-background p-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+              className="flex flex-col gap-5 rounded-lg border border-border/70 bg-background p-6 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
               key={plan.key}
             >
               <div>
@@ -129,7 +129,7 @@ export function LandingPricingPage() {
         </div>
 
         {/* Enterprise */}
-        <article className="rounded-2xl border border-border/70 bg-[#f7f4ef] p-8">
+        <article className="rounded-lg border border-border/70 bg-[#f7f4ef] p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
