@@ -14,7 +14,7 @@ export type BillingPlanKey =
 
 export interface BillingPlanDefinition {
   creditsIncluded: number
-  key: string
+  key: BillingPlanKey
   monthlyPriceUsd: number
   name: string
 }
@@ -75,7 +75,7 @@ export const billingPreferencesSchema = z.object({
 
 export const billingPlanSchema = z.object({
   creditsIncluded: z.number(),
-  key: z.string(),
+  key: billingPlanKeySchema,
   monthlyPriceUsd: z.number(),
   name: z.string(),
 })
@@ -137,7 +137,7 @@ export const billingOverviewSchema = z.object({
       cancelAtPeriodEnd: z.boolean(),
       currentPeriodEnd: jsonDateSchema.nullable(),
       currentPeriodStart: jsonDateSchema.nullable(),
-      planKey: z.string().nullable(),
+      planKey: billingPlanKeySchema.nullable(),
       status: z.string(),
       stripeSubscriptionId: z.string(),
       trialEnd: jsonDateSchema.nullable(),
