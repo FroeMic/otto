@@ -57,7 +57,7 @@ export function WorkspaceSwitcher({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="h-11 rounded-2xl px-2 aria-expanded:bg-muted"
+                className="h-12 rounded-2xl px-2.5 aria-expanded:bg-muted"
               />
             }
           >
@@ -69,7 +69,7 @@ export function WorkspaceSwitcher({
                 {currentOrganization.name}
               </span>
             </div>
-            <CaretUpDown className="size-4 text-muted-foreground" />
+            <CaretUpDown className="mr-0.5 size-4 text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"

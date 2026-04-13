@@ -53,7 +53,10 @@ export function WorkspaceUserMenu({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+              <SidebarMenuButton
+                size="lg"
+                className="px-2.5 aria-expanded:bg-muted"
+              />
             }
           >
             <Avatar>
@@ -143,6 +146,7 @@ export function WorkspaceFooterPlatformLink({
           }
           isActive={Boolean(matchRoute({ fuzzy: true, to: "/platform" }))}
           tooltip="Platform"
+          className="px-2.5"
         >
           <BuildingsIcon />
           <span>Platform</span>

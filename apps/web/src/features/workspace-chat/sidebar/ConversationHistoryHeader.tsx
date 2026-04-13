@@ -21,7 +21,7 @@ export function ConversationHistoryHeader({
   onToggleCollapsed,
 }: ConversationHistoryHeaderProps) {
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-sidebar-border/70 bg-sidebar/95 px-2 py-2 backdrop-blur">
+    <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-sidebar/95 px-2 py-2 backdrop-blur">
       <button
         type="button"
         className="flex min-w-0 items-center gap-1 rounded-md px-1 text-xs font-medium text-sidebar-foreground/70 transition hover:text-sidebar-foreground"
