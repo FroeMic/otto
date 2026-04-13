@@ -7,7 +7,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react"
 import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState, type DragEvent } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import {
   buildWorkspaceChatComposerParts,
   type WorkspaceChatComposerAttachmentDraft,
 } from "../composer-parts"
+import { extractWorkspaceChatDropFiles } from "../drop-files"
 import { formatVoiceNoteDuration } from "../voice-note"
 import { ConversationVoiceNoteRecorder } from "./ConversationVoiceNoteRecorder"
 
@@ -42,6 +43,7 @@ export function ConversationComposer({
   const [attachments, setAttachments] = useState<
     WorkspaceChatComposerAttachmentDraft[]
   >([])
+  const [dragDepth, setDragDepth] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -98,13 +100,103 @@ export function ConversationComposer({
     }
   }
 
+  function resetDragState() {
+    setDragDepth(0)
+  }
+
+  async function uploadFiles(files: File[]) {
+    if (files.length === 0 || !onUploadAttachment) {
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      const uploaded = await Promise.all(
+        files.map((file) => onUploadAttachment(file)),
+      )
+      setAttachments((current) => [
+        ...current,
+        ...uploaded.map((attachment) => ({
+          attachment,
+          kind: "file" as const,
+        })),
+      ])
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload attachment.",
+      )
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!onUploadAttachment || isVoiceMode) {
+      return
+    }
+
+    if (!hasDraggedFiles(event)) {
+      return
+    }
+
+    event.preventDefault()
+    setDragDepth((current) => current + 1)
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
+      return
+    }
+
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "copy"
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
+      return
+    }
+
+    event.preventDefault()
+    setDragDepth((current) => Math.max(0, current - 1))
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
+      return
+    }
+
+    event.preventDefault()
+    resetDragState()
+    void uploadFiles(extractWorkspaceChatDropFiles(event.dataTransfer))
+  }
+
   return (
     <div
       className={cn(
-        "rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl",
+        "relative rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-colors",
+        dragDepth > 0 && "border-primary/55 bg-primary/[0.03]",
         className,
       )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
+      {dragDepth > 0 ? (
+        <div className="pointer-events-none absolute inset-3 z-10 rounded-[1.6rem] border border-dashed border-primary/50 bg-primary/[0.05]">
+          <div className="flex h-full items-center justify-center text-sm font-medium text-primary/80">
+            Drop files to attach them
+          </div>
+        </div>
+      ) : null}
+
       {attachments.length > 0 ? (
         <div className="mb-3 flex flex-wrap gap-2">
           {attachments.map((attachment) => (
@@ -173,37 +265,7 @@ export function ConversationComposer({
               className="hidden"
               multiple
               onChange={(event) => {
-                const files = Array.from(event.target.files ?? [])
-
-                if (files.length === 0 || !onUploadAttachment) {
-                  return
-                }
-
-                setIsUploading(true)
-
-                void Promise.all(files.map((file) => onUploadAttachment(file)))
-                  .then((uploaded) => {
-                    setAttachments((current) => [
-                      ...current,
-                      ...uploaded.map((attachment) => ({
-                        attachment,
-                        kind: "file" as const,
-                      })),
-                    ])
-                  })
-                  .catch((error) => {
-                    toast.error(
-                      error instanceof Error
-                        ? error.message
-                        : "Failed to upload attachment.",
-                    )
-                  })
-                  .finally(() => {
-                    setIsUploading(false)
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = ""
-                    }
-                  })
+                void uploadFiles(Array.from(event.target.files ?? []))
               }}
               ref={fileInputRef}
               type="file"
@@ -255,4 +317,8 @@ export function ConversationComposer({
       </div>
     </div>
   )
+}
+
+function hasDraggedFiles(event: DragEvent<HTMLDivElement>) {
+  return Array.from(event.dataTransfer.types).includes("Files")
 }
