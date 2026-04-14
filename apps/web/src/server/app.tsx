@@ -27,6 +27,9 @@ type PageDocumentProps = {
 }
 
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
+const BUILT_PUBLIC_ROOT = fileURLToPath(
+  new URL("../../dist/public/assets", import.meta.url),
+)
 const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
@@ -248,6 +251,10 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
   if (existsSync(STATIC_ROOT)) {
     app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
+  }
+
+  if (existsSync(BUILT_PUBLIC_ROOT)) {
+    app.use("/integrations/*", serveStatic({ root: BUILT_PUBLIC_ROOT }))
   }
 
   if (existsSync(STATIC_ROOT)) {
