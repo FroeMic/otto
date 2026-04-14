@@ -28,7 +28,7 @@ describe("gandi client", () => {
     }
   });
 
-  it("checks domain availability through the v5 domain check endpoint and normalizes the result", async () => {
+  it("checks domain availability through the v5 domain check endpoint and returns coarse and raw registration state", async () => {
     process.env.GANDI_API_TOKEN = "gandi_test_token";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -66,18 +66,26 @@ describe("gandi client", () => {
           products: [
             {
               name: "ledgerpilot.ai",
+              periods: [
+                {
+                  name: "sunrise",
+                },
+              ],
               prices: [
                 {
                   duration_unit: "y",
                   max_duration: 1,
                   min_duration: 1,
+                  options: {
+                    period: "sunrise",
+                  },
                   price_after_taxes: 79,
                   price_before_taxes: 79,
-                  type: "standard",
+                  type: "premium",
                 },
               ],
               process: "create",
-              status: "available",
+              status: "available_reserved",
             },
           ],
         }),
@@ -115,11 +123,41 @@ describe("gandi client", () => {
     assert.deepEqual(result, [
       {
         availability: "unavailable",
+        currentPhase: null,
         domain: "ledgerpilot.com",
+        prices: [
+          {
+            action: "create",
+            currency: "EUR",
+            durationUnit: "y",
+            maxDuration: 1,
+            minDuration: 1,
+            period: null,
+            priceAfterTaxes: 14.98,
+            priceBeforeTaxes: 12.48,
+            priceType: "standard",
+          },
+        ],
+        status: "unavailable",
       },
       {
         availability: "available",
+        currentPhase: "sunrise",
         domain: "ledgerpilot.ai",
+        prices: [
+          {
+            action: "create",
+            currency: "EUR",
+            durationUnit: "y",
+            maxDuration: 1,
+            minDuration: 1,
+            period: "sunrise",
+            priceAfterTaxes: 79,
+            priceBeforeTaxes: 79,
+            priceType: "premium",
+          },
+        ],
+        status: "available_reserved",
       },
     ]);
   });
