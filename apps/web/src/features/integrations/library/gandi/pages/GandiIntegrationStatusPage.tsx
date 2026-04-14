@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  disconnectWorkspaceIntegration,
   enableWorkspaceIntegration,
 } from "@/features/integrations/api/integrations";
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable";
@@ -82,6 +83,33 @@ export function GandiIntegrationStatusPage({
         .then(() => {
           setErrorMessage(null);
           setSuccessMessage("Gandi has been enabled for this workspace.");
+          invalidate();
+        })
+        .catch((error) => {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Gandi request failed",
+          );
+        });
+    });
+  }
+
+  function handleDisable() {
+    if (
+      !window.confirm(
+        "Disable Gandi for this workspace? Otto will stop using it for domain research until you enable it again.",
+      )
+    ) {
+      return;
+    }
+
+    startTransition(() => {
+      void disconnectWorkspaceIntegration({
+        integrationKey: detail.integration.key,
+        orgSlug,
+      })
+        .then(() => {
+          setErrorMessage(null);
+          setSuccessMessage("Gandi has been disabled for this workspace.");
           invalidate();
         })
         .catch((error) => {
@@ -184,11 +212,20 @@ export function GandiIntegrationStatusPage({
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Button
-                      disabled={detail.connection.status.connected || isPending}
-                      onClick={handleEnable}
+                      disabled={isPending}
+                      onClick={
+                        detail.connection.status.connected
+                          ? handleDisable
+                          : handleEnable
+                      }
+                      variant={
+                        detail.connection.status.connected ? "outline" : "default"
+                      }
                     >
                       {detail.connection.status.connected
-                        ? "Enabled"
+                        ? isPending
+                          ? "Disabling..."
+                          : "Disable Gandi"
                         : isPending
                           ? "Enabling..."
                           : "Enable Gandi"}

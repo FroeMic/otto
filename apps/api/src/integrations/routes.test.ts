@@ -264,6 +264,22 @@ describe("integrations routes", () => {
     })
   })
 
+  it("disconnects gandi as a workspace-managed integration", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/gandi/disconnect",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      status: "disconnected",
+    })
+  })
+
   it("returns the integration detail payload", async () => {
     const app = createIntegrationsTestApp()
     const response = await app.request(
