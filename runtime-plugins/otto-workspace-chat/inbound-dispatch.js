@@ -180,7 +180,7 @@ async function buildPreparedTurn(input, dependencies) {
       : DEFAULT_ASSISTANT_NAME;
   const preparedParts = await prepareWorkspaceChatInboundParts(input, {
     fetchAttachment: dependencies.fetchAttachment,
-    stagingRoot: dependencies.stagingRoot,
+    saveAttachmentBuffer: dependencies.saveAttachmentBuffer,
   });
   const inbound = buildWorkspaceChatInboundContext({
     assistantMessageId: input.assistantMessageId,

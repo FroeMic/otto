@@ -1,19 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { saveMediaBuffer } from "openclaw/plugin-sdk/media-runtime";
 
 import { fetchWorkspaceChatAttachment } from "./control-plane-client.js";
-
-const ATTACHMENT_STAGING_ROOT = path.join(
-  os.homedir(),
-  ".openclaw",
-  "workspace-chat-attachments",
-);
 
 export async function prepareWorkspaceChatInboundParts(input, dependencies = {}) {
   const fetchAttachment =
     dependencies.fetchAttachment ?? fetchWorkspaceChatAttachment;
-  const stagingRoot = dependencies.stagingRoot ?? ATTACHMENT_STAGING_ROOT;
+  const saveAttachmentBuffer =
+    dependencies.saveAttachmentBuffer ?? saveWorkspaceChatAttachmentBuffer;
   const textSegments = [];
   const attachmentLines = [];
   const mediaAttachments = [];
@@ -30,24 +23,27 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
     }
 
     const attachment = await fetchAttachment(part.attachmentId);
-    const localPath = await stageWorkspaceChatAttachmentFile({
+    const normalizedPartMimeType =
+      part.type === "audio"
+        ? normalizeWorkspaceChatAudioMimeType(
+            part.mimeType || attachment.mimeType,
+          )
+        : attachment.mimeType;
+    const localPath = await saveAttachmentBuffer({
       attachmentId: attachment.attachmentId,
       bytes: attachment.bytes,
-      conversationId: input.conversationId,
       fileName: attachment.fileName,
-      stagingRoot,
+      mimeType: normalizedPartMimeType,
+      partType: part.type,
     });
     const baseLine = `- ${attachment.fileName} (${attachment.mimeType}) at ${localPath}`;
 
     if (part.type === "audio") {
       const transcript =
         typeof part.transcript === "string" ? part.transcript.trim() : "";
-      const mimeType = normalizeWorkspaceChatAudioMimeType(
-        part.mimeType || attachment.mimeType,
-      );
       mediaAttachments.push({
         localPath,
-        mimeType,
+        mimeType: normalizedPartMimeType,
       });
 
       if (transcript) {
@@ -79,8 +75,7 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
   return {
     mediaAttachments,
     promptText: promptText || "Voice note attached.",
-    transcript:
-      transcripts.length === 1 ? transcripts[0] : undefined,
+    transcript: transcripts.length === 1 ? transcripts[0] : undefined,
   };
 }
 
@@ -99,25 +94,11 @@ function normalizeWorkspaceChatAudioMimeType(mimeType) {
   return normalized || "audio/webm";
 }
 
-async function stageWorkspaceChatAttachmentFile(input) {
-  const directoryPath = path.join(input.stagingRoot, input.conversationId);
-  const safeFileName = sanitizeFileName(input.fileName);
-  const filePath = path.join(
-    directoryPath,
-    `${input.attachmentId}-${safeFileName}`,
+async function saveWorkspaceChatAttachmentBuffer(input) {
+  const saved = await saveMediaBuffer(
+    input.bytes,
+    input.mimeType,
+    "inbound",
   );
-
-  await mkdir(directoryPath, { recursive: true });
-  await writeFile(filePath, input.bytes);
-
-  return filePath;
-}
-
-function sanitizeFileName(value) {
-  const normalized = path
-    .basename(typeof value === "string" ? value : "attachment")
-    .replace(/\0/g, "")
-    .trim();
-
-  return normalized || "attachment";
+  return saved.path;
 }
