@@ -19,6 +19,10 @@ const user = {
 function createDependencies(): IntegrationsRouteDependencies {
   return {
     authenticateWorkspaceUser: async () => user,
+    enableWorkspaceIntegration: async () => ({
+      applyQueued: false,
+      status: "connected",
+    }),
     disconnectWorkspaceIntegration: async () => ({
       applyQueued: true,
       status: "disconnected",
@@ -241,6 +245,22 @@ describe("integrations routes", () => {
           settingsPath: "/otto/settings/agent/integrations/slack/status",
         },
       ],
+    })
+  })
+
+  it("enables a workspace-managed integration", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/gandi/enable",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: false,
+      status: "connected",
     })
   })
 

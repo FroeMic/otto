@@ -23,6 +23,7 @@ import { z } from "zod"
 
 import {
   disconnectWorkspaceIntegration,
+  enableWorkspaceIntegration,
   enqueueWorkspaceSlackDirectoryResync,
   updateWorkspaceIntegrationCapabilityPolicy,
   updateWorkspaceSlackChannelMembership,
@@ -69,6 +70,7 @@ export interface IntegrationsRouteDependencies {
   ) => Promise<WorkspaceIntegrationUser>
   getWorkspaceIntegrationDetail: typeof getWorkspaceIntegrationDetail
   listWorkspaceIntegrations: typeof listWorkspaceIntegrations
+  enableWorkspaceIntegration: typeof enableWorkspaceIntegration
   disconnectWorkspaceIntegration: typeof disconnectWorkspaceIntegration
   enqueueWorkspaceSlackDirectoryResync: typeof enqueueWorkspaceSlackDirectoryResync
   getWorkspaceJobStatus: typeof getWorkspaceJobStatus
@@ -81,6 +83,7 @@ function createDefaultIntegrationsRouteDependencies(): IntegrationsRouteDependen
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
+    enableWorkspaceIntegration,
     disconnectWorkspaceIntegration,
     enqueueWorkspaceSlackDirectoryResync,
     getWorkspaceJobStatus,
@@ -169,6 +172,27 @@ export function createIntegrationsRouter(
         }
 
         return jsonNoStore(workspaceIntegrationDetailSchema.parse(detail))
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/integrations/:integrationKey/enable",
+      zValidator("param", workspaceIntegrationDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const result = await dependencies.enableWorkspaceIntegration({
+          orgSlug: context.req.valid("param").orgSlug,
+          providerKey: context.req.valid("param").integrationKey,
+          userExternalId: authResult.user.id,
+        })
+
+        return jsonNoStore(
+          workspaceIntegrationDisconnectResponseSchema.parse(result),
+        )
       },
     )
     .post(

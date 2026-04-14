@@ -252,6 +252,54 @@ export async function disconnectWorkspaceIntegration(input: {
   }
 }
 
+export async function enableWorkspaceIntegration(input: {
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
+}) {
+  const { tenantId } = await getAuthorizedTenantContext(input)
+  const providerKey = input.providerKey.trim().toLowerCase()
+
+  if (providerKey !== "gandi") {
+    throw new Error(`Enable is not supported for ${providerKey} yet.`)
+  }
+
+  const db = getDb()
+  const now = new Date()
+
+  await db
+    .insert(tenantIntegrations)
+    .values({
+      connectedAt: now,
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      providerKey,
+      status: "connected",
+      tenantId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        connectedAt: now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: now,
+      },
+      target: [
+        tenantIntegrations.tenantId,
+        tenantIntegrations.providerKey,
+      ],
+    })
+
+  return {
+    applyQueued: false,
+    status: "connected",
+  }
+}
+
 export async function enqueueWorkspaceSlackDirectoryResync(input: {
   action: "channels" | "users"
   orgSlug: string
