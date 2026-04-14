@@ -1,5 +1,8 @@
 import assert from "node:assert/strict"
-import { LinearGraphqlError } from "@otto/feature-integrations-runtime/linear-client"
+import {
+  GandiApiError,
+  LinearGraphqlError,
+} from "@otto/feature-integrations-runtime"
 import { describe, it } from "vitest"
 
 import { buildExecutionErrorResponse } from "./error-response"
@@ -77,6 +80,55 @@ describe("gateway execution error responses", () => {
     assert.equal(
       response.hint,
       "Otto's current Linear actor may need workspace-admin or team-owner permissions before retrying this team command.",
+    )
+  })
+
+  it("adds a retry hint for Gandi rate-limit failures", () => {
+    const response = buildExecutionErrorResponse({
+      commandKey: "domain.batch_check",
+      error: new GandiApiError({
+        cause: "rate_limited",
+        message: "Rate limit exceeded",
+        rateLimited: true,
+        status: 429,
+        transient: true,
+      }),
+    }) as {
+      error: string
+      hint?: string
+    }
+
+    assert.equal(
+      response.error,
+      "Gandi API request failed with status 429: Rate limit exceeded",
+    )
+    assert.equal(
+      response.hint,
+      "Gandi rate-limited this request. Retry shortly and prefer batch domain checks over repeated one-off calls.",
+    )
+  })
+
+  it("adds a transient retry hint for temporary Gandi failures", () => {
+    const response = buildExecutionErrorResponse({
+      commandKey: "domain.check_availability",
+      error: new GandiApiError({
+        cause: "upstream_timeout",
+        message: "temporary timeout",
+        status: 504,
+        transient: true,
+      }),
+    }) as {
+      error: string
+      hint?: string
+    }
+
+    assert.equal(
+      response.error,
+      "Gandi API request failed with status 504: temporary timeout",
+    )
+    assert.equal(
+      response.hint,
+      "Gandi returned a temporary provider error. Retry this command.",
     )
   })
 })

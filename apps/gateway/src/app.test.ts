@@ -1,9 +1,29 @@
 import assert from "node:assert/strict"
-import { describe, it } from "vitest"
 
-import { createGatewayApp } from "./app"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+const authenticateTenantRuntimeRequest = vi.fn()
+const executeRuntimeIntegrationInGateway = vi.fn()
+
+vi.mock("@otto/feature-integrations-runtime", async () => {
+  const actual = await vi.importActual<typeof import("@otto/feature-integrations-runtime")>(
+    "@otto/feature-integrations-runtime",
+  )
+
+  return {
+    ...actual,
+    authenticateTenantRuntimeRequest,
+    executeRuntimeIntegrationInGateway,
+  }
+})
+
+const { createGatewayApp } = await import("./app")
 
 describe("gateway app", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it("returns service health", async () => {
     const app = createGatewayApp()
     const response = await app.request("http://gateway.local/healthz")
@@ -35,6 +55,59 @@ describe("gateway app", () => {
     assert.equal(response.status, 401)
     assert.deepEqual(await response.json(), {
       error: "Missing runtime bearer token",
+    })
+  })
+
+  it("executes a Gandi command through the runtime gateway path", async () => {
+    authenticateTenantRuntimeRequest.mockResolvedValue({
+      tenantId: "tenant_123",
+    })
+    executeRuntimeIntegrationInGateway.mockResolvedValue({
+      domains: [
+        {
+          availability: "available",
+          domain: "ledgerpilot.ai",
+        },
+      ],
+    })
+
+    const app = createGatewayApp()
+    const response = await app.request(
+      "http://gateway.local/api/internal/runtime/integrations/execute",
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer runtime_token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          arguments: {
+            domains: ["ledgerpilot.ai"],
+          },
+          commandKey: "domain.batch_check",
+          integrationKey: "gandi",
+        }),
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      domains: [
+        {
+          availability: "available",
+          domain: "ledgerpilot.ai",
+        },
+      ],
+    })
+    expect(authenticateTenantRuntimeRequest).toHaveBeenCalledTimes(1)
+    expect(executeRuntimeIntegrationInGateway).toHaveBeenCalledWith({
+      arguments: {
+        domains: ["ledgerpilot.ai"],
+      },
+      commandKey: "domain.batch_check",
+      commandPath: undefined,
+      integrationKey: "gandi",
+      tenantId: "tenant_123",
     })
   })
 })

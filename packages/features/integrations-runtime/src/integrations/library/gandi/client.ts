@@ -71,6 +71,34 @@ type GandiApiErrorPayload = {
   object?: unknown;
 };
 
+export class GandiApiError extends Error {
+  readonly causeCode: string | null;
+  readonly providerCode: number | null;
+  readonly providerObject: string | null;
+  readonly rateLimited: boolean;
+  readonly status: number;
+  readonly transient: boolean;
+
+  constructor(input: {
+    cause?: string | null;
+    code?: number | null;
+    message: string;
+    object?: string | null;
+    rateLimited?: boolean;
+    status: number;
+    transient?: boolean;
+  }) {
+    super(`Gandi API request failed with status ${input.status}: ${input.message}`);
+    this.name = "GandiApiError";
+    this.causeCode = input.cause ?? null;
+    this.providerCode = input.code ?? null;
+    this.providerObject = input.object ?? null;
+    this.rateLimited = input.rateLimited ?? false;
+    this.status = input.status;
+    this.transient = input.transient ?? false;
+  }
+}
+
 type GandiAvailabilityProduct = {
   name?: unknown;
   periods?: unknown;
@@ -215,7 +243,33 @@ async function fetchGandiJson<T>(path: string): Promise<T> {
         ? errorPayload.message
         : `HTTP ${response.status}`;
 
-    throw new Error(`Gandi API request failed with status ${response.status}: ${message}`);
+    const cause =
+      errorPayload && typeof errorPayload.cause === "string"
+        ? errorPayload.cause
+        : null;
+    const code =
+      errorPayload && typeof errorPayload.code === "number"
+        ? errorPayload.code
+        : null;
+    const object =
+      errorPayload && typeof errorPayload.object === "string"
+        ? errorPayload.object
+        : null;
+
+    throw new GandiApiError({
+      cause,
+      code,
+      message,
+      object,
+      rateLimited: response.status === 429 || cause === "rate_limited",
+      status: response.status,
+      transient:
+        response.status === 408 ||
+        response.status === 429 ||
+        response.status >= 500 ||
+        cause === "rate_limited" ||
+        cause === "upstream_timeout",
+    });
   }
 
   return (await response.json()) as T;
