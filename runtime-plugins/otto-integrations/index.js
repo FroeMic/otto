@@ -16,7 +16,7 @@ export default definePluginEntry({
   id: "otto-integrations",
   name: "Otto Integrations",
   description:
-    "Managed integration tools backed by the workspace app. This is the supported path for managed integrations such as Slack and Linear. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups and settings guidance, use get_integration_details to inspect one command or command group in detail, use configure_integration for safe provider-owned settings, use manage_integration for connect or reconnect actions, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
+    "Managed integration tools backed by the workspace app. This is the supported path for managed integrations such as Slack, Linear, and Gandi. Recommended workflow: use find_integration_commands when you know the user's goal but not the exact integration command, use list_integrations when you need deterministic workspace inventory, use get_integration to inspect top-level command groups and settings guidance, use get_integration_details to inspect one command or command group in detail, use configure_integration for safe provider-owned settings, use manage_integration for lifecycle actions such as enable, connect, reconnect, or open_workspace, then execute with execute_integration_command using integrationKey plus commandKey or commandPath.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -173,14 +173,20 @@ export default definePluginEntry({
       {
         name: "manage_integration",
         description:
-          "Get the right workspace URL and recommended next action to connect, reconnect, disconnect, or review an Otto-managed integration. Use this for lifecycle changes and browser handoff flows, not for settings updates. After confirming an integration is connected, say that plainly and offer to help the user connect or review other integrations available in the workspace by using list_integrations when useful.",
+          "Get the right workspace URL and recommended next action to enable, connect, reconnect, disconnect, or review an Otto-managed integration. For non-OAuth workspace-managed integrations such as Gandi, action=enable may complete directly without a browser handoff. Use this for lifecycle changes and browser handoff flows, not for settings updates.",
         parameters: {
           type: "object",
           additionalProperties: false,
           properties: {
             action: {
               type: "string",
-              enum: ["connect", "disconnect", "open_workspace", "reconnect"],
+              enum: [
+                "connect",
+                "disconnect",
+                "enable",
+                "open_workspace",
+                "reconnect",
+              ],
             },
             integrationKey: {
               type: "string",
