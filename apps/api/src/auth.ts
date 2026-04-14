@@ -35,12 +35,24 @@ type AuthRouteDependencies = {
     cookiePassword: string
   }) => Promise<{
     sealedSession: string
+    user: {
+      email: string
+      id: string
+    }
   }>
   getConfig: () => AuthRouteConfig
   getLogoutUrlFromSessionCookie: (input: {
     cookiePassword: string
     returnTo: string
     sessionData: string
+  }) => Promise<string> | string
+  getPostAuthRedirectPath: (input: {
+    defaultReturnTo: string
+    intakeSessionId: string | null
+    user: {
+      email: string
+      id: string
+    }
   }) => Promise<string> | string
   readAuthFlowState: (input: {
     password: string
@@ -105,6 +117,10 @@ function getDefaultAuthRouteDependencies(): AuthRouteDependencies {
 
       return {
         sealedSession: response.sealedSession,
+        user: {
+          email: response.user.email,
+          id: response.user.id,
+        },
       }
     },
     getConfig: () => ({
@@ -132,6 +148,7 @@ function getDefaultAuthRouteDependencies(): AuthRouteDependencies {
         returnTo,
       })
     },
+    getPostAuthRedirectPath: async ({ defaultReturnTo }) => defaultReturnTo,
     readAuthFlowState: readAuthFlowStateFromPackage,
     sealAuthFlowState: sealAuthFlowStateWithPackage,
     setWorkspaceSessionCookie: createWorkspaceSessionCookie,
@@ -164,6 +181,20 @@ function normalizeReturnTo(
 
 function buildAbsoluteUrl(pathname: string, baseUrl: string) {
   return new URL(pathname, baseUrl).toString()
+}
+
+function getIntakeSessionIdFromReturnTo(
+  returnTo: string,
+  baseUrl: string,
+): string | null {
+  try {
+    const url = new URL(returnTo, baseUrl)
+    const intakeSessionId = url.searchParams.get("intake")?.trim()
+
+    return intakeSessionId && intakeSessionId.length > 0 ? intakeSessionId : null
+  } catch {
+    return null
+  }
 }
 
 function redirectWithCookie(location: string, setCookieHeader?: string) {
@@ -279,9 +310,20 @@ export function registerAuthRoutes(
         code,
         cookiePassword: config.cookiePassword,
       })
+      const redirectPath = normalizeReturnTo(
+        await dependencies.getPostAuthRedirectPath({
+          defaultReturnTo: returnTo,
+          intakeSessionId: getIntakeSessionIdFromReturnTo(
+            returnTo,
+            config.publicBaseUrl,
+          ),
+          user: session.user,
+        }),
+        config.publicBaseUrl,
+      )
 
       return redirectWithCookie(
-        buildAbsoluteUrl(returnTo, config.publicBaseUrl),
+        buildAbsoluteUrl(redirectPath, config.publicBaseUrl),
         dependencies.setWorkspaceSessionCookie({
           cookieName: config.cookieName,
           publicBaseUrl: config.publicBaseUrl,

@@ -14,6 +14,10 @@ import {
   createPlatformRouter,
   type PlatformRouteDependencies,
 } from "./platform/routes"
+import {
+  createPublicIntakeRouter,
+  type PublicIntakeRouteDependencies,
+} from "./public-intake/routes"
 import { registerRuntimeRoutes } from "./runtime/routes"
 import { createScheduledTasksRouter } from "./scheduled-tasks/routes"
 import { createSessionsRouter } from "./sessions/routes"
@@ -32,6 +36,7 @@ import {
 export type CreateApiAppOptions = {
   billingRoutes?: BillingRouteDependencies
   platformRoutes?: PlatformRouteDependencies
+  publicIntakeRoutes?: PublicIntakeRouteDependencies
   userRoutes?: UserRouteDependencies
   workspaceMembersRoutes?: WorkspaceMembersRouteDependencies
 }
@@ -61,6 +66,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createSkillsRouter())
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createPlatformRouter(options.platformRoutes))
+    .route("/", createPublicIntakeRouter(options.publicIntakeRoutes))
     .route("/", createUserRouter(options.userRoutes))
     .route("/", createWorkspaceMembersRouter(options.workspaceMembersRoutes))
 
