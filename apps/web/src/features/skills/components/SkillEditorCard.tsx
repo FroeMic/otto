@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
 
 import {
+  resetWorkspaceSkillPackage,
   updateWorkspaceSkill,
   workspaceSkillDetailQueryOptions,
   workspaceSkillsQueryOptions,
@@ -138,6 +139,7 @@ export function SkillEditorCard({
   ])
   const savedContentText = skillEntryFile?.contentText ?? ""
   const isDirty = nextContentText !== savedContentText
+  const resettableCompanionFiles = detail.files.filter((file) => file.resettable)
 
   useEffect(() => {
     setDescription(detail.description)
@@ -237,6 +239,53 @@ export function SkillEditorCard({
     })
   }
 
+  function handlePackageReset() {
+    startTransition(() => {
+      setIsApplyingChanges(true)
+
+      void resetWorkspaceSkillPackage({
+        expectedVersion: version,
+        orgSlug,
+        skillKey: detail.skillKey,
+      })
+        .then(async (result) => {
+          await Promise.all([
+            queryClient.invalidateQueries({
+              queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
+            }),
+            queryClient.invalidateQueries({
+              queryKey: workspaceSkillDetailQueryOptions({
+                orgSlug,
+                skillKey: detail.skillKey,
+              }).queryKey,
+            }),
+          ])
+
+          toast.success("Skill package reset queued", {
+            description:
+              result.resetScope === "companion_files"
+                ? "Otto will restore the seeded companion files for this skill."
+                : "Otto will restore the skill package defaults.",
+          })
+
+          if (result.applyQueued) {
+            window.setTimeout(() => {
+              setIsApplyingChanges(false)
+            }, 10_000)
+          } else {
+            setIsApplyingChanges(false)
+          }
+        })
+        .catch((error) => {
+          setIsApplyingChanges(false)
+          toast.error("Skill package could not be reset", {
+            description:
+              error instanceof Error ? error.message : "Unknown error",
+          })
+        })
+    })
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {isApplyingChanges ? (
@@ -262,6 +311,56 @@ export function SkillEditorCard({
         <AlertTitle>Current status</AlertTitle>
         <AlertDescription>{getStatusDescription(detail.status)}</AlertDescription>
       </Alert>
+
+      {detail.files.length > 0 ? (
+        <Alert>
+          <AlertTitle>Package files</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>
+              This skill currently ships {detail.files.length} canonical package
+              file{detail.files.length === 1 ? "" : "s"}.
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {detail.files.map((file) => (
+                <Badge key={file.path} variant="outline">
+                  {file.fileClass === "managed_entry" ? "Entry" : "Seeded"}:{" "}
+                  {file.path}
+                </Badge>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {resettableCompanionFiles.length > 0 ? (
+        <Alert>
+          <AlertTitle>Seeded companion files</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>
+              Otto can restore {resettableCompanionFiles.length} seeded
+              companion file{resettableCompanionFiles.length === 1 ? "" : "s"}
+              {" "}for this skill when you explicitly reset the package.
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {resettableCompanionFiles.map((file) => (
+                <Badge key={file.path} variant="secondary">
+                  {file.path}
+                </Badge>
+              ))}
+            </div>
+            <div>
+              <Button
+                disabled={isPending || isApplyingChanges}
+                onClick={handlePackageReset}
+                type="button"
+                variant="outline"
+              >
+                Reset seeded companion files
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {!skillEntryFile ? (
         <Alert variant="destructive">
@@ -401,7 +500,7 @@ export function SkillEditorCard({
               type="button"
               variant="outline"
             >
-              Reset
+              Reset draft
             </Button>
             <Button
               disabled={!isDirty || !detail.editable || isPending}

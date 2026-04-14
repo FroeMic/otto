@@ -6,6 +6,7 @@ import {
   SettingsPageContent,
 } from "@/client/app/app-shell/SettingsLayout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { RuntimeFileBrowser } from "@/features/files/components/RuntimeFileBrowser"
 
 import { buildWorkspaceSkillFileDownloadUrl, workspaceSkillFilesQueryOptions } from "../api/skill-files"
@@ -71,6 +72,18 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
             })
           }}
         />
+
+        <Alert>
+          <AlertTitle>Canonical package files</AlertTitle>
+          <AlertDescription className="flex flex-wrap gap-2">
+            {detailQuery.data.detail.files.map((file) => (
+              <Badge key={file.path} variant="outline">
+                {file.fileClass === "managed_entry" ? "Entry" : "Seeded"}:{" "}
+                {file.path}
+              </Badge>
+            ))}
+          </AlertDescription>
+        </Alert>
 
         <RuntimeFileBrowser
           buildDownloadUrl={(input) =>

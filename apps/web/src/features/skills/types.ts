@@ -3,6 +3,7 @@ import type {
   WorkspaceSkillDetailResponse,
   WorkspaceSkillListEntry,
   WorkspaceSkillMutationResponse,
+  WorkspaceSkillResetResponse,
   WorkspaceSkillSection,
   WorkspaceSkillsListResponse,
 } from "@otto/feature-runtime-core"
@@ -12,6 +13,7 @@ export type {
   WorkspaceSkillDetailResponse,
   WorkspaceSkillListEntry,
   WorkspaceSkillMutationResponse,
+  WorkspaceSkillResetResponse,
   WorkspaceSkillSection,
   WorkspaceSkillsListResponse,
 }

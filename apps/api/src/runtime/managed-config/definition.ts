@@ -274,7 +274,7 @@ const FILE_DEFINITIONS: Record<
       "## Managed Instruction Files",
       "",
       "- Use `list_managed_files`, `read_managed_file`, and `patch_managed_file` for `AGENTS.md`, `HEARTBEAT.md`, `IDENTITY.md`, `MEMORY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md`.",
-      "- Use `list_managed_skills`, `get_managed_skill`, `create_managed_skill`, `update_managed_skill`, `delete_managed_skill`, and `reset_managed_skill_package` for managed skill lifecycle actions under `workspace/skills/`.",
+      "- Use `list_managed_skills`, `get_managed_skill`, `list_managed_skill_package_files`, `get_managed_skill_package_file`, `create_managed_skill`, `update_managed_skill`, `delete_managed_skill`, and `reset_managed_skill_package` for managed skill lifecycle actions under `workspace/skills/`.",
       "- Use normal file and exec tools for local edits inside skill directories.",
       "- Do not use managed-file tools for secrets, gateway auth, sandbox settings, or operator-only policy.",
     ].join("\n"),

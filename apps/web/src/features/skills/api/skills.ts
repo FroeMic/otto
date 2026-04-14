@@ -2,6 +2,8 @@ import {
   workspaceSkillCreateRequestSchema,
   workspaceSkillDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
+  workspaceSkillResetRequestSchema,
+  workspaceSkillResetResponseSchema,
   workspaceSkillsListResponseSchema,
   workspaceSkillUpdateRequestSchema,
 } from "@otto/feature-runtime-core"
@@ -107,5 +109,28 @@ export async function updateWorkspaceSkill(input: {
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillMutationResponseSchema.parse(data),
+  )
+}
+
+export async function resetWorkspaceSkillPackage(input: {
+  expectedVersion?: number
+  orgSlug: string
+  scope?: "companion_files"
+  skillKey: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].reset.$post({
+      json: workspaceSkillResetRequestSchema.parse({
+        expectedVersion: input.expectedVersion,
+        scope: input.scope ?? "companion_files",
+      }),
+      param: {
+        orgSlug: input.orgSlug,
+        skillKey: input.skillKey,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceSkillResetResponseSchema.parse(data),
   )
 }
