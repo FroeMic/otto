@@ -412,6 +412,12 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       message =
         "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults."
       break
+    case "gandi":
+      recommendedAction = "open_workspace"
+      message = integration.status.connected
+        ? "Gandi is enabled for this workspace. Open the workspace integration page to review domain research availability."
+        : "Gandi is not enabled yet. Ask the user to open the workspace integration page and enable it."
+      break
     case "linear":
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
