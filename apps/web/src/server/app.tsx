@@ -164,7 +164,7 @@ function LandingAuthModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#1b2235]/62 px-6 py-12 backdrop-blur-[2px]">
-      <div className="relative flex w-full max-w-[25.5rem] flex-col gap-5 rounded-[1.4rem] border border-black/8 bg-[#fcfbf8] px-7 py-7 text-foreground shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative flex w-full max-w-[25.5rem] flex-col gap-5 rounded-xl border border-black/8 bg-[#fcfbf8] px-7 py-7 text-foreground shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <a
           aria-label="Close"
           className="absolute right-5 top-5 text-[1.75rem] leading-none text-foreground/55 transition-colors hover:text-foreground"
@@ -173,7 +173,13 @@ function LandingAuthModal({
           ×
         </a>
 
-        <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff8a42_0%,#f45f7a_48%,#6f7df4_100%)]" />
+        <img
+          alt="Otto avatar"
+          className="size-11 rounded-md object-cover"
+          height="44"
+          src="/otto-avatar.svg"
+          width="44"
+        />
 
         <div className="flex flex-col gap-1">
           <p className="text-[1rem] font-medium text-muted-foreground/85">
@@ -185,23 +191,22 @@ function LandingAuthModal({
         </div>
 
         {prompt ? (
-          <div className="rounded-[1rem] border border-border/70 bg-background px-4 py-4 text-left">
-            <p className="text-[0.7rem] font-medium tracking-[0.16em] text-muted-foreground uppercase">
-              Your business brief
+          <div className="rounded-lg border border-border/70 bg-background px-4 py-4 text-left">
+            <p className="overflow-hidden text-sm leading-6 text-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+              {prompt}
             </p>
-            <p className="mt-2 text-sm leading-6 text-foreground">{prompt}</p>
           </div>
         ) : null}
 
         <div className="flex flex-col gap-3">
           <a
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-[0.9rem] border border-border/75 bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-92"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-border/75 bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-92"
             href={`/auth/${isSignIn ? "sign-in" : "sign-up"}?returnTo=${encodeURIComponent(returnTo)}`}
           >
             {isSignIn ? "Log in" : "Create account"}
           </a>
           <a
-            className="inline-flex min-h-12 w-full items-center justify-center rounded-[0.9rem] border border-border/75 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/45"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-border/75 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/45"
             href={`/login?mode=${isSignIn ? "sign-up" : "sign-in"}&returnTo=${encodeURIComponent(returnTo)}${prompt?.trim() ? `&prompt=${encodeURIComponent(prompt)}` : ""}`}
           >
             {isSignIn ? "Create account" : "Log in"}
@@ -210,7 +215,6 @@ function LandingAuthModal({
 
         <p className="text-xs leading-5 text-muted-foreground">
           By continuing, you agree to the Terms of Service and Privacy Policy.
-          Otto uses WorkOS for authentication.
         </p>
 
         <div className="border-t border-border/70 pt-4 text-xs text-muted-foreground">

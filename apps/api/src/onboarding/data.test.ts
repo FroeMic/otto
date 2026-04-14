@@ -124,8 +124,15 @@ describe("workspace onboarding post-auth bootstrap", () => {
         createWorkspaceForUser: async () => {
           throw new Error("not used")
         },
-        createWorkspaceOnboardingRun: async () => {
+        createWorkspaceOnboardingRun: async ({
+          organizationId,
+          starterPrompt,
+          userId,
+        }) => {
           onboardingCreated = true
+          assert.equal(organizationId, "org_123")
+          assert.equal(userId, "local_user_123")
+          assert.equal(starterPrompt, "Help me run onboarding and support.")
         },
         getDashboardOrganizations: async () => [
           {
@@ -156,6 +163,6 @@ describe("workspace onboarding post-auth bootstrap", () => {
     )
 
     assert.equal(redirectPath, "/interaction42")
-    assert.equal(onboardingCreated, false)
+    assert.equal(onboardingCreated, true)
   })
 })
