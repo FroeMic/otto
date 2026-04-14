@@ -86,7 +86,7 @@ This folder is the source of truth for implementation planning and session-to-se
 30. `TODO_29_gandi_domain_integration.md`
 31. `TODO_30_name_and_domain_research_workflow.md`
 32. `DONE_31_managed_skill_package_files_and_reset_tools.md`
-33. `TODO_32_skill_library_structure_and_naming_skill_rollout.md`
+33. `DONE_32_skill_library_structure_and_naming_skill_rollout.md`
 
 ## Trigger.dev decision
 
