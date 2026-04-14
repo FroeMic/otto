@@ -64,6 +64,9 @@ That means the plan should not force Gandi into the current `Brave` shape. It sh
   - `get_integration_details`
   - `manage_integration`
   - `execute_integration_command`
+- Support a mixed lifecycle model in `manage_integration`:
+  - non-OAuth workspace-managed integrations such as `Gandi` may complete `action=enable` directly in the runtime flow
+  - OAuth-backed integrations such as `Slack` and `Linear` still require user browser handoff for `connect` and `reconnect`
 - Keep destructive DNS changes behind an explicit plan/confirm flow rather than a single blind write call.
 - Phase the work:
   - Phase 1: discovery and read APIs
@@ -78,7 +81,7 @@ At the product level, Gandi should behave like this:
 - each workspace may enable or disable Gandi
 - Otto can see Gandi in the available integration catalog
 - Otto should normally use Gandi only when the task is domain-related
-- if Gandi is not enabled in the workspace, Otto can suggest enabling it and hand the user to the workspace page
+- if Gandi is not enabled in the workspace, Otto can suggest enabling it and may enable it directly through the agent/runtime lifecycle flow
 - once enabled, Otto can inspect details and execute Gandi-backed commands
 
 This keeps credentials centralized while preserving workspace-level product control.
@@ -154,7 +157,9 @@ This should be exposed through:
 
 - workspace UI controls in `apps/web`
 - workspace routes in `apps/api`
-- runtime `manage_integration` responses for agent handoff
+- runtime `manage_integration` responses for either:
+  - direct enable when the lifecycle action is safe and non-OAuth
+  - workspace/browser handoff when user intervention is required
 
 No OAuth session or per-workspace credential row is required for the first Gandi slice.
 
@@ -173,6 +178,7 @@ The intended behavior is:
   - verification records
   - launch cutovers
 - if Gandi is not installed, discovery results should point the agent toward `manage_integration`
+- `manage_integration(action=enable)` should be allowed to enable Gandi directly without a browser handoff
 - once enabled, command details and execution should work through the normal flow
 
 This matches the requirement that Otto can discover it, install it, and use it, but only when needed.
