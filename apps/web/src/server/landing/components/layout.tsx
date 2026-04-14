@@ -7,6 +7,7 @@ import { landingFooterColumns, landingPrimaryNavigation } from "../content/home"
 
 export interface LandingPageShellProps extends PropsWithChildren {
   footerPromptSlot?: ReactNode
+  overlaySlot?: ReactNode
 }
 
 function OttoMark() {
@@ -44,7 +45,7 @@ export function LandingHeader() {
               buttonVariants({ size: "default", variant: "outline" }),
               "rounded-full border-border/75 bg-transparent px-4 shadow-none",
             )}
-            href="/login"
+            href="/login?mode=sign-in"
           >
             Log in
           </a>
@@ -95,12 +96,14 @@ export function LandingSectionEyebrow({ children }: PropsWithChildren) {
 export function LandingPageShell({
   children,
   footerPromptSlot,
+  overlaySlot,
 }: LandingPageShellProps) {
   return (
-    <main className="min-h-svh bg-[#faf8f3] text-foreground">
+    <main className="relative min-h-svh bg-[#faf8f3] text-foreground">
       <LandingHeader />
       {children}
       <LandingFooter promptSlot={footerPromptSlot} />
+      {overlaySlot}
     </main>
   )
 }

@@ -12,10 +12,14 @@ import {
 } from "../content/home"
 
 export interface LandingHomePageProps {
+  authModalSlot?: React.ReactNode
   prompt?: string
 }
 
-export function LandingHomePage({ prompt }: LandingHomePageProps) {
+export function LandingHomePage({
+  authModalSlot,
+  prompt,
+}: LandingHomePageProps) {
   const finalPrompt =
     prompt ?? "Help me set up the business operations around my SaaS product."
 
@@ -34,6 +38,7 @@ export function LandingHomePage({ prompt }: LandingHomePageProps) {
           />
         </div>
       }
+      overlaySlot={authModalSlot}
     >
       <section className="relative overflow-hidden border-b border-border/45 pb-18 pt-12 md:pb-24 md:pt-16">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(132,154,255,0.16),transparent_28%),radial-gradient(circle_at_18%_78%,rgba(126,151,255,0.08),transparent_20%),radial-gradient(circle_at_82%_76%,rgba(255,147,109,0.08),transparent_18%)]" />

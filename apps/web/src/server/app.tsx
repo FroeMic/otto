@@ -146,58 +146,79 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
-function LoginPage({
+type LandingAuthMode = "sign-in" | "sign-up"
+
+function LandingAuthModal({
+  mode,
   prompt,
   returnTo,
 }: {
+  mode: LandingAuthMode
   prompt?: string
   returnTo: string
 }) {
+  const closeHref = prompt?.trim()
+    ? `/?prompt=${encodeURIComponent(prompt)}#start`
+    : "/"
+  const isSignIn = mode === "sign-in"
+
   return (
-    <main className="min-h-svh bg-[#faf8f3] px-6 py-16 text-foreground">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6 rounded-[2rem] border border-border/70 bg-background px-8 py-10 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
-        <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-          Otto
-        </p>
-        <div className="flex flex-col gap-3">
-          <h1 className="text-4xl font-semibold tracking-tight">
-            Sign in to continue with Otto
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Sign in with WorkOS to continue from your business brief into the
-            Otto workspace.
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#1b2235]/62 px-6 py-12 backdrop-blur-[2px]">
+      <div className="relative flex w-full max-w-[25.5rem] flex-col gap-5 rounded-[1.4rem] border border-black/8 bg-[#fcfbf8] px-7 py-7 text-foreground shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <a
+          aria-label="Close"
+          className="absolute right-5 top-5 text-[1.75rem] leading-none text-foreground/55 transition-colors hover:text-foreground"
+          href={closeHref}
+        >
+          ×
+        </a>
+
+        <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff8a42_0%,#f45f7a_48%,#6f7df4_100%)]" />
+
+        <div className="flex flex-col gap-1">
+          <p className="text-[1rem] font-medium text-muted-foreground/85">
+            {isSignIn ? "Welcome back." : "Start building."}
           </p>
-          {prompt ? (
-            <div className="rounded-[1.5rem] border border-border/70 bg-muted/35 px-4 py-4 text-left">
-              <p className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
-                Your business brief
-              </p>
-              <p className="mt-2 text-sm leading-6 text-foreground">{prompt}</p>
-            </div>
-          ) : null}
+          <h1 className="text-[2rem] font-semibold tracking-tight">
+            {isSignIn ? "Log in to Otto" : "Create free account"}
+          </h1>
         </div>
-        <div className="flex flex-wrap gap-3">
+
+        {prompt ? (
+          <div className="rounded-[1rem] border border-border/70 bg-background px-4 py-4 text-left">
+            <p className="text-[0.7rem] font-medium tracking-[0.16em] text-muted-foreground uppercase">
+              Your business brief
+            </p>
+            <p className="mt-2 text-sm leading-6 text-foreground">{prompt}</p>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3">
           <a
-            href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(
-              buttonVariants(),
-              "rounded-full bg-foreground text-background shadow-none hover:bg-foreground/92",
-            )}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-[0.9rem] border border-border/75 bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-92"
+            href={`/auth/${isSignIn ? "sign-in" : "sign-up"}?returnTo=${encodeURIComponent(returnTo)}`}
           >
-            Sign in
+            {isSignIn ? "Log in" : "Create account"}
           </a>
           <a
-            href={`/auth/sign-up?returnTo=${encodeURIComponent(returnTo)}`}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "rounded-full border-border/75 bg-transparent shadow-none",
-            )}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-[0.9rem] border border-border/75 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/45"
+            href={`/login?mode=${isSignIn ? "sign-up" : "sign-in"}&returnTo=${encodeURIComponent(returnTo)}${prompt?.trim() ? `&prompt=${encodeURIComponent(prompt)}` : ""}`}
           >
-            Create account
+            {isSignIn ? "Create account" : "Log in"}
           </a>
+        </div>
+
+        <p className="text-xs leading-5 text-muted-foreground">
+          By continuing, you agree to the Terms of Service and Privacy Policy.
+          Otto uses WorkOS for authentication.
+        </p>
+
+        <div className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
+          Your workspace is created automatically after sign-up, then Otto
+          guides you through the initial setup.
         </div>
       </div>
-    </main>
+    </div>
   )
 }
 
@@ -222,12 +243,24 @@ export function createApp(env: FrontendEnv = getEnv()) {
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
 
   app.get("/login", (c) => {
+    const mode = c.req.query("mode") === "sign-in" ? "sign-in" : "sign-up"
     const prompt = c.req.query("prompt")?.trim()
     const returnTo = c.req.query("returnTo") ?? "/"
 
     return c.html(
       renderDocument({
-        children: <LoginPage prompt={prompt} returnTo={returnTo} />,
+        children: (
+          <LandingHomePage
+            authModalSlot={
+              <LandingAuthModal
+                mode={mode}
+                prompt={prompt}
+                returnTo={returnTo}
+              />
+            }
+            prompt={prompt}
+          />
+        ),
         description: "Sign in to Otto",
         path: "/login",
         title: "Otto Sign In",
