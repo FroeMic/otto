@@ -34,7 +34,7 @@ function createRuntime() {
           return {
             accountId: "default",
             agentId: "main",
-            sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+            sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
           };
         },
       },
@@ -146,7 +146,7 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
 
     assert.deepEqual(result, {
       ok: true,
-      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
     });
     assert.equal(routeCalls.length, 1);
     assert.deepEqual(routeCalls[0], {
@@ -160,7 +160,7 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
       },
       channel: "otto-workspace-chat",
       peer: {
-        id: "workspace:conv_1?assistantMessageId=msg_1",
+        id: "workspace:conv_1",
         kind: "channel",
       },
     });
@@ -230,7 +230,7 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
           phase: "completed",
         },
         sequence: 1,
-        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "completed",
         summary: "Completed successfully",
         title: "Completed",
@@ -250,7 +250,7 @@ test("dispatchWorkspaceChatInboundTurn injects a synthetic inbound channel event
         ],
       },
       session: {
-        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "completed",
       },
     });
@@ -347,7 +347,7 @@ test("dispatchWorkspaceChatInboundTurn forwards normalized direct runtime callba
         runId: "run_1",
         sequence: 2,
         sessionKey:
-          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+          "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "running",
         title: "read_file",
         type: "tool.started",
@@ -445,7 +445,7 @@ test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when s
         },
         sequence: 1,
         sessionKey:
-          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+          "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "failed",
         summary: "shared inbound dispatch failed",
         title: "Failed",
@@ -520,7 +520,7 @@ test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct rou
     );
 
     assert.deepEqual(routeCalls[0].peer, {
-      id: "workspace:conv_1?assistantMessageId=msg_1&visibility=personal",
+      id: "workspace:conv_1?visibility=personal",
       kind: "direct",
     });
     assert.deepEqual(JSON.parse(fetchCalls.at(-1).body), {
@@ -540,7 +540,7 @@ test("dispatchWorkspaceChatInboundTurn maps personal conversations to direct rou
         ],
       },
       session: {
-        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+        sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "completed",
       },
     });
