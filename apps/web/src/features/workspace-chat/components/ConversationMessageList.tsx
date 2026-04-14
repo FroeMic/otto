@@ -19,6 +19,7 @@ export interface ConversationMessageListProps {
   isWaitingForReply: boolean
   messageEvents: WorkspaceChatMessageEvent[]
   messages: WorkspaceChatMessage[]
+  orgSlug: string
 }
 
 export function ConversationMessageList({
@@ -27,6 +28,7 @@ export function ConversationMessageList({
   isWaitingForReply,
   messageEvents,
   messages,
+  orgSlug,
 }: ConversationMessageListProps) {
   const lastMessage = messages.at(-1)
   const messageRefs = useRef(new Map<string, HTMLDivElement>())
@@ -99,6 +101,7 @@ export function ConversationMessageList({
                 currentUserId={currentUserId}
                 events={events}
                 message={message}
+                orgSlug={orgSlug}
               />
             </div>
           )

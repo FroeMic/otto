@@ -109,6 +109,7 @@ export function WorkspaceConversationPage({
           isWaitingForReply={isWaitingForReply}
           messageEvents={data.messageEvents}
           messages={data.messages}
+          orgSlug={orgSlug}
         />
       </div>
 
@@ -122,6 +123,7 @@ export function WorkspaceConversationPage({
         >
           <ConversationComposer
             disabled={sendMessageMutation.isPending}
+            orgSlug={orgSlug}
             onSubmit={async (input) => {
               await sendMessageMutation.mutateAsync(input)
             }}

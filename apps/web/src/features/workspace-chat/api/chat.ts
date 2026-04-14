@@ -152,3 +152,30 @@ export async function uploadWorkspaceChatAttachment(input: {
       payload.attachment satisfies WorkspaceChatAttachmentUploadResponse["attachment"],
   )
 }
+
+export function getWorkspaceChatAttachmentDownloadUrl(input: {
+  attachmentId: string
+  orgSlug: string
+}) {
+  return `/api/workspace/${encodeURIComponent(input.orgSlug)}/chat/attachments/${encodeURIComponent(input.attachmentId)}/download`
+}
+
+export async function transcribeWorkspaceChatAttachment(input: {
+  attachmentId: string
+  orgSlug: string
+}) {
+  const response = await fetch(
+    `/api/workspace/${encodeURIComponent(input.orgSlug)}/chat/attachments/${encodeURIComponent(input.attachmentId)}/transcription`,
+    {
+      method: "POST",
+    },
+  )
+
+  return fetchApiResponse(response, (data) => {
+    const parsed = data as { transcript?: unknown }
+    return {
+      transcript:
+        typeof parsed.transcript === "string" ? parsed.transcript : null,
+    } as const
+  }).then((payload) => payload.transcript)
+}

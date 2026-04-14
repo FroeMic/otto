@@ -101,6 +101,7 @@ export function WorkspaceAgentPage({
           <div className="pointer-events-auto w-full px-4 pb-5">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
+              orgSlug={orgSlug}
               onSubmit={async (input) => {
                 await startConversationMutation.mutateAsync(input)
               }}
