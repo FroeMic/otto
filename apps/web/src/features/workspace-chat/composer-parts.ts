@@ -14,6 +14,7 @@ export type WorkspaceChatComposerAttachmentDraft =
       attachment: WorkspaceChatAttachment
       durationMs?: number
       kind: "audio"
+      previewUrl?: string
       transcript?: string
     }
 

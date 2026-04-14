@@ -35,7 +35,7 @@ export interface UseVoiceNoteRecorderResult {
   resumeRecording: () => Promise<void>
   selectedDeviceId: string
   setSelectedDeviceId: (deviceId: string) => void
-  startRecording: () => Promise<void>
+  startRecording: (input?: { deviceId?: string }) => Promise<void>
   status: VoiceNoteRecorderStatus
   stopRecording: () => void
 }
@@ -98,7 +98,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     })
   }
 
-  async function startRecording() {
+  async function startRecording(input?: { deviceId?: string }) {
     if (
       !navigator.mediaDevices?.getUserMedia ||
       typeof MediaRecorder === "undefined"
@@ -114,10 +114,10 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedDeviceId
+        audio: (input?.deviceId ?? selectedDeviceId)
           ? {
               deviceId: {
-                exact: selectedDeviceId,
+                exact: input?.deviceId ?? selectedDeviceId,
               },
             }
           : true,

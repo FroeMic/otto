@@ -1,8 +1,10 @@
 import {
   FileIcon,
   MicrophoneIcon,
+  PauseIcon,
   PaperPlaneTiltIcon,
   PaperclipIcon,
+  PlayIcon,
   WaveformIcon,
   XIcon,
 } from "@phosphor-icons/react"
@@ -59,8 +61,13 @@ export function ConversationComposer({
   const [dragDepth, setDragDepth] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [isVoiceMode, setIsVoiceMode] = useState(false)
+  const [playingAttachmentId, setPlayingAttachmentId] = useState<string | null>(
+    null,
+  )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const attachmentsRef = useRef<WorkspaceChatComposerAttachmentDraft[]>([])
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -94,8 +101,10 @@ export function ConversationComposer({
     }
 
     await onSubmit({ parts })
+    releaseAllAudioPreviews(attachments)
     setAttachments([])
     setDraft("")
+    setPlayingAttachmentId(null)
   }
 
   async function attachVoiceNote(input: {
@@ -128,6 +137,7 @@ export function ConversationComposer({
           attachment,
           durationMs: input.durationMs,
           kind: "audio",
+          previewUrl: URL.createObjectURL(input.file),
           transcript,
         },
       ])
@@ -169,6 +179,66 @@ export function ConversationComposer({
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+    }
+  }
+
+  useEffect(() => {
+    attachmentsRef.current = attachments
+  }, [attachments])
+
+  useEffect(() => {
+    return () => {
+      previewAudioRef.current?.pause()
+      previewAudioRef.current = null
+      releaseAllAudioPreviews(attachmentsRef.current)
+    }
+  }, [])
+
+  function removeAttachment(entryId: string) {
+    setAttachments((current) => {
+      const entry = current.find((item) => item.attachment.id === entryId)
+
+      if (entry?.kind === "audio" && entry.previewUrl) {
+        URL.revokeObjectURL(entry.previewUrl)
+      }
+
+      return current.filter((item) => item.attachment.id !== entryId)
+    })
+
+    if (playingAttachmentId === entryId) {
+      previewAudioRef.current?.pause()
+      previewAudioRef.current = null
+      setPlayingAttachmentId(null)
+    }
+  }
+
+  async function toggleAudioPreview(entry: WorkspaceChatComposerAttachmentDraft) {
+    if (entry.kind !== "audio" || !entry.previewUrl) {
+      return
+    }
+
+    if (playingAttachmentId === entry.attachment.id && previewAudioRef.current) {
+      previewAudioRef.current.pause()
+      previewAudioRef.current = null
+      setPlayingAttachmentId(null)
+      return
+    }
+
+    previewAudioRef.current?.pause()
+    const audio = new Audio(entry.previewUrl)
+    previewAudioRef.current = audio
+    setPlayingAttachmentId(entry.attachment.id)
+    audio.onended = () => {
+      if (previewAudioRef.current === audio) {
+        previewAudioRef.current = null
+        setPlayingAttachmentId(null)
+      }
+    }
+
+    try {
+      await audio.play()
+    } catch {
+      setPlayingAttachmentId(null)
     }
   }
 
@@ -250,15 +320,32 @@ export function ConversationComposer({
                   ? `Voice note${typeof attachment.durationMs === "number" ? ` · ${formatVoiceNoteDuration(attachment.durationMs)}` : ""}`
                   : attachment.attachment.fileName}
               </span>
+              {attachment.kind === "audio" ? (
+                <button
+                  aria-label={
+                    playingAttachmentId === attachment.attachment.id
+                      ? "Pause voice note preview"
+                      : "Play voice note preview"
+                  }
+                  className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/80 transition hover:text-foreground"
+                  disabled={disabled || isUploading || !attachment.previewUrl}
+                  onClick={() => {
+                    void toggleAudioPreview(attachment)
+                  }}
+                  type="button"
+                >
+                  {playingAttachmentId === attachment.attachment.id ? (
+                    <PauseIcon className="size-3" weight="fill" />
+                  ) : (
+                    <PlayIcon className="size-3" weight="fill" />
+                  )}
+                </button>
+              ) : null}
               <button
                 className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/80 transition hover:text-foreground"
                 disabled={disabled || isUploading}
                 onClick={() => {
-                  setAttachments((current) =>
-                    current.filter(
-                      (entry) => entry.attachment.id !== attachment.attachment.id,
-                    ),
-                  )
+                  removeAttachment(attachment.attachment.id)
                 }}
                 type="button"
               >
@@ -286,7 +373,7 @@ export function ConversationComposer({
         value={draft}
       />
 
-      <div className="mt-3 border-t border-border/55 pt-3">
+      <div className={cn("mt-3 pt-3", !isVoiceMode && "border-t border-border/55")}>
         {isVoiceMode ? (
           <ConversationVoiceNoteRecorder
             disabled={disabled || isUploading}
@@ -353,6 +440,14 @@ export function ConversationComposer({
       </div>
     </div>
   )
+}
+
+function releaseAllAudioPreviews(attachments: WorkspaceChatComposerAttachmentDraft[]) {
+  for (const entry of attachments) {
+    if (entry.kind === "audio" && entry.previewUrl) {
+      URL.revokeObjectURL(entry.previewUrl)
+    }
+  }
 }
 
 function hasDraggedFiles(event: DragEvent<HTMLDivElement>) {
