@@ -468,7 +468,7 @@ function isInternalExecutionTitle(title: string | undefined) {
   }
 
   return (
-    /^(exec|command) run /u.test(title) ||
+    /^(exec|command)\b/u.test(title) ||
     /^canvas(?: target)?\b/u.test(title) ||
     /^read(?: lines \d+-\d+)? from \/tmp\//u.test(title)
   )
