@@ -51,31 +51,48 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Start with one clear path into Otto")
+    expect(text).toContain("Start building for free")
   })
 
-  it("renders a same-origin login page that preserves the return target", async () => {
+  it("renders the landing auth modal and preserves the return target", async () => {
     const response = await app.request(
       "http://localhost/login?returnTo=%2Facme%2Fsettings%2Fworkspace",
     )
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Sign in to continue with Otto")
+    expect(text).toContain("Create free account")
     expect(text).toContain(
-      "/auth/sign-in?returnTo=%2Facme%2Fsettings%2Fworkspace",
+      "/auth/sign-up?returnTo=%2Facme%2Fsettings%2Fworkspace",
+    )
+    expect(text).toContain(
+      "/login?mode=sign-in&amp;returnTo=%2Facme%2Fsettings%2Fworkspace",
     )
   })
 
-  it("keeps a submitted landing brief visible on the login page", async () => {
+  it("keeps a submitted landing brief visible in the auth modal", async () => {
     const response = await app.request(
       `http://localhost/login?returnTo=%2F&prompt=${encodeURIComponent("I need help with SaaS onboarding.")}`,
     )
     const text = await response.text()
 
     expect(response.status).toBe(200)
+    expect(text).toContain("Start building.")
     expect(text).toContain("Your business brief")
     expect(text).toContain("I need help with SaaS onboarding.")
+  })
+
+  it("can render a sign-in-first auth modal", async () => {
+    const response = await app.request(
+      "http://localhost/login?mode=sign-in&returnTo=%2Facme",
+    )
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain("Welcome back.")
+    expect(text).toContain("Log in to Otto")
+    expect(text).toContain("/auth/sign-in?returnTo=%2Facme")
+    expect(text).toContain("/login?mode=sign-up&amp;returnTo=%2Facme")
   })
 
   it("does not own auth routes at the web layer", async () => {

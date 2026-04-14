@@ -95,7 +95,7 @@ export const landingFooterColumns = [
   },
   {
     links: [
-      { href: "/login", label: "Log in" },
+      { href: "/login?mode=sign-in", label: "Log in" },
       { href: "/login", label: "Get started" },
     ],
     title: "Company",
