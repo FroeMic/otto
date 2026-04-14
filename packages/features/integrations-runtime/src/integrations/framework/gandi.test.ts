@@ -55,8 +55,11 @@ describe("gandi integration", () => {
   it("returns the domain command group and command details for the plugin surface", () => {
     const definition = getIntegrationDefinition("gandi");
     assert.ok(definition?.runtimeSurface);
+    const runtimeDefinition = definition as typeof definition & {
+      runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
+    };
 
-    const group = definition.runtimeSurface.commandGroups[0];
+    const group = runtimeDefinition.runtimeSurface.commandGroups[0];
     assert.ok(group);
     assert.equal(group.groupKey, "domain");
 
@@ -66,7 +69,7 @@ describe("gandi integration", () => {
     assert.ok(command);
 
     const response = buildRuntimeIntegrationDetailsResponse({
-      definition,
+      definition: runtimeDefinition,
       detail: command,
       detailType: "command",
       status: connectedStatus,

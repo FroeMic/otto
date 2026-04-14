@@ -1,13 +1,3 @@
-import { XMLParser } from "fast-xml-parser";
-
-const GANDI_RPC_URL = "https://rpc.gandi.net/xmlrpc/";
-
-const xmlParser = new XMLParser({
-  ignoreAttributes: false,
-  parseTagValue: false,
-  trimValues: true,
-});
-
 type GandiAvailabilityStatus =
   | "available"
   | "available_preorder"
@@ -36,7 +26,22 @@ export type GandiRegistrationPrice = {
   durationUnit: string | null;
   maxDuration: number | null;
   minDuration: number | null;
-  price: number | null;
+  period: string | null;
+  priceAfterTaxes: number | null;
+  priceBeforeTaxes: number | null;
+  priceType: string | null;
+};
+
+export type GandiTldMetadata = {
+  authInfoRequiredForTransfer: boolean | null;
+  canChangeOwner: boolean | null;
+  canTradeExternally: boolean | null;
+  category: string | null;
+  corporate: boolean | null;
+  fullName: string | null;
+  href: string | null;
+  lockSupported: boolean | null;
+  name: string | null;
 };
 
 export type GandiRegistrationMetadata = {
@@ -44,8 +49,64 @@ export type GandiRegistrationMetadata = {
   currentPhase: string | null;
   domain: string;
   prices: GandiRegistrationPrice[];
-  tld: string | null;
+  tld: GandiTldMetadata | null;
 };
+
+export type GandiDomainDetails = {
+  createdAt: string | null;
+  domain: string;
+  expiresAt: string | null;
+  fqdnUnicode: string | null;
+  hasLiveDns: boolean | null;
+  nameservers: string[];
+  rawStatus: string[];
+  tags: string[];
+  updatedAt: string | null;
+};
+
+type GandiApiErrorPayload = {
+  cause?: unknown;
+  code?: unknown;
+  message?: unknown;
+  object?: unknown;
+};
+
+type GandiAvailabilityProduct = {
+  name?: unknown;
+  periods?: unknown;
+  prices?: unknown;
+  process?: unknown;
+  status?: unknown;
+};
+
+type GandiAvailabilityResponse = {
+  currency?: unknown;
+  products?: unknown;
+};
+
+type GandiTldResponse = {
+  authinfo_for_transfer?: unknown;
+  category?: unknown;
+  change_owner?: unknown;
+  corporate?: unknown;
+  ext_trade?: unknown;
+  full_tld?: unknown;
+  href?: unknown;
+  lock?: unknown;
+  name?: unknown;
+};
+
+type GandiDomainDetailsResponse = {
+  dates?: unknown;
+  fqdn?: unknown;
+  fqdn_unicode?: unknown;
+  nameservers?: unknown;
+  services?: unknown;
+  status?: unknown;
+  tags?: unknown;
+};
+
+const DEFAULT_GANDI_API_BASE_URL = "https://api.gandi.net/v5";
 
 export async function checkGandiDomainAvailability(domains: string[]) {
   const normalizedDomains = domains.map(normalizeDomain).filter(Boolean);
@@ -54,25 +115,22 @@ export async function checkGandiDomainAvailability(domains: string[]) {
     return [];
   }
 
-  const response = await callGandiXmlRpc("domain.available", [
-    getGandiApiToken(),
-    normalizedDomains,
-  ]);
+  return Promise.all(
+    normalizedDomains.map(async (domain) => {
+      const response = await fetchGandiJson<GandiAvailabilityResponse>(
+        `/domain/check?name=${encodeURIComponent(domain)}&processes=create`,
+      );
 
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    throw new Error("Gandi availability response was not a struct.");
-  }
+      const product = findAvailabilityProduct(response, domain);
 
-  const availabilityMap = response as Record<string, unknown>;
-
-  return normalizedDomains.map((domain) => ({
-    availability: normalizeAvailabilityStatus(
-      typeof availabilityMap[domain] === "string"
-        ? availabilityMap[domain]
-        : "error_unknown",
-    ),
-    domain,
-  }));
+      return {
+        availability: normalizeAvailabilityStatus(
+          typeof product?.status === "string" ? product.status : "error_unknown",
+        ),
+        domain,
+      } satisfies GandiAvailabilityResult;
+    }),
+  );
 }
 
 export async function getGandiDomainRegistrationMetadata(domain: string) {
@@ -82,41 +140,21 @@ export async function getGandiDomainRegistrationMetadata(domain: string) {
     throw new Error("domain is required");
   }
 
-  const response = await callGandiXmlRpc("domain.price.list", [
-    getGandiApiToken(),
-    {
-      name: [normalizedDomain],
-    },
+  const [availabilityResponse, tldResponse] = await Promise.all([
+    fetchGandiJson<GandiAvailabilityResponse>(
+      `/domain/check?name=${encodeURIComponent(normalizedDomain)}&processes=create`,
+    ),
+    fetchGandiJson<GandiTldResponse>(`/domain/tlds/${encodeURIComponent(inferTld(normalizedDomain) ?? normalizedDomain)}`),
   ]);
 
-  const entries = Array.isArray(response) ? response : [];
-  const matchedEntry =
-    entries.find(
-      (entry) =>
-        entry &&
-        typeof entry === "object" &&
-        typeof entry.extension === "string" &&
-        entry.extension.trim().toLowerCase() === normalizedDomain,
-    ) ?? null;
+  const product = findAvailabilityProduct(availabilityResponse, normalizedDomain);
 
   return {
-    availability:
-      matchedEntry && typeof matchedEntry.available === "string"
-        ? matchedEntry.available
-        : null,
-    currentPhase:
-      matchedEntry && typeof matchedEntry.current_phase === "string"
-        ? matchedEntry.current_phase
-        : null,
+    availability: typeof product?.status === "string" ? product.status : null,
+    currentPhase: inferCurrentPhase(product),
     domain: normalizedDomain,
-    prices:
-      matchedEntry && Array.isArray(matchedEntry.prices)
-        ? matchedEntry.prices.map(normalizeRegistrationPrice)
-        : [],
-    tld:
-      matchedEntry && typeof matchedEntry.name === "string"
-        ? matchedEntry.name
-        : inferTld(normalizedDomain),
+    prices: normalizeRegistrationPrices(product, availabilityResponse),
+    tld: normalizeTldMetadata(tldResponse),
   } satisfies GandiRegistrationMetadata;
 }
 
@@ -127,16 +165,137 @@ export async function getGandiDomainDetails(domain: string) {
     throw new Error("domain is required");
   }
 
-  const [availabilityResults, registrationMetadata] = await Promise.all([
-    checkGandiDomainAvailability([normalizedDomain]),
-    getGandiDomainRegistrationMetadata(normalizedDomain),
-  ]);
+  const response = await fetchGandiJson<GandiDomainDetailsResponse>(
+    `/domain/domains/${encodeURIComponent(normalizedDomain)}`,
+  );
+  const dates = toRecord(response.dates);
+  const nameservers = toRecord(response.nameservers);
+  const services = toRecord(response.services);
 
   return {
-    ...registrationMetadata,
-    availability:
-      availabilityResults[0]?.availability ?? registrationMetadata.availability,
-  } satisfies GandiRegistrationMetadata;
+    createdAt: typeof dates.created_at === "string" ? dates.created_at : null,
+    domain: typeof response.fqdn === "string" ? response.fqdn : normalizedDomain,
+    expiresAt: typeof dates.expires_at === "string" ? dates.expires_at : null,
+    fqdnUnicode:
+      typeof response.fqdn_unicode === "string" ? response.fqdn_unicode : null,
+    hasLiveDns: typeof services.livedns === "boolean" ? services.livedns : null,
+    nameservers: Array.isArray(nameservers.current)
+      ? nameservers.current.filter((value): value is string => typeof value === "string")
+      : [],
+    rawStatus: Array.isArray(response.status)
+      ? response.status.filter((value): value is string => typeof value === "string")
+      : [],
+    tags: Array.isArray(response.tags)
+      ? response.tags.filter((value): value is string => typeof value === "string")
+      : [],
+    updatedAt: typeof dates.updated_at === "string" ? dates.updated_at : null,
+  } satisfies GandiDomainDetails;
+}
+
+async function fetchGandiJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${getGandiApiBaseUrl()}${path}`, {
+    headers: {
+      accept: "application/json",
+      authorization: `Apikey ${getGandiApiToken()}`,
+    },
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    let errorPayload: GandiApiErrorPayload | null = null;
+
+    try {
+      errorPayload = (await response.json()) as GandiApiErrorPayload;
+    } catch {
+      errorPayload = null;
+    }
+
+    const message =
+      errorPayload && typeof errorPayload.message === "string"
+        ? errorPayload.message
+        : `HTTP ${response.status}`;
+
+    throw new Error(`Gandi API request failed with status ${response.status}: ${message}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+function findAvailabilityProduct(
+  response: GandiAvailabilityResponse,
+  domain: string,
+): GandiAvailabilityProduct | null {
+  const products = Array.isArray(response.products) ? response.products : [];
+
+  return (
+    products.find((product) => {
+      const record = toRecord(product);
+      return record.process === "create" && record.name === domain;
+    }) ?? null
+  );
+}
+
+function normalizeRegistrationPrices(
+  product: GandiAvailabilityProduct | null,
+  response: GandiAvailabilityResponse,
+): GandiRegistrationPrice[] {
+  const prices = Array.isArray(product?.prices) ? product.prices : [];
+  const currency = typeof response.currency === "string" ? response.currency : null;
+  const action = typeof product?.process === "string" ? product.process : null;
+
+  return prices.map((value) => {
+    const record = toRecord(value);
+    const options = toRecord(record.options);
+
+    return {
+      action,
+      currency,
+      durationUnit:
+        typeof record.duration_unit === "string" ? record.duration_unit : null,
+      maxDuration:
+        typeof record.max_duration === "number" ? record.max_duration : null,
+      minDuration:
+        typeof record.min_duration === "number" ? record.min_duration : null,
+      period: typeof options.period === "string" ? options.period : null,
+      priceAfterTaxes:
+        typeof record.price_after_taxes === "number"
+          ? record.price_after_taxes
+          : null,
+      priceBeforeTaxes:
+        typeof record.price_before_taxes === "number"
+          ? record.price_before_taxes
+          : null,
+      priceType: typeof record.type === "string" ? record.type : null,
+    } satisfies GandiRegistrationPrice;
+  });
+}
+
+function inferCurrentPhase(product: GandiAvailabilityProduct | null) {
+  const periods = Array.isArray(product?.periods) ? product.periods : [];
+  const firstPeriod = periods[0];
+  const record = toRecord(firstPeriod);
+
+  return typeof record.name === "string" ? record.name : null;
+}
+
+function normalizeTldMetadata(response: GandiTldResponse): GandiTldMetadata {
+  return {
+    authInfoRequiredForTransfer:
+      typeof response.authinfo_for_transfer === "boolean"
+        ? response.authinfo_for_transfer
+        : null,
+    canChangeOwner:
+      typeof response.change_owner === "boolean" ? response.change_owner : null,
+    canTradeExternally:
+      typeof response.ext_trade === "boolean" ? response.ext_trade : null,
+    category: typeof response.category === "string" ? response.category : null,
+    corporate:
+      typeof response.corporate === "boolean" ? response.corporate : null,
+    fullName: typeof response.full_tld === "string" ? response.full_tld : null,
+    href: typeof response.href === "string" ? response.href : null,
+    lockSupported: typeof response.lock === "boolean" ? response.lock : null,
+    name: typeof response.name === "string" ? response.name : null,
+  };
 }
 
 function getGandiApiToken() {
@@ -149,204 +308,9 @@ function getGandiApiToken() {
   return token;
 }
 
-async function callGandiXmlRpc(methodName: string, params: unknown[]) {
-  const response = await fetch(GANDI_RPC_URL, {
-    body: buildXmlRpcRequest(methodName, params),
-    headers: {
-      "content-type": "text/xml",
-    },
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Gandi XML-RPC request failed with status ${response.status}.`,
-    );
-  }
-
-  const xml = await response.text();
-  const parsed = xmlParser.parse(xml) as {
-    methodResponse?: {
-      fault?: {
-        value?: unknown;
-      };
-      params?: {
-        param?: {
-          value?: unknown;
-        };
-      };
-    };
-  };
-
-  if (parsed.methodResponse?.fault?.value) {
-    const fault = parseXmlRpcValue(parsed.methodResponse.fault.value);
-    throw new Error(
-      `Gandi XML-RPC fault: ${JSON.stringify(fault)}`,
-    );
-  }
-
-  return parseXmlRpcValue(parsed.methodResponse?.params?.param?.value);
-}
-
-function buildXmlRpcRequest(methodName: string, params: unknown[]) {
-  return `<?xml version="1.0"?>
-<methodCall>
-  <methodName>${escapeXml(methodName)}</methodName>
-  <params>${params
-    .map(
-      (param) => `
-    <param>
-      ${serializeXmlRpcValue(param)}
-    </param>`,
-    )
-    .join("")}
-  </params>
-</methodCall>`;
-}
-
-function serializeXmlRpcValue(value: unknown): string {
-  if (typeof value === "string") {
-    return `<value><string>${escapeXml(value)}</string></value>`;
-  }
-
-  if (typeof value === "number") {
-    return Number.isInteger(value)
-      ? `<value><int>${value}</int></value>`
-      : `<value><double>${value}</double></value>`;
-  }
-
-  if (typeof value === "boolean") {
-    return `<value><boolean>${value ? 1 : 0}</boolean></value>`;
-  }
-
-  if (Array.isArray(value)) {
-    return `<value><array><data>${value
-      .map((entry) => serializeXmlRpcValue(entry))
-      .join("")}</data></array></value>`;
-  }
-
-  if (value && typeof value === "object") {
-    return `<value><struct>${Object.entries(value)
-      .map(
-        ([key, entryValue]) => `<member>
-  <name>${escapeXml(key)}</name>
-  ${serializeXmlRpcValue(entryValue)}
-</member>`,
-      )
-      .join("")}</struct></value>`;
-  }
-
-  return "<value><nil/></value>";
-}
-
-function parseXmlRpcValue(value: unknown): unknown {
-  if (!value || typeof value !== "object") {
-    return value ?? null;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(parseXmlRpcValue);
-  }
-
-  if ("string" in value && typeof value.string === "string") {
-    return value.string;
-  }
-
-  if ("int" in value && typeof value.int === "string") {
-    return Number.parseInt(value.int, 10);
-  }
-
-  if ("i4" in value && typeof value.i4 === "string") {
-    return Number.parseInt(value.i4, 10);
-  }
-
-  if ("double" in value && typeof value.double === "string") {
-    return Number.parseFloat(value.double);
-  }
-
-  if ("boolean" in value) {
-    return value.boolean === "1" || value.boolean === 1;
-  }
-
-  if ("array" in value && value.array && typeof value.array === "object") {
-    const data = (value.array as { data?: { value?: unknown } }).data?.value;
-    const entries = Array.isArray(data) ? data : data === undefined ? [] : [data];
-    return entries.map((entry) => parseXmlRpcValue(entry));
-  }
-
-  if ("struct" in value && value.struct && typeof value.struct === "object") {
-    const members = (value.struct as { member?: unknown }).member;
-    const memberList = Array.isArray(members)
-      ? members
-      : members === undefined
-        ? []
-        : [members];
-    const result: Record<string, unknown> = {};
-
-    for (const member of memberList) {
-      if (!member || typeof member !== "object") {
-        continue;
-      }
-
-      const name =
-        "name" in member && typeof member.name === "string" ? member.name : null;
-
-      if (!name || !("value" in member)) {
-        continue;
-      }
-
-      result[name] = parseXmlRpcValue(member.value);
-    }
-
-    return result;
-  }
-
-  return null;
-}
-
-function normalizeRegistrationPrice(value: unknown): GandiRegistrationPrice {
-  const record =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
-  const actionValue = record.action;
-  const actionRecord =
-    actionValue && typeof actionValue === "object" && !Array.isArray(actionValue)
-      ? (actionValue as Record<string, unknown>)
-      : {};
-  const unitPriceValue = record.unit_price;
-  const firstUnitPrice = Array.isArray(unitPriceValue)
-    ? unitPriceValue[0]
-    : null;
-  const unitPriceRecord =
-    firstUnitPrice &&
-    typeof firstUnitPrice === "object" &&
-    !Array.isArray(firstUnitPrice)
-      ? (firstUnitPrice as Record<string, unknown>)
-      : {};
-
-  return {
-    action:
-      typeof actionRecord.name === "string" ? actionRecord.name : null,
-    currency:
-      typeof unitPriceRecord.currency === "string"
-        ? unitPriceRecord.currency
-        : null,
-    durationUnit:
-      typeof unitPriceRecord.duration_unit === "string"
-        ? unitPriceRecord.duration_unit
-        : null,
-    maxDuration:
-      typeof unitPriceRecord.max_duration === "number"
-        ? unitPriceRecord.max_duration
-        : null,
-    minDuration:
-      typeof unitPriceRecord.min_duration === "number"
-        ? unitPriceRecord.min_duration
-        : null,
-    price:
-      typeof unitPriceRecord.price === "number" ? unitPriceRecord.price : null,
-  };
+function getGandiApiBaseUrl() {
+  const baseUrl = process.env.GANDI_BASE_URL?.trim() || DEFAULT_GANDI_API_BASE_URL;
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 }
 
 function normalizeAvailabilityStatus(value: string): GandiAvailabilityStatus {
@@ -362,11 +326,8 @@ function inferTld(domain: string) {
   return parts.length >= 2 ? parts.at(-1) ?? null : null;
 }
 
-function escapeXml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
