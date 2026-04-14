@@ -116,7 +116,7 @@ export function ConversationVoiceNoteRecorder({
   return (
     <div className="flex min-h-12 items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-2">
       <select
-        className="h-8 min-w-[12rem] max-w-[20rem] rounded-full border border-border/70 bg-muted/20 px-3 text-sm text-foreground"
+        className="h-8 w-[14rem] max-w-[36vw] shrink-0 rounded-full border border-border/70 bg-muted/20 px-3 pr-8 text-sm text-foreground md:w-[16rem]"
         disabled={disabled || isUploading}
         onChange={(event) => {
           const nextDeviceId = event.target.value
@@ -139,7 +139,7 @@ export function ConversationVoiceNoteRecorder({
         ))}
       </select>
 
-      <div className="flex h-8 min-w-0 flex-1 items-end gap-1 overflow-hidden rounded-full px-2 py-1">
+      <div className="mr-1 flex h-8 min-w-0 flex-1 items-end gap-1 overflow-hidden rounded-full px-2 py-1">
         {recorder.levels.map((level, index) => (
           <span
             aria-hidden
