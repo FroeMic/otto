@@ -102,6 +102,16 @@
   - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names
   - the first workflow should remain read-only and focus on shortlist evaluation, variant rescue, and launch-ready recommendations
   - the planned managed skill depends on `gandi` but keeps provider access separate from naming heuristics and recommendation logic
+- The managed skill package reset substrate now exists in the first useful form tracked in `_specs/TODO_31_managed_skill_package_files_and_reset_tools.md`:
+  - canonical seeded companion files under approved subfolders now project as install-only files
+  - normal apply preserves local runtime edits to those companion files
+  - explicit `companion_files` reset is now available through workspace and runtime managed-skill routes
+  - the bundled `otto-managed-skills` plugin now exposes `reset_managed_skill_package`
+  - package-file inspection and workspace UI reset affordances are still follow-on work
+- The next managed-skill execution focus is now `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`:
+  - move Otto-owned seeded skills out of the monolithic `system-skills.ts`
+  - create a per-skill library directory under `apps/worker/src/runtime/lib/managed-skills/library/`
+  - migrate `name-and-domain-research` into a packaged skill with seeded companion docs
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

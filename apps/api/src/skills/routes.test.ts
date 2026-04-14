@@ -94,6 +94,12 @@ function createDependencies(): SkillsRouteDependencies {
       ],
       state: "ready",
     }),
+    resetWorkspaceSkillPackage: async () => ({
+      applyQueued: true,
+      desiredStateVersion: 6,
+      resetScope: "companion_files",
+      skillKey: "triage",
+    }),
     updateWorkspaceSkill: async () => ({
       applyQueued: true,
       changed: true,
@@ -234,6 +240,31 @@ describe("skills routes", () => {
       changed: true,
       currentVersion: 2,
       desiredStateVersion: 5,
+      skillKey: "triage",
+    })
+  })
+
+  it("resets a workspace skill package", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/triage/reset",
+      {
+        body: JSON.stringify({
+          expectedVersion: 2,
+          scope: "companion_files",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      desiredStateVersion: 6,
+      resetScope: "companion_files",
       skillKey: "triage",
     })
   })

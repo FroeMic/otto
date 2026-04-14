@@ -25,6 +25,7 @@ import {
   createTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
+  resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillTextFileForTenant,
 } from "../runtime/managed-skills-data"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
@@ -301,6 +302,49 @@ export async function updateWorkspaceSkill(input: {
     changed: result.changed,
     currentVersion: result.currentVersion,
     desiredStateVersion: result.desiredStateVersion ?? result.currentVersion,
+    skillKey: result.skillKey,
+  }
+}
+
+export async function resetWorkspaceSkillPackage(input: {
+  expectedVersion?: number
+  orgSlug: string
+  scope: "companion_files"
+  skillKey: string
+  userExternalId: string
+}) {
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!runtime) {
+    return null
+  }
+
+  const detail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
+
+  if (!detail) {
+    return null
+  }
+
+  const result = await resetTenantManagedSkillPackageForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    scope: input.scope,
+    skillKey: input.skillKey,
+    summary: `Reset ${input.skillKey} package`,
+    tenantId: runtime.tenantId,
+  })
+
+  return {
+    applyQueued: result.applyQueued,
+    desiredStateVersion: result.desiredStateVersion,
+    resetScope: result.resetScope,
     skillKey: result.skillKey,
   }
 }

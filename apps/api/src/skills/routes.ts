@@ -8,10 +8,13 @@ import {
   workspaceSkillCreateRequestSchema,
   workspaceSkillDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
+  workspaceSkillResetRequestSchema,
+  workspaceSkillResetResponseSchema,
   workspaceSkillsListResponseSchema,
   workspaceSkillUpdateRequestSchema,
   type WorkspaceSkillDetailResponse,
   type WorkspaceSkillMutationResponse,
+  type WorkspaceSkillResetResponse,
   type WorkspaceSkillsListResponse,
 } from "@otto/feature-runtime-core"
 import { RuntimePathValidationError } from "@otto/feature-runtime-core/runtime-files/download"
@@ -31,6 +34,7 @@ import {
   getWorkspaceSkillDetail,
   getWorkspaceSkillFilesDirectoryListing,
   listWorkspaceSkills,
+  resetWorkspaceSkillPackage,
   updateWorkspaceSkill,
 } from "./data"
 
@@ -88,6 +92,13 @@ export interface SkillsRouteDependencies {
     orgSlug: string
     userExternalId: string
   }) => Promise<WorkspaceSkillsListResponse>
+  resetWorkspaceSkillPackage: (input: {
+    expectedVersion?: number
+    orgSlug: string
+    scope: "companion_files"
+    skillKey: string
+    userExternalId: string
+  }) => Promise<WorkspaceSkillResetResponse | null>
   updateWorkspaceSkill: (input: {
     description: string
     expectedVersion?: number
@@ -110,6 +121,7 @@ function createDefaultSkillsRouteDependencies(): SkillsRouteDependencies {
     getWorkspaceSkillDetail,
     getWorkspaceSkillFilesDirectoryListing,
     listWorkspaceSkills,
+    resetWorkspaceSkillPackage,
     updateWorkspaceSkill,
   }
 }
@@ -250,6 +262,39 @@ export function createSkillsRouter(
         }
 
         return jsonNoStore(workspaceSkillMutationResponseSchema.parse(response))
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/skills/:skillKey/reset",
+      zValidator("json", workspaceSkillResetRequestSchema),
+      zValidator("param", workspaceSkillDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const body = context.req.valid("json")
+        const response = await dependencies.resetWorkspaceSkillPackage({
+          expectedVersion: body.expectedVersion,
+          orgSlug: context.req.valid("param").orgSlug,
+          scope: body.scope,
+          skillKey: context.req.valid("param").skillKey,
+          userExternalId: authResult.user.id,
+        })
+
+        if (!response) {
+          return jsonNoStore(
+            {
+              code: "skill_not_found",
+              message: "Managed skill not found",
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(workspaceSkillResetResponseSchema.parse(response))
       },
     )
     .get(

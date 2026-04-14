@@ -386,10 +386,10 @@ Those files should ship as seeded companion files and be resettable from the wor
 
 ## Status Checklist
 
-- [ ] define package-file policy metadata for companion files
-- [ ] extend managed-skill validation to allow canonical seeded files in allowed subfolders
-- [ ] update projection behavior to preserve local edits on normal apply
-- [ ] add workspace reset API and queued reset behavior
+- [x] define package-file policy metadata for companion files
+- [x] extend managed-skill validation to allow canonical seeded files in allowed subfolders
+- [x] update projection behavior to preserve local edits on normal apply
+- [x] add workspace reset API and queued reset behavior
 - [ ] add runtime plugin inspection/reset tools
 - [ ] add workspace UI for reset and file provenance
 - [ ] migrate `name-and-domain-research` to use seeded companion files

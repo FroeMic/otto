@@ -5,6 +5,7 @@ import {
   handleManagedSkillsDeleteRequest,
   handleManagedSkillsGetRequest,
   handleManagedSkillsPostRequest,
+  handleManagedSkillsResetRequest,
   handleManagedSkillsUpdateRequest,
   type ManagedConfigVersionConflictLike,
   type ManagedSkillVersionConflictLike,
@@ -54,6 +55,7 @@ import {
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
   ManagedSkillVersionConflictError,
+  resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillForTenant,
 } from "./managed-skills-data"
 import {
@@ -570,6 +572,18 @@ export function registerRuntimeRoutes(app: Hono) {
       ): error is ManagedSkillVersionConflictLike =>
         error instanceof ManagedSkillVersionConflictError,
       request: context.req.raw,
+    })
+  })
+
+  app.post("/api/internal/runtime/managed-skills/reset", async (context) => {
+    return handleManagedSkillsResetRequest({
+      authenticateTenantRuntimeRequest,
+      isVersionConflictError: (
+        error,
+      ): error is ManagedSkillVersionConflictLike =>
+        error instanceof ManagedSkillVersionConflictError,
+      request: context.req.raw,
+      resetTenantManagedSkillPackageForTenant,
     })
   })
 

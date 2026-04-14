@@ -81,6 +81,10 @@ export type ApplyTenantConfigPayload = {
     fromSkillKey: string;
     toSkillKey: string;
   }>;
+  managedSkillResetOperations?: Array<{
+    scope: "companion_files";
+    skillKey: string;
+  }>;
   pullImageFirst?: boolean;
   step?: ApplyStep;
 };
