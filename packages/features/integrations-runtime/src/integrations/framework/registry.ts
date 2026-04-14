@@ -1,4 +1,5 @@
 import { braveIntegrationDefinition } from "../library/brave/definition";
+import { gandiIntegrationDefinition } from "../library/gandi/definition";
 import { linearIntegrationDefinition } from "../library/linear/definition";
 import { slackIntegrationDefinition } from "../library/slack/definition";
 import type { OAuthProviderDefinition } from "../../lib/oauth/providers/types";
@@ -7,6 +8,7 @@ import type { IntegrationDefinition } from "./types";
 
 const registry = [
   braveIntegrationDefinition,
+  gandiIntegrationDefinition,
   linearIntegrationDefinition,
   slackIntegrationDefinition,
 ] as const satisfies readonly IntegrationDefinition[];
