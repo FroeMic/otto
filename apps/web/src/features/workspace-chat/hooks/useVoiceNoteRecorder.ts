@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react"
 
 import { buildVoiceNoteFileName, normalizeVoiceNoteMimeType } from "../voice-note"
 
-const DEFAULT_BAR_COUNT = 32
+const DEFAULT_BAR_COUNT = 40
 const PREFERRED_AUDIO_MIME_TYPES = [
   "audio/webm;codecs=opus",
   "audio/webm",
   "audio/mp4",
 ] as const
+
+type VoiceNoteRecorderStatus = "idle" | "recording" | "paused" | "recorded"
 
 export interface VoiceNoteRecorderDraft {
   blob: Blob
@@ -25,26 +27,28 @@ export interface UseVoiceNoteRecorderResult {
   clearDraft: () => void
   devices: VoiceNoteRecorderDevice[]
   draft: VoiceNoteRecorderDraft | null
+  elapsedMs: number
   errorMessage: string | null
   isSupported: boolean
   levels: number[]
+  pauseRecording: () => void
+  resumeRecording: () => Promise<void>
   selectedDeviceId: string
   setSelectedDeviceId: (deviceId: string) => void
   startRecording: () => Promise<void>
-  status: "idle" | "recording" | "recorded"
+  status: VoiceNoteRecorderStatus
   stopRecording: () => void
 }
 
 export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   const [devices, setDevices] = useState<VoiceNoteRecorderDevice[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState("")
-  const [status, setStatus] = useState<"idle" | "recording" | "recorded">(
-    "idle",
-  )
+  const [status, setStatus] = useState<VoiceNoteRecorderStatus>("idle")
   const [draft, setDraft] = useState<VoiceNoteRecorderDraft | null>(null)
   const [levels, setLevels] = useState<number[]>(() =>
     Array.from({ length: DEFAULT_BAR_COUNT }, () => 0.08),
   )
+  const [elapsedMs, setElapsedMs] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -52,19 +56,22 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
-  const startTimeRef = useRef<number>(0)
+  const startedAtRef = useRef<number>(0)
+  const accumulatedDurationMsRef = useRef(0)
+  const elapsedAnimationFrameRef = useRef<number | null>(null)
+  const statusRef = useRef<VoiceNoteRecorderStatus>("idle")
+
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
 
   useEffect(() => {
     void loadDevices()
 
     return () => {
       stopMediaStream()
-      clearAnimationFrame()
-
-      if (audioContextRef.current) {
-        void audioContextRef.current.close()
-        audioContextRef.current = null
-      }
+      stopAnalyser()
+      clearElapsedAnimationFrame()
     }
   }, [])
 
@@ -92,13 +99,18 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   }
 
   async function startRecording() {
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
       setErrorMessage("Voice notes are not supported in this browser.")
       return
     }
 
     clearDraft()
     setErrorMessage(null)
+    accumulatedDurationMsRef.current = 0
+    setElapsedMs(0)
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -118,7 +130,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
         mimeType: resolveVoiceNoteMimeType(),
       })
       mediaRecorderRef.current = recorder
-      startTimeRef.current = Date.now()
+      startedAtRef.current = Date.now()
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -130,13 +142,14 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
         const mimeType = normalizeVoiceNoteMimeType(
           recorder.mimeType || chunksRef.current[0]?.type || "audio/webm",
         )
-        const durationMs = Math.max(1, Date.now() - startTimeRef.current)
+        const durationMs = Math.max(1, accumulatedDurationMsRef.current)
         const blob = new Blob(chunksRef.current, {
           type: mimeType,
         })
 
         stopMediaStream()
         stopAnalyser()
+        clearElapsedAnimationFrame()
         void loadDevices()
 
         setDraft({
@@ -145,34 +158,72 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
           fileName: buildVoiceNoteFileName(mimeType),
           mimeType,
         })
+        setElapsedMs(durationMs)
         setLevels(Array.from({ length: DEFAULT_BAR_COUNT }, () => 0.08))
         setStatus("recorded")
       }
 
       await attachAnalyser(stream)
-      recorder.start()
+      recorder.start(250)
       setStatus("recording")
+      scheduleElapsedTick()
     } catch (error) {
       stopMediaStream()
       stopAnalyser()
+      clearElapsedAnimationFrame()
       setStatus("idle")
       setErrorMessage(
-        error instanceof Error ? error.message : "Could not start voice recording.",
+        error instanceof Error
+          ? error.message
+          : "Could not start voice recording.",
       )
     }
   }
 
-  function stopRecording() {
-    if (mediaRecorderRef.current && status === "recording") {
-      mediaRecorderRef.current.stop()
+  function pauseRecording() {
+    if (!mediaRecorderRef.current || status !== "recording") {
+      return
     }
+
+    mediaRecorderRef.current.pause()
+    accumulatedDurationMsRef.current += Date.now() - startedAtRef.current
+    setElapsedMs(accumulatedDurationMsRef.current)
+    clearElapsedAnimationFrame()
+    setStatus("paused")
+  }
+
+  async function resumeRecording() {
+    if (!mediaRecorderRef.current || status !== "paused") {
+      return
+    }
+
+    startedAtRef.current = Date.now()
+    mediaRecorderRef.current.resume()
+    setStatus("recording")
+    scheduleElapsedTick()
+  }
+
+  function stopRecording() {
+    if (!mediaRecorderRef.current || (status !== "recording" && status !== "paused")) {
+      return
+    }
+
+    if (status === "recording") {
+      accumulatedDurationMsRef.current += Date.now() - startedAtRef.current
+    }
+
+    clearElapsedAnimationFrame()
+    mediaRecorderRef.current.stop()
   }
 
   function clearDraft() {
     stopMediaStream()
     stopAnalyser()
+    clearElapsedAnimationFrame()
     chunksRef.current = []
+    accumulatedDurationMsRef.current = 0
     setDraft(null)
+    setElapsedMs(0)
     setLevels(Array.from({ length: DEFAULT_BAR_COUNT }, () => 0.08))
     setStatus("idle")
   }
@@ -184,7 +235,10 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   }
 
   function stopAnalyser() {
-    clearAnimationFrame()
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
 
     if (audioContextRef.current) {
       void audioContextRef.current.close()
@@ -199,12 +253,12 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     const analyser = audioContext.createAnalyser()
     const source = audioContext.createMediaStreamSource(stream)
 
-    analyser.fftSize = 256
-    analyser.smoothingTimeConstant = 0.72
+    analyser.fftSize = 512
+    analyser.smoothingTimeConstant = 0.8
     source.connect(analyser)
     await audioContext.resume()
 
-    const data = new Uint8Array(analyser.fftSize)
+    const data = new Uint8Array(analyser.frequencyBinCount)
 
     audioContextRef.current = audioContext
     analyserRef.current = analyser
@@ -214,7 +268,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
         return
       }
 
-      analyserRef.current.getByteTimeDomainData(data)
+      analyserRef.current.getByteFrequencyData(data)
       const nextLevels = Array.from({ length: DEFAULT_BAR_COUNT }, (_, index) => {
         const start = Math.floor((index * data.length) / DEFAULT_BAR_COUNT)
         const end = Math.max(
@@ -222,15 +276,13 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
           Math.floor(((index + 1) * data.length) / DEFAULT_BAR_COUNT),
         )
 
-        let amplitudeSum = 0
-
+        let sum = 0
         for (let cursor = start; cursor < end; cursor += 1) {
-          amplitudeSum += Math.abs((data[cursor] - 128) / 128)
+          sum += data[cursor]
         }
 
-        const averageAmplitude = amplitudeSum / Math.max(1, end - start)
-
-        return Math.min(1, Math.max(0.08, averageAmplitude * 7.5))
+        const avg = sum / Math.max(1, end - start)
+        return Math.min(1, Math.max(0.08, (avg / 255) * 2.6))
       })
 
       setLevels(nextLevels)
@@ -240,10 +292,27 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     animationFrameRef.current = window.requestAnimationFrame(updateLevels)
   }
 
-  function clearAnimationFrame() {
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
+  function scheduleElapsedTick() {
+    clearElapsedAnimationFrame()
+
+    const tick = () => {
+      if (statusRef.current !== "recording") {
+        return
+      }
+
+      setElapsedMs(
+        accumulatedDurationMsRef.current + (Date.now() - startedAtRef.current),
+      )
+      elapsedAnimationFrameRef.current = window.requestAnimationFrame(tick)
+    }
+
+    elapsedAnimationFrameRef.current = window.requestAnimationFrame(tick)
+  }
+
+  function clearElapsedAnimationFrame() {
+    if (elapsedAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(elapsedAnimationFrameRef.current)
+      elapsedAnimationFrameRef.current = null
     }
   }
 
@@ -251,12 +320,15 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     clearDraft,
     devices,
     draft,
+    elapsedMs,
     errorMessage,
     isSupported:
       typeof window !== "undefined" &&
       typeof MediaRecorder !== "undefined" &&
       Boolean(navigator.mediaDevices?.getUserMedia),
     levels,
+    pauseRecording,
+    resumeRecording,
     selectedDeviceId,
     setSelectedDeviceId,
     startRecording,

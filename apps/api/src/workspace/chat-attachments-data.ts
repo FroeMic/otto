@@ -1,9 +1,11 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  workspaceChatConversations,
   workspaceChatAttachments,
   workspaceChatMessageParts,
+  workspaceChatMessages,
 } from "@otto/feature-integrations-runtime/db/schema"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, or } from "drizzle-orm"
 
 export type WorkspaceChatAttachmentRecord = {
   fileName: string
@@ -89,6 +91,57 @@ export async function getWorkspaceChatAttachmentForUser(input: {
         eq(workspaceChatAttachments.id, input.attachmentId),
         eq(workspaceChatAttachments.organizationId, input.organizationId),
         eq(workspaceChatAttachments.uploadedByUserId, input.userId),
+      ),
+    )
+    .limit(1)
+
+  return (record ?? null) satisfies WorkspaceChatAttachmentRecord | null
+}
+
+export async function getWorkspaceChatAttachmentForAccessibleConversation(input: {
+  attachmentId: string
+  organizationId: string
+  userId: string
+}) {
+  const db = getDb()
+  const [record] = await db
+    .select({
+      fileName: workspaceChatAttachments.fileName,
+      id: workspaceChatAttachments.id,
+      mimeType: workspaceChatAttachments.mimeType,
+      organizationId: workspaceChatAttachments.organizationId,
+      sha256: workspaceChatAttachments.sha256,
+      sizeBytes: workspaceChatAttachments.sizeBytes,
+      status: workspaceChatAttachments.status,
+      storageKey: workspaceChatAttachments.storageKey,
+      tenantId: workspaceChatAttachments.tenantId,
+      uploadedByUserId: workspaceChatAttachments.uploadedByUserId,
+    })
+    .from(workspaceChatAttachments)
+    .innerJoin(
+      workspaceChatMessageParts,
+      eq(workspaceChatMessageParts.attachmentId, workspaceChatAttachments.id),
+    )
+    .innerJoin(
+      workspaceChatMessages,
+      eq(workspaceChatMessages.id, workspaceChatMessageParts.messageId),
+    )
+    .innerJoin(
+      workspaceChatConversations,
+      eq(workspaceChatConversations.id, workspaceChatMessages.conversationId),
+    )
+    .where(
+      and(
+        eq(workspaceChatAttachments.id, input.attachmentId),
+        eq(workspaceChatAttachments.organizationId, input.organizationId),
+        eq(workspaceChatConversations.organizationId, input.organizationId),
+        or(
+          eq(workspaceChatConversations.visibility, "open"),
+          and(
+            eq(workspaceChatConversations.visibility, "personal"),
+            eq(workspaceChatConversations.createdByUserId, input.userId),
+          ),
+        ),
       ),
     )
     .limit(1)
