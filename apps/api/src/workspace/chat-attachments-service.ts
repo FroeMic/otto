@@ -2,8 +2,10 @@ import path from "node:path"
 
 import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
 
+import { proxyOpenAiAudioTranscriptionsRequest } from "../runtime/openai-proxy"
 import {
   createWorkspaceChatAttachmentRecord,
+  getWorkspaceChatAttachmentForAccessibleConversation,
   getWorkspaceChatAttachmentForTenant,
   listWorkspaceChatAttachmentsByIds,
   type WorkspaceChatAttachmentRecord,
@@ -97,6 +99,109 @@ export async function getWorkspaceChatAttachmentContentForTenant(input: {
     bytes: file.bytes,
     sha256: record.sha256,
   }
+}
+
+export async function getWorkspaceChatAttachmentContentForUser(input: {
+  attachmentId: string
+  orgSlug: string
+  userExternalId: string
+}) {
+  const actor = await resolveWorkspaceChatActor({
+    includeTenant: false,
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+  const record = await getWorkspaceChatAttachmentForAccessibleConversation({
+    attachmentId: input.attachmentId,
+    organizationId: actor.organizationId,
+    userId: actor.userId,
+  })
+
+  if (!record) {
+    return null
+  }
+
+  let file
+
+  try {
+    file = await readWorkspaceChatAttachmentFile(record.storageKey)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+      return null
+    }
+
+    throw error
+  }
+
+  return {
+    attachment: mapWorkspaceChatAttachmentRecord(record),
+    bytes: file.bytes,
+    sha256: record.sha256,
+  }
+}
+
+export async function transcribeWorkspaceChatAttachmentForUser(input: {
+  attachmentId: string
+  orgSlug: string
+  userExternalId: string
+}) {
+  const actor = await resolveWorkspaceChatActor({
+    includeTenant: true,
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!actor.tenantId) {
+    return null
+  }
+
+  const content = await getWorkspaceChatAttachmentContentForUser({
+    attachmentId: input.attachmentId,
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!content) {
+    return null
+  }
+
+  const mimeType = content.attachment.mimeType.toLowerCase()
+  if (!mimeType.startsWith("audio/") && !mimeType.startsWith("video/")) {
+    return null
+  }
+
+  const formData = new FormData()
+  formData.set(
+    "file",
+    new File([content.bytes], content.attachment.fileName, {
+      type: content.attachment.mimeType,
+    }),
+  )
+  formData.set("model", "gpt-4o-mini-transcribe")
+
+  const request = new Request(
+    "http://api.local/api/internal/runtime/ai/openai/v1/audio/transcriptions",
+    {
+      body: formData,
+      method: "POST",
+    },
+  )
+  const response = await proxyOpenAiAudioTranscriptionsRequest({
+    request,
+    tenantId: actor.tenantId,
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      `Voice note transcription failed with status ${response.status}.`,
+    )
+  }
+
+  const payload = (await response.json()) as { text?: unknown }
+  const transcript =
+    typeof payload.text === "string" ? payload.text.trim() : ""
+
+  return transcript.length > 0 ? transcript : null
 }
 
 export async function validateWorkspaceChatAttachmentOwnership(input: {
