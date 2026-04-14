@@ -16,9 +16,13 @@ export interface OnboardingStepLayoutProps extends PropsWithChildren {
 
 function OttoMark() {
   return (
-    <span className="inline-flex items-center gap-3">
-      <span className="size-9 rounded-2xl bg-[linear-gradient(180deg,#ff8a42_0%,#f45f7a_48%,#6f7df4_100%)]" />
-    </span>
+    <img
+      alt="Otto avatar"
+      className="size-12 rounded-md object-cover"
+      height="48"
+      src="/otto-avatar.svg"
+      width="48"
+    />
   )
 }
 
@@ -83,7 +87,7 @@ export function OnboardingOptionButton({
   return (
     <Button
       className={cn(
-        "h-auto min-h-32 w-full flex-col items-center justify-center gap-3 rounded-[1.4rem] border border-border/70 bg-background px-6 py-8 text-center text-foreground shadow-none hover:bg-background",
+        "h-auto min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-border/70 bg-background px-6 py-8 text-center text-foreground shadow-none hover:bg-background",
         isSelected &&
           "border-foreground/70 bg-foreground/[0.02] ring-2 ring-foreground/10",
       )}

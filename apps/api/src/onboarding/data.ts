@@ -310,6 +310,15 @@ export async function createWorkspaceOnboardingRun(input: {
     })
 }
 
+export function getWorkspaceOnboardingSummaryLookupSlug(input: {
+  currentOrgSlug: string
+  request: WorkspaceOnboardingSaveRequest
+}) {
+  return input.request.action === "save-workspace-identity"
+    ? input.request.workspaceSlug
+    : input.currentOrgSlug
+}
+
 async function getWorkspaceOnboardingAccessRow(input: {
   orgSlug: string
   userExternalId: string
@@ -565,7 +574,10 @@ export async function saveWorkspaceOnboardingRun(input: {
   })
 
   return getWorkspaceOnboardingRunSummary({
-    orgSlug: input.orgSlug,
+    orgSlug: getWorkspaceOnboardingSummaryLookupSlug({
+      currentOrgSlug: input.orgSlug,
+      request,
+    }),
     userExternalId: input.userExternalId,
   })
 }
