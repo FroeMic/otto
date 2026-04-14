@@ -66,7 +66,10 @@ describe("gateway app", () => {
       domains: [
         {
           availability: "available",
+          currentPhase: "golive",
           domain: "ledgerpilot.ai",
+          prices: [],
+          status: "available",
         },
       ],
     })
@@ -95,7 +98,10 @@ describe("gateway app", () => {
       domains: [
         {
           availability: "available",
+          currentPhase: "golive",
           domain: "ledgerpilot.ai",
+          prices: [],
+          status: "available",
         },
       ],
     })

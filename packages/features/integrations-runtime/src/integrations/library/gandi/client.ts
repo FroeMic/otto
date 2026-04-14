@@ -16,8 +16,11 @@ type GandiAvailabilityStatus =
   | (string & {});
 
 export type GandiAvailabilityResult = {
-  availability: GandiAvailabilityStatus;
+  availability: "available" | "pending" | "unavailable" | "unknown";
+  currentPhase: string | null;
   domain: string;
+  prices: GandiRegistrationPrice[];
+  status: GandiAvailabilityStatus;
 };
 
 export type GandiRegistrationPrice = {
@@ -151,12 +154,11 @@ export async function checkGandiDomainAvailability(domains: string[]) {
 
       const product = findAvailabilityProduct(response, domain);
 
-      return {
-        availability: normalizeAvailabilityStatus(
-          typeof product?.status === "string" ? product.status : "error_unknown",
-        ),
+      return normalizeAvailabilityResult({
         domain,
-      } satisfies GandiAvailabilityResult;
+        product,
+        response,
+      });
     }),
   );
 }
@@ -332,6 +334,26 @@ function inferCurrentPhase(product: GandiAvailabilityProduct | null) {
   return typeof record.name === "string" ? record.name : null;
 }
 
+function normalizeAvailabilityResult(input: {
+  domain: string;
+  product: GandiAvailabilityProduct | null;
+  response: GandiAvailabilityResponse;
+}): GandiAvailabilityResult {
+  const status = normalizeAvailabilityStatus(
+    typeof input.product?.status === "string"
+      ? input.product.status
+      : "error_unknown",
+  );
+
+  return {
+    availability: bucketAvailabilityStatus(status),
+    currentPhase: inferCurrentPhase(input.product),
+    domain: input.domain,
+    prices: normalizeRegistrationPrices(input.product, input.response),
+    status,
+  };
+}
+
 function normalizeTldMetadata(response: GandiTldResponse): GandiTldMetadata {
   return {
     authInfoRequiredForTransfer:
@@ -369,6 +391,34 @@ function getGandiApiBaseUrl() {
 
 function normalizeAvailabilityStatus(value: string): GandiAvailabilityStatus {
   return value.trim().toLowerCase() as GandiAvailabilityStatus;
+}
+
+function bucketAvailabilityStatus(
+  status: GandiAvailabilityStatus,
+): GandiAvailabilityResult["availability"] {
+  if (
+    status === "available" ||
+    status === "available_preorder" ||
+    status === "available_reserved" ||
+    status === "reserved_corporate"
+  ) {
+    return "available";
+  }
+
+  if (status === "pending") {
+    return "pending";
+  }
+
+  if (
+    status === "unavailable" ||
+    status === "unavailable_premium" ||
+    status === "unavailable_restricted" ||
+    status.startsWith("error_")
+  ) {
+    return "unavailable";
+  }
+
+  return "unknown";
 }
 
 function normalizeDomain(value: string) {
