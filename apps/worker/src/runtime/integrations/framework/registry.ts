@@ -1,4 +1,5 @@
 import { braveIntegrationDefinition } from "../library/brave/definition";
+import { gandiIntegrationDefinition } from "../library/gandi/definition";
 import { linearIntegrationDefinition } from "../library/linear/definition";
 import { slackIntegrationDefinition } from "../library/slack/definition";
 import { whatsappIntegrationDefinition } from "../library/whatsapp/definition";
@@ -8,6 +9,7 @@ import type { IntegrationDefinition } from "./types";
 
 const registry = [
   braveIntegrationDefinition,
+  gandiIntegrationDefinition,
   linearIntegrationDefinition,
   slackIntegrationDefinition,
   whatsappIntegrationDefinition,

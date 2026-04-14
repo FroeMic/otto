@@ -295,12 +295,12 @@ Keep this work in focused commits:
 ## Status Checklist
 
 - [ ] implement the package-file/reset substrate from `TODO_30`
-- [ ] refactor Otto-owned seeded skills into `managed-skills/library/`
-- [ ] make `system-skills.ts` a thin registry
-- [ ] migrate `skill-creator` into the new structure
-- [ ] migrate `name-and-domain-research` into the new structure
-- [ ] split the naming skill into `SKILL.md` plus companion docs
-- [ ] add tests that verify the packaged skill shape and reset behavior
+- [x] refactor Otto-owned seeded skills into `managed-skills/library/`
+- [x] make `system-skills.ts` a thin registry
+- [x] migrate `skill-creator` into the new structure
+- [x] migrate `name-and-domain-research` into the new structure
+- [x] split the naming skill into `SKILL.md` plus companion docs
+- [x] add tests that verify the packaged skill shape and reset behavior
 
 ## Open Questions
 
