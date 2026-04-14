@@ -104,7 +104,7 @@ export async function getWorkspaceChatAttachmentForAccessibleConversation(input:
   userId: string
 }) {
   const db = getDb()
-  const [record] = await db
+  const [attachment] = await db
     .select({
       fileName: workspaceChatAttachments.fileName,
       id: workspaceChatAttachments.id,
@@ -118,10 +118,23 @@ export async function getWorkspaceChatAttachmentForAccessibleConversation(input:
       uploadedByUserId: workspaceChatAttachments.uploadedByUserId,
     })
     .from(workspaceChatAttachments)
-    .innerJoin(
-      workspaceChatMessageParts,
-      eq(workspaceChatMessageParts.attachmentId, workspaceChatAttachments.id),
+    .where(
+      and(
+        eq(workspaceChatAttachments.id, input.attachmentId),
+        eq(workspaceChatAttachments.organizationId, input.organizationId),
+      ),
     )
+    .limit(1)
+
+  if (!attachment) {
+    return null
+  }
+
+  const [access] = await db
+    .select({
+      conversationId: workspaceChatConversations.id,
+    })
+    .from(workspaceChatMessageParts)
     .innerJoin(
       workspaceChatMessages,
       eq(workspaceChatMessages.id, workspaceChatMessageParts.messageId),
@@ -132,8 +145,7 @@ export async function getWorkspaceChatAttachmentForAccessibleConversation(input:
     )
     .where(
       and(
-        eq(workspaceChatAttachments.id, input.attachmentId),
-        eq(workspaceChatAttachments.organizationId, input.organizationId),
+        eq(workspaceChatMessageParts.attachmentId, input.attachmentId),
         eq(workspaceChatConversations.organizationId, input.organizationId),
         or(
           eq(workspaceChatConversations.visibility, "open"),
@@ -146,7 +158,11 @@ export async function getWorkspaceChatAttachmentForAccessibleConversation(input:
     )
     .limit(1)
 
-  return (record ?? null) satisfies WorkspaceChatAttachmentRecord | null
+  if (!access) {
+    return null
+  }
+
+  return attachment satisfies WorkspaceChatAttachmentRecord
 }
 
 export async function getWorkspaceChatAttachmentForTenant(input: {
