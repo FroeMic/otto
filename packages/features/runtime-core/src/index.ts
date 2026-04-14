@@ -290,7 +290,9 @@ export async function handleManagedSkillsGetRequest(input: {
       contentText: string | null
       contentType: string | null
       editability: string
+      fileClass: string
       path: string
+      resettable: boolean
       storageEncoding: string
     }>
     version: number
@@ -354,7 +356,12 @@ export async function handleManagedSkillsGetRequest(input: {
         files: detail.files.map((file) => ({
           contentType: file.contentType,
           editability: file.editability,
+          fileClass:
+            file.fileClass === "managed_entry"
+              ? "managed_entry"
+              : "managed_seeded",
           path: file.path,
+          resettable: file.resettable,
           storageEncoding: file.storageEncoding,
         })),
       },

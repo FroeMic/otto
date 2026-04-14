@@ -19,7 +19,9 @@ export const workspaceSkillFileSchema = z.object({
   contentText: z.string().nullable(),
   contentType: z.string().nullable(),
   editability: z.enum(["download_only", "editable", "local_state"]),
+  fileClass: z.enum(["managed_entry", "managed_seeded"]),
   path: z.string().min(1),
+  resettable: z.boolean(),
   storageEncoding: z.enum(["binary", "utf8_text"]),
 })
 

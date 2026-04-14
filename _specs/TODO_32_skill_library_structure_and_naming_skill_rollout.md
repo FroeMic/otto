@@ -1,4 +1,4 @@
-# TODO 31: Skill Library Structure And Naming Skill Rollout
+# TODO 32: Skill Library Structure And Naming Skill Rollout
 
 ## Goal
 
@@ -10,7 +10,7 @@ Capture the implementation plan for three linked changes:
 
 This spec is intentionally separate from `TODO_30`.
 
-- `TODO_30` defines the substrate and lifecycle model
+- `DONE_31` defines the substrate and lifecycle model
 - this spec defines the practical implementation sequence and code organization for rolling it out
 
 ## Scope
@@ -31,7 +31,7 @@ This spec is intentionally separate from `TODO_30`.
 
 - `TODO_18_managed_skills.md`
 - `TODO_29_name_and_domain_research_workflow.md`
-- `TODO_30_managed_skill_package_files_and_reset_tools.md`
+- `DONE_31_managed_skill_package_files_and_reset_tools.md`
 
 ## Why This Needs Its Own Spec
 
@@ -134,7 +134,7 @@ and should not use:
 
 ## Phase 1: Add the package-file/reset functionality
 
-This phase implements `TODO_30`.
+This phase implements `DONE_31`.
 
 ### Deliverables
 

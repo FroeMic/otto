@@ -102,12 +102,14 @@
   - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names
   - the first workflow should remain read-only and focus on shortlist evaluation, variant rescue, and launch-ready recommendations
   - the planned managed skill depends on `gandi` but keeps provider access separate from naming heuristics and recommendation logic
-- The managed skill package reset substrate now exists in the first useful form tracked in `_specs/TODO_31_managed_skill_package_files_and_reset_tools.md`:
+- The managed skill package reset substrate now exists in the completed spec `_specs/DONE_31_managed_skill_package_files_and_reset_tools.md`:
   - canonical seeded companion files under approved subfolders now project as install-only files
   - normal apply preserves local runtime edits to those companion files
   - explicit `companion_files` reset is now available through workspace and runtime managed-skill routes
-  - the bundled `otto-managed-skills` plugin now exposes `reset_managed_skill_package`
-  - package-file inspection and workspace UI reset affordances are still follow-on work
+  - the bundled `otto-managed-skills` plugin now exposes `reset_managed_skill_package`, `list_managed_skill_package_files`, and `get_managed_skill_package_file`
+  - workspace skill detail payloads now expose canonical file classification and resettable metadata
+  - the skill status and files pages now surface package provenance and a seeded companion reset action
+  - fuller runtime-vs-canonical divergence indicators are still follow-on work
 - The next managed-skill execution focus is now `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`:
   - Otto-owned seeded skills now live under `apps/worker/src/runtime/lib/managed-skills/library/`
   - `system-skills.ts` is now a thin registry over per-skill definitions
@@ -827,15 +829,15 @@
     - the next bridge slice is command relay and normalized runtime event delivery, so workspace chat can stop depending on per-turn SSH dispatch
   - then add the browser realtime protocol and multiplayer fanout layer
   - then implement durable named conversations, delivery targets, and favorites support
-- A new follow-up spec now exists for richer managed skill packages:
-  - `_specs/TODO_30_managed_skill_package_files_and_reset_tools.md`
+- A completed follow-up spec now captures richer managed skill packages:
+  - `_specs/DONE_31_managed_skill_package_files_and_reset_tools.md`
   - this covers seeded companion files under skill subfolders, runtime-local edits, runtime inspection tools, and explicit user-initiated reset semantics
   - current recommendation is:
     - normal apply must not auto-overwrite seeded companion files
     - reset must be destructive but only when initiated from the workspace
     - the runtime plugin should gain inspection and reset tools, not arbitrary companion-file editing tools
 - A second follow-up spec now captures the implementation rollout:
-  - `_specs/TODO_31_skill_library_structure_and_naming_skill_rollout.md`
+  - `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`
   - this sequences the work into:
     - package-file/reset substrate
     - seeded skill-library refactor under `apps/worker/src/runtime/lib/managed-skills/library/`

@@ -37,7 +37,9 @@ type ManagedSkillDetail = {
     contentText: string | null
     contentType: string | null
     editability: "download_only" | "editable"
+    fileClass: "managed_entry" | "managed_seeded"
     path: string
+    resettable: boolean
     storageEncoding: "binary" | "utf8_text"
   }>
   skillId: string
@@ -275,6 +277,7 @@ export async function getLatestTenantManagedSkillDetailForTenant(input: {
       contentSha256: tenantSkillFiles.contentSha256,
       contentText: tenantSkillFileVersions.contentText,
       contentType: tenantSkillFiles.contentType,
+      fileKind: tenantSkillFiles.fileKind,
       relativePath: tenantSkillFiles.relativePath,
     })
     .from(tenantSkillFileVersions)
@@ -299,7 +302,10 @@ export async function getLatestTenantManagedSkillDetailForTenant(input: {
         skill.sourceType !== "system"
           ? "editable"
           : "download_only",
+      fileClass:
+        file.fileKind === "managed_entry" ? "managed_entry" : "managed_seeded",
       path: file.relativePath,
+      resettable: file.fileKind === "managed_seeded",
       storageEncoding:
         file.contentEncoding === "utf8_text" ? "utf8_text" : "binary",
     })),

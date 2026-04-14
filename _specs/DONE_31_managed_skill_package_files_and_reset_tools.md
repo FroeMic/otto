@@ -1,4 +1,4 @@
-# TODO 30: Managed Skill Package Files And Reset Tools
+# DONE 31: Managed Skill Package Files And Reset Tools
 
 ## Goal
 
@@ -390,8 +390,8 @@ Those files should ship as seeded companion files and be resettable from the wor
 - [x] extend managed-skill validation to allow canonical seeded files in allowed subfolders
 - [x] update projection behavior to preserve local edits on normal apply
 - [x] add workspace reset API and queued reset behavior
-- [ ] add runtime plugin inspection/reset tools
-- [ ] add workspace UI for reset and file provenance
+- [x] add runtime plugin inspection/reset tools
+- [x] add workspace UI for reset and file provenance
 - [x] migrate `name-and-domain-research` to use seeded companion files
 
 ## Open Questions

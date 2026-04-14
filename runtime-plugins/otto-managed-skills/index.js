@@ -61,6 +61,56 @@ export default definePluginEntry({
 
     api.registerTool(
       {
+        name: "list_managed_skill_package_files",
+        description:
+          "List the canonical managed files in one skill package, including which files are seeded companion files and which can be reset.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["skillKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await listManagedSkillPackageFiles(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "get_managed_skill_package_file",
+        description:
+          "Read one canonical managed file from a skill package together with its classification and reset metadata.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            path: {
+              type: "string",
+              minLength: 1,
+            },
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["skillKey", "path"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await getManagedSkillPackageFile(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
         name: "create_managed_skill",
         description:
           "Create a new managed skill through the workspace app. Provide either contentText or structured skill fields.",
@@ -337,6 +387,63 @@ async function createManagedSkill(api, params) {
     desiredStateVersion: response.data.desiredStateVersion,
     skillKey: response.data.skillKey,
     version: response.data.version,
+  };
+}
+
+async function listManagedSkillPackageFiles(api, params) {
+  const skill = await getManagedSkill(api, params);
+
+  if (!skill.ok) {
+    return skill;
+  }
+
+  return {
+    files: skill.skill?.files ?? [],
+    ok: true,
+    skillKey: skill.skill?.skillKey ?? normalizeNonEmptyString(params?.skillKey),
+  };
+}
+
+async function getManagedSkillPackageFile(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+  const path = normalizeNonEmptyString(params?.path);
+
+  if (!skillKey) {
+    return {
+      ok: false,
+      error: "skillKey must be a non-empty string.",
+    };
+  }
+
+  if (!path) {
+    return {
+      ok: false,
+      error: "path must be a non-empty string.",
+    };
+  }
+
+  const skill = await getManagedSkill(api, { skillKey });
+
+  if (!skill.ok) {
+    return skill;
+  }
+
+  const file =
+    Array.isArray(skill.skill?.files)
+      ? skill.skill.files.find((entry) => entry?.path === path) ?? null
+      : null;
+
+  if (!file) {
+    return {
+      ok: false,
+      error: `Managed skill package file not found: ${path}`,
+    };
+  }
+
+  return {
+    file,
+    ok: true,
+    skillKey,
   };
 }
 
