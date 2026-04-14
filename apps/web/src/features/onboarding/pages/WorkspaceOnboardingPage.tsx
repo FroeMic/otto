@@ -5,7 +5,7 @@ import type {
   WorkspaceOnboardingRunSummary,
   WorkspaceOnboardingTeamSize,
 } from "@otto/feature-workspace-onboarding"
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 
@@ -18,29 +18,17 @@ import {
 import { BusinessTypeStep } from "../components/BusinessTypeStep"
 import { TeamSetupStep } from "../components/TeamSetupStep"
 import { WorkspaceIdentityStep } from "../components/WorkspaceIdentityStep"
+import { getOnboardingRouteAfterSave } from "../workspace-identity"
 
 export interface WorkspaceOnboardingPageProps {
   orgSlug: string
-}
-
-function getNextPathForSummary(summary: WorkspaceOnboardingRunSummary) {
-  switch (summary.holdingState) {
-    case "ready":
-      return `/${summary.organizationSlug}`
-    case "waitlist":
-      return `/${summary.organizationSlug}/waitlist`
-    case "waiting":
-      return `/${summary.organizationSlug}/waiting`
-    case "onboarding":
-    default:
-      return null
-  }
 }
 
 export function WorkspaceOnboardingPage({
   orgSlug,
 }: WorkspaceOnboardingPageProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
   const { data: summary } = useSuspenseQuery(workspaceOnboardingQueryOptions(orgSlug))
 
@@ -57,7 +45,20 @@ export function WorkspaceOnboardingPage({
       )
     },
     onSuccess: async (nextSummary) => {
-      const nextPath = getNextPathForSummary(nextSummary)
+      queryClient.setQueryData(
+        ["workspace-onboarding", orgSlug],
+        nextSummary,
+      )
+      queryClient.setQueryData(
+        ["workspace-onboarding", nextSummary.organizationSlug],
+        nextSummary,
+      )
+
+      const nextPath = getOnboardingRouteAfterSave({
+        currentOrgSlug: orgSlug,
+        nextHoldingState: nextSummary.holdingState,
+        nextOrganizationSlug: nextSummary.organizationSlug,
+      })
 
       if (nextPath) {
         await navigate({
