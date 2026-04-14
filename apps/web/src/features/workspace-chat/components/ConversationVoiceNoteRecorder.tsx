@@ -129,23 +129,20 @@ export function ConversationVoiceNoteRecorder({
         }}
         value={recorder.selectedDeviceId}
       >
-        {recorder.devices.length === 0 ? (
-          <option value="">Default microphone</option>
-        ) : (
-          recorder.devices.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>
-              {device.label}
-            </option>
-          ))
-        )}
+        <option value="">System default microphone</option>
+        {recorder.devices.map((device) => (
+          <option key={device.deviceId} value={device.deviceId}>
+            {device.label}
+          </option>
+        ))}
       </select>
 
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-full px-2 py-1">
+      <div className="flex h-8 min-w-0 flex-1 items-end gap-1 overflow-hidden rounded-full px-2 py-1">
         {recorder.levels.map((level, index) => (
           <span
             aria-hidden
             className={cn(
-              "block w-1 shrink-0 rounded-full bg-foreground/80 transition-[height,opacity] duration-75",
+              "block w-1 shrink-0 self-end rounded-full bg-foreground/80 transition-[height,opacity] duration-75",
               recorder.status === "recording" ? "opacity-100" : "opacity-35",
             )}
             key={index}

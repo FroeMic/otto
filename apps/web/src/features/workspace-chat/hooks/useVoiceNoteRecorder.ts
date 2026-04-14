@@ -8,6 +8,7 @@ const PREFERRED_AUDIO_MIME_TYPES = [
   "audio/webm;codecs=opus",
   "audio/webm",
 ] as const
+const VOICE_NOTE_DEVICE_STORAGE_KEY = "workspace-chat.voice-recorder.device-id"
 
 type VoiceNoteRecorderStatus = "idle" | "recording" | "paused" | "recorded"
 
@@ -60,10 +61,15 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   const accumulatedDurationMsRef = useRef(0)
   const elapsedAnimationFrameRef = useRef<number | null>(null)
   const statusRef = useRef<VoiceNoteRecorderStatus>("idle")
+  const selectedDeviceIdRef = useRef("")
 
   useEffect(() => {
     statusRef.current = status
   }, [status])
+
+  useEffect(() => {
+    selectedDeviceIdRef.current = selectedDeviceId
+  }, [selectedDeviceId])
 
   useEffect(() => {
     void loadDevices()
@@ -89,13 +95,21 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       }))
 
     setDevices(audioInputs)
-    setSelectedDeviceId((current) => {
-      if (current && audioInputs.some((device) => device.deviceId === current)) {
-        return current
-      }
+    const remembered = readRememberedDeviceId()
+    const current = selectedDeviceIdRef.current
+    const preferred =
+      (remembered &&
+      audioInputs.some((device) => device.deviceId === remembered)
+        ? remembered
+        : null) ??
+      (current &&
+      audioInputs.some((device) => device.deviceId === current)
+        ? current
+        : null) ??
+      ""
 
-      return audioInputs[0]?.deviceId ?? ""
-    })
+    setSelectedDeviceId(preferred)
+    selectedDeviceIdRef.current = preferred
   }
 
   async function startRecording(input?: { deviceId?: string }) {
@@ -112,12 +126,15 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     accumulatedDurationMsRef.current = 0
     setElapsedMs(0)
 
+    const activeDeviceId = input?.deviceId ?? selectedDeviceId
+    rememberDeviceId(activeDeviceId)
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: (input?.deviceId ?? selectedDeviceId)
+        audio: activeDeviceId
           ? {
               deviceId: {
-                exact: input?.deviceId ?? selectedDeviceId,
+                exact: activeDeviceId,
               },
             }
           : true,
@@ -160,18 +177,18 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
         })
         setElapsedMs(durationMs)
         setLevels(Array.from({ length: DEFAULT_BAR_COUNT }, () => 0.08))
-        setStatus("recorded")
+        setRecorderStatus("recorded")
       }
 
       await attachAnalyser(stream)
       recorder.start(250)
-      setStatus("recording")
+      setRecorderStatus("recording")
       scheduleElapsedTick()
     } catch (error) {
       stopMediaStream()
       stopAnalyser()
       clearElapsedAnimationFrame()
-      setStatus("idle")
+      setRecorderStatus("idle")
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -189,7 +206,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     accumulatedDurationMsRef.current += Date.now() - startedAtRef.current
     setElapsedMs(accumulatedDurationMsRef.current)
     clearElapsedAnimationFrame()
-    setStatus("paused")
+    setRecorderStatus("paused")
   }
 
   async function resumeRecording() {
@@ -199,7 +216,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
 
     startedAtRef.current = Date.now()
     mediaRecorderRef.current.resume()
-    setStatus("recording")
+    setRecorderStatus("recording")
     scheduleElapsedTick()
   }
 
@@ -225,7 +242,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     setDraft(null)
     setElapsedMs(0)
     setLevels(Array.from({ length: DEFAULT_BAR_COUNT }, () => 0.08))
-    setStatus("idle")
+    setRecorderStatus("idle")
   }
 
   function stopMediaStream() {
@@ -316,6 +333,11 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     }
   }
 
+  function setRecorderStatus(next: VoiceNoteRecorderStatus) {
+    statusRef.current = next
+    setStatus(next)
+  }
+
   return {
     clearDraft,
     devices,
@@ -330,10 +352,40 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     pauseRecording,
     resumeRecording,
     selectedDeviceId,
-    setSelectedDeviceId,
+    setSelectedDeviceId: setSelectedDevice,
     startRecording,
     status,
     stopRecording,
+  }
+
+  function setSelectedDevice(deviceId: string) {
+    setSelectedDeviceId(deviceId)
+    selectedDeviceIdRef.current = deviceId
+    rememberDeviceId(deviceId)
+  }
+}
+
+function rememberDeviceId(deviceId: string) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(VOICE_NOTE_DEVICE_STORAGE_KEY, deviceId)
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readRememberedDeviceId() {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    return window.localStorage.getItem(VOICE_NOTE_DEVICE_STORAGE_KEY)
+  } catch {
+    return null
   }
 }
 
