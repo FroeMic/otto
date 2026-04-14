@@ -31,6 +31,7 @@ import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
 import { authenticateTenantRuntimeRequest } from "./auth"
 import {
+  enableRuntimeIntegrationForTenant,
   applyRuntimeIntegrationSettingsForTenant,
   findRuntimeIntegrationCommandsForTenant,
   getRuntimeIntegrationConnectionActionForTenant,
@@ -40,6 +41,7 @@ import {
   listRuntimeIntegrationsForTenant,
   validateRuntimeIntegrationSettingsForTenant,
 } from "./integrations"
+import { manageRuntimeIntegrationConnection } from "./integration-management"
 import {
   getLatestTenantManagedConfig,
   ManagedConfigVersionConflictError,
@@ -293,12 +295,13 @@ export function registerRuntimeRoutes(app: Hono) {
           throw new Error("integrationKey is required.")
         }
 
-        const connectionAction =
-          await getRuntimeIntegrationConnectionActionForTenant({
-            action,
-            integrationKey,
-            tenantId,
-          })
+        const connectionAction = await manageRuntimeIntegrationConnection({
+          action,
+          enableRuntimeIntegrationForTenant,
+          getRuntimeIntegrationConnectionActionForTenant,
+          integrationKey,
+          tenantId,
+        })
 
         if (!connectionAction) {
           return jsonNoStore(

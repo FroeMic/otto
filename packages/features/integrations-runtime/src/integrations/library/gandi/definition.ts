@@ -56,6 +56,7 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["domain", "check_availability"],
             description:
               "Check whether one or more exact candidate domains are available.",
+            effect: "read",
             exampleArguments: {
               domains: ["ledgerpilot.com", "ledgerpilot.ai"],
             },
@@ -94,6 +95,7 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["domain", "batch_check"],
             description:
               "Batch-check startup domain options for naming and shortlist evaluation workflows.",
+            effect: "read",
             exampleArguments: {
               domains: [
                 "ledgerpilot.com",
@@ -138,6 +140,7 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["domain", "get_details"],
             description:
               "Read detailed metadata for a domain to understand its current state and practical viability.",
+            effect: "read",
             exampleArguments: {
               domain: "ledgerpilot.com",
             },
@@ -172,6 +175,7 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             commandPath: ["domain", "get_registration_metadata"],
             description:
               "Read structured registration metadata for a domain when evaluating name and ownership options.",
+            effect: "read",
             exampleArguments: {
               domain: "ledgerpilot.com",
             },

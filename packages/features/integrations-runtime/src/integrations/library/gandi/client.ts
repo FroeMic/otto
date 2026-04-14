@@ -224,7 +224,7 @@ async function fetchGandiJson<T>(path: string): Promise<T> {
   const response = await fetch(`${getGandiApiBaseUrl()}${path}`, {
     headers: {
       accept: "application/json",
-      authorization: `Apikey ${getGandiApiToken()}`,
+      authorization: `Bearer ${getGandiApiToken()}`,
     },
     method: "GET",
   });

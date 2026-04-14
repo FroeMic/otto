@@ -67,6 +67,7 @@ describe("gandi integration", () => {
       (entry) => entry.commandKey === "domain.batch_check",
     );
     assert.ok(command);
+    assert.equal(command.effect, "read");
 
     const response = buildRuntimeIntegrationDetailsResponse({
       definition: runtimeDefinition,

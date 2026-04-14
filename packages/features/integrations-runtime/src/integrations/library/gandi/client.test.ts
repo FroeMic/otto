@@ -95,7 +95,7 @@ describe("gandi client", () => {
       "https://api.gandi.net/v5/domain/check?name=ledgerpilot.com&processes=create",
       {
         headers: {
-          authorization: "Apikey gandi_test_token",
+          authorization: "Bearer gandi_test_token",
           accept: "application/json",
         },
         method: "GET",
@@ -106,7 +106,7 @@ describe("gandi client", () => {
       "https://api.gandi.net/v5/domain/check?name=ledgerpilot.ai&processes=create",
       {
         headers: {
-          authorization: "Apikey gandi_test_token",
+          authorization: "Bearer gandi_test_token",
           accept: "application/json",
         },
         method: "GET",
