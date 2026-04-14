@@ -1,15 +1,10 @@
 import {
   type WorkspaceOnboardingAnswers,
+  type WorkspaceOnboardingHoldingState,
   type WorkspaceOnboardingRunStatus,
   type WorkspaceOnboardingWaitlistDecision,
   workspaceOnboardingAnswerKeys,
 } from "./contracts"
-
-export type WorkspaceOnboardingHoldingState =
-  | "onboarding"
-  | "waiting"
-  | "waitlist"
-  | "ready"
 
 export function hasWorkspaceOnboardingRequiredAnswers(
   answers: WorkspaceOnboardingAnswers,

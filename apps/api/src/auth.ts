@@ -9,6 +9,7 @@ import {
 import type { Hono } from "hono"
 
 import { getApiEnv, hasWorkOsConfig } from "./env"
+import { getPostAuthRedirectPathForWorkspaceOnboarding } from "./onboarding/data"
 
 type ScreenHint = "sign-in" | "sign-up"
 
@@ -148,7 +149,7 @@ function getDefaultAuthRouteDependencies(): AuthRouteDependencies {
         returnTo,
       })
     },
-    getPostAuthRedirectPath: async ({ defaultReturnTo }) => defaultReturnTo,
+    getPostAuthRedirectPath: getPostAuthRedirectPathForWorkspaceOnboarding,
     readAuthFlowState: readAuthFlowStateFromPackage,
     sealAuthFlowState: sealAuthFlowStateWithPackage,
     setWorkspaceSessionCookie: createWorkspaceSessionCookie,

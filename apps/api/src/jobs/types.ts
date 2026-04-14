@@ -1,5 +1,6 @@
 export const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  provisionTenantServer: "provision_tenant_server",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   reconcileTenantScheduledTasks: "reconcile_tenant_scheduled_tasks",
   refreshRuntimeImage: "refresh_runtime_image",

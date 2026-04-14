@@ -51,8 +51,62 @@ export const workspaceOnboardingWaitlistDecisionSchema = z.enum([
   "manual_review",
 ])
 
+export const workspaceOnboardingStepKeySchema = z.enum([
+  "workspace_identity",
+  "business_type",
+  "team_setup",
+])
+
+export const workspaceOnboardingHoldingStateSchema = z.enum([
+  "onboarding",
+  "waiting",
+  "waitlist",
+  "ready",
+])
+
+export const workspaceOnboardingRunSummarySchema = z.object({
+  answers: workspaceOnboardingAnswerSchema,
+  currentStepKey: workspaceOnboardingStepKeySchema.nullable(),
+  holdingState: workspaceOnboardingHoldingStateSchema,
+  initialProvisioningJobId: z.string().uuid().nullable(),
+  initialTenantId: z.string().uuid().nullable(),
+  isOrganizationReady: z.boolean(),
+  organizationId: z.string().uuid(),
+  organizationSlug: z.string().min(1),
+  provisioningStartedAt: z.string().datetime().nullable(),
+  starterPrompt: z.string().nullable(),
+  starterPromptConsumedAt: z.string().datetime().nullable(),
+  status: workspaceOnboardingRunStatusSchema,
+  waitlistDecision: workspaceOnboardingWaitlistDecisionSchema,
+  waitlistReason: z.string().nullable(),
+})
+
+export const workspaceOnboardingSaveRequestSchema = z.discriminatedUnion(
+  "action",
+  [
+    z.object({
+      action: z.literal("save-workspace-identity"),
+      workspaceName: z.string().min(1),
+      workspaceSlug: z.string().min(1),
+    }),
+    z.object({
+      action: z.literal("save-business-type"),
+      businessType: workspaceOnboardingBusinessTypeSchema,
+    }),
+    z.object({
+      action: z.literal("save-team-setup"),
+      inviteEmails: z.array(z.string().email()).default([]),
+      teamSize: workspaceOnboardingTeamSizeSchema,
+    }),
+  ],
+)
+
 export type WorkspaceOnboardingAnswers = z.infer<
   typeof workspaceOnboardingAnswerSchema
+>
+
+export type WorkspaceOnboardingHoldingState = z.infer<
+  typeof workspaceOnboardingHoldingStateSchema
 >
 
 export type WorkspaceOnboardingRunStatus = z.infer<
@@ -61,4 +115,12 @@ export type WorkspaceOnboardingRunStatus = z.infer<
 
 export type WorkspaceOnboardingWaitlistDecision = z.infer<
   typeof workspaceOnboardingWaitlistDecisionSchema
+>
+
+export type WorkspaceOnboardingRunSummary = z.infer<
+  typeof workspaceOnboardingRunSummarySchema
+>
+
+export type WorkspaceOnboardingSaveRequest = z.infer<
+  typeof workspaceOnboardingSaveRequestSchema
 >
