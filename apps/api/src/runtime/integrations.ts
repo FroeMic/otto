@@ -427,6 +427,44 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
   })
 }
 
+export async function enableRuntimeIntegrationForTenant(input: {
+  integrationKey: string
+  tenantId: string
+}) {
+  const integrationKey = input.integrationKey.trim().toLowerCase()
+
+  if (integrationKey !== "gandi") {
+    throw new Error(`Enable is not supported for ${integrationKey} yet.`)
+  }
+
+  const db = getDb()
+  const now = new Date()
+
+  await db
+    .insert(tenantIntegrations)
+    .values({
+      connectedAt: now,
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      providerKey: integrationKey,
+      status: "connected",
+      tenantId: input.tenantId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        connectedAt: now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: now,
+      },
+      target: [tenantIntegrations.tenantId, tenantIntegrations.providerKey],
+    })
+}
+
 export async function getRuntimeIntegrationSettingsForTenant(input: {
   integrationKey: string
   tenantId: string

@@ -19,6 +19,21 @@ This slice should stop short of DNS changes or domain purchase. Its purpose is t
 - define the first managed skill shape for name and domain research
 - define the workspace enablement and agent interaction model for this workflow
 
+## Agent Lifecycle Model
+
+For this workflow, Otto should support two integration-setup patterns:
+
+- direct enable for non-OAuth workspace-managed integrations
+  - example: `Gandi`
+  - Otto should be able to call `manage_integration` with `action=enable`
+  - the enable action may complete immediately without leaving the chat/runtime flow
+- browser handoff for OAuth-backed integrations
+  - example: `Slack`, `Linear`
+  - Otto should use `manage_integration` to get the workspace or OAuth handoff URL
+  - the user must complete the connect or reconnect flow in the browser
+
+The workflow should not force a browser handoff when the integration lifecycle is safe to complete directly.
+
 ## Explicit Non-Goals
 
 - domain registration or checkout

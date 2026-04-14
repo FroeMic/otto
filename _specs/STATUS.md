@@ -90,6 +90,9 @@
     - keep framework lifecycle semantics simple
     - use `tenant_integrations` for workspace enablement
     - keep credential loading inside provider-specific Gandi code instead of adding a new framework-wide credential-origin model
+  - the current lifecycle behavior is now intentionally mixed:
+    - `manage_integration(action=enable)` may complete directly for safe non-OAuth integrations such as `Gandi`
+    - OAuth-backed integrations such as `Slack` and `Linear` still use browser handoff for `connect` and `reconnect`
   - the first delivery phases are:
     - Phase 1 read and discovery commands for domain availability, managed domain details, and DNS reads
     - Phase 2 safe DNS write commands using an explicit plan and confirm flow
