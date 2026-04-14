@@ -62,11 +62,7 @@ export function WorkspaceWaitingPage({ orgSlug }: WorkspaceWaitingPageProps) {
       title="We are setting up your agent"
       totalSteps={2}
     >
-      <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-border/70 bg-background px-8 py-10 text-center shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
-        <p className="max-w-md text-sm leading-7 text-muted-foreground">
-          Stay on this page while Otto finishes the first setup for your
-          workspace.
-        </p>
+      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 rounded-xl border border-border/70 bg-background px-8 py-9 text-center shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="size-2 rounded-full bg-foreground/70" />
           <span>{summaryQuery.isFetching ? "Checking..." : "Checking automatically..."}</span>

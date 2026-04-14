@@ -59,7 +59,7 @@ export function BusinessTypeStep({
       title="What kind of business are you building?"
       totalSteps={2}
     >
-      <div className="mx-auto grid w-full max-w-6xl gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-5xl gap-4 md:grid-cols-2 xl:grid-cols-3">
         {businessTypeOptions.map((option) => (
           <OnboardingOptionButton
             description={option.description}

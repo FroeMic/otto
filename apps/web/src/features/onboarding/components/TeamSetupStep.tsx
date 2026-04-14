@@ -60,7 +60,7 @@ export function TeamSetupStep({
       title="Who is going to use Otto with you?"
       totalSteps={2}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {teamSizeOptions.map((option) => (
             <OnboardingOptionButton

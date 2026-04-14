@@ -147,6 +147,19 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
+function getPublicAssetPath(relativePath: string) {
+  const normalizedPath = relativePath.replace(/^\/+/, "")
+  const builtPath = `${STATIC_ROOT}/${normalizedPath}`
+
+  if (existsSync(builtPath)) {
+    return builtPath
+  }
+
+  const sourcePath = `${SOURCE_PUBLIC_ROOT}/${normalizedPath}`
+
+  return existsSync(sourcePath) ? sourcePath : null
+}
+
 type LandingAuthMode = "sign-in" | "sign-up"
 
 function LandingAuthModal({
@@ -229,7 +242,6 @@ function LandingAuthModal({
 
 export function createApp(env: FrontendEnv = getEnv()) {
   const app = new Hono()
-  const publicRoot = existsSync(STATIC_ROOT) ? STATIC_ROOT : SOURCE_PUBLIC_ROOT
 
   app.use("*", logger())
   app.use("*", secureHeaders())
@@ -238,13 +250,23 @@ export function createApp(env: FrontendEnv = getEnv()) {
     app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
   }
 
-  if (existsSync(publicRoot)) {
-    app.use("/integrations/*", serveStatic({ root: publicRoot }))
+  if (existsSync(STATIC_ROOT)) {
+    app.use("/integrations/*", serveStatic({ root: STATIC_ROOT }))
   }
 
-  if (existsSync(`${publicRoot}/otto-avatar.svg`)) {
+  if (existsSync(SOURCE_PUBLIC_ROOT)) {
+    app.use("/integrations/*", serveStatic({ root: SOURCE_PUBLIC_ROOT }))
+  }
+
+  if (getPublicAssetPath("otto-avatar.svg")) {
     app.get("/otto-avatar.svg", () => {
-      return new Response(readFileSync(`${publicRoot}/otto-avatar.svg`), {
+      const assetPath = getPublicAssetPath("otto-avatar.svg")
+
+      if (!assetPath) {
+        return new Response("Not found", { status: 404 })
+      }
+
+      return new Response(readFileSync(assetPath), {
         headers: {
           "Content-Type": "image/svg+xml; charset=utf-8",
         },
