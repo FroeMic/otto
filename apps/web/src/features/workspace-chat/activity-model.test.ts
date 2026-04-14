@@ -359,6 +359,19 @@ describe("workspace chat activity model", () => {
         title: "command run python3 inline script (heredoc)",
         type: "command_output.completed",
       },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:03.000Z",
+        id: "evt_4",
+        itemId: "tool:call_4",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 4,
+        status: "completed",
+        title:
+          "command pdftotext '~/.openclaw/workspace-chat-attachments/conv_1/abc.pdf' -",
+        type: "item.completed",
+      },
     ])
 
     assert.deepEqual(
@@ -377,6 +390,11 @@ describe("workspace chat activity model", () => {
         },
         {
           title: "command run python3 inline script (heredoc)",
+          visibility: "debug",
+        },
+        {
+          title:
+            "command pdftotext '~/.openclaw/workspace-chat-attachments/conv_1/abc.pdf' -",
           visibility: "debug",
         },
       ],
