@@ -816,6 +816,19 @@
     - the next bridge slice is command relay and normalized runtime event delivery, so workspace chat can stop depending on per-turn SSH dispatch
   - then add the browser realtime protocol and multiplayer fanout layer
   - then implement durable named conversations, delivery targets, and favorites support
+- A new follow-up spec now exists for richer managed skill packages:
+  - `_specs/TODO_30_managed_skill_package_files_and_reset_tools.md`
+  - this covers seeded companion files under skill subfolders, runtime-local edits, runtime inspection tools, and explicit user-initiated reset semantics
+  - current recommendation is:
+    - normal apply must not auto-overwrite seeded companion files
+    - reset must be destructive but only when initiated from the workspace
+    - the runtime plugin should gain inspection and reset tools, not arbitrary companion-file editing tools
+- A second follow-up spec now captures the implementation rollout:
+  - `_specs/TODO_31_skill_library_structure_and_naming_skill_rollout.md`
+  - this sequences the work into:
+    - package-file/reset substrate
+    - seeded skill-library refactor under `apps/worker/src/runtime/lib/managed-skills/library/`
+    - founder naming skill migration into a packaged skill with companion docs
 
 ## Next recommended step
 
