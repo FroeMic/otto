@@ -106,6 +106,105 @@ export const memberships = pgTable(
   }),
 );
 
+export const publicIntakeSessions = pgTable(
+  "public_intake_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    prompt: text("prompt").notNull(),
+    source: varchar("source", { length: 128 }).default("landing").notNull(),
+    utmJson: jsonb("utm_json")
+      .$type<Record<string, string>>()
+      .default({})
+      .notNull(),
+    experimentJson: jsonb("experiment_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    status: varchar("status", { length: 64 }).default("captured").notNull(),
+    convertedUserId: uuid("converted_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    convertedOrganizationId: uuid("converted_organization_id").references(
+      () => organizations.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    convertedOrganizationIdx: index(
+      "public_intake_sessions_converted_organization_id_idx",
+    ).on(table.convertedOrganizationId),
+    convertedUserIdx: index("public_intake_sessions_converted_user_id_idx").on(
+      table.convertedUserId,
+    ),
+    statusCreatedAtIdx: index(
+      "public_intake_sessions_status_created_at_idx",
+    ).on(table.status, table.createdAt),
+  }),
+);
+
+export const workspaceOnboardingRuns = pgTable(
+  "workspace_onboarding_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    flowKey: varchar("flow_key", { length: 128 })
+      .default("workspace_onboarding")
+      .notNull(),
+    flowVersion: integer("flow_version").default(1).notNull(),
+    status: varchar("status", { length: 64 }).default("draft").notNull(),
+    currentStepKey: varchar("current_step_key", { length: 128 }),
+    answersJson: jsonb("answers_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    starterPrompt: text("starter_prompt"),
+    starterPromptConsumedAt: timestamp("starter_prompt_consumed_at", {
+      withTimezone: true,
+    }),
+    waitlistDecision: varchar("waitlist_decision", { length: 64 })
+      .default("pending")
+      .notNull(),
+    waitlistReason: text("waitlist_reason"),
+    initialTenantId: uuid("initial_tenant_id").references(() => tenants.id, {
+      onDelete: "set null",
+    }),
+    initialProvisioningJobId: uuid("initial_provisioning_job_id"),
+    provisioningStartedAt: timestamp("provisioning_started_at", {
+      withTimezone: true,
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    organizationIdx: index("workspace_onboarding_runs_organization_id_idx").on(
+      table.organizationId,
+    ),
+    statusProvisioningIdx: index(
+      "workspace_onboarding_runs_status_provisioning_started_at_idx",
+    ).on(table.status, table.provisioningStartedAt),
+    userIdx: index("workspace_onboarding_runs_user_id_idx").on(table.userId),
+    userOrganizationUniqueIdx: uniqueIndex(
+      "workspace_onboarding_runs_user_id_organization_id_idx",
+    ).on(table.userId, table.organizationId),
+  }),
+);
+
 export const tenants = pgTable(
   "tenants",
   {

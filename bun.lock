@@ -257,6 +257,19 @@
         "vitest": "^3.2.4",
       },
     },
+    "packages/features/workspace-onboarding": {
+      "name": "@otto/feature-workspace-onboarding",
+      "version": "0.1.0",
+      "dependencies": {
+        "zod": "^4.1.12",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "2.2.0",
+        "@types/node": "^24.9.1",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+    },
     "packages/features/workspace-slugs": {
       "name": "@otto/feature-workspace-slugs",
       "version": "0.1.0",
@@ -492,6 +505,8 @@
     "@otto/feature-workspace-core": ["@otto/feature-workspace-core@workspace:packages/features/workspace-core"],
 
     "@otto/feature-workspace-members": ["@otto/feature-workspace-members@workspace:packages/features/workspace-members"],
+
+    "@otto/feature-workspace-onboarding": ["@otto/feature-workspace-onboarding@workspace:packages/features/workspace-onboarding"],
 
     "@otto/feature-workspace-slugs": ["@otto/feature-workspace-slugs@workspace:packages/features/workspace-slugs"],
 
