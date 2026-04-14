@@ -14,12 +14,9 @@ test("workspace targets preserve personal chat visibility", async () => {
     conversationVisibility: "personal",
   });
 
-  assert.equal(
-    target,
-    "workspace:conv_1?assistantMessageId=msg_1&visibility=personal",
-  );
+  assert.equal(target, "workspace:conv_1?visibility=personal");
   assert.deepEqual(parseWorkspaceTarget(target), {
-    assistantMessageId: "msg_1",
+    assistantMessageId: undefined,
     conversationId: "conv_1",
     conversationVisibility: "personal",
     target,
@@ -40,4 +37,15 @@ test("workspace targets default to open group conversations", async () => {
     target,
   });
   assert.equal(inferWorkspaceTargetChatType(target), "group");
+});
+
+test("workspace target parsing keeps backward compatibility for assistant message query params", async () => {
+  const target = "workspace:conv_1?assistantMessageId=msg_1";
+
+  assert.deepEqual(parseWorkspaceTarget(target), {
+    assistantMessageId: "msg_1",
+    conversationId: "conv_1",
+    conversationVisibility: "open",
+    target,
+  });
 });

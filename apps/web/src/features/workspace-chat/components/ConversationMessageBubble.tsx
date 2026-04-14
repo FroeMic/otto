@@ -1,11 +1,17 @@
-import { FileIcon, WaveformIcon } from "@phosphor-icons/react"
+import {
+  DownloadSimpleIcon,
+  FileIcon,
+  WaveformIcon,
+} from "@phosphor-icons/react"
 import type {
   WorkspaceChatMessage,
   WorkspaceChatMessageEvent,
 } from "@otto/feature-workspace-chat"
+import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
+import { getWorkspaceChatAttachmentDownloadUrl } from "../api/chat"
 import { useStreamingText } from "../hooks/useStreamingText"
 import {
   getWorkspaceConversationTurnKind,
@@ -22,12 +28,14 @@ export interface ConversationMessageBubbleProps {
   currentUserId?: string
   events: WorkspaceChatMessageEvent[]
   message: WorkspaceChatMessage
+  orgSlug: string
 }
 
 export function ConversationMessageBubble({
   currentUserId,
   events,
   message,
+  orgSlug,
 }: ConversationMessageBubbleProps) {
   const turnKind = getWorkspaceConversationTurnKind({
     currentUserId,
@@ -96,27 +104,31 @@ export function ConversationMessageBubble({
               {fileParts.length > 0 || audioParts.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {fileParts.map((part, index) => (
-                    <div
+                    <AttachmentChip
                       key={`${message.id}:file:${index}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+                      attachmentId={part.attachmentId}
+                      className="bg-muted/40"
+                      label={part.fileName}
+                      orgSlug={orgSlug}
                     >
                       <FileIcon className="size-3.5 shrink-0" />
-                      <span>{part.fileName}</span>
-                    </div>
+                    </AttachmentChip>
                   ))}
                   {audioParts.map((part, index) => (
-                  <div
-                    key={`${message.id}:audio:${index}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
-                  >
+                    <AttachmentChip
+                      key={`${message.id}:audio:${index}`}
+                      attachmentId={part.attachmentId}
+                      className="bg-muted/40"
+                      label={
+                        part.transcript?.trim() ||
+                        formatAudioPartLabel(part.durationMs)
+                      }
+                      orgSlug={orgSlug}
+                    >
                       <WaveformIcon className="size-3.5 shrink-0" />
-                      <span>
-                        {part.transcript?.trim() ||
-                          formatAudioPartLabel(part.durationMs)}
-                      </span>
-                  </div>
-                ))}
-              </div>
+                    </AttachmentChip>
+                  ))}
+                </div>
               ) : null}
             </div>
           </div>
@@ -145,25 +157,29 @@ export function ConversationMessageBubble({
             {fileParts.length > 0 || audioParts.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {fileParts.map((part, index) => (
-                  <div
+                  <AttachmentChip
                     key={`${message.id}:file:${index}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs text-muted-foreground"
+                    attachmentId={part.attachmentId}
+                    className="bg-background/70"
+                    label={part.fileName}
+                    orgSlug={orgSlug}
                   >
                     <FileIcon className="size-3.5 shrink-0" />
-                    <span>{part.fileName}</span>
-                  </div>
+                  </AttachmentChip>
                 ))}
                 {audioParts.map((part, index) => (
-                  <div
+                  <AttachmentChip
                     key={`${message.id}:audio:${index}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs text-muted-foreground"
+                    attachmentId={part.attachmentId}
+                    className="bg-background/70"
+                    label={
+                      part.transcript?.trim() ||
+                      formatAudioPartLabel(part.durationMs)
+                    }
+                    orgSlug={orgSlug}
                   >
                     <WaveformIcon className="size-3.5 shrink-0" />
-                    <span>
-                      {part.transcript?.trim() ||
-                        formatAudioPartLabel(part.durationMs)}
-                    </span>
-                  </div>
+                  </AttachmentChip>
                 ))}
               </div>
             ) : null}
@@ -180,4 +196,43 @@ function formatAudioPartLabel(durationMs?: number) {
   }
 
   return `Voice note · ${formatVoiceNoteDuration(durationMs)}`
+}
+
+interface AttachmentChipProps {
+  attachmentId: string
+  children: ReactNode
+  className?: string
+  label: string
+  orgSlug: string
+}
+
+function AttachmentChip({
+  attachmentId,
+  children,
+  className,
+  label,
+  orgSlug,
+}: AttachmentChipProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
+        className,
+      )}
+    >
+      {children}
+      <span>{label}</span>
+      <a
+        aria-label={`Download ${label}`}
+        className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
+        download
+        href={getWorkspaceChatAttachmentDownloadUrl({
+          attachmentId,
+          orgSlug,
+        })}
+      >
+        <DownloadSimpleIcon className="size-3.5" />
+      </a>
+    </span>
+  )
 }

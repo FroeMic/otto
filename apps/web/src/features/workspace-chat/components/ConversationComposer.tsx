@@ -21,6 +21,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
 import {
+  transcribeWorkspaceChatAttachment,
+} from "../api/chat"
+import {
   buildWorkspaceChatComposerParts,
   type WorkspaceChatComposerAttachmentDraft,
 } from "../composer-parts"
@@ -32,6 +35,7 @@ export interface ConversationComposerProps {
   className?: string
   disabled?: boolean
   initialDraft?: string
+  orgSlug: string
   onSubmit: (input: {
     parts: ReturnType<typeof buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
@@ -43,6 +47,7 @@ export function ConversationComposer({
   className,
   disabled = false,
   initialDraft = "",
+  orgSlug,
   onSubmit,
   onUploadAttachment,
   placeholder = "Message Otto in this workspace conversation",
@@ -105,12 +110,25 @@ export function ConversationComposer({
 
     try {
       const attachment = await onUploadAttachment(input.file)
+      let transcript: string | undefined
+
+      try {
+        transcript =
+          (await transcribeWorkspaceChatAttachment({
+            attachmentId: attachment.id,
+            orgSlug,
+          })) ?? undefined
+      } catch (error) {
+        console.warn("[workspace-chat] voice note transcription failed", error)
+      }
+
       setAttachments((current) => [
-        ...current,
+        ...current.filter((entry) => entry.attachment.id !== attachment.id),
         {
           attachment,
           durationMs: input.durationMs,
           kind: "audio",
+          transcript,
         },
       ])
     } finally {

@@ -31,7 +31,11 @@ import {
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
 } from "./chat-data"
-import { createWorkspaceChatAttachment } from "./chat-attachments-service"
+import {
+  createWorkspaceChatAttachment,
+  getWorkspaceChatAttachmentContentForUser,
+  transcribeWorkspaceChatAttachmentForUser,
+} from "./chat-attachments-service"
 import { createWorkspaceChatRealtimeRouter } from "./chat-realtime-routes"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 import { syncUserFromSession } from "./data"
@@ -42,6 +46,10 @@ const workspaceParamsSchema = z.object({
 
 const workspaceConversationParamsSchema = workspaceParamsSchema.extend({
   conversationId: z.string().min(1),
+})
+
+const workspaceAttachmentParamsSchema = workspaceParamsSchema.extend({
+  attachmentId: z.string().min(1),
 })
 
 export type WorkspaceChatRouteDependencies = {
@@ -61,6 +69,16 @@ export type WorkspaceChatRouteDependencies = {
     orgSlug: string
     userExternalId: string
   }) => Promise<WorkspaceChatAttachmentUploadResponse["attachment"]>
+  transcribeAttachment: (payload: {
+    attachmentId: string
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<string | null>
+  getAttachmentDownload: (payload: {
+    attachmentId: string
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<{ bytes: Uint8Array; fileName: string; mimeType: string } | null>
   createMessage: (payload: {
     clientMessageId?: string
     conversationId: string
@@ -88,6 +106,20 @@ function createDefaultWorkspaceChatRouteDependencies(): WorkspaceChatRouteDepend
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
     createAttachment: createWorkspaceChatAttachment,
+    transcribeAttachment: transcribeWorkspaceChatAttachmentForUser,
+    getAttachmentDownload: async (payload) => {
+      const result = await getWorkspaceChatAttachmentContentForUser(payload)
+
+      if (!result) {
+        return null
+      }
+
+      return {
+        bytes: result.bytes,
+        fileName: result.attachment.fileName,
+        mimeType: result.attachment.mimeType,
+      }
+    },
     createConversation: createWorkspaceChatConversation,
     createMessage: createAndDispatchWorkspaceChatMessage,
     getConversationDetail: getWorkspaceChatConversationDetail,
@@ -247,6 +279,91 @@ export function createWorkspaceChatRouter(
         }
       },
     )
+    .get(
+      "/api/workspace/:orgSlug/chat/attachments/:attachmentId/download",
+      zValidator("param", workspaceAttachmentParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        try {
+          const { attachmentId, orgSlug } = context.req.valid("param")
+          const download = await dependencies.getAttachmentDownload({
+            attachmentId,
+            orgSlug,
+            userExternalId: authResult.user.id,
+          })
+
+          if (!download) {
+            return jsonNoStore(
+              {
+                error: "Workspace chat attachment not found.",
+              },
+              404,
+            )
+          }
+
+          const body = new Uint8Array(download.bytes)
+
+          return new Response(body, {
+            headers: {
+              "Cache-Control": "no-store",
+              "Content-Disposition": `attachment; filename=\"${sanitizeDownloadFileName(download.fileName)}\"`,
+              "Content-Length": String(download.bytes.byteLength),
+              "Content-Type": download.mimeType,
+            },
+            status: 200,
+          })
+        } catch (error) {
+          return jsonNoStore(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to download workspace chat attachment.",
+            },
+            500,
+          )
+        }
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/chat/attachments/:attachmentId/transcription",
+      zValidator("param", workspaceAttachmentParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        try {
+          const { attachmentId, orgSlug } = context.req.valid("param")
+          const transcript = await dependencies.transcribeAttachment({
+            attachmentId,
+            orgSlug,
+            userExternalId: authResult.user.id,
+          })
+
+          return jsonNoStore({
+            transcript,
+          })
+        } catch (error) {
+          return jsonNoStore(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to transcribe workspace chat attachment.",
+            },
+            500,
+          )
+        }
+      },
+    )
     .post(
       "/api/workspace/:orgSlug/chat/conversations/:conversationId/messages",
       zValidator("param", workspaceConversationParamsSchema),
@@ -277,6 +394,10 @@ export function createWorkspaceChatRouter(
         })
       },
     )
+}
+
+function sanitizeDownloadFileName(value: string) {
+  return value.replace(/["\\\r\n]/g, "_")
 }
 
 function isWorkspaceChatUploadFile(value: unknown): value is File {

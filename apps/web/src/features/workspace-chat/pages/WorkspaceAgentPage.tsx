@@ -10,7 +10,10 @@ import { useNavigate } from "@tanstack/react-router"
 import { startTransition } from "react"
 import { toast } from "sonner"
 
-import { workspaceOnboardingQueryOptions, consumeWorkspaceOnboardingStarterPrompt } from "@/features/onboarding/api/onboarding"
+import {
+  consumeWorkspaceOnboardingStarterPrompt,
+  workspaceOnboardingQueryOptions,
+} from "@/features/onboarding/api/onboarding"
 
 import {
   createWorkspaceChatConversation,
@@ -127,6 +130,7 @@ export function WorkspaceAgentPage({
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
               initialDraft={initialDraft}
+              orgSlug={orgSlug}
               onSubmit={async (input) => {
                 await startConversationMutation.mutateAsync(input)
               }}

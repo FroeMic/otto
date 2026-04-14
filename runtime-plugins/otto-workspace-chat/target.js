@@ -15,10 +15,6 @@ export function buildWorkspaceTarget(input) {
   const base = normalizeWorkspaceTarget(input.conversationId);
   const params = new URLSearchParams();
 
-  if (typeof input.assistantMessageId === "string" && input.assistantMessageId.trim()) {
-    params.set("assistantMessageId", input.assistantMessageId.trim());
-  }
-
   if (input.conversationVisibility === "personal") {
     params.set("visibility", "personal");
   }

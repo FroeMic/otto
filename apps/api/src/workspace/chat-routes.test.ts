@@ -35,6 +35,12 @@ function createDependencies(): WorkspaceChatRouteDependencies {
       mimeType: payload.file.type || "application/octet-stream",
       sizeBytes: payload.file.size,
     }),
+    transcribeAttachment: async () => "hello from voice note",
+    getAttachmentDownload: async () => ({
+      bytes: new Uint8Array(Buffer.from("hello world")),
+      fileName: "notes.txt",
+      mimeType: "text/plain",
+    }),
     createMessage: async ({ conversationId, parts }) => ({
       conversationId,
       dispatch: {
@@ -278,6 +284,52 @@ describe("workspace chat routes", () => {
     assert.equal(response.status, 400)
     assert.deepEqual(await response.json(), {
       error: "Workspace chat attachment file is required.",
+    })
+  })
+
+  it("downloads a workspace chat attachment through the workspace route", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/attachments/att_1/download",
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get("content-type"), "text/plain")
+    assert.equal(
+      response.headers.get("content-disposition"),
+      'attachment; filename="notes.txt"',
+    )
+    assert.equal(await response.text(), "hello world")
+  })
+
+  it("returns 404 when the workspace chat attachment download is unavailable", async () => {
+    const app = createWorkspaceChatRouter({
+      ...createDependencies(),
+      getAttachmentDownload: async () => null,
+    })
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/attachments/missing/download",
+    )
+
+    assert.equal(response.status, 404)
+    assert.deepEqual(await response.json(), {
+      error: "Workspace chat attachment not found.",
+    })
+  })
+
+  it("transcribes a workspace chat attachment through the workspace route", async () => {
+    const app = createWorkspaceChatRouter(createDependencies())
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/attachments/att_1/transcription",
+      { method: "POST" },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      transcript: "hello from voice note",
     })
   })
 
