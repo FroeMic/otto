@@ -151,6 +151,11 @@ export async function getPostAuthRedirectPathForWorkspaceOnboarding(
     const workspace = organizations[0]
 
     if (workspace) {
+      await dependencies.createWorkspaceOnboardingRun({
+        organizationId: workspace.id,
+        starterPrompt: intakeSession.prompt,
+        userId: localUser.id,
+      })
       await dependencies.markPublicIntakeSessionConverted({
         organizationId: workspace.id,
         publicIntakeSessionId: intakeSession.id,

@@ -78,8 +78,10 @@ describe("web app", () => {
 
     expect(response.status).toBe(200)
     expect(text).toContain("Start building.")
-    expect(text).toContain("Your business brief")
     expect(text).toContain("I need help with SaaS onboarding.")
+    expect(text).toContain("/otto-avatar.svg")
+    expect(text).not.toContain("Your business brief")
+    expect(text).not.toContain("Otto uses WorkOS for authentication.")
   })
 
   it("can render a sign-in-first auth modal", async () => {
