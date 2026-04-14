@@ -82,6 +82,7 @@ This folder is the source of truth for implementation planning and session-to-se
 26. `TODO_25_app_shell_layout_and_notifications.md`
 27. `TODO_26_managed_runtime_memory.md`
 28. `TODO_27_openclaw_2026_4_12_runtime_upgrade.md`
+29. `TODO_28_workspace_onboarding_and_public_intake.md`
 
 ## Trigger.dev decision
 
