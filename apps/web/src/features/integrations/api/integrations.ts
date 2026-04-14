@@ -76,6 +76,23 @@ export async function disconnectWorkspaceIntegration(input: {
   )
 }
 
+export async function enableWorkspaceIntegration(input: {
+  integrationKey: string
+  orgSlug: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].integrations[":integrationKey"].enable.$post({
+      param: {
+        integrationKey: input.integrationKey,
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceIntegrationDisconnectResponseSchema.parse(data),
+  )
+}
+
 export async function updateWorkspaceIntegrationCapabilityPolicy(input: {
   capabilityKey: string
   integrationKey: string

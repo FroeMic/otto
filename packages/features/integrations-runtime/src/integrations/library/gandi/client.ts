@@ -63,9 +63,13 @@ export async function checkGandiDomainAvailability(domains: string[]) {
     throw new Error("Gandi availability response was not a struct.");
   }
 
+  const availabilityMap = response as Record<string, unknown>;
+
   return normalizedDomains.map((domain) => ({
     availability: normalizeAvailabilityStatus(
-      typeof response[domain] === "string" ? response[domain] : "error_unknown",
+      typeof availabilityMap[domain] === "string"
+        ? availabilityMap[domain]
+        : "error_unknown",
     ),
     domain,
   }));
@@ -302,19 +306,23 @@ function parseXmlRpcValue(value: unknown): unknown {
 
 function normalizeRegistrationPrice(value: unknown): GandiRegistrationPrice {
   const record =
-    value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const actionRecord =
-    record.action && typeof record.action === "object" && !Array.isArray(record.action)
-      ? record.action
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
       : {};
-  const firstUnitPrice = Array.isArray(record.unit_price)
-    ? record.unit_price[0]
+  const actionValue = record.action;
+  const actionRecord =
+    actionValue && typeof actionValue === "object" && !Array.isArray(actionValue)
+      ? (actionValue as Record<string, unknown>)
+      : {};
+  const unitPriceValue = record.unit_price;
+  const firstUnitPrice = Array.isArray(unitPriceValue)
+    ? unitPriceValue[0]
     : null;
   const unitPriceRecord =
     firstUnitPrice &&
     typeof firstUnitPrice === "object" &&
     !Array.isArray(firstUnitPrice)
-      ? firstUnitPrice
+      ? (firstUnitPrice as Record<string, unknown>)
       : {};
 
   return {
