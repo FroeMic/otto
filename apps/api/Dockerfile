@@ -24,6 +24,7 @@ COPY packages/features/user-profile/package.json packages/features/user-profile/
 COPY packages/features/workspace-chat/package.json packages/features/workspace-chat/package.json
 COPY packages/features/workspace-core/package.json packages/features/workspace-core/package.json
 COPY packages/features/workspace-members/package.json packages/features/workspace-members/package.json
+COPY packages/features/workspace-onboarding/package.json packages/features/workspace-onboarding/package.json
 COPY packages/features/workspace-slugs/package.json packages/features/workspace-slugs/package.json
 RUN bun install --frozen-lockfile --filter @otto/api
 
