@@ -82,7 +82,7 @@ describe("gandi integration", () => {
     assert.equal(response.command?.resultMode, "json");
   });
 
-  it("surfaces gandi domain search commands for startup naming intent", () => {
+  it("surfaces gandi domain search commands for founder naming intent", () => {
     const definitions = listRuntimeIntegrationDefinitions().map((definition) => ({
       ...definition,
       status:
@@ -99,7 +99,7 @@ describe("gandi integration", () => {
 
     const matches = findIntegrationCommandMatches({
       definitions,
-      query: "evaluate startup names and check good domain options",
+      query: "help a founder evaluate company names and check good domain options",
     });
 
     assert.ok(matches.length >= 1);

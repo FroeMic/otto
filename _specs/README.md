@@ -84,7 +84,7 @@ This folder is the source of truth for implementation planning and session-to-se
 28. `TODO_27_openclaw_2026_4_12_runtime_upgrade.md`
 29. `TODO_28_workspace_onboarding_and_public_intake.md`
 30. `TODO_29_gandi_domain_integration.md`
-31. `TODO_30_name_and_domain_research_workflow.md`
+31. `DONE_30_name_and_domain_research_workflow.md`
 32. `DONE_31_managed_skill_package_files_and_reset_tools.md`
 33. `DONE_32_skill_library_structure_and_naming_skill_rollout.md`
 

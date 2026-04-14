@@ -157,9 +157,10 @@ describe("integrations routes", () => {
           connectUrl: null,
           integrationKey: "gandi",
           label: "Gandi",
-          message: "Enable Gandi to use domain research in this workspace.",
+          message:
+            "Enable Gandi so Otto can help founders evaluate company names and domain options in this workspace.",
           recommendedAction: "enable",
-          requiresUserAction: true,
+          requiresUserAction: false,
           selectedAction: "enable",
           status: {
             connected: false,
@@ -172,12 +173,13 @@ describe("integrations routes", () => {
         },
         integration: {
           categoryLabel: "Domains",
-          description: "Startup name and domain research.",
+          description: "Founder naming, domain checks, and registration research.",
           iconSrc: "/integrations/gandi.svg",
           key: "gandi",
           label: "Gandi",
           managementMode: "workspace_managed",
-          pageDescription: "Enable Gandi for startup naming and domain research.",
+          pageDescription:
+            "Enable Gandi so Otto can help with company naming, domain checks, and registration research.",
         },
         settings: null,
         summary: null,
@@ -186,7 +188,8 @@ describe("integrations routes", () => {
         {
           categoryLabel: "Domains",
           connected: false,
-          description: "Evaluate startup names and domain options.",
+          description:
+            "Help founders evaluate company names, domain options, and registration constraints.",
           iconSrc: "/integrations/gandi.svg",
           key: "gandi",
           label: "Gandi",
@@ -211,7 +214,8 @@ describe("integrations routes", () => {
         {
           categoryLabel: "Domains",
           connected: false,
-          description: "Evaluate startup names and domain options.",
+          description:
+            "Help founders evaluate company names, domain options, and registration constraints.",
           iconSrc: "/integrations/gandi.svg",
           key: "gandi",
           label: "Gandi",

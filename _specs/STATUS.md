@@ -97,7 +97,7 @@
     - Phase 1 read and discovery commands for domain availability, managed domain details, and DNS reads
     - Phase 2 safe DNS write commands using an explicit plan and confirm flow
     - Phase 3 higher-level domain and naming workflow dependencies
-- The first startup-naming workflow slice is now explicitly tracked in `_specs/TODO_30_name_and_domain_research_workflow.md`:
+- The first startup-naming workflow slice is now captured in `_specs/DONE_30_name_and_domain_research_workflow.md`:
   - the first user-facing outcome should be startup-name evaluation, not generic DNS administration
   - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names
   - the first workflow should remain read-only and focus on shortlist evaluation, variant rescue, and launch-ready recommendations
@@ -106,7 +106,8 @@
     - `examples/ramp-shortlist.json`
     - `templates/recommendation-schema.json`
     - `scripts/generate-domain-variants.mjs`
-  - the next follow-on work in this track is not more skill packaging; it is workspace/integration copy alignment and richer workflow execution around the existing Gandi command surface
+  - workspace and agent-facing Gandi copy now align with founder naming and direct-enable behavior
+  - the next follow-on work in this track is richer workflow execution around the existing Gandi command surface, not more package scaffolding
 - The managed skill package reset substrate now exists in the completed spec `_specs/DONE_31_managed_skill_package_files_and_reset_tools.md`:
   - canonical seeded companion files under approved subfolders now project as install-only files
   - normal apply preserves local runtime edits to those companion files

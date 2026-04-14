@@ -96,7 +96,7 @@ export function GandiIntegrationStatusPage({
   function handleDisable() {
     if (
       !window.confirm(
-        "Disable Gandi for this workspace? Otto will stop using it for domain research until you enable it again.",
+        "Disable Gandi for this workspace? Otto will stop using it for company naming and domain research until you enable it again.",
       )
     ) {
       return;
@@ -140,8 +140,9 @@ export function GandiIntegrationStatusPage({
         <Alert>
           <AlertTitle>Enable Gandi</AlertTitle>
           <AlertDescription>
-            Turn on Gandi for this workspace so Otto can evaluate startup names,
-            compare domain options, and inspect domain metadata.
+            Turn on Gandi for this workspace so Otto can help founders evaluate
+            company names, compare domain options, and inspect registration
+            metadata.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -186,8 +187,8 @@ export function GandiIntegrationStatusPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Status</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Whether Otto can currently use Gandi for startup-name and
-                        domain research in this workspace.
+                        Whether Otto can currently use Gandi for company naming
+                        and domain research in this workspace.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Badge variant={getStatusVariant(detail)}>

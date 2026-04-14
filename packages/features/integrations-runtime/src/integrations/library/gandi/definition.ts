@@ -26,15 +26,15 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
   categoryLabel: "Domains",
   catalogDescription:
-    "Evaluate startup names, check domain availability, and inspect domain metadata through Otto's managed Gandi integration.",
+    "Help founders evaluate company names, check domain availability, and inspect registration metadata through Otto's managed Gandi integration.",
   description:
-    "Workspace-managed domain research integration for startup naming, domain availability checks, and domain metadata inspection.",
+    "Workspace-managed founder naming and domain research integration for company-name evaluation, domain checks, and metadata inspection.",
   iconSrc: "/integrations/gandi.svg",
   key: "gandi",
   label: "Gandi",
   managementMode: "workspace_managed",
   pageDescription:
-    "Enable Gandi for this workspace so Otto can evaluate startup names and inspect domain availability.",
+    "Enable Gandi so Otto can help with company naming, domain checks, and registration research in this workspace.",
   runtimeSurface: {
     commandGroups: [
       {
@@ -107,10 +107,14 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             intentKeywords: [
               "startup names",
               "startup naming",
+              "company naming",
+              "brand naming",
+              "founder naming",
               "domain options",
               "batch domain check",
               "good domains",
               "evaluate startup names",
+              "evaluate company names",
             ],
             label: "Batch check domains",
             resultMode: "json",
@@ -195,21 +199,25 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
           },
         ],
         description:
-          "Domain research commands for startup naming, candidate evaluation, and domain inspection.",
+          "Domain research commands for founder naming, candidate evaluation, and domain inspection.",
         groupKey: "domain",
         groupPath: ["domain"],
         intentKeywords: [
           "startup naming",
+          "company naming",
+          "brand naming",
+          "founder naming",
           "domain research",
           "domain availability",
           "good startup names",
+          "good company names",
         ],
         label: "Domain",
       },
     ],
     rootCommands: [],
     toolDescription:
-      "Use Gandi for startup naming and domain research when the workspace has enabled it. Prefer domain.batch_check for shortlist evaluation, then inspect finalists with domain.get_details or domain.get_registration_metadata.",
+      "Use Gandi for founder naming and domain research when the workspace has enabled it. Prefer domain.batch_check for company-name shortlist evaluation, then inspect finalists with domain.get_details or domain.get_registration_metadata.",
     toolName: "gandi",
   },
   settingsPath: (orgSlug) =>

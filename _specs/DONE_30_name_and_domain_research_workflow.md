@@ -1,4 +1,4 @@
-# TODO 29: Name And Domain Research Workflow
+# DONE 30: Name And Domain Research Workflow
 
 ## Goal
 
@@ -407,7 +407,7 @@ Exit check:
 - [x] define domain candidate expansion heuristics
 - [x] define ranking heuristics for names and domains
 - [x] draft the managed skill instructions for name and domain research
-- [ ] align workspace integration copy with this workflow
+- [x] align workspace integration copy with this workflow
 
 ## Open Questions
 

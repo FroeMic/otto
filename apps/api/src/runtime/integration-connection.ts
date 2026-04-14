@@ -23,8 +23,8 @@ export function buildRuntimeIntegrationConnectionAction(input: {
         ? "open_workspace"
         : "enable";
       message = input.integration.status.connected
-        ? "Gandi is enabled for this workspace. Open the workspace integration page to review domain research availability."
-        : "Gandi is not enabled yet. Ask the user to open the workspace integration page and enable it.";
+        ? "Gandi is enabled for this workspace. Open the workspace integration page to review company naming and domain research availability."
+        : "Gandi is not enabled yet. Otto can enable it now for company naming and domain research, or you can open the workspace integration page.";
       break;
     case "linear":
       recommendedAction = input.integration.status.connected
@@ -66,7 +66,6 @@ export function buildRuntimeIntegrationConnectionAction(input: {
     recommendedAction,
     requiresUserAction:
       selectedAction === "connect" ||
-      selectedAction === "enable" ||
       selectedAction === "reconnect",
     selectedAction,
     status: input.integration.status,

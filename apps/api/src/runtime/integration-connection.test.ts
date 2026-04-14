@@ -29,9 +29,9 @@ describe("runtime integration connection action", () => {
       integrationKey: "gandi",
       label: "Gandi",
       message:
-        "Gandi is not enabled yet. Ask the user to open the workspace integration page and enable it.",
+        "Gandi is not enabled yet. Otto can enable it now for company naming and domain research, or you can open the workspace integration page.",
       recommendedAction: "enable",
-      requiresUserAction: true,
+      requiresUserAction: false,
       selectedAction: "enable",
       status: {
         connected: false,
