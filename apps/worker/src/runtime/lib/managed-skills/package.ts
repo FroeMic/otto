@@ -6,8 +6,17 @@ import { listIntegrationDefinitions } from "../../integrations/framework";
 import { listToolDefinitions } from "../../tools";
 
 export const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md";
+const MANAGED_SKILL_COMPANION_DIRECTORY_PREFIXES = [
+  "examples/",
+  "references/",
+  "scripts/",
+  "templates/",
+] as const;
 
-export type ManagedSkillFileKind = "managed" | "state";
+export type ManagedSkillFileKind =
+  | "managed_entry"
+  | "managed_seeded"
+  | "state";
 export type ManagedSkillFileContentEncoding = "utf8_text" | "binary";
 export type ManagedSkillFileEditability =
   | "download_only"
@@ -163,15 +172,25 @@ export function classifyManagedSkillFile(input: ManagedSkillPackageFileInput): {
     };
   }
 
-  return {
-    editability:
-      isUtf8Text && normalizedPath === MANAGED_SKILL_ENTRY_FILE_PATH
-        ? "editable"
-        : "download_only",
-    fileKind: "managed",
-    path: normalizedPath,
-    storageEncoding: isUtf8Text ? "utf8_text" : "binary",
-  };
+  if (normalizedPath === MANAGED_SKILL_ENTRY_FILE_PATH) {
+    return {
+      editability: isUtf8Text ? "editable" : "download_only",
+      fileKind: "managed_entry",
+      path: normalizedPath,
+      storageEncoding: isUtf8Text ? "utf8_text" : "binary",
+    };
+  }
+
+  if (isManagedSkillCompanionPath(normalizedPath)) {
+    return {
+      editability: "download_only",
+      fileKind: "managed_seeded",
+      path: normalizedPath,
+      storageEncoding: isUtf8Text ? "utf8_text" : "binary",
+    };
+  }
+
+  throw new Error(`Unsupported managed skill file path: ${normalizedPath}`);
 }
 
 export function validateManagedSkillPackage(input: {
@@ -194,12 +213,6 @@ export function validateManagedSkillPackage(input: {
     if (classification.fileKind === "state") {
       throw new Error(
         `Managed skill writes cannot target reserved local state path: ${classification.path}`,
-      );
-    }
-
-    if (classification.path !== MANAGED_SKILL_ENTRY_FILE_PATH) {
-      throw new Error(
-        `Only ${MANAGED_SKILL_ENTRY_FILE_PATH} can be stored as managed skill content.`,
       );
     }
 
@@ -267,6 +280,12 @@ export function validateManagedSkillPackage(input: {
     skillBody: extractManagedSkillFrontmatter(skillFile.contentText).body,
     skillKey,
   };
+}
+
+function isManagedSkillCompanionPath(path: string) {
+  return MANAGED_SKILL_COMPANION_DIRECTORY_PREFIXES.some((prefix) =>
+    path.startsWith(prefix),
+  );
 }
 
 export function parseManagedSkillSkillFile(

@@ -27,6 +27,7 @@ export type ManagedBootstrapRuntimeFile = {
 export type ManagedSkillRuntimeFile = {
   filename: string;
   contents: string;
+  projectionMode?: "install_if_missing" | "managed_entry";
 };
 
 export type ManagedSkillRuntimeRenameOperation = {
@@ -274,6 +275,7 @@ export class RuntimeManager {
       input.managedSkillRenameOperations ?? [],
     );
     await this.applyTenantFiles(connection, runtimeFiles);
+    await this.applyInstallOnlyManagedSkillFiles(connection, input.managedSkillFiles);
     await this.reconcileManagedSkillFiles(connection, input.managedSkillFiles);
     await this.normalizeTenantRuntimeFilePermissions(connection, {
       managedBootstrapFiles: input.managedBootstrapFiles,
@@ -499,6 +501,30 @@ export class RuntimeManager {
     }
 
     await this.execChecked(connection, buildShellCommand(commands));
+  }
+
+  async applyInstallOnlyManagedSkillFiles(
+    connection: SshConnection,
+    managedSkillFiles: ManagedSkillRuntimeFile[],
+  ) {
+    for (const file of listInstallOnlyManagedSkillFiles(managedSkillFiles)) {
+      const targetPath = `/opt/openclaw/home/workspace/${file.filename}`;
+      const existsResult = await this.sshClient.exec(
+        connection,
+        buildShellCommand([`test -e ${shellQuoteForShell(targetPath)}`]),
+      );
+
+      if (existsResult.exitCode === 0) {
+        continue;
+      }
+
+      await this.sshClient.writeFileAtomic(
+        connection,
+        targetPath,
+        file.contents,
+        0o640,
+      );
+    }
   }
 
   async reconcileManagedSkillFiles(
@@ -1099,7 +1125,7 @@ async function buildTenantRuntimeFiles(input: {
       mode: 0o640,
       path: `/opt/openclaw/home/workspace/${file.filename}`,
     })),
-    ...input.managedSkillFiles.map((file) => ({
+    ...listManagedEntryRuntimeFiles(input.managedSkillFiles).map((file) => ({
       contents: file.contents,
       mode: 0o640,
       path: `/opt/openclaw/home/workspace/${file.filename}`,
@@ -1132,6 +1158,22 @@ async function buildTenantRuntimeFiles(input: {
       mode: 0o640,
     },
   ];
+}
+
+export function listManagedEntryRuntimeFiles(
+  managedSkillFiles: ManagedSkillRuntimeFile[],
+) {
+  return managedSkillFiles.filter(
+    (file) => (file.projectionMode ?? "managed_entry") === "managed_entry",
+  );
+}
+
+export function listInstallOnlyManagedSkillFiles(
+  managedSkillFiles: ManagedSkillRuntimeFile[],
+) {
+  return managedSkillFiles.filter(
+    (file) => file.projectionMode === "install_if_missing",
+  );
 }
 
 function sleep(ms: number) {
