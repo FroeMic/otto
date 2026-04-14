@@ -116,4 +116,68 @@ describe("gateway app", () => {
       tenantId: "tenant_123",
     })
   })
+
+  it("executes a Gandi dns record read through the runtime gateway path", async () => {
+    authenticateTenantRuntimeRequest.mockResolvedValue({
+      tenantId: "tenant_123",
+    })
+    executeRuntimeIntegrationInGateway.mockResolvedValue({
+      domain: "ledgerpilot.ai",
+      filteredCount: 1,
+      records: [
+        {
+          href: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/%40/TXT",
+          name: "@",
+          ttl: 1800,
+          type: "TXT",
+          values: ["\"v=spf1 include:_mailcust.gandi.net ?all\""],
+        },
+      ],
+      totalCount: 1,
+    })
+
+    const app = createGatewayApp()
+    const response = await app.request(
+      "http://gateway.local/api/internal/runtime/integrations/execute",
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer runtime_token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          arguments: {
+            domain: "ledgerpilot.ai",
+          },
+          commandKey: "dns.record.list",
+          integrationKey: "gandi",
+        }),
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      domain: "ledgerpilot.ai",
+      filteredCount: 1,
+      records: [
+        {
+          href: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/%40/TXT",
+          name: "@",
+          ttl: 1800,
+          type: "TXT",
+          values: ["\"v=spf1 include:_mailcust.gandi.net ?all\""],
+        },
+      ],
+      totalCount: 1,
+    })
+    expect(executeRuntimeIntegrationInGateway).toHaveBeenCalledWith({
+      arguments: {
+        domain: "ledgerpilot.ai",
+      },
+      commandKey: "dns.record.list",
+      commandPath: undefined,
+      integrationKey: "gandi",
+      tenantId: "tenant_123",
+    })
+  })
 })

@@ -97,6 +97,10 @@
     - Phase 1 read and discovery commands for domain availability, managed domain details, and DNS reads
     - Phase 2 safe DNS write commands using an explicit plan and confirm flow
     - Phase 3 higher-level domain and naming workflow dependencies
+  - Phase 1 now includes the missing LiveDNS read commands on the runtime surface:
+    - `dns.zone.get`
+    - `dns.record.list`
+  - the remaining Gandi follow-on work is Phase 2 safety for DNS mutations plus broader cross-surface verification
 - The first startup-naming workflow slice is now captured in `_specs/DONE_30_name_and_domain_research_workflow.md`:
   - the first user-facing outcome should be startup-name evaluation, not generic DNS administration
   - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names

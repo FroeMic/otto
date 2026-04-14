@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   checkGandiDomainAvailability,
+  getGandiDnsZone,
+  listGandiDnsRecords,
   getGandiDomainDetails,
   getGandiDomainRegistrationMetadata,
 } from "./client";
@@ -288,6 +290,138 @@ describe("gandi client", () => {
       rawStatus: ["clientTransferProhibited"],
       tags: ["startup"],
       updatedAt: "2026-02-03T04:05:06Z",
+    });
+  });
+
+  it("reads livedns zone details and nameservers for a managed domain", async () => {
+    process.env.GANDI_API_TOKEN = "gandi_test_token";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          automatic_snapshots: true,
+          domain_href: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai",
+          domain_keys_href:
+            "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/keys",
+          domain_records_href:
+            "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records",
+          fqdn: "ledgerpilot.ai",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify(["ns-1-a.gandi.net", "ns-1-b.gandi.net"]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await getGandiDnsZone("ledgerpilot.ai");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai",
+      {
+        headers: {
+          authorization: "Bearer gandi_test_token",
+          accept: "application/json",
+        },
+        method: "GET",
+      },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/nameservers",
+      {
+        headers: {
+          authorization: "Bearer gandi_test_token",
+          accept: "application/json",
+        },
+        method: "GET",
+      },
+    );
+    assert.deepEqual(result, {
+      automaticSnapshots: true,
+      domain: "ledgerpilot.ai",
+      domainHref: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai",
+      domainKeysHref:
+        "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/keys",
+      domainRecordsHref:
+        "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records",
+      nameservers: ["ns-1-a.gandi.net", "ns-1-b.gandi.net"],
+    });
+  });
+
+  it("lists livedns records for a managed domain and normalizes pagination headers", async () => {
+    process.env.GANDI_API_TOKEN = "gandi_test_token";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            rrset_href:
+              "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/%40/A",
+            rrset_name: "@",
+            rrset_ttl: 10800,
+            rrset_type: "A",
+            rrset_values: ["192.0.2.1"],
+          },
+          {
+            rrset_href:
+              "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/_dmarc/TXT",
+            rrset_name: "_dmarc",
+            rrset_ttl: 1800,
+            rrset_type: "TXT",
+            rrset_values: ["\"v=DMARC1; p=none\""],
+          },
+        ]),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "filtered-count": "2",
+            "total-count": "17",
+          },
+        },
+      ),
+    );
+
+    const result = await listGandiDnsRecords("ledgerpilot.ai");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records",
+      {
+        headers: {
+          authorization: "Bearer gandi_test_token",
+          accept: "application/json",
+        },
+        method: "GET",
+      },
+    );
+    assert.deepEqual(result, {
+      domain: "ledgerpilot.ai",
+      filteredCount: 2,
+      records: [
+        {
+          href: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/%40/A",
+          name: "@",
+          ttl: 10800,
+          type: "A",
+          values: ["192.0.2.1"],
+        },
+        {
+          href: "https://api.gandi.net/v5/livedns/domains/ledgerpilot.ai/records/_dmarc/TXT",
+          name: "_dmarc",
+          ttl: 1800,
+          type: "TXT",
+          values: ["\"v=DMARC1; p=none\""],
+        },
+      ],
+      totalCount: 17,
     });
   });
 

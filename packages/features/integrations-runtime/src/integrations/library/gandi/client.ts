@@ -67,6 +67,30 @@ export type GandiDomainDetails = {
   updatedAt: string | null;
 };
 
+export type GandiDnsZone = {
+  automaticSnapshots: boolean | null;
+  domain: string;
+  domainHref: string | null;
+  domainKeysHref: string | null;
+  domainRecordsHref: string | null;
+  nameservers: string[];
+};
+
+export type GandiDnsRecord = {
+  href: string | null;
+  name: string;
+  ttl: number | null;
+  type: string;
+  values: string[];
+};
+
+export type GandiDnsRecordList = {
+  domain: string;
+  filteredCount: number | null;
+  records: GandiDnsRecord[];
+  totalCount: number | null;
+};
+
 type GandiApiErrorPayload = {
   cause?: unknown;
   code?: unknown;
@@ -135,6 +159,22 @@ type GandiDomainDetailsResponse = {
   services?: unknown;
   status?: unknown;
   tags?: unknown;
+};
+
+type GandiLiveDnsDomainResponse = {
+  automatic_snapshots?: unknown;
+  domain_href?: unknown;
+  domain_keys_href?: unknown;
+  domain_records_href?: unknown;
+  fqdn?: unknown;
+};
+
+type GandiLiveDnsRecordResponse = {
+  rrset_href?: unknown;
+  rrset_name?: unknown;
+  rrset_ttl?: unknown;
+  rrset_type?: unknown;
+  rrset_values?: unknown;
 };
 
 const DEFAULT_GANDI_API_BASE_URL = "https://api.gandi.net/v5";
@@ -222,7 +262,78 @@ export async function getGandiDomainDetails(domain: string) {
   } satisfies GandiDomainDetails;
 }
 
+export async function getGandiDnsZone(domain: string) {
+  const normalizedDomain = normalizeDomain(domain);
+
+  if (!normalizedDomain) {
+    throw new Error("domain is required");
+  }
+
+  const [domainResponse, nameserversResponse] = await Promise.all([
+    fetchGandiJson<GandiLiveDnsDomainResponse>(
+      `/livedns/domains/${encodeURIComponent(normalizedDomain)}`,
+    ),
+    fetchGandiJson<unknown[]>(
+      `/livedns/domains/${encodeURIComponent(normalizedDomain)}/nameservers`,
+    ),
+  ]);
+
+  return {
+    automaticSnapshots:
+      typeof domainResponse.automatic_snapshots === "boolean"
+        ? domainResponse.automatic_snapshots
+        : null,
+    domain:
+      typeof domainResponse.fqdn === "string"
+        ? domainResponse.fqdn
+        : normalizedDomain,
+    domainHref:
+      typeof domainResponse.domain_href === "string"
+        ? domainResponse.domain_href
+        : null,
+    domainKeysHref:
+      typeof domainResponse.domain_keys_href === "string"
+        ? domainResponse.domain_keys_href
+        : null,
+    domainRecordsHref:
+      typeof domainResponse.domain_records_href === "string"
+        ? domainResponse.domain_records_href
+        : null,
+    nameservers: Array.isArray(nameserversResponse)
+      ? nameserversResponse.filter((value): value is string => typeof value === "string")
+      : [],
+  } satisfies GandiDnsZone;
+}
+
+export async function listGandiDnsRecords(domain: string) {
+  const normalizedDomain = normalizeDomain(domain);
+
+  if (!normalizedDomain) {
+    throw new Error("domain is required");
+  }
+
+  const { data, response } = await fetchGandiJsonWithResponse<
+    GandiLiveDnsRecordResponse[]
+  >(`/livedns/domains/${encodeURIComponent(normalizedDomain)}/records`);
+
+  return {
+    domain: normalizedDomain,
+    filteredCount: parseCountHeader(response.headers.get("filtered-count")),
+    records: Array.isArray(data) ? data.map(normalizeDnsRecord) : [],
+    totalCount: parseCountHeader(response.headers.get("total-count")),
+  } satisfies GandiDnsRecordList;
+}
+
 async function fetchGandiJson<T>(path: string): Promise<T> {
+  const { data } = await fetchGandiJsonWithResponse<T>(path);
+
+  return data;
+}
+
+async function fetchGandiJsonWithResponse<T>(path: string): Promise<{
+  data: T;
+  response: Response;
+}> {
   const response = await fetch(`${getGandiApiBaseUrl()}${path}`, {
     headers: {
       accept: "application/json",
@@ -274,7 +385,10 @@ async function fetchGandiJson<T>(path: string): Promise<T> {
     });
   }
 
-  return (await response.json()) as T;
+  return {
+    data: (await response.json()) as T,
+    response,
+  };
 }
 
 function findAvailabilityProduct(
@@ -354,6 +468,18 @@ function normalizeAvailabilityResult(input: {
   };
 }
 
+function normalizeDnsRecord(record: GandiLiveDnsRecordResponse): GandiDnsRecord {
+  return {
+    href: typeof record.rrset_href === "string" ? record.rrset_href : null,
+    name: typeof record.rrset_name === "string" ? record.rrset_name : "@",
+    ttl: typeof record.rrset_ttl === "number" ? record.rrset_ttl : null,
+    type: typeof record.rrset_type === "string" ? record.rrset_type : "UNKNOWN",
+    values: Array.isArray(record.rrset_values)
+      ? record.rrset_values.filter((value): value is string => typeof value === "string")
+      : [],
+  };
+}
+
 function normalizeTldMetadata(response: GandiTldResponse): GandiTldMetadata {
   return {
     authInfoRequiredForTransfer:
@@ -387,6 +513,16 @@ function getGandiApiToken() {
 function getGandiApiBaseUrl() {
   const baseUrl = process.env.GANDI_BASE_URL?.trim() || DEFAULT_GANDI_API_BASE_URL;
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+function parseCountHeader(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function normalizeAvailabilityStatus(value: string): GandiAvailabilityStatus {
