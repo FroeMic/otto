@@ -321,6 +321,84 @@ describe("workspace chat activity model", () => {
     )
   })
 
+  it("collapses adjacent memory-file reads into one stable activity entry", () => {
+    const model = buildWorkspaceChatActivityModel([
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:00.000Z",
+        id: "evt_1",
+        itemId: "tool:call_1",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 1,
+        status: "completed",
+        title: "read from ~/.openclaw/workspace/memory/2026-04-12.md",
+        type: "item.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:01.000Z",
+        id: "evt_2",
+        itemId: "tool:call_2",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 2,
+        status: "completed",
+        title: "read from ~/.openclaw/workspace/MEMORY.md",
+        type: "item.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:02.000Z",
+        id: "evt_3",
+        itemId: "tool:call_3",
+        messageId: "msg_1",
+        payload: {},
+        sequence: 3,
+        status: "completed",
+        title: "read from ~/.openclaw/workspace/skills/linear-triage/SKILL.md",
+        type: "item.completed",
+      },
+    ])
+
+    assert.deepEqual(
+      model.sections[0]?.entries.map((entry) => ({
+        events: entry.events.map((event) => event.type),
+        id: entry.id,
+        presentation: entry.presentation,
+        title: entry.title,
+      })),
+      [
+        {
+          events: ["item.completed", "item.completed"],
+          id: "item:tool:call_1",
+          presentation: {
+            iconKey: "memory",
+            kind: "memory",
+            title: "Checked memory files",
+          },
+          title: "Checked memory files",
+        },
+        {
+          events: ["item.completed"],
+          id: "item:tool:call_3",
+          presentation: {
+            iconKey: "skill",
+            kind: "skill",
+            source: {
+              documentKind: "skill",
+              kind: "skill_document",
+              path: "~/.openclaw/workspace/skills/linear-triage/SKILL.md",
+              skillKey: "linear-triage",
+            },
+            title: "Reviewed linear-triage instructions",
+          },
+          title: "Reviewed linear-triage instructions",
+        },
+      ],
+    )
+  })
+
   it("hides raw internal execution entries from the user-facing trace", () => {
     const model = buildWorkspaceChatActivityModel([
       {

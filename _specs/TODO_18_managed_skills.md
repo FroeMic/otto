@@ -7,6 +7,7 @@ This spec defines how managed Otto should support `Skills` as a first-class, wor
 The key decisions are:
 
 - Every skill visible in the Otto workspace should correspond to a managed control-plane record. Otto-managed runtimes should not rely on unmanaged workspace skills as a supported product path.
+- Otto should distinguish installed managed skills from an Otto-curated skill catalog; catalog entries are discoverable but do not become runtime-visible skills until they are explicitly installed.
 - A managed skill is a filesystem package rooted at `workspace/skills/<skill-key>/`.
 - Every skill is anchored by `SKILL.md`.
 - `SKILL.md` is the only Otto-managed file in the skill package.
@@ -21,6 +22,9 @@ The key decisions are:
 - `state/` should be visible, previewable when text-like, downloadable, and read-only in the workspace and runtime-managed UI, while remaining runtime-writable on disk.
 - OpenClaw should discover these skills natively from `workspace/skills` without Otto-specific changes to the upstream skill loader.
 - Otto should explicitly control which upstream bundled skills remain visible to end users, and override same-named bundled skills in `workspace/skills` when Otto needs a workspace-specific system version.
+- Otto should support permanent preinstalled Otto-owned skills; those skills must remain visible and projected, but they must not be editable, disableable, renamable, or deletable through workspace or runtime-managed flows.
+- Otto should allow runtime-created or workspace-created skills to remain removable when their installation state allows it, so Otto can clean up self-built skills without special backdoors.
+- Otto should support optional Otto-curated catalog skills owned by the control plane, but install those as normal managed skill records instead of making uninstalled catalog entries part of the native OpenClaw skill roots.
 - Otto should manage the lifecycle of workspace-visible skills, while OpenClaw continues to own native loading, precedence, gating, prompt visibility, and on-demand reading behavior.
 - The managed-skills runtime plugin should stay narrow and lifecycle-oriented: `list_managed_skills`, `get_managed_skill`, `create_managed_skill`, `update_managed_skill`, and `delete_managed_skill`.
 - `references/`, `scripts/`, and `state/` should use the normal workspace file surface rather than a second managed-skills file API.
@@ -54,11 +58,31 @@ The system must also satisfy these goals:
 
 - Managed skills should be the source of truth for workspace-owned instructional packages.
 - OpenClaw should continue to load and present skills using its native filesystem and prompt model.
+- Otto should have a first-class concept of canonical skill definitions and per-workspace installation state rather than inferring mutability only from a coarse `sourceType`.
 - Skill packages should support local companion material without making those files managed source of truth.
 - Local runtime state and helper files should be allowed, but contained, visible, and clearly distinct from managed files.
 - The skill UI should be semantic and managed-first, while the general file browser can remain a lower-level filesystem view.
 - Otto should be able to hide or override inappropriate upstream bundled skills instead of exposing the raw OpenClaw defaults directly to workspace users.
 - Otto should not create a second "effective skills" registry that competes with OpenClaw's native precedence and visibility rules.
+
+## Current Application State
+
+As of the current repo state, managed skills are partially implemented but the distribution model is still narrow:
+
+- legacy `web/` already has the workspace `Skills` UI, managed-skill validation, desired-state projection, and the current system-skill seeding path
+- extracted `apps/api` already has the runtime-authenticated managed-skills CRUD route, but it still carries its own copy of the managed-skills data logic instead of consuming one shared skills package
+- Otto already renders a bundled-skill allowlist into OpenClaw config and seeds one Otto-owned `skill-creator` override
+- current mutability policy is effectively binary:
+  - `sourceType === "system"` means non-editable and non-deletable
+  - everything else is effectively removable
+- Otto does not yet have a first-class skill catalog for discoverable-but-uninstalled skills
+- Otto does not yet distinguish clearly between:
+  - where a skill came from
+  - whether it is locked for the workspace
+  - whether it should keep following an Otto-owned canonical definition
+  - whether Otto may safely delete it later
+
+That current state is good enough for the first managed-skills slice, but it will not scale cleanly to the requested setup without a stronger distribution model.
 
 ## Architecture
 
@@ -464,9 +488,185 @@ The policy should be:
 
 - workspace-visible Otto skills must correspond to managed records in Postgres
 - Otto must not create or update workspace-visible skills through direct unmanaged `SKILL.md` writes
+- uninstalled catalog entries must not be projected into `workspace/skills` and must not appear in OpenClaw's native `<available_skills>` snapshot until installed
 - bundled skills should only remain visible when Otto explicitly allows them or seeds an overriding system-managed copy
 - other mutable skill roots such as `~/.openclaw/skills`, `~/.agents/skills`, and `<workspace>/.agents/skills` should be treated as unsupported for managed Otto product behavior
 - if an unexpected skill directory appears under `workspace/skills` without a matching managed record, that is drift and should be surfaced or reconciled explicitly rather than silently becoming the supported product state
+
+## Canonical Skill Model
+
+The simplest correct model is:
+
+- canonical skill definitions in the control plane
+- per-workspace installation state in the control plane
+- runtime projection derived from workspace installations
+
+All workspace-visible installed skills are therefore managed through the control plane.
+
+### Control-plane layers
+
+Otto should model skills in two layers:
+
+1. global or canonical skill definitions
+   - Otto-owned definitions for permanent skills and catalog skills
+   - optionally later, workspace-owned definitions if the product wants true reusable custom definitions beyond one installation
+2. workspace skill installations
+   - whether a workspace has a given definition installed
+   - whether that installation is locked
+   - which definition version is currently installed or pinned
+
+The runtime should not invent its own parallel skill registry. It should only project the installed set.
+
+### Recommended control-plane entities
+
+This spec does not require exact table names, but the intended shape is:
+
+- `skill_definitions`
+  - canonical identity for a skill definition
+- `skill_definition_versions`
+  - versioned `SKILL.md` content and metadata
+- `workspace_skill_installations`
+  - installation record for one workspace, including lock state and current version
+
+The existing tenant-scoped managed-skill tables can either evolve toward this shape or be replaced by it in a later increment. The product model matters more than preserving the first schema exactly.
+
+### Definition source
+
+Canonical definitions should at least distinguish:
+
+- `otto`
+- `workspace`
+- `integration_contribution`
+
+This is descriptive metadata, not the full permission system.
+
+### Installation state
+
+The important per-workspace installation fields are:
+
+- `installed`
+- `locked`
+- `definitionSource`
+- `definitionVersion`
+
+That is enough for the first product slice.
+
+Examples:
+
+- permanent Otto skill
+  - definitionSource: `otto`
+  - installed: `true`
+  - locked: `true`
+- optional Otto catalog skill after install
+  - definitionSource: `otto`
+  - installed: `true`
+  - locked: `false`
+- self-built workspace skill
+  - definitionSource: `workspace`
+  - installed: `true`
+  - locked: `false`
+
+### Canonical source of truth
+
+Otto-owned permanent skills and Otto catalog skills should be canonical control-plane content, not only code-local registry content.
+
+Code may still be used to:
+
+- seed the first Otto-owned definitions
+- provide developer defaults
+- ship migrations or operator-managed updates
+
+But the authoritative current definition should live in the control plane so Otto can:
+
+- update permanent skills after tenants are already deployed
+- audit what changed and when
+- roll out new versions intentionally
+- later support pinning, staged rollout, or rollback if needed
+
+### Permanent installed Otto skills
+
+Permanent Otto skills are Otto-owned definitions installed automatically for every workspace with `locked = true`.
+
+They should:
+
+- be visible in the workspace for transparency
+- remain projected into the runtime
+- be updateable by Otto through canonical control-plane version updates
+- reject edit, disable, rename, and delete through workspace and runtime-managed flows
+
+This is the right model for the current `skill-creator` system skill.
+
+### Optional Otto catalog skills
+
+Optional Otto catalog skills are Otto-owned definitions that exist in the control plane but are not installed in a workspace by default.
+
+When the workspace installs one:
+
+- it becomes a normal installed managed skill
+- it is projected into `workspace/skills/<skill-key>/`
+- OpenClaw can then discover it natively
+- it is not locked unless Otto explicitly marks it so
+
+For the first slice, optional catalog installs should default to `locked = false`.
+
+That keeps behavior simple:
+
+- Otto can recommend or install catalog skills
+- the workspace can customize or remove them later
+- Otto does not silently overwrite workspace changes unless there is an explicit future update flow
+
+## Catalog Discovery And Install Surface
+
+The catalog is still control-plane-owned, but it is not the same thing as the installed runtime-visible skill set.
+
+Recommended workspace and runtime capabilities:
+
+- `list_skill_catalog`
+  - deterministic catalog inventory with `scope=available|installed|all`
+- `find_catalog_skills`
+  - ranked search across title, summary, tags, dependencies, and install state
+- `install_catalog_skill`
+  - install an Otto-owned catalog definition into the workspace
+
+The currently shipped managed-skills plugin should stay focused on installed skill lifecycle.
+
+That means catalog discovery should be a separate surface rather than by expanding `list_managed_skills` into a hybrid installed-plus-catalog API.
+
+The conceptual split should be:
+
+- managed-skills surface = installed skill lifecycle
+- catalog surface = discover and install Otto-owned skills that are not yet installed
+
+## Versioning, Upgrades, And Cleanup
+
+The requested feature has important second and third order consequences.
+
+### Upgrade behavior
+
+- locked permanent Otto skills should update when Otto publishes a new canonical definition version and the workspace reconciles it
+- optional catalog installs should not be silently overwritten in the first slice once they are customized locally
+- the control plane should retain definition version history so the UI can later show:
+  - current installed version
+  - latest Otto version
+  - whether the installation is behind
+
+### Prompt and runtime surface control
+
+- uninstalled catalog entries must not increase prompt size because they are not projected into OpenClaw skill roots
+- installed permanent skills should be curated carefully to avoid turning "preinstalled" into prompt spam
+- `user-invocable: false` or similar frontmatter controls remain the right mechanism for prompt behavior inside installed skills; `locked` should not be overloaded to mean hidden
+
+### Delete semantics
+
+- Otto should be able to remove workspace-created and other unlocked skills it created itself
+- Otto should not need any special backdoor for that; normal delete should remain allowed when `locked = false`
+- locked permanent skills must fail delete with a policy error, not by best-effort recreation after delete
+
+### Code organization consequence
+
+Because current managed-skills logic is already split between legacy `web/` and extracted `apps/api`, the next slice should not add more policy only in one app.
+
+The canonical-definition model, installation-state policy checks, and catalog query logic should move into one shared skills domain before this surface expands further.
 
 ## Workspace APIs
 
@@ -527,22 +727,90 @@ If a skill depends on an integration that is unavailable, the skill should show 
 
 The workspace should have a dedicated `Skills` section separate from the general file browser.
 
-The recommended layout is:
+The UI should be organized around two top-level views:
+
+- `Installed`
+- `Catalog`
+
+This is the cleanest product shape because users need to manage what Otto already has and separately discover what Otto could install.
+
+### Installed view
+
+The installed view should show only skills currently installed for the workspace.
+
+Each row should show:
+
+- display name
+- status
+- source badge such as `Otto` or `Custom`
+- lock badge such as `Locked`
+- dependency health
+
+Recommended actions by state:
+
+- locked Otto skill:
+  - `View`
+- unlocked installed skill:
+  - `Edit`
+  - `Rename` when allowed by source policy
+  - `Disable` when allowed
+  - `Delete` when allowed
+
+Recommended layout:
 
 ```text
 +----------------------------------------------------------------------------------+
-| Skills                                                         [New skill]       |
+| Skills                           [Installed] [Catalog]          [New skill]      |
 +-----------------------------+----------------------------------------------------+
-| skill list                  | skill detail                                       |
+| installed skills            | skill detail                                       |
 |                             |                                                    |
-| linear-triage       Ready   | header: name, status, dependency badges           |
-| support-routing     Missing | description block                                  |
-| release-checklist   Ready   |                                                    |
-| custom-research     Local   | files tree          editor / preview               |
+| skill-creator  Ready Locked | header: name, status, source, lock                |
+| linear-triage  Ready Otto   | description block                                  |
+| custom-research Ready       |                                                    |
+|                             | files tree          editor / preview               |
 |                             |                                                    |
-|                             | inspector: dependsOn, required properties, source  |
+|                             | inspector: dependencies, source, version          |
 +-----------------------------+----------------------------------------------------+
 ```
+
+### Catalog view
+
+The catalog view should show Otto-owned definitions that are available but not necessarily installed.
+
+Each catalog card or row should show:
+
+- display name
+- concise description
+- tags or use-case hints
+- dependency requirements
+- install status:
+  - `Installed`
+  - `Available`
+  - `Blocked`
+- primary action:
+  - `Install`
+  - or `Open installed skill` when already installed
+
+Recommended layout:
+
+```text
++----------------------------------------------------------------------------------+
+| Skills                           [Installed] [Catalog]          [New skill]      |
++----------------------------------------------------------------------------------+
+| Search catalog...                                                               |
++----------------------------------------------------------------------------------+
+| Slack Triage Playbook                  Available                     [Install]    |
+| Helps Otto summarize threads, decide follow-ups, and draft responses.           |
+| Requires: Slack                                                                   |
++----------------------------------------------------------------------------------+
+| Release Checklist                     Installed                     [Open]        |
+| Helps Otto run release prep and post-release verification.                       |
++----------------------------------------------------------------------------------+
+```
+
+The catalog is control-plane inventory, not runtime inventory. Uninstalled entries must not appear in the native OpenClaw skill set.
+
+### Installed skill detail
 
 The preferred detail page is an integrated view rather than a tabs-only layout:
 
@@ -560,8 +828,14 @@ If a simpler v1 is needed, a two-tab detail page is acceptable:
 
 But even then:
 
-- `Overview` should surface description, dependency badges, and required properties
+- `Overview` should surface description, dependency badges, source, lock state, and version information
 - `Files` should show the real skill package tree
+
+For a locked Otto-owned skill:
+
+- `SKILL.md` should be visible but read-only
+- the page should say clearly that Otto manages this skill for the workspace
+- destructive or mutating actions should be hidden, not merely rendered as confusing disabled controls
 
 ## How To Show State Files
 
@@ -1015,6 +1289,72 @@ Acceptance criteria:
 - self-dependencies and cycles are rejected
 - the detail and status UI render both dependency lists so a tree view can be built on top
 
+### Increment 12: Canonical Otto definitions and locked installations
+
+Status:
+
+- planned
+
+Scope:
+
+- introduce canonical Otto-owned skill definitions in the control plane
+- add per-workspace installation state with an explicit `locked` rule
+- migrate the current `skill-creator` seed onto that canonical locked-installation path
+- enforce locked behavior across workspace UI, control-plane APIs, runtime-managed tools, and worker projection
+- stop relying on `sourceType` alone as the mutability boundary
+
+Implementation notes:
+
+- keep the canonical-definition and installation-state logic in one shared skills domain rather than only in legacy `web/`
+- use `locked`, not source type, as the authoritative allow or deny check for edit, disable, rename, and delete
+- convert the current `system` skill model into explicit Otto-owned definitions plus locked workspace installations
+- reuse the existing desired-state projection path; the main change is canonical source and policy, not a second projection mechanism
+
+Acceptance criteria:
+
+- Otto can preinstall Otto-owned skills into every workspace as locked installed skills
+- locked Otto skills remain visible and projected but reject edit, disable, rename, and delete through all normal surfaces
+- runtime-created and workspace-created skills remain removable when `locked = false`
+- current Otto-owned `skill-creator` is migrated onto the new canonical-definition plus locked-installation model
+- `web`, `apps/api`, and `apps/worker` consume the same lock and installation policy logic instead of carrying diverging local rules
+
+### Increment 13: Discoverable Otto skill catalog and install flow
+
+Status:
+
+- planned
+
+Scope:
+
+- expose an Otto-owned skill catalog from the canonical control-plane definitions without projecting uninstalled entries into `workspace/skills`
+- let Otto list and search catalog entries when a relevant skill is missing
+- install optional catalog entries as normal unlocked workspace installations
+- show install status, dependency readiness, and blocking reasons in both workspace and runtime-facing catalog reads
+
+Implementation notes:
+
+- keep catalog APIs separate from installed managed-skill lifecycle APIs
+- keep the first slice simple: installing a catalog skill creates an unlocked workspace installation pointing at an Otto-owned definition version
+- later update or pinning flows can build on the stored definition version data
+
+Acceptance criteria:
+
+- Otto can discover available curated skills that are not yet installed in the workspace
+- catalog results make clear whether an entry is already installed, available, or blocked by missing prerequisites
+- installing a catalog skill creates a normal installed managed skill and runtime projection without exposing uninstalled catalog entries as native OpenClaw skills
+- installed catalog skills can be edited and deleted like other unlocked managed skills
+
+## Open Questions
+
+- Should Otto be allowed to auto-install optional catalog skills without explicit user confirmation, or should discovery stop at recommendation plus install-on-request in the first slice?
+  - recommendation: keep auto-install out of the first slice and require an explicit user ask or an explicit install action
+- Should installed catalog skills follow the latest Otto definition automatically when they remain untouched, or should every install behave like an unlocked independent copy from day one?
+  - recommendation: keep the first slice simple and treat installed catalog skills as unlocked workspace installations pinned to the installed definition version until an explicit update flow exists
+- Should non-user-invocable permanent skills stay visible in the workspace list?
+  - recommendation: yes, in a clearly labeled system section, so the workspace remains auditable
+- Should integration-contributed starter skills install as unlocked by default or gain their own locked rule?
+  - recommendation: default them to unlocked until a provider has a concrete need for a stricter policy
+
 ## Status Checklist
 
 - [x] Increment 1: managed skill package model and validation
@@ -1028,6 +1368,8 @@ Acceptance criteria:
 - [ ] Increment 9: reduced managed lifecycle surface
 - [ ] Increment 10: unmanaged skill-source enforcement and drift handling
 - [ ] Increment 11: managed skill rename without copy-and-recreate
+- [ ] Increment 12: canonical Otto definitions and locked installations
+- [ ] Increment 13: discoverable Otto skill catalog and install flow
 
 ## Recommendation
 
@@ -1041,7 +1383,9 @@ OpenClaw remains the native runtime substrate for both.
 
 Next:
 
-- Increment 9 first. Narrow the plugin and runtime API contract to `list`, `get`, `create`, `update`, and `delete`, with patch-oriented updates for content, metadata, and enabled-state.
-- Then finish Increment 5 by exposing `references/`, `scripts/`, and `state/` through the normal workspace file surface rather than a second managed-skills file API.
-- Then implement Increment 10 so Otto-managed runtimes have an explicit no-unmanaged-skills policy and drift handling model before starter-skill work expands the surface again.
-- Then implement Increment 11 so managed skill keys can be renamed in place without create-and-delete churn, while preserving local runtime-owned skill folders through an explicit worker-side move operation.
+- First extract the canonical-definition and installation-state logic into one shared skills domain so `web`, `apps/api`, and `apps/worker` stop diverging before new policy lands.
+- Then implement Increment 12 so Otto has explicit canonical Otto definitions and locked workspace installations instead of relying on a special-cased `system` source type.
+- Then implement Increment 13 so Otto can discover and install curated catalog skills without polluting OpenClaw's native installed-skill inventory.
+- Then finish Increment 9 to keep the installed managed-skills runtime surface narrow and authoritative.
+- Then finish Increment 5 and Increment 10 so local skill directories and unmanaged on-disk drift are both handled cleanly before the catalog grows further.
+- Then implement Increment 11 after the lock and installation model is stable enough to decide how rename should behave for catalog installs and other non-user origins.
