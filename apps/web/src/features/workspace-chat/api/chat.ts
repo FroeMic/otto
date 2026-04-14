@@ -155,9 +155,16 @@ export async function uploadWorkspaceChatAttachment(input: {
 
 export function getWorkspaceChatAttachmentDownloadUrl(input: {
   attachmentId: string
+  disposition?: "attachment" | "inline"
   orgSlug: string
 }) {
-  return `/api/workspace/${encodeURIComponent(input.orgSlug)}/chat/attachments/${encodeURIComponent(input.attachmentId)}/download`
+  const query = new URLSearchParams()
+  if (input.disposition) {
+    query.set("disposition", input.disposition)
+  }
+  const querySuffix = query.toString().length > 0 ? `?${query.toString()}` : ""
+
+  return `/api/workspace/${encodeURIComponent(input.orgSlug)}/chat/attachments/${encodeURIComponent(input.attachmentId)}/download${querySuffix}`
 }
 
 export async function transcribeWorkspaceChatAttachment(input: {

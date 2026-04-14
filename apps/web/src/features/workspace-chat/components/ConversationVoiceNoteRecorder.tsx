@@ -120,8 +120,10 @@ export function ConversationVoiceNoteRecorder({
         disabled={disabled || isUploading}
         onChange={(event) => {
           const nextDeviceId = event.target.value
+          shouldAttachOnStopRef.current = false
+          recorder.clearDraft()
           recorder.setSelectedDeviceId(nextDeviceId)
-          if (recorder.status === "recording" || recorder.status === "paused") {
+          if (recorder.status !== "recorded") {
             void recorder.startRecording({
               deviceId: nextDeviceId,
             })

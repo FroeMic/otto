@@ -59,7 +59,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   const animationFrameRef = useRef<number | null>(null)
   const startedAtRef = useRef<number>(0)
   const accumulatedDurationMsRef = useRef(0)
-  const elapsedAnimationFrameRef = useRef<number | null>(null)
+  const elapsedIntervalRef = useRef<number | null>(null)
   const statusRef = useRef<VoiceNoteRecorderStatus>("idle")
   const selectedDeviceIdRef = useRef("")
 
@@ -77,7 +77,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     return () => {
       stopMediaStream()
       stopAnalyser()
-      clearElapsedAnimationFrame()
+      clearElapsedInterval()
     }
   }, [])
 
@@ -166,7 +166,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
 
         stopMediaStream()
         stopAnalyser()
-        clearElapsedAnimationFrame()
+        clearElapsedInterval()
         void loadDevices()
 
         setDraft({
@@ -187,7 +187,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     } catch (error) {
       stopMediaStream()
       stopAnalyser()
-      clearElapsedAnimationFrame()
+      clearElapsedInterval()
       setRecorderStatus("idle")
       setErrorMessage(
         error instanceof Error
@@ -205,7 +205,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     mediaRecorderRef.current.pause()
     accumulatedDurationMsRef.current += Date.now() - startedAtRef.current
     setElapsedMs(accumulatedDurationMsRef.current)
-    clearElapsedAnimationFrame()
+    clearElapsedInterval()
     setRecorderStatus("paused")
   }
 
@@ -229,14 +229,14 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       accumulatedDurationMsRef.current += Date.now() - startedAtRef.current
     }
 
-    clearElapsedAnimationFrame()
+    clearElapsedInterval()
     mediaRecorderRef.current.stop()
   }
 
   function clearDraft() {
     stopMediaStream()
     stopAnalyser()
-    clearElapsedAnimationFrame()
+    clearElapsedInterval()
     chunksRef.current = []
     accumulatedDurationMsRef.current = 0
     setDraft(null)
@@ -310,9 +310,11 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   }
 
   function scheduleElapsedTick() {
-    clearElapsedAnimationFrame()
-
-    const tick = () => {
+    clearElapsedInterval()
+    setElapsedMs(
+      accumulatedDurationMsRef.current + (Date.now() - startedAtRef.current),
+    )
+    elapsedIntervalRef.current = window.setInterval(() => {
       if (statusRef.current !== "recording") {
         return
       }
@@ -320,16 +322,13 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       setElapsedMs(
         accumulatedDurationMsRef.current + (Date.now() - startedAtRef.current),
       )
-      elapsedAnimationFrameRef.current = window.requestAnimationFrame(tick)
-    }
-
-    elapsedAnimationFrameRef.current = window.requestAnimationFrame(tick)
+    }, 200)
   }
 
-  function clearElapsedAnimationFrame() {
-    if (elapsedAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(elapsedAnimationFrameRef.current)
-      elapsedAnimationFrameRef.current = null
+  function clearElapsedInterval() {
+    if (elapsedIntervalRef.current !== null) {
+      window.clearInterval(elapsedIntervalRef.current)
+      elapsedIntervalRef.current = null
     }
   }
 

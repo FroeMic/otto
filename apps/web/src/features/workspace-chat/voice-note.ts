@@ -13,7 +13,7 @@ export function normalizeVoiceNoteMimeType(mimeType: string) {
 }
 
 export function formatVoiceNoteDuration(durationMs: number) {
-  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
 

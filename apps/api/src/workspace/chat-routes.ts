@@ -51,6 +51,9 @@ const workspaceConversationParamsSchema = workspaceParamsSchema.extend({
 const workspaceAttachmentParamsSchema = workspaceParamsSchema.extend({
   attachmentId: z.string().min(1),
 })
+const workspaceAttachmentDownloadQuerySchema = z.object({
+  disposition: z.enum(["attachment", "inline"]).optional(),
+})
 
 export type WorkspaceChatRouteDependencies = {
   authenticateWorkspaceUser?: (request: Request) => Promise<WorkspaceChatUser>
@@ -282,6 +285,7 @@ export function createWorkspaceChatRouter(
     .get(
       "/api/workspace/:orgSlug/chat/attachments/:attachmentId/download",
       zValidator("param", workspaceAttachmentParamsSchema),
+      zValidator("query", workspaceAttachmentDownloadQuerySchema),
       async (context) => {
         const authResult = await authenticateUser(context.req.raw)
 
@@ -291,6 +295,7 @@ export function createWorkspaceChatRouter(
 
         try {
           const { attachmentId, orgSlug } = context.req.valid("param")
+          const query = context.req.valid("query")
           const download = await dependencies.getAttachmentDownload({
             attachmentId,
             orgSlug,
@@ -311,7 +316,7 @@ export function createWorkspaceChatRouter(
           return new Response(body, {
             headers: {
               "Cache-Control": "no-store",
-              "Content-Disposition": `attachment; filename=\"${sanitizeDownloadFileName(download.fileName)}\"`,
+              "Content-Disposition": `${query.disposition === "inline" ? "inline" : "attachment"}; filename=\"${sanitizeDownloadFileName(download.fileName)}\"`,
               "Content-Length": String(download.bytes.byteLength),
               "Content-Type": download.mimeType,
             },
