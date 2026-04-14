@@ -38,16 +38,18 @@ describe("gandi integration", () => {
     assert.ok(definition?.runtimeSurface);
     assert.equal(definition.managementMode, "workspace_managed");
     assert.equal(definition.oauth, undefined);
-    assert.equal(definition.runtimeSurface.commandGroups.length, 1);
+    assert.equal(definition.runtimeSurface.commandGroups.length, 3);
     assert.deepEqual(
-      definition.runtimeSurface.commandGroups[0]?.commands?.map(
-        (command) => command.commandKey,
+      definition.runtimeSurface.commandGroups.flatMap(
+        (group) => group.commands?.map((command) => command.commandKey) ?? [],
       ),
       [
         "domain.check_availability",
         "domain.batch_check",
         "domain.get_details",
         "domain.get_registration_metadata",
+        "dns.zone.get",
+        "dns.record.list",
       ],
     );
   });

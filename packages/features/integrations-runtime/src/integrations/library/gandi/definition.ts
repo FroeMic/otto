@@ -1,8 +1,10 @@
 import type { IntegrationDefinition } from "../../framework";
 import {
   checkGandiDomainAvailability,
+  getGandiDnsZone,
   getGandiDomainDetails,
   getGandiDomainRegistrationMetadata,
+  listGandiDnsRecords,
 } from "./client";
 
 const DOMAIN_ARGUMENT_SCHEMA = {
@@ -214,10 +216,112 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
         ],
         label: "Domain",
       },
+      {
+        commands: [
+          {
+            activityPresentation: {
+              kind: "read",
+              title: "Read DNS zone",
+            },
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                domain: DOMAIN_ARGUMENT_SCHEMA,
+              },
+              required: ["domain"],
+            },
+            commandKey: "dns.zone.get",
+            commandPath: ["dns", "zone", "get"],
+            description:
+              "Read LiveDNS zone details for a managed domain, including nameservers and provider zone links.",
+            effect: "read",
+            exampleArguments: {
+              domain: "ledgerpilot.ai",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "dns zone",
+              "zone details",
+              "nameservers",
+              "dns configuration",
+            ],
+            label: "Get DNS zone",
+            resultMode: "json",
+            usageNotes: [
+              "Use this when you need a zone-level view before inspecting or planning DNS record changes.",
+            ],
+            execute: async ({ arguments: args }) =>
+              getGandiDnsZone(args.domain as string),
+          },
+        ],
+        description:
+          "Read zone-level DNS state for managed domains before inspecting or changing specific records.",
+        groupKey: "dns.zone",
+        groupPath: ["dns", "zone"],
+        intentKeywords: [
+          "dns zone",
+          "zone details",
+          "nameservers",
+          "dns configuration",
+        ],
+        label: "DNS zones",
+      },
+      {
+        commands: [
+          {
+            activityPresentation: {
+              kind: "read",
+              title: "List DNS records",
+            },
+            argumentsSchema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                domain: DOMAIN_ARGUMENT_SCHEMA,
+              },
+              required: ["domain"],
+            },
+            commandKey: "dns.record.list",
+            commandPath: ["dns", "record", "list"],
+            description:
+              "List DNS records for a managed domain through Gandi LiveDNS.",
+            effect: "read",
+            exampleArguments: {
+              domain: "ledgerpilot.ai",
+            },
+            inputMode: "json",
+            intentKeywords: [
+              "dns records",
+              "txt records",
+              "mx records",
+              "verification records",
+            ],
+            label: "List DNS records",
+            resultMode: "json",
+            usageNotes: [
+              "Use this to inspect current records for verification, email onboarding, or launch troubleshooting.",
+            ],
+            execute: async ({ arguments: args }) =>
+              listGandiDnsRecords(args.domain as string),
+          },
+        ],
+        description:
+          "Read record-level DNS state for verification, onboarding, and launch workflows.",
+        groupKey: "dns.record",
+        groupPath: ["dns", "record"],
+        intentKeywords: [
+          "dns records",
+          "verification records",
+          "email records",
+          "txt records",
+        ],
+        label: "DNS records",
+      },
     ],
     rootCommands: [],
     toolDescription:
-      "Use Gandi for founder naming and domain research when the workspace has enabled it. Prefer domain.batch_check for company-name shortlist evaluation, then inspect finalists with domain.get_details or domain.get_registration_metadata.",
+      "Use Gandi for founder naming, domain research, and DNS inspection when the workspace has enabled it. Prefer domain.batch_check for company-name shortlist evaluation, then use dns.zone.get or dns.record.list when the task shifts into verification or DNS review.",
     toolName: "gandi",
   },
   settingsPath: (orgSlug) =>

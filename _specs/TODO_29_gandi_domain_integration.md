@@ -438,14 +438,14 @@ This is an enablement flow, not an OAuth consent flow.
 
 ## Status Checklist
 
-- [ ] add Gandi integration definition and catalog metadata
-- [ ] add platform-level Gandi client and env wiring
-- [ ] add workspace enable or disable lifecycle for Gandi
-- [ ] add Phase 1 read commands and runtime discovery metadata
+- [x] add Gandi integration definition and catalog metadata
+- [x] add platform-level Gandi client and env wiring
+- [x] add workspace enable or disable lifecycle for Gandi
+- [x] add Phase 1 read commands and runtime discovery metadata
 - [ ] add Phase 2 DNS plan/apply commands with confirmation guardrails
-- [ ] add workspace UI for Gandi integration status and enablement
+- [x] add workspace UI for Gandi integration status and enablement
 - [ ] add tests across package, API, gateway, and UI layers
-- [ ] document the higher-level skill dependency contract for domain workflows
+- [x] document the higher-level skill dependency contract for domain workflows
 
 ## Open Questions
 
