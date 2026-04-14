@@ -196,6 +196,7 @@ export async function processApplyTenantConfigJob(
       managedSkillFiles: managedSkillFiles.map((file) => ({
         contents: file.contents,
         filename: file.relativePath,
+        projectionMode: file.projectionMode,
       })),
       managedSkillRenameOperations: payload.managedSkillRenameOperations,
       openClawConfig,
@@ -206,6 +207,7 @@ export async function processApplyTenantConfigJob(
       managedSkillFiles: managedSkillFiles.map((file) => ({
         contents: file.contents,
         filename: file.relativePath,
+        projectionMode: file.projectionMode,
       })),
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       openClawConfig,

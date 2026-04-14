@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenClawTenantConfig } from "../openclaw/config";
-import { RuntimeManager } from "./manager";
+import {
+  listInstallOnlyManagedSkillFiles,
+  listManagedEntryRuntimeFiles,
+  RuntimeManager,
+} from "./manager";
 
 function buildConfig(): OpenClawTenantConfig {
   return {
@@ -49,6 +53,63 @@ describe("RuntimeManager.applyTenantConfig", () => {
       pullImage: false,
       strategy: "recreate",
     });
+  });
+});
+
+describe("managed skill runtime file projection", () => {
+  it("splits managed-entry files from install-only companion files", () => {
+    const files = [
+      {
+        contents: "# Brand Name Generator",
+        filename: "skills/name-and-domain-research/SKILL.md",
+        projectionMode: "managed_entry" as const,
+      },
+      {
+        contents: "# Naming strategies",
+        filename:
+          "skills/name-and-domain-research/references/naming-strategies.md",
+        projectionMode: "install_if_missing" as const,
+      },
+    ];
+
+    expect(listManagedEntryRuntimeFiles(files)).toEqual([files[0]]);
+    expect(listInstallOnlyManagedSkillFiles(files)).toEqual([files[1]]);
+  });
+
+  it("only writes install-if-missing managed skill files when they are absent", async () => {
+    const sshClient = {
+      exec: vi
+        .fn()
+        .mockResolvedValueOnce({ exitCode: 1, stderr: "", stdout: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stderr: "", stdout: "" }),
+      writeFileAtomic: vi.fn(async () => undefined),
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.applyInstallOnlyManagedSkillFiles(
+      { host: "tenant.test", port: 22, username: "root" } as never,
+      [
+        {
+          contents: "# Naming strategies",
+          filename:
+            "skills/name-and-domain-research/references/naming-strategies.md",
+          projectionMode: "install_if_missing",
+        },
+        {
+          contents: "# Setup",
+          filename: "skills/name-and-domain-research/references/setup.md",
+          projectionMode: "install_if_missing",
+        },
+      ],
+    );
+
+    expect(sshClient.writeFileAtomic).toHaveBeenCalledTimes(1);
+    expect(sshClient.writeFileAtomic).toHaveBeenCalledWith(
+      expect.anything(),
+      "/opt/openclaw/home/workspace/skills/name-and-domain-research/references/naming-strategies.md",
+      "# Naming strategies",
+      0o640,
+    );
   });
 });
 

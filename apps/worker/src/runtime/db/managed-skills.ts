@@ -28,6 +28,7 @@ type ManagedSkillVersionMap = Record<string, number>;
 
 export type ManagedSkillProjectedFile = {
   contents: string;
+  projectionMode: "install_if_missing" | "managed_entry";
   relativePath: string;
   skillKey: string;
 };
@@ -134,7 +135,7 @@ async function createTenantManagedSkillForTenantTx(
     skillKey: input.skillKey,
   });
   const binaryManagedFiles = validated.files.filter(
-    (file) => file.fileKind === "managed" && file.storageEncoding === "binary",
+    (file) => file.fileKind !== "state" && file.storageEncoding === "binary",
   );
 
   if (binaryManagedFiles.length > 0) {
@@ -206,7 +207,7 @@ async function createTenantManagedSkillForTenantTx(
     });
 
   const managedFiles = validated.files.filter(
-    (file) => file.fileKind === "managed",
+    (file) => file.fileKind !== "state",
   );
 
   const insertedFiles = await tx
@@ -472,6 +473,10 @@ export async function listProjectedManagedSkillFilesTx(
 
       projectedFiles.push({
         contents: file.contentText,
+        projectionMode:
+          file.relativePath === MANAGED_SKILL_ENTRY_FILE_PATH
+            ? "managed_entry"
+            : "install_if_missing",
         relativePath: `skills/${skillKey}/${file.relativePath}`,
         skillKey,
       });

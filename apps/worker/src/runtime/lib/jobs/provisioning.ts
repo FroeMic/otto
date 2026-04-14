@@ -510,6 +510,7 @@ async function bootstrapRuntime(
         managedSkillFiles: managedSkillFiles.map((file) => ({
           contents: file.contents,
           filename: file.relativePath,
+          projectionMode: file.projectionMode,
         })),
         openClawConfig: buildOpenClawTenantConfig({
           configJson: desiredState.configJson,
