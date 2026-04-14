@@ -10,10 +10,12 @@ export {
   workspaceOnboardingTeamSizeSchema,
   workspaceOnboardingWaitlistDecisionSchema,
   type WorkspaceOnboardingAnswers,
+  type WorkspaceOnboardingBusinessType,
   type WorkspaceOnboardingHoldingState,
   type WorkspaceOnboardingRunStatus,
   type WorkspaceOnboardingRunSummary,
   type WorkspaceOnboardingSaveRequest,
+  type WorkspaceOnboardingTeamSize,
   type WorkspaceOnboardingWaitlistDecision,
 } from "./contracts"
 export {

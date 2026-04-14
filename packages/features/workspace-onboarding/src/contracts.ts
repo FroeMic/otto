@@ -105,6 +105,10 @@ export type WorkspaceOnboardingAnswers = z.infer<
   typeof workspaceOnboardingAnswerSchema
 >
 
+export type WorkspaceOnboardingBusinessType = z.infer<
+  typeof workspaceOnboardingBusinessTypeSchema
+>
+
 export type WorkspaceOnboardingHoldingState = z.infer<
   typeof workspaceOnboardingHoldingStateSchema
 >
@@ -123,4 +127,8 @@ export type WorkspaceOnboardingRunSummary = z.infer<
 
 export type WorkspaceOnboardingSaveRequest = z.infer<
   typeof workspaceOnboardingSaveRequestSchema
+>
+
+export type WorkspaceOnboardingTeamSize = z.infer<
+  typeof workspaceOnboardingTeamSizeSchema
 >

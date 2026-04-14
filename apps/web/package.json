@@ -30,6 +30,7 @@
     "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
     "@otto/feature-workspace-members": "workspace:*",
+    "@otto/feature-workspace-onboarding": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-query": "^5.90.5",
