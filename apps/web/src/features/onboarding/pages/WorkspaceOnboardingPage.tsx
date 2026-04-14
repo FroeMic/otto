@@ -2,14 +2,13 @@
 
 import type {
   WorkspaceOnboardingBusinessType,
-  WorkspaceOnboardingRunSummary,
   WorkspaceOnboardingTeamSize,
 } from "@otto/feature-workspace-onboarding"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import { shellBootstrapQueryOptions, ApiResponseError } from "@/features/workspace/api/workspace"
+import { ApiResponseError } from "@/features/workspace/api/workspace"
 
 import {
   saveWorkspaceOnboarding,
@@ -17,7 +16,6 @@ import {
 } from "../api/onboarding"
 import { BusinessTypeStep } from "../components/BusinessTypeStep"
 import { TeamSetupStep } from "../components/TeamSetupStep"
-import { WorkspaceIdentityStep } from "../components/WorkspaceIdentityStep"
 import { getOnboardingRouteAfterSave } from "../workspace-identity"
 
 export interface WorkspaceOnboardingPageProps {
@@ -29,7 +27,6 @@ export function WorkspaceOnboardingPage({
 }: WorkspaceOnboardingPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
   const { data: summary } = useSuspenseQuery(workspaceOnboardingQueryOptions(orgSlug))
 
   const saveMutation = useMutation({
@@ -68,14 +65,10 @@ export function WorkspaceOnboardingPage({
     },
   })
 
-  const defaultWorkspaceName =
-    summary.answers.workspace_name?.trim() ||
-    shellData.currentOrganization.name ||
-    "Workspace"
-  const defaultWorkspaceSlug =
-    summary.answers.workspace_slug?.trim() || shellData.currentOrganization.slug
-
-  if (summary.currentStepKey === "business_type") {
+  if (
+    summary.currentStepKey === "workspace_identity" ||
+    summary.currentStepKey === "business_type"
+  ) {
     return (
       <BusinessTypeStep
         onSelect={async (businessType: WorkspaceOnboardingBusinessType) => {
@@ -92,35 +85,16 @@ export function WorkspaceOnboardingPage({
   if (summary.currentStepKey === "team_setup") {
     return (
       <TeamSetupStep
-        defaultInviteEmails={summary.answers.invite_emails ?? []}
         defaultTeamSize={summary.answers.team_size}
         isPending={saveMutation.isPending}
-        onSubmit={async (input: {
-          inviteEmails: string[]
-          teamSize: WorkspaceOnboardingTeamSize
-        }) => {
+        onSubmit={async (teamSize: WorkspaceOnboardingTeamSize) => {
           await saveMutation.mutateAsync({
             action: "save-team-setup",
-            inviteEmails: input.inviteEmails,
-            teamSize: input.teamSize,
+            teamSize,
           })
         }}
       />
     )
   }
-
-  return (
-    <WorkspaceIdentityStep
-      defaultWorkspaceName={defaultWorkspaceName}
-      defaultWorkspaceSlug={defaultWorkspaceSlug}
-      isPending={saveMutation.isPending}
-      onSubmit={async (input) => {
-        await saveMutation.mutateAsync({
-          action: "save-workspace-identity",
-          workspaceName: input.workspaceName,
-          workspaceSlug: input.workspaceSlug,
-        })
-      }}
-    />
-  )
+  return null
 }

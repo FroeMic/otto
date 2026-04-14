@@ -40,12 +40,12 @@ export function OnboardingStepLayout({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[40vh] bg-[radial-gradient(circle_at_50%_100%,rgba(120,145,255,0.45)_0%,rgba(173,199,255,0.20)_26%,rgba(249,140,182,0.32)_52%,rgba(250,248,243,0)_78%)]" />
       <div className="relative z-10 flex w-full max-w-4xl flex-col items-center gap-8 text-center">
         <OttoMark />
-        <div className="max-w-3xl space-y-3">
-          <h1 className="text-4xl font-semibold tracking-tight text-foreground md:text-6xl">
+        <div className="max-w-4xl space-y-3">
+          <h1 className="text-balance text-4xl font-semibold tracking-tight text-foreground md:text-6xl">
             {title}
           </h1>
           {description ? (
-            <p className="text-base leading-8 text-muted-foreground md:text-lg">
+            <p className="mx-auto max-w-3xl text-balance text-base leading-8 text-muted-foreground md:text-lg">
               {description}
             </p>
           ) : null}
@@ -87,7 +87,7 @@ export function OnboardingOptionButton({
   return (
     <Button
       className={cn(
-        "h-auto min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border border-border/70 bg-background px-6 py-8 text-center text-foreground shadow-none hover:bg-background",
+        "h-auto min-h-40 w-full flex-col items-center justify-start gap-3 whitespace-normal rounded-xl border border-border/70 bg-background px-6 py-8 text-center text-foreground shadow-none hover:bg-background",
         isSelected &&
           "border-foreground/70 bg-foreground/[0.02] ring-2 ring-foreground/10",
       )}
@@ -95,9 +95,11 @@ export function OnboardingOptionButton({
       type="button"
       variant="outline"
     >
-      <span className="text-xl font-semibold tracking-tight">{label}</span>
+      <span className="text-balance text-xl font-semibold tracking-tight">
+        {label}
+      </span>
       {description ? (
-        <span className="max-w-56 text-sm leading-6 text-muted-foreground">
+        <span className="max-w-64 text-balance text-sm leading-6 text-muted-foreground">
           {description}
         </span>
       ) : null}

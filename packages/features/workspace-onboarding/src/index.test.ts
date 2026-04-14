@@ -15,8 +15,6 @@ describe("workspace onboarding status helpers", () => {
       answers: {
         business_type: "saas",
         team_size: "2_5",
-        workspace_name: "Acme",
-        workspace_slug: "acme",
       },
       currentStepKey: "team_setup",
       initialTenantId: null,
@@ -32,7 +30,6 @@ describe("workspace onboarding status helpers", () => {
     const ready = isWorkspaceOnboardingReadyForProvisioning({
       answers: {
         business_type: "saas",
-        workspace_name: "Acme",
       },
       currentStepKey: "business_type",
       initialTenantId: null,
@@ -49,8 +46,6 @@ describe("workspace onboarding status helpers", () => {
       answers: {
         business_type: "saas",
         team_size: "solo",
-        workspace_name: "Acme",
-        workspace_slug: "acme",
       },
       currentStepKey: "team_setup",
       initialTenantId: null,
@@ -104,8 +99,6 @@ describe("workspace onboarding status helpers", () => {
 
   it("exports the required onboarding answer keys", () => {
     assert.deepEqual(workspaceOnboardingAnswerKeys.requiredForProvisioning, [
-      "workspace_name",
-      "workspace_slug",
       "business_type",
       "team_size",
     ])

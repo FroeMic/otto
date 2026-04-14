@@ -18,12 +18,12 @@ export function WorkspaceWaitlistPage({
 
   return (
     <OnboardingStepLayout
-      currentStep={3}
+      currentStep={2}
       description="We saved your business brief and setup details. Otto is not provisioning this workspace yet."
       title="You are on the waitlist"
-      totalSteps={3}
+      totalSteps={2}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 rounded-[1.6rem] border border-border/70 bg-background px-6 py-7 text-left shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 rounded-xl border border-border/70 bg-background px-6 py-7 text-left shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
         <div className="space-y-3">
           <p className="text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
             Saved context

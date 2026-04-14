@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import { serveStatic } from "@hono/node-server/serve-static"
@@ -27,6 +27,7 @@ type PageDocumentProps = {
 }
 
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
+const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
@@ -228,13 +229,27 @@ function LandingAuthModal({
 
 export function createApp(env: FrontendEnv = getEnv()) {
   const app = new Hono()
+  const publicRoot = existsSync(STATIC_ROOT) ? STATIC_ROOT : SOURCE_PUBLIC_ROOT
 
   app.use("*", logger())
   app.use("*", secureHeaders())
 
   if (existsSync(STATIC_ROOT)) {
     app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
-    app.use("/integrations/*", serveStatic({ root: `${STATIC_ROOT}/assets` }))
+  }
+
+  if (existsSync(publicRoot)) {
+    app.use("/integrations/*", serveStatic({ root: publicRoot }))
+  }
+
+  if (existsSync(`${publicRoot}/otto-avatar.svg`)) {
+    app.get("/otto-avatar.svg", () => {
+      return new Response(readFileSync(`${publicRoot}/otto-avatar.svg`), {
+        headers: {
+          "Content-Type": "image/svg+xml; charset=utf-8",
+        },
+      })
+    })
   }
 
   app.get("/healthz", (c) =>

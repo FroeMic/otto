@@ -116,10 +116,17 @@ function deriveWorkspaceNameFromUser(user: PostAuthUser) {
     return "Workspace"
   }
 
-  return cleaned
+  const [firstPart] = cleaned
     .split(" ")
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ")
+
+  return firstPart?.trim()
+    ? `${firstPart}'s Workspace`
+    : "Workspace"
+}
+
+function generateWorkspaceSlugSeed() {
+  return `w-${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`
 }
 
 export async function getPostAuthRedirectPathForWorkspaceOnboarding(
@@ -235,7 +242,7 @@ export async function createWorkspaceForUser(input: {
   })
   const organizationSlug = await generateUniqueWorkspaceSlug({
     slugSuffixHint: createdOrganization.id,
-    workspaceName: input.workspaceName,
+    workspaceName: generateWorkspaceSlugSeed(),
   })
   const db = getDb()
 
@@ -289,7 +296,7 @@ export async function createWorkspaceOnboardingRun(input: {
     .insert(workspaceOnboardingRuns)
     .values({
       answersJson: {},
-      currentStepKey: "workspace_identity",
+      currentStepKey: "business_type",
       flowKey: "workspace_onboarding",
       flowVersion: 1,
       organizationId: input.organizationId,
@@ -546,7 +553,6 @@ export async function saveWorkspaceOnboardingRun(input: {
     case "save-team-setup": {
       nextAnswers = {
         ...answers,
-        invite_emails: request.inviteEmails,
         team_size: request.teamSize,
       }
       nextCurrentStepKey = null
