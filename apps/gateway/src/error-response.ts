@@ -1,4 +1,7 @@
-import { LinearGraphqlError } from "@otto/feature-integrations-runtime/linear-client"
+import {
+  GandiApiError,
+  LinearGraphqlError,
+} from "@otto/feature-integrations-runtime"
 
 export function buildExecutionErrorResponse(input: {
   commandKey?: string
@@ -56,6 +59,22 @@ export function buildExecutionErrorResponse(input: {
     return {
       error: message,
       hint: "Otto may need to be added to that Linear team before retrying this team command.",
+    }
+  }
+
+  if (input.error instanceof GandiApiError) {
+    if (input.error.rateLimited) {
+      return {
+        error: message,
+        hint: "Gandi rate-limited this request. Retry shortly and prefer batch domain checks over repeated one-off calls.",
+      }
+    }
+
+    if (input.error.transient) {
+      return {
+        error: message,
+        hint: "Gandi returned a temporary provider error. Retry this command.",
+      }
     }
   }
 

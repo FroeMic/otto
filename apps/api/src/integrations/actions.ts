@@ -126,7 +126,7 @@ export async function disconnectWorkspaceIntegration(input: {
   const { tenantId } = await getAuthorizedTenantContext(input)
   const providerKey = input.providerKey.trim().toLowerCase()
 
-  if (providerKey !== "linear" && providerKey !== "slack") {
+  if (providerKey !== "gandi" && providerKey !== "linear" && providerKey !== "slack") {
     throw new Error(`Disconnect is not supported for ${providerKey} yet.`)
   }
 
@@ -152,55 +152,63 @@ export async function disconnectWorkspaceIntegration(input: {
 
     if (!integration?.connectedAt || integration.disconnectedAt) {
       throw new Error(
-        `${providerKey === "slack" ? "Slack" : "Linear"} is not connected in this workspace.`,
+        `${
+          providerKey === "slack"
+            ? "Slack"
+            : providerKey === "linear"
+              ? "Linear"
+              : "Gandi"
+        } is not connected in this workspace.`,
       )
     }
 
-    const [oauthConnection] = await tx
-      .select({
-        id: integrationOauthConnections.id,
-        status: integrationOauthConnections.status,
-      })
-      .from(integrationOauthConnections)
-      .where(
-        and(
-          eq(integrationOauthConnections.tenantIntegrationId, integration.id),
-          eq(integrationOauthConnections.providerKey, providerKey),
-        ),
-      )
-      .limit(1)
-
-    if (oauthConnection) {
-      await tx
-        .delete(integrationOauthCredentials)
-        .where(eq(integrationOauthCredentials.connectionId, oauthConnection.id))
-
-      await tx
-        .update(integrationOauthConnections)
-        .set({
-          credentialsExpiresAt: null,
-          lastError: null,
-          lastErrorAt: null,
-          lastRefreshFailedAt: null,
-          refreshAttemptCount: 0,
-          refreshRetryAfter: null,
-          refreshTokenExpiresAt: null,
-          status: "disconnected",
-          updatedAt: now,
+    if (providerKey === "linear" || providerKey === "slack") {
+      const [oauthConnection] = await tx
+        .select({
+          id: integrationOauthConnections.id,
+          status: integrationOauthConnections.status,
         })
-        .where(eq(integrationOauthConnections.id, oauthConnection.id))
+        .from(integrationOauthConnections)
+        .where(
+          and(
+            eq(integrationOauthConnections.tenantIntegrationId, integration.id),
+            eq(integrationOauthConnections.providerKey, providerKey),
+          ),
+        )
+        .limit(1)
 
-      await appendIntegrationOauthEventTx(tx, {
-        connectionId: oauthConnection.id,
-        details: {
-          disconnectedBy: input.userExternalId,
-        },
-        eventType: "disconnect",
-        providerKey,
-        statusAfter: "disconnected",
-        statusBefore: oauthConnection.status,
-        tenantIntegrationId: integration.id,
-      })
+      if (oauthConnection) {
+        await tx
+          .delete(integrationOauthCredentials)
+          .where(eq(integrationOauthCredentials.connectionId, oauthConnection.id))
+
+        await tx
+          .update(integrationOauthConnections)
+          .set({
+            credentialsExpiresAt: null,
+            lastError: null,
+            lastErrorAt: null,
+            lastRefreshFailedAt: null,
+            refreshAttemptCount: 0,
+            refreshRetryAfter: null,
+            refreshTokenExpiresAt: null,
+            status: "disconnected",
+            updatedAt: now,
+          })
+          .where(eq(integrationOauthConnections.id, oauthConnection.id))
+
+        await appendIntegrationOauthEventTx(tx, {
+          connectionId: oauthConnection.id,
+          details: {
+            disconnectedBy: input.userExternalId,
+          },
+          eventType: "disconnect",
+          providerKey,
+          statusAfter: "disconnected",
+          statusBefore: oauthConnection.status,
+          tenantIntegrationId: integration.id,
+        })
+      }
     }
 
     await tx
@@ -239,7 +247,7 @@ export async function disconnectWorkspaceIntegration(input: {
 
   const tenantRuntime = await getTenantRuntimeState(tenantId)
 
-  if (tenantRuntime.isRuntimeReady) {
+  if (tenantRuntime.isRuntimeReady && providerKey !== "gandi") {
     await enqueueTenantConfigApply({
       desiredStateVersion,
       tenantId,
@@ -247,8 +255,56 @@ export async function disconnectWorkspaceIntegration(input: {
   }
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued: tenantRuntime.isRuntimeReady && providerKey !== "gandi",
     status: "disconnected",
+  }
+}
+
+export async function enableWorkspaceIntegration(input: {
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
+}) {
+  const { tenantId } = await getAuthorizedTenantContext(input)
+  const providerKey = input.providerKey.trim().toLowerCase()
+
+  if (providerKey !== "gandi") {
+    throw new Error(`Enable is not supported for ${providerKey} yet.`)
+  }
+
+  const db = getDb()
+  const now = new Date()
+
+  await db
+    .insert(tenantIntegrations)
+    .values({
+      connectedAt: now,
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      providerKey,
+      status: "connected",
+      tenantId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        connectedAt: now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: now,
+      },
+      target: [
+        tenantIntegrations.tenantId,
+        tenantIntegrations.providerKey,
+      ],
+    })
+
+  return {
+    applyQueued: false,
+    status: "connected",
   }
 }
 

@@ -19,6 +19,10 @@ const user = {
 function createDependencies(): IntegrationsRouteDependencies {
   return {
     authenticateWorkspaceUser: async () => user,
+    enableWorkspaceIntegration: async () => ({
+      applyQueued: false,
+      status: "connected",
+    }),
     disconnectWorkspaceIntegration: async () => ({
       applyQueued: true,
       status: "disconnected",
@@ -142,6 +146,83 @@ function createIntegrationsTestApp(
 }
 
 describe("integrations routes", () => {
+  it("accepts gandi as a workspace-managed integration in the route payloads", async () => {
+    const app = createIntegrationsTestApp({
+      ...createDependencies(),
+      getWorkspaceIntegrationDetail: async ({ integrationKey, orgSlug }) => ({
+        availableSections: ["status", "capabilities"],
+        capabilities: [],
+        connection: {
+          availableActions: ["enable"],
+          connectUrl: null,
+          integrationKey: "gandi",
+          label: "Gandi",
+          message: "Enable Gandi to use domain research in this workspace.",
+          recommendedAction: "enable",
+          requiresUserAction: true,
+          selectedAction: "enable",
+          status: {
+            connected: false,
+            connectionStatus: null,
+            enabled: false,
+            integrationStatus: null,
+            needsAttention: false,
+          },
+          workspaceUrl: `/${orgSlug}/settings/agent/integrations/${integrationKey}/status`,
+        },
+        integration: {
+          categoryLabel: "Domains",
+          description: "Startup name and domain research.",
+          iconSrc: "/integrations/gandi.svg",
+          key: "gandi",
+          label: "Gandi",
+          managementMode: "workspace_managed",
+          pageDescription: "Enable Gandi for startup naming and domain research.",
+        },
+        settings: null,
+        summary: null,
+      }),
+      listWorkspaceIntegrations: async ({ orgSlug }) => [
+        {
+          categoryLabel: "Domains",
+          connected: false,
+          description: "Evaluate startup names and domain options.",
+          iconSrc: "/integrations/gandi.svg",
+          key: "gandi",
+          label: "Gandi",
+          managementMode: "workspace_managed",
+          needsAttention: false,
+          settingsPath: `/${orgSlug}/settings/agent/integrations/gandi/status`,
+        },
+      ],
+    })
+
+    const listResponse = await app.request(
+      "http://api.local/api/workspace/otto/integrations",
+    )
+    const detailResponse = await app.request(
+      "http://api.local/api/workspace/otto/integrations/gandi",
+    )
+
+    assert.equal(listResponse.status, 200)
+    assert.equal(detailResponse.status, 200)
+    assert.deepEqual(await listResponse.json(), {
+      integrations: [
+        {
+          categoryLabel: "Domains",
+          connected: false,
+          description: "Evaluate startup names and domain options.",
+          iconSrc: "/integrations/gandi.svg",
+          key: "gandi",
+          label: "Gandi",
+          managementMode: "workspace_managed",
+          needsAttention: false,
+          settingsPath: "/otto/settings/agent/integrations/gandi/status",
+        },
+      ],
+    })
+  })
+
   it("returns the integrations catalog payload", async () => {
     const app = createIntegrationsTestApp()
     const response = await app.request(
@@ -164,6 +245,38 @@ describe("integrations routes", () => {
           settingsPath: "/otto/settings/agent/integrations/slack/status",
         },
       ],
+    })
+  })
+
+  it("enables a workspace-managed integration", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/gandi/enable",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: false,
+      status: "connected",
+    })
+  })
+
+  it("disconnects gandi as a workspace-managed integration", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/gandi/disconnect",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      status: "disconnected",
     })
   })
 

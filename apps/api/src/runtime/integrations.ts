@@ -37,6 +37,7 @@ import {
   getSlackRuntimeIntegrationSettingsForTenant,
   validateSlackRuntimeIntegrationSettingsForTenant,
 } from "./slack-settings"
+import { buildRuntimeIntegrationConnectionAction } from "./integration-connection"
 
 type RuntimeStatusRow = {
   connectedAt: Date | null
@@ -403,63 +404,27 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
       : null
 
   let connectUrl: string | null = null
-  let recommendedAction = "none"
-  let message = `${integration.label} is available.`
 
   switch (integration.key) {
-    case "brave":
-      recommendedAction = "open_workspace"
-      message =
-        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults."
-      break
     case "linear":
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
         : null
-      recommendedAction = integration.status.connected
-        ? "open_workspace"
-        : "connect"
-      message = integration.status.connected
-        ? "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it."
-        : "Linear is not connected yet. Ask the user to connect it in the workspace."
       break
     case "slack":
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
         : null
-      recommendedAction = integration.status.connected
-        ? "open_workspace"
-        : "connect"
-      message = integration.status.connected
-        ? "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it."
-        : "Slack is not connected yet. Ask the user to connect it in the workspace."
       break
   }
 
-  const availableActions = [
-    workspaceUrl ? "open_workspace" : null,
-    connectUrl ? "connect" : null,
-    connectUrl ? "reconnect" : null,
-  ].filter((entry): entry is string => Boolean(entry))
   const requestedAction = (input.action ?? "").trim().toLowerCase()
-  const selectedAction =
-    requestedAction && availableActions.includes(requestedAction)
-      ? requestedAction
-      : recommendedAction
-
-  return {
-    availableActions,
+  return buildRuntimeIntegrationConnectionAction({
     connectUrl,
-    integrationKey: integration.key,
-    label: integration.label,
-    message,
-    recommendedAction,
-    requiresUserAction:
-      selectedAction === "connect" || selectedAction === "reconnect",
-    selectedAction,
-    status: integration.status,
+    integration,
+    requestedAction,
     workspaceUrl,
-  }
+  })
 }
 
 export async function getRuntimeIntegrationSettingsForTenant(input: {

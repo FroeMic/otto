@@ -83,6 +83,22 @@
   - first-time users should get a workspace automatically during post-auth bootstrap
   - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
   - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
+- The next domain-operations integration slice is now explicitly tracked in `_specs/TODO_29_gandi_domain_integration.md`:
+  - `Gandi` should land as a `workspace_managed` integration in lifecycle, with Otto-owned platform credentials used inside the Gandi-specific implementation
+  - the current status resolver treats `platform_managed` integrations as implicitly installed when no workspace row exists, which matches `Brave` but not Gandi
+  - the recommended first pass is therefore:
+    - keep framework lifecycle semantics simple
+    - use `tenant_integrations` for workspace enablement
+    - keep credential loading inside provider-specific Gandi code instead of adding a new framework-wide credential-origin model
+  - the first delivery phases are:
+    - Phase 1 read and discovery commands for domain availability, managed domain details, and DNS reads
+    - Phase 2 safe DNS write commands using an explicit plan and confirm flow
+    - Phase 3 higher-level domain and naming workflow dependencies
+- The first startup-naming workflow slice is now explicitly tracked in `_specs/TODO_30_name_and_domain_research_workflow.md`:
+  - the first user-facing outcome should be startup-name evaluation, not generic DNS administration
+  - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names
+  - the first workflow should remain read-only and focus on shortlist evaluation, variant rescue, and launch-ready recommendations
+  - the planned managed skill depends on `gandi` but keeps provider access separate from naming heuristics and recommendation logic
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

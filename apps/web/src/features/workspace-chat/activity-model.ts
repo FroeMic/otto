@@ -123,9 +123,7 @@ export function buildWorkspaceChatActivityModel(
         status: messageEvent.status,
         summary: messageEvent.summary,
         title:
-          presentation?.title ??
-          messageEvent.title ??
-          getFallbackTitle(kind),
+          presentation?.title ?? messageEvent.title ?? getFallbackTitle(kind),
         visibility: getActivityEntryVisibility(messageEvent, kind),
       })
       continue
@@ -145,8 +143,10 @@ export function buildWorkspaceChatActivityModel(
     }
   }
 
-  const entries = [...entriesById.values()].sort(
-    (left, right) => left.firstSequence - right.firstSequence,
+  const entries = collapseAdjacentActivityEntries(
+    [...entriesById.values()].sort(
+      (left, right) => left.firstSequence - right.firstSequence,
+    ),
   )
   const sections = SECTION_ORDER.flatMap((sectionKind) => {
     const sectionEntries = entries.filter(
@@ -172,9 +172,8 @@ export function buildWorkspaceChatActivityModel(
   const visibleEntries = entries.filter((entry) => entry.visibility !== "debug")
 
   return {
-    activeCount: visibleEntries.filter((entry) =>
-      isActiveStatus(entry.status),
-    ).length,
+    activeCount: visibleEntries.filter((entry) => isActiveStatus(entry.status))
+      .length,
     eventCount: sortedEvents.length,
     sections,
     status:
@@ -265,6 +264,111 @@ function getActivityPresentation(
   }
 
   return deriveInternalPresentation(messageEvent.title)
+}
+
+function collapseAdjacentActivityEntries(
+  entries: WorkspaceChatActivityEntry[],
+) {
+  const collapsedEntries: WorkspaceChatActivityEntry[] = []
+
+  for (const entry of entries) {
+    const aggregationKey = getActivityAggregationKey(entry)
+
+    if (!aggregationKey) {
+      collapsedEntries.push(entry)
+      continue
+    }
+
+    const previousEntry = getPreviousAggregateableEntry({
+      aggregationKey,
+      entries: collapsedEntries,
+    })
+
+    if (!previousEntry) {
+      collapsedEntries.push(entry)
+      continue
+    }
+
+    previousEntry.events.push(...entry.events)
+    previousEntry.itemId = previousEntry.itemId ?? entry.itemId
+    previousEntry.lastSequence = Math.max(
+      previousEntry.lastSequence,
+      entry.lastSequence,
+    )
+    previousEntry.status = getAggregateStatus(
+      previousEntry.events.map((event) => event.status),
+    )
+    previousEntry.summary = entry.summary ?? previousEntry.summary
+
+    const aggregatedPresentation = getAggregatedPresentation(
+      aggregationKey,
+      previousEntry.status,
+    )
+
+    previousEntry.presentation = aggregatedPresentation
+    previousEntry.title = aggregatedPresentation.title
+  }
+
+  return collapsedEntries
+}
+
+function getPreviousAggregateableEntry(input: {
+  aggregationKey: ActivityAggregationKey
+  entries: WorkspaceChatActivityEntry[]
+}) {
+  for (let index = input.entries.length - 1; index >= 0; index -= 1) {
+    const entry = input.entries[index]
+
+    if (entry.visibility === "debug") {
+      continue
+    }
+
+    return getActivityAggregationKey(entry) === input.aggregationKey
+      ? entry
+      : undefined
+  }
+
+  return undefined
+}
+
+type ActivityAggregationKey = "memory_files"
+
+function getActivityAggregationKey(entry: WorkspaceChatActivityEntry) {
+  if (entry.kind !== "item" || entry.visibility !== "primary") {
+    return undefined
+  }
+
+  if (
+    entry.presentation?.kind === "memory" &&
+    entry.presentation.iconKey === "memory" &&
+    (entry.presentation.source?.kind === "memory_file" ||
+      entry.presentation.title === "Checking memory files" ||
+      entry.presentation.title === "Checked memory files")
+  ) {
+    return "memory_files" satisfies ActivityAggregationKey
+  }
+
+  return undefined
+}
+
+function getAggregatedPresentation(
+  aggregationKey: ActivityAggregationKey,
+  status: WorkspaceChatMessageEvent["status"],
+): WorkspaceChatActivityPresentation {
+  if (aggregationKey === "memory_files") {
+    return {
+      iconKey: "memory",
+      kind: "memory",
+      title: isActiveStatus(status)
+        ? "Checking memory files"
+        : "Checked memory files",
+    }
+  }
+
+  return {
+    kind: "read",
+    title: "Working",
+  }
 }
 
 function getExplicitActivityPresentation(
@@ -413,9 +517,7 @@ function deriveInternalPresentation(
 
   if (skillDocumentMatch?.groups?.path && skillDocumentMatch.groups.skillKey) {
     const documentKind =
-      skillDocumentMatch.groups.documentKind === "DETAILS"
-        ? "details"
-        : "skill"
+      skillDocumentMatch.groups.documentKind === "DETAILS" ? "details" : "skill"
 
     return {
       iconKey: "skill",
@@ -544,9 +646,7 @@ function getFallbackTitle(kind: WorkspaceChatActivityEntryKind) {
   return "Working"
 }
 
-function getRecordValue(
-  value: unknown,
-): Record<string, unknown> | undefined {
+function getRecordValue(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined
   }

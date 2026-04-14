@@ -42,7 +42,7 @@ export interface WorkspaceIntegrationCatalogEntry {
   connected: boolean
   description: string
   iconSrc: string | null
-  key: "brave" | "linear" | "slack"
+  key: "brave" | "gandi" | "linear" | "slack"
   label: string
   managementMode: "platform_managed" | "workspace_managed"
   needsAttention: boolean
@@ -54,7 +54,7 @@ export interface WorkspaceManagedIntegrationSummary {
   disconnectedAt: string | null
   lastError: string | null
   lastErrorAt: string | null
-  providerKey: "brave" | "linear" | "slack"
+  providerKey: "brave" | "gandi" | "linear" | "slack"
   status: string | null
 }
 
@@ -117,7 +117,11 @@ async function getManagedIntegrationSummary(input: {
     disconnectedAt: integration.disconnectedAt?.toISOString() ?? null,
     lastError: integration.lastError,
     lastErrorAt: integration.lastErrorAt?.toISOString() ?? null,
-    providerKey: integration.providerKey as "brave" | "linear" | "slack",
+    providerKey: integration.providerKey as
+      | "brave"
+      | "gandi"
+      | "linear"
+      | "slack",
     status: integration.status,
   }
 }
@@ -280,6 +284,7 @@ export async function listWorkspaceIntegrations(input: {
 
       if (
         definition.key !== "brave" &&
+        definition.key !== "gandi" &&
         definition.key !== "linear" &&
         definition.key !== "slack"
       ) {
@@ -315,7 +320,7 @@ export async function getWorkspaceIntegrationDetail(input: {
 
   if (
     !definition ||
-    !["brave", "linear", "slack"].includes(definition.key)
+    !["brave", "gandi", "linear", "slack"].includes(definition.key)
   ) {
     return null
   }
@@ -377,7 +382,11 @@ export async function getWorkspaceIntegrationDetail(input: {
       : {
           availableActions: [],
           connectUrl: null,
-          integrationKey: definition.key as "brave" | "linear" | "slack",
+          integrationKey: definition.key as
+            | "brave"
+            | "gandi"
+            | "linear"
+            | "slack",
           label: definition.label,
           message: `${definition.label} is available.`,
           recommendedAction: "none",
@@ -393,7 +402,7 @@ export async function getWorkspaceIntegrationDetail(input: {
       categoryLabel: definition.categoryLabel,
       description: definition.description,
       iconSrc: definition.iconSrc,
-      key: definition.key as "brave" | "linear" | "slack",
+      key: definition.key as "brave" | "gandi" | "linear" | "slack",
       label: definition.label,
       managementMode: getIntegrationManagementMode(definition),
       pageDescription: definition.pageDescription,
