@@ -13,6 +13,7 @@ import {
   MANAGED_SKILL_ENTRY_FILE_PATH,
   type ManagedSkillFileEditability,
   type ManagedSkillPackageFileInput,
+  type ManagedSkillPackageValidationResult,
   type ManagedSkillSourceType,
   type ManagedSkillStatus,
   normalizeManagedSkillKey,
@@ -1224,6 +1225,14 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
   },
 ) {
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    const validatedDefinition = validateManagedSkillPackage({
+      files: definition.files,
+      knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+      knownSkillKeys: await listTenantManagedSkillKeysForTenantTx(tx, {
+        tenantId: input.tenantId,
+      }),
+      skillKey: definition.skillKey,
+    });
     const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
       skillKey: definition.skillKey,
       tenantId: input.tenantId,
@@ -1232,12 +1241,7 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
     if (!detail) {
       await createTenantManagedSkillForTenantTx(tx, {
         createdByType: "system",
-        files: [
-          {
-            contentText: definition.contentText,
-            path: MANAGED_SKILL_ENTRY_FILE_PATH,
-          },
-        ],
+        files: definition.files,
         skillKey: definition.skillKey,
         sourceType: "system",
         status: "ready",
@@ -1251,24 +1255,180 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
       continue;
     }
 
-    const currentSkillFile = detail.files.find(
-      (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
-    );
-
-    if (currentSkillFile?.contentText === definition.contentText) {
+    if (doesSystemManagedSkillMatchDefinition(detail, validatedDefinition.files)) {
       continue;
     }
 
-    await updateTenantManagedSkillTextFileForTenantTx(tx, {
-      contentText: definition.contentText,
-      createdByType: "system",
-      expectedVersion: detail.version,
-      relativePath: MANAGED_SKILL_ENTRY_FILE_PATH,
-      skillKey: definition.skillKey,
+    await replaceTenantManagedSkillPackageForTenantTx(tx, {
+      detail,
+      files: validatedDefinition.files,
       summary: definition.summary,
       tenantId: input.tenantId,
     });
   }
+}
+
+function doesSystemManagedSkillMatchDefinition(
+  detail: TenantManagedSkillDetail,
+  files: ManagedSkillPackageValidationResult["files"],
+) {
+  const managedFiles = files.filter((file) => file.fileKind !== "state");
+  const currentFilesByPath = new Map(
+    detail.files.map((file) => [file.path, file]),
+  );
+
+  if (currentFilesByPath.size !== managedFiles.length) {
+    return false;
+  }
+
+  for (const file of managedFiles) {
+    const currentFile = currentFilesByPath.get(file.path);
+
+    if (!currentFile) {
+      return false;
+    }
+
+    if (currentFile.storageEncoding !== file.storageEncoding) {
+      return false;
+    }
+
+    if (currentFile.contentText !== file.contentText) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function replaceTenantManagedSkillPackageForTenantTx(
+  tx: DbExecutor | DbTransaction,
+  input: {
+    detail: TenantManagedSkillDetail;
+    files: ManagedSkillPackageValidationResult["files"];
+    summary: string;
+    tenantId: string;
+  },
+) {
+  const managedFiles = input.files.filter((file) => file.fileKind !== "state");
+  const binaryManagedFiles = managedFiles.filter(
+    (file) => file.storageEncoding === "binary",
+  );
+
+  if (binaryManagedFiles.length > 0) {
+    throw new Error(
+      "Managed skill binary file storage is not implemented yet. Create the skill with text files only in the first slice.",
+    );
+  }
+
+  const existingFiles = await tx
+    .select({
+      fileId: tenantSkillFiles.id,
+      relativePath: tenantSkillFiles.relativePath,
+    })
+    .from(tenantSkillFiles)
+    .where(eq(tenantSkillFiles.tenantSkillId, input.detail.skillId))
+    .orderBy(tenantSkillFiles.relativePath);
+
+  const fileIdByPath = new Map(
+    existingFiles.map((file) => [file.relativePath, file.fileId]),
+  );
+  const missingFiles = managedFiles.filter((file) => !fileIdByPath.has(file.path));
+
+  if (missingFiles.length > 0) {
+    const insertedFiles = await tx
+      .insert(tenantSkillFiles)
+      .values(
+        missingFiles.map((file) => ({
+          contentEncoding: file.storageEncoding,
+          contentSha256: file.contentSha256,
+          contentType:
+            file.contentType ??
+            (file.storageEncoding === "utf8_text"
+              ? "text/plain; charset=utf-8"
+              : "application/octet-stream"),
+          fileKind: file.fileKind,
+          lastSeenAt: null,
+          relativePath: file.path,
+          tenantSkillId: input.detail.skillId,
+        })),
+      )
+      .returning({
+        fileId: tenantSkillFiles.id,
+        relativePath: tenantSkillFiles.relativePath,
+      });
+
+    for (const file of insertedFiles) {
+      fileIdByPath.set(file.relativePath, file.fileId);
+    }
+  }
+
+  const [createdVersion] = await tx
+    .insert(tenantSkillVersions)
+    .values({
+      createdByExternalId: null,
+      createdByType: "system",
+      summary: input.summary,
+      tenantSkillId: input.detail.skillId,
+      version: input.detail.version + 1,
+    })
+    .returning({
+      id: tenantSkillVersions.id,
+      version: tenantSkillVersions.version,
+    });
+
+  const managedTextFiles = managedFiles.filter(
+    (file): file is (typeof managedFiles)[number] & { contentText: string } =>
+      file.storageEncoding === "utf8_text" &&
+      typeof file.contentText === "string",
+  );
+
+  if (managedTextFiles.length > 0) {
+    await tx.insert(tenantSkillFileVersions).values(
+      managedTextFiles.map((file) => ({
+        contentSha256:
+          file.contentSha256 ??
+          (() => {
+            throw new Error(`Missing checksum for managed file ${file.path}`);
+          })(),
+        contentText: file.contentText,
+        createdByExternalId: null,
+        createdByType: "system",
+        tenantSkillFileId:
+          fileIdByPath.get(file.path) ??
+          (() => {
+            throw new Error(`Inserted managed file missing for ${file.path}`);
+          })(),
+        tenantSkillVersionId: createdVersion.id,
+        version: createdVersion.version,
+      })),
+    );
+  }
+
+  const parsedEntry = parseManagedSkillMarkdown(
+    managedFiles.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH)
+      ?.contentText ??
+      (() => {
+        throw new Error(
+          `System managed skill ${input.detail.skillKey} is missing SKILL.md in its canonical package.`,
+        );
+      })(),
+  );
+
+  await tx
+    .update(tenantSkills)
+    .set({
+      dependsOnJson: {
+        integrations: parsedEntry.integrationKeys,
+        skills: parsedEntry.skillKeys,
+      },
+      description: parsedEntry.description,
+      displayName: parsedEntry.name,
+      status: input.detail.enabled ? "ready" : "disabled",
+      updatedAt: new Date(),
+      updatedByExternalId: null,
+      updatedByType: "system",
+    })
+    .where(eq(tenantSkills.id, input.detail.skillId));
 }
 
 function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {

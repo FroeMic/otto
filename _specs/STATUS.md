@@ -109,9 +109,10 @@
   - the bundled `otto-managed-skills` plugin now exposes `reset_managed_skill_package`
   - package-file inspection and workspace UI reset affordances are still follow-on work
 - The next managed-skill execution focus is now `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`:
-  - move Otto-owned seeded skills out of the monolithic `system-skills.ts`
-  - create a per-skill library directory under `apps/worker/src/runtime/lib/managed-skills/library/`
-  - migrate `name-and-domain-research` into a packaged skill with seeded companion docs
+  - Otto-owned seeded skills now live under `apps/worker/src/runtime/lib/managed-skills/library/`
+  - `system-skills.ts` is now a thin registry over per-skill definitions
+  - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs under `references/`
+  - the remaining follow-on for this track is broader workspace/runtime file provenance and reset UI, not the worker-side library structure
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

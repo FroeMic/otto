@@ -392,7 +392,7 @@ Those files should ship as seeded companion files and be resettable from the wor
 - [x] add workspace reset API and queued reset behavior
 - [ ] add runtime plugin inspection/reset tools
 - [ ] add workspace UI for reset and file provenance
-- [ ] migrate `name-and-domain-research` to use seeded companion files
+- [x] migrate `name-and-domain-research` to use seeded companion files
 
 ## Open Questions
 
