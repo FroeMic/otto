@@ -102,6 +102,11 @@
   - the minimum useful capability set is batch-friendly domain availability plus enough registration metadata to rank candidate names
   - the first workflow should remain read-only and focus on shortlist evaluation, variant rescue, and launch-ready recommendations
   - the planned managed skill depends on `gandi` but keeps provider access separate from naming heuristics and recommendation logic
+  - the packaged `name-and-domain-research` system skill now includes seeded companion assets beyond `references/`:
+    - `examples/ramp-shortlist.json`
+    - `templates/recommendation-schema.json`
+    - `scripts/generate-domain-variants.mjs`
+  - the next follow-on work in this track is not more skill packaging; it is workspace/integration copy alignment and richer workflow execution around the existing Gandi command surface
 - The managed skill package reset substrate now exists in the completed spec `_specs/DONE_31_managed_skill_package_files_and_reset_tools.md`:
   - canonical seeded companion files under approved subfolders now project as install-only files
   - normal apply preserves local runtime edits to those companion files
@@ -113,7 +118,7 @@
 - The managed-skill library restructure and naming-skill rollout are now captured in `_specs/DONE_32_skill_library_structure_and_naming_skill_rollout.md`:
   - Otto-owned seeded skills now live under `apps/worker/src/runtime/lib/managed-skills/library/`
   - `system-skills.ts` is now a thin registry over per-skill definitions
-  - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs under `references/`
+  - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs, examples, templates, and starter scripts
   - the remaining managed-skill follow-on work is no longer worker packaging; it is richer provenance/diff UX and any future skill-catalog product work
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
