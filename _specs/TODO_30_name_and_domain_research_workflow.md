@@ -402,11 +402,11 @@ Exit check:
 
 ## Status Checklist
 
-- [ ] define the startup-name evaluation output contract
-- [ ] add batch-friendly Gandi domain-check capability
-- [ ] define domain candidate expansion heuristics
-- [ ] define ranking heuristics for names and domains
-- [ ] draft the managed skill instructions for name and domain research
+- [x] define the startup-name evaluation output contract
+- [x] add batch-friendly Gandi domain-check capability
+- [x] define domain candidate expansion heuristics
+- [x] define ranking heuristics for names and domains
+- [x] draft the managed skill instructions for name and domain research
 - [ ] align workspace integration copy with this workflow
 
 ## Open Questions

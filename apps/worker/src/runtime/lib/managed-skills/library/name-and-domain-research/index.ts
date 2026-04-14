@@ -220,6 +220,199 @@ const SETUP_REFERENCE = `# Setup
 - If Gandi is unavailable, continue with a naming-only pass and state that domain facts are missing.
 `;
 
+const RECOMMENDATION_SCHEMA_TEMPLATE = `{
+  "querySummary": {
+    "businessConcept": "Expense automation for modern finance teams",
+    "candidateCount": 10,
+    "preferredTlds": ["com", "ai", "co"]
+  },
+  "recommendedNames": [
+    {
+      "name": "Ramp",
+      "strategy": "abstract",
+      "overallScore": 92,
+      "verdict": "strong_candidate",
+      "reasons": [
+        "short and memorable",
+        "clear upward-motion association",
+        "credible startup brand voice"
+      ],
+      "brandability": {
+        "memorability": 10,
+        "pronounceability": 10,
+        "spellability": 10,
+        "uniqueness": 7,
+        "meaningfulness": 9
+      },
+      "domainOptions": [
+        {
+          "domain": "ramp.com",
+          "tld": "com",
+          "availability": "unavailable",
+          "status": "unavailable"
+        },
+        {
+          "domain": "useramp.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": ["exact-match .com unavailable"],
+      "bestDomain": "useramp.ai"
+    }
+  ],
+  "rejectedNames": [
+    {
+      "name": "Ramply",
+      "reasons": [
+        "weaker distinctiveness",
+        "suffix feels forced",
+        "domain path is less clean"
+      ]
+    }
+  ]
+}
+`;
+
+const RAMP_SHORTLIST_EXAMPLE = `{
+  "querySummary": {
+    "businessConcept": "Finance operations software",
+    "candidateCount": 4,
+    "preferredTlds": ["com", "ai", "co", "io"]
+  },
+  "recommendedNames": [
+    {
+      "name": "SignalMint",
+      "strategy": "compound",
+      "overallScore": 88,
+      "verdict": "strong_candidate",
+      "reasons": [
+        "distinctive without being obscure",
+        "clear finance and creation signal",
+        "multiple clean domain paths"
+      ],
+      "brandability": {
+        "memorability": 8,
+        "pronounceability": 9,
+        "spellability": 9,
+        "uniqueness": 9,
+        "meaningfulness": 8
+      },
+      "domainOptions": [
+        {
+          "domain": "signalmint.com",
+          "tld": "com",
+          "availability": "available",
+          "status": "available"
+        },
+        {
+          "domain": "signalmint.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": [],
+      "bestDomain": "signalmint.com"
+    },
+    {
+      "name": "Ramp",
+      "strategy": "abstract",
+      "overallScore": 84,
+      "verdict": "strong_but_operationally_constrained",
+      "reasons": [
+        "excellent brand quality",
+        "instant recognition",
+        "best exact domains already taken"
+      ],
+      "brandability": {
+        "memorability": 10,
+        "pronounceability": 10,
+        "spellability": 10,
+        "uniqueness": 7,
+        "meaningfulness": 8
+      },
+      "domainOptions": [
+        {
+          "domain": "ramp.com",
+          "tld": "com",
+          "availability": "unavailable",
+          "status": "unavailable"
+        },
+        {
+          "domain": "useramp.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": ["exact-match domain not realistically obtainable"],
+      "bestDomain": "useramp.ai"
+    }
+  ],
+  "rejectedNames": [
+    {
+      "name": "RampOpsify",
+      "reasons": [
+        "too long",
+        "forced suffix pattern",
+        "harder to say and remember"
+      ]
+    }
+  ]
+}
+`;
+
+const GENERATE_DOMAIN_VARIANTS_SCRIPT = `#!/usr/bin/env node
+const prefixes = ["use", "get", "go", "try", "with", "join", "hey"];
+const suffixes = ["hq", "app", "labs", "os", "now", "run"];
+const defaultTlds = ["com", "co", "io", "ai", "so", "inc", "org"];
+
+function normalizeBaseName(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function expandDomainCandidates(baseName, tlds = defaultTlds) {
+  const normalizedBaseName = normalizeBaseName(baseName);
+
+  if (!normalizedBaseName) {
+    throw new Error("Provide a non-empty base name.");
+  }
+
+  const names = new Set([normalizedBaseName]);
+
+  for (const prefix of prefixes) {
+    names.add(\`\${prefix}\${normalizedBaseName}\`);
+  }
+
+  for (const suffix of suffixes) {
+    names.add(\`\${normalizedBaseName}\${suffix}\`);
+  }
+
+  const domains = [];
+
+  for (const name of names) {
+    for (const tld of tlds) {
+      domains.push(\`\${name}.\${tld}\`);
+    }
+  }
+
+  return domains;
+}
+
+if (import.meta.url === \`file://\${process.argv[1]}\`) {
+  const [, , baseName, ...tlds] = process.argv;
+  const domains = expandDomainCandidates(baseName ?? "", tlds.length > 0 ? tlds : defaultTlds);
+
+  for (const domain of domains) {
+    console.log(domain);
+  }
+}
+
+export { expandDomainCandidates };
+`;
+
 function buildNameAndDomainResearchMarkdown() {
   return buildManagedSkillMarkdown({
     description:
@@ -264,6 +457,9 @@ Generate creative, memorable, and brandable names for companies, products, apps,
 - open \`references/naming-strategies.md\` for strategy guidance
 - open \`references/full-guide.md\` for the complete workflow and output shape
 - open \`references/setup.md\` for dependency expectations
+- open \`templates/recommendation-schema.json\` for the structured output contract
+- open \`examples/ramp-shortlist.json\` for a concrete example response
+- run \`scripts/generate-domain-variants.mjs <base-name>\` for starter variant expansion
 `,
   });
 }
@@ -276,6 +472,10 @@ export const NAME_AND_DOMAIN_RESEARCH_SKILL_DEFINITION: SystemManagedSkillDefini
         path: "SKILL.md",
       },
       {
+        contentText: RAMP_SHORTLIST_EXAMPLE,
+        path: "examples/ramp-shortlist.json",
+      },
+      {
         contentText: NAMING_STRATEGIES_REFERENCE,
         path: "references/naming-strategies.md",
       },
@@ -286,6 +486,14 @@ export const NAME_AND_DOMAIN_RESEARCH_SKILL_DEFINITION: SystemManagedSkillDefini
       {
         contentText: SETUP_REFERENCE,
         path: "references/setup.md",
+      },
+      {
+        contentText: GENERATE_DOMAIN_VARIANTS_SCRIPT,
+        path: "scripts/generate-domain-variants.mjs",
+      },
+      {
+        contentText: RECOMMENDATION_SCHEMA_TEMPLATE,
+        path: "templates/recommendation-schema.json",
       },
     ],
     skillKey: "name-and-domain-research",

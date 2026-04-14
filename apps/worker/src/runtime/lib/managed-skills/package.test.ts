@@ -52,6 +52,14 @@ describe("managed skill package", () => {
           contentText: "# Full guide",
           path: "templates/output-shape.md",
         },
+        {
+          contentText: "{\"recommendedNames\":[]}",
+          path: "examples/example-output.json",
+        },
+        {
+          contentText: "#!/usr/bin/env node\nconsole.log('ok')\n",
+          path: "scripts/generate-domain-variants.mjs",
+        },
       ],
       knownIntegrationKeys: ["brave", "gandi"],
       knownSkillKeys: [],
@@ -68,7 +76,17 @@ describe("managed skill package", () => {
         {
           editability: "download_only",
           fileKind: "managed_seeded",
+          path: "examples/example-output.json",
+        },
+        {
+          editability: "download_only",
+          fileKind: "managed_seeded",
           path: "references/naming-strategies.md",
+        },
+        {
+          editability: "download_only",
+          fileKind: "managed_seeded",
+          path: "scripts/generate-domain-variants.mjs",
         },
         {
           editability: "editable",

@@ -22,9 +22,12 @@ describe("system managed skill definitions", () => {
       namingSkill.files.map((file) => file.path),
       [
         "SKILL.md",
+        "examples/ramp-shortlist.json",
         "references/naming-strategies.md",
         "references/full-guide.md",
         "references/setup.md",
+        "scripts/generate-domain-variants.mjs",
+        "templates/recommendation-schema.json",
       ],
     );
 
@@ -34,6 +37,8 @@ describe("system managed skill definitions", () => {
 
     assert.match(allContent, /\bramp\b/i);
     assert.doesNotMatch(allContent, /\bvertical\b/i);
+    assert.match(allContent, /recommendedNames/);
+    assert.match(allContent, /generate-domain-variants\.mjs/);
   });
 
   it("keeps Otto system skill packages valid against the managed skill contract", () => {
