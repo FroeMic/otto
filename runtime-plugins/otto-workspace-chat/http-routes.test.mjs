@@ -114,12 +114,12 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
     assert.deepEqual(JSON.parse(response.body), {
       accepted: true,
       ok: true,
-      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
     });
     assert.equal(dispatchCalls.length, 1);
     assert.equal(
       dispatchCalls[0].ctxPayload.SessionKey,
-      "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+      "agent:main:otto-workspace-chat:workspace:conv_1",
     );
   } finally {
     releaseDispatch();
@@ -208,7 +208,7 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
     assert.deepEqual(JSON.parse(response.body), {
       accepted: true,
       ok: true,
-      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
     });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -238,7 +238,7 @@ test("handleWorkspaceChatHttpRequest accepts the event and lets the plugin own p
         },
         sequence: 1,
         sessionKey:
-          "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+          "agent:main:otto-workspace-chat:workspace:conv_1",
         status: "failed",
         summary: "dispatch failed after acceptance",
         title: "Failed",
@@ -298,7 +298,7 @@ function createRuntime() {
         resolveAgentRoute: () => ({
           accountId: "default",
           agentId: "main",
-          sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1?assistantMessageId=msg_1",
+          sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
         }),
       },
       session: {
