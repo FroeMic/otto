@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import { dispatchWorkspaceChatInboundTurn } from "./inbound-dispatch.js";
@@ -565,9 +562,7 @@ test("dispatchWorkspaceChatInboundTurn stages uploaded attachments and injects t
   const previousFetch = globalThis.fetch;
   const runtimeState = createRuntime();
   const fetchCalls = [];
-  const stagingRoot = await mkdtemp(
-    path.join(os.tmpdir(), "otto-workspace-chat-"),
-  );
+  const savedAttachments = [];
 
   process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
   process.env.TENANT_TOKEN = "tenant-token";
@@ -623,24 +618,27 @@ test("dispatchWorkspaceChatInboundTurn stages uploaded attachments and injects t
           mimeType: "text/plain",
           sha256: "sha256-1",
         }),
+        saveAttachmentBuffer: async (payload) => {
+          savedAttachments.push(payload);
+          return "/tmp/.openclaw/media/inbound/att_1-notes.txt";
+        },
         runtime: runtimeState.runtime,
-        stagingRoot,
       },
     );
 
     assert.equal(dispatchCalls.length, 1);
-
-    const expectedPath = path.join(
-      stagingRoot,
-      "conv_1",
-      "att_1-notes.txt",
+    assert.equal(savedAttachments.length, 1);
+    assert.equal(savedAttachments[0].mimeType, "text/plain");
+    assert.equal(savedAttachments[0].partType, "file");
+    assert.equal(
+      new TextDecoder().decode(savedAttachments[0].bytes),
+      "hello world",
     );
 
     assert.match(
       dispatchCalls[0].ctxPayload.BodyForAgent,
-      /Attached files:\n- notes\.txt \(text\/plain\) at .*att_1-notes\.txt/u,
+      /Attached files:\n- notes\.txt \(text\/plain\) at .*\/tmp\/\.openclaw\/media\/inbound\/att_1-notes\.txt/u,
     );
-    assert.equal(await readFile(expectedPath, "utf8"), "hello world");
     assert.equal(
       fetchCalls.at(-1).url,
       "https://workspace.example/api/internal/runtime/workspace-chat/messages/complete",
@@ -657,7 +655,6 @@ test("dispatchWorkspaceChatInboundTurn stages uploaded attachments and injects t
     } else {
       process.env.TENANT_TOKEN = previousTenantToken;
     }
-    await rm(stagingRoot, { force: true, recursive: true });
   }
 });
 
@@ -666,9 +663,7 @@ test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for r
   const previousTenantToken = process.env.TENANT_TOKEN;
   const previousFetch = globalThis.fetch;
   const runtimeState = createRuntime();
-  const stagingRoot = await mkdtemp(
-    path.join(os.tmpdir(), "otto-workspace-chat-audio-"),
-  );
+  const savedAttachments = [];
 
   process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
   process.env.TENANT_TOKEN = "tenant-token";
@@ -717,28 +712,33 @@ test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for r
           mimeType: "video/webm",
           sha256: "sha256-audio-1",
         }),
+        saveAttachmentBuffer: async (payload) => {
+          savedAttachments.push(payload);
+          return "/tmp/.openclaw/media/inbound/att_audio_1-voice-note.webm";
+        },
         runtime: runtimeState.runtime,
-        stagingRoot,
       },
     );
 
     assert.equal(dispatchCalls.length, 1);
-
-    const expectedPath = path.join(
-      stagingRoot,
-      "conv_1",
-      "att_audio_1-voice-note.webm",
-    );
+    assert.equal(savedAttachments.length, 1);
+    assert.equal(savedAttachments[0].mimeType, "audio/webm");
+    assert.equal(savedAttachments[0].partType, "audio");
+    assert.deepEqual(savedAttachments[0].bytes, new Uint8Array([1, 2, 3, 4]));
     const ctxPayload = dispatchCalls[0].ctxPayload;
 
     assert.equal(ctxPayload.BodyForAgent, "Please summarize this voice note.");
     assert.equal(ctxPayload.CommandBody, "Please summarize this voice note.");
-    assert.equal(ctxPayload.MediaPath, expectedPath);
-    assert.deepEqual(ctxPayload.MediaPaths, [expectedPath]);
+    assert.equal(
+      ctxPayload.MediaPath,
+      "/tmp/.openclaw/media/inbound/att_audio_1-voice-note.webm",
+    );
+    assert.deepEqual(ctxPayload.MediaPaths, [
+      "/tmp/.openclaw/media/inbound/att_audio_1-voice-note.webm",
+    ]);
     assert.equal(ctxPayload.MediaType, "audio/webm");
     assert.deepEqual(ctxPayload.MediaTypes, ["audio/webm"]);
     assert.equal(ctxPayload.Transcript, undefined);
-    assert.deepEqual(await readFile(expectedPath), Buffer.from([1, 2, 3, 4]));
   } finally {
     globalThis.fetch = previousFetch;
     if (previousBaseUrl === undefined) {
@@ -751,6 +751,5 @@ test("dispatchWorkspaceChatInboundTurn stages voice notes as media context for r
     } else {
       process.env.TENANT_TOKEN = previousTenantToken;
     }
-    await rm(stagingRoot, { force: true, recursive: true });
   }
 });
