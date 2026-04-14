@@ -56,7 +56,7 @@ describe("workspace onboarding post-auth bootstrap", () => {
         createWorkspaceForUser: async ({ user, workspaceName }) => {
           createWorkspaceCalled = true
           assert.equal(user.id, "user_123")
-          assert.equal(workspaceName, "Michael")
+          assert.equal(workspaceName, "Michael's Workspace")
 
           return {
             organizationId: "org_123",

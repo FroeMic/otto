@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import { serveStatic } from "@hono/node-server/serve-static"
@@ -27,6 +27,7 @@ type PageDocumentProps = {
 }
 
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
+const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
@@ -146,6 +147,19 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
+function getPublicAssetPath(relativePath: string) {
+  const normalizedPath = relativePath.replace(/^\/+/, "")
+  const builtPath = `${STATIC_ROOT}/${normalizedPath}`
+
+  if (existsSync(builtPath)) {
+    return builtPath
+  }
+
+  const sourcePath = `${SOURCE_PUBLIC_ROOT}/${normalizedPath}`
+
+  return existsSync(sourcePath) ? sourcePath : null
+}
+
 type LandingAuthMode = "sign-in" | "sign-up"
 
 function LandingAuthModal({
@@ -234,7 +248,30 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
   if (existsSync(STATIC_ROOT)) {
     app.use("/assets/*", serveStatic({ root: STATIC_ROOT }))
-    app.use("/integrations/*", serveStatic({ root: `${STATIC_ROOT}/assets` }))
+  }
+
+  if (existsSync(STATIC_ROOT)) {
+    app.use("/integrations/*", serveStatic({ root: STATIC_ROOT }))
+  }
+
+  if (existsSync(SOURCE_PUBLIC_ROOT)) {
+    app.use("/integrations/*", serveStatic({ root: SOURCE_PUBLIC_ROOT }))
+  }
+
+  if (getPublicAssetPath("otto-avatar.svg")) {
+    app.get("/otto-avatar.svg", () => {
+      const assetPath = getPublicAssetPath("otto-avatar.svg")
+
+      if (!assetPath) {
+        return new Response("Not found", { status: 404 })
+      }
+
+      return new Response(readFileSync(assetPath), {
+        headers: {
+          "Content-Type": "image/svg+xml; charset=utf-8",
+        },
+      })
+    })
   }
 
   app.get("/healthz", (c) =>

@@ -4,8 +4,6 @@ import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 
-import { Button } from "@/components/ui/button"
-
 import { workspaceOnboardingQueryOptions } from "../api/onboarding"
 import { OnboardingStepLayout } from "../components/OnboardingStepLayout"
 
@@ -59,39 +57,15 @@ export function WorkspaceWaitingPage({ orgSlug }: WorkspaceWaitingPageProps) {
 
   return (
     <OnboardingStepLayout
-      currentStep={3}
-      description="Your workspace exists. Otto is provisioning the first tenant server and wiring the runtime around it."
+      currentStep={2}
+      description="This might take a minute."
       title="We are setting up your agent"
-      totalSteps={3}
+      totalSteps={2}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 rounded-[1.6rem] border border-border/70 bg-background px-6 py-7 text-left shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
-        <div className="space-y-3">
-          <p className="text-sm font-medium tracking-[0.16em] text-muted-foreground uppercase">
-            Setup status
-          </p>
-          <div className="space-y-3 text-base leading-7 text-foreground/90">
-            <p>Workspace created</p>
-            <p>Initial tenant server provisioning started</p>
-            <p>Runtime configuration is being applied</p>
-          </div>
-        </div>
-
-        <p className="text-sm leading-6 text-muted-foreground">
-          This usually takes a few minutes. You can stay on this page while Otto
-          finishes the first setup.
-        </p>
-
-        <div className="flex justify-center pt-2">
-          <Button
-            className="rounded-full bg-foreground px-7 text-background shadow-none hover:bg-foreground/92"
-            disabled={summaryQuery.isFetching}
-            onClick={() => {
-              void summaryQuery.refetch()
-            }}
-            type="button"
-          >
-            {summaryQuery.isFetching ? "Refreshing..." : "Refresh status"}
-          </Button>
+      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 rounded-xl border border-border/70 bg-background px-8 py-9 text-center shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="size-2 rounded-full bg-foreground/70" />
+          <span>{summaryQuery.isFetching ? "Checking..." : "Checking automatically..."}</span>
         </div>
       </div>
     </OnboardingStepLayout>

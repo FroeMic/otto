@@ -873,7 +873,7 @@ function parseWhatsAppPolicy(value: unknown) {
 function parseWebSearchConfig(
   value: unknown,
 ): OpenClawWebSearchConfig | undefined {
-  const parsed = parseWebSearchRuntimeConfig(value);
+  const parsed = parseWebSearchRuntimeConfig(parseRecord(value));
 
   if (!parsed.provider) {
     return undefined;

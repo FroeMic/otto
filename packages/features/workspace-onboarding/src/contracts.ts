@@ -2,8 +2,6 @@ import { z } from "zod"
 
 export const workspaceOnboardingAnswerKeys = {
   requiredForProvisioning: [
-    "workspace_name",
-    "workspace_slug",
     "business_type",
     "team_size",
   ] as const,
@@ -95,7 +93,6 @@ export const workspaceOnboardingSaveRequestSchema = z.discriminatedUnion(
     }),
     z.object({
       action: z.literal("save-team-setup"),
-      inviteEmails: z.array(z.string().email()).default([]),
       teamSize: workspaceOnboardingTeamSizeSchema,
     }),
   ],

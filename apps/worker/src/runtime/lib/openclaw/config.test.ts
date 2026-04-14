@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 
 import { describe, expect, it } from "vitest";
 
-import { renderOpenClawConfig, type OpenClawTenantConfig } from "./config";
+import { __testing as envTesting } from "../env";
+import {
+  buildOpenClawTenantConfig,
+  renderOpenClawConfig,
+  type OpenClawTenantConfig,
+} from "./config";
 
 function buildConfig(): OpenClawTenantConfig {
   return {
@@ -25,6 +30,24 @@ function buildConfig(): OpenClawTenantConfig {
 }
 
 describe("renderOpenClawConfig", () => {
+  it("builds a tenant config when web search config is absent", () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
+    envTesting.resetEnvCacheForTests();
+    try {
+      const config = buildOpenClawTenantConfig({
+        configJson: {},
+        tenantId: "tenant_test",
+      });
+
+      expect(config.webSearch).toBeUndefined();
+      expect(config.tenantId).toBe("tenant_test");
+    } finally {
+      process.env.DATABASE_URL = previousDatabaseUrl;
+      envTesting.resetEnvCacheForTests();
+    }
+  });
+
   it("omits plugin config fields when a plugin does not declare them and enables the workspace channel", () => {
     const rendered = JSON.parse(renderOpenClawConfig(buildConfig())) as {
       channels: Record<string, { enabled: boolean; managed?: boolean }>;
