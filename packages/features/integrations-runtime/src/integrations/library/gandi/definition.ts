@@ -1,4 +1,9 @@
 import type { IntegrationDefinition } from "../../framework";
+import {
+  checkGandiDomainAvailability,
+  getGandiDomainDetails,
+  getGandiDomainRegistrationMetadata,
+} from "./client";
 
 const DOMAIN_ARGUMENT_SCHEMA = {
   type: "string",
@@ -67,10 +72,9 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
               "Use this for direct checks of exact domains when you already know the candidates.",
             ],
             execute: async ({ arguments: args }) => ({
-              domains: (args.domains as string[]).map((domain) => ({
-                availability: "unknown",
-                domain,
-              })),
+              domains: await checkGandiDomainAvailability(
+                args.domains as string[],
+              ),
             }),
           },
           {
@@ -112,10 +116,9 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
               "Use this after narrowing to plausible name candidates instead of checking domains one by one.",
             ],
             execute: async ({ arguments: args }) => ({
-              domains: (args.domains as string[]).map((domain) => ({
-                availability: "unknown",
-                domain,
-              })),
+              domains: await checkGandiDomainAvailability(
+                args.domains as string[],
+              ),
             }),
           },
           {
@@ -149,10 +152,8 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             usageNotes: [
               "Use this when you need more detail on one domain than an availability check provides.",
             ],
-            execute: async ({ arguments: args }) => ({
-              domain: args.domain,
-              status: "unknown",
-            }),
+            execute: async ({ arguments: args }) =>
+              getGandiDomainDetails(args.domain as string),
           },
           {
             activityPresentation: {
@@ -185,10 +186,8 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
             usageNotes: [
               "Use this for finalist domains when you need registration-oriented metadata in addition to availability.",
             ],
-            execute: async ({ arguments: args }) => ({
-              domain: args.domain,
-              registrationStatus: "unknown",
-            }),
+            execute: async ({ arguments: args }) =>
+              getGandiDomainRegistrationMetadata(args.domain as string),
           },
         ],
         description:
