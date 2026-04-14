@@ -9,6 +9,7 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import {
+  consumeWorkspaceOnboardingStarterPrompt,
   WorkspaceOnboardingConflictError,
   getWorkspaceOnboardingRunSummary,
   saveWorkspaceOnboardingRun,
@@ -29,6 +30,10 @@ export type WorkspaceOnboardingRouteDependencies = {
     orgSlug: string
     userExternalId: string
   }) => Promise<z.infer<typeof workspaceOnboardingRunSummarySchema>>
+  consumeWorkspaceOnboardingStarterPrompt: (input: {
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<void>
   saveWorkspaceOnboardingRun: (input: {
     body: z.infer<typeof workspaceOnboardingSaveRequestSchema>
     orgSlug: string
@@ -41,6 +46,7 @@ function createDefaultWorkspaceOnboardingRouteDependencies(): WorkspaceOnboardin
   return {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
+    consumeWorkspaceOnboardingStarterPrompt,
     getWorkspaceOnboardingRunSummary,
     saveWorkspaceOnboardingRun,
     syncUserFromSession,
@@ -146,6 +152,33 @@ export function createWorkspaceOnboardingRouter(
 
           throw error
         }
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/onboarding/starter-prompt/consume",
+      zValidator("param", workspaceOnboardingParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        await dependencies.syncUserFromSession(authResult.user)
+        await dependencies.consumeWorkspaceOnboardingStarterPrompt({
+          orgSlug: context.req.valid("param").orgSlug,
+          userExternalId: authResult.user.id,
+        })
+
+        return context.json(
+          {
+            ok: true,
+          },
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
       },
     )
 }

@@ -7,7 +7,13 @@ import {
   XIcon,
 } from "@phosphor-icons/react"
 import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
-import { useLayoutEffect, useRef, useState, type DragEvent } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -25,6 +31,7 @@ import { ConversationVoiceNoteRecorder } from "./ConversationVoiceNoteRecorder"
 export interface ConversationComposerProps {
   className?: string
   disabled?: boolean
+  initialDraft?: string
   onSubmit: (input: {
     parts: ReturnType<typeof buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
@@ -35,11 +42,12 @@ export interface ConversationComposerProps {
 export function ConversationComposer({
   className,
   disabled = false,
+  initialDraft = "",
   onSubmit,
   onUploadAttachment,
   placeholder = "Message Otto in this workspace conversation",
 }: ConversationComposerProps) {
-  const [draft, setDraft] = useState("")
+  const [draft, setDraft] = useState(initialDraft)
   const [attachments, setAttachments] = useState<
     WorkspaceChatComposerAttachmentDraft[]
   >([])
@@ -59,6 +67,16 @@ export function ConversationComposer({
     textarea.style.height = "0px"
     textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`
   }, [draft])
+
+  useEffect(() => {
+    setDraft((current) => {
+      if (current.trim().length > 0 || initialDraft.trim().length === 0) {
+        return current
+      }
+
+      return initialDraft
+    })
+  }, [initialDraft])
 
   async function submitDraft() {
     const parts = buildWorkspaceChatComposerParts({

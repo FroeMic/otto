@@ -21,7 +21,7 @@ import {
   PROVIDER_CREDENTIAL_TYPES,
   persistProvisionedProviderCredential,
 } from "../../db/provider-accounts";
-import { tenantServers, tenants } from "../../db/schema";
+import { organizations, tenantServers, tenants } from "../../db/schema";
 import { getEnv } from "../env";
 import { HetznerClient } from "../hetzner/client";
 import { renderCloudInit } from "../hetzner/cloud-init";
@@ -747,6 +747,18 @@ async function markServerReady(
   const db = getDb();
 
   await db.transaction(async (tx) => {
+    const [tenant] = await tx
+      .select({
+        organizationId: tenants.organizationId,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, payload.tenantId))
+      .limit(1);
+
+    if (!tenant) {
+      throw new Error("Tenant not found while marking server ready");
+    }
+
     await tx
       .update(tenantServers)
       .set({
@@ -765,6 +777,14 @@ async function markServerReady(
         updatedAt: new Date(),
       })
       .where(eq(tenants.id, payload.tenantId));
+
+    await tx
+      .update(organizations)
+      .set({
+        isReady: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, tenant.organizationId));
   });
 
   await appendJobEvent(jobId, "ready", "Tenant server marked ready", {

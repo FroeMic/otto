@@ -565,6 +565,27 @@ export async function saveWorkspaceOnboardingRun(input: {
   })
 }
 
+export async function consumeWorkspaceOnboardingStarterPrompt(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const access = await getWorkspaceOnboardingAccessRow(input)
+  const db = getDb()
+
+  await db
+    .update(workspaceOnboardingRuns)
+    .set({
+      starterPromptConsumedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(workspaceOnboardingRuns.organizationId, access.organizationId),
+        eq(workspaceOnboardingRuns.userId, access.userId),
+      ),
+    )
+}
+
 export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input: {
   organizationId: string
   runId: string

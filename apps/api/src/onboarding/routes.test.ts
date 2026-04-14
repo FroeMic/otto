@@ -18,6 +18,7 @@ describe("workspace onboarding routes", () => {
       "/",
       createWorkspaceOnboardingRouter({
         authenticateWorkspaceUser: async () => user,
+        consumeWorkspaceOnboardingStarterPrompt: async () => undefined,
         getWorkspaceOnboardingRunSummary: async ({ orgSlug, userExternalId }) => {
           assert.equal(orgSlug, "interaction42")
           assert.equal(userExternalId, "user_123")
@@ -60,6 +61,7 @@ describe("workspace onboarding routes", () => {
       "/",
       createWorkspaceOnboardingRouter({
         authenticateWorkspaceUser: async () => user,
+        consumeWorkspaceOnboardingStarterPrompt: async () => undefined,
         getWorkspaceOnboardingRunSummary: async () => {
           throw new Error("not used")
         },
@@ -127,6 +129,7 @@ describe("workspace onboarding routes", () => {
             "Missing workspace session",
           )
         },
+        consumeWorkspaceOnboardingStarterPrompt: async () => undefined,
         getWorkspaceOnboardingRunSummary: async () => {
           throw new Error("not used")
         },
@@ -145,6 +148,44 @@ describe("workspace onboarding routes", () => {
     assert.deepEqual(await response.json(), {
       code: "missing_workspace_session",
       message: "Missing workspace session",
+    })
+  })
+
+  it("consumes the starter prompt", async () => {
+    let consumed = false
+    const app = new Hono().route(
+      "/",
+      createWorkspaceOnboardingRouter({
+        authenticateWorkspaceUser: async () => user,
+        consumeWorkspaceOnboardingStarterPrompt: async ({
+          orgSlug,
+          userExternalId,
+        }) => {
+          assert.equal(orgSlug, "interaction42")
+          assert.equal(userExternalId, "user_123")
+          consumed = true
+        },
+        getWorkspaceOnboardingRunSummary: async () => {
+          throw new Error("not used")
+        },
+        saveWorkspaceOnboardingRun: async () => {
+          throw new Error("not used")
+        },
+        syncUserFromSession: async () => undefined,
+      }),
+    )
+
+    const response = await app.request(
+      "http://api.local/api/workspace/interaction42/onboarding/starter-prompt/consume",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(consumed, true)
+    assert.deepEqual(await response.json(), {
+      ok: true,
     })
   })
 })

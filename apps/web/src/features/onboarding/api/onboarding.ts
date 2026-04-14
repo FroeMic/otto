@@ -44,3 +44,27 @@ export async function saveWorkspaceOnboarding(
     workspaceOnboardingRunSummarySchema.parse(data),
   )
 }
+
+export async function consumeWorkspaceOnboardingStarterPrompt(orgSlug: string) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].onboarding["starter-prompt"][
+      "consume"
+    ].$post({
+      param: {
+        orgSlug,
+      },
+    })
+
+  await fetchApiResponse(response, (data) => {
+    if (
+      !data ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
+      (data as { ok?: unknown }).ok !== true
+    ) {
+      throw new Error("Invalid starter prompt consume response")
+    }
+
+    return data
+  })
+}
