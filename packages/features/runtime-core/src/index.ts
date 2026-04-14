@@ -269,6 +269,15 @@ export const managedSkillDeleteSchema = z.object({
   summary: z.string().trim().min(1).max(500).optional(),
 })
 
+export const managedSkillResetScopeSchema = z.enum(["companion_files"])
+
+export const managedSkillResetSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  scope: managedSkillResetScopeSchema.default("companion_files"),
+  skillKey: z.string().trim().min(1),
+  summary: z.string().trim().min(1).max(500).optional(),
+})
+
 export async function handleManagedSkillsGetRequest(input: {
   authenticateTenantRuntimeRequest: (
     request: Request,
@@ -552,6 +561,60 @@ export async function handleManagedSkillsDeleteRequest(input: {
       expectedVersion: body.expectedVersion,
       skillKey: body.skillKey,
       summary: body.summary ?? `Runtime deleted managed skill ${body.skillKey}`,
+      tenantId,
+    })
+
+    return jsonNoStore(result)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return jsonNoStore(
+        {
+          error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      )
+    }
+
+    return handleManagedSkillsRouteError(error, {
+      isVersionConflictError: input.isVersionConflictError,
+    })
+  }
+}
+
+export async function handleManagedSkillsResetRequest(input: {
+  authenticateTenantRuntimeRequest: (
+    request: Request,
+  ) => Promise<{ tenantId: string }>
+  isVersionConflictError: (
+    error: unknown,
+  ) => error is ManagedSkillVersionConflictLike
+  request: Request
+  resetTenantManagedSkillPackageForTenant: (payload: {
+    createdByExternalId: string | null
+    createdByType: "runtime"
+    expectedVersion?: number
+    scope: "companion_files"
+    skillKey: string
+    summary: string
+    tenantId: string
+  }) => Promise<unknown>
+}) {
+  try {
+    const { tenantId } = await input.authenticateTenantRuntimeRequest(
+      input.request,
+    )
+    const body = managedSkillResetSchema.parse(await input.request.json())
+
+    const result = await input.resetTenantManagedSkillPackageForTenant({
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: body.expectedVersion,
+      scope: body.scope,
+      skillKey: body.skillKey,
+      summary:
+        body.summary ??
+        `Runtime reset managed skill package ${body.skillKey}`,
       tenantId,
     })
 

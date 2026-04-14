@@ -15,5 +15,6 @@ test("otto-managed-skills declares the reduced lifecycle tool contracts", async 
     "create_managed_skill",
     "update_managed_skill",
     "delete_managed_skill",
+    "reset_managed_skill_package",
   ]);
 });

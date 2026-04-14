@@ -198,6 +198,7 @@ export async function processApplyTenantConfigJob(
         filename: file.relativePath,
         projectionMode: file.projectionMode,
       })),
+      managedSkillResetOperations: payload.managedSkillResetOperations,
       managedSkillRenameOperations: payload.managedSkillRenameOperations,
       openClawConfig,
       slackBotToken,
@@ -362,6 +363,34 @@ function parseApplyPayload(
         ];
       })
     : [];
+  const managedSkillResetOperations = Array.isArray(
+    payload.managedSkillResetOperations,
+  )
+    ? payload.managedSkillResetOperations.flatMap((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          return [];
+        }
+
+        const candidate = entry as Record<string, unknown>;
+        const skillKey =
+          typeof candidate.skillKey === "string" ? candidate.skillKey : null;
+        const scope =
+          candidate.scope === "companion_files"
+            ? ("companion_files" as const)
+            : null;
+
+        if (!skillKey || !scope) {
+          return [];
+        }
+
+        return [
+          {
+            scope,
+            skillKey,
+          },
+        ];
+      })
+    : [];
   const pullImageFirst = payload.pullImageFirst;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
@@ -380,6 +409,9 @@ function parseApplyPayload(
     desiredStateVersion,
     ...(managedSkillRenameOperations.length > 0
       ? { managedSkillRenameOperations }
+      : {}),
+    ...(managedSkillResetOperations.length > 0
+      ? { managedSkillResetOperations }
       : {}),
     ...(typeof pullImageFirst === "boolean" ? { pullImageFirst } : {}),
     tenantId,

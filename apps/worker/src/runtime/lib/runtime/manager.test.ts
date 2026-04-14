@@ -111,6 +111,35 @@ describe("managed skill runtime file projection", () => {
       0o640,
     );
   });
+
+  it("overwrites install-if-missing companion files when a reset operation targets the skill", async () => {
+    const sshClient = {
+      exec: vi.fn().mockResolvedValue({ exitCode: 0, stderr: "", stdout: "" }),
+      writeFileAtomic: vi.fn(async () => undefined),
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.applyInstallOnlyManagedSkillFiles(
+      { host: "tenant.test", port: 22, username: "root" } as never,
+      [
+        {
+          contents: "# Naming strategies",
+          filename:
+            "skills/name-and-domain-research/references/naming-strategies.md",
+          projectionMode: "install_if_missing",
+        },
+      ],
+      [
+        {
+          scope: "companion_files",
+          skillKey: "name-and-domain-research",
+        },
+      ],
+    );
+
+    expect(sshClient.writeFileAtomic).toHaveBeenCalledTimes(1);
+    expect(sshClient.exec).not.toHaveBeenCalled();
+  });
 });
 
 describe("RuntimeManager.forwardWorkspaceChatIngressRequest", () => {

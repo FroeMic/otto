@@ -16,7 +16,7 @@ export default definePluginEntry({
   id: "otto-managed-skills",
   name: "Otto Managed Skills",
   description:
-    "Managed skill lifecycle tools backed by the workspace app. Use these tools for SKILL.md lifecycle changes only. Use normal file and exec tools for references/, scripts/, and state/ inside skill directories.",
+    "Managed skill lifecycle tools backed by the workspace app. Use these tools for SKILL.md lifecycle changes and explicit seeded companion-file resets. Use normal file and exec tools for local edits inside skill directories.",
   configSchema: PLUGIN_CONFIG_SCHEMA,
   register(api) {
     api.registerTool(
@@ -197,6 +197,42 @@ export default definePluginEntry({
         },
         async execute(_id, params) {
           return buildToolResult(await deleteManagedSkill(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "reset_managed_skill_package",
+        description:
+          "Reset one managed skill package back to Otto's seeded companion files through the workspace app. This is destructive for seeded companion files and should only be used when the user explicitly asks to restore defaults.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            expectedVersion: {
+              type: "integer",
+              minimum: 1,
+            },
+            scope: {
+              type: "string",
+              enum: ["companion_files"],
+            },
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["skillKey", "scope"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await resetManagedSkillPackage(api, params));
         },
       },
       { optional: true },
@@ -431,6 +467,54 @@ async function deleteManagedSkill(api, params) {
     applyQueued: response.data.applyQueued,
     deleted: response.data.deleted,
     desiredStateVersion: response.data.desiredStateVersion,
+    skillKey: response.data.skillKey,
+  };
+}
+
+async function resetManagedSkillPackage(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+  const expectedVersion =
+    typeof params?.expectedVersion === "number" ? params.expectedVersion : null;
+  const scope = params?.scope === "companion_files" ? params.scope : null;
+  const summary =
+    typeof params?.summary === "string" ? params.summary : undefined;
+
+  if (!skillKey) {
+    return {
+      ok: false,
+      error: "skillKey must be a non-empty string.",
+    };
+  }
+
+  if (!scope) {
+    return {
+      ok: false,
+      error: "scope must be companion_files.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/managed-skills/reset",
+    body: {
+      ...(expectedVersion && Number.isInteger(expectedVersion) && expectedVersion > 0
+        ? { expectedVersion }
+        : {}),
+      scope,
+      skillKey,
+      ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    applyQueued: response.data.applyQueued,
+    desiredStateVersion: response.data.desiredStateVersion,
+    resetScope: response.data.resetScope,
     skillKey: response.data.skillKey,
   };
 }

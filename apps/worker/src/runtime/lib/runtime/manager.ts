@@ -35,6 +35,11 @@ export type ManagedSkillRuntimeRenameOperation = {
   toSkillKey: string;
 };
 
+export type ManagedSkillRuntimeResetOperation = {
+  scope: "companion_files";
+  skillKey: string;
+};
+
 export type ApplyTenantConfigResult = {
   restartStderr: string;
   restartStdout: string;
@@ -104,6 +109,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillResetOperations?: ManagedSkillRuntimeResetOperation[];
       managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       openClawConfig: OpenClawTenantConfig;
       slackBotToken?: string | null;
@@ -116,6 +122,7 @@ export class RuntimeManager {
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       managedSkillFiles: input.managedSkillFiles,
+      managedSkillResetOperations: input.managedSkillResetOperations,
       managedSkillRenameOperations: input.managedSkillRenameOperations,
       metadataPath: "/opt/openclaw/runtime/bootstrap-metadata.json",
       metadataTimestampKey: "bootstrappedAt",
@@ -150,6 +157,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillResetOperations?: ManagedSkillRuntimeResetOperation[];
       managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       openClawConfig: OpenClawTenantConfig;
       pullImageFirst?: boolean;
@@ -164,6 +172,7 @@ export class RuntimeManager {
       tenantToken: input.tenantToken,
       managedBootstrapFiles: input.managedBootstrapFiles,
       managedSkillFiles: input.managedSkillFiles,
+      managedSkillResetOperations: input.managedSkillResetOperations,
       managedSkillRenameOperations: input.managedSkillRenameOperations,
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       metadataTimestampKey: "appliedAt",
@@ -249,6 +258,7 @@ export class RuntimeManager {
       tenantToken: string;
       managedBootstrapFiles: ManagedBootstrapRuntimeFile[];
       managedSkillFiles: ManagedSkillRuntimeFile[];
+      managedSkillResetOperations?: ManagedSkillRuntimeResetOperation[];
       managedSkillRenameOperations?: ManagedSkillRuntimeRenameOperation[];
       metadataPath: string;
       metadataTimestampKey: string;
@@ -275,7 +285,11 @@ export class RuntimeManager {
       input.managedSkillRenameOperations ?? [],
     );
     await this.applyTenantFiles(connection, runtimeFiles);
-    await this.applyInstallOnlyManagedSkillFiles(connection, input.managedSkillFiles);
+    await this.applyInstallOnlyManagedSkillFiles(
+      connection,
+      input.managedSkillFiles,
+      input.managedSkillResetOperations ?? [],
+    );
     await this.reconcileManagedSkillFiles(connection, input.managedSkillFiles);
     await this.normalizeTenantRuntimeFilePermissions(connection, {
       managedBootstrapFiles: input.managedBootstrapFiles,
@@ -506,9 +520,27 @@ export class RuntimeManager {
   async applyInstallOnlyManagedSkillFiles(
     connection: SshConnection,
     managedSkillFiles: ManagedSkillRuntimeFile[],
+    resetOperations: ManagedSkillRuntimeResetOperation[] = [],
   ) {
+    const resetSkillKeys = new Set(
+      resetOperations
+        .filter((operation) => operation.scope === "companion_files")
+        .map((operation) => operation.skillKey),
+    );
+
     for (const file of listInstallOnlyManagedSkillFiles(managedSkillFiles)) {
       const targetPath = `/opt/openclaw/home/workspace/${file.filename}`;
+
+      if (shouldResetManagedSkillCompanionFile(file.filename, resetSkillKeys)) {
+        await this.sshClient.writeFileAtomic(
+          connection,
+          targetPath,
+          file.contents,
+          0o640,
+        );
+        continue;
+      }
+
       const existsResult = await this.sshClient.exec(
         connection,
         buildShellCommand([`test -e ${shellQuoteForShell(targetPath)}`]),
@@ -1174,6 +1206,21 @@ export function listInstallOnlyManagedSkillFiles(
   return managedSkillFiles.filter(
     (file) => file.projectionMode === "install_if_missing",
   );
+}
+
+function shouldResetManagedSkillCompanionFile(
+  filename: string,
+  resetSkillKeys: Set<string>,
+) {
+  const normalizedFilename = filename.trim().replaceAll("\\", "/");
+
+  if (!normalizedFilename.startsWith("skills/")) {
+    return false;
+  }
+
+  const skillKey = normalizedFilename.split("/", 3)[1];
+
+  return typeof skillKey === "string" && resetSkillKeys.has(skillKey);
 }
 
 function sleep(ms: number) {

@@ -117,3 +117,25 @@ export const workspaceSkillUpdateRequestSchema = z.object({
   skillBody: z.string().trim().min(1),
   skillKeys: z.array(z.string().trim().min(1)).default([]),
 })
+
+export const workspaceSkillResetScopeSchema = z.enum(["companion_files"])
+
+export type WorkspaceSkillResetScope = z.infer<
+  typeof workspaceSkillResetScopeSchema
+>
+
+export const workspaceSkillResetRequestSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  scope: workspaceSkillResetScopeSchema.default("companion_files"),
+})
+
+export const workspaceSkillResetResponseSchema = z.object({
+  applyQueued: z.boolean(),
+  desiredStateVersion: z.number().int().positive(),
+  resetScope: workspaceSkillResetScopeSchema,
+  skillKey: z.string().min(1),
+})
+
+export type WorkspaceSkillResetResponse = z.infer<
+  typeof workspaceSkillResetResponseSchema
+>

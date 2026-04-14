@@ -12,6 +12,9 @@ import {
 } from "@otto/feature-integrations-runtime/db/schema"
 import { and, desc, eq } from "drizzle-orm"
 
+import { enqueueJob } from "../jobs/queue"
+import { JOB_TYPES } from "../jobs/types"
+
 export const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md"
 
 export class ManagedSkillVersionConflictError extends Error {
@@ -692,6 +695,69 @@ export async function deleteTenantManagedSkillForTenant(input: {
     applyQueued: tenantRuntime.isRuntimeReady,
     deleted: true,
     desiredStateVersion: desiredStateVersion.version,
+    skillKey: detail.skillKey,
+  }
+}
+
+export async function resetTenantManagedSkillPackageForTenant(input: {
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  scope: "companion_files"
+  skillKey: string
+  summary?: string
+  tenantId: string
+}) {
+  const detail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  })
+
+  if (!detail) {
+    throw new Error(
+      `Managed skill ${input.skillKey} does not exist for this workspace.`,
+    )
+  }
+
+  if (
+    input.expectedVersion !== undefined &&
+    detail.version !== input.expectedVersion
+  ) {
+    throw new ManagedSkillVersionConflictError(
+      input.expectedVersion,
+      detail.version,
+    )
+  }
+
+  const desiredStateVersion = await createNextDesiredStateVersionForManagedSkills(
+    {
+      skillKey: detail.skillKey,
+      tenantId: input.tenantId,
+      version: detail.version,
+    },
+  )
+  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+
+  if (tenantRuntime.isRuntimeReady) {
+    await enqueueJob({
+      jobType: JOB_TYPES.applyTenantConfig,
+      payload: {
+        desiredStateVersion: desiredStateVersion.version,
+        managedSkillResetOperations: [
+          {
+            scope: input.scope,
+            skillKey: detail.skillKey,
+          },
+        ],
+        tenantId: input.tenantId,
+      },
+    })
+  }
+
+  return {
+    applyQueued: tenantRuntime.isRuntimeReady,
+    desiredStateVersion: desiredStateVersion.version,
+    resetScope: input.scope,
     skillKey: detail.skillKey,
   }
 }

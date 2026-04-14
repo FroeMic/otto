@@ -9,6 +9,7 @@ import {
   handleManagedSkillsDeleteRequest,
   handleManagedSkillsGetRequest,
   handleManagedSkillsPostRequest,
+  handleManagedSkillsResetRequest,
   handleManagedSkillsUpdateRequest,
 } from "./index"
 
@@ -291,6 +292,41 @@ describe("runtime core managed skills handlers", () => {
       expectedVersion: 4,
       skillKey: "bug-triage",
       summary: "Runtime deleted managed skill bug-triage",
+      tenantId: "tenant_123",
+    })
+  })
+
+  it("validates managed skill package reset payloads", async () => {
+    const response = await handleManagedSkillsResetRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills/reset",
+        {
+          body: JSON.stringify({
+            expectedVersion: 4,
+            scope: "companion_files",
+            skillKey: "bug-triage",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        },
+      ),
+      resetTenantManagedSkillPackageForTenant: async (payload) => payload,
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      createdByExternalId: null,
+      createdByType: "runtime",
+      expectedVersion: 4,
+      scope: "companion_files",
+      skillKey: "bug-triage",
+      summary: "Runtime reset managed skill package bug-triage",
       tenantId: "tenant_123",
     })
   })
