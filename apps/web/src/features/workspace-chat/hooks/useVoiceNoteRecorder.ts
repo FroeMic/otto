@@ -4,9 +4,9 @@ import { buildVoiceNoteFileName, normalizeVoiceNoteMimeType } from "../voice-not
 
 const DEFAULT_BAR_COUNT = 40
 const PREFERRED_AUDIO_MIME_TYPES = [
+  "audio/mp4",
   "audio/webm;codecs=opus",
   "audio/webm",
-  "audio/mp4",
 ] as const
 
 type VoiceNoteRecorderStatus = "idle" | "recording" | "paused" | "recorded"
@@ -338,6 +338,20 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
 }
 
 function resolveVoiceNoteMimeType() {
+  const audioElement =
+    typeof document !== "undefined" ? document.createElement("audio") : null
+
+  for (const mimeType of PREFERRED_AUDIO_MIME_TYPES) {
+    const isRecordable = MediaRecorder.isTypeSupported(mimeType)
+    const isPlayable =
+      audioElement?.canPlayType(mimeType).toLowerCase() === "probably" ||
+      audioElement?.canPlayType(mimeType).toLowerCase() === "maybe"
+
+    if (isRecordable && isPlayable) {
+      return mimeType
+    }
+  }
+
   for (const mimeType of PREFERRED_AUDIO_MIME_TYPES) {
     if (MediaRecorder.isTypeSupported(mimeType)) {
       return mimeType

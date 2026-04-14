@@ -3,12 +3,13 @@
 import {
   ArrowCounterClockwiseIcon,
   CheckIcon,
+  DiscIcon,
   PauseIcon,
   PlayIcon,
   StopIcon,
   XIcon,
 } from "@phosphor-icons/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -33,7 +34,6 @@ export function ConversationVoiceNoteRecorder({
 }: ConversationVoiceNoteRecorderProps) {
   const recorder = useVoiceNoteRecorder()
   const [isUploading, setIsUploading] = useState(false)
-  const hasStartedRef = useRef(false)
   const previewUrl = useMemo(
     () => (recorder.draft ? URL.createObjectURL(recorder.draft.blob) : null),
     [recorder.draft],
@@ -46,15 +46,6 @@ export function ConversationVoiceNoteRecorder({
       }
     }
   }, [previewUrl])
-
-  useEffect(() => {
-    if (!recorder.isSupported || disabled || hasStartedRef.current) {
-      return
-    }
-
-    hasStartedRef.current = true
-    void recorder.startRecording()
-  }, [disabled, recorder])
 
   useEffect(() => {
     if (!recorder.errorMessage) {
@@ -101,7 +92,12 @@ export function ConversationVoiceNoteRecorder({
       <div className="flex items-center gap-2">
         <select
           className="h-9 min-w-0 flex-1 rounded-full border border-border/70 bg-background px-3 text-sm text-foreground"
-          disabled={disabled || isUploading || recorder.status === "recording"}
+          disabled={
+            disabled ||
+            isUploading ||
+            recorder.status === "recording" ||
+            recorder.status === "paused"
+          }
           onChange={(event) => {
             recorder.setSelectedDeviceId(event.target.value)
           }}
@@ -139,7 +135,7 @@ export function ConversationVoiceNoteRecorder({
       </div>
 
       {recorder.status === "recorded" && previewUrl ? (
-        <audio className="h-9 w-full" controls src={previewUrl} />
+        <audio className="h-9 w-full" controls preload="metadata" src={previewUrl} />
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
@@ -223,6 +219,21 @@ export function ConversationVoiceNoteRecorder({
             >
               <ArrowCounterClockwiseIcon data-icon="inline-start" />
               Record again
+            </Button>
+          ) : null}
+
+          {recorder.status === "idle" ? (
+            <Button
+              disabled={disabled || isUploading}
+              onClick={() => {
+                void recorder.startRecording()
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <DiscIcon data-icon="inline-start" />
+              Start recording
             </Button>
           ) : null}
         </div>
