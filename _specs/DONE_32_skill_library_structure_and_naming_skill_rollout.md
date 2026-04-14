@@ -1,4 +1,4 @@
-# TODO 32: Skill Library Structure And Naming Skill Rollout
+# DONE 32: Skill Library Structure And Naming Skill Rollout
 
 ## Goal
 
@@ -15,7 +15,7 @@ This spec is intentionally separate from `TODO_30`.
 
 ## Scope
 
-- sequence the package-file/reset functionality from `TODO_30`
+- sequence the package-file/reset functionality from `DONE_31`
 - define the target directory structure for Otto-owned seeded skills
 - define how `name-and-domain-research` should move from inline content to a packaged skill
 - define the implementation order so we do not mix framework work and product content in one unreviewable change
@@ -66,9 +66,9 @@ That is acceptable for one small system skill, but not for a growing Otto-owned 
 
 Current founder naming state:
 
-- `name-and-domain-research` exists as a seeded system skill
-- its content currently lives inline in `system-skills.ts`
-- the current managed-skills framework does not yet support canonical companion files under `references/`, `scripts/`, `examples/`, or `templates/`
+- `name-and-domain-research` now exists as a packaged seeded system skill
+- its content now lives under `apps/worker/src/runtime/lib/managed-skills/library/name-and-domain-research/`
+- seeded companion files now project through the managed-skills package substrate from `DONE_31`
 
 ## Target Architecture
 
@@ -81,7 +81,7 @@ Managed skills should support:
 - runtime-local edits
 - explicit workspace reset
 
-That substrate is defined by `TODO_30`.
+That substrate is defined by `DONE_31`.
 
 ### 2. Code organization
 
@@ -294,7 +294,7 @@ Keep this work in focused commits:
 
 ## Status Checklist
 
-- [ ] implement the package-file/reset substrate from `TODO_30`
+- [x] implement the package-file/reset substrate from `DONE_31`
 - [x] refactor Otto-owned seeded skills into `managed-skills/library/`
 - [x] make `system-skills.ts` a thin registry
 - [x] migrate `skill-creator` into the new structure

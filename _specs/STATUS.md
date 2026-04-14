@@ -110,11 +110,11 @@
   - workspace skill detail payloads now expose canonical file classification and resettable metadata
   - the skill status and files pages now surface package provenance and a seeded companion reset action
   - fuller runtime-vs-canonical divergence indicators are still follow-on work
-- The next managed-skill execution focus is now `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`:
+- The managed-skill library restructure and naming-skill rollout are now captured in `_specs/DONE_32_skill_library_structure_and_naming_skill_rollout.md`:
   - Otto-owned seeded skills now live under `apps/worker/src/runtime/lib/managed-skills/library/`
   - `system-skills.ts` is now a thin registry over per-skill definitions
   - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs under `references/`
-  - the remaining follow-on for this track is broader workspace/runtime file provenance and reset UI, not the worker-side library structure
+  - the remaining managed-skill follow-on work is no longer worker packaging; it is richer provenance/diff UX and any future skill-catalog product work
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
@@ -836,8 +836,8 @@
     - normal apply must not auto-overwrite seeded companion files
     - reset must be destructive but only when initiated from the workspace
     - the runtime plugin should gain inspection and reset tools, not arbitrary companion-file editing tools
-- A second follow-up spec now captures the implementation rollout:
-  - `_specs/TODO_32_skill_library_structure_and_naming_skill_rollout.md`
+- A second completed follow-up spec captures the implementation rollout:
+  - `_specs/DONE_32_skill_library_structure_and_naming_skill_rollout.md`
   - this sequences the work into:
     - package-file/reset substrate
     - seeded skill-library refactor under `apps/worker/src/runtime/lib/managed-skills/library/`
