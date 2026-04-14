@@ -12,9 +12,15 @@ import {
   workspaceOnboardingRuns,
 } from "@otto/feature-integrations-runtime/db/schema"
 import {
+  getWorkspaceOnboardingHoldingState,
   isWorkspaceOnboardingReadyForProvisioning,
   workspaceOnboardingAnswerSchema,
+  workspaceOnboardingRunSummarySchema,
   workspaceOnboardingRunStatusSchema,
+  type WorkspaceOnboardingRunSummary,
+  type WorkspaceOnboardingSaveRequest,
+  workspaceOnboardingSaveRequestSchema,
+  workspaceOnboardingStepKeySchema,
   workspaceOnboardingWaitlistDecisionSchema,
 } from "../../../../packages/features/workspace-onboarding/src/index"
 import type { WorkspaceSummary } from "@otto/feature-workspace-core"
@@ -30,12 +36,32 @@ import {
   generateUniqueWorkspaceSlug,
   getDashboardOrganizations,
   reconcileWorkspaceMembershipProjectionForUser,
+  renameOrganization,
   syncUserFromSession,
+  updateOrganizationSlug,
 } from "../workspace/data"
 
 type PostAuthUser = {
   email: string
   id: string
+}
+
+type WorkspaceOnboardingAccessRow = {
+  externalOrganizationId: string
+  isOrganizationReady: boolean
+  organizationId: string
+  organizationName: string
+  organizationSlug: string
+  userId: string
+}
+
+export class WorkspaceOnboardingConflictError extends Error {
+  code = "workspace_onboarding_conflict" as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = "WorkspaceOnboardingConflictError"
+  }
 }
 
 export type PostAuthWorkspaceOnboardingDependencies = {
@@ -277,6 +303,266 @@ export async function createWorkspaceOnboardingRun(input: {
         workspaceOnboardingRuns.organizationId,
       ],
     })
+}
+
+async function getWorkspaceOnboardingAccessRow(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      externalOrganizationId: organizations.externalId,
+      isOrganizationReady: organizations.isReady,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+      userId: users.id,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .where(
+      and(
+        eq(organizations.slug, input.orgSlug),
+        eq(users.externalId, input.userExternalId),
+        eq(memberships.status, "active"),
+      ),
+    )
+    .limit(1)
+
+  if (!row) {
+    throw new Error("Organization not found")
+  }
+
+  return row satisfies WorkspaceOnboardingAccessRow
+}
+
+async function getOrCreateWorkspaceOnboardingRunForAccess(
+  access: WorkspaceOnboardingAccessRow,
+) {
+  const db = getDb()
+  const [run] = await db
+    .select({
+      answersJson: workspaceOnboardingRuns.answersJson,
+      completedAt: workspaceOnboardingRuns.completedAt,
+      currentStepKey: workspaceOnboardingRuns.currentStepKey,
+      id: workspaceOnboardingRuns.id,
+      initialProvisioningJobId: workspaceOnboardingRuns.initialProvisioningJobId,
+      initialTenantId: workspaceOnboardingRuns.initialTenantId,
+      provisioningStartedAt: workspaceOnboardingRuns.provisioningStartedAt,
+      starterPrompt: workspaceOnboardingRuns.starterPrompt,
+      starterPromptConsumedAt: workspaceOnboardingRuns.starterPromptConsumedAt,
+      status: workspaceOnboardingRuns.status,
+      waitlistDecision: workspaceOnboardingRuns.waitlistDecision,
+      waitlistReason: workspaceOnboardingRuns.waitlistReason,
+    })
+    .from(workspaceOnboardingRuns)
+    .where(
+      and(
+        eq(workspaceOnboardingRuns.organizationId, access.organizationId),
+        eq(workspaceOnboardingRuns.userId, access.userId),
+      ),
+    )
+    .limit(1)
+
+  if (run || access.isOrganizationReady) {
+    return run ?? null
+  }
+
+  await createWorkspaceOnboardingRun({
+    organizationId: access.organizationId,
+    starterPrompt: "",
+    userId: access.userId,
+  })
+
+  const [createdRun] = await db
+    .select({
+      answersJson: workspaceOnboardingRuns.answersJson,
+      completedAt: workspaceOnboardingRuns.completedAt,
+      currentStepKey: workspaceOnboardingRuns.currentStepKey,
+      id: workspaceOnboardingRuns.id,
+      initialProvisioningJobId: workspaceOnboardingRuns.initialProvisioningJobId,
+      initialTenantId: workspaceOnboardingRuns.initialTenantId,
+      provisioningStartedAt: workspaceOnboardingRuns.provisioningStartedAt,
+      starterPrompt: workspaceOnboardingRuns.starterPrompt,
+      starterPromptConsumedAt: workspaceOnboardingRuns.starterPromptConsumedAt,
+      status: workspaceOnboardingRuns.status,
+      waitlistDecision: workspaceOnboardingRuns.waitlistDecision,
+      waitlistReason: workspaceOnboardingRuns.waitlistReason,
+    })
+    .from(workspaceOnboardingRuns)
+    .where(
+      and(
+        eq(workspaceOnboardingRuns.organizationId, access.organizationId),
+        eq(workspaceOnboardingRuns.userId, access.userId),
+      ),
+    )
+    .limit(1)
+
+  return createdRun ?? null
+}
+
+function buildWorkspaceOnboardingRunSummary(input: {
+  access: WorkspaceOnboardingAccessRow
+  run: Awaited<ReturnType<typeof getOrCreateWorkspaceOnboardingRunForAccess>>
+}): WorkspaceOnboardingRunSummary {
+  if (!input.run) {
+    return workspaceOnboardingRunSummarySchema.parse({
+      answers: {},
+      currentStepKey: null,
+      holdingState: "ready",
+      initialProvisioningJobId: null,
+      initialTenantId: null,
+      isOrganizationReady: input.access.isOrganizationReady,
+      organizationId: input.access.organizationId,
+      organizationSlug: input.access.organizationSlug,
+      provisioningStartedAt: null,
+      starterPrompt: null,
+      starterPromptConsumedAt: null,
+      status: "ready",
+      waitlistDecision: "accepted",
+      waitlistReason: null,
+    })
+  }
+
+  const status = workspaceOnboardingRunStatusSchema.parse(input.run.status)
+  const waitlistDecision = workspaceOnboardingWaitlistDecisionSchema.parse(
+    input.run.waitlistDecision,
+  )
+
+  return workspaceOnboardingRunSummarySchema.parse({
+    answers: workspaceOnboardingAnswerSchema.parse(input.run.answersJson),
+    currentStepKey: input.run.currentStepKey
+      ? workspaceOnboardingStepKeySchema.parse(input.run.currentStepKey)
+      : null,
+    holdingState: getWorkspaceOnboardingHoldingState({
+      isOrganizationReady: input.access.isOrganizationReady,
+      provisioningStartedAt: input.run.provisioningStartedAt,
+      status,
+      waitlistDecision,
+    }),
+    initialProvisioningJobId: input.run.initialProvisioningJobId,
+    initialTenantId: input.run.initialTenantId,
+    isOrganizationReady: input.access.isOrganizationReady,
+    organizationId: input.access.organizationId,
+    organizationSlug: input.access.organizationSlug,
+    provisioningStartedAt: input.run.provisioningStartedAt?.toISOString() ?? null,
+    starterPrompt: input.run.starterPrompt,
+    starterPromptConsumedAt:
+      input.run.starterPromptConsumedAt?.toISOString() ?? null,
+    status,
+    waitlistDecision,
+    waitlistReason: input.run.waitlistReason,
+  })
+}
+
+export async function getWorkspaceOnboardingRunSummary(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const access = await getWorkspaceOnboardingAccessRow(input)
+  const run = await getOrCreateWorkspaceOnboardingRunForAccess(access)
+
+  return buildWorkspaceOnboardingRunSummary({
+    access,
+    run,
+  })
+}
+
+export async function saveWorkspaceOnboardingRun(input: {
+  body: WorkspaceOnboardingSaveRequest
+  orgSlug: string
+  userExternalId: string
+}) {
+  const request = workspaceOnboardingSaveRequestSchema.parse(input.body)
+  const access = await getWorkspaceOnboardingAccessRow({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+  const run = await getOrCreateWorkspaceOnboardingRunForAccess(access)
+
+  if (!run) {
+    throw new Error("Workspace onboarding run not found")
+  }
+
+  const answers = workspaceOnboardingAnswerSchema.parse(run.answersJson)
+  const now = new Date()
+  let nextAnswers = answers
+  let nextCurrentStepKey: string | null = run.currentStepKey
+  let nextStatus = run.status
+
+  switch (request.action) {
+    case "save-workspace-identity": {
+      if (access.organizationName !== request.workspaceName) {
+        await renameOrganization({
+          externalOrganizationId: access.externalOrganizationId,
+          name: request.workspaceName,
+          organizationId: access.organizationId,
+        })
+      }
+
+      const slugResult = await updateOrganizationSlug({
+        organizationId: access.organizationId,
+        slug: request.workspaceSlug,
+      })
+
+      if (slugResult === "slug_taken") {
+        throw new WorkspaceOnboardingConflictError(
+          "This workspace URL is already taken.",
+        )
+      }
+
+      nextAnswers = {
+        ...answers,
+        workspace_name: request.workspaceName,
+        workspace_slug: request.workspaceSlug,
+      }
+      nextCurrentStepKey = "business_type"
+      break
+    }
+    case "save-business-type": {
+      nextAnswers = {
+        ...answers,
+        business_type: request.businessType,
+      }
+      nextCurrentStepKey = "team_setup"
+      break
+    }
+    case "save-team-setup": {
+      nextAnswers = {
+        ...answers,
+        invite_emails: request.inviteEmails,
+        team_size: request.teamSize,
+      }
+      nextCurrentStepKey = null
+      nextStatus = "accepted_pending_provision"
+      break
+    }
+  }
+
+  const db = getDb()
+  await db
+    .update(workspaceOnboardingRuns)
+    .set({
+      answersJson: nextAnswers,
+      completedAt: nextCurrentStepKey === null ? now : run.completedAt,
+      currentStepKey: nextCurrentStepKey,
+      status: nextStatus,
+      updatedAt: now,
+    })
+    .where(eq(workspaceOnboardingRuns.id, run.id))
+
+  await maybeStartInitialProvisioningForWorkspaceOnboarding({
+    organizationId: access.organizationId,
+    runId: run.id,
+    userExternalId: input.userExternalId,
+  })
+
+  return getWorkspaceOnboardingRunSummary({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
 }
 
 export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input: {
