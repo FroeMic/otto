@@ -4,6 +4,16 @@
 
 Rebuild the authenticated web UI around an organization-scoped app shell with gated onboarding so the product feels like a real control plane instead of a bootstrap page, while treating each organization as having exactly one Otto agent in the first product pass.
 
+## Clarification
+
+The onboarding sections in this spec were originally written around a Slack-first unlock model. The active onboarding implementation direction now lives in `TODO_28_workspace_onboarding_and_public_intake.md`:
+
+- first-time users should be routed through a business-first onboarding flow
+- workspaces should be created automatically during post-auth bootstrap
+- Slack should remain a later integration rather than the primary workspace unlock dependency
+
+This spec remains the owner of the broad app-shell and route-structure decisions, but the onboarding-state model and unlock gate should follow `TODO_28`.
+
 ## Scope
 
 - replace the current bootstrap dashboard with a proper authenticated app shell

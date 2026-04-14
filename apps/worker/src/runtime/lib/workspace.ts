@@ -75,31 +75,12 @@ export function isOrganizationReady(organization: DashboardOrganization) {
   return organization.isReady;
 }
 
-export function getCurrentOnboardingSession(
-  organization: DashboardOrganization,
-) {
-  if (organization.latestOnboardingSession?.slackConnectedAt) {
-    return organization.latestOnboardingSession;
-  }
-
-  return organization.onboardingDraft ?? organization.latestOnboardingSession;
-}
-
 export function isSlackConnected(organization: DashboardOrganization) {
-  return Boolean(
-    organization.slackIntegration?.connectedAt ||
-      organization.latestOnboardingSession?.slackConnectedAt ||
-      organization.onboardingDraft?.slackConnectedAt,
-  );
+  return Boolean(organization.slackIntegration?.connectedAt);
 }
 
 export function getSlackErrorMessage(organization: DashboardOrganization) {
-  return (
-    organization.slackIntegration?.lastError ||
-    organization.onboardingDraft?.slackOauthError ||
-    organization.latestOnboardingSession?.slackOauthError ||
-    null
-  );
+  return organization.slackIntegration?.lastError ?? null;
 }
 
 export type ConnectedMessagingSurface = {
@@ -257,7 +238,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
 
   return {
     applyStatus: applyStatus ?? "Applied",
-    detail: "Slack is connected and Otto is ready to help in this workspace.",
+    detail: "Otto is ready to help in this workspace.",
     label: "Ready",
     slackStatus,
     title: "Otto is ready",
@@ -277,11 +258,7 @@ export function isRuntimeReady(organization: DashboardOrganization) {
 }
 
 export function isOrganizationUnlocked(organization: DashboardOrganization) {
-  return (
-    isOrganizationReady(organization) &&
-    isSlackConnected(organization) &&
-    isRuntimeReady(organization)
-  );
+  return isOrganizationReady(organization) && isRuntimeReady(organization);
 }
 
 export function getOrganizationHomePath(organization: DashboardOrganization) {
@@ -303,10 +280,6 @@ export function getSlackStatusLabel(organization: DashboardOrganization) {
 
   if (getSlackErrorMessage(organization)) {
     return "Needs attention";
-  }
-
-  if (organization.onboardingDraft || organization.latestOnboardingSession) {
-    return "Pending";
   }
 
   return "Not connected";

@@ -6,6 +6,7 @@ import { ConversationComposer } from "./ConversationComposer"
 
 export interface WorkspaceAgentPromptCardProps {
   disabled?: boolean
+  initialDraft?: string
   orgSlug: string
   onSubmit: (input: {
     parts: ReturnType<typeof import("../composer-parts").buildWorkspaceChatComposerParts>
@@ -15,6 +16,7 @@ export interface WorkspaceAgentPromptCardProps {
 
 export function WorkspaceAgentPromptCard({
   disabled = false,
+  initialDraft,
   orgSlug,
   onSubmit,
   onUploadAttachment,
@@ -23,6 +25,7 @@ export function WorkspaceAgentPromptCard({
     <ConversationComposer
       className="border-border/65 bg-background/97"
       disabled={disabled}
+      initialDraft={initialDraft}
       orgSlug={orgSlug}
       onSubmit={onSubmit}
       onUploadAttachment={onUploadAttachment}

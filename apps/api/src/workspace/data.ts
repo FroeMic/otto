@@ -634,14 +634,26 @@ async function generateOrganizationSlugFromWorkOs(input: {
   organizationExternalId: string
   organizationName: string
 }) {
+  return generateUniqueWorkspaceSlug({
+    organizationExternalId: input.organizationExternalId,
+    slugSuffixHint: input.organizationExternalId,
+    workspaceName: input.organizationName,
+  })
+}
+
+export async function generateUniqueWorkspaceSlug(input: {
+  organizationExternalId?: string | null
+  slugSuffixHint?: string | null
+  workspaceName: string
+}) {
   const db = getDb()
-  const baseSlug = normalizeWorkspaceSlug(input.organizationName) || "workspace"
-  const externalIdSuffix = input.organizationExternalId
+  const baseSlug = normalizeWorkspaceSlug(input.workspaceName) || "workspace"
+  const suffixHint = (input.slugSuffixHint ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "")
     .slice(-8)
-  const fallbackSlug = externalIdSuffix
-    ? `${baseSlug}-${externalIdSuffix}`
+  const fallbackSlug = suffixHint
+    ? `${baseSlug}-${suffixHint}`
     : `${baseSlug}-workspace`
   const candidates = [baseSlug, fallbackSlug]
 

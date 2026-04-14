@@ -26,6 +26,7 @@
     "@otto/feature-workspace-chat": "workspace:*",
     "@otto/feature-user-profile": "workspace:*",
     "@otto/feature-workspace-core": "workspace:*",
+    "@otto/feature-workspace-onboarding": "workspace:*",
     "@otto/feature-workspace-members": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",
     "@workos-inc/node": "^8.9.0",

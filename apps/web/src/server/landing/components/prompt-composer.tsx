@@ -21,9 +21,9 @@ export function LandingPromptComposer({
       className={cn("mx-auto flex w-full max-w-4xl flex-col gap-4", className)}
     >
       <form
-        action="/login"
+        action="/api/public/intake"
         className="rounded-xl border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
-        method="get"
+        method="post"
       >
         <input name="returnTo" type="hidden" value={returnTo} />
         <div className="flex flex-col gap-4">

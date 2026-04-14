@@ -379,6 +379,13 @@
       "when": 1776079200000,
       "tag": "0054_workspace_chat_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1776169200000,
+      "tag": "0055_workspace_onboarding_and_public_intake",
+      "breakpoints": true
     }
   ]
 }

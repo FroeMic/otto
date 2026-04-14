@@ -224,14 +224,10 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.get("/login", (c) => {
     const prompt = c.req.query("prompt")?.trim()
     const returnTo = c.req.query("returnTo") ?? "/"
-    const effectiveReturnTo =
-      prompt && prompt.length > 0
-        ? `${returnTo}${returnTo.includes("?") ? "&" : "?"}prompt=${encodeURIComponent(prompt)}`
-        : returnTo
 
     return c.html(
       renderDocument({
-        children: <LoginPage prompt={prompt} returnTo={effectiveReturnTo} />,
+        children: <LoginPage prompt={prompt} returnTo={returnTo} />,
         description: "Sign in to Otto",
         path: "/login",
         title: "Otto Sign In",

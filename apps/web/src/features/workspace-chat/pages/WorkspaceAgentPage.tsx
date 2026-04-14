@@ -1,9 +1,19 @@
 "use client"
 
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { hasUnconsumedStarterPrompt } from "@otto/feature-workspace-onboarding"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { startTransition } from "react"
 import { toast } from "sonner"
+
+import {
+  consumeWorkspaceOnboardingStarterPrompt,
+  workspaceOnboardingQueryOptions,
+} from "@/features/onboarding/api/onboarding"
 
 import {
   createWorkspaceChatConversation,
@@ -23,6 +33,17 @@ export function WorkspaceAgentPage({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { boundsRef, dockStyle } = useViewportDockBounds()
+  const { data: onboarding } = useSuspenseQuery(
+    workspaceOnboardingQueryOptions(orgSlug),
+  )
+  const initialDraft = hasUnconsumedStarterPrompt({
+    starterPrompt: onboarding.starterPrompt,
+    starterPromptConsumedAt: onboarding.starterPromptConsumedAt
+      ? new Date(onboarding.starterPromptConsumedAt)
+      : null,
+  })
+    ? onboarding.starterPrompt ?? ""
+    : ""
   const startConversationMutation = useMutation({
     mutationFn: async (input: {
       parts: Parameters<typeof sendWorkspaceChatMessage>[0]["parts"]
@@ -48,12 +69,19 @@ export function WorkspaceAgentPage({
         parts: input.parts,
       })
 
+      if (initialDraft.trim().length > 0) {
+        await consumeWorkspaceOnboardingStarterPrompt(orgSlug)
+      }
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["workspace-chat-conversations", orgSlug],
         }),
         queryClient.invalidateQueries({
           queryKey: ["workspace-chat-conversation", orgSlug, conversation.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["workspace-onboarding", orgSlug],
         }),
       ])
     },
@@ -101,6 +129,7 @@ export function WorkspaceAgentPage({
           <div className="pointer-events-auto w-full px-4 pb-5">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
+              initialDraft={initialDraft}
               orgSlug={orgSlug}
               onSubmit={async (input) => {
                 await startConversationMutation.mutateAsync(input)

@@ -78,6 +78,11 @@
   - add a shell-level in-flow notification provider and renderer registry
   - add a reusable page-frame primitive with explicit main and optional aside scroll ownership
   - keep Otto's current sidebar visual language and persistent header toggle while improving shell mechanics underneath
+- The next product-flow rebuild is now explicitly tracked in `_specs/TODO_28_workspace_onboarding_and_public_intake.md`:
+  - the public landing prompt should become a durable intake session instead of a long-lived query-string handoff
+  - first-time users should get a workspace automatically during post-auth bootstrap
+  - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
+  - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
@@ -197,7 +202,8 @@
     - successful top-up invoices now create positive top-up credit grants in Otto's ledger through the same grant path as other funded credits
     - manual top-up checkout is still not implemented yet
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during managed integration OAuth.
-- The next major product flow change is now captured in `TODO_08_signup_to_slack_onboarding_flow.md`: first-time users should complete Slack installation in the UI before tenant provisioning starts.
+- The older Slack-first onboarding plan in `TODO_08_signup_to_slack_onboarding_flow.md` is now superseded by `TODO_28_workspace_onboarding_and_public_intake.md`.
+- Slack remains a real managed integration and runtime-projected capability, but it should no longer be the primary workspace unlock dependency for first-time user onboarding.
 - The old onboarding-only Slack callback path is now being retired in favor of the extracted managed integration OAuth routes under `/oauth/start/integration/slack` and `/oauth/callback/integration/slack`.
 - The provisioning path can now project a tenant-specific Slack bot token from the managed integration connection record into the tenant runtime instead of relying only on the global fallback env var.
 - Slack control-plane state is now more durable:

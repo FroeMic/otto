@@ -277,17 +277,6 @@ function getSurfaceReapplyError(definition: {
     : `${definition.label} does not support manual reapply.`;
 }
 
-type OnboardingSessionSummary = {
-  createdAt: Date;
-  id: string;
-  slackConnectedAt: Date | null;
-  slackOauthError: string | null;
-  slackOauthErrorAt: Date | null;
-  slackTeamName: string | null;
-  status: string;
-  tenantName: string;
-};
-
 type SlackIntegrationSummary = {
   connectedAt: Date | null;
   lastError: string | null;
@@ -519,9 +508,7 @@ export type DashboardOrganization = {
   id: string;
   externalId: string;
   isReady: boolean;
-  latestOnboardingSession: OnboardingSessionSummary | null;
   locale: string;
-  onboardingDraft: OnboardingSessionSummary | null;
   name: string;
   role: string;
   slackIntegration: SlackIntegrationSummary | null;
@@ -1108,9 +1095,7 @@ export async function getDashboardOrganizations(
       id: organization.organizationId,
       externalId: organization.organizationExternalId,
       isReady: organization.organizationIsReady,
-      latestOnboardingSession: null,
       locale: organization.organizationLocale,
-      onboardingDraft: null,
       name: organization.organizationName,
       role: organization.role,
       slackIntegration: buildSlackIntegrationSummary(

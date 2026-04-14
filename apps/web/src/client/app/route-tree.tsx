@@ -4,6 +4,7 @@ import {
   createRoute,
   lazyRouteComponent,
   Outlet,
+  redirect,
 } from "@tanstack/react-router"
 import { z } from "zod"
 
@@ -61,6 +62,10 @@ import {
 import { IntegrationDetailLayoutPage } from "@/features/integrations/pages/IntegrationDetailLayoutPage"
 import { IntegrationDetailRedirectPage } from "@/features/integrations/pages/IntegrationDetailRedirectPage"
 import { IntegrationsPage } from "@/features/integrations/pages/IntegrationsPage"
+import { workspaceOnboardingQueryOptions } from "@/features/onboarding/api/onboarding"
+import { WorkspaceOnboardingPage } from "@/features/onboarding/pages/WorkspaceOnboardingPage"
+import { WorkspaceWaitingPage } from "@/features/onboarding/pages/WorkspaceWaitingPage"
+import { WorkspaceWaitlistPage } from "@/features/onboarding/pages/WorkspaceWaitlistPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import { workspaceMembersQueryOptions } from "@/features/workspace/api/members"
 import {
@@ -116,6 +121,24 @@ function WorkspaceConversationRoutePage() {
       orgSlug={orgSlug}
     />
   )
+}
+
+function WorkspaceOnboardingRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <WorkspaceOnboardingPage orgSlug={orgSlug} />
+}
+
+function WorkspaceWaitingRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <WorkspaceWaitingPage orgSlug={orgSlug} />
+}
+
+function WorkspaceWaitlistRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <WorkspaceWaitlistPage orgSlug={orgSlug} />
 }
 
 function SettingsShellRoute() {
@@ -463,8 +486,130 @@ export const workspaceRoute = createRoute({
 
 const workspaceShellRoute = createRoute({
   component: WorkspaceShellOutlet,
+  beforeLoad: async ({ context, params }) => {
+    const onboarding = await context.queryClient.ensureQueryData(
+      workspaceOnboardingQueryOptions(params.orgSlug),
+    )
+
+    switch (onboarding.holdingState) {
+      case "onboarding":
+        throw redirect({
+          params,
+          to: "/$orgSlug/onboarding",
+        })
+      case "waiting":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waiting",
+        })
+      case "waitlist":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waitlist",
+        })
+      case "ready":
+      default:
+        return
+    }
+  },
   getParentRoute: () => workspaceRoute,
   id: "workspace-shell",
+})
+
+const workspaceOnboardingRoute = createRoute({
+  component: WorkspaceOnboardingRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: async ({ context, params }) => {
+    const onboarding = await context.queryClient.ensureQueryData(
+      workspaceOnboardingQueryOptions(params.orgSlug),
+    )
+
+    switch (onboarding.holdingState) {
+      case "ready":
+        throw redirect({
+          params,
+          to: "/$orgSlug",
+        })
+      case "waiting":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waiting",
+        })
+      case "waitlist":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waitlist",
+        })
+      case "onboarding":
+      default:
+        return onboarding
+    }
+  },
+  path: "/onboarding",
+})
+
+const workspaceWaitingRoute = createRoute({
+  component: WorkspaceWaitingRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: async ({ context, params }) => {
+    const onboarding = await context.queryClient.ensureQueryData(
+      workspaceOnboardingQueryOptions(params.orgSlug),
+    )
+
+    switch (onboarding.holdingState) {
+      case "ready":
+        throw redirect({
+          params,
+          to: "/$orgSlug",
+        })
+      case "onboarding":
+        throw redirect({
+          params,
+          to: "/$orgSlug/onboarding",
+        })
+      case "waitlist":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waitlist",
+        })
+      case "waiting":
+      default:
+        return onboarding
+    }
+  },
+  path: "/waiting",
+})
+
+const workspaceWaitlistRoute = createRoute({
+  component: WorkspaceWaitlistRoutePage,
+  getParentRoute: () => workspaceRoute,
+  loader: async ({ context, params }) => {
+    const onboarding = await context.queryClient.ensureQueryData(
+      workspaceOnboardingQueryOptions(params.orgSlug),
+    )
+
+    switch (onboarding.holdingState) {
+      case "ready":
+        throw redirect({
+          params,
+          to: "/$orgSlug",
+        })
+      case "onboarding":
+        throw redirect({
+          params,
+          to: "/$orgSlug/onboarding",
+        })
+      case "waiting":
+        throw redirect({
+          params,
+          to: "/$orgSlug/waiting",
+        })
+      case "waitlist":
+      default:
+        return onboarding
+    }
+  },
+  path: "/waitlist",
 })
 
 const workspaceIndexRoute = createRoute({
@@ -977,6 +1122,9 @@ const platformOrganizationLogsRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   workspaceRoute.addChildren([
+    workspaceOnboardingRoute,
+    workspaceWaitingRoute,
+    workspaceWaitlistRoute,
     workspaceShellRoute.addChildren([
       workspaceIndexRoute,
       workspaceConversationRoute,

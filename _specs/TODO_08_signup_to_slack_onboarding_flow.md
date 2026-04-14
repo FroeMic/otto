@@ -1,5 +1,18 @@
 # TODO 08: Signup To Slack Onboarding Flow
 
+## Superseded
+
+This spec is now superseded by `TODO_28_workspace_onboarding_and_public_intake.md`.
+
+Reason:
+
+- the product onboarding flow is now business-first, not Slack-first
+- workspace creation should happen automatically during post-auth bootstrap
+- tenant provisioning should be gated by the new onboarding run and waitlist decision, not by Slack installation
+- Slack remains an integration feature, but it should no longer be the primary unlock dependency for first workspace access
+
+Keep this file only as historical context for the older Slack-specific provisioning assumptions.
+
 ## Goal
 
 Replace the current "sign in -> create tenant -> provision immediately" flow with a guided onboarding flow where the user:
