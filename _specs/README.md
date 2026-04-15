@@ -88,6 +88,7 @@ This folder is the source of truth for implementation planning and session-to-se
 32. `DONE_31_managed_skill_package_files_and_reset_tools.md`
 33. `DONE_32_skill_library_structure_and_naming_skill_rollout.md`
 34. `TODO_33_skill_library_and_installed_skills_ux.md`
+35. `TODO_34_snapshot_based_tenant_provisioning.md`
 
 ## Trigger.dev decision
 

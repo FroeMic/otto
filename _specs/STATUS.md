@@ -83,6 +83,12 @@
   - first-time users should get a workspace automatically during post-auth bootstrap
   - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
   - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
+- Snapshot-based onboarding provisioning is now explicitly tracked in `_specs/TODO_34_snapshot_based_tenant_provisioning.md`:
+  - onboarding latency is currently dominated by repeated host bootstrap and runtime cold-start work on every new tenant
+  - the planned approach is to add a second Hetzner provisioning strategy that creates new tenant servers from an Otto-baked snapshot
+  - the existing `provision_tenant_server` job should remain unchanged as the fallback path
+  - tenant-specific OpenAI keys, tenant tokens, gateway tokens, and runtime config must still be provisioned after server creation
+  - each new runtime image release should produce one fresh onboarding snapshot generation
 - The next domain-operations integration slice is now explicitly tracked in `_specs/TODO_29_gandi_domain_integration.md`:
   - `Gandi` should land as a `workspace_managed` integration in lifecycle, with Otto-owned platform credentials used inside the Gandi-specific implementation
   - the current status resolver treats `platform_managed` integrations as implicitly installed when no workspace row exists, which matches `Brave` but not Gandi
