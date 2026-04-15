@@ -114,7 +114,7 @@ export function ConversationVoiceNoteRecorder({
   }
 
   return (
-    <div className="flex min-h-12 items-center gap-2 rounded-full border border-border/70 bg-background px-3 py-2">
+    <div className="flex h-10 w-full items-center gap-2">
       <select
         className="h-8 w-28 max-w-28 shrink-0 rounded-full border border-border/70 bg-muted/20 pl-3 pr-3 text-sm text-foreground"
         disabled={disabled || isUploading}
