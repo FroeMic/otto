@@ -487,8 +487,8 @@ This is the smallest high-value UX fix.
 - [x] redesign top-level skills IA into `Installed` and `Library`
 - [x] redesign installed skill detail into `Overview`, `Instructions`, and `Files`
 - [x] add the first library-facing API contract for visible library skills
-- [ ] add install/remove flows for library-backed skills in the web UI
-- [ ] align runtime/agent tools with library vs installed skill lifecycle
+- [x] add install/remove flows for library-backed skills in the web UI
+- [x] align runtime/agent tools with library vs installed skill lifecycle
 - [x] simplify restore/reset language to skill-level defaults terminology
 - [x] audit all skill-surface copy for brand neutrality and implementation leakage
 

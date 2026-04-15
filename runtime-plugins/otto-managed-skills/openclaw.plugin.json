@@ -4,6 +4,9 @@
   "description": "Managed skill tools backed by the workspace app.",
   "contracts": {
     "tools": [
+      "list_skill_library",
+      "install_skill_from_library",
+      "remove_installed_skill",
       "list_managed_skills",
       "get_managed_skill",
       "list_managed_skill_package_files",

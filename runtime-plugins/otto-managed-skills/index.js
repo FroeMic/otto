@@ -21,6 +21,74 @@ export default definePluginEntry({
   register(api) {
     api.registerTool(
       {
+        name: "list_skill_library",
+        description:
+          "List reusable library skills that can be installed for this workspace agent.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        },
+        async execute() {
+          return buildToolResult(await listSkillLibrary(api));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "install_skill_from_library",
+        description:
+          "Install one reusable library skill into this workspace so the agent can use it.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+          },
+          required: ["skillKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await installSkillFromLibrary(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
+        name: "remove_installed_skill",
+        description:
+          "Remove one installed skill from this workspace. Use this for skills that are no longer needed.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            skillKey: {
+              type: "string",
+              minLength: 1,
+            },
+            summary: {
+              type: "string",
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: ["skillKey"],
+        },
+        async execute(_id, params) {
+          return buildToolResult(await removeInstalledSkill(api, params));
+        },
+      },
+      { optional: true },
+    );
+
+    api.registerTool(
+      {
         name: "list_managed_skills",
         description:
           "List the managed skills Otto may inspect and update through the workspace app.",
@@ -306,6 +374,22 @@ async function listManagedSkills(api) {
   };
 }
 
+async function listSkillLibrary(api) {
+  const response = await requestControlPlane(api, {
+    method: "GET",
+    path: "/api/internal/runtime/managed-skills/library",
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    librarySkills: response.data.librarySkills,
+    ok: true,
+  };
+}
+
 async function getManagedSkill(api, params) {
   const skillKey = normalizeNonEmptyString(params?.skillKey);
 
@@ -374,6 +458,37 @@ async function createManagedSkill(api, params) {
       skillKey,
       ...(skillKeys ? { skillKeys } : {}),
       ...(summary ? { summary } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    return response;
+  }
+
+  return {
+    ok: true,
+    applyQueued: response.data.applyQueued,
+    desiredStateVersion: response.data.desiredStateVersion,
+    skillKey: response.data.skillKey,
+    version: response.data.version,
+  };
+}
+
+async function installSkillFromLibrary(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+
+  if (!skillKey) {
+    return {
+      ok: false,
+      error: "skillKey must be a non-empty string.",
+    };
+  }
+
+  const response = await requestControlPlane(api, {
+    method: "POST",
+    path: "/api/internal/runtime/managed-skills/library/install",
+    body: {
+      skillKey,
     },
   });
 
@@ -576,6 +691,31 @@ async function deleteManagedSkill(api, params) {
     desiredStateVersion: response.data.desiredStateVersion,
     skillKey: response.data.skillKey,
   };
+}
+
+async function removeInstalledSkill(api, params) {
+  const skillKey = normalizeNonEmptyString(params?.skillKey);
+  const summary =
+    typeof params?.summary === "string" ? params.summary : undefined;
+
+  if (!skillKey) {
+    return {
+      ok: false,
+      error: "skillKey must be a non-empty string.",
+    };
+  }
+
+  const skill = await getManagedSkill(api, { skillKey });
+
+  if (!skill.ok) {
+    return skill;
+  }
+
+  return deleteManagedSkill(api, {
+    expectedVersion: skill.skill?.version,
+    skillKey,
+    ...(summary ? { summary } : {}),
+  });
 }
 
 async function resetManagedSkillPackage(api, params) {

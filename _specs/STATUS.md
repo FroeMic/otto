@@ -131,10 +131,16 @@
     - installed skill detail is now split into `Overview`, `Instructions`, and `Files`
     - the workspace API now returns separate `installedSkills` and `librarySkills` collections
     - user-facing copy now uses brand-agnostic labels such as `From library`, `Custom`, and `Restore defaults`
-  - the next follow-on work is now narrower:
-    - add real install/remove lifecycle for library-backed skills in the web UI
-    - align runtime and agent tools with the same library-vs-installed model
+  - Slice 2 is now also implemented:
+    - library-backed manual skills now install from the web UI and can be removed again
+    - manual-install library skills are no longer auto-seeded back into existence on read
+    - the runtime managed-skills plugin now exposes explicit library lifecycle tools:
+      - `list_skill_library`
+      - `install_skill_from_library`
+      - `remove_installed_skill`
+  - the remaining follow-on work is now narrower:
     - decide whether non-user-invocable helper skills should stay hidden or gain a separate operator-only surface
+    - consider whether `TODO_33` is ready to retire once the current UI has been smoke-tested in production
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
