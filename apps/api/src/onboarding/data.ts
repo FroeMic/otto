@@ -731,10 +731,14 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       throw new Error("Failed to create tenant")
     }
 
+    const initialProvisioningJob =
+      buildInitialProvisioningJobInputForWorkspaceOnboarding({
+        provisioningMode: getApiEnv().HETZNER_ONBOARDING_PROVISIONING_MODE,
+        tenantId: tenant.id,
+      })
+
     await tx.insert(tenantServers).values({
-      provider: "hetzner",
-      sshUsername: "openclaw",
-      status: "creating",
+      ...initialProvisioningJob.tenantServer,
       tenantId: tenant.id,
     })
 
@@ -748,11 +752,8 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       .insert(jobRuns)
       .values({
         availableAt: new Date(),
-        jobType: JOB_TYPES.provisionTenantServer,
-        payloadJson: {
-          step: "create_server",
-          tenantId: tenant.id,
-        },
+        jobType: initialProvisioningJob.jobType,
+        payloadJson: initialProvisioningJob.payloadJson,
         status: "queued",
         tenantId: tenant.id,
       })
@@ -766,7 +767,7 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
 
     await tx.insert(jobEvents).values({
       dataJson: {
-        jobType: JOB_TYPES.provisionTenantServer,
+        jobType: initialProvisioningJob.jobType,
       },
       eventType: "queued",
       jobRunId: job.id,
@@ -789,4 +790,39 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       tenantId: tenant.id,
     }
   })
+}
+
+export function buildInitialProvisioningJobInputForWorkspaceOnboarding(input: {
+  provisioningMode: "legacy_base_image" | "hetzner_snapshot"
+  tenantId: string
+}) {
+  if (input.provisioningMode === "hetzner_snapshot") {
+    return {
+      jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
+      payloadJson: {
+        step: "create_server_from_snapshot",
+        tenantId: input.tenantId,
+      },
+      tenantServer: {
+        provider: "hetzner",
+        provisioningStrategy: "hetzner_snapshot",
+        sshUsername: "openclaw",
+        status: "creating",
+      },
+    } as const
+  }
+
+  return {
+    jobType: JOB_TYPES.provisionTenantServer,
+    payloadJson: {
+      step: "create_server",
+      tenantId: input.tenantId,
+    },
+    tenantServer: {
+      provider: "hetzner",
+      provisioningStrategy: "legacy_base_image",
+      sshUsername: "openclaw",
+      status: "creating",
+    },
+  } as const
 }

@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 
 import { describe, it } from "vitest"
 
-import { getPostAuthRedirectPathForWorkspaceOnboarding } from "./data"
+import {
+  buildInitialProvisioningJobInputForWorkspaceOnboarding,
+  getPostAuthRedirectPathForWorkspaceOnboarding,
+} from "./data"
 
 describe("workspace onboarding post-auth bootstrap", () => {
   it("keeps the default return path when no intake session is present", async () => {
@@ -164,5 +167,49 @@ describe("workspace onboarding post-auth bootstrap", () => {
 
     assert.equal(redirectPath, "/interaction42")
     assert.equal(onboardingCreated, true)
+  })
+})
+
+describe("workspace onboarding provisioning strategy selection", () => {
+  it("builds the legacy provisioning job payload by default", () => {
+    const result = buildInitialProvisioningJobInputForWorkspaceOnboarding({
+      provisioningMode: "legacy_base_image",
+      tenantId: "tenant_123",
+    })
+
+    assert.deepEqual(result, {
+      jobType: "provision_tenant_server",
+      payloadJson: {
+        step: "create_server",
+        tenantId: "tenant_123",
+      },
+      tenantServer: {
+        provisioningStrategy: "legacy_base_image",
+        provider: "hetzner",
+        sshUsername: "openclaw",
+        status: "creating",
+      },
+    })
+  })
+
+  it("builds the snapshot provisioning job payload when snapshot mode is enabled", () => {
+    const result = buildInitialProvisioningJobInputForWorkspaceOnboarding({
+      provisioningMode: "hetzner_snapshot",
+      tenantId: "tenant_123",
+    })
+
+    assert.deepEqual(result, {
+      jobType: "provision_tenant_server_from_snapshot",
+      payloadJson: {
+        step: "create_server_from_snapshot",
+        tenantId: "tenant_123",
+      },
+      tenantServer: {
+        provisioningStrategy: "hetzner_snapshot",
+        provider: "hetzner",
+        sshUsername: "openclaw",
+        status: "creating",
+      },
+    })
   })
 })
