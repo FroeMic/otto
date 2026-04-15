@@ -15,6 +15,7 @@ export {
   type WorkspaceOnboardingRunStatus,
   type WorkspaceOnboardingRunSummary,
   type WorkspaceOnboardingSaveRequest,
+  type WorkspaceOnboardingStepKey,
   type WorkspaceOnboardingTeamSize,
   type WorkspaceOnboardingWaitlistDecision,
 } from "./contracts"

@@ -8,6 +8,7 @@ import { logger } from "hono/logger"
 import { secureHeaders } from "hono/secure-headers"
 import { renderToString } from "react-dom/server"
 
+import { OttoAvatar } from "../components/OttoAvatar"
 import { buttonVariants } from "../shared/button-variants"
 import { cn } from "../shared/cn"
 import type { FrontendEnv } from "./env"
@@ -190,13 +191,7 @@ function LandingAuthModal({
           ×
         </a>
 
-        <img
-          alt="Otto avatar"
-          className="size-11 rounded-md object-cover"
-          height="44"
-          src="/otto-avatar.svg"
-          width="44"
-        />
+        <OttoAvatar className="size-11 rounded-md" />
 
         <div className="flex flex-col gap-1">
           <p className="text-[1rem] font-medium text-muted-foreground/85">

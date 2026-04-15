@@ -37,6 +37,7 @@ const teamSizeOptions: Array<{
 export interface TeamSetupStepProps {
   defaultTeamSize?: WorkspaceOnboardingRunSummary["answers"]["team_size"]
   isPending?: boolean
+  onBack?: () => void
   onSubmit: (
     teamSize: NonNullable<WorkspaceOnboardingRunSummary["answers"]["team_size"]>,
   ) => Promise<void> | void
@@ -45,6 +46,7 @@ export interface TeamSetupStepProps {
 export function TeamSetupStep({
   defaultTeamSize,
   isPending = false,
+  onBack,
   onSubmit,
 }: TeamSetupStepProps) {
   const [teamSize, setTeamSize] = useState(defaultTeamSize)
@@ -57,11 +59,12 @@ export function TeamSetupStep({
     <OnboardingStepLayout
       currentStep={2}
       description="We use this to shape the first workspace around how many people will rely on it."
+      onBack={onBack}
       title="Who is going to use Otto with you?"
       totalSteps={2}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {teamSizeOptions.map((option) => (
             <OnboardingOptionButton
               description={option.description}
