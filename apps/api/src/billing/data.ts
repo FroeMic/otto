@@ -38,6 +38,9 @@ export const DEFAULT_BILLING_PREFERENCES: BillingPreferencesRecord = {
   topOffAmountCents: 2_000,
 }
 
+export const INITIAL_WORKSPACE_CREDITS = 1_000
+const INITIAL_WORKSPACE_CREDIT_GRANT_SOURCE_TYPE = "workspace_initial_grant"
+
 export type BillingAutoTopOffRunSummary = {
   completedAt: Date | null
   createdAt: Date
@@ -51,6 +54,17 @@ export type BillingAutoTopOffRunSummary = {
 export type BillingCycleWindow = {
   end: Date | null
   start: Date
+}
+
+export function buildInitialWorkspaceCreditGrantInput(input: {
+  tenantId: string
+}) {
+  return {
+    creditsDeltaMilli: INITIAL_WORKSPACE_CREDITS * 1_000,
+    description: `Initial workspace credits (${INITIAL_WORKSPACE_CREDITS} credits)`,
+    sourceId: input.tenantId,
+    sourceType: INITIAL_WORKSPACE_CREDIT_GRANT_SOURCE_TYPE,
+  }
 }
 
 type StripeCustomerRecordInput = {
@@ -235,6 +249,34 @@ export async function upsertBillingPreferences(input: {
     .returning()
 
   return record ?? null
+}
+
+export async function ensureInitialWorkspaceCredits(input: { tenantId: string }) {
+  const db = getDb()
+  const grantInput = buildInitialWorkspaceCreditGrantInput(input)
+  const [ledgerEntry] = await db
+    .insert(creditLedgerEntries)
+    .values({
+      billableUnits: 0,
+      creditsDeltaMilli: grantInput.creditsDeltaMilli,
+      description: grantInput.description,
+      entryType: CREDIT_LEDGER_ENTRY_TYPES.manualGrant,
+      sourceId: grantInput.sourceId,
+      sourceType: grantInput.sourceType,
+      tenantId: input.tenantId,
+    })
+    .onConflictDoNothing({
+      target: [
+        creditLedgerEntries.sourceType,
+        creditLedgerEntries.sourceId,
+        creditLedgerEntries.entryType,
+      ],
+    })
+    .returning({
+      id: creditLedgerEntries.id,
+    })
+
+  return ledgerEntry?.id ?? null
 }
 
 export async function findLatestBillingAutoTopOffRunByOrganizationId(
