@@ -14,6 +14,7 @@ import {
   JOB_LANES,
   type JobLane,
 } from "./lanes";
+import { processDeleteWorkspaceJob } from "./delete-workspace";
 import {
   processRefreshOauthConnectionJob,
   processScheduleOauthConnectionRefreshJob,
@@ -57,6 +58,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.refreshRuntimeImage:
       await processRefreshRuntimeImageJob(job);
+      return;
+    case JOB_TYPES.deleteWorkspace:
+      await processDeleteWorkspaceJob(job);
       return;
     case JOB_TYPES.runWorkspaceChatTurn:
       await processRunWorkspaceChatTurnJob(job);
