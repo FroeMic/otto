@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenClawTenantConfig } from "../openclaw/config";
+import { __testing as envTesting } from "../env";
 import {
   listInstallOnlyManagedSkillFiles,
   listManagedEntryRuntimeFiles,
@@ -53,6 +54,47 @@ describe("RuntimeManager.applyTenantConfig", () => {
       pullImage: false,
       strategy: "recreate",
     });
+  });
+});
+
+describe("RuntimeManager.verifySnapshotHostReady", () => {
+  it("checks the baked-host contract instead of waiting for cloud-init", async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto";
+    envTesting.resetEnvCacheForTests();
+    const sshClient = {
+      exec: vi.fn().mockResolvedValue({
+        exitCode: 0,
+        stderr: "",
+        stdout: "",
+      }),
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    try {
+      await manager.verifySnapshotHostReady({
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      });
+    } finally {
+      process.env.DATABASE_URL = previousDatabaseUrl;
+      envTesting.resetEnvCacheForTests();
+    }
+
+    expect(sshClient.exec).toHaveBeenCalledTimes(1);
+    const firstExecCall = sshClient.exec.mock.calls.at(0) as unknown[] | undefined;
+    const executedCommand =
+      firstExecCall && typeof firstExecCall[1] === "string" ? firstExecCall[1] : "";
+
+    expect(executedCommand).toContain("command -v docker >/dev/null");
+    expect(executedCommand).toContain("systemctl is-active --quiet docker");
+    expect(executedCommand).toContain("id openclaw >/dev/null");
+    expect(executedCommand).toContain("docker image inspect");
+    expect(executedCommand).toContain(
+      "/opt/openclaw/runtime/snapshot-metadata.json",
+    );
   });
 });
 
