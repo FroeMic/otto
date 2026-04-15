@@ -6,6 +6,8 @@ import {
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
+  platformProvisionServerResponseSchema,
+  platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
@@ -14,6 +16,8 @@ import {
   type PlatformJobStatusResponse,
   type PlatformOrganizationDetailResponse,
   type PlatformOrganizationsResponse,
+  type PlatformProvisionServerInput,
+  type PlatformProvisionServerResponse,
   type PlatformUsage,
 } from "@otto/feature-platform"
 import { queryOptions } from "@tanstack/react-query"
@@ -111,6 +115,23 @@ export async function deployPlatformRuntime(orgSlug: string) {
 
   return fetchApiResponse(response, (data) =>
     platformActionResponseSchema.parse(data),
+  )
+}
+
+export async function provisionPlatformServer(input: {
+  orgSlug: string
+  payload: PlatformProvisionServerInput
+}): Promise<PlatformProvisionServerResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"]["provision-server"].$post({
+      json: platformProvisionServerSchema.parse(input.payload),
+      param: {
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformProvisionServerResponseSchema.parse(data),
   )
 }
 

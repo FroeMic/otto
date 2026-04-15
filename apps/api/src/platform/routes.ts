@@ -7,6 +7,8 @@ import {
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
+  platformProvisionServerResponseSchema,
+  platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
   platformUsageQuerySchema,
   platformUsageSchema,
@@ -30,6 +32,7 @@ import {
   getTenantRuntimeGatewayToken,
   grantPlatformOrganizationCredits,
   triggerPlatformOrganizationApply,
+  triggerPlatformOrganizationProvisionServer,
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
   triggerPlatformOrganizationRefreshImage,
@@ -73,6 +76,11 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
   triggerPlatformOrganizationApply: (input: {
     orgSlug: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformOrganizationProvisionServer: (input: {
+    orgSlug: string
+    provisioningStrategy: "legacy_base_image" | "hetzner_snapshot"
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationDeployRuntime: (input: {
@@ -130,6 +138,16 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         orgSlug,
         userExternalId: user.id,
       }),
+    triggerPlatformOrganizationProvisionServer: ({
+      orgSlug,
+      provisioningStrategy,
+      user,
+    }) =>
+      triggerPlatformOrganizationProvisionServer({
+        orgSlug,
+        provisioningStrategy,
+        userExternalId: user.id,
+      }),
     triggerPlatformOrganizationDeployRuntime: ({ orgSlug, user }) =>
       triggerPlatformOrganizationDeployRuntime({
         orgSlug,
@@ -153,6 +171,14 @@ function getUserName(user: WorkspaceShellUser) {
 }
 
 function handlePlatformRouteError(error: unknown) {
+  if (error instanceof Error && error.message === "Platform organization not found") {
+    return {
+      code: "not_found",
+      message: error.message,
+      status: 404,
+    } as const
+  }
+
   if (error instanceof Error && error.message === "Organization tenant not found") {
     return {
       code: "not_found",
@@ -164,6 +190,17 @@ function handlePlatformRouteError(error: unknown) {
   if (
     error instanceof Error &&
     error.message === "No desired state exists for this tenant yet."
+  ) {
+    return {
+      code: "conflict",
+      message: error.message,
+      status: 409,
+    } as const
+  }
+
+  if (
+    error instanceof Error &&
+    error.message === "Organization already has a tenant server"
   ) {
     return {
       code: "conflict",
@@ -361,6 +398,52 @@ export function createPlatformRouter(
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",
           })
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/provision-server",
+      zValidator("param", workspaceParamsSchema),
+      zValidator("json", platformProvisionServerSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+        const payload = context.req.valid("json")
+
+        try {
+          const result = await dependencies.triggerPlatformOrganizationProvisionServer(
+            {
+              orgSlug,
+              provisioningStrategy: payload.provisioningStrategy,
+              user: authResult.user,
+            },
+          )
+
+          return context.json(
+            platformProvisionServerResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
         } catch (error) {
           const handled = handlePlatformRouteError(error)
 

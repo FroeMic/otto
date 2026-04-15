@@ -266,6 +266,16 @@ export const platformActionResponseSchema = z.object({
   tenantName: z.string(),
 })
 
+export const platformProvisionServerSchema = z.object({
+  provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+})
+
+export const platformProvisionServerResponseSchema =
+  platformActionResponseSchema.extend({
+    provisionedTenant: z.boolean(),
+    provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+  })
+
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -315,6 +325,12 @@ export type PlatformOrganizationListItem = z.infer<
 >
 export type PlatformOrganizationsResponse = z.infer<
   typeof platformOrganizationsResponseSchema
+>
+export type PlatformProvisionServerInput = z.infer<
+  typeof platformProvisionServerSchema
+>
+export type PlatformProvisionServerResponse = z.infer<
+  typeof platformProvisionServerResponseSchema
 >
 export type PlatformProvisionOpenAiKeyResponse = z.infer<
   typeof platformProvisionOpenAiKeyResponseSchema

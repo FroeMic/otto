@@ -135,6 +135,16 @@ function createDependencies(): PlatformRouteDependencies {
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
     }),
+    triggerPlatformOrganizationProvisionServer: async ({
+      provisioningStrategy,
+    }) => ({
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy,
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    }),
     triggerPlatformOrganizationDeployRuntime: async () => ({
       desiredStateChanged: false,
       desiredStateVersion: 12,
@@ -243,6 +253,32 @@ describe("platform routes", () => {
       desiredStateChanged: false,
       desiredStateVersion: 12,
       jobId: "job_apply_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    })
+  })
+
+  it("queues platform server provisioning", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/provision-server",
+      {
+        body: JSON.stringify({
+          provisioningStrategy: "legacy_base_image",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy: "legacy_base_image",
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
