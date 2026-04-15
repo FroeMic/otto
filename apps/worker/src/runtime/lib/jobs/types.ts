@@ -3,6 +3,7 @@ import type { ProviderUsageType } from "../providers/types";
 
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
+  provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
   deleteWorkspace: "delete_workspace",
@@ -50,6 +51,21 @@ export const PROVISIONING_STEPS = {
 export type ProvisioningStep =
   (typeof PROVISIONING_STEPS)[keyof typeof PROVISIONING_STEPS];
 
+export const SNAPSHOT_PROVISIONING_STEPS = {
+  createServerFromSnapshot: "create_server_from_snapshot",
+  waitForHetznerAction: "wait_for_hetzner_action",
+  fetchServerIp: "fetch_server_ip",
+  waitForSsh: "wait_for_ssh",
+  verifySnapshotHost: "verify_snapshot_host",
+  bootstrapTenantRuntime: "bootstrap_tenant_runtime",
+  startRuntime: "start_runtime",
+  verifyRuntime: "verify_runtime",
+  markServerReady: "mark_server_ready",
+} as const;
+
+export type SnapshotProvisioningStep =
+  (typeof SNAPSHOT_PROVISIONING_STEPS)[keyof typeof SNAPSHOT_PROVISIONING_STEPS];
+
 export const APPLY_STEPS = {
   loadingDesiredState: "loading_desired_state",
   renderingFiles: "rendering_files",
@@ -69,6 +85,15 @@ export type ProvisionTenantServerPayload = {
   providerServerId?: string;
   actionId?: string;
   ipv4?: string;
+};
+
+export type ProvisionTenantServerFromSnapshotPayload = {
+  tenantId: string;
+  step?: SnapshotProvisioningStep;
+  providerServerId?: string;
+  actionId?: string;
+  ipv4?: string;
+  sourceSnapshotId?: string;
 };
 
 export type ProvisionTenantOpenAiKeyPayload = {
@@ -170,6 +195,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
       payload: ProvisionTenantServerPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.provisionTenantServerFromSnapshot;
+      payload: ProvisionTenantServerFromSnapshotPayload;
     }
   | {
       jobType: typeof JOB_TYPES.provisionTenantOpenAiKey;

@@ -8,6 +8,8 @@ import {
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
+  platformProvisionServerResponseSchema,
+  platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
   platformUsageQuerySchema,
   platformUsageSchema,
@@ -31,6 +33,7 @@ import {
   getTenantRuntimeGatewayToken,
   grantPlatformOrganizationCredits,
   triggerPlatformOrganizationApply,
+  triggerPlatformOrganizationProvisionServer,
   triggerPlatformOrganizationDeleteWorkspace,
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
@@ -75,6 +78,11 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
   triggerPlatformOrganizationApply: (input: {
     orgSlug: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformOrganizationProvisionServer: (input: {
+    orgSlug: string
+    provisioningStrategy: "legacy_base_image" | "hetzner_snapshot"
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationDeleteWorkspace: (input: {
@@ -136,6 +144,16 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         orgSlug,
         userExternalId: user.id,
       }),
+    triggerPlatformOrganizationProvisionServer: ({
+      orgSlug,
+      provisioningStrategy,
+      user,
+    }) =>
+      triggerPlatformOrganizationProvisionServer({
+        orgSlug,
+        provisioningStrategy,
+        userExternalId: user.id,
+      }),
     triggerPlatformOrganizationDeleteWorkspace: ({ orgSlug, user }) =>
       triggerPlatformOrganizationDeleteWorkspace({
         orgSlug,
@@ -189,7 +207,8 @@ function handlePlatformRouteError(error: unknown) {
 
   if (
     error instanceof Error &&
-    error.message === "Workspace deletion is already queued or running"
+    (error.message === "Organization already has a tenant server" ||
+      error.message === "Workspace deletion is already queued or running")
   ) {
     return {
       code: "conflict",
@@ -387,6 +406,52 @@ export function createPlatformRouter(
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",
           })
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/provision-server",
+      zValidator("param", workspaceParamsSchema),
+      zValidator("json", platformProvisionServerSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+        const payload = context.req.valid("json")
+
+        try {
+          const result = await dependencies.triggerPlatformOrganizationProvisionServer(
+            {
+              orgSlug,
+              provisioningStrategy: payload.provisioningStrategy,
+              user: authResult.user,
+            },
+          )
+
+          return context.json(
+            platformProvisionServerResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
         } catch (error) {
           const handled = handlePlatformRouteError(error)
 

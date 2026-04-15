@@ -3,6 +3,9 @@ import * as z from "zod"
 const rawApiEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3002),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
+  HETZNER_ONBOARDING_PROVISIONING_MODE: z
+    .enum(["legacy_base_image", "hetzner_snapshot"])
+    .default("legacy_base_image"),
   LANDING_PAGE_DOMAIN: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -34,6 +37,9 @@ const rawApiEnvSchema = z.object({
 export type ApiEnv = {
   API_PORT: number
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY?: string
+  HETZNER_ONBOARDING_PROVISIONING_MODE:
+    | "legacy_base_image"
+    | "hetzner_snapshot"
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
   PUBLIC_APP_BASE_URL: string
@@ -102,6 +108,8 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     API_PORT: raw.API_PORT,
     CONTROL_PLANE_OPENAI_ADMIN_API_KEY:
       raw.CONTROL_PLANE_OPENAI_ADMIN_API_KEY?.trim() || undefined,
+    HETZNER_ONBOARDING_PROVISIONING_MODE:
+      raw.HETZNER_ONBOARDING_PROVISIONING_MODE,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,

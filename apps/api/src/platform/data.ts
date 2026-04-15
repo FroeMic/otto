@@ -47,10 +47,14 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  provisionTenantServer: "provision_tenant_server",
+  provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   refreshRuntimeImage: "refresh_runtime_image",
 } as const
+
+type PlatformProvisioningStrategy = "legacy_base_image" | "hetzner_snapshot"
 
 function recordFromUnknown(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -359,6 +363,41 @@ async function getOrganizationSummaryBySlug(orgSlug: string) {
   return organization ?? null
 }
 
+function buildPlatformProvisioningJobInput(input: {
+  provisioningStrategy: PlatformProvisioningStrategy
+  tenantId: string
+}) {
+  if (input.provisioningStrategy === "hetzner_snapshot") {
+    return {
+      jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
+      payloadJson: {
+        step: "create_server_from_snapshot",
+        tenantId: input.tenantId,
+      },
+      tenantServer: {
+        provider: "hetzner",
+        provisioningStrategy: "hetzner_snapshot",
+        sshUsername: "openclaw",
+        status: "creating",
+      },
+    } as const
+  }
+
+  return {
+    jobType: JOB_TYPES.provisionTenantServer,
+    payloadJson: {
+      step: "create_server",
+      tenantId: input.tenantId,
+    },
+    tenantServer: {
+      provider: "hetzner",
+      provisioningStrategy: "legacy_base_image",
+      sshUsername: "root",
+      status: "creating",
+    },
+  } as const
+}
+
 async function hasQueuedWorkspaceDeleteJob(organizationId: string) {
   const db = getDb()
   const queuedJobs = await db
@@ -428,8 +467,12 @@ export async function getPlatformOrganizations(input: {
       ipv4: tenantServers.ipv4,
       organizationId: tenants.organizationId,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -624,8 +667,12 @@ export async function getPlatformOrganizations(input: {
               jobEventsByJobId,
             ),
             name: tenant.name,
+            provisioningStrategy: tenant.provisioningStrategy,
             serverStatus: tenant.serverStatus,
+            snapshotGeneration: tenant.snapshotGeneration,
             status: tenant.status,
+            sourceImage: tenant.sourceImage,
+            sourceSnapshotId: tenant.sourceSnapshotId,
           }
         : null,
       timeFormatPreference: organization.timeFormatPreference,
@@ -667,8 +714,12 @@ export async function getPlatformOrganizationDetail(input: {
       id: tenants.id,
       ipv4: tenantServers.ipv4,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -864,6 +915,7 @@ export async function getPlatformOrganizationDetail(input: {
       latestJob: buildJobSummary(recentJobRows[0], jobEventsByJobId),
       name: tenant.name,
       openAiProvider,
+      provisioningStrategy: tenant.provisioningStrategy,
       recentApplyRuns: applyRunRows.map((row) => ({
         createdAt: row.createdAt,
         desiredStateVersion: row.desiredStateVersion,
@@ -909,7 +961,10 @@ export async function getPlatformOrganizationDetail(input: {
         }
       }),
       serverStatus: tenant.serverStatus,
+      snapshotGeneration: tenant.snapshotGeneration,
       status: tenant.status,
+      sourceImage: tenant.sourceImage,
+      sourceSnapshotId: tenant.sourceSnapshotId,
     },
     timeFormatPreference: organization.timeFormatPreference,
     timezone: organization.timezone,
@@ -1168,6 +1223,133 @@ export async function triggerPlatformOrganizationApply(input: {
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
   }
+}
+
+export async function triggerPlatformOrganizationProvisionServer(input: {
+  orgSlug: string
+  provisioningStrategy: PlatformProvisioningStrategy
+  userExternalId: string
+}) {
+  const db = getDb()
+
+  return db.transaction(async (tx) => {
+    const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+
+    if (!organization) {
+      throw new Error("Platform organization not found")
+    }
+
+    const [latestTenant] = await tx
+      .select({
+        id: tenants.id,
+        name: tenants.name,
+        serverId: tenantServers.id,
+      })
+      .from(tenants)
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(tenants.organizationId, organization.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1)
+
+    if (latestTenant?.serverId) {
+      throw new Error("Organization already has a tenant server")
+    }
+
+    let tenantId = latestTenant?.id ?? null
+    let tenantName = latestTenant?.name ?? organization.organizationName
+    let provisionedTenant = false
+
+    if (!tenantId) {
+      const [createdTenant] = await tx
+        .insert(tenants)
+        .values({
+          name: organization.organizationName,
+          organizationId: organization.organizationId,
+          status: "provisioning",
+        })
+        .returning({
+          id: tenants.id,
+          name: tenants.name,
+        })
+
+      if (!createdTenant) {
+        throw new Error("Failed to create tenant")
+      }
+
+      tenantId = createdTenant.id
+      tenantName = createdTenant.name
+      provisionedTenant = true
+    } else {
+      await tx
+        .update(tenants)
+        .set({
+          status: "provisioning",
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, tenantId))
+    }
+
+    const [desiredState] = await tx
+      .select({
+        id: tenantDesiredStates.id,
+      })
+      .from(tenantDesiredStates)
+      .where(eq(tenantDesiredStates.tenantId, tenantId))
+      .limit(1)
+
+    if (!desiredState) {
+      await tx.insert(tenantDesiredStates).values({
+        configJson: {},
+        tenantId,
+        version: 1,
+      })
+    }
+
+    const provisioningJob = buildPlatformProvisioningJobInput({
+      provisioningStrategy: input.provisioningStrategy,
+      tenantId,
+    })
+
+    await tx.insert(tenantServers).values({
+      ...provisioningJob.tenantServer,
+      tenantId,
+    })
+
+    const [job] = await tx
+      .insert(jobRuns)
+      .values({
+        availableAt: new Date(),
+        jobType: provisioningJob.jobType,
+        payloadJson: provisioningJob.payloadJson,
+        status: "queued",
+        tenantId,
+      })
+      .returning({
+        id: jobRuns.id,
+      })
+
+    if (!job) {
+      throw new Error("Failed to queue provisioning job")
+    }
+
+    await tx.insert(jobEvents).values({
+      dataJson: {
+        jobType: provisioningJob.jobType,
+      },
+      eventType: "queued",
+      jobRunId: job.id,
+      message: "Job queued for execution",
+    })
+
+    return {
+      jobId: job.id,
+      provisionedTenant,
+      provisioningStrategy: input.provisioningStrategy,
+      queued: true,
+      tenantId,
+      tenantName,
+    }
+  })
 }
 
 export async function triggerPlatformOrganizationDeployRuntime(input: {

@@ -61,11 +61,15 @@ function createDependencies(): PlatformRouteDependencies {
         latestJob: null,
         name: "interaction42-prod",
         openAiProvider: null,
+        provisioningStrategy: "hetzner_snapshot",
         recentApplyRuns: [],
         recentEvents: [],
         recentJobs: [],
         serverStatus: "ready",
+        snapshotGeneration: "2026-04-15.1",
         status: "ready",
+        sourceImage: "snapshot-123",
+        sourceSnapshotId: "snapshot-123",
       },
       timeFormatPreference: "auto",
       timezone: "UTC",
@@ -88,8 +92,12 @@ function createDependencies(): PlatformRouteDependencies {
           latestApplyRun: null,
           latestJob: null,
           name: "interaction42-prod",
+          provisioningStrategy: "hetzner_snapshot",
           serverStatus: "ready",
+          snapshotGeneration: "2026-04-15.1",
           status: "ready",
+          sourceImage: "snapshot-123",
+          sourceSnapshotId: "snapshot-123",
         },
         timeFormatPreference: "auto",
         timezone: "UTC",
@@ -123,6 +131,16 @@ function createDependencies(): PlatformRouteDependencies {
       desiredStateChanged: false,
       desiredStateVersion: 12,
       jobId: "job_apply_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    }),
+    triggerPlatformOrganizationProvisionServer: async ({
+      provisioningStrategy,
+    }) => ({
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy,
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
@@ -242,6 +260,32 @@ describe("platform routes", () => {
       desiredStateChanged: false,
       desiredStateVersion: 12,
       jobId: "job_apply_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    })
+  })
+
+  it("queues platform server provisioning", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/provision-server",
+      {
+        body: JSON.stringify({
+          provisioningStrategy: "legacy_base_image",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy: "legacy_base_image",
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",

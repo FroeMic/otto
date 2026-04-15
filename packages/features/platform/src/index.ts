@@ -65,7 +65,11 @@ export const platformTenantSummarySchema = z.object({
   latestApplyRun: platformApplyRunSummarySchema.nullable(),
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
+  provisioningStrategy: z.string().nullable(),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -158,10 +162,14 @@ export const platformTenantDetailSchema = z.object({
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
   openAiProvider: platformOpenAiProviderSummarySchema.nullable(),
+  provisioningStrategy: z.string().nullable(),
   recentApplyRuns: z.array(platformApplyRunDetailSchema),
   recentEvents: z.array(platformEventDetailSchema),
   recentJobs: z.array(platformJobDetailSchema),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -258,6 +266,16 @@ export const platformActionResponseSchema = z.object({
   tenantName: z.string(),
 })
 
+export const platformProvisionServerSchema = z.object({
+  provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+})
+
+export const platformProvisionServerResponseSchema =
+  platformActionResponseSchema.extend({
+    provisionedTenant: z.boolean(),
+    provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+  })
+
 export const platformDeleteWorkspaceResponseSchema = z.object({
   jobId: z.string(),
   organizationId: z.string(),
@@ -265,7 +283,6 @@ export const platformDeleteWorkspaceResponseSchema = z.object({
   organizationSlug: z.string(),
   queued: z.boolean(),
 })
-
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -318,6 +335,12 @@ export type PlatformOrganizationListItem = z.infer<
 >
 export type PlatformOrganizationsResponse = z.infer<
   typeof platformOrganizationsResponseSchema
+>
+export type PlatformProvisionServerInput = z.infer<
+  typeof platformProvisionServerSchema
+>
+export type PlatformProvisionServerResponse = z.infer<
+  typeof platformProvisionServerResponseSchema
 >
 export type PlatformProvisionOpenAiKeyResponse = z.infer<
   typeof platformProvisionOpenAiKeyResponseSchema
