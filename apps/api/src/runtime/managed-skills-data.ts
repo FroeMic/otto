@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
+import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "@otto/feature-runtime-core"
 import {
   tenantDesiredStates,
   tenantServers,
@@ -207,6 +208,8 @@ async function createNextDesiredStateVersionForManagedSkills(input: {
 export async function listTenantManagedSkillsForTenant(input: {
   tenantId: string
 }) {
+  await ensureTenantSystemManagedSkillsForTenant(input)
+
   const db = getDb()
 
   return db
@@ -229,7 +232,12 @@ export async function getLatestTenantManagedSkillDetailForTenant(input: {
   skillKey: string
   tenantId: string
 }): Promise<ManagedSkillDetail | null> {
+  await ensureTenantSystemManagedSkillsForTenant({
+    tenantId: input.tenantId,
+  })
+
   const db = getDb()
+
   const [skill] = await db
     .select({
       description: tenantSkills.description,
@@ -317,6 +325,151 @@ export async function getLatestTenantManagedSkillDetailForTenant(input: {
     updatedAt: skill.updatedAt,
     version: latestVersion.version,
   }
+}
+
+async function ensureTenantSystemManagedSkillsForTenant(input: {
+  tenantId: string
+}) {
+  const db = getDb()
+
+  for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    const [skill] = await db
+      .select({
+        skillId: tenantSkills.id,
+        sourceType: tenantSkills.sourceType,
+      })
+      .from(tenantSkills)
+      .where(
+        and(
+          eq(tenantSkills.tenantId, input.tenantId),
+          eq(tenantSkills.skillKey, definition.skillKey),
+        ),
+      )
+      .limit(1)
+
+    if (!skill) {
+      await createSystemManagedSkillForTenant({
+        files: definition.files,
+        skillKey: definition.skillKey,
+        summary: definition.summary,
+        tenantId: input.tenantId,
+      })
+      continue
+    }
+
+    if (skill.sourceType !== "system") {
+      continue
+    }
+  }
+}
+
+async function createSystemManagedSkillForTenant(input: {
+  files: Array<{
+    contentText?: string | null
+    path: string
+  }>
+  skillKey: string
+  summary: string
+  tenantId: string
+}) {
+  const db = getDb()
+  const entryFile = input.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH)
+
+  if (typeof entryFile?.contentText !== "string") {
+    throw new Error(
+      `System managed skill ${input.skillKey} is missing SKILL.md in its canonical package.`,
+    )
+  }
+
+  const parsed = parseManagedSkillDocument(entryFile.contentText)
+
+  const [createdSkill] = await db
+    .insert(tenantSkills)
+    .values({
+      createdByExternalId: null,
+      createdByType: "system",
+      dependsOnJson: {
+        integrations: parsed.integrationKeys,
+        skills: parsed.skillKeys,
+      },
+      description: parsed.description,
+      displayName: parsed.name,
+      enabled: true,
+      skillKey: input.skillKey,
+      sourceType: "system",
+      status: "ready",
+      tenantId: input.tenantId,
+      updatedByExternalId: null,
+      updatedByType: "system",
+    })
+    .returning({
+      id: tenantSkills.id,
+      skillKey: tenantSkills.skillKey,
+    })
+
+  const [createdVersion] = await db
+    .insert(tenantSkillVersions)
+    .values({
+      createdByExternalId: null,
+      createdByType: "system",
+      summary: input.summary,
+      tenantSkillId: createdSkill.id,
+      version: 1,
+    })
+    .returning({
+      id: tenantSkillVersions.id,
+      version: tenantSkillVersions.version,
+    })
+
+  const managedFiles = input.files
+    .filter((file): file is { contentText: string; path: string } => typeof file.contentText === "string")
+    .map((file) => ({
+      contentEncoding: "utf8_text" as const,
+      contentSha256: createTextChecksum(file.contentText),
+      contentText: file.contentText,
+      contentType: "text/plain; charset=utf-8",
+      fileKind:
+        file.path === MANAGED_SKILL_ENTRY_FILE_PATH ? "managed_entry" : "managed_seeded",
+      path: file.path,
+    }))
+
+  const insertedFiles = await db
+    .insert(tenantSkillFiles)
+    .values(
+      managedFiles.map((file) => ({
+        contentEncoding: file.contentEncoding,
+        contentSha256: file.contentSha256,
+        contentType: file.contentType,
+        fileKind: file.fileKind,
+        lastSeenAt: null,
+        relativePath: file.path,
+        tenantSkillId: createdSkill.id,
+      })),
+    )
+    .returning({
+      id: tenantSkillFiles.id,
+      relativePath: tenantSkillFiles.relativePath,
+    })
+
+  const insertedFilesByPath = new Map(
+    insertedFiles.map((file) => [file.relativePath, file.id]),
+  )
+
+  await db.insert(tenantSkillFileVersions).values(
+    managedFiles.map((file) => ({
+      contentSha256: file.contentSha256,
+      contentText: file.contentText,
+      createdByExternalId: null,
+      createdByType: "system" as const,
+      tenantSkillFileId:
+        insertedFilesByPath.get(file.path) ??
+        (() => {
+          throw new Error(`Inserted managed file missing for ${file.path}`)
+        })(),
+      tenantSkillVersionId: createdVersion.id,
+      version: createdVersion.version,
+    })),
+  )
 }
 
 export async function createTenantManagedSkillForTenant(input: {

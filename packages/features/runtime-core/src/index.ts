@@ -3,6 +3,7 @@ import * as z from "zod"
 
 export * from "./managed-config/agent-personalization-contracts"
 export * from "./managed-skills/markdown"
+export * from "./managed-skills/system-skills"
 export * from "./managed-skills/workspace-contracts"
 
 export type ManagedConfigVersionConflictLike = {
