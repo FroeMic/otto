@@ -1,10 +1,6 @@
 import * as z from "zod"
 
-export const workspaceSkillSourceTypeSchema = z.enum([
-  "integration_contribution",
-  "system",
-  "user",
-])
+export const workspaceSkillOriginSchema = z.enum(["custom", "from_library"])
 
 export const workspaceSkillStatusSchema = z.enum([
   "disabled",
@@ -30,24 +26,39 @@ export const workspaceSkillDependencySummarySchema = z.object({
   skills: z.array(z.string()),
 })
 
-export const workspaceSkillListEntrySchema = z.object({
+export const workspaceInstalledSkillListEntrySchema = z.object({
   description: z.string(),
   displayName: z.string(),
   editable: z.boolean(),
   enabled: z.boolean(),
+  origin: workspaceSkillOriginSchema,
+  resettable: z.boolean(),
   skillKey: z.string().min(1),
-  sourceType: workspaceSkillSourceTypeSchema,
   status: workspaceSkillStatusSchema,
   updatedAt: z.string(),
 })
 
-export type WorkspaceSkillListEntry = z.infer<
-  typeof workspaceSkillListEntrySchema
+export type WorkspaceInstalledSkillListEntry = z.infer<
+  typeof workspaceInstalledSkillListEntrySchema
+>
+
+export const workspaceSkillLibraryEntrySchema = z.object({
+  dependencies: workspaceSkillDependencySummarySchema,
+  description: z.string(),
+  displayName: z.string(),
+  installed: z.boolean(),
+  skillKey: z.string().min(1),
+  summary: z.string(),
+})
+
+export type WorkspaceSkillLibraryEntry = z.infer<
+  typeof workspaceSkillLibraryEntrySchema
 >
 
 export const workspaceSkillsListResponseSchema = z.object({
+  installedSkills: z.array(workspaceInstalledSkillListEntrySchema),
   knownIntegrationKeys: z.array(z.string()),
-  skills: z.array(workspaceSkillListEntrySchema),
+  librarySkills: z.array(workspaceSkillLibraryEntrySchema),
   state: z.enum(["pending_setup", "ready"]),
 })
 
@@ -55,7 +66,11 @@ export type WorkspaceSkillsListResponse = z.infer<
   typeof workspaceSkillsListResponseSchema
 >
 
-export const workspaceSkillSectionSchema = z.enum(["files", "status"])
+export const workspaceSkillSectionSchema = z.enum([
+  "files",
+  "instructions",
+  "overview",
+])
 
 export type WorkspaceSkillSection = z.infer<
   typeof workspaceSkillSectionSchema
@@ -67,8 +82,8 @@ export const workspaceSkillDetailSchema = z.object({
   displayName: z.string(),
   editable: z.boolean(),
   files: z.array(workspaceSkillFileSchema),
+  origin: workspaceSkillOriginSchema,
   skillKey: z.string().min(1),
-  sourceType: workspaceSkillSourceTypeSchema,
   status: workspaceSkillStatusSchema,
   summary: z.string().nullable(),
   updatedAt: z.string(),

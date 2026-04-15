@@ -125,6 +125,16 @@
   - `system-skills.ts` is now a thin registry over per-skill definitions
   - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs, examples, templates, and starter scripts
   - the remaining managed-skill follow-on work is no longer worker packaging; it is richer provenance/diff UX and any future skill-catalog product work
+- The next Skills product UX slice is now explicitly tracked in `_specs/TODO_33_skill_library_and_installed_skills_ux.md`:
+  - Slice 1 is now implemented:
+    - the workspace Skills area now has separate `Installed` and `Library` routes
+    - installed skill detail is now split into `Overview`, `Instructions`, and `Files`
+    - the workspace API now returns separate `installedSkills` and `librarySkills` collections
+    - user-facing copy now uses brand-agnostic labels such as `From library`, `Custom`, and `Restore defaults`
+  - the next follow-on work is now narrower:
+    - add real install/remove lifecycle for library-backed skills in the web UI
+    - align runtime and agent tools with the same library-vs-installed model
+    - decide whether non-user-invocable helper skills should stay hidden or gain a separate operator-only surface
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

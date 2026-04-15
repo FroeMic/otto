@@ -11,12 +11,15 @@ import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { SkillEditorCard } from "../components/SkillEditorCard"
 
-export interface SkillStatusPageProps {
+export interface SkillInstructionsPageProps {
   orgSlug: string
   skillKey: string
 }
 
-export function SkillStatusPage({ orgSlug, skillKey }: SkillStatusPageProps) {
+export function SkillInstructionsPage({
+  orgSlug,
+  skillKey,
+}: SkillInstructionsPageProps) {
   const navigate = useNavigate()
   const { data } = useSuspenseQuery(
     workspaceSkillDetailQueryOptions({
@@ -32,8 +35,8 @@ export function SkillStatusPage({ orgSlug, skillKey }: SkillStatusPageProps) {
           <Alert>
             <AlertTitle>Runtime not ready</AlertTitle>
             <AlertDescription>
-              This workspace does not have a ready Otto runtime yet, so the
-              skill package cannot be inspected here.
+              This workspace does not have a ready runtime yet, so the skill
+              instructions cannot be inspected here.
             </AlertDescription>
           </Alert>
         </SettingsPageContent>
@@ -45,7 +48,7 @@ export function SkillStatusPage({ orgSlug, skillKey }: SkillStatusPageProps) {
     <SettingsPage>
       <SettingsPageContent className="flex max-w-4xl flex-col gap-6 pb-8">
         <SkillDetailNavigation
-          currentSection="status"
+          currentSection="instructions"
           onSectionChange={(nextSection) => {
             void navigate({
               params: {
@@ -55,7 +58,9 @@ export function SkillStatusPage({ orgSlug, skillKey }: SkillStatusPageProps) {
               to:
                 nextSection === "files"
                   ? "/$orgSlug/skills/$skillKey/files"
-                  : "/$orgSlug/skills/$skillKey/status",
+                  : nextSection === "overview"
+                    ? "/$orgSlug/skills/$skillKey/overview"
+                    : "/$orgSlug/skills/$skillKey/instructions",
             })
           }}
         />
