@@ -276,6 +276,13 @@ export const platformProvisionServerResponseSchema =
     provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
   })
 
+export const platformDeleteWorkspaceResponseSchema = z.object({
+  jobId: z.string(),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  organizationSlug: z.string(),
+  queued: z.boolean(),
+})
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -303,6 +310,9 @@ export const platformJobStatusResponseSchema = z.object({
 
 export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema>
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
+export type PlatformDeleteWorkspaceResponse = z.infer<
+  typeof platformDeleteWorkspaceResponseSchema
+>
 export type PlatformEventDetail = z.infer<typeof platformEventDetailSchema>
 export type PlatformGrantCreditsInput = z.infer<
   typeof platformGrantCreditsSchema

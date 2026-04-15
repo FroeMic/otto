@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import { BILLING_PLAN_KEYS } from "./plans"
-import { buildSubscriptionRecordFromStripe } from "./data"
+import {
+  buildInitialWorkspaceCreditGrantInput,
+  buildSubscriptionRecordFromStripe,
+  INITIAL_WORKSPACE_CREDITS,
+} from "./data"
 
 describe("buildSubscriptionRecordFromStripe", () => {
   it("maps known Stripe lookup keys to billing plan keys", () => {
@@ -52,5 +56,18 @@ describe("buildSubscriptionRecordFromStripe", () => {
     })
 
     expect(record.planKey).toBeNull()
+  })
+
+  it("builds a deterministic initial workspace credit grant", () => {
+    expect(
+      buildInitialWorkspaceCreditGrantInput({
+        tenantId: "d22613d3-5afe-4c63-9d08-0c8cbf8d311e",
+      }),
+    ).toEqual({
+      creditsDeltaMilli: INITIAL_WORKSPACE_CREDITS * 1_000,
+      description: `Initial workspace credits (${INITIAL_WORKSPACE_CREDITS} credits)`,
+      sourceId: "d22613d3-5afe-4c63-9d08-0c8cbf8d311e",
+      sourceType: "workspace_initial_grant",
+    })
   })
 })

@@ -67,6 +67,10 @@ export class OpenAiProvisioner implements ProviderProvisioner {
   }): Promise<void> {
     await deleteOpenAiServiceAccount(input);
   }
+
+  async archiveProject(projectId: string): Promise<void> {
+    await archiveOpenAiProject(projectId);
+  }
 }
 
 async function createOpenAiProject(name: string): Promise<OpenAiProject> {
@@ -150,6 +154,12 @@ async function deleteOpenAiServiceAccount(input: {
       method: "DELETE",
     },
   );
+}
+
+async function archiveOpenAiProject(projectId: string): Promise<void> {
+  await fetchOpenAiAdminJson(`/organization/projects/${projectId}/archive`, {
+    method: "POST",
+  });
 }
 
 async function verifyOpenAiApiKey(apiKey: string) {

@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator"
 import {
   platformActionResponseSchema,
   platformBootstrapSchema,
+  platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
   platformJobStatusResponseSchema,
@@ -33,6 +34,7 @@ import {
   grantPlatformOrganizationCredits,
   triggerPlatformOrganizationApply,
   triggerPlatformOrganizationProvisionServer,
+  triggerPlatformOrganizationDeleteWorkspace,
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
   triggerPlatformOrganizationRefreshImage,
@@ -81,6 +83,10 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   triggerPlatformOrganizationProvisionServer: (input: {
     orgSlug: string
     provisioningStrategy: "legacy_base_image" | "hetzner_snapshot"
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformOrganizationDeleteWorkspace: (input: {
+    orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationDeployRuntime: (input: {
@@ -148,6 +154,11 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         provisioningStrategy,
         userExternalId: user.id,
       }),
+    triggerPlatformOrganizationDeleteWorkspace: ({ orgSlug, user }) =>
+      triggerPlatformOrganizationDeleteWorkspace({
+        orgSlug,
+        userExternalId: user.id,
+      }),
     triggerPlatformOrganizationDeployRuntime: ({ orgSlug, user }) =>
       triggerPlatformOrganizationDeployRuntime({
         orgSlug,
@@ -171,15 +182,11 @@ function getUserName(user: WorkspaceShellUser) {
 }
 
 function handlePlatformRouteError(error: unknown) {
-  if (error instanceof Error && error.message === "Platform organization not found") {
-    return {
-      code: "not_found",
-      message: error.message,
-      status: 404,
-    } as const
-  }
-
-  if (error instanceof Error && error.message === "Organization tenant not found") {
+  if (
+    error instanceof Error &&
+    (error.message === "Organization tenant not found" ||
+      error.message === "Platform organization not found")
+  ) {
     return {
       code: "not_found",
       message: error.message,
@@ -200,7 +207,8 @@ function handlePlatformRouteError(error: unknown) {
 
   if (
     error instanceof Error &&
-    error.message === "Organization already has a tenant server"
+    (error.message === "Organization already has a tenant server" ||
+      error.message === "Workspace deletion is already queued or running")
   ) {
     return {
       code: "conflict",
@@ -439,6 +447,48 @@ export function createPlatformRouter(
 
           return context.json(
             platformProvisionServerResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/delete-workspace",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+
+        try {
+          const result =
+            await dependencies.triggerPlatformOrganizationDeleteWorkspace({
+              orgSlug,
+              user: authResult.user,
+            })
+
+          return context.json(
+            platformDeleteWorkspaceResponseSchema.parse(result),
             200,
             {
               "Cache-Control": "no-store",

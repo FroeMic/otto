@@ -49,6 +49,7 @@ const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
   provisionTenantServer: "provision_tenant_server",
   provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
+  deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   refreshRuntimeImage: "refresh_runtime_image",
 } as const
@@ -346,13 +347,14 @@ async function getLatestTenantForOrganizationSlug(orgSlug: string) {
   return tenant ?? null
 }
 
-async function getOrganizationBySlug(orgSlug: string) {
+async function getOrganizationSummaryBySlug(orgSlug: string) {
   const db = getDb()
   const [organization] = await db
     .select({
-      id: organizations.id,
-      name: organizations.name,
-      slug: organizations.slug,
+      externalOrganizationId: organizations.externalId,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
     })
     .from(organizations)
     .where(eq(organizations.slug, orgSlug))
@@ -394,6 +396,27 @@ function buildPlatformProvisioningJobInput(input: {
       status: "creating",
     },
   } as const
+}
+
+async function hasQueuedWorkspaceDeleteJob(organizationId: string) {
+  const db = getDb()
+  const queuedJobs = await db
+    .select({
+      id: jobRuns.id,
+      payloadJson: jobRuns.payloadJson,
+    })
+    .from(jobRuns)
+    .where(
+      and(
+        eq(jobRuns.jobType, JOB_TYPES.deleteWorkspace),
+        inArray(jobRuns.status, ["queued", "running"]),
+      ),
+    )
+
+  return queuedJobs.some((job) => {
+    const payload = recordFromUnknown(job.payloadJson)
+    return payload?.organizationId === organizationId
+  })
 }
 
 async function getTenantCreditBalanceSummary(tenantId: string) {
@@ -1210,7 +1233,7 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
   const db = getDb()
 
   return db.transaction(async (tx) => {
-    const organization = await getOrganizationBySlug(input.orgSlug)
+    const organization = await getOrganizationSummaryBySlug(input.orgSlug)
 
     if (!organization) {
       throw new Error("Platform organization not found")
@@ -1224,7 +1247,7 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
       })
       .from(tenants)
       .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
-      .where(eq(tenants.organizationId, organization.id))
+      .where(eq(tenants.organizationId, organization.organizationId))
       .orderBy(desc(tenants.createdAt))
       .limit(1)
 
@@ -1233,15 +1256,15 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
     }
 
     let tenantId = latestTenant?.id ?? null
-    let tenantName = latestTenant?.name ?? organization.name
+    let tenantName = latestTenant?.name ?? organization.organizationName
     let provisionedTenant = false
 
     if (!tenantId) {
       const [createdTenant] = await tx
         .insert(tenants)
         .values({
-          name: organization.name,
-          organizationId: organization.id,
+          name: organization.organizationName,
+          organizationId: organization.organizationId,
           status: "provisioning",
         })
         .returning({
@@ -1415,6 +1438,38 @@ export async function triggerPlatformOrganizationRefreshImage(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
+  }
+}
+
+export async function triggerPlatformOrganizationDeleteWorkspace(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
+
+  if (await hasQueuedWorkspaceDeleteJob(organization.organizationId)) {
+    throw new Error("Workspace deletion is already queued or running")
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.deleteWorkspace,
+    payload: {
+      organizationId: organization.organizationId,
+      organizationSlug: organization.organizationSlug,
+      organizationExternalId: organization.externalOrganizationId,
+    },
+  })
+
+  return {
+    jobId,
+    organizationId: organization.organizationId,
+    organizationName: organization.organizationName,
+    organizationSlug: organization.organizationSlug,
+    queued: true,
   }
 }
 

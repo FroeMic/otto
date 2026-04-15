@@ -6,6 +6,7 @@ export const JOB_TYPES = {
   provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
+  deleteWorkspace: "delete_workspace",
   refreshRuntimeImage: "refresh_runtime_image",
   runWorkspaceChatTurn: "run_workspace_chat_turn",
   scheduleOauthConnectionRefresh: "schedule_oauth_connection_refresh",
@@ -118,6 +119,12 @@ export type RefreshRuntimeImagePayload = {
   tenantId: string;
 };
 
+export type DeleteWorkspacePayload = {
+  organizationId: string;
+  organizationSlug: string;
+  organizationExternalId: string;
+};
+
 export type RunWorkspaceChatTurnPayload = {
   assistantMessageId?: string;
   conversationKind: "ad_hoc" | "durable_named" | "external_surface";
@@ -200,6 +207,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.applyTenantConfig;
       payload: ApplyTenantConfigPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.deleteWorkspace;
+      payload: DeleteWorkspacePayload;
     }
   | {
       jobType: typeof JOB_TYPES.refreshRuntimeImage;

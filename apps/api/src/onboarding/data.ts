@@ -1,5 +1,6 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  creditLedgerEntries,
   jobEvents,
   jobRuns,
   memberships,
@@ -31,6 +32,8 @@ import {
   getApiEnv,
   hasWorkOsConfig,
 } from "../env"
+import { buildInitialWorkspaceCreditGrantInput } from "../billing/data"
+import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
 import { JOB_TYPES } from "../jobs/types"
 import {
   generateUniqueWorkspaceSlug,
@@ -127,6 +130,34 @@ function deriveWorkspaceNameFromUser(user: PostAuthUser) {
 
 function generateWorkspaceSlugSeed() {
   return `w-${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`
+}
+
+async function ensureInitialWorkspaceCreditsInTransaction(input: {
+  tenantId: string
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]
+}) {
+  const grantInput = buildInitialWorkspaceCreditGrantInput({
+    tenantId: input.tenantId,
+  })
+
+  await input.tx
+    .insert(creditLedgerEntries)
+    .values({
+      billableUnits: 0,
+      creditsDeltaMilli: grantInput.creditsDeltaMilli,
+      description: grantInput.description,
+      entryType: CREDIT_LEDGER_ENTRY_TYPES.manualGrant,
+      sourceId: grantInput.sourceId,
+      sourceType: grantInput.sourceType,
+      tenantId: input.tenantId,
+    })
+    .onConflictDoNothing({
+      target: [
+        creditLedgerEntries.sourceType,
+        creditLedgerEntries.sourceId,
+        creditLedgerEntries.entryType,
+      ],
+    })
 }
 
 export async function getPostAuthRedirectPathForWorkspaceOnboarding(
@@ -688,6 +719,11 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       .limit(1)
 
     if (existingTenant) {
+      await ensureInitialWorkspaceCreditsInTransaction({
+        tenantId: existingTenant.id,
+        tx,
+      })
+
       await tx
         .update(workspaceOnboardingRuns)
         .set({
@@ -730,6 +766,11 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
     if (!tenant) {
       throw new Error("Failed to create tenant")
     }
+
+    await ensureInitialWorkspaceCreditsInTransaction({
+      tenantId: tenant.id,
+      tx,
+    })
 
     const initialProvisioningJob =
       buildInitialProvisioningJobInputForWorkspaceOnboarding({
