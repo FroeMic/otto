@@ -2,6 +2,7 @@ import * as z from "zod"
 
 const rawApiEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3002),
+  CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   HETZNER_ONBOARDING_PROVISIONING_MODE: z
     .enum(["legacy_base_image", "hetzner_snapshot"])
     .default("legacy_base_image"),
@@ -35,6 +36,7 @@ const rawApiEnvSchema = z.object({
 
 export type ApiEnv = {
   API_PORT: number
+  CONTROL_PLANE_OPENAI_ADMIN_API_KEY?: string
   HETZNER_ONBOARDING_PROVISIONING_MODE:
     | "legacy_base_image"
     | "hetzner_snapshot"
@@ -104,6 +106,8 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
 
   return {
     API_PORT: raw.API_PORT,
+    CONTROL_PLANE_OPENAI_ADMIN_API_KEY:
+      raw.CONTROL_PLANE_OPENAI_ADMIN_API_KEY?.trim() || undefined,
     HETZNER_ONBOARDING_PROVISIONING_MODE:
       raw.HETZNER_ONBOARDING_PROVISIONING_MODE,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
@@ -152,4 +156,14 @@ export function hasWorkOsConfig(env: ApiEnv) {
       env.WORKOS_COOKIE_PASSWORD &&
       env.WORKOS_COOKIE_PASSWORD.length >= 32,
   )
+}
+
+export function getControlPlaneOpenAiAdminApiKey() {
+  const value = getApiEnv().CONTROL_PLANE_OPENAI_ADMIN_API_KEY
+
+  if (!value) {
+    throw new Error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is required")
+  }
+
+  return value
 }
