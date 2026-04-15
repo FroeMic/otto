@@ -31,7 +31,7 @@ function createDependencies(): SkillsRouteDependencies {
       downloadName: "SKILL.md",
     }),
     getWorkspaceSkillDetail: async () => ({
-      availableSections: ["status", "files"],
+      availableSections: ["overview", "instructions", "files"],
       detail: {
         dependencies: {
           integrations: ["slack"],
@@ -62,8 +62,8 @@ function createDependencies(): SkillsRouteDependencies {
             storageEncoding: "utf8_text",
           },
         ],
+        origin: "custom",
         skillKey: "triage",
-        sourceType: "user",
         status: "ready",
         summary: "Initial version",
         updatedAt: "2026-04-12T12:00:00.000Z",
@@ -91,17 +91,31 @@ function createDependencies(): SkillsRouteDependencies {
       state: "ready",
     }),
     listWorkspaceSkills: async () => ({
-      knownIntegrationKeys: ["linear", "slack"],
-      skills: [
+      installedSkills: [
         {
           description: "Use this skill to triage incoming requests.",
           displayName: "Triage",
           editable: true,
           enabled: true,
+          origin: "custom",
+          resettable: false,
           skillKey: "triage",
-          sourceType: "user",
           status: "ready",
           updatedAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+      knownIntegrationKeys: ["linear", "slack"],
+      librarySkills: [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installed: false,
+          skillKey: "name-and-domain-research",
+          summary: "Startup naming and domain research workflow",
         },
       ],
       state: "ready",
@@ -140,17 +154,31 @@ describe("skills routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
-      knownIntegrationKeys: ["linear", "slack"],
-      skills: [
+      installedSkills: [
         {
           description: "Use this skill to triage incoming requests.",
           displayName: "Triage",
           editable: true,
           enabled: true,
+          origin: "custom",
+          resettable: false,
           skillKey: "triage",
-          sourceType: "user",
           status: "ready",
           updatedAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+      knownIntegrationKeys: ["linear", "slack"],
+      librarySkills: [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installed: false,
+          skillKey: "name-and-domain-research",
+          summary: "Startup naming and domain research workflow",
         },
       ],
       state: "ready",
@@ -165,7 +193,7 @@ describe("skills routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
-      availableSections: ["status", "files"],
+      availableSections: ["overview", "instructions", "files"],
       detail: {
         dependencies: {
           integrations: ["slack"],
@@ -196,8 +224,8 @@ describe("skills routes", () => {
             storageEncoding: "utf8_text",
           },
         ],
+        origin: "custom",
         skillKey: "triage",
-        sourceType: "user",
         status: "ready",
         summary: "Initial version",
         updatedAt: "2026-04-12T12:00:00.000Z",

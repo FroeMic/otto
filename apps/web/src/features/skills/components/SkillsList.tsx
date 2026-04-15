@@ -9,37 +9,12 @@ import {
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
 
-import type { WorkspaceSkillListEntry } from "../types"
+import { formatSkillOriginLabel, formatSkillStatusLabel, skillStatusBadgeVariant } from "../skill-presentation"
+import type { WorkspaceInstalledSkillListEntry } from "../types"
 
 export interface SkillsListProps {
   orgSlug: string
-  skills: WorkspaceSkillListEntry[]
-}
-
-const statusBadgeVariant: Record<
-  WorkspaceSkillListEntry["status"],
-  "default" | "destructive" | "outline" | "secondary"
-> = {
-  disabled: "secondary",
-  invalid: "destructive",
-  missing_prerequisite: "outline",
-  projection_failed: "destructive",
-  ready: "default",
-}
-
-function formatStatusLabel(status: WorkspaceSkillListEntry["status"]) {
-  return status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
-}
-
-function formatSourceLabel(sourceType: WorkspaceSkillListEntry["sourceType"]) {
-  return sourceType === "integration_contribution"
-    ? "Integration starter"
-    : sourceType === "system"
-      ? "System managed"
-      : "Workspace managed"
+  skills: WorkspaceInstalledSkillListEntry[]
 }
 
 export function SkillsList({ orgSlug, skills }: SkillsListProps) {
@@ -54,17 +29,17 @@ export function SkillsList({ orgSlug, skills }: SkillsListProps) {
             skillKey: skill.skillKey,
           }}
           preload="intent"
-          to="/$orgSlug/skills/$skillKey/status"
+          to="/$orgSlug/skills/$skillKey/overview"
         >
           <SettingsRow>
             <SettingsRowLabel>
               <div className="flex flex-wrap items-center gap-2">
                 <SettingsRowTitle>{skill.displayName}</SettingsRowTitle>
-                <Badge variant={statusBadgeVariant[skill.status]}>
-                  {formatStatusLabel(skill.status)}
+                <Badge variant={skillStatusBadgeVariant[skill.status]}>
+                  {formatSkillStatusLabel(skill.status)}
                 </Badge>
                 <Badge variant="secondary">
-                  {formatSourceLabel(skill.sourceType)}
+                  {formatSkillOriginLabel(skill.origin)}
                 </Badge>
               </div>
               <SettingsRowDescription>{skill.description}</SettingsRowDescription>

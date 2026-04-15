@@ -45,8 +45,8 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
           <Alert>
             <AlertTitle>Runtime not ready</AlertTitle>
             <AlertDescription>
-              This workspace does not have a ready Otto runtime yet, so the
-              skill package files cannot be inspected here.
+              This workspace does not have a ready runtime yet, so the skill
+              files cannot be inspected here.
             </AlertDescription>
           </Alert>
         </SettingsPageContent>
@@ -68,18 +68,22 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
               to:
                 nextSection === "files"
                   ? "/$orgSlug/skills/$skillKey/files"
-                  : "/$orgSlug/skills/$skillKey/status",
+                  : nextSection === "instructions"
+                    ? "/$orgSlug/skills/$skillKey/instructions"
+                    : "/$orgSlug/skills/$skillKey/overview",
             })
           }}
         />
 
         <Alert>
-          <AlertTitle>Canonical package files</AlertTitle>
+          <AlertTitle>Default skill files</AlertTitle>
           <AlertDescription className="flex flex-wrap gap-2">
             {detailQuery.data.detail.files.map((file) => (
               <Badge key={file.path} variant="outline">
-                {file.fileClass === "managed_entry" ? "Entry" : "Seeded"}:{" "}
-                {file.path}
+                {file.fileClass === "managed_entry"
+                  ? "Instructions"
+                  : "Template file"}
+                : {file.path}
               </Badge>
             ))}
           </AlertDescription>

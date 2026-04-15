@@ -1,7 +1,9 @@
 import {
   type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillLibraryEntry,
   type WorkspaceSkillMutationResponse,
   type WorkspaceSkillsListResponse,
+  SYSTEM_MANAGED_SKILL_DEFINITIONS,
 } from "@otto/feature-runtime-core"
 import {
   buildManagedSkillMarkdown,
@@ -94,25 +96,13 @@ function mapManagedSkillDetail(detail: NonNullable<
       resettable: file.resettable,
       storageEncoding: file.storageEncoding,
     })),
+    origin: mapWorkspaceSkillOrigin(detail.sourceType),
     skillKey: detail.skillKey,
-    sourceType: normalizeSourceType(detail.sourceType),
     status: normalizeStatus(detail.status),
     summary: detail.summary,
     updatedAt: detail.updatedAt.toISOString(),
     version: detail.version,
   } as const
-}
-
-function normalizeSourceType(value: string) {
-  if (
-    value === "integration_contribution" ||
-    value === "system" ||
-    value === "user"
-  ) {
-    return value
-  }
-
-  throw new Error(`Unsupported managed skill source type: ${value}`)
 }
 
 function normalizeStatus(value: string) {
@@ -129,6 +119,59 @@ function normalizeStatus(value: string) {
   throw new Error(`Unsupported managed skill status: ${value}`)
 }
 
+function mapWorkspaceSkillOrigin(value: string) {
+  if (value === "user") {
+    return "custom" as const
+  }
+
+  if (value === "integration_contribution" || value === "system") {
+    return "from_library" as const
+  }
+
+  throw new Error(`Unsupported managed skill source type: ${value}`)
+}
+
+function isUserInvocableSystemSkillDefinitionContent(contentText: string) {
+  return !contentText
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .some((line) => line.trim() === "user-invocable: false")
+}
+
+function listWorkspaceSkillLibraryEntries(input: {
+  installedSkillKeys: Set<string>
+}): WorkspaceSkillLibraryEntry[] {
+  return SYSTEM_MANAGED_SKILL_DEFINITIONS.flatMap((definition) => {
+    const entryFile =
+      definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+      null
+
+    if (!entryFile?.contentText) {
+      return []
+    }
+
+    if (!isUserInvocableSystemSkillDefinitionContent(entryFile.contentText)) {
+      return []
+    }
+
+    const parsedDocument = parseManagedSkillMarkdown(entryFile.contentText)
+
+    return [
+      {
+        dependencies: {
+          integrations: parsedDocument.integrationKeys,
+          skills: parsedDocument.skillKeys,
+        },
+        description: parsedDocument.description,
+        displayName: parsedDocument.name,
+        installed: input.installedSkillKeys.has(definition.skillKey),
+        skillKey: definition.skillKey,
+        summary: definition.summary,
+      },
+    ]
+  }).sort((left, right) => left.displayName.localeCompare(right.displayName))
+}
+
 export async function listWorkspaceSkills(input: {
   orgSlug: string
   userExternalId: string
@@ -137,8 +180,11 @@ export async function listWorkspaceSkills(input: {
 
   if (!runtime) {
     return {
+      installedSkills: [],
       knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
-      skills: [],
+      librarySkills: listWorkspaceSkillLibraryEntries({
+        installedSkillKeys: new Set(),
+      }),
       state: "pending_setup",
     }
   }
@@ -148,17 +194,25 @@ export async function listWorkspaceSkills(input: {
   })
 
   return {
-    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
-    skills: skills.map((skill) => ({
+    installedSkills: skills.map((skill) => ({
       description: skill.description,
       displayName: skill.displayName,
       editable: skill.sourceType !== "system",
       enabled: skill.enabled,
+      origin: mapWorkspaceSkillOrigin(skill.sourceType),
+      resettable: skill.sourceType === "system",
       skillKey: skill.skillKey,
-      sourceType: normalizeSourceType(skill.sourceType),
       status: normalizeStatus(skill.status),
       updatedAt: skill.updatedAt.toISOString(),
     })),
+    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+    librarySkills: listWorkspaceSkillLibraryEntries({
+      installedSkillKeys: new Set(
+        skills
+          .filter((skill) => skill.sourceType !== "user")
+          .map((skill) => skill.skillKey),
+      ),
+    }),
     state: "ready",
   }
 }
@@ -175,7 +229,7 @@ export async function getWorkspaceSkillDetail(input: {
 
   if (!runtime) {
     return {
-      availableSections: [...AVAILABLE_SECTIONS],
+      availableSections: ["overview", "instructions", "files"],
       detail: null,
       knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
       knownSkillKeys: [],
@@ -198,7 +252,7 @@ export async function getWorkspaceSkillDetail(input: {
   }
 
   return {
-    availableSections: [...AVAILABLE_SECTIONS],
+    availableSections: ["overview", "instructions", "files"],
     detail: mapManagedSkillDetail(detail),
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
     knownSkillKeys: skills

@@ -12,14 +12,19 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 import { workspaceSkillsQueryOptions } from "../api/skills"
 import { CreateSkillDialog } from "../components/CreateSkillDialog"
+import { SkillLibraryList } from "../components/SkillLibraryList"
+import { SkillsNavigation } from "../components/SkillsNavigation"
 import { SkillsList } from "../components/SkillsList"
 
 export interface SkillsPageProps {
+  currentSection: "installed" | "library"
   orgSlug: string
 }
 
-export function SkillsPage({ orgSlug }: SkillsPageProps) {
+export function SkillsPage({ currentSection, orgSlug }: SkillsPageProps) {
   const { data } = useSuspenseQuery(workspaceSkillsQueryOptions(orgSlug))
+  const hasInstalledSkills = data.installedSkills.length > 0
+  const hasLibrarySkills = data.librarySkills.length > 0
 
   return (
     <SettingsPage>
@@ -28,44 +33,64 @@ export function SkillsPage({ orgSlug }: SkillsPageProps) {
           <div className="flex flex-col gap-1">
             <SettingsPageTitle>Skills</SettingsPageTitle>
             <p className="text-sm text-muted-foreground">
-              Review and edit the reusable skill packages Otto keeps for this
-              workspace.
+              Manage the skills available to the agent in this workspace.
             </p>
           </div>
-          {data.state === "ready" ? (
+          {data.state === "ready" && currentSection === "installed" ? (
             <CreateSkillDialog
               knownIntegrationKeys={data.knownIntegrationKeys}
               orgSlug={orgSlug}
-              skills={data.skills}
+              skills={data.installedSkills}
             />
           ) : null}
         </div>
 
+        <SkillsNavigation currentSection={currentSection} orgSlug={orgSlug} />
+
         {data.state === "pending_setup" ? (
           <Alert>
-            <AlertTitle>No Otto runtime yet</AlertTitle>
+            <AlertTitle>Runtime not ready yet</AlertTitle>
             <AlertDescription>
-              Skills will appear here once Otto has been provisioned for this
-              workspace.
+              Installed skills will appear here once the runtime is ready for
+              this workspace.
             </AlertDescription>
           </Alert>
-        ) : data.skills.length === 0 ? (
-          <Alert>
-            <AlertTitle>No skills yet</AlertTitle>
-            <AlertDescription>
-              Create the first `SKILL.md` package here, then open it to inspect
-              its runtime files and edit its instructions.
-            </AlertDescription>
-          </Alert>
-        ) : (
+        ) : currentSection === "library" ? (
           <SettingsSection>
-            <SettingsSectionTitle>Managed skills</SettingsSectionTitle>
+            <SettingsSectionTitle>Skill library</SettingsSectionTitle>
             <SettingsSectionDescription>
-              Open a skill package to inspect its files, check prerequisites,
-              and edit `SKILL.md` where the package is workspace-managed.
+              Review reusable skills that can be made available in this
+              workspace.
             </SettingsSectionDescription>
-            <SkillsList orgSlug={orgSlug} skills={data.skills} />
+            {hasLibrarySkills ? (
+              <SkillLibraryList skills={data.librarySkills} />
+            ) : (
+              <Alert>
+                <AlertTitle>No library skills yet</AlertTitle>
+                <AlertDescription>
+                  Reusable skill templates will appear here once they are added
+                  to the library.
+                </AlertDescription>
+              </Alert>
+            )}
           </SettingsSection>
+        ) : hasInstalledSkills ? (
+          <SettingsSection>
+            <SettingsSectionTitle>Installed skills</SettingsSectionTitle>
+            <SettingsSectionDescription>
+              Review the skills currently available to the agent in this
+              workspace.
+            </SettingsSectionDescription>
+            <SkillsList orgSlug={orgSlug} skills={data.installedSkills} />
+          </SettingsSection>
+        ) : (
+          <Alert>
+            <AlertTitle>No installed skills yet</AlertTitle>
+            <AlertDescription>
+              Create a custom skill here, or browse the library for reusable
+              skills that fit this workspace.
+            </AlertDescription>
+          </Alert>
         )}
       </SettingsPageContent>
     </SettingsPage>
