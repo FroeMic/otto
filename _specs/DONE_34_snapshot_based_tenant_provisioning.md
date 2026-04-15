@@ -1,4 +1,4 @@
-# TODO 34: Snapshot-Based Tenant Provisioning
+# DONE 34: Snapshot-Based Tenant Provisioning
 
 ## Goal
 
@@ -199,52 +199,52 @@ This is not a guaranteed constant, but it is a realistic planning target and sho
 
 ### Spec and wiring
 
-- [ ] update `TODO_03_provisioning_workflow.md` to recognize snapshot-based provisioning as a second supported Hetzner strategy
-- [ ] update `TODO_28_workspace_onboarding_and_public_intake.md` so onboarding can queue either the legacy or snapshot job
-- [ ] update `TODO_11_runtime_release_rollout.md` to note that each active runtime image release should also produce a fresh onboarding snapshot
+- [x] update `TODO_03_provisioning_workflow.md` to recognize snapshot-based provisioning as a second supported Hetzner strategy
+- [x] update `TODO_28_workspace_onboarding_and_public_intake.md` so onboarding can queue either the legacy or snapshot job
+- [x] update `TODO_11_runtime_release_rollout.md` to note that each active runtime image release should also produce a fresh onboarding snapshot
 
 ### Worker and job model
 
-- [ ] add `provision_tenant_server_from_snapshot` to the shared job type definitions
-- [ ] add snapshot-specific job payload and step types
-- [ ] add a new worker handler file for snapshot provisioning
-- [ ] register the new job type in worker dispatch and lane selection
-- [ ] keep the current `provision_tenant_server` handler behavior untouched
+- [x] add `provision_tenant_server_from_snapshot` to the shared job type definitions
+- [x] add snapshot-specific job payload and step types
+- [x] add a new worker handler file for snapshot provisioning
+- [x] register the new job type in worker dispatch and lane selection
+- [x] keep the current `provision_tenant_server` handler behavior untouched
 
 ### Hetzner client
 
-- [ ] extend the Hetzner client with snapshot-aware image lookup helpers
-- [ ] add a method to create a server from a configured snapshot image
-- [ ] normalize enough image metadata to validate architecture and snapshot identity
-- [ ] keep the existing base-image `createServer(...)` path unchanged
+- [x] extend the Hetzner client with snapshot-aware image lookup helpers
+- [x] add a method to create a server from a configured snapshot image
+- [x] normalize enough image metadata to validate architecture and snapshot identity
+- [x] keep the existing base-image `createServer(...)` path unchanged
 
 ### Runtime manager
 
-- [ ] add a `verifySnapshotHostReady(...)` check to the runtime manager
-- [ ] keep `waitForHostBootstrap(...)` for the legacy flow
-- [ ] reuse the existing runtime bootstrap helpers for tenant-specific config projection
-- [ ] ensure snapshot provisioning still creates tenant-specific secrets before runtime bootstrap
+- [x] add a `verifySnapshotHostReady(...)` check to the runtime manager
+- [x] keep `waitForHostBootstrap(...)` for the legacy flow
+- [x] reuse the existing runtime bootstrap helpers for tenant-specific config projection
+- [x] ensure snapshot provisioning still creates tenant-specific secrets before runtime bootstrap
 
 ### Onboarding and API
 
-- [ ] add provisioning-mode selection in onboarding trigger code
-- [ ] queue the new snapshot job type when configured
-- [ ] preserve the current onboarding waiting-screen and unlock semantics
-- [ ] record the selected strategy on `tenant_servers`
+- [x] add provisioning-mode selection in onboarding trigger code
+- [x] queue the new snapshot job type when configured
+- [x] preserve the current onboarding waiting-screen and unlock semantics
+- [x] record the selected strategy on `tenant_servers`
 
 ### Schema and observability
 
-- [ ] add tenant-server metadata columns for provisioning strategy and snapshot provenance
-- [ ] add the corresponding Drizzle migration and metadata snapshot update
-- [ ] surface snapshot provenance in operator diagnostics where tenant server details are already shown
-- [ ] record before/after duration measurements for legacy vs snapshot provisioning
+- [x] add tenant-server metadata columns for provisioning strategy and snapshot provenance
+- [x] add the corresponding Drizzle migration and metadata snapshot update
+- [x] surface snapshot provenance in operator diagnostics where tenant server details are already shown
+- [x] record before/after duration measurements for legacy vs snapshot provisioning
 
 ### Snapshot bake workflow
 
-- [ ] define the exact host preparation script or worker action used to build a golden server
-- [ ] define the marker file format written into the baked host
-- [ ] add a documented operator runbook or script for baking a fresh snapshot from the new runtime image
-- [ ] define rollback instructions for switching onboarding back to the previous snapshot or legacy path
+- [x] define the exact host preparation script or worker action used to build a golden server
+- [x] define the marker file format written into the baked host
+- [x] add a documented operator runbook or script for baking a fresh snapshot from the new runtime image
+- [x] define rollback instructions for switching onboarding back to the previous snapshot or legacy path
 
 ## Exit criteria
 

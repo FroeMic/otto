@@ -65,7 +65,11 @@ export const platformTenantSummarySchema = z.object({
   latestApplyRun: platformApplyRunSummarySchema.nullable(),
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
+  provisioningStrategy: z.string().nullable(),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -158,10 +162,14 @@ export const platformTenantDetailSchema = z.object({
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
   openAiProvider: platformOpenAiProviderSummarySchema.nullable(),
+  provisioningStrategy: z.string().nullable(),
   recentApplyRuns: z.array(platformApplyRunDetailSchema),
   recentEvents: z.array(platformEventDetailSchema),
   recentJobs: z.array(platformJobDetailSchema),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 

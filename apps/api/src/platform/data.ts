@@ -390,8 +390,12 @@ export async function getPlatformOrganizations(input: {
       ipv4: tenantServers.ipv4,
       organizationId: tenants.organizationId,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -586,8 +590,12 @@ export async function getPlatformOrganizations(input: {
               jobEventsByJobId,
             ),
             name: tenant.name,
+            provisioningStrategy: tenant.provisioningStrategy,
             serverStatus: tenant.serverStatus,
+            snapshotGeneration: tenant.snapshotGeneration,
             status: tenant.status,
+            sourceImage: tenant.sourceImage,
+            sourceSnapshotId: tenant.sourceSnapshotId,
           }
         : null,
       timeFormatPreference: organization.timeFormatPreference,
@@ -629,8 +637,12 @@ export async function getPlatformOrganizationDetail(input: {
       id: tenants.id,
       ipv4: tenantServers.ipv4,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -826,6 +838,7 @@ export async function getPlatformOrganizationDetail(input: {
       latestJob: buildJobSummary(recentJobRows[0], jobEventsByJobId),
       name: tenant.name,
       openAiProvider,
+      provisioningStrategy: tenant.provisioningStrategy,
       recentApplyRuns: applyRunRows.map((row) => ({
         createdAt: row.createdAt,
         desiredStateVersion: row.desiredStateVersion,
@@ -871,7 +884,10 @@ export async function getPlatformOrganizationDetail(input: {
         }
       }),
       serverStatus: tenant.serverStatus,
+      snapshotGeneration: tenant.snapshotGeneration,
       status: tenant.status,
+      sourceImage: tenant.sourceImage,
+      sourceSnapshotId: tenant.sourceSnapshotId,
     },
     timeFormatPreference: organization.timeFormatPreference,
     timezone: organization.timezone,
