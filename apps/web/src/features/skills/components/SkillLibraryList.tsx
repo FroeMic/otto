@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -30,7 +30,19 @@ export function SkillLibraryList({ orgSlug, skills }: SkillLibraryListProps) {
         <SettingsRow key={skill.skillKey}>
           <SettingsRowLabel>
             <div className="flex flex-wrap items-center gap-2">
-              <SettingsRowTitle>{skill.displayName}</SettingsRowTitle>
+              <SettingsRowTitle>
+                <Link
+                  className="hover:underline"
+                  params={{
+                    orgSlug,
+                    skillKey: skill.skillKey,
+                  }}
+                  preload="intent"
+                  to="/$orgSlug/skills/library/$skillKey"
+                >
+                  {skill.displayName}
+                </Link>
+              </SettingsRowTitle>
               <Badge variant={skill.installed ? "default" : "outline"}>
                 {skill.installed ? "Installed" : "Available"}
               </Badge>
@@ -66,37 +78,51 @@ export function SkillLibraryList({ orgSlug, skills }: SkillLibraryListProps) {
               Open
             </Button>
           ) : (
-            <Button
-              disabled={!skill.installable}
-              onClick={() => {
-                void installWorkspaceLibrarySkill({
+            <div className="flex flex-wrap gap-2">
+              <Link
+                params={{
                   orgSlug,
                   skillKey: skill.skillKey,
-                })
-                  .then(async (result) => {
-                    await queryClient.invalidateQueries({
-                      queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
-                    })
+                }}
+                preload="intent"
+                to="/$orgSlug/skills/library/$skillKey"
+              >
+                <Button type="button" variant="outline">
+                  View
+                </Button>
+              </Link>
+              <Button
+                disabled={!skill.installable}
+                onClick={() => {
+                  void installWorkspaceLibrarySkill({
+                    orgSlug,
+                    skillKey: skill.skillKey,
+                  })
+                    .then(async (result) => {
+                      await queryClient.invalidateQueries({
+                        queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
+                      })
 
-                    void navigate({
-                      params: {
-                        orgSlug,
-                        skillKey: result.skillKey,
-                      },
-                      to: "/$orgSlug/skills/$skillKey/overview",
+                      void navigate({
+                        params: {
+                          orgSlug,
+                          skillKey: result.skillKey,
+                        },
+                        to: "/$orgSlug/skills/$skillKey/overview",
+                      })
                     })
-                  })
-                  .catch((error) => {
-                    toast.error("Skill could not be installed", {
-                      description:
-                        error instanceof Error ? error.message : "Unknown error",
+                    .catch((error) => {
+                      toast.error("Skill could not be installed", {
+                        description:
+                          error instanceof Error ? error.message : "Unknown error",
+                      })
                     })
-                  })
-              }}
-              type="button"
-            >
-              Install
-            </Button>
+                }}
+                type="button"
+              >
+                Install
+              </Button>
+            </div>
           )}
         </SettingsRow>
       ))}

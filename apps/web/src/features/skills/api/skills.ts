@@ -3,6 +3,7 @@ import {
   workspaceSkillDeleteRequestSchema,
   workspaceSkillDeleteResponseSchema,
   workspaceSkillDetailResponseSchema,
+  workspaceSkillLibraryDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
   workspaceSkillResetRequestSchema,
   workspaceSkillResetResponseSchema,
@@ -51,6 +52,31 @@ export function workspaceSkillDetailQueryOptions(input: {
       )
     },
     queryKey: ["workspace-skill-detail", input.orgSlug, input.skillKey],
+    staleTime: 30_000,
+  })
+}
+
+export function workspaceSkillLibraryDetailQueryOptions(input: {
+  orgSlug: string
+  skillKey: string
+}) {
+  return queryOptions({
+    queryFn: async () => {
+      const response =
+        await apiClient.api.workspace[":orgSlug"].skills.library[":skillKey"].$get(
+          {
+            param: {
+              orgSlug: input.orgSlug,
+              skillKey: input.skillKey,
+            },
+          },
+        )
+
+      return fetchApiResponse(response, (data) =>
+        workspaceSkillLibraryDetailResponseSchema.parse(data),
+      )
+    },
+    queryKey: ["workspace-skill-library-detail", input.orgSlug, input.skillKey],
     staleTime: 30_000,
   })
 }

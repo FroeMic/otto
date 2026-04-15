@@ -9,6 +9,7 @@ import {
   workspaceSkillDeleteRequestSchema,
   workspaceSkillDeleteResponseSchema,
   workspaceSkillDetailResponseSchema,
+  workspaceSkillLibraryDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
   workspaceSkillResetRequestSchema,
   workspaceSkillResetResponseSchema,
@@ -16,6 +17,7 @@ import {
   workspaceSkillUpdateRequestSchema,
   type WorkspaceSkillDetailResponse,
   type WorkspaceSkillDeleteResponse,
+  type WorkspaceSkillLibraryDetailResponse,
   type WorkspaceSkillMutationResponse,
   type WorkspaceSkillResetResponse,
   type WorkspaceSkillsListResponse,
@@ -35,6 +37,7 @@ import {
   createWorkspaceSkill,
   downloadWorkspaceSkillFile,
   getWorkspaceSkillDetail,
+  getWorkspaceSkillLibraryDetail,
   getWorkspaceSkillFilesDirectoryListing,
   installWorkspaceLibrarySkill,
   listWorkspaceSkills,
@@ -88,6 +91,11 @@ export interface SkillsRouteDependencies {
     skillKey: string
     userExternalId: string
   }) => Promise<WorkspaceSkillDetailResponse | null>
+  getWorkspaceSkillLibraryDetail: (input: {
+    orgSlug: string
+    skillKey: string
+    userExternalId: string
+  }) => Promise<WorkspaceSkillLibraryDetailResponse | null>
   getWorkspaceSkillFilesDirectoryListing: (input: {
     orgSlug: string
     skillKey: string
@@ -135,6 +143,7 @@ function createDefaultSkillsRouteDependencies(): SkillsRouteDependencies {
     createWorkspaceSkill,
     downloadWorkspaceSkillFile,
     getWorkspaceSkillDetail,
+    getWorkspaceSkillLibraryDetail,
     getWorkspaceSkillFilesDirectoryListing,
     installWorkspaceLibrarySkill,
     listWorkspaceSkills,
@@ -188,6 +197,37 @@ export function createSkillsRouter(
         })
 
         return jsonNoStore(workspaceSkillsListResponseSchema.parse(response))
+      },
+    )
+    .get(
+      "/api/workspace/:orgSlug/skills/library/:skillKey",
+      zValidator("param", workspaceSkillDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const response = await dependencies.getWorkspaceSkillLibraryDetail({
+          orgSlug: context.req.valid("param").orgSlug,
+          skillKey: context.req.valid("param").skillKey,
+          userExternalId: authResult.user.id,
+        })
+
+        if (!response) {
+          return jsonNoStore(
+            {
+              code: "skill_not_found",
+              message: "Library skill not found",
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(
+          workspaceSkillLibraryDetailResponseSchema.parse(response),
+        )
       },
     )
     .get(

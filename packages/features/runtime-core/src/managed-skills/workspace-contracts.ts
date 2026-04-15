@@ -57,6 +57,42 @@ export type WorkspaceSkillLibraryEntry = z.infer<
   typeof workspaceSkillLibraryEntrySchema
 >
 
+export const workspaceSkillLibraryFileSchema = z.object({
+  fileClass: z.enum(["managed_entry", "managed_seeded"]),
+  path: z.string().min(1),
+  resettable: z.boolean(),
+  storageEncoding: z.enum(["binary", "utf8_text"]),
+})
+
+export type WorkspaceSkillLibraryFile = z.infer<
+  typeof workspaceSkillLibraryFileSchema
+>
+
+export const workspaceSkillLibraryDetailSchema = z.object({
+  dependencies: workspaceSkillDependencySummarySchema,
+  description: z.string(),
+  displayName: z.string(),
+  files: z.array(workspaceSkillLibraryFileSchema),
+  installable: z.boolean(),
+  installed: z.boolean(),
+  skillBody: z.string(),
+  skillKey: z.string().min(1),
+  summary: z.string(),
+})
+
+export type WorkspaceSkillLibraryDetail = z.infer<
+  typeof workspaceSkillLibraryDetailSchema
+>
+
+export const workspaceSkillLibraryDetailResponseSchema = z.object({
+  detail: workspaceSkillLibraryDetailSchema.nullable(),
+  state: z.enum(["pending_setup", "ready"]),
+})
+
+export type WorkspaceSkillLibraryDetailResponse = z.infer<
+  typeof workspaceSkillLibraryDetailResponseSchema
+>
+
 export const workspaceSkillsListResponseSchema = z.object({
   installedSkills: z.array(workspaceInstalledSkillListEntrySchema),
   knownIntegrationKeys: z.array(z.string()),

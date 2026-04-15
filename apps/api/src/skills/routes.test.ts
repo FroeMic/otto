@@ -80,6 +80,36 @@ function createDependencies(): SkillsRouteDependencies {
       knownSkillKeys: ["ops"],
       state: "ready",
     }),
+    getWorkspaceSkillLibraryDetail: async () => ({
+      detail: {
+        dependencies: {
+          integrations: ["brave", "gandi"],
+          skills: [],
+        },
+        description: "Research names, brandability, and domains for founders.",
+        displayName: "Brand Name Generator",
+        files: [
+          {
+            fileClass: "managed_entry",
+            path: "SKILL.md",
+            resettable: false,
+            storageEncoding: "utf8_text",
+          },
+          {
+            fileClass: "managed_seeded",
+            path: "references/full-guide.md",
+            resettable: true,
+            storageEncoding: "utf8_text",
+          },
+        ],
+        installable: true,
+        installed: false,
+        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillKey: "name-and-domain-research",
+        summary: "Startup naming and domain research workflow",
+      },
+      state: "ready",
+    }),
     getWorkspaceSkillFilesDirectoryListing: async () => ({
       snapshot: {
         files: [
@@ -251,6 +281,45 @@ describe("skills routes", () => {
       },
       knownIntegrationKeys: ["linear", "slack"],
       knownSkillKeys: ["ops"],
+      state: "ready",
+    })
+  })
+
+  it("returns the workspace skill library detail payload", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/library/name-and-domain-research",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      detail: {
+        dependencies: {
+          integrations: ["brave", "gandi"],
+          skills: [],
+        },
+        description: "Research names, brandability, and domains for founders.",
+        displayName: "Brand Name Generator",
+        files: [
+          {
+            fileClass: "managed_entry",
+            path: "SKILL.md",
+            resettable: false,
+            storageEncoding: "utf8_text",
+          },
+          {
+            fileClass: "managed_seeded",
+            path: "references/full-guide.md",
+            resettable: true,
+            storageEncoding: "utf8_text",
+          },
+        ],
+        installable: true,
+        installed: false,
+        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillKey: "name-and-domain-research",
+        summary: "Startup naming and domain research workflow",
+      },
       state: "ready",
     })
   })

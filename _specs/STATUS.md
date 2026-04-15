@@ -140,6 +140,9 @@
       - `remove_installed_skill`
   - Helper-skill visibility is now narrowed:
     - non-user-invocable helper skills such as `skill-creator` stay hidden from both the `Library` and `Installed` user surfaces while remaining available internally
+  - The next UX depth slice is now also implemented:
+    - the library now has a dedicated inspect-before-install detail page with dependencies, included files, and instructions preview
+    - the installed skill files page now separates included package files from runtime-only files instead of only listing canonical paths as badges
   - the remaining follow-on work is now narrower:
     - consider whether `TODO_33` is ready to retire once the current UI has been smoke-tested in production
 - The target apex workspace routing rule is now explicit:

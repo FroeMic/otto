@@ -96,15 +96,28 @@ function useWorkspaceBreadcrumbs(
   }
 
   if (segments[0] === "skills") {
-    const skillKey = segments[1] ?? null
-    const section = segments[2] ?? null
+    const secondSegment = segments[1] ?? null
+    const isLibraryRoute = secondSegment === "library"
+    const skillKey = isLibraryRoute ? segments[2] ?? null : secondSegment
+    const section = isLibraryRoute ? segments[3] ?? null : segments[2] ?? null
     const breadcrumbs: BreadcrumbSegment[] = [
       { href: `${base}/skills`, label: "Skills" },
     ]
 
+    if (isLibraryRoute) {
+      breadcrumbs.push({
+        href: `${base}/skills/library`,
+        label: "Library",
+      })
+    }
+
     if (skillKey) {
       breadcrumbs.push({
-        href: section ? `${base}/skills/${skillKey}/status` : null,
+        href: section
+          ? isLibraryRoute
+            ? `${base}/skills/library/${skillKey}`
+            : `${base}/skills/${skillKey}/overview`
+          : null,
         label: decodePathSegment(skillKey),
       })
     }
