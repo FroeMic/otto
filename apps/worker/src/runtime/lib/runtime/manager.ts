@@ -73,6 +73,7 @@ const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000;
 const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000;
 const RUNTIME_START_HELPER_PATH =
   "/app/otto-helpers/start-runtime-with-watchers.mjs";
+const SNAPSHOT_METADATA_PATH = "/opt/openclaw/runtime/snapshot-metadata.json";
 const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs";
 const MANAGED_SKILL_WORKSPACE_ROOT = "/opt/openclaw/home/workspace/skills";
 const MANAGED_SKILL_MANIFEST_PATH =
@@ -95,6 +96,27 @@ export class RuntimeManager {
         "command -v docker >/dev/null",
         "systemctl is-active --quiet docker",
         "id openclaw >/dev/null",
+      ]),
+      { timeoutMs: getEnv().RUNTIME_SSH_READY_TIMEOUT_MS },
+    );
+  }
+
+  async verifySnapshotHostReady(connection: SshConnection): Promise<void> {
+    const expectedRuntimeImage =
+      getEnv().HETZNER_SNAPSHOT_EXPECTED_RUNTIME_IMAGE ??
+      getEnv().RUNTIME_OPENCLAW_IMAGE;
+
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        "command -v docker >/dev/null",
+        "systemctl is-active --quiet docker",
+        "id openclaw >/dev/null",
+        "test -d /opt/openclaw",
+        "test -d /opt/openclaw/home",
+        "test -d /opt/openclaw/runtime",
+        `test -s ${shellQuoteForShell(SNAPSHOT_METADATA_PATH)}`,
+        `docker image inspect ${shellQuoteForShell(expectedRuntimeImage)} >/dev/null`,
       ]),
       { timeoutMs: getEnv().RUNTIME_SSH_READY_TIMEOUT_MS },
     );

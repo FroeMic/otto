@@ -21,7 +21,7 @@ This replaces the old Slack-first onboarding model as the primary setup path.
 - auto-create the first workspace during post-auth bootstrap
 - add a short guided onboarding flow under `/{orgSlug}/onboarding`
 - gate workspace unlock on onboarding + provisioning readiness, not Slack connection
-- reuse the existing worker provisioning pipeline through a one-shot onboarding-owned trigger
+- reuse the existing worker provisioning pipeline through a one-shot onboarding-owned trigger, while allowing onboarding to choose between legacy base-image provisioning and snapshot-based provisioning
 - add `/{orgSlug}/waiting` and `/{orgSlug}/waitlist` holding screens
 - prefill the workspace Agent input from the original public brief after unlock
 - remove or replace legacy Slack-first onboarding assumptions in code and specs
@@ -76,7 +76,7 @@ Decision
 
 Provisioning
   -> create tenant + server rows
-  -> enqueue existing provision_tenant_server job
+  -> enqueue provisioning job for the selected strategy
 
 Holding state
   -> /{orgSlug}/waiting while runtime is spinning up
@@ -223,7 +223,7 @@ Invite capture is in scope. Invite sending is not.
 
 ## Provisioning model
 
-Provisioning should start only once and should reuse the existing worker pipeline.
+Provisioning should start only once and should reuse the existing worker pipeline family.
 
 ### Eligibility rule
 
@@ -246,7 +246,7 @@ Responsibilities:
 1. lock the onboarding run
 2. verify eligibility
 3. create the initial tenant if missing
-4. enqueue the existing `provision_tenant_server` job
+4. enqueue the correct provisioning job for the selected strategy
 5. write back:
    - `initial_tenant_id`
    - `initial_provisioning_job_id`
@@ -257,6 +257,15 @@ This must be idempotent and safe to call from:
 - onboarding step completion
 - operator waitlist approval
 - future retry / repair flows
+
+### Provisioning strategy selection
+
+Onboarding should be able to queue one of two provisioning strategies:
+
+- legacy base-image provisioning through `provision_tenant_server`
+- snapshot-based provisioning through `provision_tenant_server_from_snapshot`
+
+The onboarding waiting, waitlist, and unlock behavior should remain strategy-agnostic.
 
 ## Waitlist model
 

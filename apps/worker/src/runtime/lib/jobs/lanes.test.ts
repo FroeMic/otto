@@ -31,6 +31,7 @@ describe("job lane metadata", () => {
   it("still blocks interactive and integration work behind runtime-exclusive operations", () => {
     const runtimeMutationJobTypes = [
       JOB_TYPES.provisionTenantServer,
+      JOB_TYPES.provisionTenantServerFromSnapshot,
       JOB_TYPES.provisionTenantOpenAiKey,
       JOB_TYPES.applyTenantConfig,
       JOB_TYPES.refreshRuntimeImage,
@@ -43,6 +44,15 @@ describe("job lane metadata", () => {
     );
     expect(getTenantMutexGuardJobTypesForLane(JOB_LANES.integrations)).toEqual(
       runtimeMutationJobTypes,
+    );
+  });
+
+  it("routes snapshot-backed tenant provisioning through the runtime lane", () => {
+    expect(getJobLane(JOB_TYPES.provisionTenantServerFromSnapshot)).toBe(
+      JOB_LANES.runtime,
+    );
+    expect(getJobTypesForLane(JOB_LANES.runtime)).toContain(
+      JOB_TYPES.provisionTenantServerFromSnapshot,
     );
   });
 });

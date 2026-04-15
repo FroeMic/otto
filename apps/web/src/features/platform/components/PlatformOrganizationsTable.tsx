@@ -10,6 +10,7 @@ import {
   applyPlatformOrganization,
   deployPlatformRuntime,
   platformOrganizationsQueryOptions,
+  provisionPlatformServer,
   refreshPlatformRuntimeImage,
 } from "@/features/platform/api/platform"
 import { DataTable } from "@/components/data-table"
@@ -207,7 +208,12 @@ export function CopyableValue({ value }: CopyableValueProps) {
   )
 }
 
-type OrganizationAction = "apply" | "deploy-runtime" | "refresh-image"
+type OrganizationAction =
+  | "apply"
+  | "deploy-runtime"
+  | "provision-server-legacy"
+  | "provision-server-snapshot"
+  | "refresh-image"
 
 export interface OrganizationActionsCellProps {
   organization: PlatformOrganizationListItem
@@ -221,6 +227,8 @@ export function OrganizationActionsCell({
   const runtimeReady =
     organization.tenant?.status === "ready" &&
     organization.tenant.serverStatus === "ready"
+  const canProvisionServer =
+    organization.tenant === null || organization.tenant.serverStatus === null
 
   function runAction(action: OrganizationAction) {
     startTransition(async () => {
@@ -229,6 +237,20 @@ export function OrganizationActionsCell({
           await applyPlatformOrganization(organization.slug)
         } else if (action === "deploy-runtime") {
           await deployPlatformRuntime(organization.slug)
+        } else if (action === "provision-server-legacy") {
+          await provisionPlatformServer({
+            orgSlug: organization.slug,
+            payload: {
+              provisioningStrategy: "legacy_base_image",
+            },
+          })
+        } else if (action === "provision-server-snapshot") {
+          await provisionPlatformServer({
+            orgSlug: organization.slug,
+            payload: {
+              provisioningStrategy: "hetzner_snapshot",
+            },
+          })
         } else {
           await refreshPlatformRuntimeImage(organization.slug)
         }
@@ -238,6 +260,10 @@ export function OrganizationActionsCell({
             ? "Queued runtime apply."
             : action === "deploy-runtime"
               ? "Queued runtime deploy."
+              : action === "provision-server-legacy"
+                ? "Queued server provisioning from the base image."
+                : action === "provision-server-snapshot"
+                  ? "Queued server provisioning from the snapshot."
               : "Queued runtime image refresh.",
         )
         await queryClient.invalidateQueries({
@@ -258,7 +284,7 @@ export function OrganizationActionsCell({
           <Button
             aria-label="Open organization actions"
             className="text-muted-foreground"
-            disabled={pendingAction || !organization.tenant}
+            disabled={pendingAction}
             size="icon-sm"
             variant="ghost"
           />
@@ -267,6 +293,18 @@ export function OrganizationActionsCell({
         <DotsThreeIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={!canProvisionServer || pendingAction}
+          onClick={() => runAction("provision-server-legacy")}
+        >
+          Provision server from base image
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!canProvisionServer || pendingAction}
+          onClick={() => runAction("provision-server-snapshot")}
+        >
+          Provision server from snapshot
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!runtimeReady || pendingAction}
           onClick={() => runAction("deploy-runtime")}
