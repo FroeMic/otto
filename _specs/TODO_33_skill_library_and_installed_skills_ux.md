@@ -461,6 +461,7 @@ This is the smallest high-value UX fix.
 
 - show default vs current files more clearly
 - add modified-from-default indicators if possible
+- add an inspect-before-install library detail page for reusable skills
 
 ## Implementation Notes
 
@@ -491,6 +492,8 @@ This is the smallest high-value UX fix.
 - [x] align runtime/agent tools with library vs installed skill lifecycle
 - [x] simplify restore/reset language to skill-level defaults terminology
 - [x] audit all skill-surface copy for brand neutrality and implementation leakage
+- [x] add a library skill detail page with dependencies, included files, and instructions preview
+- [x] improve the files page so it separates included package files from runtime-only files
 
 ## Open Questions
 
@@ -499,3 +502,4 @@ This is the smallest high-value UX fix.
 - Should “built-in” be a separate origin or only a `removable=false` property?
 - How much of the library should be DB-backed versus derived from canonical code definitions in the first pass?
 - Should integration-contributed starter skills appear directly in the library, or under the related integration detail pages first?
+- Do we want a future modified-from-default signal based on file contents, not just path/provenance separation?

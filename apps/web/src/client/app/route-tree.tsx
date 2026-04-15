@@ -49,11 +49,13 @@ import { ScheduledTasksRedirectPage } from "@/features/scheduled-tasks/pages/Sch
 import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
 import {
   workspaceSkillDetailQueryOptions,
+  workspaceSkillLibraryDetailQueryOptions,
   workspaceSkillsQueryOptions,
 } from "@/features/skills/api/skills"
 import { SkillDetailRedirectPage } from "@/features/skills/pages/SkillDetailRedirectPage"
 import { SkillFilesPage } from "@/features/skills/pages/SkillFilesPage"
 import { SkillInstructionsPage } from "@/features/skills/pages/SkillInstructionsPage"
+import { SkillLibraryDetailPage } from "@/features/skills/pages/SkillLibraryDetailPage"
 import { SkillOverviewPage } from "@/features/skills/pages/SkillOverviewPage"
 import { SkillsInstalledPage } from "@/features/skills/pages/SkillsInstalledPage"
 import { SkillsLibraryPage } from "@/features/skills/pages/SkillsLibraryPage"
@@ -212,6 +214,12 @@ function WorkspaceSkillLibraryRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
   return <SkillsLibraryPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSkillLibraryDetailRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillLibraryDetailRoute.useParams()
+
+  return <SkillLibraryDetailPage orgSlug={orgSlug} skillKey={skillKey} />
 }
 
 function WorkspaceScheduledTasksRedirectRoutePage() {
@@ -741,6 +749,19 @@ const workspaceSkillLibraryRoute = createRoute({
   path: "/skills/library",
 })
 
+const workspaceSkillLibraryDetailRoute = createRoute({
+  component: WorkspaceSkillLibraryDetailRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillLibraryDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/library/$skillKey",
+})
+
 const workspaceScheduledTasksRedirectRoute = createRoute({
   component: WorkspaceScheduledTasksRedirectRoutePage,
   getParentRoute: () => workspaceShellRoute,
@@ -1198,6 +1219,7 @@ export const routeTree = rootRoute.addChildren([
       workspaceScheduledTaskDetailRunsRoute,
       workspaceSkillsRoute,
       workspaceInstalledSkillsRoute,
+      workspaceSkillLibraryDetailRoute,
       workspaceSkillLibraryRoute,
       workspaceSkillRedirectRoute,
       workspaceSkillOverviewRoute,

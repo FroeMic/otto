@@ -12,6 +12,7 @@ import { RuntimeFileBrowser } from "@/features/files/components/RuntimeFileBrows
 import { buildWorkspaceSkillFileDownloadUrl, workspaceSkillFilesQueryOptions } from "../api/skill-files"
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
+import { summarizeSkillFileProvenance } from "../file-provenance"
 
 export interface SkillFilesPageProps {
   orgSlug: string
@@ -54,6 +55,11 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
     )
   }
 
+  const provenance = summarizeSkillFileProvenance({
+    managedFiles: detailQuery.data.detail.files,
+    runtimeFiles: filesQuery.data.snapshot.files,
+  })
+
   return (
     <SettingsPage>
       <SettingsPageContent className="flex max-w-6xl flex-col gap-6 pb-8">
@@ -76,18 +82,47 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
         />
 
         <Alert>
-          <AlertTitle>Default skill files</AlertTitle>
+          <AlertTitle>Included by this skill</AlertTitle>
           <AlertDescription className="flex flex-wrap gap-2">
-            {detailQuery.data.detail.files.map((file) => (
+            {provenance.instructionsFile ? (
+              <Badge variant="outline">
+                Instructions: {provenance.instructionsFile.path}
+              </Badge>
+            ) : null}
+            {provenance.templateFiles.map((file) => (
               <Badge key={file.path} variant="outline">
-                {file.fileClass === "managed_entry"
-                  ? "Instructions"
-                  : "Template file"}
-                : {file.path}
+                {file.resettable ? "Template default" : "Included file"}:{" "}
+                {file.path}
               </Badge>
             ))}
           </AlertDescription>
         </Alert>
+
+        {provenance.runtimeOnlyFiles.length > 0 ? (
+          <Alert>
+            <AlertTitle>Runtime-only files</AlertTitle>
+            <AlertDescription className="flex flex-wrap gap-2">
+              {provenance.runtimeOnlyFiles.map((file) => (
+                <Badge key={file.path} variant="secondary">
+                  {file.path}
+                </Badge>
+              ))}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {provenance.missingFromRuntime.length > 0 ? (
+          <Alert>
+            <AlertTitle>Not currently present in runtime</AlertTitle>
+            <AlertDescription className="flex flex-wrap gap-2">
+              {provenance.missingFromRuntime.map((file) => (
+                <Badge key={file.path} variant="outline">
+                  {file.path}
+                </Badge>
+              ))}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <RuntimeFileBrowser
           buildDownloadUrl={(input) =>
