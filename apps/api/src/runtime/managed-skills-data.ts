@@ -18,6 +18,14 @@ import { JOB_TYPES } from "../jobs/types"
 
 export const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md"
 
+function getSystemManagedSkillDefinition(skillKey: string) {
+  return (
+    SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === skillKey,
+    ) ?? null
+  )
+}
+
 export class ManagedSkillVersionConflictError extends Error {
   constructor(
     readonly expectedVersion: number,
@@ -228,6 +236,46 @@ export async function listTenantManagedSkillsForTenant(input: {
     .orderBy(desc(tenantSkills.updatedAt), tenantSkills.skillKey)
 }
 
+export async function listTenantManagedSkillLibraryEntriesForTenant(input: {
+  tenantId: string
+}) {
+  const installedSkills = await listTenantManagedSkillsForTenant(input)
+  const installedSkillKeys = new Set(installedSkills.map((skill) => skill.skillKey))
+
+  return SYSTEM_MANAGED_SKILL_DEFINITIONS.flatMap((definition) => {
+    if (!definition.visibleInLibrary) {
+      return []
+    }
+
+    const entryFile =
+      definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+      null
+
+    if (typeof entryFile?.contentText !== "string") {
+      return []
+    }
+
+    const parsed = parseManagedSkillDocument(entryFile.contentText)
+
+    return [
+      {
+        dependencies: {
+          integrations: parsed.integrationKeys,
+          skills: parsed.skillKeys,
+        },
+        description: parsed.description,
+        displayName: parsed.name,
+        installable:
+          definition.installMode === "manual_install" &&
+          !installedSkillKeys.has(definition.skillKey),
+        installed: installedSkillKeys.has(definition.skillKey),
+        skillKey: definition.skillKey,
+        summary: definition.summary,
+      },
+    ]
+  }).sort((left, right) => left.displayName.localeCompare(right.displayName))
+}
+
 export async function getLatestTenantManagedSkillDetailForTenant(input: {
   skillKey: string
   tenantId: string
@@ -333,6 +381,10 @@ async function ensureTenantSystemManagedSkillsForTenant(input: {
   const db = getDb()
 
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    if (definition.installMode !== "default_installed") {
+      continue
+    }
+
     const [skill] = await db
       .select({
         skillId: tenantSkills.id,
@@ -470,6 +522,83 @@ async function createSystemManagedSkillForTenant(input: {
       version: createdVersion.version,
     })),
   )
+}
+
+export async function createTenantSystemManagedSkillForTenant(input: {
+  files: Array<{
+    contentText?: string | null
+    path: string
+  }>
+  skillKey: string
+  summary: string
+  tenantId: string
+}) {
+  const existingDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  })
+
+  if (existingDetail) {
+    return {
+      applyQueued: false,
+      desiredStateVersion: existingDetail.version,
+      skillKey: existingDetail.skillKey,
+      version: existingDetail.version,
+    }
+  }
+
+  await createSystemManagedSkillForTenant(input)
+
+  const createdDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  })
+
+  if (!createdDetail) {
+    throw new Error(`System managed skill ${input.skillKey} was not created.`)
+  }
+
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
+      skillKey: createdDetail.skillKey,
+      tenantId: input.tenantId,
+      version: createdDetail.version,
+    })
+  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+
+  return {
+    applyQueued: tenantRuntime.isRuntimeReady,
+    desiredStateVersion: desiredStateVersion.version,
+    skillKey: createdDetail.skillKey,
+    version: createdDetail.version,
+  }
+}
+
+export async function installTenantManagedSkillFromLibraryForTenant(input: {
+  createdByExternalId?: string | null
+  createdByType: "runtime"
+  skillKey: string
+  summary: string
+  tenantId: string
+}) {
+  const definition = getSystemManagedSkillDefinition(input.skillKey)
+
+  if (!definition || !definition.visibleInLibrary) {
+    throw new Error(`Managed skill library entry not found: ${input.skillKey}`)
+  }
+
+  if (definition.installMode !== "manual_install") {
+    throw new Error(
+      `Managed skill ${input.skillKey} is installed by default and should not be installed manually.`,
+    )
+  }
+
+  return createTenantSystemManagedSkillForTenant({
+    files: definition.files,
+    skillKey: definition.skillKey,
+    summary: input.summary,
+    tenantId: input.tenantId,
+  })
 }
 
 export async function createTenantManagedSkillForTenant(input: {

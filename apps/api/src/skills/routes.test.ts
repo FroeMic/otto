@@ -30,6 +30,12 @@ function createDependencies(): SkillsRouteDependencies {
       contentType: "text/plain",
       downloadName: "SKILL.md",
     }),
+    installWorkspaceLibrarySkill: async () => ({
+      applyQueued: true,
+      desiredStateVersion: 7,
+      skillKey: "name-and-domain-research",
+      version: 1,
+    }),
     getWorkspaceSkillDetail: async () => ({
       availableSections: ["overview", "instructions", "files"],
       detail: {
@@ -63,6 +69,7 @@ function createDependencies(): SkillsRouteDependencies {
           },
         ],
         origin: "custom",
+        removable: true,
         skillKey: "triage",
         status: "ready",
         summary: "Initial version",
@@ -98,6 +105,7 @@ function createDependencies(): SkillsRouteDependencies {
           editable: true,
           enabled: true,
           origin: "custom",
+          removable: true,
           resettable: false,
           skillKey: "triage",
           status: "ready",
@@ -114,11 +122,18 @@ function createDependencies(): SkillsRouteDependencies {
           description: "Research names, brandability, and domains for founders.",
           displayName: "Brand Name Generator",
           installed: false,
+          installable: true,
           skillKey: "name-and-domain-research",
           summary: "Startup naming and domain research workflow",
         },
       ],
       state: "ready",
+    }),
+    removeWorkspaceSkill: async () => ({
+      applyQueued: true,
+      deleted: true,
+      desiredStateVersion: 8,
+      skillKey: "triage",
     }),
     resetWorkspaceSkillPackage: async () => ({
       applyQueued: true,
@@ -161,6 +176,7 @@ describe("skills routes", () => {
           editable: true,
           enabled: true,
           origin: "custom",
+          removable: true,
           resettable: false,
           skillKey: "triage",
           status: "ready",
@@ -177,6 +193,7 @@ describe("skills routes", () => {
           description: "Research names, brandability, and domains for founders.",
           displayName: "Brand Name Generator",
           installed: false,
+          installable: true,
           skillKey: "name-and-domain-research",
           summary: "Startup naming and domain research workflow",
         },
@@ -225,6 +242,7 @@ describe("skills routes", () => {
           },
         ],
         origin: "custom",
+        removable: true,
         skillKey: "triage",
         status: "ready",
         summary: "Initial version",
@@ -262,6 +280,24 @@ describe("skills routes", () => {
       applyQueued: true,
       desiredStateVersion: 4,
       skillKey: "triage",
+      version: 1,
+    })
+  })
+
+  it("installs a library skill into the workspace", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/library/name-and-domain-research/install",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      desiredStateVersion: 7,
+      skillKey: "name-and-domain-research",
       version: 1,
     })
   })
@@ -317,6 +353,30 @@ describe("skills routes", () => {
       applyQueued: true,
       desiredStateVersion: 6,
       resetScope: "companion_files",
+      skillKey: "triage",
+    })
+  })
+
+  it("removes an installed workspace skill", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/triage",
+      {
+        body: JSON.stringify({
+          expectedVersion: 1,
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "DELETE",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      deleted: true,
+      desiredStateVersion: 8,
       skillKey: "triage",
     })
   })

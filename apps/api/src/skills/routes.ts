@@ -6,6 +6,8 @@ import {
 } from "@otto/auth"
 import {
   workspaceSkillCreateRequestSchema,
+  workspaceSkillDeleteRequestSchema,
+  workspaceSkillDeleteResponseSchema,
   workspaceSkillDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
   workspaceSkillResetRequestSchema,
@@ -13,6 +15,7 @@ import {
   workspaceSkillsListResponseSchema,
   workspaceSkillUpdateRequestSchema,
   type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillDeleteResponse,
   type WorkspaceSkillMutationResponse,
   type WorkspaceSkillResetResponse,
   type WorkspaceSkillsListResponse,
@@ -33,7 +36,9 @@ import {
   downloadWorkspaceSkillFile,
   getWorkspaceSkillDetail,
   getWorkspaceSkillFilesDirectoryListing,
+  installWorkspaceLibrarySkill,
   listWorkspaceSkills,
+  removeWorkspaceSkill,
   resetWorkspaceSkillPackage,
   updateWorkspaceSkill,
 } from "./data"
@@ -88,10 +93,21 @@ export interface SkillsRouteDependencies {
     skillKey: string
     userExternalId: string
   }) => Promise<RuntimeDirectoryListingResponse>
+  installWorkspaceLibrarySkill: (input: {
+    orgSlug: string
+    skillKey: string
+    userExternalId: string
+  }) => Promise<WorkspaceSkillMutationResponse | null>
   listWorkspaceSkills: (input: {
     orgSlug: string
     userExternalId: string
   }) => Promise<WorkspaceSkillsListResponse>
+  removeWorkspaceSkill: (input: {
+    expectedVersion: number
+    orgSlug: string
+    skillKey: string
+    userExternalId: string
+  }) => Promise<WorkspaceSkillDeleteResponse | null>
   resetWorkspaceSkillPackage: (input: {
     expectedVersion?: number
     orgSlug: string
@@ -120,7 +136,9 @@ function createDefaultSkillsRouteDependencies(): SkillsRouteDependencies {
     downloadWorkspaceSkillFile,
     getWorkspaceSkillDetail,
     getWorkspaceSkillFilesDirectoryListing,
+    installWorkspaceLibrarySkill,
     listWorkspaceSkills,
+    removeWorkspaceSkill,
     resetWorkspaceSkillPackage,
     updateWorkspaceSkill,
   }
@@ -265,6 +283,35 @@ export function createSkillsRouter(
       },
     )
     .post(
+      "/api/workspace/:orgSlug/skills/library/:skillKey/install",
+      zValidator("param", workspaceSkillDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const response = await dependencies.installWorkspaceLibrarySkill({
+          orgSlug: context.req.valid("param").orgSlug,
+          skillKey: context.req.valid("param").skillKey,
+          userExternalId: authResult.user.id,
+        })
+
+        if (!response) {
+          return jsonNoStore(
+            {
+              code: "skill_not_found",
+              message: "Library skill not found",
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(workspaceSkillMutationResponseSchema.parse(response))
+      },
+    )
+    .post(
       "/api/workspace/:orgSlug/skills/:skillKey/reset",
       zValidator("json", workspaceSkillResetRequestSchema),
       zValidator("param", workspaceSkillDetailParamsSchema),
@@ -295,6 +342,37 @@ export function createSkillsRouter(
         }
 
         return jsonNoStore(workspaceSkillResetResponseSchema.parse(response))
+      },
+    )
+    .delete(
+      "/api/workspace/:orgSlug/skills/:skillKey",
+      zValidator("json", workspaceSkillDeleteRequestSchema),
+      zValidator("param", workspaceSkillDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const response = await dependencies.removeWorkspaceSkill({
+          expectedVersion: context.req.valid("json").expectedVersion,
+          orgSlug: context.req.valid("param").orgSlug,
+          skillKey: context.req.valid("param").skillKey,
+          userExternalId: authResult.user.id,
+        })
+
+        if (!response) {
+          return jsonNoStore(
+            {
+              code: "skill_not_found",
+              message: "Managed skill not found",
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(workspaceSkillDeleteResponseSchema.parse(response))
       },
     )
     .get(

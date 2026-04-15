@@ -63,7 +63,7 @@ export function SkillsPage({ currentSection, orgSlug }: SkillsPageProps) {
               workspace.
             </SettingsSectionDescription>
             {hasLibrarySkills ? (
-              <SkillLibraryList skills={data.librarySkills} />
+              <SkillLibraryList orgSlug={orgSlug} skills={data.librarySkills} />
             ) : (
               <Alert>
                 <AlertTitle>No library skills yet</AlertTitle>

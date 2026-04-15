@@ -1,5 +1,6 @@
 import {
   type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillDeleteResponse,
   type WorkspaceSkillLibraryEntry,
   type WorkspaceSkillMutationResponse,
   type WorkspaceSkillsListResponse,
@@ -25,14 +26,14 @@ import { desc, eq } from "drizzle-orm"
 import { execTenantRuntimeCommand, getTenantRuntimeConnection } from "../tenant-runtime/ssh"
 import {
   createTenantManagedSkillForTenant,
+  createTenantSystemManagedSkillForTenant,
+  deleteTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
   resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillTextFileForTenant,
 } from "../runtime/managed-skills-data"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
-
-const AVAILABLE_SECTIONS = ["status", "files"] as const
 const MANAGED_SKILLS_ROOT = "/opt/openclaw/home/workspace/skills"
 
 type RuntimeWorkspaceRecord = {
@@ -97,6 +98,9 @@ function mapManagedSkillDetail(detail: NonNullable<
       storageEncoding: file.storageEncoding,
     })),
     origin: mapWorkspaceSkillOrigin(detail.sourceType),
+    removable:
+      detail.sourceType !== "system" ||
+      getSystemSkillDefinition(detail.skillKey)?.installMode === "manual_install",
     skillKey: detail.skillKey,
     status: normalizeStatus(detail.status),
     summary: detail.summary,
@@ -138,10 +142,22 @@ function isUserInvocableSystemSkillDefinitionContent(contentText: string) {
     .some((line) => line.trim() === "user-invocable: false")
 }
 
+function getSystemSkillDefinition(skillKey: string) {
+  return (
+    SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === skillKey,
+    ) ?? null
+  )
+}
+
 function listWorkspaceSkillLibraryEntries(input: {
   installedSkillKeys: Set<string>
 }): WorkspaceSkillLibraryEntry[] {
   return SYSTEM_MANAGED_SKILL_DEFINITIONS.flatMap((definition) => {
+    if (!definition.visibleInLibrary) {
+      return []
+    }
+
     const entryFile =
       definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
       null
@@ -164,6 +180,9 @@ function listWorkspaceSkillLibraryEntries(input: {
         },
         description: parsedDocument.description,
         displayName: parsedDocument.name,
+        installable:
+          definition.installMode === "manual_install" &&
+          !input.installedSkillKeys.has(definition.skillKey),
         installed: input.installedSkillKeys.has(definition.skillKey),
         skillKey: definition.skillKey,
         summary: definition.summary,
@@ -200,6 +219,9 @@ export async function listWorkspaceSkills(input: {
       editable: skill.sourceType !== "system",
       enabled: skill.enabled,
       origin: mapWorkspaceSkillOrigin(skill.sourceType),
+      removable:
+        skill.sourceType !== "system" ||
+        getSystemSkillDefinition(skill.skillKey)?.installMode === "manual_install",
       resettable: skill.sourceType === "system",
       skillKey: skill.skillKey,
       status: normalizeStatus(skill.status),
@@ -306,6 +328,52 @@ export async function createWorkspaceSkill(input: {
   }
 }
 
+export async function installWorkspaceLibrarySkill(input: {
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
+}): Promise<WorkspaceSkillMutationResponse | null> {
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!runtime) {
+    throw new Error("This workspace does not have a tenant runtime yet.")
+  }
+
+  const definition = getSystemSkillDefinition(input.skillKey)
+
+  if (!definition || !definition.visibleInLibrary) {
+    return null
+  }
+
+  if (definition.installMode !== "manual_install") {
+    throw new Error("This library skill is installed by default.")
+  }
+
+  const existingDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
+
+  if (existingDetail) {
+    return {
+      applyQueued: false,
+      desiredStateVersion: existingDetail.version,
+      skillKey: existingDetail.skillKey,
+      version: existingDetail.version,
+    }
+  }
+
+  return createTenantSystemManagedSkillForTenant({
+    files: definition.files,
+    skillKey: definition.skillKey,
+    summary: definition.summary,
+    tenantId: runtime.tenantId,
+  })
+}
+
 export async function updateWorkspaceSkill(input: {
   description: string
   expectedVersion?: number
@@ -403,6 +471,48 @@ export async function resetWorkspaceSkillPackage(input: {
     resetScope: result.resetScope,
     skillKey: result.skillKey,
   }
+}
+
+export async function removeWorkspaceSkill(input: {
+  expectedVersion: number
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
+}): Promise<WorkspaceSkillDeleteResponse | null> {
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!runtime) {
+    throw new Error("This workspace does not have a tenant runtime yet.")
+  }
+
+  const detail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
+
+  if (!detail) {
+    return null
+  }
+
+  const definition = getSystemSkillDefinition(detail.skillKey)
+
+  if (
+    detail.sourceType === "system" &&
+    definition?.installMode !== "manual_install"
+  ) {
+    throw new Error("This skill is installed by default and cannot be removed.")
+  }
+
+  return deleteTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
 }
 
 export async function getWorkspaceSkillFilesDirectoryListing(input: {

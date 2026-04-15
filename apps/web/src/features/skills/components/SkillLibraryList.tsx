@@ -1,4 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
+import { toast } from "sonner"
+
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   SettingsCard,
   SettingsRow,
@@ -7,13 +12,18 @@ import {
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
 
+import { installWorkspaceLibrarySkill, workspaceSkillsQueryOptions } from "../api/skills"
 import type { WorkspaceSkillLibraryEntry } from "../types"
 
 export interface SkillLibraryListProps {
+  orgSlug: string
   skills: WorkspaceSkillLibraryEntry[]
 }
 
-export function SkillLibraryList({ skills }: SkillLibraryListProps) {
+export function SkillLibraryList({ orgSlug, skills }: SkillLibraryListProps) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
   return (
     <SettingsCard>
       {skills.map((skill) => (
@@ -39,6 +49,55 @@ export function SkillLibraryList({ skills }: SkillLibraryListProps) {
               ))}
             </div>
           </SettingsRowLabel>
+          {skill.installed ? (
+            <Button
+              onClick={() => {
+                void navigate({
+                  params: {
+                    orgSlug,
+                    skillKey: skill.skillKey,
+                  },
+                  to: "/$orgSlug/skills/$skillKey/overview",
+                })
+              }}
+              type="button"
+              variant="outline"
+            >
+              Open
+            </Button>
+          ) : (
+            <Button
+              disabled={!skill.installable}
+              onClick={() => {
+                void installWorkspaceLibrarySkill({
+                  orgSlug,
+                  skillKey: skill.skillKey,
+                })
+                  .then(async (result) => {
+                    await queryClient.invalidateQueries({
+                      queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
+                    })
+
+                    void navigate({
+                      params: {
+                        orgSlug,
+                        skillKey: result.skillKey,
+                      },
+                      to: "/$orgSlug/skills/$skillKey/overview",
+                    })
+                  })
+                  .catch((error) => {
+                    toast.error("Skill could not be installed", {
+                      description:
+                        error instanceof Error ? error.message : "Unknown error",
+                    })
+                  })
+              }}
+              type="button"
+            >
+              Install
+            </Button>
+          )}
         </SettingsRow>
       ))}
     </SettingsCard>

@@ -22,8 +22,10 @@ vi.mock("@otto/feature-runtime-core", () => ({
           path: "references/setup.md",
         },
       ],
+      installMode: "manual_install",
       skillKey: "name-and-domain-research",
       summary: "Install Otto system founder naming guidance",
+      visibleInLibrary: true,
     },
   ],
 }))
@@ -32,19 +34,6 @@ const { getLatestTenantManagedSkillDetailForTenant, listTenantManagedSkillsForTe
   await import("./managed-skills-data")
 
 function createDbListMock() {
-  const limitEnsure = vi.fn().mockResolvedValue([
-    {
-      skillId: "skill_123",
-      sourceType: "system",
-    },
-  ])
-  const whereEnsure = vi.fn(() => ({
-    limit: limitEnsure,
-  }))
-  const fromEnsure = vi.fn(() => ({
-    where: whereEnsure,
-  }))
-
   const orderBy = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
@@ -65,7 +54,6 @@ function createDbListMock() {
   }))
   const select = vi
     .fn()
-    .mockReturnValueOnce({ from: fromEnsure })
     .mockReturnValueOnce({ from })
 
   return {
@@ -75,19 +63,6 @@ function createDbListMock() {
 }
 
 function createDbDetailMock() {
-  const limitEnsure = vi.fn().mockResolvedValue([
-    {
-      skillId: "skill_123",
-      sourceType: "system",
-    },
-  ])
-  const whereEnsure = vi.fn(() => ({
-    limit: limitEnsure,
-  }))
-  const fromEnsure = vi.fn(() => ({
-    where: whereEnsure,
-  }))
-
   const limitSkill = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
@@ -146,7 +121,6 @@ function createDbDetailMock() {
 
   const select = vi
     .fn()
-    .mockReturnValueOnce({ from: fromEnsure })
     .mockReturnValueOnce({ from: fromSkill })
     .mockReturnValueOnce({ from: fromVersion })
     .mockReturnValueOnce({ from: fromFiles })
@@ -162,7 +136,7 @@ describe("api managed skill data", () => {
     vi.clearAllMocks()
   })
 
-  it("ensures system-managed skills before listing tenant skills", async () => {
+  it("does not auto-seed manual-install library skills before listing tenant skills", async () => {
     const { db, select } = createDbListMock()
     getDb.mockReturnValue(db)
 
@@ -170,11 +144,11 @@ describe("api managed skill data", () => {
       tenantId: "tenant_123",
     })
 
-    expect(select).toHaveBeenCalledTimes(2)
+    expect(select).toHaveBeenCalledTimes(1)
     assert.equal(result[0]?.skillKey, "name-and-domain-research")
   })
 
-  it("ensures system-managed skills before reading skill detail", async () => {
+  it("reads detail for manual-install library skills without auto-seeding them", async () => {
     const { db, select } = createDbDetailMock()
     getDb.mockReturnValue(db)
 
@@ -183,7 +157,7 @@ describe("api managed skill data", () => {
       tenantId: "tenant_123",
     })
 
-    expect(select).toHaveBeenCalledTimes(4)
+    expect(select).toHaveBeenCalledTimes(3)
     assert.equal(result?.skillKey, "name-and-domain-research")
   })
 })

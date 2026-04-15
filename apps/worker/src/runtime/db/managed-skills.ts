@@ -1225,6 +1225,10 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
   },
 ) {
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    if (definition.installMode !== "default_installed") {
+      continue;
+    }
+
     const validatedDefinition = validateManagedSkillPackage({
       files: definition.files,
       knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),

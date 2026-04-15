@@ -4,6 +4,8 @@ import {
   handleManagedConfigPatchRequest,
   handleManagedSkillsDeleteRequest,
   handleManagedSkillsGetRequest,
+  handleManagedSkillsInstallFromLibraryRequest,
+  handleManagedSkillsLibraryGetRequest,
   handleManagedSkillsPostRequest,
   handleManagedSkillsResetRequest,
   handleManagedSkillsUpdateRequest,
@@ -53,6 +55,8 @@ import {
   createTenantManagedSkillForTenant,
   deleteTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
+  installTenantManagedSkillFromLibraryForTenant,
+  listTenantManagedSkillLibraryEntriesForTenant,
   listTenantManagedSkillsForTenant,
   ManagedSkillVersionConflictError,
   resetTenantManagedSkillPackageForTenant,
@@ -543,6 +547,14 @@ export function registerRuntimeRoutes(app: Hono) {
     })
   })
 
+  app.get("/api/internal/runtime/managed-skills/library", async (context) => {
+    return handleManagedSkillsLibraryGetRequest({
+      authenticateTenantRuntimeRequest,
+      listTenantManagedSkillLibraryEntriesForTenant,
+      request: context.req.raw,
+    })
+  })
+
   app.post("/api/internal/runtime/managed-skills", async (context) => {
     return handleManagedSkillsPostRequest({
       authenticateTenantRuntimeRequest,
@@ -550,6 +562,17 @@ export function registerRuntimeRoutes(app: Hono) {
       request: context.req.raw,
     })
   })
+
+  app.post(
+    "/api/internal/runtime/managed-skills/library/install",
+    async (context) => {
+      return handleManagedSkillsInstallFromLibraryRequest({
+        authenticateTenantRuntimeRequest,
+        installTenantManagedSkillFromLibraryForTenant,
+        request: context.req.raw,
+      })
+    },
+  )
 
   app.patch("/api/internal/runtime/managed-skills", async (context) => {
     return handleManagedSkillsUpdateRequest({

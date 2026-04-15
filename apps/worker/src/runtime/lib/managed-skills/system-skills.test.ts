@@ -41,6 +41,23 @@ describe("system managed skill definitions", () => {
     assert.match(allContent, /generate-domain-variants\.mjs/);
   });
 
+  it("marks default-installed and library-installable skills explicitly", () => {
+    const skillCreator = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === "skill-creator",
+    );
+    const namingSkill = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === "name-and-domain-research",
+    );
+
+    assert.ok(skillCreator);
+    assert.equal(skillCreator.installMode, "default_installed");
+    assert.equal(skillCreator.visibleInLibrary, false);
+
+    assert.ok(namingSkill);
+    assert.equal(namingSkill.installMode, "manual_install");
+    assert.equal(namingSkill.visibleInLibrary, true);
+  });
+
   it("keeps Otto system skill packages valid against the managed skill contract", () => {
     const knownSkillKeys = SYSTEM_MANAGED_SKILL_DEFINITIONS.map(
       (definition) => definition.skillKey,
