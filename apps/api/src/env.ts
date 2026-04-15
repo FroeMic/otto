@@ -2,6 +2,7 @@ import * as z from "zod"
 
 const rawApiEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3002),
+  CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
   LANDING_PAGE_DOMAIN: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -32,6 +33,7 @@ const rawApiEnvSchema = z.object({
 
 export type ApiEnv = {
   API_PORT: number
+  CONTROL_PLANE_OPENAI_ADMIN_API_KEY?: string
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
   PUBLIC_APP_BASE_URL: string
@@ -98,6 +100,8 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
 
   return {
     API_PORT: raw.API_PORT,
+    CONTROL_PLANE_OPENAI_ADMIN_API_KEY:
+      raw.CONTROL_PLANE_OPENAI_ADMIN_API_KEY?.trim() || undefined,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,
@@ -144,4 +148,14 @@ export function hasWorkOsConfig(env: ApiEnv) {
       env.WORKOS_COOKIE_PASSWORD &&
       env.WORKOS_COOKIE_PASSWORD.length >= 32,
   )
+}
+
+export function getControlPlaneOpenAiAdminApiKey() {
+  const value = getApiEnv().CONTROL_PLANE_OPENAI_ADMIN_API_KEY
+
+  if (!value) {
+    throw new Error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is required")
+  }
+
+  return value
 }
