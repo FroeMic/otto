@@ -494,7 +494,7 @@ This is the smallest high-value UX fix.
 
 ## Open Questions
 
-- Should `skill-creator` appear in the library, stay hidden, or remain built-in only?
+- `skill-creator` and other non-user-invocable helper skills should stay hidden from both `Library` and `Installed` user surfaces for now while remaining available internally to the runtime.
 - Which current system skills should be removable versus always installed?
 - Should “built-in” be a separate origin or only a `removable=false` property?
 - How much of the library should be DB-backed versus derived from canonical code definitions in the first pass?

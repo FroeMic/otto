@@ -150,6 +150,39 @@ function getSystemSkillDefinition(skillKey: string) {
   )
 }
 
+function isWorkspaceVisibleSystemSkillDefinitionContent(contentText: string) {
+  return isUserInvocableSystemSkillDefinitionContent(contentText)
+}
+
+function isWorkspaceVisibleSystemSkill(skillKey: string) {
+  const definition = getSystemSkillDefinition(skillKey)
+
+  if (!definition?.visibleInLibrary) {
+    return false
+  }
+
+  const entryFile =
+    definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
+
+  if (!entryFile?.contentText) {
+    return false
+  }
+
+  return isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)
+}
+
+function isWorkspaceVisibleInstalledSkill(input: {
+  skillKey: string
+  sourceType: string
+}) {
+  if (input.sourceType !== "system") {
+    return true
+  }
+
+  return isWorkspaceVisibleSystemSkill(input.skillKey)
+}
+
 function listWorkspaceSkillLibraryEntries(input: {
   installedSkillKeys: Set<string>
 }): WorkspaceSkillLibraryEntry[] {
@@ -166,7 +199,7 @@ function listWorkspaceSkillLibraryEntries(input: {
       return []
     }
 
-    if (!isUserInvocableSystemSkillDefinitionContent(entryFile.contentText)) {
+    if (!isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)) {
       return []
     }
 
@@ -211,9 +244,15 @@ export async function listWorkspaceSkills(input: {
   const skills = await listTenantManagedSkillsForTenant({
     tenantId: runtime.tenantId,
   })
+  const visibleSkills = skills.filter((skill) =>
+    isWorkspaceVisibleInstalledSkill({
+      skillKey: skill.skillKey,
+      sourceType: skill.sourceType,
+    }),
+  )
 
   return {
-    installedSkills: skills.map((skill) => ({
+    installedSkills: visibleSkills.map((skill) => ({
       description: skill.description,
       displayName: skill.displayName,
       editable: skill.sourceType !== "system",
@@ -230,7 +269,7 @@ export async function listWorkspaceSkills(input: {
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
     librarySkills: listWorkspaceSkillLibraryEntries({
       installedSkillKeys: new Set(
-        skills
+        visibleSkills
           .filter((skill) => skill.sourceType !== "user")
           .map((skill) => skill.skillKey),
       ),
@@ -270,6 +309,15 @@ export async function getWorkspaceSkillDetail(input: {
   ])
 
   if (!detail) {
+    return null
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
     return null
   }
 
@@ -455,6 +503,15 @@ export async function resetWorkspaceSkillPackage(input: {
     return null
   }
 
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
+    return null
+  }
+
   const result = await resetTenantManagedSkillPackageForTenant({
     createdByExternalId: input.userExternalId,
     createdByType: "user",
@@ -494,6 +551,15 @@ export async function removeWorkspaceSkill(input: {
   })
 
   if (!detail) {
+    return null
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
     return null
   }
 
@@ -542,6 +608,15 @@ export async function getWorkspaceSkillFilesDirectoryListing(input: {
     throw new Error("Managed skill not found.")
   }
 
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
+    throw new Error("Managed skill not found.")
+  }
+
   const connection = await getTenantRuntimeConnection(
     runtime.tenantId,
     `GET /api/workspace/${input.orgSlug}/skills/${detail.skillKey}/files`,
@@ -584,6 +659,15 @@ export async function downloadWorkspaceSkillFile(input: {
   })
 
   if (!detail) {
+    return null
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
     return null
   }
 
