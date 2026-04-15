@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import {
   applyPlatformOrganization,
+  deletePlatformWorkspace,
   deployPlatformRuntime,
   grantPlatformCredits,
   platformOrganizationDetailQueryOptions,
@@ -66,6 +67,7 @@ export function PlatformOrganizationActions({
 }: PlatformOrganizationActionsProps) {
   const queryClient = useQueryClient()
   const [isGrantDialogOpen, setIsGrantDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [grantCreditsValue, setGrantCreditsValue] = useState("100000")
   const [grantNote, setGrantNote] = useState("")
   const [isPending, setIsPending] = useState(false)
@@ -170,6 +172,25 @@ export function PlatformOrganizationActions({
     }
   }
 
+  async function handleDeleteWorkspace() {
+    setIsPending(true)
+
+    try {
+      const result = await deletePlatformWorkspace(orgSlug)
+      toast.success("Queued workspace deletion.", {
+        description: `${result.organizationName} will be removed in the background.`,
+      })
+      setIsDeleteDialogOpen(false)
+      await invalidate()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Workspace deletion failed.",
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
   return (
     <>
       {syncJobId ? (
@@ -183,6 +204,26 @@ export function PlatformOrganizationActions({
           orgSlug={orgSlug}
         />
       ) : null}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete workspace</DialogTitle>
+            <DialogDescription>
+              This queues a background teardown for the workspace, tenant
+              server, and connected runtime resources. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button
+              disabled={isPending}
+              onClick={handleDeleteWorkspace}
+              variant="destructive"
+            >
+              {isPending ? "Queueing…" : "Delete workspace"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isGrantDialogOpen} onOpenChange={setIsGrantDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -255,6 +296,13 @@ export function PlatformOrganizationActions({
             onClick={() => setIsGrantDialogOpen(true)}
           >
             Grant credits
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="whitespace-nowrap text-destructive focus:text-destructive"
+            disabled={isPending || syncJobId !== null}
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            Delete workspace
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"

@@ -1,6 +1,7 @@
 import {
   platformActionResponseSchema,
   platformBootstrapSchema,
+  platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
   platformJobStatusResponseSchema,
@@ -9,6 +10,7 @@ import {
   platformProvisionOpenAiKeyResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
+  type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
   type PlatformJobStatusResponse,
@@ -154,6 +156,23 @@ export async function grantPlatformCredits(input: {
 
   return fetchApiResponse(response, (data) =>
     platformGrantCreditsResponseSchema.parse(data),
+  )
+}
+
+export async function deletePlatformWorkspace(
+  orgSlug: string,
+): Promise<PlatformDeleteWorkspaceResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"]["delete-workspace"].$post(
+      {
+        param: {
+          orgSlug,
+        },
+      },
+    )
+
+  return fetchApiResponse(response, (data) =>
+    platformDeleteWorkspaceResponseSchema.parse(data),
   )
 }
 

@@ -47,6 +47,7 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   refreshRuntimeImage: "refresh_runtime_image",
 } as const
@@ -340,6 +341,43 @@ async function getLatestTenantForOrganizationSlug(orgSlug: string) {
     .limit(1)
 
   return tenant ?? null
+}
+
+async function getOrganizationSummaryBySlug(orgSlug: string) {
+  const db = getDb()
+  const [organization] = await db
+    .select({
+      externalOrganizationId: organizations.externalId,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, orgSlug))
+    .limit(1)
+
+  return organization ?? null
+}
+
+async function hasQueuedWorkspaceDeleteJob(organizationId: string) {
+  const db = getDb()
+  const queuedJobs = await db
+    .select({
+      id: jobRuns.id,
+      payloadJson: jobRuns.payloadJson,
+    })
+    .from(jobRuns)
+    .where(
+      and(
+        eq(jobRuns.jobType, JOB_TYPES.deleteWorkspace),
+        inArray(jobRuns.status, ["queued", "running"]),
+      ),
+    )
+
+  return queuedJobs.some((job) => {
+    const payload = recordFromUnknown(job.payloadJson)
+    return payload?.organizationId === organizationId
+  })
 }
 
 async function getTenantCreditBalanceSummary(tenantId: string) {
@@ -1218,6 +1256,38 @@ export async function triggerPlatformOrganizationRefreshImage(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
+  }
+}
+
+export async function triggerPlatformOrganizationDeleteWorkspace(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
+
+  if (await hasQueuedWorkspaceDeleteJob(organization.organizationId)) {
+    throw new Error("Workspace deletion is already queued or running")
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.deleteWorkspace,
+    payload: {
+      organizationId: organization.organizationId,
+      organizationSlug: organization.organizationSlug,
+      organizationExternalId: organization.externalOrganizationId,
+    },
+  })
+
+  return {
+    jobId,
+    organizationId: organization.organizationId,
+    organizationName: organization.organizationName,
+    organizationSlug: organization.organizationSlug,
+    queued: true,
   }
 }
 
