@@ -32,6 +32,7 @@ export const workspaceInstalledSkillListEntrySchema = z.object({
   editable: z.boolean(),
   enabled: z.boolean(),
   origin: workspaceSkillOriginSchema,
+  removable: z.boolean(),
   resettable: z.boolean(),
   skillKey: z.string().min(1),
   status: workspaceSkillStatusSchema,
@@ -46,6 +47,7 @@ export const workspaceSkillLibraryEntrySchema = z.object({
   dependencies: workspaceSkillDependencySummarySchema,
   description: z.string(),
   displayName: z.string(),
+  installable: z.boolean(),
   installed: z.boolean(),
   skillKey: z.string().min(1),
   summary: z.string(),
@@ -83,6 +85,7 @@ export const workspaceSkillDetailSchema = z.object({
   editable: z.boolean(),
   files: z.array(workspaceSkillFileSchema),
   origin: workspaceSkillOriginSchema,
+  removable: z.boolean(),
   skillKey: z.string().min(1),
   status: workspaceSkillStatusSchema,
   summary: z.string().nullable(),
@@ -124,6 +127,21 @@ export const workspaceSkillMutationResponseSchema = z.object({
 
 export type WorkspaceSkillMutationResponse = z.infer<
   typeof workspaceSkillMutationResponseSchema
+>
+
+export const workspaceSkillDeleteRequestSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+})
+
+export const workspaceSkillDeleteResponseSchema = z.object({
+  applyQueued: z.boolean(),
+  deleted: z.boolean(),
+  desiredStateVersion: z.number().int().positive(),
+  skillKey: z.string().min(1),
+})
+
+export type WorkspaceSkillDeleteResponse = z.infer<
+  typeof workspaceSkillDeleteResponseSchema
 >
 
 export const workspaceSkillUpdateRequestSchema = z.object({

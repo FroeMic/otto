@@ -5,8 +5,10 @@ export type SystemManagedSkillDefinition = {
     contentText?: string | null
     path: string
   }>
+  installMode: 'default_installed' | 'manual_install'
   skillKey: string
   summary: string
+  visibleInLibrary: boolean
 }
 
 function buildSkillCreatorMarkdown() {
@@ -555,8 +557,10 @@ export const SYSTEM_MANAGED_SKILL_DEFINITIONS: readonly SystemManagedSkillDefini
         path: 'SKILL.md',
       },
     ],
+    installMode: 'default_installed',
     skillKey: 'skill-creator',
     summary: 'Install Otto system skill-creator guidance',
+    visibleInLibrary: false,
   },
   {
     files: [
@@ -589,7 +593,9 @@ export const SYSTEM_MANAGED_SKILL_DEFINITIONS: readonly SystemManagedSkillDefini
         path: 'templates/recommendation-schema.json',
       },
     ],
+    installMode: 'manual_install',
     skillKey: 'name-and-domain-research',
     summary: 'Install Otto system founder naming guidance',
+    visibleInLibrary: true,
   },
 ] as const

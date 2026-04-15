@@ -333,6 +333,10 @@ async function ensureTenantSystemManagedSkillsForTenant(input: {
   const db = getDb()
 
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    if (definition.installMode !== "default_installed") {
+      continue
+    }
+
     const [skill] = await db
       .select({
         skillId: tenantSkills.id,
@@ -470,6 +474,56 @@ async function createSystemManagedSkillForTenant(input: {
       version: createdVersion.version,
     })),
   )
+}
+
+export async function createTenantSystemManagedSkillForTenant(input: {
+  files: Array<{
+    contentText?: string | null
+    path: string
+  }>
+  skillKey: string
+  summary: string
+  tenantId: string
+}) {
+  const existingDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  })
+
+  if (existingDetail) {
+    return {
+      applyQueued: false,
+      desiredStateVersion: existingDetail.version,
+      skillKey: existingDetail.skillKey,
+      version: existingDetail.version,
+    }
+  }
+
+  await createSystemManagedSkillForTenant(input)
+
+  const createdDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: input.tenantId,
+  })
+
+  if (!createdDetail) {
+    throw new Error(`System managed skill ${input.skillKey} was not created.`)
+  }
+
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
+      skillKey: createdDetail.skillKey,
+      tenantId: input.tenantId,
+      version: createdDetail.version,
+    })
+  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+
+  return {
+    applyQueued: tenantRuntime.isRuntimeReady,
+    desiredStateVersion: desiredStateVersion.version,
+    skillKey: createdDetail.skillKey,
+    version: createdDetail.version,
+  }
 }
 
 export async function createTenantManagedSkillForTenant(input: {

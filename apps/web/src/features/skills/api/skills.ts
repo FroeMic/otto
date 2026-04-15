@@ -1,5 +1,7 @@
 import {
   workspaceSkillCreateRequestSchema,
+  workspaceSkillDeleteRequestSchema,
+  workspaceSkillDeleteResponseSchema,
   workspaceSkillDetailResponseSchema,
   workspaceSkillMutationResponseSchema,
   workspaceSkillResetRequestSchema,
@@ -112,6 +114,25 @@ export async function updateWorkspaceSkill(input: {
   )
 }
 
+export async function installWorkspaceLibrarySkill(input: {
+  orgSlug: string
+  skillKey: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].skills.library[":skillKey"].install.$post(
+      {
+        param: {
+          orgSlug: input.orgSlug,
+          skillKey: input.skillKey,
+        },
+      },
+    )
+
+  return fetchApiResponse(response, (data) =>
+    workspaceSkillMutationResponseSchema.parse(data),
+  )
+}
+
 export async function resetWorkspaceSkillPackage(input: {
   expectedVersion?: number
   orgSlug: string
@@ -132,5 +153,26 @@ export async function resetWorkspaceSkillPackage(input: {
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillResetResponseSchema.parse(data),
+  )
+}
+
+export async function removeWorkspaceSkill(input: {
+  expectedVersion: number
+  orgSlug: string
+  skillKey: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].$delete({
+      json: workspaceSkillDeleteRequestSchema.parse({
+        expectedVersion: input.expectedVersion,
+      }),
+      param: {
+        orgSlug: input.orgSlug,
+        skillKey: input.skillKey,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceSkillDeleteResponseSchema.parse(data),
   )
 }
