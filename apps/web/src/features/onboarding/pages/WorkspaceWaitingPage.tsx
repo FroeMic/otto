@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 
+import { userProfileQueryOptions } from "@/features/workspace/api/workspace"
+
 import { workspaceOnboardingQueryOptions } from "../api/onboarding"
 import { OnboardingStepLayout } from "../components/OnboardingStepLayout"
 
@@ -17,6 +19,7 @@ export function WorkspaceWaitingPage({ orgSlug }: WorkspaceWaitingPageProps) {
     ...workspaceOnboardingQueryOptions(orgSlug),
     refetchInterval: 5_000,
   })
+  const userProfileQuery = useQuery(userProfileQueryOptions())
 
   useEffect(() => {
     const summary = summaryQuery.data
@@ -59,6 +62,20 @@ export function WorkspaceWaitingPage({ orgSlug }: WorkspaceWaitingPageProps) {
     <OnboardingStepLayout
       currentStep={2}
       description="This might take a minute."
+      footer={
+        <div className="text-center text-sm text-muted-foreground">
+          <span>
+            Logged in as{" "}
+            <span className="font-medium text-foreground">
+              {userProfileQuery.data?.email ?? "your account"}
+            </span>
+          </span>
+          <span className="px-2 text-border">•</span>
+          <a className="transition-colors hover:text-foreground" href="/logout">
+            Log out
+          </a>
+        </div>
+      }
       title="We are setting up your agent"
       totalSteps={2}
     >

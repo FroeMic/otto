@@ -129,3 +129,7 @@ export type WorkspaceOnboardingSaveRequest = z.infer<
 export type WorkspaceOnboardingTeamSize = z.infer<
   typeof workspaceOnboardingTeamSizeSchema
 >
+
+export type WorkspaceOnboardingStepKey = z.infer<
+  typeof workspaceOnboardingStepKeySchema
+>
