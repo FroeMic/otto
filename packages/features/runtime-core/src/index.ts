@@ -18,7 +18,7 @@ export type ManagedSkillVersionConflictLike = {
   message: string
 }
 
-const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md"
+export const MANAGED_SKILL_ENTRY_FILE_PATH = "SKILL.md"
 
 function isNeverManagedConfigVersionConflict(
   _error: unknown,

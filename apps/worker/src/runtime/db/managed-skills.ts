@@ -427,9 +427,7 @@ export async function listProjectedManagedSkillFilesTx(
       .limit(1);
 
     if (!skill) {
-      throw new Error(
-        `Managed skill ${skillKey} is missing for tenant ${input.tenantId}.`,
-      );
+      continue;
     }
 
     const [skillVersion] = await tx

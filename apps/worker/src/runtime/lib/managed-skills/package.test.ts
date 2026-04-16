@@ -8,7 +8,7 @@ import {
 } from "./package";
 
 const baseSkillContent = `---
-name: Brand Name Generator
+name: Name Generator
 description: Help founders find good company names.
 metadata:
   dependsOn:
@@ -18,7 +18,7 @@ metadata:
     skills: []
 ---
 
-# Brand Name Generator
+# Name Generator
 `;
 
 describe("managed skill package", () => {
