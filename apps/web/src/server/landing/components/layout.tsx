@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react"
+import { CaretUpDown } from "@phosphor-icons/react/ssr"
 
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"
@@ -81,27 +82,26 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
                 aria-label="Open workspace menu"
                 className="flex h-9 cursor-pointer list-none items-center justify-center px-1 text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
               >
-                <span
-                  aria-hidden="true"
-                  className="translate-y-[-1px] text-base transition-transform group-open:rotate-180"
-                >
-                  ⌄
-                </span>
+                <CaretUpDown aria-hidden="true" className="size-4" />
               </summary>
-              <div className="absolute right-0 top-full mt-3 flex w-72 flex-col overflow-hidden rounded-lg border border-border/75 bg-background text-sm shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
-                <div className="border-b border-border/65 px-4 py-3">
-                  <p className="truncate font-medium text-foreground">
+              <div className="absolute right-0 top-full z-50 mt-3 flex w-72 flex-col overflow-hidden rounded-3xl bg-popover/70 p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/5 backdrop-blur-2xl backdrop-saturate-150">
+                <div className="px-3 py-2.5">
+                  <p className="truncate text-sm font-medium text-foreground">
                     {viewer.name}
                   </p>
-                  <p className="truncate text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {viewer.email}
                   </p>
                 </div>
+                <div className="-mx-1.5 my-1.5 h-px bg-border/50" />
                 {viewer.workspaces.length > 0 ? (
-                  <div className="flex flex-col py-2">
+                  <div className="flex flex-col">
+                    <p className="px-3 py-2.5 text-xs text-muted-foreground">
+                      Workspaces
+                    </p>
                     {viewer.workspaces.map((workspace) => (
                       <a
-                        className="flex items-center justify-between gap-3 px-4 py-2.5 text-foreground transition-colors hover:bg-muted/45"
+                        className="flex items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
                         href={getWorkspaceHref(workspace)}
                         key={workspace.id}
                       >
@@ -115,12 +115,13 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="px-4 py-3 text-muted-foreground">
+                  <p className="px-3 py-2.5 text-sm text-muted-foreground">
                     No workspaces yet.
                   </p>
                 )}
+                <div className="-mx-1.5 my-1.5 h-px bg-border/50" />
                 <a
-                  className="border-t border-border/65 px-4 py-3 text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+                  className="rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
                   href="/logout"
                 >
                   Log out
