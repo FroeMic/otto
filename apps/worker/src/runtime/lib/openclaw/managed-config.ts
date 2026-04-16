@@ -4,34 +4,34 @@ export const MANAGED_BOOTSTRAP_FILE_PATHS = [
   "SOUL.md",
   "USER.md",
   "TOOLS.md",
-] as const;
+] as const
 
 const LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES = {
   "USERS.md": "USER.md",
-} as const;
+} as const
 
 export type ManagedBootstrapFilePath =
-  (typeof MANAGED_BOOTSTRAP_FILE_PATHS)[number];
+  (typeof MANAGED_BOOTSTRAP_FILE_PATHS)[number]
 
 export type ManagedBootstrapFileDefinition = {
-  path: ManagedBootstrapFilePath;
-  label: string;
-  description: string;
-  systemContent: string;
-  defaultSharedContent: string;
-};
+  path: ManagedBootstrapFilePath
+  label: string
+  description: string
+  systemContent: string
+  defaultSharedContent: string
+}
 
 export type ManagedBootstrapFileInput = {
-  path: ManagedBootstrapFilePath;
-  systemContent: string;
-  sharedContent: string;
-  runtimeContext?: ManagedBootstrapRuntimeContext;
-};
+  path: ManagedBootstrapFilePath
+  systemContent: string
+  sharedContent: string
+  runtimeContext?: ManagedBootstrapRuntimeContext
+}
 
 export type ManagedBootstrapRuntimeContext = {
-  ottoBaseUrl?: string | null;
-  workspaceSlug?: string | null;
-};
+  ottoBaseUrl?: string | null
+  workspaceSlug?: string | null
+}
 
 const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
   ManagedBootstrapFilePath,
@@ -66,6 +66,77 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "- Long-term: `MEMORY.md` - your curated memory for durable facts, preferences, and decisions",
       "",
       "Capture what matters. Decisions, context, and lessons learned. Skip secrets unless someone explicitly asks you to keep them.",
+      "",
+      "## Projects",
+      "",
+      "Treat each serious business idea, company, product, or evaluation thread as a project.",
+      "",
+      "Project-specific context lives under `projects/<project-key>/`. Use short, stable, lowercase project keys like `dentalops-ai` or `creator-crm`.",
+      "",
+      "The project index lives at `projects/_index.md`.",
+      "",
+      "Before working on a business idea or company:",
+      "",
+      "1. Read `projects/_index.md` if it exists",
+      "2. Identify the active project",
+      "3. Read `projects/<project-key>/project.md` if it exists",
+      "4. Read task-relevant project files before giving strategic advice or taking action",
+      "",
+      "If the user introduces a new business idea that does not match an existing project, create a new project folder and add it to `projects/_index.md`.",
+      "",
+      "Do not mix unrelated business ideas in one project folder. If uncertain, ask whether this belongs to an existing project or should become a new project.",
+      "",
+      "## Business Building Mode",
+      "",
+      "Otto helps users build and run businesses. Some users are starting from zero; others already have a company, team, product, customers, revenue, audience, codebase, or active operations.",
+      "",
+      "When a user shares a business idea or asks for help building a business, first classify the situation:",
+      "",
+      "- `greenfield`: new idea, early exploration, no meaningful operating history yet",
+      "- `brownfield`: existing business, product, team, customers, revenue, audience, codebase, or active operations",
+      "- `unclear`: not enough context yet",
+      "",
+      "For greenfield projects, optimize for clarity, validation, first customer, first offer, and first distribution loop.",
+      "For brownfield projects, understand the existing machine first: current customers, revenue model, team, constraints, assets, bottlenecks, and what should not be broken.",
+      "",
+      "Do not force a startup-vision exercise when the user needs operational help. Do not jump into execution when the user is still trying to understand what they are building.",
+      "",
+      "## Project Files",
+      "",
+      "Use these files when helpful:",
+      "",
+      "- `project.md`: canonical project profile. Read this first.",
+      "- `onboarding.md`: original onboarding answers, assumptions, and unresolved questions.",
+      "- `decisions.md`: important decisions and why they were made.",
+      "- `experiments.md`: attempts, outcomes, learnings, and next experiments.",
+      "- `goals.md`: current goals and time horizon.",
+      "",
+      "Do not create all files by default. Create files when they become useful.",
+      "",
+      "For a new project, start with `project.md` and `onboarding.md`.",
+      "",
+      "Keep project files concise. Prefer updating existing files over scattering context across many new documents.",
+      "",
+      "## Business Skill Routing",
+      "",
+      "When the user shares a new business idea and no project context exists, use the business onboarding skill before giving detailed advice.",
+      "",
+      "Use business onboarding to answer:",
+      "",
+      "- What are we building?",
+      "- Where are we starting from?",
+      "- Who is it for?",
+      "- How should Otto help first?",
+      "",
+      "After onboarding, store the result in `projects/<project-key>/project.md`.",
+      "",
+      "Use follow-on skills only when they fit the user's state:",
+      "",
+      "- Use `dream-big` when the user has a raw idea and wants to shape the ambition, narrative, or endgame.",
+      "- Use first-segment or customer-discovery skills when the user wants validation or a first customer.",
+      "- Use offer or landing-page skills when the target user and pain are clear enough to present externally.",
+      "- Use goals or operating-rhythm skills when the project already exists and needs focus.",
+      "- Use experiments or review skills when prior attempts need to be logged, compared, or improved.",
       "",
       "## Red Lines",
       "",
@@ -252,20 +323,20 @@ const MANAGED_BOOTSTRAP_FILE_DEFINITIONS: Record<
       "- Preferred runtime:",
     ].join("\n"),
   },
-};
+}
 
 export function getManagedBootstrapFileDefinitions() {
   return MANAGED_BOOTSTRAP_FILE_PATHS.map(
     (path) => MANAGED_BOOTSTRAP_FILE_DEFINITIONS[path],
-  );
+  )
 }
 
 export function getManagedBootstrapFileDefinition(path: string) {
   if (!isManagedBootstrapFilePath(path)) {
-    return null;
+    return null
   }
 
-  return MANAGED_BOOTSTRAP_FILE_DEFINITIONS[path];
+  return MANAGED_BOOTSTRAP_FILE_DEFINITIONS[path]
 }
 
 export function isManagedBootstrapFilePath(
@@ -273,14 +344,14 @@ export function isManagedBootstrapFilePath(
 ): value is ManagedBootstrapFilePath {
   return MANAGED_BOOTSTRAP_FILE_PATHS.includes(
     value as ManagedBootstrapFilePath,
-  );
+  )
 }
 
 export function normalizeManagedBootstrapFilePath(
   value: string,
 ): ManagedBootstrapFilePath | null {
   if (isManagedBootstrapFilePath(value)) {
-    return value;
+    return value
   }
 
   return LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES[
@@ -289,13 +360,13 @@ export function normalizeManagedBootstrapFilePath(
     ? LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES[
         value as keyof typeof LEGACY_MANAGED_BOOTSTRAP_FILE_PATH_ALIASES
       ]
-    : null;
+    : null
 }
 
 export function buildManagedBootstrapFileContent(
   input: ManagedBootstrapFileInput,
 ) {
-  const systemContent = buildManagedBootstrapSystemContent(input);
+  const systemContent = buildManagedBootstrapSystemContent(input)
 
   return [
     `# ${input.path}`,
@@ -308,7 +379,7 @@ export function buildManagedBootstrapFileContent(
     input.sharedContent.trim(),
     "<!-- END SHARED -->",
     "",
-  ].join("\n");
+  ].join("\n")
 }
 
 export function buildManagedBootstrapSystemContent(
@@ -317,19 +388,19 @@ export function buildManagedBootstrapSystemContent(
     "path" | "systemContent" | "runtimeContext"
   >,
 ) {
-  const baseSystemContent = input.systemContent.trim();
+  const baseSystemContent = input.systemContent.trim()
 
   if (input.path !== "TOOLS.md") {
-    return baseSystemContent;
+    return baseSystemContent
   }
 
-  const ottoBaseUrl = normalizeOttoBaseUrl(input.runtimeContext?.ottoBaseUrl);
+  const ottoBaseUrl = normalizeOttoBaseUrl(input.runtimeContext?.ottoBaseUrl)
   const workspaceSlug = normalizeWorkspaceSlug(
     input.runtimeContext?.workspaceSlug,
-  );
+  )
 
   if (!ottoBaseUrl || !workspaceSlug) {
-    return baseSystemContent;
+    return baseSystemContent
   }
 
   return [
@@ -350,15 +421,15 @@ export function buildManagedBootstrapSystemContent(
     `- Scheduled tasks: ${ottoBaseUrl}/${workspaceSlug}/scheduled-tasks`,
     `- Workspace settings: ${ottoBaseUrl}/${workspaceSlug}/settings/workspace`,
     `- User settings: ${ottoBaseUrl}/${workspaceSlug}/settings/user`,
-  ].join("\n");
+  ].join("\n")
 }
 
 function normalizeOttoBaseUrl(value?: string | null) {
-  const trimmed = value?.trim().replace(/\/+$/, "");
-  return trimmed || null;
+  const trimmed = value?.trim().replace(/\/+$/, "")
+  return trimmed || null
 }
 
 function normalizeWorkspaceSlug(value?: string | null) {
-  const trimmed = value?.trim().replace(/^\/+|\/+$/g, "");
-  return trimmed || null;
+  const trimmed = value?.trim().replace(/^\/+|\/+$/g, "")
+  return trimmed || null
 }

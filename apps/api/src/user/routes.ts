@@ -8,15 +8,13 @@ import {
   connectedAccountsResponseSchema,
   updateUserProfileSchema,
   userProfileSchema,
+  userWorkspacesResponseSchema,
 } from "@otto/feature-user-profile"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import {
-  getConnectedAccounts,
-  getUserProfile,
-  updateUserProfile,
-} from "./data"
+import { getConnectedAccounts, getUserProfile, updateUserProfile } from "./data"
+import { getDashboardOrganizations } from "../workspace/data"
 
 const orgSlugParamsSchema = z.object({
   orgSlug: z.string().min(1),
@@ -48,6 +46,14 @@ export type UserRouteDependencies = {
     firstName: string
     lastName: string
   }>
+  getDashboardOrganizations?: (userExternalId: string) => Promise<
+    Array<{
+      id: string
+      isReady: boolean
+      name: string
+      slug: string
+    }>
+  >
   updateUserProfile: (payload: {
     firstName: string
     lastName: string
@@ -64,6 +70,7 @@ function createDefaultUserRouteDependencies(): UserRouteDependencies {
     authenticateWorkspaceUser: (request) =>
       authenticateWorkspaceSessionRequest({ request }),
     getConnectedAccounts,
+    getDashboardOrganizations,
     getUserProfile,
     updateUserProfile,
   }
@@ -127,8 +134,43 @@ export function createUserRouter(
           "Cache-Control": "no-store",
         },
       )
-    },
-  )
+    })
+    .get("/api/user/workspaces", async (context) => {
+      const authResult = await authenticateUser(context.req.raw)
+
+      if ("response" in authResult) {
+        return authResult.response
+      }
+
+      const [profile, workspaces] = await Promise.all([
+        dependencies.getUserProfile(authResult.user.id),
+        (dependencies.getDashboardOrganizations ?? getDashboardOrganizations)(
+          authResult.user.id,
+        ),
+      ])
+
+      return context.json(
+        userWorkspacesResponseSchema.parse({
+          user: {
+            email: profile.email,
+            id: authResult.user.id,
+            name:
+              [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+              profile.email,
+          },
+          workspaces: workspaces.map((workspace) => ({
+            id: workspace.id,
+            isReady: workspace.isReady,
+            name: workspace.name,
+            slug: workspace.slug,
+          })),
+        }),
+        200,
+        {
+          "Cache-Control": "no-store",
+        },
+      )
+    })
     .post(
       "/api/user/profile",
       zValidator("json", updateUserProfileSchema),
@@ -160,30 +202,30 @@ export function createUserRouter(
       },
     )
     .get(
-    "/api/workspace/:orgSlug/connected-accounts",
-    zValidator("param", orgSlugParamsSchema),
-    async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
+      "/api/workspace/:orgSlug/connected-accounts",
+      zValidator("param", orgSlugParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
 
-      if ("response" in authResult) {
-        return authResult.response
-      }
+        if ("response" in authResult) {
+          return authResult.response
+        }
 
-      const { orgSlug } = context.req.valid("param")
-      const connectedAccounts = await dependencies.getConnectedAccounts({
-        orgSlug,
-        userExternalId: authResult.user.id,
-      })
+        const { orgSlug } = context.req.valid("param")
+        const connectedAccounts = await dependencies.getConnectedAccounts({
+          orgSlug,
+          userExternalId: authResult.user.id,
+        })
 
-      return context.json(
-        connectedAccountsResponseSchema.parse({
-          connectedAccounts,
-        }),
-        200,
-        {
-          "Cache-Control": "no-store",
-        },
-      )
-    },
-  )
+        return context.json(
+          connectedAccountsResponseSchema.parse({
+            connectedAccounts,
+          }),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
+      },
+    )
 }

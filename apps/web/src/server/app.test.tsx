@@ -40,25 +40,38 @@ describe("web app", () => {
     )
   })
 
-  it("renders a landing account chip when the user is authenticated", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
+  it("renders a landing workspace menu when the user is authenticated", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          user: {
             email: "michael@getyourotto.com",
-            firstName: "Michael",
-            lastName: "Frohlich",
+            id: "user_123",
             name: "Michael Frohlich",
-          }),
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            status: 200,
           },
-        ),
-      )
+          workspaces: [
+            {
+              id: "org_1",
+              isReady: true,
+              name: "Interaction42",
+              slug: "interaction42",
+            },
+            {
+              id: "org_2",
+              isReady: false,
+              name: "Draft Workspace",
+              slug: "draft-workspace",
+            },
+          ],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      ),
+    )
 
     const response = await app.request("http://localhost/", {
       headers: {
@@ -69,7 +82,7 @@ describe("web app", () => {
 
     expect(response.status).toBe(200)
     expect(fetchSpy).toHaveBeenCalledWith(
-      "http://api.internal/api/user/profile",
+      "http://api.internal/api/user/workspaces",
       expect.objectContaining({
         headers: expect.objectContaining({
           Cookie: "wos-session=sealed-session",
@@ -77,8 +90,12 @@ describe("web app", () => {
       }),
     )
     expect(text).toContain("Michael Frohlich")
-    expect(text).toContain('aria-label="Signed in as Michael Frohlich"')
-    expect(text).toContain("href=\"/logout\"")
+    expect(text).toContain("Interaction42")
+    expect(text).toContain("Draft Workspace")
+    expect(text).toContain('aria-label="Open Interaction42"')
+    expect(text).toContain('href="/interaction42"')
+    expect(text).toContain('href="/draft-workspace"')
+    expect(text).toContain('href="/logout"')
   })
 
   it("prefills the landing prompt from the query string", async () => {
@@ -125,7 +142,7 @@ describe("web app", () => {
     expect(response.status).toBe(200)
     expect(text).toContain("Start building.")
     expect(text).toContain("I need help with SaaS onboarding.")
-    expect(text).toContain("aria-label=\"Otto avatar\"")
+    expect(text).toContain('aria-label="Otto avatar"')
     expect(text).not.toContain("/otto-avatar.svg")
     expect(text).not.toContain("Your business brief")
     expect(text).not.toContain("Otto uses WorkOS for authentication.")

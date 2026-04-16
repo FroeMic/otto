@@ -31,13 +31,21 @@ type PageDocumentProps = {
 type LandingViewer = {
   email: string
   name: string
+  workspaces: Array<{
+    id: string
+    isReady: boolean
+    name: string
+    slug: string
+  }>
 }
 
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
 const BUILT_PUBLIC_ROOT = fileURLToPath(
   new URL("../../dist/public/assets", import.meta.url),
 )
-const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
+const SOURCE_PUBLIC_ROOT = fileURLToPath(
+  new URL("../../public", import.meta.url),
+)
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
 const LANDING_SCRIPT_PATH = "/assets/landing.js"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
@@ -162,22 +170,68 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
-function parseLandingViewerProfile(data: unknown): LandingViewer | null {
+function parseLandingViewerWorkspaces(data: unknown): LandingViewer | null {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return null
   }
 
   const record = data as Record<string, unknown>
-  const email = typeof record.email === "string" ? record.email.trim() : ""
-  const name = typeof record.name === "string" ? record.name.trim() : ""
+  const user =
+    record.user &&
+    typeof record.user === "object" &&
+    !Array.isArray(record.user)
+      ? (record.user as Record<string, unknown>)
+      : null
+  const email = typeof user?.email === "string" ? user.email.trim() : ""
+  const name = typeof user?.name === "string" ? user.name.trim() : ""
 
   if (!email || !name) {
     return null
   }
 
+  const workspaces = Array.isArray(record.workspaces)
+    ? record.workspaces.flatMap((workspace) => {
+        if (
+          !workspace ||
+          typeof workspace !== "object" ||
+          Array.isArray(workspace)
+        ) {
+          return []
+        }
+
+        const workspaceRecord = workspace as Record<string, unknown>
+        const id =
+          typeof workspaceRecord.id === "string"
+            ? workspaceRecord.id.trim()
+            : ""
+        const workspaceName =
+          typeof workspaceRecord.name === "string"
+            ? workspaceRecord.name.trim()
+            : ""
+        const slug =
+          typeof workspaceRecord.slug === "string"
+            ? workspaceRecord.slug.trim()
+            : ""
+
+        if (!id || !workspaceName || !slug) {
+          return []
+        }
+
+        return [
+          {
+            id,
+            isReady: workspaceRecord.isReady === true,
+            name: workspaceName,
+            slug,
+          },
+        ]
+      })
+    : []
+
   return {
     email,
     name,
+    workspaces,
   }
 }
 
@@ -192,7 +246,7 @@ async function getLandingViewer(
   }
 
   try {
-    const response = await fetch(`${env.API_ORIGIN}/api/user/profile`, {
+    const response = await fetch(`${env.API_ORIGIN}/api/user/workspaces`, {
       headers: {
         Cookie: cookie,
       },
@@ -202,7 +256,7 @@ async function getLandingViewer(
       return null
     }
 
-    return parseLandingViewerProfile(await response.json())
+    return parseLandingViewerWorkspaces(await response.json())
   } catch {
     return null
   }
