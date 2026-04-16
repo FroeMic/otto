@@ -1,7 +1,17 @@
+"use client"
+
+import { Microphone } from "@phosphor-icons/react"
+import { useEffect, useState } from "react"
+
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"
 
 import { landingExamplePrompts } from "../content/home"
+import {
+  mergeLandingPromptTranscript,
+  shouldSubmitLandingPromptFromKeydown,
+} from "../prompt-composer-input"
+import { LandingVoiceRecorder } from "./LandingVoiceRecorder"
 
 export interface LandingPromptComposerProps {
   className?: string
@@ -18,6 +28,36 @@ export function LandingPromptComposer({
 }: LandingPromptComposerProps) {
   return (
     <div
+      data-examples-heading={examplesHeading}
+      data-landing-prompt-composer=""
+      data-prompt={prompt ?? ""}
+      data-return-to={returnTo}
+    >
+      <LandingPromptComposerClient
+        className={className}
+        examplesHeading={examplesHeading}
+        prompt={prompt}
+        returnTo={returnTo}
+      />
+    </div>
+  )
+}
+
+export function LandingPromptComposerClient({
+  className,
+  examplesHeading = "Try one of these",
+  prompt,
+  returnTo = "/",
+}: LandingPromptComposerProps) {
+  const [currentPrompt, setCurrentPrompt] = useState(prompt ?? "")
+  const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false)
+
+  useEffect(() => {
+    setCurrentPrompt(prompt ?? "")
+  }, [prompt])
+
+  return (
+    <div
       className={cn("mx-auto flex w-full max-w-4xl flex-col gap-4", className)}
     >
       <form
@@ -29,25 +69,70 @@ export function LandingPromptComposer({
         <div className="flex flex-col gap-4">
           <textarea
             className="min-h-[148px] w-full resize-none border-0 bg-transparent px-2 py-2 text-base leading-7 text-foreground outline-none placeholder:text-muted-foreground/85"
-            defaultValue={prompt}
             name="prompt"
+            onChange={(event) => {
+              setCurrentPrompt(event.target.value)
+            }}
+            onKeyDown={(event) => {
+              if (
+                shouldSubmitLandingPromptFromKeydown({
+                  ctrlKey: event.ctrlKey,
+                  isComposing: event.nativeEvent.isComposing,
+                  key: event.key,
+                  metaKey: event.metaKey,
+                  shiftKey: event.shiftKey,
+                })
+              ) {
+                event.preventDefault()
+                event.currentTarget.form?.requestSubmit()
+              }
+            }}
             placeholder="Describe the software business you want to launch or run..."
+            value={currentPrompt}
           />
 
-          <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-3">
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Describe the business you are trying to run. Otto will qualify the
-              next step.
-            </p>
-            <button
-              className={cn(
-                buttonVariants({ size: "lg" }),
-                "shrink-0 rounded-full bg-foreground text-background shadow-none hover:bg-foreground/92",
+          <div className="flex justify-end border-t border-border/60 pt-3">
+            <div className="flex w-full items-center justify-end gap-3">
+              {isRecordingVoiceNote ? (
+                <LandingVoiceRecorder
+                  onCancel={() => {
+                    setIsRecordingVoiceNote(false)
+                  }}
+                  onTranscriptReady={(transcript) => {
+                    setCurrentPrompt((existingPrompt) =>
+                      mergeLandingPromptTranscript(existingPrompt, transcript),
+                    )
+                    setIsRecordingVoiceNote(false)
+                  }}
+                />
+              ) : (
+                <>
+                  <button
+                    aria-label="Use voice input"
+                    className={cn(
+                      buttonVariants({ size: "default", variant: "outline" }),
+                      "size-10 rounded-full border-border/70 bg-background p-0 text-foreground shadow-none hover:bg-muted/40",
+                    )}
+                    onClick={() => {
+                      setIsRecordingVoiceNote(true)
+                    }}
+                    type="button"
+                  >
+                    <Microphone className="size-4" />
+                  </button>
+
+                  <button
+                    className={cn(
+                      buttonVariants({ size: "lg" }),
+                      "shrink-0 rounded-full bg-foreground text-background shadow-none hover:bg-foreground/92",
+                    )}
+                    type="submit"
+                  >
+                    Get started
+                  </button>
+                </>
               )}
-              type="submit"
-            >
-              Get started
-            </button>
+            </div>
           </div>
         </div>
       </form>

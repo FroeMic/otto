@@ -11,9 +11,12 @@ export const JOB_LANES = {
 export type JobLane = (typeof JOB_LANES)[keyof typeof JOB_LANES];
 
 const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
+  [JOB_TYPES.bakeHetznerOnboardingSnapshot]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantServer]: JOB_LANES.runtime,
+  [JOB_TYPES.provisionTenantServerFromSnapshot]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantOpenAiKey]: JOB_LANES.runtime,
   [JOB_TYPES.applyTenantConfig]: JOB_LANES.runtime,
+  [JOB_TYPES.deleteWorkspace]: JOB_LANES.runtime,
   [JOB_TYPES.refreshRuntimeImage]: JOB_LANES.runtime,
   [JOB_TYPES.runWorkspaceChatTurn]: JOB_LANES.chat,
   [JOB_TYPES.whatsappLinkSession]: JOB_LANES.runtime,
@@ -35,6 +38,7 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
 const ALL_JOB_TYPES = Object.values(JOB_TYPES);
 const TENANT_MUTEX_GUARD_JOB_TYPES = [
   JOB_TYPES.provisionTenantServer,
+  JOB_TYPES.provisionTenantServerFromSnapshot,
   JOB_TYPES.provisionTenantOpenAiKey,
   JOB_TYPES.applyTenantConfig,
   JOB_TYPES.refreshRuntimeImage,

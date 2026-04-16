@@ -65,7 +65,11 @@ export const platformTenantSummarySchema = z.object({
   latestApplyRun: platformApplyRunSummarySchema.nullable(),
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
+  provisioningStrategy: z.string().nullable(),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -87,6 +91,31 @@ export const platformOrganizationListItemSchema = z.object({
 
 export const platformOrganizationsResponseSchema = z.object({
   organizations: z.array(platformOrganizationListItemSchema),
+})
+
+export const platformCreateOrganizationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .optional(),
+})
+
+export const platformCreateOrganizationResponseSchema = z.object({
+  organization: platformOrganizationListItemSchema,
+})
+
+export const platformAddCurrentUserAdminResponseSchema = z.object({
+  membership: z.object({
+    id: z.string(),
+    organizationId: z.string(),
+    organizationSlug: z.string(),
+    role: z.string(),
+    status: z.string(),
+  }),
 })
 
 export const platformOpenAiProviderSummarySchema = z.object({
@@ -158,10 +187,14 @@ export const platformTenantDetailSchema = z.object({
   latestJob: platformLatestJobSummarySchema.nullable(),
   name: z.string(),
   openAiProvider: platformOpenAiProviderSummarySchema.nullable(),
+  provisioningStrategy: z.string().nullable(),
   recentApplyRuns: z.array(platformApplyRunDetailSchema),
   recentEvents: z.array(platformEventDetailSchema),
   recentJobs: z.array(platformJobDetailSchema),
   serverStatus: z.string().nullable(),
+  snapshotGeneration: z.string().nullable(),
+  sourceImage: z.string().nullable(),
+  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -258,6 +291,50 @@ export const platformActionResponseSchema = z.object({
   tenantName: z.string(),
 })
 
+export const platformProvisionServerSchema = z.object({
+  provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+})
+
+export const platformProvisionServerResponseSchema =
+  platformActionResponseSchema.extend({
+    provisionedTenant: z.boolean(),
+    provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+  })
+
+export const platformDeleteWorkspaceResponseSchema = z.object({
+  jobId: z.string(),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  organizationSlug: z.string(),
+  queued: z.boolean(),
+})
+
+export const platformBakeOnboardingSnapshotResponseSchema = z.object({
+  baseImage: z.string(),
+  generation: z.string(),
+  jobId: z.string(),
+  queued: z.boolean(),
+  runtimeImage: z.string(),
+})
+
+export const platformSnapshotBakeSchema = z.object({
+  baseImage: z.string().nullable(),
+  createdAt: jsonDateSchema,
+  error: z.string().nullable(),
+  finishedAt: jsonDateSchema.nullable(),
+  generation: z.string().nullable(),
+  id: z.string(),
+  providerServerId: z.string().nullable(),
+  runtimeImage: z.string().nullable(),
+  snapshotId: z.string().nullable(),
+  startedAt: jsonDateSchema.nullable(),
+  status: z.string(),
+  step: z.string().nullable(),
+})
+
+export const platformSnapshotsResponseSchema = z.object({
+  snapshots: z.array(platformSnapshotBakeSchema),
+})
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -285,6 +362,25 @@ export const platformJobStatusResponseSchema = z.object({
 
 export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema>
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
+export type PlatformBakeOnboardingSnapshotResponse = z.infer<
+  typeof platformBakeOnboardingSnapshotResponseSchema
+>
+export type PlatformCreateOrganizationInput = z.infer<
+  typeof platformCreateOrganizationSchema
+>
+export type PlatformCreateOrganizationResponse = z.infer<
+  typeof platformCreateOrganizationResponseSchema
+>
+export type PlatformAddCurrentUserAdminResponse = z.infer<
+  typeof platformAddCurrentUserAdminResponseSchema
+>
+export type PlatformSnapshotBake = z.infer<typeof platformSnapshotBakeSchema>
+export type PlatformSnapshotsResponse = z.infer<
+  typeof platformSnapshotsResponseSchema
+>
+export type PlatformDeleteWorkspaceResponse = z.infer<
+  typeof platformDeleteWorkspaceResponseSchema
+>
 export type PlatformEventDetail = z.infer<typeof platformEventDetailSchema>
 export type PlatformGrantCreditsInput = z.infer<
   typeof platformGrantCreditsSchema
@@ -307,6 +403,12 @@ export type PlatformOrganizationListItem = z.infer<
 >
 export type PlatformOrganizationsResponse = z.infer<
   typeof platformOrganizationsResponseSchema
+>
+export type PlatformProvisionServerInput = z.infer<
+  typeof platformProvisionServerSchema
+>
+export type PlatformProvisionServerResponse = z.infer<
+  typeof platformProvisionServerResponseSchema
 >
 export type PlatformProvisionOpenAiKeyResponse = z.infer<
   typeof platformProvisionOpenAiKeyResponseSchema

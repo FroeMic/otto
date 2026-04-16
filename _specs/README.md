@@ -87,7 +87,9 @@ This folder is the source of truth for implementation planning and session-to-se
 31. `DONE_30_name_and_domain_research_workflow.md`
 32. `DONE_31_managed_skill_package_files_and_reset_tools.md`
 33. `DONE_32_skill_library_structure_and_naming_skill_rollout.md`
-34. `TODO_33_posthog_integration.md`
+34. `TODO_33_skill_library_and_installed_skills_ux.md`
+35. `DONE_34_snapshot_based_tenant_provisioning.md`
+36. `TODO_35_posthog_integration.md`
 
 ## Trigger.dev decision
 

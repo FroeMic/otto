@@ -27,6 +27,10 @@ function usePlatformPageLabel(platformOrganizations: Array<{
     return "Organizations"
   }
 
+  if (pathname === "/platform/snapshots") {
+    return "Snapshots"
+  }
+
   if (pathname.startsWith("/platform/organizations/")) {
     const [, , , orgSlug] = pathname.split("/")
     const organization = platformOrganizations.find(

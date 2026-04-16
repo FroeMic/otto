@@ -17,7 +17,8 @@ export function SkillDetailNavigation({
       value={currentSection}
     >
       <TabsList className="h-auto justify-start overflow-x-auto p-1">
-        <TabsTrigger value="status">Status</TabsTrigger>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="instructions">Instructions</TabsTrigger>
         <TabsTrigger value="files">Files</TabsTrigger>
       </TabsList>
     </Tabs>

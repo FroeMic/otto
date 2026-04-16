@@ -26,17 +26,17 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
 import { createWorkspaceSkill, workspaceSkillsQueryOptions } from "../api/skills"
-import type { WorkspaceSkillListEntry } from "../types"
+import type { WorkspaceInstalledSkillListEntry } from "../types"
 
 const DEFAULT_SKILL_BODY = `# New Skill
 
-Describe the workflow Otto should follow.
+Describe the workflow the agent should follow.
 `
 
 export interface CreateSkillDialogProps {
   knownIntegrationKeys: string[]
   orgSlug: string
-  skills: WorkspaceSkillListEntry[]
+  skills: WorkspaceInstalledSkillListEntry[]
 }
 
 function toSkillSlug(value: string) {
@@ -54,7 +54,7 @@ export function CreateSkillDialog({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [description, setDescription] = useState(
-    "Describe when Otto should use this skill.",
+    "Describe when the agent should use this skill.",
   )
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState("")
@@ -91,7 +91,7 @@ export function CreateSkillDialog({
           orgSlug,
           skillKey: result.skillKey,
         },
-        to: "/$orgSlug/skills/$skillKey/status",
+        to: "/$orgSlug/skills/$skillKey/overview",
       })
     },
     onError: (error) => {
@@ -103,7 +103,7 @@ export function CreateSkillDialog({
   })
 
   function resetForm() {
-    setDescription("Describe when Otto should use this skill.")
+    setDescription("Describe when the agent should use this skill.")
     setName("")
     setSelectedIntegrationKeys([])
     setSelectedSkillKeys([])
@@ -157,8 +157,8 @@ export function CreateSkillDialog({
             <DialogHeader className="px-6 pt-6">
               <DialogTitle>Create skill</DialogTitle>
               <DialogDescription>
-                Start with the managed `SKILL.md` metadata here. Runtime-local
-                files stay in the skill package on the tenant runtime.
+                Add a custom skill for this workspace and define the
+                instructions the agent should follow.
               </DialogDescription>
             </DialogHeader>
 
@@ -182,8 +182,7 @@ export function CreateSkillDialog({
                         value={skillKey}
                       />
                       <FieldDescription>
-                        Stable slug used for the package path and runtime
-                        projection.
+                        Stable key used for this skill in the workspace.
                       </FieldDescription>
                     </FieldContent>
                   </Field>
@@ -212,7 +211,7 @@ export function CreateSkillDialog({
                         value={description}
                       />
                       <FieldDescription>
-                        Short guidance for when Otto should reach for this skill.
+                        Short guidance for when the agent should reach for this skill.
                       </FieldDescription>
                     </FieldContent>
                   </Field>
@@ -221,7 +220,7 @@ export function CreateSkillDialog({
                 <FieldSet>
                   <FieldLegend>Integration dependencies</FieldLegend>
                   <FieldDescription>
-                    Optional prerequisites Otto should expect before using this
+                    Optional prerequisites the agent should expect before using this
                     skill.
                   </FieldDescription>
                   {knownIntegrationKeys.length > 0 ? (
@@ -258,7 +257,7 @@ export function CreateSkillDialog({
                 <FieldSet>
                   <FieldLegend>Skill dependencies</FieldLegend>
                   <FieldDescription>
-                    Other managed skills this skill expects to exist first.
+                    Other skills this skill expects to exist first.
                   </FieldDescription>
                   {knownSkillKeys.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -286,7 +285,7 @@ export function CreateSkillDialog({
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      No other managed skills exist in this workspace yet.
+                      No other skills exist in this workspace yet.
                     </p>
                   )}
                 </FieldSet>

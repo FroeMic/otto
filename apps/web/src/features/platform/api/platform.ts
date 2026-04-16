@@ -1,19 +1,35 @@
 import {
+  platformAddCurrentUserAdminResponseSchema,
+  platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
+  platformCreateOrganizationResponseSchema,
+  platformCreateOrganizationSchema,
+  platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
+  platformProvisionServerResponseSchema,
+  platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
+  platformSnapshotsResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
+  type PlatformAddCurrentUserAdminResponse,
+  type PlatformBakeOnboardingSnapshotResponse,
+  type PlatformCreateOrganizationInput,
+  type PlatformCreateOrganizationResponse,
+  type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
   type PlatformJobStatusResponse,
   type PlatformOrganizationDetailResponse,
   type PlatformOrganizationsResponse,
+  type PlatformProvisionServerInput,
+  type PlatformProvisionServerResponse,
+  type PlatformSnapshotsResponse,
   type PlatformUsage,
 } from "@otto/feature-platform"
 import { queryOptions } from "@tanstack/react-query"
@@ -42,6 +58,48 @@ export function platformOrganizationsQueryOptions() {
     },
     queryKey: ["platform-organizations"],
     staleTime: 30_000,
+  })
+}
+
+export async function createPlatformOrganization(
+  payload: PlatformCreateOrganizationInput,
+): Promise<PlatformCreateOrganizationResponse> {
+  const response = await apiClient.api.platform.organizations.$post({
+    json: platformCreateOrganizationSchema.parse(payload),
+  })
+
+  return fetchApiResponse(response, (data) =>
+    platformCreateOrganizationResponseSchema.parse(data),
+  )
+}
+
+export async function addCurrentUserAsPlatformOrganizationAdmin(
+  orgSlug: string,
+): Promise<PlatformAddCurrentUserAdminResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"][
+      "admin-membership"
+    ].$post({
+      param: {
+        orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformAddCurrentUserAdminResponseSchema.parse(data),
+  )
+}
+
+export function platformSnapshotsQueryOptions() {
+  return queryOptions({
+    queryFn: async (): Promise<PlatformSnapshotsResponse> => {
+      const response = await apiClient.api.platform.snapshots.$get()
+      return fetchApiResponse(response, (data) =>
+        platformSnapshotsResponseSchema.parse(data),
+      )
+    },
+    queryKey: ["platform-snapshots"],
+    staleTime: 10_000,
   })
 }
 
@@ -114,6 +172,31 @@ export async function deployPlatformRuntime(orgSlug: string) {
   )
 }
 
+export async function bakePlatformSnapshot(): Promise<PlatformBakeOnboardingSnapshotResponse> {
+  const response = await apiClient.api.platform.snapshots.bake.$post()
+
+  return fetchApiResponse(response, (data) =>
+    platformBakeOnboardingSnapshotResponseSchema.parse(data),
+  )
+}
+
+export async function provisionPlatformServer(input: {
+  orgSlug: string
+  payload: PlatformProvisionServerInput
+}): Promise<PlatformProvisionServerResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"]["provision-server"].$post({
+      json: platformProvisionServerSchema.parse(input.payload),
+      param: {
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformProvisionServerResponseSchema.parse(data),
+  )
+}
+
 export async function provisionPlatformOpenAiKey(orgSlug: string) {
   const response =
     await apiClient.api.platform.organizations[":orgSlug"]["provision-openai-key"].$post({
@@ -154,6 +237,23 @@ export async function grantPlatformCredits(input: {
 
   return fetchApiResponse(response, (data) =>
     platformGrantCreditsResponseSchema.parse(data),
+  )
+}
+
+export async function deletePlatformWorkspace(
+  orgSlug: string,
+): Promise<PlatformDeleteWorkspaceResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"]["delete-workspace"].$post(
+      {
+        param: {
+          orgSlug,
+        },
+      },
+    )
+
+  return fetchApiResponse(response, (data) =>
+    platformDeleteWorkspaceResponseSchema.parse(data),
   )
 }
 

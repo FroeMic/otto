@@ -1,7 +1,11 @@
 import {
   type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillDeleteResponse,
+  type WorkspaceSkillLibraryDetailResponse,
+  type WorkspaceSkillLibraryEntry,
   type WorkspaceSkillMutationResponse,
   type WorkspaceSkillsListResponse,
+  SYSTEM_MANAGED_SKILL_DEFINITIONS,
 } from "@otto/feature-runtime-core"
 import {
   buildManagedSkillMarkdown,
@@ -23,14 +27,14 @@ import { desc, eq } from "drizzle-orm"
 import { execTenantRuntimeCommand, getTenantRuntimeConnection } from "../tenant-runtime/ssh"
 import {
   createTenantManagedSkillForTenant,
+  createTenantSystemManagedSkillForTenant,
+  deleteTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
   resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillTextFileForTenant,
 } from "../runtime/managed-skills-data"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
-
-const AVAILABLE_SECTIONS = ["status", "files"] as const
 const MANAGED_SKILLS_ROOT = "/opt/openclaw/home/workspace/skills"
 
 type RuntimeWorkspaceRecord = {
@@ -94,25 +98,16 @@ function mapManagedSkillDetail(detail: NonNullable<
       resettable: file.resettable,
       storageEncoding: file.storageEncoding,
     })),
+    origin: mapWorkspaceSkillOrigin(detail.sourceType),
+    removable:
+      detail.sourceType !== "system" ||
+      getSystemSkillDefinition(detail.skillKey)?.installMode === "manual_install",
     skillKey: detail.skillKey,
-    sourceType: normalizeSourceType(detail.sourceType),
     status: normalizeStatus(detail.status),
     summary: detail.summary,
     updatedAt: detail.updatedAt.toISOString(),
     version: detail.version,
   } as const
-}
-
-function normalizeSourceType(value: string) {
-  if (
-    value === "integration_contribution" ||
-    value === "system" ||
-    value === "user"
-  ) {
-    return value
-  }
-
-  throw new Error(`Unsupported managed skill source type: ${value}`)
 }
 
 function normalizeStatus(value: string) {
@@ -129,6 +124,153 @@ function normalizeStatus(value: string) {
   throw new Error(`Unsupported managed skill status: ${value}`)
 }
 
+function mapWorkspaceSkillOrigin(value: string) {
+  if (value === "user") {
+    return "custom" as const
+  }
+
+  if (value === "integration_contribution" || value === "system") {
+    return "from_library" as const
+  }
+
+  throw new Error(`Unsupported managed skill source type: ${value}`)
+}
+
+function isUserInvocableSystemSkillDefinitionContent(contentText: string) {
+  return !contentText
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .some((line) => line.trim() === "user-invocable: false")
+}
+
+function getSystemSkillDefinition(skillKey: string) {
+  return (
+    SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === skillKey,
+    ) ?? null
+  )
+}
+
+function isWorkspaceVisibleSystemSkillDefinitionContent(contentText: string) {
+  return isUserInvocableSystemSkillDefinitionContent(contentText)
+}
+
+function isWorkspaceVisibleSystemSkill(skillKey: string) {
+  const definition = getSystemSkillDefinition(skillKey)
+
+  if (!definition?.visibleInLibrary) {
+    return false
+  }
+
+  const entryFile =
+    definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
+
+  if (!entryFile?.contentText) {
+    return false
+  }
+
+  return isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)
+}
+
+function isWorkspaceVisibleInstalledSkill(input: {
+  skillKey: string
+  sourceType: string
+}) {
+  if (input.sourceType !== "system") {
+    return true
+  }
+
+  return isWorkspaceVisibleSystemSkill(input.skillKey)
+}
+
+function listWorkspaceSkillLibraryEntries(input: {
+  installedSkillKeys: Set<string>
+}): WorkspaceSkillLibraryEntry[] {
+  return SYSTEM_MANAGED_SKILL_DEFINITIONS.flatMap((definition) => {
+    if (!definition.visibleInLibrary) {
+      return []
+    }
+
+    const entryFile =
+      definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+      null
+
+    if (!entryFile?.contentText) {
+      return []
+    }
+
+    if (!isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)) {
+      return []
+    }
+
+    const parsedDocument = parseManagedSkillMarkdown(entryFile.contentText)
+
+    return [
+      {
+        dependencies: {
+          integrations: parsedDocument.integrationKeys,
+          skills: parsedDocument.skillKeys,
+        },
+        description: parsedDocument.description,
+        displayName: parsedDocument.name,
+        installable:
+          definition.installMode === "manual_install" &&
+          !input.installedSkillKeys.has(definition.skillKey),
+        installed: input.installedSkillKeys.has(definition.skillKey),
+        skillKey: definition.skillKey,
+        summary: definition.summary,
+      },
+    ]
+  }).sort((left, right) => left.displayName.localeCompare(right.displayName))
+}
+
+function buildWorkspaceSkillLibraryDetail(input: {
+  definition: NonNullable<ReturnType<typeof getSystemSkillDefinition>>
+  installed: boolean
+  installable: boolean
+}) {
+  const entryFile =
+    input.definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
+
+  if (!entryFile?.contentText) {
+    return null
+  }
+
+  if (!isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)) {
+    return null
+  }
+
+  const parsedDocument = parseManagedSkillMarkdown(entryFile.contentText)
+
+  return {
+    dependencies: {
+      integrations: parsedDocument.integrationKeys,
+      skills: parsedDocument.skillKeys,
+    },
+    description: parsedDocument.description,
+    displayName: parsedDocument.name,
+    files: input.definition.files.map((file) => ({
+      fileClass:
+        file.path === MANAGED_SKILL_ENTRY_FILE_PATH
+          ? ("managed_entry" as const)
+          : ("managed_seeded" as const),
+      path: file.path,
+      resettable: file.path !== MANAGED_SKILL_ENTRY_FILE_PATH,
+      storageEncoding:
+        typeof file.contentText === "string"
+          ? ("utf8_text" as const)
+          : ("binary" as const),
+    })),
+    installable: input.installable,
+    installed: input.installed,
+    skillBody: parsedDocument.skillBody,
+    skillKey: input.definition.skillKey,
+    summary: input.definition.summary,
+  } as const
+}
+
 export async function listWorkspaceSkills(input: {
   orgSlug: string
   userExternalId: string
@@ -137,8 +279,11 @@ export async function listWorkspaceSkills(input: {
 
   if (!runtime) {
     return {
+      installedSkills: [],
       knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
-      skills: [],
+      librarySkills: listWorkspaceSkillLibraryEntries({
+        installedSkillKeys: new Set(),
+      }),
       state: "pending_setup",
     }
   }
@@ -146,20 +291,84 @@ export async function listWorkspaceSkills(input: {
   const skills = await listTenantManagedSkillsForTenant({
     tenantId: runtime.tenantId,
   })
+  const visibleSkills = skills.filter((skill) =>
+    isWorkspaceVisibleInstalledSkill({
+      skillKey: skill.skillKey,
+      sourceType: skill.sourceType,
+    }),
+  )
 
   return {
-    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
-    skills: skills.map((skill) => ({
+    installedSkills: visibleSkills.map((skill) => ({
       description: skill.description,
       displayName: skill.displayName,
       editable: skill.sourceType !== "system",
       enabled: skill.enabled,
+      origin: mapWorkspaceSkillOrigin(skill.sourceType),
+      removable:
+        skill.sourceType !== "system" ||
+        getSystemSkillDefinition(skill.skillKey)?.installMode === "manual_install",
+      resettable: skill.sourceType === "system",
       skillKey: skill.skillKey,
-      sourceType: normalizeSourceType(skill.sourceType),
       status: normalizeStatus(skill.status),
       updatedAt: skill.updatedAt.toISOString(),
     })),
+    knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
+    librarySkills: listWorkspaceSkillLibraryEntries({
+      installedSkillKeys: new Set(
+        visibleSkills
+          .filter((skill) => skill.sourceType !== "user")
+          .map((skill) => skill.skillKey),
+      ),
+    }),
     state: "ready",
+  }
+}
+
+export async function getWorkspaceSkillLibraryDetail(input: {
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
+}): Promise<WorkspaceSkillLibraryDetailResponse | null> {
+  const definition = getSystemSkillDefinition(input.skillKey)
+
+  if (!definition || !definition.visibleInLibrary) {
+    return null
+  }
+
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  const installedSkillKeys = runtime
+    ? new Set(
+        (
+          await listTenantManagedSkillsForTenant({
+            tenantId: runtime.tenantId,
+          })
+        )
+          .filter((skill) => skill.sourceType !== "user")
+          .map((skill) => skill.skillKey),
+      )
+    : new Set<string>()
+
+  const detail = buildWorkspaceSkillLibraryDetail({
+    definition,
+    installable:
+      runtime !== null &&
+      definition.installMode === "manual_install" &&
+      !installedSkillKeys.has(definition.skillKey),
+    installed: installedSkillKeys.has(definition.skillKey),
+  })
+
+  if (!detail) {
+    return null
+  }
+
+  return {
+    detail,
+    state: runtime ? "ready" : "pending_setup",
   }
 }
 
@@ -175,7 +384,7 @@ export async function getWorkspaceSkillDetail(input: {
 
   if (!runtime) {
     return {
-      availableSections: [...AVAILABLE_SECTIONS],
+      availableSections: ["overview", "instructions", "files"],
       detail: null,
       knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
       knownSkillKeys: [],
@@ -197,8 +406,17 @@ export async function getWorkspaceSkillDetail(input: {
     return null
   }
 
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
+    return null
+  }
+
   return {
-    availableSections: [...AVAILABLE_SECTIONS],
+    availableSections: ["overview", "instructions", "files"],
     detail: mapManagedSkillDetail(detail),
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
     knownSkillKeys: skills
@@ -250,6 +468,52 @@ export async function createWorkspaceSkill(input: {
     skillKey: result.skillKey,
     version: result.version,
   }
+}
+
+export async function installWorkspaceLibrarySkill(input: {
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
+}): Promise<WorkspaceSkillMutationResponse | null> {
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!runtime) {
+    throw new Error("This workspace does not have a tenant runtime yet.")
+  }
+
+  const definition = getSystemSkillDefinition(input.skillKey)
+
+  if (!definition || !definition.visibleInLibrary) {
+    return null
+  }
+
+  if (definition.installMode !== "manual_install") {
+    throw new Error("This library skill is installed by default.")
+  }
+
+  const existingDetail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
+
+  if (existingDetail) {
+    return {
+      applyQueued: false,
+      desiredStateVersion: existingDetail.version,
+      skillKey: existingDetail.skillKey,
+      version: existingDetail.version,
+    }
+  }
+
+  return createTenantSystemManagedSkillForTenant({
+    files: definition.files,
+    skillKey: definition.skillKey,
+    summary: definition.summary,
+    tenantId: runtime.tenantId,
+  })
 }
 
 export async function updateWorkspaceSkill(input: {
@@ -333,6 +597,15 @@ export async function resetWorkspaceSkillPackage(input: {
     return null
   }
 
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
+    return null
+  }
+
   const result = await resetTenantManagedSkillPackageForTenant({
     createdByExternalId: input.userExternalId,
     createdByType: "user",
@@ -349,6 +622,57 @@ export async function resetWorkspaceSkillPackage(input: {
     resetScope: result.resetScope,
     skillKey: result.skillKey,
   }
+}
+
+export async function removeWorkspaceSkill(input: {
+  expectedVersion: number
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
+}): Promise<WorkspaceSkillDeleteResponse | null> {
+  const runtime = await getLatestWorkspaceRuntime({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+
+  if (!runtime) {
+    throw new Error("This workspace does not have a tenant runtime yet.")
+  }
+
+  const detail = await getLatestTenantManagedSkillDetailForTenant({
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
+
+  if (!detail) {
+    return null
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
+    return null
+  }
+
+  const definition = getSystemSkillDefinition(detail.skillKey)
+
+  if (
+    detail.sourceType === "system" &&
+    definition?.installMode !== "manual_install"
+  ) {
+    throw new Error("This skill is installed by default and cannot be removed.")
+  }
+
+  return deleteTenantManagedSkillForTenant({
+    createdByExternalId: input.userExternalId,
+    createdByType: "user",
+    expectedVersion: input.expectedVersion,
+    skillKey: input.skillKey,
+    tenantId: runtime.tenantId,
+  })
 }
 
 export async function getWorkspaceSkillFilesDirectoryListing(input: {
@@ -375,6 +699,15 @@ export async function getWorkspaceSkillFilesDirectoryListing(input: {
   })
 
   if (!detail) {
+    throw new Error("Managed skill not found.")
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
     throw new Error("Managed skill not found.")
   }
 
@@ -420,6 +753,15 @@ export async function downloadWorkspaceSkillFile(input: {
   })
 
   if (!detail) {
+    return null
+  }
+
+  if (
+    !isWorkspaceVisibleInstalledSkill({
+      skillKey: detail.skillKey,
+      sourceType: detail.sourceType,
+    })
+  ) {
     return null
   }
 

@@ -390,8 +390,15 @@
     {
       "idx": 55,
       "version": "7",
+      "when": 1776268800000,
+      "tag": "0056_snapshot_based_tenant_provisioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
       "when": 1776341859361,
-      "tag": "0056_api_key_integration_credentials",
+      "tag": "0057_api_key_integration_credentials",
       "breakpoints": true
     }
   ]

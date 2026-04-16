@@ -49,12 +49,17 @@ import { ScheduledTasksRedirectPage } from "@/features/scheduled-tasks/pages/Sch
 import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
 import {
   workspaceSkillDetailQueryOptions,
+  workspaceSkillLibraryDetailQueryOptions,
   workspaceSkillsQueryOptions,
 } from "@/features/skills/api/skills"
 import { SkillDetailRedirectPage } from "@/features/skills/pages/SkillDetailRedirectPage"
 import { SkillFilesPage } from "@/features/skills/pages/SkillFilesPage"
-import { SkillsPage } from "@/features/skills/pages/SkillsPage"
-import { SkillStatusPage } from "@/features/skills/pages/SkillStatusPage"
+import { SkillInstructionsPage } from "@/features/skills/pages/SkillInstructionsPage"
+import { SkillLibraryDetailPage } from "@/features/skills/pages/SkillLibraryDetailPage"
+import { SkillOverviewPage } from "@/features/skills/pages/SkillOverviewPage"
+import { SkillsInstalledPage } from "@/features/skills/pages/SkillsInstalledPage"
+import { SkillsLibraryPage } from "@/features/skills/pages/SkillsLibraryPage"
+import { SkillsRedirectPage } from "@/features/skills/pages/SkillsRedirectPage"
 import {
   workspaceIntegrationDetailQueryOptions,
   workspaceIntegrationsQueryOptions,
@@ -196,7 +201,25 @@ function WorkspaceSessionDetailRoutePage() {
 function WorkspaceSkillsRoutePage() {
   const { orgSlug } = workspaceRoute.useParams()
 
-  return <SkillsPage orgSlug={orgSlug} />
+  return <SkillsRedirectPage orgSlug={orgSlug} />
+}
+
+function WorkspaceInstalledSkillsRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <SkillsInstalledPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSkillLibraryRoutePage() {
+  const { orgSlug } = workspaceRoute.useParams()
+
+  return <SkillsLibraryPage orgSlug={orgSlug} />
+}
+
+function WorkspaceSkillLibraryDetailRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillLibraryDetailRoute.useParams()
+
+  return <SkillLibraryDetailPage orgSlug={orgSlug} skillKey={skillKey} />
 }
 
 function WorkspaceScheduledTasksRedirectRoutePage() {
@@ -251,10 +274,16 @@ function WorkspaceSkillDetailRedirectRoutePage() {
   return <SkillDetailRedirectPage orgSlug={orgSlug} skillKey={skillKey} />
 }
 
-function WorkspaceSkillStatusRoutePage() {
-  const { orgSlug, skillKey } = workspaceSkillStatusRoute.useParams()
+function WorkspaceSkillOverviewRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillOverviewRoute.useParams()
 
-  return <SkillStatusPage orgSlug={orgSlug} skillKey={skillKey} />
+  return <SkillOverviewPage orgSlug={orgSlug} skillKey={skillKey} />
+}
+
+function WorkspaceSkillInstructionsRoutePage() {
+  const { orgSlug, skillKey } = workspaceSkillInstructionsRoute.useParams()
+
+  return <SkillInstructionsPage orgSlug={orgSlug} skillKey={skillKey} />
 }
 
 function WorkspaceSkillFilesRoutePage() {
@@ -700,6 +729,39 @@ const workspaceSkillsRoute = createRoute({
   path: "/skills",
 })
 
+const workspaceInstalledSkillsRoute = createRoute({
+  component: WorkspaceInstalledSkillsRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillsQueryOptions(params.orgSlug),
+    ),
+  path: "/skills/installed",
+})
+
+const workspaceSkillLibraryRoute = createRoute({
+  component: WorkspaceSkillLibraryRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillsQueryOptions(params.orgSlug),
+    ),
+  path: "/skills/library",
+})
+
+const workspaceSkillLibraryDetailRoute = createRoute({
+  component: WorkspaceSkillLibraryDetailRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillLibraryDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/library/$skillKey",
+})
+
 const workspaceScheduledTasksRedirectRoute = createRoute({
   component: WorkspaceScheduledTasksRedirectRoutePage,
   getParentRoute: () => workspaceShellRoute,
@@ -795,8 +857,8 @@ const workspaceSkillRedirectRoute = createRoute({
   path: "/skills/$skillKey",
 })
 
-const workspaceSkillOverviewLegacyRoute = createRoute({
-  component: WorkspaceSkillDetailRedirectRoutePage,
+const workspaceSkillOverviewRoute = createRoute({
+  component: WorkspaceSkillOverviewRoutePage,
   getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
@@ -809,7 +871,7 @@ const workspaceSkillOverviewLegacyRoute = createRoute({
 })
 
 const workspaceSkillStatusRoute = createRoute({
-  component: WorkspaceSkillStatusRoutePage,
+  component: WorkspaceSkillDetailRedirectRoutePage,
   getParentRoute: () => workspaceShellRoute,
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
@@ -819,6 +881,19 @@ const workspaceSkillStatusRoute = createRoute({
       }),
     ),
   path: "/skills/$skillKey/status",
+})
+
+const workspaceSkillInstructionsRoute = createRoute({
+  component: WorkspaceSkillInstructionsRoutePage,
+  getParentRoute: () => workspaceShellRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(
+      workspaceSkillDetailQueryOptions({
+        orgSlug: params.orgSlug,
+        skillKey: params.skillKey,
+      }),
+    ),
+  path: "/skills/$skillKey/instructions",
 })
 
 const workspaceSkillFilesRoute = createRoute({
@@ -1039,6 +1114,20 @@ const platformOrganizationsRoute = createRoute({
   path: "/organizations",
 })
 
+const platformSnapshotsRoute = createRoute({
+  component: lazyRouteComponent(
+    () => import("./platform-routes"),
+    "PlatformSnapshotsRoutePage",
+  ),
+  getParentRoute: () => platformShellRoute,
+  loader: async ({ context }) => {
+    const { platformSnapshotsQueryOptions } = await importPlatformApiModule()
+
+    return context.queryClient.ensureQueryData(platformSnapshotsQueryOptions())
+  },
+  path: "/snapshots",
+})
+
 const platformOrganizationRoute = createRoute({
   component: lazyRouteComponent(
     () => import("./platform-routes"),
@@ -1143,9 +1232,13 @@ export const routeTree = rootRoute.addChildren([
       workspaceScheduledTaskConfigurationRoute,
       workspaceScheduledTaskDetailRunsRoute,
       workspaceSkillsRoute,
+      workspaceInstalledSkillsRoute,
+      workspaceSkillLibraryDetailRoute,
+      workspaceSkillLibraryRoute,
       workspaceSkillRedirectRoute,
-      workspaceSkillOverviewLegacyRoute,
+      workspaceSkillOverviewRoute,
       workspaceSkillStatusRoute,
+      workspaceSkillInstructionsRoute,
       workspaceSkillFilesRoute,
     ]),
     workspaceSettingsRoute.addChildren([
@@ -1169,6 +1262,7 @@ export const routeTree = rootRoute.addChildren([
     platformShellRoute.addChildren([
       platformIndexRoute,
       platformOrganizationsRoute,
+      platformSnapshotsRoute,
       platformOrganizationRoute.addChildren([
         platformOrganizationIndexRoute,
         platformOrganizationOverviewRoute,

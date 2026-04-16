@@ -3,10 +3,15 @@ import { randomUUID } from "node:crypto"
 import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "@otto/feature-workspace-slugs"
+import {
   creditLedgerEntries,
   integrationOauthConnections,
   jobEvents,
   jobRuns,
+  memberships,
   organizations,
   providerAccounts,
   providerCredentials,
@@ -47,9 +52,56 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  bakeHetznerOnboardingSnapshot: "bake_hetzner_onboarding_snapshot",
+  provisionTenantServer: "provision_tenant_server",
+  provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
+  deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   refreshRuntimeImage: "refresh_runtime_image",
 } as const
+
+type PlatformProvisioningStrategy = "legacy_base_image" | "hetzner_snapshot"
+
+function buildPlatformOrganizationExternalId() {
+  return `platform_${randomUUID()}`
+}
+
+async function resolvePlatformOrganizationSlug(input: {
+  name: string
+  slug?: string
+}) {
+  const normalizedSlug =
+    typeof input.slug === "string" && input.slug.trim().length > 0
+      ? normalizeWorkspaceSlug(input.slug)
+      : normalizeWorkspaceSlug(input.name)
+
+  if (!normalizedSlug) {
+    throw new Error("Organization slug is required")
+  }
+
+  if (isReservedWorkspaceSlug(normalizedSlug)) {
+    throw new Error("Organization slug is reserved")
+  }
+
+  const [existingOrganization] = await getDb()
+    .select({
+      id: organizations.id,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, normalizedSlug))
+    .limit(1)
+
+  if (existingOrganization) {
+    throw new Error("Organization slug is already in use")
+  }
+
+  return normalizedSlug
+}
+
+function buildSnapshotGeneration() {
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
+  return timestamp.replace("T", ".").replace(/:/g, "").replace("Z", "")
+}
 
 function recordFromUnknown(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -342,6 +394,78 @@ async function getLatestTenantForOrganizationSlug(orgSlug: string) {
   return tenant ?? null
 }
 
+async function getOrganizationSummaryBySlug(orgSlug: string) {
+  const db = getDb()
+  const [organization] = await db
+    .select({
+      externalOrganizationId: organizations.externalId,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, orgSlug))
+    .limit(1)
+
+  return organization ?? null
+}
+
+function buildPlatformProvisioningJobInput(input: {
+  provisioningStrategy: PlatformProvisioningStrategy
+  tenantId: string
+}) {
+  if (input.provisioningStrategy === "hetzner_snapshot") {
+    return {
+      jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
+      payloadJson: {
+        step: "create_server_from_snapshot",
+        tenantId: input.tenantId,
+      },
+      tenantServer: {
+        provider: "hetzner",
+        provisioningStrategy: "hetzner_snapshot",
+        sshUsername: "openclaw",
+        status: "creating",
+      },
+    } as const
+  }
+
+  return {
+    jobType: JOB_TYPES.provisionTenantServer,
+    payloadJson: {
+      step: "create_server",
+      tenantId: input.tenantId,
+    },
+    tenantServer: {
+      provider: "hetzner",
+      provisioningStrategy: "legacy_base_image",
+      sshUsername: "root",
+      status: "creating",
+    },
+  } as const
+}
+
+async function hasQueuedWorkspaceDeleteJob(organizationId: string) {
+  const db = getDb()
+  const queuedJobs = await db
+    .select({
+      id: jobRuns.id,
+      payloadJson: jobRuns.payloadJson,
+    })
+    .from(jobRuns)
+    .where(
+      and(
+        eq(jobRuns.jobType, JOB_TYPES.deleteWorkspace),
+        inArray(jobRuns.status, ["queued", "running"]),
+      ),
+    )
+
+  return queuedJobs.some((job) => {
+    const payload = recordFromUnknown(job.payloadJson)
+    return payload?.organizationId === organizationId
+  })
+}
+
 async function getTenantCreditBalanceSummary(tenantId: string) {
   const db = getDb()
   const [summary] = await db
@@ -390,8 +514,12 @@ export async function getPlatformOrganizations(input: {
       ipv4: tenantServers.ipv4,
       organizationId: tenants.organizationId,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -586,14 +714,140 @@ export async function getPlatformOrganizations(input: {
               jobEventsByJobId,
             ),
             name: tenant.name,
+            provisioningStrategy: tenant.provisioningStrategy,
             serverStatus: tenant.serverStatus,
+            snapshotGeneration: tenant.snapshotGeneration,
             status: tenant.status,
+            sourceImage: tenant.sourceImage,
+            sourceSnapshotId: tenant.sourceSnapshotId,
           }
         : null,
       timeFormatPreference: organization.timeFormatPreference,
       timezone: organization.timezone,
     }
   })
+}
+
+export async function createPlatformOrganization(input: {
+  name: string
+  slug?: string
+  userExternalId: string
+}) {
+  const slug = await resolvePlatformOrganizationSlug({
+    name: input.name,
+    slug: input.slug,
+  })
+  const [createdOrganization] = await getDb()
+    .insert(organizations)
+    .values({
+      externalId: buildPlatformOrganizationExternalId(),
+      isReady: false,
+      name: input.name.trim(),
+      slug,
+    })
+    .returning({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      locale: organizations.locale,
+      name: organizations.name,
+      slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
+    })
+
+  if (!createdOrganization) {
+    throw new Error("Failed to create platform organization")
+  }
+
+  return {
+    configuredRuntimeImage: getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null,
+    configuredRuntimeImageVersion: extractRuntimeImageVersion(
+      getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null,
+    ),
+    id: createdOrganization.id,
+    isReady: createdOrganization.isReady,
+    locale: createdOrganization.locale,
+    name: createdOrganization.name,
+    observedRuntimeImage: null,
+    observedRuntimeImageVersion: null,
+    slackIntegration: null,
+    slug: createdOrganization.slug,
+    tenant: null,
+    timeFormatPreference: createdOrganization.timeFormatPreference,
+    timezone: createdOrganization.timezone,
+  }
+}
+
+export async function addCurrentUserAsPlatformOrganizationAdmin(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const db = getDb()
+  const now = new Date()
+  const [organization] = await db
+    .select({
+      id: organizations.id,
+      slug: organizations.slug,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, input.orgSlug))
+    .limit(1)
+
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.externalId, input.userExternalId))
+    .limit(1)
+
+  if (!user) {
+    throw new Error("Platform user not found")
+  }
+
+  const [membership] = await db
+    .insert(memberships)
+    .values({
+      lastSyncedAt: now,
+      organizationId: organization.id,
+      role: "admin",
+      status: "active",
+      userId: user.id,
+    })
+    .onConflictDoUpdate({
+      target: [memberships.userId, memberships.organizationId],
+      set: {
+        lastSyncedAt: now,
+        removedAt: null,
+        role: "admin",
+        status: "active",
+        updatedAt: now,
+      },
+    })
+    .returning({
+      id: memberships.id,
+      organizationId: memberships.organizationId,
+      role: memberships.role,
+      status: memberships.status,
+    })
+
+  if (!membership) {
+    throw new Error("Failed to add platform organization admin")
+  }
+
+  return {
+    membership: {
+      id: membership.id,
+      organizationId: membership.organizationId,
+      organizationSlug: organization.slug,
+      role: membership.role,
+      status: membership.status,
+    },
+  }
 }
 
 export async function getPlatformOrganizationDetail(input: {
@@ -629,8 +883,12 @@ export async function getPlatformOrganizationDetail(input: {
       id: tenants.id,
       ipv4: tenantServers.ipv4,
       name: tenants.name,
+      provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
+      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
+      sourceImage: tenantServers.sourceImage,
+      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -826,6 +1084,7 @@ export async function getPlatformOrganizationDetail(input: {
       latestJob: buildJobSummary(recentJobRows[0], jobEventsByJobId),
       name: tenant.name,
       openAiProvider,
+      provisioningStrategy: tenant.provisioningStrategy,
       recentApplyRuns: applyRunRows.map((row) => ({
         createdAt: row.createdAt,
         desiredStateVersion: row.desiredStateVersion,
@@ -871,7 +1130,10 @@ export async function getPlatformOrganizationDetail(input: {
         }
       }),
       serverStatus: tenant.serverStatus,
+      snapshotGeneration: tenant.snapshotGeneration,
       status: tenant.status,
+      sourceImage: tenant.sourceImage,
+      sourceSnapshotId: tenant.sourceSnapshotId,
     },
     timeFormatPreference: organization.timeFormatPreference,
     timezone: organization.timezone,
@@ -1053,17 +1315,20 @@ export async function getPlatformJobStatus(input: {
   orgSlug: string
   userExternalId: string
 }) {
-  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
 
-  if (!tenant) {
+  if (!organization) {
     return null
   }
+
+  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
 
   const db = getDb()
   const [job] = await db
     .select({
       error: jobRuns.error,
       finishedAt: jobRuns.finishedAt,
+      payloadJson: jobRuns.payloadJson,
       status: jobRuns.status,
       tenantId: jobRuns.tenantId,
     })
@@ -1071,8 +1336,31 @@ export async function getPlatformJobStatus(input: {
     .where(eq(jobRuns.id, input.jobId))
     .limit(1)
 
-  if (!job || job.tenantId !== tenant.tenantId) {
+  if (!job) {
     return null
+  }
+
+  if (job.tenantId) {
+    if (!tenant || job.tenantId !== tenant.tenantId) {
+      return null
+    }
+  } else {
+    const payloadJson = recordFromUnknown(job.payloadJson)
+    const payloadOrganizationId =
+      typeof payloadJson?.organizationId === "string"
+        ? payloadJson.organizationId
+        : null
+    const payloadOrganizationSlug =
+      typeof payloadJson?.organizationSlug === "string"
+        ? payloadJson.organizationSlug
+        : null
+
+    if (
+      payloadOrganizationId !== organization.organizationId &&
+      payloadOrganizationSlug !== organization.organizationSlug
+    ) {
+      return null
+    }
   }
 
   return {
@@ -1081,6 +1369,65 @@ export async function getPlatformJobStatus(input: {
     ok: job.status === "succeeded",
     status: job.status,
   }
+}
+
+export async function getPlatformSnapshots(_input: { userExternalId: string }) {
+  const rows = await getDb()
+    .select({
+      createdAt: jobRuns.createdAt,
+      error: jobRuns.error,
+      finishedAt: jobRuns.finishedAt,
+      id: jobRuns.id,
+      payloadJson: jobRuns.payloadJson,
+      resultJson: jobRuns.resultJson,
+      startedAt: jobRuns.startedAt,
+      status: jobRuns.status,
+    })
+    .from(jobRuns)
+    .where(eq(jobRuns.jobType, JOB_TYPES.bakeHetznerOnboardingSnapshot))
+    .orderBy(desc(jobRuns.createdAt))
+    .limit(50)
+
+  return rows.map((row) => {
+    const payload = recordFromUnknown(row.payloadJson)
+    const result = recordFromUnknown(row.resultJson)
+
+    return {
+      baseImage:
+        typeof result?.baseImage === "string"
+          ? result.baseImage
+          : typeof payload?.baseImage === "string"
+            ? payload.baseImage
+            : null,
+      createdAt: row.createdAt,
+      error: row.error,
+      finishedAt: row.finishedAt,
+      generation:
+        typeof result?.generation === "string"
+          ? result.generation
+          : typeof payload?.generation === "string"
+            ? payload.generation
+            : null,
+      id: row.id,
+      providerServerId:
+        typeof result?.providerServerId === "string"
+          ? result.providerServerId
+          : typeof payload?.providerServerId === "string"
+            ? payload.providerServerId
+            : null,
+      runtimeImage:
+        typeof result?.runtimeImage === "string"
+          ? result.runtimeImage
+          : typeof payload?.runtimeImage === "string"
+            ? payload.runtimeImage
+            : null,
+      snapshotId:
+        typeof result?.snapshotId === "string" ? result.snapshotId : null,
+      startedAt: row.startedAt,
+      status: row.status,
+      step: typeof payload?.step === "string" ? payload.step : null,
+    }
+  })
 }
 
 async function getDesiredStateVersionForApply(tenantId: string) {
@@ -1130,6 +1477,160 @@ export async function triggerPlatformOrganizationApply(input: {
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
   }
+}
+
+export async function triggerPlatformSnapshotBake(_input: {
+  userExternalId: string
+}) {
+  const env = getApiEnv()
+  const generation = buildSnapshotGeneration()
+  const baseImage = env.HETZNER_DEFAULT_IMAGE
+  const runtimeImage =
+    env.RUNTIME_OPENCLAW_IMAGE ?? "ghcr.io/openclaw/openclaw:2026.4.12"
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.bakeHetznerOnboardingSnapshot,
+    payload: {
+      baseImage,
+      generation,
+      runtimeImage,
+    },
+  })
+
+  return {
+    baseImage,
+    generation,
+    jobId,
+    queued: true,
+    runtimeImage,
+  }
+}
+
+export async function triggerPlatformOrganizationProvisionServer(input: {
+  orgSlug: string
+  provisioningStrategy: PlatformProvisioningStrategy
+  userExternalId: string
+}) {
+  const db = getDb()
+
+  return db.transaction(async (tx) => {
+    const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+
+    if (!organization) {
+      throw new Error("Platform organization not found")
+    }
+
+    const [latestTenant] = await tx
+      .select({
+        id: tenants.id,
+        name: tenants.name,
+        serverId: tenantServers.id,
+      })
+      .from(tenants)
+      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
+      .where(eq(tenants.organizationId, organization.organizationId))
+      .orderBy(desc(tenants.createdAt))
+      .limit(1)
+
+    if (latestTenant?.serverId) {
+      throw new Error("Organization already has a tenant server")
+    }
+
+    let tenantId = latestTenant?.id ?? null
+    let tenantName = latestTenant?.name ?? organization.organizationName
+    let provisionedTenant = false
+
+    if (!tenantId) {
+      const [createdTenant] = await tx
+        .insert(tenants)
+        .values({
+          name: organization.organizationName,
+          organizationId: organization.organizationId,
+          status: "provisioning",
+        })
+        .returning({
+          id: tenants.id,
+          name: tenants.name,
+        })
+
+      if (!createdTenant) {
+        throw new Error("Failed to create tenant")
+      }
+
+      tenantId = createdTenant.id
+      tenantName = createdTenant.name
+      provisionedTenant = true
+    } else {
+      await tx
+        .update(tenants)
+        .set({
+          status: "provisioning",
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, tenantId))
+    }
+
+    const [desiredState] = await tx
+      .select({
+        id: tenantDesiredStates.id,
+      })
+      .from(tenantDesiredStates)
+      .where(eq(tenantDesiredStates.tenantId, tenantId))
+      .limit(1)
+
+    if (!desiredState) {
+      await tx.insert(tenantDesiredStates).values({
+        configJson: {},
+        tenantId,
+        version: 1,
+      })
+    }
+
+    const provisioningJob = buildPlatformProvisioningJobInput({
+      provisioningStrategy: input.provisioningStrategy,
+      tenantId,
+    })
+
+    await tx.insert(tenantServers).values({
+      ...provisioningJob.tenantServer,
+      tenantId,
+    })
+
+    const [job] = await tx
+      .insert(jobRuns)
+      .values({
+        availableAt: new Date(),
+        jobType: provisioningJob.jobType,
+        payloadJson: provisioningJob.payloadJson,
+        status: "queued",
+        tenantId,
+      })
+      .returning({
+        id: jobRuns.id,
+      })
+
+    if (!job) {
+      throw new Error("Failed to queue provisioning job")
+    }
+
+    await tx.insert(jobEvents).values({
+      dataJson: {
+        jobType: provisioningJob.jobType,
+      },
+      eventType: "queued",
+      jobRunId: job.id,
+      message: "Job queued for execution",
+    })
+
+    return {
+      jobId: job.id,
+      provisionedTenant,
+      provisioningStrategy: input.provisioningStrategy,
+      queued: true,
+      tenantId,
+      tenantName,
+    }
+  })
 }
 
 export async function triggerPlatformOrganizationDeployRuntime(input: {
@@ -1218,6 +1719,38 @@ export async function triggerPlatformOrganizationRefreshImage(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
+  }
+}
+
+export async function triggerPlatformOrganizationDeleteWorkspace(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
+
+  if (await hasQueuedWorkspaceDeleteJob(organization.organizationId)) {
+    throw new Error("Workspace deletion is already queued or running")
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.deleteWorkspace,
+    payload: {
+      organizationId: organization.organizationId,
+      organizationSlug: organization.organizationSlug,
+      organizationExternalId: organization.externalOrganizationId,
+    },
+  })
+
+  return {
+    jobId,
+    organizationId: organization.organizationId,
+    organizationName: organization.organizationName,
+    organizationSlug: organization.organizationSlug,
+    queued: true,
   }
 }
 

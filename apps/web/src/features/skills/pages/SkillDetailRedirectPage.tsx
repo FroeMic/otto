@@ -16,7 +16,7 @@ export function SkillDetailRedirectPage({
         skillKey,
       }}
       replace
-      to="/$orgSlug/skills/$skillKey/status"
+      to="/$orgSlug/skills/$skillKey/overview"
     />
   )
 }

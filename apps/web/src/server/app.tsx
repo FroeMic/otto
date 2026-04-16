@@ -8,6 +8,7 @@ import { logger } from "hono/logger"
 import { secureHeaders } from "hono/secure-headers"
 import { renderToString } from "react-dom/server"
 
+import { OttoAvatar } from "../components/OttoAvatar"
 import { buttonVariants } from "../shared/button-variants"
 import { cn } from "../shared/cn"
 import type { FrontendEnv } from "./env"
@@ -21,9 +22,15 @@ import {
 type PageDocumentProps = {
   children: React.ReactNode
   description: string
+  loadLandingScript?: boolean
   loadWorkspaceScript?: boolean
   path: string
   title: string
+}
+
+type LandingViewer = {
+  email: string
+  name: string
 }
 
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
@@ -32,12 +39,14 @@ const BUILT_PUBLIC_ROOT = fileURLToPath(
 )
 const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
+const LANDING_SCRIPT_PATH = "/assets/landing.js"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 function PageDocument({
   children,
   description,
+  loadLandingScript = false,
   loadWorkspaceScript = false,
   path,
   title,
@@ -59,6 +68,9 @@ function PageDocument({
       </head>
       <body>
         {children}
+        {loadLandingScript ? (
+          <script type="module" src={LANDING_SCRIPT_PATH} />
+        ) : null}
         {loadWorkspaceScript ? (
           <script type="module" src={WORKSPACE_SCRIPT_PATH} />
         ) : null}
@@ -150,6 +162,52 @@ function createProxyHandler(targetOrigin: string) {
   }
 }
 
+function parseLandingViewerProfile(data: unknown): LandingViewer | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null
+  }
+
+  const record = data as Record<string, unknown>
+  const email = typeof record.email === "string" ? record.email.trim() : ""
+  const name = typeof record.name === "string" ? record.name.trim() : ""
+
+  if (!email || !name) {
+    return null
+  }
+
+  return {
+    email,
+    name,
+  }
+}
+
+async function getLandingViewer(
+  request: Request,
+  env: FrontendEnv,
+): Promise<LandingViewer | null> {
+  const cookie = request.headers.get("cookie")
+
+  if (!cookie) {
+    return null
+  }
+
+  try {
+    const response = await fetch(`${env.API_ORIGIN}/api/user/profile`, {
+      headers: {
+        Cookie: cookie,
+      },
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    return parseLandingViewerProfile(await response.json())
+  } catch {
+    return null
+  }
+}
+
 function getPublicAssetPath(relativePath: string) {
   const normalizedPath = relativePath.replace(/^\/+/, "")
   const builtPath = `${STATIC_ROOT}/${normalizedPath}`
@@ -190,13 +248,7 @@ function LandingAuthModal({
           ×
         </a>
 
-        <img
-          alt="Otto avatar"
-          className="size-11 rounded-md object-cover"
-          height="44"
-          src="/otto-avatar.svg"
-          width="44"
-        />
+        <OttoAvatar className="size-11 rounded-md" />
 
         <div className="flex flex-col gap-1">
           <p className="text-[1rem] font-medium text-muted-foreground/85">
@@ -290,10 +342,11 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
 
-  app.get("/login", (c) => {
+  app.get("/login", async (c) => {
     const mode = c.req.query("mode") === "sign-in" ? "sign-in" : "sign-up"
     const prompt = c.req.query("prompt")?.trim()
     const returnTo = c.req.query("returnTo") ?? "/"
+    const viewer = await getLandingViewer(c.req.raw, env)
 
     return c.html(
       renderDocument({
@@ -307,9 +360,11 @@ export function createApp(env: FrontendEnv = getEnv()) {
               />
             }
             prompt={prompt}
+            viewer={viewer}
           />
         ),
         description: "Sign in to Otto",
+        loadLandingScript: true,
         path: "/login",
         title: "Otto Sign In",
       }),
@@ -318,17 +373,25 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.get("/logout", (c) => c.redirect("/auth/sign-out", 302))
   app.all("/api/*", apiProxyHandler)
 
-  app.get("/", (c) =>
-    c.html(
+  app.get("/", async (c) => {
+    const viewer = await getLandingViewer(c.req.raw, env)
+
+    return c.html(
       renderDocument({
-        children: <LandingHomePage prompt={c.req.query("prompt")?.trim()} />,
+        children: (
+          <LandingHomePage
+            prompt={c.req.query("prompt")?.trim()}
+            viewer={viewer}
+          />
+        ),
         description:
           "Otto helps founders turn product momentum into a functioning software business.",
+        loadLandingScript: true,
         path: "/",
         title: "Otto",
       }),
-    ),
-  )
+    )
+  })
 
   app.get("/pricing", (c) =>
     c.html(

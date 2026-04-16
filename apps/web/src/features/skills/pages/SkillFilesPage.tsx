@@ -12,6 +12,7 @@ import { RuntimeFileBrowser } from "@/features/files/components/RuntimeFileBrows
 import { buildWorkspaceSkillFileDownloadUrl, workspaceSkillFilesQueryOptions } from "../api/skill-files"
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
+import { summarizeSkillFileProvenance } from "../file-provenance"
 
 export interface SkillFilesPageProps {
   orgSlug: string
@@ -45,14 +46,19 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
           <Alert>
             <AlertTitle>Runtime not ready</AlertTitle>
             <AlertDescription>
-              This workspace does not have a ready Otto runtime yet, so the
-              skill package files cannot be inspected here.
+              This workspace does not have a ready runtime yet, so the skill
+              files cannot be inspected here.
             </AlertDescription>
           </Alert>
         </SettingsPageContent>
       </SettingsPage>
     )
   }
+
+  const provenance = summarizeSkillFileProvenance({
+    managedFiles: detailQuery.data.detail.files,
+    runtimeFiles: filesQuery.data.snapshot.files,
+  })
 
   return (
     <SettingsPage>
@@ -68,22 +74,55 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
               to:
                 nextSection === "files"
                   ? "/$orgSlug/skills/$skillKey/files"
-                  : "/$orgSlug/skills/$skillKey/status",
+                  : nextSection === "instructions"
+                    ? "/$orgSlug/skills/$skillKey/instructions"
+                    : "/$orgSlug/skills/$skillKey/overview",
             })
           }}
         />
 
         <Alert>
-          <AlertTitle>Canonical package files</AlertTitle>
+          <AlertTitle>Included by this skill</AlertTitle>
           <AlertDescription className="flex flex-wrap gap-2">
-            {detailQuery.data.detail.files.map((file) => (
+            {provenance.instructionsFile ? (
+              <Badge variant="outline">
+                Instructions: {provenance.instructionsFile.path}
+              </Badge>
+            ) : null}
+            {provenance.templateFiles.map((file) => (
               <Badge key={file.path} variant="outline">
-                {file.fileClass === "managed_entry" ? "Entry" : "Seeded"}:{" "}
+                {file.resettable ? "Template default" : "Included file"}:{" "}
                 {file.path}
               </Badge>
             ))}
           </AlertDescription>
         </Alert>
+
+        {provenance.runtimeOnlyFiles.length > 0 ? (
+          <Alert>
+            <AlertTitle>Runtime-only files</AlertTitle>
+            <AlertDescription className="flex flex-wrap gap-2">
+              {provenance.runtimeOnlyFiles.map((file) => (
+                <Badge key={file.path} variant="secondary">
+                  {file.path}
+                </Badge>
+              ))}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {provenance.missingFromRuntime.length > 0 ? (
+          <Alert>
+            <AlertTitle>Not currently present in runtime</AlertTitle>
+            <AlertDescription className="flex flex-wrap gap-2">
+              {provenance.missingFromRuntime.map((file) => (
+                <Badge key={file.path} variant="outline">
+                  {file.path}
+                </Badge>
+              ))}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <RuntimeFileBrowser
           buildDownloadUrl={(input) =>

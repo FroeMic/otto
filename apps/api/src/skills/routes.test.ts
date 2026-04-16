@@ -30,8 +30,14 @@ function createDependencies(): SkillsRouteDependencies {
       contentType: "text/plain",
       downloadName: "SKILL.md",
     }),
+    installWorkspaceLibrarySkill: async () => ({
+      applyQueued: true,
+      desiredStateVersion: 7,
+      skillKey: "name-and-domain-research",
+      version: 1,
+    }),
     getWorkspaceSkillDetail: async () => ({
-      availableSections: ["status", "files"],
+      availableSections: ["overview", "instructions", "files"],
       detail: {
         dependencies: {
           integrations: ["slack"],
@@ -62,8 +68,9 @@ function createDependencies(): SkillsRouteDependencies {
             storageEncoding: "utf8_text",
           },
         ],
+        origin: "custom",
+        removable: true,
         skillKey: "triage",
-        sourceType: "user",
         status: "ready",
         summary: "Initial version",
         updatedAt: "2026-04-12T12:00:00.000Z",
@@ -71,6 +78,36 @@ function createDependencies(): SkillsRouteDependencies {
       },
       knownIntegrationKeys: ["linear", "slack"],
       knownSkillKeys: ["ops"],
+      state: "ready",
+    }),
+    getWorkspaceSkillLibraryDetail: async () => ({
+      detail: {
+        dependencies: {
+          integrations: ["brave", "gandi"],
+          skills: [],
+        },
+        description: "Research names, brandability, and domains for founders.",
+        displayName: "Brand Name Generator",
+        files: [
+          {
+            fileClass: "managed_entry",
+            path: "SKILL.md",
+            resettable: false,
+            storageEncoding: "utf8_text",
+          },
+          {
+            fileClass: "managed_seeded",
+            path: "references/full-guide.md",
+            resettable: true,
+            storageEncoding: "utf8_text",
+          },
+        ],
+        installable: true,
+        installed: false,
+        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillKey: "name-and-domain-research",
+        summary: "Startup naming and domain research workflow",
+      },
       state: "ready",
     }),
     getWorkspaceSkillFilesDirectoryListing: async () => ({
@@ -91,20 +128,42 @@ function createDependencies(): SkillsRouteDependencies {
       state: "ready",
     }),
     listWorkspaceSkills: async () => ({
-      knownIntegrationKeys: ["linear", "slack"],
-      skills: [
+      installedSkills: [
         {
           description: "Use this skill to triage incoming requests.",
           displayName: "Triage",
           editable: true,
           enabled: true,
+          origin: "custom",
+          removable: true,
+          resettable: false,
           skillKey: "triage",
-          sourceType: "user",
           status: "ready",
           updatedAt: "2026-04-12T12:00:00.000Z",
         },
       ],
+      knownIntegrationKeys: ["linear", "slack"],
+      librarySkills: [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installed: false,
+          installable: true,
+          skillKey: "name-and-domain-research",
+          summary: "Startup naming and domain research workflow",
+        },
+      ],
       state: "ready",
+    }),
+    removeWorkspaceSkill: async () => ({
+      applyQueued: true,
+      deleted: true,
+      desiredStateVersion: 8,
+      skillKey: "triage",
     }),
     resetWorkspaceSkillPackage: async () => ({
       applyQueued: true,
@@ -140,17 +199,33 @@ describe("skills routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
-      knownIntegrationKeys: ["linear", "slack"],
-      skills: [
+      installedSkills: [
         {
           description: "Use this skill to triage incoming requests.",
           displayName: "Triage",
           editable: true,
           enabled: true,
+          origin: "custom",
+          removable: true,
+          resettable: false,
           skillKey: "triage",
-          sourceType: "user",
           status: "ready",
           updatedAt: "2026-04-12T12:00:00.000Z",
+        },
+      ],
+      knownIntegrationKeys: ["linear", "slack"],
+      librarySkills: [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installed: false,
+          installable: true,
+          skillKey: "name-and-domain-research",
+          summary: "Startup naming and domain research workflow",
         },
       ],
       state: "ready",
@@ -165,7 +240,7 @@ describe("skills routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
-      availableSections: ["status", "files"],
+      availableSections: ["overview", "instructions", "files"],
       detail: {
         dependencies: {
           integrations: ["slack"],
@@ -196,8 +271,9 @@ describe("skills routes", () => {
             storageEncoding: "utf8_text",
           },
         ],
+        origin: "custom",
+        removable: true,
         skillKey: "triage",
-        sourceType: "user",
         status: "ready",
         summary: "Initial version",
         updatedAt: "2026-04-12T12:00:00.000Z",
@@ -205,6 +281,45 @@ describe("skills routes", () => {
       },
       knownIntegrationKeys: ["linear", "slack"],
       knownSkillKeys: ["ops"],
+      state: "ready",
+    })
+  })
+
+  it("returns the workspace skill library detail payload", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/library/name-and-domain-research",
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      detail: {
+        dependencies: {
+          integrations: ["brave", "gandi"],
+          skills: [],
+        },
+        description: "Research names, brandability, and domains for founders.",
+        displayName: "Brand Name Generator",
+        files: [
+          {
+            fileClass: "managed_entry",
+            path: "SKILL.md",
+            resettable: false,
+            storageEncoding: "utf8_text",
+          },
+          {
+            fileClass: "managed_seeded",
+            path: "references/full-guide.md",
+            resettable: true,
+            storageEncoding: "utf8_text",
+          },
+        ],
+        installable: true,
+        installed: false,
+        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillKey: "name-and-domain-research",
+        summary: "Startup naming and domain research workflow",
+      },
       state: "ready",
     })
   })
@@ -234,6 +349,24 @@ describe("skills routes", () => {
       applyQueued: true,
       desiredStateVersion: 4,
       skillKey: "triage",
+      version: 1,
+    })
+  })
+
+  it("installs a library skill into the workspace", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/library/name-and-domain-research/install",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      desiredStateVersion: 7,
+      skillKey: "name-and-domain-research",
       version: 1,
     })
   })
@@ -289,6 +422,30 @@ describe("skills routes", () => {
       applyQueued: true,
       desiredStateVersion: 6,
       resetScope: "companion_files",
+      skillKey: "triage",
+    })
+  })
+
+  it("removes an installed workspace skill", async () => {
+    const app = createSkillsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/triage",
+      {
+        body: JSON.stringify({
+          expectedVersion: 1,
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "DELETE",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: true,
+      deleted: true,
+      desiredStateVersion: 8,
       skillKey: "triage",
     })
   })

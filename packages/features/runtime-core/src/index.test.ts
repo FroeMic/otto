@@ -8,6 +8,8 @@ import {
   handleManagedConfigPatchRequest,
   handleManagedSkillsDeleteRequest,
   handleManagedSkillsGetRequest,
+  handleManagedSkillsInstallFromLibraryRequest,
+  handleManagedSkillsLibraryGetRequest,
   handleManagedSkillsPostRequest,
   handleManagedSkillsResetRequest,
   handleManagedSkillsUpdateRequest,
@@ -243,6 +245,80 @@ describe("runtime core managed skills handlers", () => {
       createdByType: "runtime",
       skillKey: "bug-triage",
       summary: "Runtime created managed skill bug-triage",
+      tenantId: "tenant_123",
+    })
+  })
+
+  it("lists manual-install skill library entries for the runtime", async () => {
+    const response = await handleManagedSkillsLibraryGetRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      listTenantManagedSkillLibraryEntriesForTenant: async () => [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installable: true,
+          installed: false,
+          skillKey: "name-and-domain-research",
+          summary: "Install Otto system founder naming guidance",
+        },
+      ],
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills/library",
+      ),
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      librarySkills: [
+        {
+          dependencies: {
+            integrations: ["gandi"],
+            skills: [],
+          },
+          description: "Research names, brandability, and domains for founders.",
+          displayName: "Brand Name Generator",
+          installable: true,
+          installed: false,
+          skillKey: "name-and-domain-research",
+          summary: "Install Otto system founder naming guidance",
+        },
+      ],
+    })
+  })
+
+  it("validates managed skill library install payloads", async () => {
+    const response = await handleManagedSkillsInstallFromLibraryRequest({
+      authenticateTenantRuntimeRequest: async () => ({
+        tenantId: "tenant_123",
+      }),
+      installTenantManagedSkillFromLibraryForTenant: async (payload) => payload,
+      request: new Request(
+        "https://otto.test/api/internal/runtime/managed-skills/library/install",
+        {
+          body: JSON.stringify({
+            skillKey: "name-and-domain-research",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        },
+      ),
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      createdByExternalId: null,
+      createdByType: "runtime",
+      skillKey: "name-and-domain-research",
+      summary:
+        "Runtime installed managed skill from the library: name-and-domain-research",
       tenantId: "tenant_123",
     })
   })

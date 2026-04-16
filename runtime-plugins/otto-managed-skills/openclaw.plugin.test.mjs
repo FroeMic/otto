@@ -10,6 +10,9 @@ test("otto-managed-skills declares the reduced lifecycle tool contracts", async 
   const plugin = JSON.parse(raw);
 
   assert.deepEqual(plugin.contracts?.tools, [
+    "list_skill_library",
+    "install_skill_from_library",
+    "remove_installed_skill",
     "list_managed_skills",
     "get_managed_skill",
     "list_managed_skill_package_files",

@@ -83,6 +83,12 @@
   - first-time users should get a workspace automatically during post-auth bootstrap
   - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
   - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
+- Snapshot-based onboarding provisioning is now implemented in `_specs/DONE_34_snapshot_based_tenant_provisioning.md`:
+  - onboarding can now queue `provision_tenant_server_from_snapshot` while leaving the existing `provision_tenant_server` path intact as fallback
+  - tenant servers now persist provisioning strategy and snapshot provenance metadata
+  - Hetzner snapshot image validation plus baked-host verification now exist in the worker runtime
+  - platform operator payloads now expose snapshot provenance alongside tenant server details
+  - a manual runbook and bake helper script now define the first-pass onboarding snapshot workflow
 - The next domain-operations integration slice is now explicitly tracked in `_specs/TODO_29_gandi_domain_integration.md`:
   - `Gandi` should land as a `workspace_managed` integration in lifecycle, with Otto-owned platform credentials used inside the Gandi-specific implementation
   - the current status resolver treats `platform_managed` integrations as implicitly installed when no workspace row exists, which matches `Brave` but not Gandi
@@ -125,7 +131,27 @@
   - `system-skills.ts` is now a thin registry over per-skill definitions
   - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs, examples, templates, and starter scripts
   - the remaining managed-skill follow-on work is no longer worker packaging; it is richer provenance/diff UX and any future skill-catalog product work
-- The next analytics integration slice is now tracked in `_specs/TODO_33_posthog_integration.md`:
+- The next Skills product UX slice is now explicitly tracked in `_specs/TODO_33_skill_library_and_installed_skills_ux.md`:
+  - Slice 1 is now implemented:
+    - the workspace Skills area now has separate `Installed` and `Library` routes
+    - installed skill detail is now split into `Overview`, `Instructions`, and `Files`
+    - the workspace API now returns separate `installedSkills` and `librarySkills` collections
+    - user-facing copy now uses brand-agnostic labels such as `From library`, `Custom`, and `Restore defaults`
+  - Slice 2 is now also implemented:
+    - library-backed manual skills now install from the web UI and can be removed again
+    - manual-install library skills are no longer auto-seeded back into existence on read
+    - the runtime managed-skills plugin now exposes explicit library lifecycle tools:
+      - `list_skill_library`
+      - `install_skill_from_library`
+      - `remove_installed_skill`
+  - Helper-skill visibility is now narrowed:
+    - non-user-invocable helper skills such as `skill-creator` stay hidden from both the `Library` and `Installed` user surfaces while remaining available internally
+  - The next UX depth slice is now also implemented:
+    - the library now has a dedicated inspect-before-install detail page with dependencies, included files, and instructions preview
+    - the installed skill files page now separates included package files from runtime-only files instead of only listing canonical paths as badges
+  - the remaining follow-on work is now narrower:
+    - consider whether `TODO_33` is ready to retire once the current UI has been smoke-tested in production
+- The next analytics integration slice is now tracked in `_specs/TODO_35_posthog_integration.md`:
   - `PostHog` should land as a workspace-managed API-key integration, not an OAuth integration
   - the first framework step is a generic encrypted API credential substrate plus generic non-secret tenant integration state
   - the integration should support multiple PostHog project/environment targets per workspace

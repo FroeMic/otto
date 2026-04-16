@@ -61,14 +61,42 @@ function createDependencies(): PlatformRouteDependencies {
         latestJob: null,
         name: "interaction42-prod",
         openAiProvider: null,
+        provisioningStrategy: "hetzner_snapshot",
         recentApplyRuns: [],
         recentEvents: [],
         recentJobs: [],
         serverStatus: "ready",
+        snapshotGeneration: "2026-04-15.1",
         status: "ready",
+        sourceImage: "snapshot-123",
+        sourceSnapshotId: "snapshot-123",
       },
       timeFormatPreference: "auto",
       timezone: "UTC",
+    }),
+    createPlatformOrganization: async ({ name, slug }) => ({
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+      configuredRuntimeImageVersion: "2026.4.12",
+      id: "org_new",
+      isReady: false,
+      locale: "en-US",
+      name,
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
+      slackIntegration: null,
+      slug: slug ?? "snapshot-test",
+      tenant: null,
+      timeFormatPreference: "auto",
+      timezone: "UTC",
+    }),
+    addCurrentUserAsPlatformOrganizationAdmin: async ({ orgSlug }) => ({
+      membership: {
+        id: "membership_1",
+        organizationId: "org_1",
+        organizationSlug: orgSlug,
+        role: "admin",
+        status: "active",
+      },
     }),
     getPlatformOrganizations: async () => [
       {
@@ -88,11 +116,31 @@ function createDependencies(): PlatformRouteDependencies {
           latestApplyRun: null,
           latestJob: null,
           name: "interaction42-prod",
+          provisioningStrategy: "hetzner_snapshot",
           serverStatus: "ready",
+          snapshotGeneration: "2026-04-15.1",
           status: "ready",
+          sourceImage: "snapshot-123",
+          sourceSnapshotId: "snapshot-123",
         },
         timeFormatPreference: "auto",
         timezone: "UTC",
+      },
+    ],
+    getPlatformSnapshots: async () => [
+      {
+        baseImage: "ubuntu-24.04",
+        createdAt: "2026-04-15T18:00:00.000Z",
+        error: null,
+        finishedAt: "2026-04-15T18:10:00.000Z",
+        generation: "2026-04-15.180000",
+        id: "job_bake_1",
+        providerServerId: "server_1",
+        runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+        snapshotId: "snapshot_1",
+        startedAt: "2026-04-15T18:00:01.000Z",
+        status: "succeeded",
+        step: "create_snapshot",
       },
     ],
     getPlatformUsage: async () => ({
@@ -126,6 +174,30 @@ function createDependencies(): PlatformRouteDependencies {
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
+    }),
+    triggerPlatformSnapshotBake: async () => ({
+      baseImage: "ubuntu-24.04",
+      generation: "2026-04-15.180000",
+      jobId: "job_bake_1",
+      queued: true,
+      runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+    }),
+    triggerPlatformOrganizationProvisionServer: async ({
+      provisioningStrategy,
+    }) => ({
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy,
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    }),
+    triggerPlatformOrganizationDeleteWorkspace: async () => ({
+      jobId: "job_delete_1",
+      organizationId: "org_1",
+      organizationName: "Interaction42",
+      organizationSlug: "interaction42",
+      queued: true,
     }),
     triggerPlatformOrganizationDeployRuntime: async () => ({
       desiredStateChanged: false,
@@ -194,6 +266,55 @@ describe("platform routes", () => {
     assert.equal(data.organizations[0]?.slug, "interaction42")
   })
 
+  it("creates a platform organization from scratch", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations",
+      {
+        body: JSON.stringify({
+          name: "Snapshot Test",
+          slug: "snapshot-test",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+    const data = (await response.json()) as {
+      organization: { name: string; slug: string; tenant: null }
+    }
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(data.organization, {
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+      configuredRuntimeImageVersion: "2026.4.12",
+      id: "org_new",
+      isReady: false,
+      locale: "en-US",
+      name: "Snapshot Test",
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
+      slackIntegration: null,
+      slug: "snapshot-test",
+      tenant: null,
+      timeFormatPreference: "auto",
+      timezone: "UTC",
+    })
+  })
+
+  it("returns platform snapshots", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request("http://api.local/api/platform/snapshots")
+    const data = (await response.json()) as {
+      snapshots: Array<{ id: string; snapshotId: string | null }>
+    }
+
+    assert.equal(response.status, 200)
+    assert.equal(data.snapshots[0]?.id, "job_bake_1")
+    assert.equal(data.snapshots[0]?.snapshotId, "snapshot_1")
+  })
+
   it("returns a platform organization detail payload", async () => {
     const app = createPlatformTestApp()
     const response = await app.request(
@@ -238,6 +359,91 @@ describe("platform routes", () => {
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
+    })
+  })
+
+  it("adds the platform user as an organization admin member", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/admin-membership",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      membership: {
+        id: "membership_1",
+        organizationId: "org_1",
+        organizationSlug: "interaction42",
+        role: "admin",
+        status: "active",
+      },
+    })
+  })
+
+  it("queues platform server provisioning", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/provision-server",
+      {
+        body: JSON.stringify({
+          provisioningStrategy: "legacy_base_image",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      jobId: "job_provision_1",
+      provisionedTenant: false,
+      provisioningStrategy: "legacy_base_image",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    })
+  })
+
+  it("queues workspace deletion", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/delete-workspace",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      jobId: "job_delete_1",
+      organizationId: "org_1",
+      organizationName: "Interaction42",
+      organizationSlug: "interaction42",
+      queued: true,
+    })
+  })
+
+  it("queues platform snapshot bake", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/snapshots/bake",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      baseImage: "ubuntu-24.04",
+      generation: "2026-04-15.180000",
+      jobId: "job_bake_1",
+      queued: true,
+      runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
     })
   })
 

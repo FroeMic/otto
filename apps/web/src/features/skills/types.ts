@@ -1,7 +1,10 @@
 import type {
   WorkspaceSkillDetail,
   WorkspaceSkillDetailResponse,
-  WorkspaceSkillListEntry,
+  WorkspaceInstalledSkillListEntry,
+  WorkspaceSkillLibraryDetail,
+  WorkspaceSkillLibraryDetailResponse,
+  WorkspaceSkillLibraryEntry,
   WorkspaceSkillMutationResponse,
   WorkspaceSkillResetResponse,
   WorkspaceSkillSection,
@@ -11,7 +14,10 @@ import type {
 export type {
   WorkspaceSkillDetail,
   WorkspaceSkillDetailResponse,
-  WorkspaceSkillListEntry,
+  WorkspaceInstalledSkillListEntry,
+  WorkspaceSkillLibraryDetail,
+  WorkspaceSkillLibraryDetailResponse,
+  WorkspaceSkillLibraryEntry,
   WorkspaceSkillMutationResponse,
   WorkspaceSkillResetResponse,
   WorkspaceSkillSection,

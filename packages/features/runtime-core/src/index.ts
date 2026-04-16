@@ -279,6 +279,39 @@ export const managedSkillResetSchema = z.object({
   summary: z.string().trim().min(1).max(500).optional(),
 })
 
+export const managedSkillLibraryInstallSchema = z.object({
+  skillKey: z.string().trim().min(1),
+  summary: z.string().trim().min(1).max(500).optional(),
+})
+
+export async function handleManagedSkillsLibraryGetRequest(input: {
+  authenticateTenantRuntimeRequest: (
+    request: Request,
+  ) => Promise<{ tenantId: string }>
+  listTenantManagedSkillLibraryEntriesForTenant: (payload: {
+    tenantId: string
+  }) => Promise<unknown>
+  request: Request
+}) {
+  try {
+    const { tenantId } = await input.authenticateTenantRuntimeRequest(
+      input.request,
+    )
+    const librarySkills =
+      await input.listTenantManagedSkillLibraryEntriesForTenant({
+        tenantId,
+      })
+
+    return jsonNoStore({
+      librarySkills,
+    })
+  } catch (error) {
+    return handleManagedSkillsRouteError(error, {
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+    })
+  }
+}
+
 export async function handleManagedSkillsGetRequest(input: {
   authenticateTenantRuntimeRequest: (
     request: Request,
@@ -437,6 +470,52 @@ export async function handleManagedSkillsPostRequest(input: {
       return jsonNoStore(
         {
           error: "Invalid managed skill payload",
+          issues: error.issues,
+        },
+        400,
+      )
+    }
+
+    return handleManagedSkillsRouteError(error, {
+      isVersionConflictError: isNeverManagedSkillVersionConflict,
+    })
+  }
+}
+
+export async function handleManagedSkillsInstallFromLibraryRequest(input: {
+  authenticateTenantRuntimeRequest: (
+    request: Request,
+  ) => Promise<{ tenantId: string }>
+  installTenantManagedSkillFromLibraryForTenant: (payload: {
+    createdByExternalId: string | null
+    createdByType: "runtime"
+    skillKey: string
+    summary: string
+    tenantId: string
+  }) => Promise<unknown>
+  request: Request
+}) {
+  try {
+    const { tenantId } = await input.authenticateTenantRuntimeRequest(
+      input.request,
+    )
+    const body = managedSkillLibraryInstallSchema.parse(await input.request.json())
+    const result = await input.installTenantManagedSkillFromLibraryForTenant({
+      createdByExternalId: null,
+      createdByType: "runtime",
+      skillKey: body.skillKey,
+      summary:
+        body.summary ??
+        `Runtime installed managed skill from the library: ${body.skillKey}`,
+      tenantId,
+    })
+
+    return jsonNoStore(result)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return jsonNoStore(
+        {
+          error: "Invalid managed skill library install payload",
           issues: error.issues,
         },
         400,

@@ -161,6 +161,7 @@ describe("api app", () => {
           id: "3df8ce2b-7c6d-47ca-9fc1-8b57f0db0833",
         }),
         publicBaseUrl: "https://getyourotto.com",
+        transcribePublicIntakeAudio: async () => "",
       },
     })
     const response = await app.request("http://api.local/api/public/intake", {
