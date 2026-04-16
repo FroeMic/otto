@@ -15,6 +15,7 @@
     "./db/schema": "./src/db/schema.ts",
     "./integrations/framework": "./src/integrations/framework/index.ts",
     "./integrations/library/brave/settings-metadata": "./src/integrations/library/brave/settings-metadata.ts",
+    "./integrations/library/posthog/client": "./src/integrations/library/posthog/client.ts",
     "./integrations/library/slack/policy": "./src/integrations/library/slack/policy.ts",
     "./integrations/library/slack/settings-metadata": "./src/integrations/library/slack/settings-metadata.ts",
     "./integrations/library/slack/update-policy": "./src/integrations/library/slack/update-policy.ts",

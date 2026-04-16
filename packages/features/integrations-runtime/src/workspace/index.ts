@@ -4,6 +4,7 @@ export const workspaceIntegrationKeySchema = z.enum([
   "brave",
   "gandi",
   "linear",
+  "posthog",
   "slack",
 ])
 
@@ -195,6 +196,24 @@ export const workspaceSlackSettingsPatchSchema = z.object({
   summary: z.string().trim().min(1).max(500).optional(),
 })
 
+export const workspaceApiKeyIntegrationSetupSchema = z.object({
+  apiKey: z.string().trim().min(1),
+  declaredScopes: z.array(z.string().trim().min(1)).default([]),
+  defaultTargetKey: z.string().trim().min(1),
+  host: z.string().trim().min(1),
+  targets: z
+    .array(
+      z.object({
+        environmentId: z.string().trim().min(1).optional(),
+        key: z.string().trim().min(1),
+        label: z.string().trim().min(1),
+        organizationId: z.string().trim().min(1).optional(),
+        projectId: z.string().trim().min(1).optional(),
+      }),
+    )
+    .min(1),
+})
+
 export const workspaceIntegrationSettingsValidationSchema = z.object({
   ok: z.boolean(),
   warnings: z.array(z.string()),
@@ -208,6 +227,11 @@ export const workspaceSlackSettingsUpdateResponseSchema = z.object({
   installState: z.string().optional(),
   surface: workspaceIntegrationSurfaceSchema,
   validation: workspaceIntegrationSettingsValidationSchema,
+})
+
+export const workspaceApiKeyIntegrationSetupResponseSchema = z.object({
+  applyQueued: z.boolean(),
+  status: z.string().min(1),
 })
 
 export type WorkspaceIntegrationCatalogEntry = z.infer<
@@ -239,4 +263,7 @@ export type WorkspaceJobStatusResponse = z.infer<
 >
 export type WorkspaceSlackSettingsUpdateResponse = z.infer<
   typeof workspaceSlackSettingsUpdateResponseSchema
+>
+export type WorkspaceApiKeyIntegrationSetupResponse = z.infer<
+  typeof workspaceApiKeyIntegrationSetupResponseSchema
 >

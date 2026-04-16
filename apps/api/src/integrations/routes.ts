@@ -8,6 +8,8 @@ import {
   workspaceJobStatusResponseSchema,
   workspaceIntegrationCapabilityPolicyResponseSchema,
   workspaceIntegrationCapabilityPolicyUpdateSchema,
+  workspaceApiKeyIntegrationSetupResponseSchema,
+  workspaceApiKeyIntegrationSetupSchema,
   workspaceIntegrationDetailSchema,
   workspaceIntegrationDisconnectResponseSchema,
   workspaceIntegrationsResponseSchema,
@@ -28,6 +30,7 @@ import {
   updateWorkspaceIntegrationCapabilityPolicy,
   updateWorkspaceSlackChannelMembership,
   updateWorkspaceSlackSettings,
+  connectWorkspaceApiKeyIntegration,
 } from "./actions"
 import {
   getWorkspaceJobStatus,
@@ -77,6 +80,7 @@ export interface IntegrationsRouteDependencies {
   updateWorkspaceIntegrationCapabilityPolicy: typeof updateWorkspaceIntegrationCapabilityPolicy
   updateWorkspaceSlackChannelMembership: typeof updateWorkspaceSlackChannelMembership
   updateWorkspaceSlackSettings: typeof updateWorkspaceSlackSettings
+  connectWorkspaceApiKeyIntegration: typeof connectWorkspaceApiKeyIntegration
 }
 
 function createDefaultIntegrationsRouteDependencies(): IntegrationsRouteDependencies {
@@ -92,6 +96,7 @@ function createDefaultIntegrationsRouteDependencies(): IntegrationsRouteDependen
     updateWorkspaceIntegrationCapabilityPolicy,
     updateWorkspaceSlackChannelMembership,
     updateWorkspaceSlackSettings,
+    connectWorkspaceApiKeyIntegration,
   }
 }
 
@@ -283,6 +288,29 @@ export function createIntegrationsRouter(
 
         return jsonNoStore(
           workspaceSlackSettingsUpdateResponseSchema.parse(result),
+        )
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/integrations/:integrationKey/api-key",
+      zValidator("json", workspaceApiKeyIntegrationSetupSchema),
+      zValidator("param", workspaceIntegrationDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const result = await dependencies.connectWorkspaceApiKeyIntegration({
+          ...context.req.valid("json"),
+          orgSlug: context.req.valid("param").orgSlug,
+          providerKey: context.req.valid("param").integrationKey,
+          userExternalId: authResult.user.id,
+        })
+
+        return jsonNoStore(
+          workspaceApiKeyIntegrationSetupResponseSchema.parse(result),
         )
       },
     )

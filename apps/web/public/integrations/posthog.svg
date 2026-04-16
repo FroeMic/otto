@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PostHog">
+  <rect width="64" height="64" rx="12" fill="#f54e00"/>
+  <path fill="#fff" d="M18 16h24c7.2 0 12 4.6 12 11.4 0 6.9-4.8 11.6-12 11.6H30v9.5A5.5 5.5 0 0 1 24.5 54H18V16Zm12 9v5h11.2c2.2 0 3.6-.9 3.6-2.5S43.4 25 41.2 25H30Z"/>
+  <circle cx="20" cy="46" r="5" fill="#1d1d1f"/>
+</svg>
