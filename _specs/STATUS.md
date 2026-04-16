@@ -125,6 +125,12 @@
   - `system-skills.ts` is now a thin registry over per-skill definitions
   - `name-and-domain-research` now ships as a packaged system skill with seeded companion docs, examples, templates, and starter scripts
   - the remaining managed-skill follow-on work is no longer worker packaging; it is richer provenance/diff UX and any future skill-catalog product work
+- The next analytics integration slice is now tracked in `_specs/TODO_33_posthog_integration.md`:
+  - `PostHog` should land as a workspace-managed API-key integration, not an OAuth integration
+  - the first framework step is a generic encrypted API credential substrate plus generic non-secret tenant integration state
+  - the integration should support multiple PostHog project/environment targets per workspace
+  - runtime commands should prioritize direct product analytics workflows first, with bounded read-only HogQL as an escape hatch
+  - selected write commands may be included in the first implementation, but must require explicit confirmation and change reasons
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
