@@ -151,6 +151,12 @@
     - the installed skill files page now separates included package files from runtime-only files instead of only listing canonical paths as badges
   - the remaining follow-on work is now narrower:
     - consider whether `TODO_33` is ready to retire once the current UI has been smoke-tested in production
+- The next analytics integration slice is now tracked in `_specs/TODO_35_posthog_integration.md`:
+  - `PostHog` should land as a workspace-managed API-key integration, not an OAuth integration
+  - the first framework step is a generic encrypted API credential substrate plus generic non-secret tenant integration state
+  - the integration should support multiple PostHog project/environment targets per workspace
+  - runtime commands should prioritize direct product analytics workflows first, with bounded read-only HogQL as an escape hatch
+  - selected write commands may be included in the first implementation, but must require explicit confirmation and change reasons
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths

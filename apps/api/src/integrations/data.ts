@@ -42,7 +42,7 @@ export interface WorkspaceIntegrationCatalogEntry {
   connected: boolean
   description: string
   iconSrc: string | null
-  key: "brave" | "gandi" | "linear" | "slack"
+  key: "brave" | "gandi" | "linear" | "posthog" | "slack"
   label: string
   managementMode: "platform_managed" | "workspace_managed"
   needsAttention: boolean
@@ -54,7 +54,7 @@ export interface WorkspaceManagedIntegrationSummary {
   disconnectedAt: string | null
   lastError: string | null
   lastErrorAt: string | null
-  providerKey: "brave" | "gandi" | "linear" | "slack"
+  providerKey: "brave" | "gandi" | "linear" | "posthog" | "slack"
   status: string | null
 }
 
@@ -121,6 +121,7 @@ async function getManagedIntegrationSummary(input: {
       | "brave"
       | "gandi"
       | "linear"
+      | "posthog"
       | "slack",
     status: integration.status,
   }
@@ -286,6 +287,7 @@ export async function listWorkspaceIntegrations(input: {
         definition.key !== "brave" &&
         definition.key !== "gandi" &&
         definition.key !== "linear" &&
+        definition.key !== "posthog" &&
         definition.key !== "slack"
       ) {
         return null
@@ -320,7 +322,7 @@ export async function getWorkspaceIntegrationDetail(input: {
 
   if (
     !definition ||
-    !["brave", "gandi", "linear", "slack"].includes(definition.key)
+    !["brave", "gandi", "linear", "posthog", "slack"].includes(definition.key)
   ) {
     return null
   }
@@ -386,6 +388,7 @@ export async function getWorkspaceIntegrationDetail(input: {
             | "brave"
             | "gandi"
             | "linear"
+            | "posthog"
             | "slack",
           label: definition.label,
           message: `${definition.label} is available.`,
@@ -402,7 +405,7 @@ export async function getWorkspaceIntegrationDetail(input: {
       categoryLabel: definition.categoryLabel,
       description: definition.description,
       iconSrc: definition.iconSrc,
-      key: definition.key as "brave" | "gandi" | "linear" | "slack",
+      key: definition.key as "brave" | "gandi" | "linear" | "posthog" | "slack",
       label: definition.label,
       managementMode: getIntegrationManagementMode(definition),
       pageDescription: definition.pageDescription,

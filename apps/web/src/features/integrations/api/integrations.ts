@@ -3,6 +3,8 @@ import {
   workspaceIntegrationCapabilityPolicyUpdateSchema,
   workspaceIntegrationDetailSchema,
   workspaceIntegrationDisconnectResponseSchema,
+  workspaceApiKeyIntegrationSetupResponseSchema,
+  workspaceApiKeyIntegrationSetupSchema,
   workspaceIntegrationsResponseSchema,
   workspaceSlackDirectoryResyncResponseSchema,
   workspaceSlackDirectoryResyncSchema,
@@ -90,6 +92,43 @@ export async function enableWorkspaceIntegration(input: {
 
   return fetchApiResponse(response, (data) =>
     workspaceIntegrationDisconnectResponseSchema.parse(data),
+  )
+}
+
+export async function connectWorkspaceApiKeyIntegration(input: {
+  apiKey: string
+  declaredScopes: string[]
+  defaultTargetKey: string
+  host: string
+  integrationKey: string
+  orgSlug: string
+  targets: Array<{
+    environmentId?: string
+    key: string
+    label: string
+    organizationId?: string
+    projectId?: string
+  }>
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].integrations[":integrationKey"][
+      "api-key"
+    ].$post({
+      json: workspaceApiKeyIntegrationSetupSchema.parse({
+        apiKey: input.apiKey,
+        declaredScopes: input.declaredScopes,
+        defaultTargetKey: input.defaultTargetKey,
+        host: input.host,
+        targets: input.targets,
+      }),
+      param: {
+        integrationKey: input.integrationKey,
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceApiKeyIntegrationSetupResponseSchema.parse(data),
   )
 }
 

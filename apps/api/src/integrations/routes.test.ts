@@ -133,6 +133,10 @@ function createDependencies(): IntegrationsRouteDependencies {
         warnings: [],
       },
     })) as unknown) as IntegrationsRouteDependencies["updateWorkspaceSlackSettings"],
+    connectWorkspaceApiKeyIntegration: async () => ({
+      applyQueued: false,
+      status: "connected",
+    }),
   }
 }
 
@@ -257,6 +261,40 @@ describe("integrations routes", () => {
     const response = await app.request(
       "http://api.local/api/workspace/otto/integrations/gandi/enable",
       {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: false,
+      status: "connected",
+    })
+  })
+
+  it("connects a workspace API-key integration", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/posthog/api-key",
+      {
+        body: JSON.stringify({
+          apiKey: "phx_secret",
+          declaredScopes: ["project:read"],
+          defaultTargetKey: "production",
+          host: "https://us.posthog.com",
+          targets: [
+            {
+              environmentId: "env-1",
+              key: "production",
+              label: "Production",
+              organizationId: "org-1",
+              projectId: "project-1",
+            },
+          ],
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
         method: "POST",
       },
     )

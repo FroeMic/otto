@@ -3,12 +3,17 @@ import {
   getConnectedOauthAccessForTenantIntegration,
 } from "@otto/feature-integrations-runtime/db/oauth"
 import {
+  upsertApiCredentialForTenantIntegration,
+  upsertTenantIntegrationState,
+} from "@otto/feature-integrations-runtime/db/api-credentials"
+import {
   upsertTenantIntegrationCapabilityPolicy,
 } from "@otto/feature-integrations-runtime/db/integration-capability-policies"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   integrationOauthConnections,
   integrationOauthCredentials,
+  integrationApiCredentials,
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
@@ -21,6 +26,7 @@ import {
   isCommandUserControllable,
   listIntegrationCommands,
 } from "@otto/feature-integrations-runtime/integrations/framework"
+import { normalizePostHogHost } from "@otto/feature-integrations-runtime/integrations/library/posthog/client"
 import { and, desc, eq } from "drizzle-orm"
 
 import { enqueueJob } from "../jobs/queue"
@@ -126,7 +132,12 @@ export async function disconnectWorkspaceIntegration(input: {
   const { tenantId } = await getAuthorizedTenantContext(input)
   const providerKey = input.providerKey.trim().toLowerCase()
 
-  if (providerKey !== "gandi" && providerKey !== "linear" && providerKey !== "slack") {
+  if (
+    providerKey !== "gandi" &&
+    providerKey !== "linear" &&
+    providerKey !== "posthog" &&
+    providerKey !== "slack"
+  ) {
     throw new Error(`Disconnect is not supported for ${providerKey} yet.`)
   }
 
@@ -157,7 +168,9 @@ export async function disconnectWorkspaceIntegration(input: {
             ? "Slack"
             : providerKey === "linear"
               ? "Linear"
-              : "Gandi"
+              : providerKey === "posthog"
+                ? "PostHog"
+                : "Gandi"
         } is not connected in this workspace.`,
       )
     }
@@ -209,6 +222,12 @@ export async function disconnectWorkspaceIntegration(input: {
           tenantIntegrationId: integration.id,
         })
       }
+    }
+
+    if (providerKey === "posthog") {
+      await tx
+        .delete(integrationApiCredentials)
+        .where(eq(integrationApiCredentials.tenantIntegrationId, integration.id))
     }
 
     await tx
@@ -305,6 +324,122 @@ export async function enableWorkspaceIntegration(input: {
   return {
     applyQueued: false,
     status: "connected",
+  }
+}
+
+export async function connectWorkspaceApiKeyIntegration(input: {
+  apiKey: string
+  declaredScopes: string[]
+  defaultTargetKey: string
+  host: string
+  orgSlug: string
+  providerKey: string
+  targets: Array<{
+    environmentId?: string
+    key: string
+    label: string
+    organizationId?: string
+    projectId?: string
+  }>
+  userExternalId: string
+}) {
+  const { tenantId } = await getAuthorizedTenantContext(input)
+  const providerKey = input.providerKey.trim().toLowerCase()
+
+  if (providerKey !== "posthog") {
+    throw new Error(`API-key setup is not supported for ${providerKey} yet.`)
+  }
+
+  const host = normalizePostHogHost(input.host)
+  const now = new Date()
+  const firstOrganizationId = input.targets.find(
+    (target) => target.organizationId,
+  )?.organizationId
+
+  if (firstOrganizationId) {
+    await validatePostHogApiKeyConnection({
+      apiKey: input.apiKey,
+      host,
+      organizationId: firstOrganizationId,
+    })
+  }
+
+  const db = getDb()
+  const [integration] = await db
+    .insert(tenantIntegrations)
+    .values({
+      connectedAt: now,
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      providerKey,
+      status: "connected",
+      tenantId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        connectedAt: now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: now,
+      },
+      target: [
+        tenantIntegrations.tenantId,
+        tenantIntegrations.providerKey,
+      ],
+    })
+    .returning({
+      id: tenantIntegrations.id,
+    })
+
+  await upsertApiCredentialForTenantIntegration({
+    apiKey: input.apiKey,
+    credentialType: "personal_api_key",
+    declaredScopes: input.declaredScopes,
+    externalAccountLabel: "PostHog",
+    metadata: {
+      host,
+    },
+    providerKey,
+    tenantIntegrationId: integration.id,
+  })
+
+  await upsertTenantIntegrationState({
+    providerKey,
+    state: {
+      defaultTargetKey: input.defaultTargetKey,
+      host,
+      targets: input.targets,
+    },
+    tenantIntegrationId: integration.id,
+  })
+
+  return {
+    applyQueued: false,
+    status: "connected",
+  }
+}
+
+async function validatePostHogApiKeyConnection(input: {
+  apiKey: string
+  host: string
+  organizationId: string
+}) {
+  const response = await fetch(
+    `${input.host}/api/organizations/${encodeURIComponent(input.organizationId)}/projects/`,
+    {
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+      },
+      method: "GET",
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error("PostHog API key could not read the configured organization.")
   }
 }
 
