@@ -1,4 +1,5 @@
 import {
+  platformAddCurrentUserAdminResponseSchema,
   platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
@@ -16,6 +17,7 @@ import {
   platformSnapshotsResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
+  type PlatformAddCurrentUserAdminResponse,
   type PlatformBakeOnboardingSnapshotResponse,
   type PlatformCreateOrganizationInput,
   type PlatformCreateOrganizationResponse,
@@ -68,6 +70,23 @@ export async function createPlatformOrganization(
 
   return fetchApiResponse(response, (data) =>
     platformCreateOrganizationResponseSchema.parse(data),
+  )
+}
+
+export async function addCurrentUserAsPlatformOrganizationAdmin(
+  orgSlug: string,
+): Promise<PlatformAddCurrentUserAdminResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"][
+      "admin-membership"
+    ].$post({
+      param: {
+        orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformAddCurrentUserAdminResponseSchema.parse(data),
   )
 }
 

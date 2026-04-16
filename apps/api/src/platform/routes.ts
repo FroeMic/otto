@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import {
+  platformAddCurrentUserAdminResponseSchema,
   platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
@@ -30,6 +31,7 @@ import {
 } from "../workspace/data"
 import { authenticatePlatformRequest, type PlatformGuardDependencies } from "./guard"
 import {
+  addCurrentUserAsPlatformOrganizationAdmin,
   createPlatformOrganization,
   getPlatformJobStatus,
   getPlatformOrganizationDetail,
@@ -71,6 +73,10 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   createPlatformOrganization: (input: {
     name: string
     slug?: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  addCurrentUserAsPlatformOrganizationAdmin: (input: {
+    orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
   getPlatformSnapshots: (input: {
@@ -146,6 +152,11 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         slug,
         userExternalId: user.id,
       }),
+    addCurrentUserAsPlatformOrganizationAdmin: ({ orgSlug, user }) =>
+      addCurrentUserAsPlatformOrganizationAdmin({
+        orgSlug,
+        userExternalId: user.id,
+      }),
     getPlatformSnapshots: ({ user }) =>
       getPlatformSnapshots({
         userExternalId: user.id,
@@ -217,6 +228,7 @@ function handlePlatformRouteError(error: unknown) {
   if (
     error instanceof Error &&
     (error.message === "Organization tenant not found" ||
+      error.message === "Platform user not found" ||
       error.message === "Platform organization not found")
   ) {
     return {
@@ -550,6 +562,48 @@ export function createPlatformRouter(
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",
           })
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/admin-membership",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+
+        try {
+          const result =
+            await dependencies.addCurrentUserAsPlatformOrganizationAdmin({
+              orgSlug,
+              user: authResult.user,
+            })
+
+          return context.json(
+            platformAddCurrentUserAdminResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
         } catch (error) {
           const handled = handlePlatformRouteError(error)
 

@@ -7,8 +7,10 @@ import { toast } from "sonner"
 import type { PlatformOrganizationListItem } from "@otto/feature-platform"
 
 import {
+  addCurrentUserAsPlatformOrganizationAdmin,
   applyPlatformOrganization,
   deployPlatformRuntime,
+  platformBootstrapQueryOptions,
   platformOrganizationsQueryOptions,
   provisionPlatformServer,
   refreshPlatformRuntimeImage,
@@ -209,6 +211,7 @@ export function CopyableValue({ value }: CopyableValueProps) {
 }
 
 type OrganizationAction =
+  | "add-current-user-admin"
   | "apply"
   | "deploy-runtime"
   | "provision-server-legacy"
@@ -233,7 +236,9 @@ export function OrganizationActionsCell({
   function runAction(action: OrganizationAction) {
     startTransition(async () => {
       try {
-        if (action === "apply") {
+        if (action === "add-current-user-admin") {
+          await addCurrentUserAsPlatformOrganizationAdmin(organization.slug)
+        } else if (action === "apply") {
           await applyPlatformOrganization(organization.slug)
         } else if (action === "deploy-runtime") {
           await deployPlatformRuntime(organization.slug)
@@ -256,7 +261,9 @@ export function OrganizationActionsCell({
         }
 
         toast.success(
-          action === "apply"
+          action === "add-current-user-admin"
+            ? "Added you as an admin member."
+            : action === "apply"
             ? "Queued runtime apply."
             : action === "deploy-runtime"
               ? "Queued runtime deploy."
@@ -268,6 +275,9 @@ export function OrganizationActionsCell({
         )
         await queryClient.invalidateQueries({
           queryKey: platformOrganizationsQueryOptions().queryKey,
+        })
+        await queryClient.invalidateQueries({
+          queryKey: platformBootstrapQueryOptions().queryKey,
         })
       } catch (error) {
         toast.error(
@@ -293,6 +303,12 @@ export function OrganizationActionsCell({
         <DotsThreeIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={pendingAction}
+          onClick={() => runAction("add-current-user-admin")}
+        >
+          Add me as admin member
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!canProvisionServer || pendingAction}
           onClick={() => runAction("provision-server-legacy")}

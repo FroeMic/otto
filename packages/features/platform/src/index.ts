@@ -108,6 +108,16 @@ export const platformCreateOrganizationResponseSchema = z.object({
   organization: platformOrganizationListItemSchema,
 })
 
+export const platformAddCurrentUserAdminResponseSchema = z.object({
+  membership: z.object({
+    id: z.string(),
+    organizationId: z.string(),
+    organizationSlug: z.string(),
+    role: z.string(),
+    status: z.string(),
+  }),
+})
+
 export const platformOpenAiProviderSummarySchema = z.object({
   activeApiKeyId: z.string().nullable(),
   activeCredentialCount: z.number(),
@@ -360,6 +370,9 @@ export type PlatformCreateOrganizationInput = z.infer<
 >
 export type PlatformCreateOrganizationResponse = z.infer<
   typeof platformCreateOrganizationResponseSchema
+>
+export type PlatformAddCurrentUserAdminResponse = z.infer<
+  typeof platformAddCurrentUserAdminResponseSchema
 >
 export type PlatformSnapshotBake = z.infer<typeof platformSnapshotBakeSchema>
 export type PlatformSnapshotsResponse = z.infer<
