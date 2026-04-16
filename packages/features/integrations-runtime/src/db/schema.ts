@@ -422,6 +422,73 @@ export const integrationOauthCredentials = pgTable(
   }),
 );
 
+export const integrationApiCredentials = pgTable(
+  "integration_api_credentials",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    credentialType: varchar("credential_type", { length: 64 }).notNull(),
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    status: varchar("status", { length: 64 }).default("connected").notNull(),
+    declaredScopesCsv: text("declared_scopes_csv"),
+    externalAccountLabel: text("external_account_label"),
+    metadataJson: jsonb("metadata_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    providerStatusIdx: index(
+      "integration_api_credentials_provider_status_idx",
+    ).on(table.providerKey, table.status),
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "integration_api_credentials_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
+export const tenantIntegrationState = pgTable(
+  "tenant_integration_state",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    stateJson: jsonb("state_json")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+    stateVersion: integer("state_version").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    providerIdx: index("tenant_integration_state_provider_idx").on(
+      table.providerKey,
+    ),
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "tenant_integration_state_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+);
+
 export const integrationOauthEvents = pgTable(
   "integration_oauth_events",
   {

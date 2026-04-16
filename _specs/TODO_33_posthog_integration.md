@@ -273,8 +273,8 @@ Workspace setup should support a read-only mode by accepting a smaller declared 
 
 ## Status Checklist
 
-- [ ] Spec accepted.
-- [ ] Generic API-key credential schema and helpers added.
+- [x] Spec accepted.
+- [x] Generic API-key credential schema and helpers added.
 - [ ] Integration execution supports API-key auth.
 - [ ] PostHog client and target resolution added.
 - [ ] PostHog read commands added.
