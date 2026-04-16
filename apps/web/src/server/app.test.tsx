@@ -35,6 +35,50 @@ describe("web app", () => {
     expect(text).toContain("Where founders get stuck")
     expect(text).toContain("/assets/workspace.css")
     expect(text).toContain("/assets/landing.js")
+    expect(text).not.toContain(
+      "Describe the business you are trying to run. Otto will qualify the next step.",
+    )
+  })
+
+  it("renders a landing account chip when the user is authenticated", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            email: "michael@getyourotto.com",
+            firstName: "Michael",
+            lastName: "Frohlich",
+            name: "Michael Frohlich",
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            status: 200,
+          },
+        ),
+      )
+
+    const response = await app.request("http://localhost/", {
+      headers: {
+        Cookie: "wos-session=sealed-session",
+      },
+    })
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://api.internal/api/user/profile",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Cookie: "wos-session=sealed-session",
+        }),
+      }),
+    )
+    expect(text).toContain("Michael Frohlich")
+    expect(text).toContain('aria-label="Signed in as Michael Frohlich"')
+    expect(text).toContain("href=\"/logout\"")
   })
 
   it("prefills the landing prompt from the query string", async () => {

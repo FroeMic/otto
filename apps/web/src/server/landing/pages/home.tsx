@@ -1,4 +1,5 @@
 import {
+  type LandingHeaderViewer,
   LandingPageShell,
   LandingSection,
   LandingSectionEyebrow,
@@ -14,11 +15,13 @@ import {
 export interface LandingHomePageProps {
   authModalSlot?: React.ReactNode
   prompt?: string
+  viewer?: LandingHeaderViewer | null
 }
 
 export function LandingHomePage({
   authModalSlot,
   prompt,
+  viewer = null,
 }: LandingHomePageProps) {
   const finalPrompt =
     prompt ?? "Help me set up the business operations around my SaaS product."
@@ -39,6 +42,7 @@ export function LandingHomePage({
         </div>
       }
       overlaySlot={authModalSlot}
+      viewer={viewer}
     >
       <section className="relative overflow-hidden border-b border-border/45 pb-18 pt-12 md:pb-24 md:pt-16">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(132,154,255,0.16),transparent_28%),radial-gradient(circle_at_18%_78%,rgba(126,151,255,0.08),transparent_20%),radial-gradient(circle_at_82%_76%,rgba(255,147,109,0.08),transparent_18%)]" />

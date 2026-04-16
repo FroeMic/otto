@@ -8,6 +8,12 @@ import { landingFooterColumns, landingPrimaryNavigation } from "../content/home"
 export interface LandingPageShellProps extends PropsWithChildren {
   footerPromptSlot?: ReactNode
   overlaySlot?: ReactNode
+  viewer?: LandingHeaderViewer | null
+}
+
+export interface LandingHeaderViewer {
+  email: string
+  name: string
 }
 
 function OttoMark() {
@@ -19,7 +25,11 @@ function OttoMark() {
   )
 }
 
-export function LandingHeader() {
+export interface LandingHeaderProps {
+  viewer?: LandingHeaderViewer | null
+}
+
+export function LandingHeader({ viewer = null }: LandingHeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-border/70 bg-background/92 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 md:px-10 lg:px-12">
@@ -39,29 +49,61 @@ export function LandingHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <a
-            className={cn(
-              buttonVariants({ size: "default", variant: "outline" }),
-              "rounded-full border-border/75 bg-transparent px-4 shadow-none",
-            )}
-            href="/login?mode=sign-in"
-          >
-            Log in
-          </a>
-          <a
-            className={cn(
-              buttonVariants({ size: "default" }),
-              "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
-            )}
-            href="/login"
-          >
-            Get started
-          </a>
-        </div>
+        {viewer ? (
+          <div className="flex items-center gap-3">
+            <a
+              aria-label={`Signed in as ${viewer.name}`}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-border/75 bg-background px-3 text-sm font-medium text-foreground shadow-none transition-colors hover:bg-muted/45"
+              href="/logout"
+              title={viewer.email}
+            >
+              <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-[0.68rem] font-semibold text-background">
+                {getViewerInitials(viewer)}
+              </span>
+              <span className="max-w-36 truncate">{viewer.name}</span>
+            </a>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <a
+              className={cn(
+                buttonVariants({ size: "default", variant: "outline" }),
+                "rounded-full border-border/75 bg-transparent px-4 shadow-none",
+              )}
+              href="/login?mode=sign-in"
+            >
+              Log in
+            </a>
+            <a
+              className={cn(
+                buttonVariants({ size: "default" }),
+                "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
+              )}
+              href="/login"
+            >
+              Get started
+            </a>
+          </div>
+        )}
       </div>
     </header>
   )
+}
+
+function getViewerInitials(viewer: LandingHeaderViewer) {
+  const parts = viewer.name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return viewer.email.slice(0, 1).toUpperCase()
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part.slice(0, 1).toUpperCase())
+    .join("")
 }
 
 export function LandingSection({
@@ -97,10 +139,11 @@ export function LandingPageShell({
   children,
   footerPromptSlot,
   overlaySlot,
+  viewer = null,
 }: LandingPageShellProps) {
   return (
     <main className="relative min-h-svh bg-[#faf8f3] text-foreground">
-      <LandingHeader />
+      <LandingHeader viewer={viewer} />
       {children}
       <LandingFooter promptSlot={footerPromptSlot} />
       {overlaySlot}

@@ -91,12 +91,8 @@ export function LandingPromptComposerClient({
             value={currentPrompt}
           />
 
-          <div className="flex flex-col gap-3 border-t border-border/60 pt-3 md:flex-row md:items-center md:justify-between">
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Describe the business you are trying to run. Otto will qualify the
-              next step. Press Cmd+Enter to submit.
-            </p>
-            <div className="flex items-center justify-end gap-3">
+          <div className="flex justify-end border-t border-border/60 pt-3">
+            <div className="flex w-full items-center justify-end gap-3">
               {isRecordingVoiceNote ? (
                 <LandingVoiceRecorder
                   onCancel={() => {

@@ -28,6 +28,11 @@ type PageDocumentProps = {
   title: string
 }
 
+type LandingViewer = {
+  email: string
+  name: string
+}
+
 const STATIC_ROOT = fileURLToPath(new URL("../../dist/public", import.meta.url))
 const BUILT_PUBLIC_ROOT = fileURLToPath(
   new URL("../../dist/public/assets", import.meta.url),
@@ -154,6 +159,52 @@ function createProxyHandler(targetOrigin: string) {
       headers: response.headers,
       status: response.status,
     })
+  }
+}
+
+function parseLandingViewerProfile(data: unknown): LandingViewer | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null
+  }
+
+  const record = data as Record<string, unknown>
+  const email = typeof record.email === "string" ? record.email.trim() : ""
+  const name = typeof record.name === "string" ? record.name.trim() : ""
+
+  if (!email || !name) {
+    return null
+  }
+
+  return {
+    email,
+    name,
+  }
+}
+
+async function getLandingViewer(
+  request: Request,
+  env: FrontendEnv,
+): Promise<LandingViewer | null> {
+  const cookie = request.headers.get("cookie")
+
+  if (!cookie) {
+    return null
+  }
+
+  try {
+    const response = await fetch(`${env.API_ORIGIN}/api/user/profile`, {
+      headers: {
+        Cookie: cookie,
+      },
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    return parseLandingViewerProfile(await response.json())
+  } catch {
+    return null
   }
 }
 
@@ -291,10 +342,11 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
 
-  app.get("/login", (c) => {
+  app.get("/login", async (c) => {
     const mode = c.req.query("mode") === "sign-in" ? "sign-in" : "sign-up"
     const prompt = c.req.query("prompt")?.trim()
     const returnTo = c.req.query("returnTo") ?? "/"
+    const viewer = await getLandingViewer(c.req.raw, env)
 
     return c.html(
       renderDocument({
@@ -308,6 +360,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
               />
             }
             prompt={prompt}
+            viewer={viewer}
           />
         ),
         description: "Sign in to Otto",
@@ -320,18 +373,25 @@ export function createApp(env: FrontendEnv = getEnv()) {
   app.get("/logout", (c) => c.redirect("/auth/sign-out", 302))
   app.all("/api/*", apiProxyHandler)
 
-  app.get("/", (c) =>
-    c.html(
+  app.get("/", async (c) => {
+    const viewer = await getLandingViewer(c.req.raw, env)
+
+    return c.html(
       renderDocument({
-        children: <LandingHomePage prompt={c.req.query("prompt")?.trim()} />,
+        children: (
+          <LandingHomePage
+            prompt={c.req.query("prompt")?.trim()}
+            viewer={viewer}
+          />
+        ),
         description:
           "Otto helps founders turn product momentum into a functioning software business.",
         loadLandingScript: true,
         path: "/",
         title: "Otto",
       }),
-    ),
-  )
+    )
+  })
 
   app.get("/pricing", (c) =>
     c.html(
