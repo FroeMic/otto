@@ -84,9 +84,9 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
               >
                 <CaretUpDown aria-hidden="true" className="size-4" />
               </summary>
-              <div className="absolute right-0 top-full z-50 mt-3 flex w-72 flex-col overflow-hidden rounded-3xl bg-popover/70 p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/5 backdrop-blur-2xl backdrop-saturate-150">
-                <div className="px-3 py-2.5">
-                  <p className="truncate text-sm font-medium text-foreground">
+              <div className="absolute right-0 top-full isolate z-50 mt-3 flex w-72 flex-col overflow-hidden rounded-lg bg-popover/70 p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-none before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 dark:ring-foreground/10">
+                <div className="px-1 py-1.5 text-left text-sm">
+                  <p className="truncate font-medium text-foreground">
                     {viewer.name}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -101,7 +101,7 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
                     </p>
                     {viewer.workspaces.map((workspace) => (
                       <a
-                        className="flex items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
+                        className="relative flex items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
                         href={getWorkspaceHref(workspace)}
                         key={workspace.id}
                       >
@@ -121,7 +121,7 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
                 )}
                 <div className="-mx-1.5 my-1.5 h-px bg-border/50" />
                 <a
-                  className="rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
+                  className="relative rounded-2xl px-3 py-2 text-sm font-medium text-foreground outline-hidden transition-colors hover:bg-foreground/10"
                   href="/logout"
                 >
                   Log out
