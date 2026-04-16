@@ -25,6 +25,19 @@ vi.mock("@otto/feature-runtime-core", () => ({
       files: [
         {
           contentText:
+            "---\nname: Otto Business Onboarding\ndescription: Founder onboarding workflow.\nintegrations: []\nskills: []\n---\n\n# Otto Business Onboarding\n",
+          path: "SKILL.md",
+        },
+      ],
+      installMode: "default_installed",
+      skillKey: "otto-business-onboarding",
+      summary: "Install Otto business onboarding guidance",
+      visibleInLibrary: false,
+    },
+    {
+      files: [
+        {
+          contentText:
             "---\nname: Brand Name Generator\ndescription: Founders naming workflow.\nintegrations:\n- brave\n- gandi\nskills: []\n---\n\n# Brand Name Generator\n",
           path: "SKILL.md",
         },
@@ -46,9 +59,15 @@ const {
   deleteTenantManagedSkillForTenant,
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
+  syncDefaultTenantManagedSkillsForTenant,
 } = await import("./managed-skills-data")
 
 function createDbListMock() {
+  const ensureDefaultSkill = createSelectChain([
+    {
+      skillId: "skill_default_1",
+    },
+  ])
   const orderBy = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
@@ -69,6 +88,7 @@ function createDbListMock() {
   }))
   const select = vi
     .fn()
+    .mockReturnValueOnce(ensureDefaultSkill)
     .mockReturnValueOnce({ from })
 
   return {
@@ -78,6 +98,11 @@ function createDbListMock() {
 }
 
 function createDbDetailMock() {
+  const ensureDefaultSkill = createSelectChain([
+    {
+      skillId: "skill_default_1",
+    },
+  ])
   const limitSkill = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
@@ -136,6 +161,7 @@ function createDbDetailMock() {
 
   const select = vi
     .fn()
+    .mockReturnValueOnce(ensureDefaultSkill)
     .mockReturnValueOnce({ from: fromSkill })
     .mockReturnValueOnce({ from: fromVersion })
     .mockReturnValueOnce({ from: fromFiles })
@@ -179,7 +205,19 @@ function createDeleteChain() {
 
 function createReadyRuntimeDbMockForInstall() {
   const selectResults = [
+    [
+      {
+        skillId: "skill_default_1",
+        sourceType: "system",
+      },
+    ],
     [],
+    [
+      {
+        skillId: "skill_default_1",
+        sourceType: "system",
+      },
+    ],
     [
       {
         description: "Founders naming workflow",
@@ -265,6 +303,12 @@ function createReadyRuntimeDbMockForDelete() {
   const selectResults = [
     [
       {
+        skillId: "skill_default_1",
+        sourceType: "system",
+      },
+    ],
+    [
+      {
         description: "Founders naming workflow",
         displayName: "Brand Name Generator",
         enabled: true,
@@ -328,6 +372,83 @@ function createReadyRuntimeDbMockForDelete() {
   }
 }
 
+function createReadyRuntimeDbMockForDefaultSkillSync() {
+  const selectResults = [
+    [],
+    [
+      {
+        skillId: "skill_existing",
+      },
+    ],
+    [
+      {
+        configJson: {},
+        version: 12,
+      },
+    ],
+  ]
+  const insertResults = [
+    [
+      {
+        id: "skill_otto_onboarding",
+        skillKey: "otto-business-onboarding",
+      },
+    ],
+    [
+      {
+        id: "version_otto_onboarding_1",
+        version: 1,
+      },
+    ],
+    [
+      {
+        id: "file_skill",
+        relativePath: "SKILL.md",
+      },
+    ],
+    [],
+    [
+      {
+        version: 13,
+      },
+    ],
+  ]
+
+  return {
+    insert: vi.fn(() => createInsertChain(insertResults.shift())),
+    select: vi.fn(() => createSelectChain(selectResults.shift() ?? [])),
+  }
+}
+
+function createReadyRuntimeDbMockForSeededDefaultSkillReprojection() {
+  const selectResults = [
+    [
+      {
+        skillId: "skill_otto_onboarding",
+        sourceType: "system",
+      },
+    ],
+    [
+      {
+        version: 1,
+      },
+    ],
+    [],
+  ]
+  const insertResults = [
+    [
+      {
+        version: 13,
+      },
+    ],
+  ]
+
+  return {
+    insert: vi.fn(() => createInsertChain(insertResults.shift())),
+    select: vi.fn(() => createSelectChain(selectResults.shift() ?? [])),
+  }
+}
+
 describe("api managed skill data", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -341,7 +462,7 @@ describe("api managed skill data", () => {
       tenantId: "tenant_123",
     })
 
-    expect(select).toHaveBeenCalledTimes(1)
+    expect(select).toHaveBeenCalledTimes(2)
     assert.equal(result[0]?.skillKey, "name-and-domain-research")
   })
 
@@ -354,7 +475,7 @@ describe("api managed skill data", () => {
       tenantId: "tenant_123",
     })
 
-    expect(select).toHaveBeenCalledTimes(3)
+    expect(select).toHaveBeenCalledTimes(4)
     assert.equal(result?.skillKey, "name-and-domain-research")
   })
 
@@ -417,5 +538,35 @@ describe("api managed skill data", () => {
         tenantId: "tenant_123",
       },
     })
+  })
+
+  it("creates missing default-installed system skills without seeding manual library skills", async () => {
+    getDb.mockReturnValue(createReadyRuntimeDbMockForDefaultSkillSync())
+
+    const result = await syncDefaultTenantManagedSkillsForTenant({
+      tenantId: "tenant_123",
+    })
+
+    assert.deepEqual(result, {
+      changed: true,
+      createdSkillKeys: ["otto-business-onboarding"],
+      desiredStateVersion: 13,
+    })
+    expect(enqueueJob).not.toHaveBeenCalled()
+  })
+
+  it("reprojects seeded default-installed system skills that are missing from desired state", async () => {
+    getDb.mockReturnValue(createReadyRuntimeDbMockForSeededDefaultSkillReprojection())
+
+    const result = await syncDefaultTenantManagedSkillsForTenant({
+      tenantId: "tenant_123",
+    })
+
+    assert.deepEqual(result, {
+      changed: false,
+      createdSkillKeys: [],
+      desiredStateVersion: 13,
+    })
+    expect(enqueueJob).not.toHaveBeenCalled()
   })
 })

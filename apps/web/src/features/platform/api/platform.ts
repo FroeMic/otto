@@ -159,6 +159,19 @@ export async function applyPlatformOrganization(orgSlug: string) {
   )
 }
 
+export async function syncPlatformOrganizationSkills(orgSlug: string) {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"]["sync-skills"].$post({
+      param: {
+        orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformActionResponseSchema.parse(data),
+  )
+}
+
 export async function deployPlatformRuntime(orgSlug: string) {
   const response =
     await apiClient.api.platform.organizations[":orgSlug"]["deploy-runtime"].$post({

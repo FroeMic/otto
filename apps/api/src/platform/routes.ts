@@ -46,6 +46,7 @@ import {
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
   triggerPlatformOrganizationRefreshImage,
+  triggerPlatformOrganizationSyncSkills,
   triggerPlatformSnapshotBake,
 } from "./data"
 
@@ -98,6 +99,10 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   hasPlatformAdminRole: (userExternalId: string) => Promise<boolean>
   syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
   triggerPlatformOrganizationApply: (input: {
+    orgSlug: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformOrganizationSyncSkills: (input: {
     orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
@@ -180,6 +185,11 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
     syncUserFromSession,
     triggerPlatformOrganizationApply: ({ orgSlug, user }) =>
       triggerPlatformOrganizationApply({
+        orgSlug,
+        userExternalId: user.id,
+      }),
+    triggerPlatformOrganizationSyncSkills: ({ orgSlug, user }) =>
+      triggerPlatformOrganizationSyncSkills({
         orgSlug,
         userExternalId: user.id,
       }),
@@ -558,6 +568,44 @@ export function createPlatformRouter(
             orgSlug,
             user: authResult.user,
           })
+
+          return context.json(platformActionResponseSchema.parse(result), 200, {
+            "Cache-Control": "no-store",
+          })
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/sync-skills",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+
+        try {
+          const result =
+            await dependencies.triggerPlatformOrganizationSyncSkills({
+              orgSlug,
+              user: authResult.user,
+            })
 
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",

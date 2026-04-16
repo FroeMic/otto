@@ -175,6 +175,14 @@ function createDependencies(): PlatformRouteDependencies {
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
     }),
+    triggerPlatformOrganizationSyncSkills: async () => ({
+      desiredStateChanged: true,
+      desiredStateVersion: 13,
+      jobId: "job_sync_skills_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    }),
     triggerPlatformSnapshotBake: async () => ({
       baseImage: "ubuntu-24.04",
       generation: "2026-04-15.180000",
@@ -356,6 +364,26 @@ describe("platform routes", () => {
       desiredStateChanged: false,
       desiredStateVersion: 12,
       jobId: "job_apply_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    })
+  })
+
+  it("queues managed skill sync for a platform organization", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/sync-skills",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      desiredStateChanged: true,
+      desiredStateVersion: 13,
+      jobId: "job_sync_skills_1",
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",

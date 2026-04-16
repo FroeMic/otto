@@ -12,6 +12,7 @@ import {
   platformOrganizationsQueryOptions,
   provisionPlatformOpenAiKey,
   refreshPlatformRuntimeImage,
+  syncPlatformOrganizationSkills,
 } from "@/features/platform/api/platform"
 import { Button } from "@/components/ui/button"
 import {
@@ -51,12 +52,14 @@ type OrganizationAction =
   | "deploy-runtime"
   | "provision-openai-key"
   | "refresh-image"
+  | "sync-skills"
 
 const ACTION_LABELS: Record<OrganizationAction, string> = {
   apply: "Applying Config",
   "deploy-runtime": "Pulling Image and Applying Config",
   "provision-openai-key": "Provisioning OpenAI API Key",
   "refresh-image": "Pulling and Restarting Image",
+  "sync-skills": "Syncing Managed Skills",
 }
 
 export function PlatformOrganizationActions({
@@ -92,6 +95,8 @@ export function PlatformOrganizationActions({
       const result =
         action === "apply"
           ? await applyPlatformOrganization(orgSlug)
+          : action === "sync-skills"
+            ? await syncPlatformOrganizationSkills(orgSlug)
           : action === "deploy-runtime"
             ? await deployPlatformRuntime(orgSlug)
             : action === "provision-openai-key"
@@ -108,6 +113,8 @@ export function PlatformOrganizationActions({
       toast.success(
         action === "apply"
           ? "Queued runtime apply."
+          : action === "sync-skills"
+            ? "Queued managed skills sync."
           : action === "deploy-runtime"
             ? "Queued runtime deploy."
             : action === "provision-openai-key"
@@ -303,6 +310,13 @@ export function PlatformOrganizationActions({
             onClick={() => setIsDeleteDialogOpen(true)}
           >
             Delete workspace
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
+            onClick={() => runAction("sync-skills")}
+          >
+            Sync skills
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
