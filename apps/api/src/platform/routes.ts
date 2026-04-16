@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import {
+  platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
   platformDeleteWorkspaceResponseSchema,
@@ -11,6 +12,7 @@ import {
   platformProvisionServerResponseSchema,
   platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
+  platformSnapshotsResponseSchema,
   platformUsageQuerySchema,
   platformUsageSchema,
 } from "@otto/feature-platform"
@@ -29,6 +31,7 @@ import {
   getPlatformJobStatus,
   getPlatformOrganizationDetail,
   getPlatformOrganizations,
+  getPlatformSnapshots,
   getPlatformUsage,
   getTenantRuntimeGatewayToken,
   grantPlatformOrganizationCredits,
@@ -38,6 +41,7 @@ import {
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
   triggerPlatformOrganizationRefreshImage,
+  triggerPlatformSnapshotBake,
 } from "./data"
 
 const workspaceParamsSchema = z.object({
@@ -61,6 +65,9 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   getPlatformOrganizations: (input: {
     user: WorkspaceShellUser
   }) => Promise<unknown>
+  getPlatformSnapshots: (input: {
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
   getPlatformUsage: (input: {
     from: Date
     orgSlug: string
@@ -78,6 +85,9 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   syncUserFromSession: (user: WorkspaceShellUser) => Promise<unknown>
   triggerPlatformOrganizationApply: (input: {
     orgSlug: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformSnapshotBake: (input: {
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationProvisionServer: (input: {
@@ -122,6 +132,10 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
       getPlatformOrganizations({
         userExternalId: user.id,
       }),
+    getPlatformSnapshots: ({ user }) =>
+      getPlatformSnapshots({
+        userExternalId: user.id,
+      }),
     getPlatformUsage: ({ from, orgSlug, to, user }) =>
       getPlatformUsage({
         from,
@@ -142,6 +156,10 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
     triggerPlatformOrganizationApply: ({ orgSlug, user }) =>
       triggerPlatformOrganizationApply({
         orgSlug,
+        userExternalId: user.id,
+      }),
+    triggerPlatformSnapshotBake: ({ user }) =>
+      triggerPlatformSnapshotBake({
         userExternalId: user.id,
       }),
     triggerPlatformOrganizationProvisionServer: ({
@@ -291,6 +309,61 @@ export function createPlatformRouter(
           "Cache-Control": "no-store",
         },
       )
+    })
+    .get("/api/platform/snapshots", async (context) => {
+      const authResult = await authenticateUser(context.req.raw)
+
+      if ("response" in authResult) {
+        return authResult.response
+      }
+
+      const snapshots = await dependencies.getPlatformSnapshots({
+        user: authResult.user,
+      })
+
+      return context.json(
+        platformSnapshotsResponseSchema.parse({
+          snapshots,
+        }),
+        200,
+        {
+          "Cache-Control": "no-store",
+        },
+      )
+    })
+    .post("/api/platform/snapshots/bake", async (context) => {
+      const authResult = await authenticateUser(context.req.raw)
+
+      if ("response" in authResult) {
+        return authResult.response
+      }
+
+      try {
+        const result = await dependencies.triggerPlatformSnapshotBake({
+          user: authResult.user,
+        })
+
+        return context.json(
+          platformBakeOnboardingSnapshotResponseSchema.parse(result),
+          200,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
+      } catch (error) {
+        const handled = handlePlatformRouteError(error)
+
+        return context.json(
+          {
+            code: handled.code,
+            message: handled.message,
+          },
+          handled.status,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
+      }
     })
     .get(
       "/api/platform/organizations/:orgSlug",

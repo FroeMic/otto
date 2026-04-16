@@ -283,6 +283,33 @@ export const platformDeleteWorkspaceResponseSchema = z.object({
   organizationSlug: z.string(),
   queued: z.boolean(),
 })
+
+export const platformBakeOnboardingSnapshotResponseSchema = z.object({
+  baseImage: z.string(),
+  generation: z.string(),
+  jobId: z.string(),
+  queued: z.boolean(),
+  runtimeImage: z.string(),
+})
+
+export const platformSnapshotBakeSchema = z.object({
+  baseImage: z.string().nullable(),
+  createdAt: jsonDateSchema,
+  error: z.string().nullable(),
+  finishedAt: jsonDateSchema.nullable(),
+  generation: z.string().nullable(),
+  id: z.string(),
+  providerServerId: z.string().nullable(),
+  runtimeImage: z.string().nullable(),
+  snapshotId: z.string().nullable(),
+  startedAt: jsonDateSchema.nullable(),
+  status: z.string(),
+  step: z.string().nullable(),
+})
+
+export const platformSnapshotsResponseSchema = z.object({
+  snapshots: z.array(platformSnapshotBakeSchema),
+})
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -310,6 +337,13 @@ export const platformJobStatusResponseSchema = z.object({
 
 export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema>
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
+export type PlatformBakeOnboardingSnapshotResponse = z.infer<
+  typeof platformBakeOnboardingSnapshotResponseSchema
+>
+export type PlatformSnapshotBake = z.infer<typeof platformSnapshotBakeSchema>
+export type PlatformSnapshotsResponse = z.infer<
+  typeof platformSnapshotsResponseSchema
+>
 export type PlatformDeleteWorkspaceResponse = z.infer<
   typeof platformDeleteWorkspaceResponseSchema
 >

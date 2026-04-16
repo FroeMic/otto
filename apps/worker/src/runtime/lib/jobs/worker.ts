@@ -9,6 +9,7 @@ import {
   processScheduleCreditSettlementJob,
   processSettleCreditUsageChunkJob,
 } from "./credit-burndown";
+import { processBakeHetznerOnboardingSnapshotJob } from "./bake-onboarding-snapshot";
 import {
   getRecurringSchedulerJobTypes,
   JOB_LANES,
@@ -51,6 +52,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   console.info(`[worker] claimed job ${job.id} (${job.jobType})`);
 
   switch (job.jobType) {
+    case JOB_TYPES.bakeHetznerOnboardingSnapshot:
+      await processBakeHetznerOnboardingSnapshotJob(job);
+      return;
     case JOB_TYPES.applyTenantConfig:
       await processApplyTenantConfigJob(job);
       return;

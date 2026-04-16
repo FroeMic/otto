@@ -47,6 +47,7 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  bakeHetznerOnboardingSnapshot: "bake_hetzner_onboarding_snapshot",
   provisionTenantServer: "provision_tenant_server",
   provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   deleteWorkspace: "delete_workspace",
@@ -55,6 +56,11 @@ const JOB_TYPES = {
 } as const
 
 type PlatformProvisioningStrategy = "legacy_base_image" | "hetzner_snapshot"
+
+function buildSnapshotGeneration() {
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
+  return timestamp.replace("T", ".").replace(/:/g, "").replace("Z", "")
+}
 
 function recordFromUnknown(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -1146,17 +1152,20 @@ export async function getPlatformJobStatus(input: {
   orgSlug: string
   userExternalId: string
 }) {
-  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
 
-  if (!tenant) {
+  if (!organization) {
     return null
   }
+
+  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
 
   const db = getDb()
   const [job] = await db
     .select({
       error: jobRuns.error,
       finishedAt: jobRuns.finishedAt,
+      payloadJson: jobRuns.payloadJson,
       status: jobRuns.status,
       tenantId: jobRuns.tenantId,
     })
@@ -1164,8 +1173,31 @@ export async function getPlatformJobStatus(input: {
     .where(eq(jobRuns.id, input.jobId))
     .limit(1)
 
-  if (!job || job.tenantId !== tenant.tenantId) {
+  if (!job) {
     return null
+  }
+
+  if (job.tenantId) {
+    if (!tenant || job.tenantId !== tenant.tenantId) {
+      return null
+    }
+  } else {
+    const payloadJson = recordFromUnknown(job.payloadJson)
+    const payloadOrganizationId =
+      typeof payloadJson?.organizationId === "string"
+        ? payloadJson.organizationId
+        : null
+    const payloadOrganizationSlug =
+      typeof payloadJson?.organizationSlug === "string"
+        ? payloadJson.organizationSlug
+        : null
+
+    if (
+      payloadOrganizationId !== organization.organizationId &&
+      payloadOrganizationSlug !== organization.organizationSlug
+    ) {
+      return null
+    }
   }
 
   return {
@@ -1174,6 +1206,65 @@ export async function getPlatformJobStatus(input: {
     ok: job.status === "succeeded",
     status: job.status,
   }
+}
+
+export async function getPlatformSnapshots(_input: { userExternalId: string }) {
+  const rows = await getDb()
+    .select({
+      createdAt: jobRuns.createdAt,
+      error: jobRuns.error,
+      finishedAt: jobRuns.finishedAt,
+      id: jobRuns.id,
+      payloadJson: jobRuns.payloadJson,
+      resultJson: jobRuns.resultJson,
+      startedAt: jobRuns.startedAt,
+      status: jobRuns.status,
+    })
+    .from(jobRuns)
+    .where(eq(jobRuns.jobType, JOB_TYPES.bakeHetznerOnboardingSnapshot))
+    .orderBy(desc(jobRuns.createdAt))
+    .limit(50)
+
+  return rows.map((row) => {
+    const payload = recordFromUnknown(row.payloadJson)
+    const result = recordFromUnknown(row.resultJson)
+
+    return {
+      baseImage:
+        typeof result?.baseImage === "string"
+          ? result.baseImage
+          : typeof payload?.baseImage === "string"
+            ? payload.baseImage
+            : null,
+      createdAt: row.createdAt,
+      error: row.error,
+      finishedAt: row.finishedAt,
+      generation:
+        typeof result?.generation === "string"
+          ? result.generation
+          : typeof payload?.generation === "string"
+            ? payload.generation
+            : null,
+      id: row.id,
+      providerServerId:
+        typeof result?.providerServerId === "string"
+          ? result.providerServerId
+          : typeof payload?.providerServerId === "string"
+            ? payload.providerServerId
+            : null,
+      runtimeImage:
+        typeof result?.runtimeImage === "string"
+          ? result.runtimeImage
+          : typeof payload?.runtimeImage === "string"
+            ? payload.runtimeImage
+            : null,
+      snapshotId:
+        typeof result?.snapshotId === "string" ? result.snapshotId : null,
+      startedAt: row.startedAt,
+      status: row.status,
+      step: typeof payload?.step === "string" ? payload.step : null,
+    }
+  })
 }
 
 async function getDesiredStateVersionForApply(tenantId: string) {
@@ -1222,6 +1313,33 @@ export async function triggerPlatformOrganizationApply(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
+  }
+}
+
+export async function triggerPlatformSnapshotBake(_input: {
+  userExternalId: string
+}) {
+  const env = getApiEnv()
+  const generation = buildSnapshotGeneration()
+  const baseImage = env.HETZNER_DEFAULT_IMAGE
+  const runtimeImage =
+    env.RUNTIME_OPENCLAW_IMAGE ?? "ghcr.io/openclaw/openclaw:2026.4.12"
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.bakeHetznerOnboardingSnapshot,
+    payload: {
+      baseImage,
+      generation,
+      runtimeImage,
+    },
+  })
+
+  return {
+    baseImage,
+    generation,
+    jobId,
+    queued: true,
+    runtimeImage,
   }
 }
 

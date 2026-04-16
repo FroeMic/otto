@@ -1,4 +1,5 @@
 import {
+  platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
   platformDeleteWorkspaceResponseSchema,
@@ -10,8 +11,10 @@ import {
   platformProvisionServerResponseSchema,
   platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
+  platformSnapshotsResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
+  type PlatformBakeOnboardingSnapshotResponse,
   type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
@@ -20,6 +23,7 @@ import {
   type PlatformOrganizationsResponse,
   type PlatformProvisionServerInput,
   type PlatformProvisionServerResponse,
+  type PlatformSnapshotsResponse,
   type PlatformUsage,
 } from "@otto/feature-platform"
 import { queryOptions } from "@tanstack/react-query"
@@ -48,6 +52,19 @@ export function platformOrganizationsQueryOptions() {
     },
     queryKey: ["platform-organizations"],
     staleTime: 30_000,
+  })
+}
+
+export function platformSnapshotsQueryOptions() {
+  return queryOptions({
+    queryFn: async (): Promise<PlatformSnapshotsResponse> => {
+      const response = await apiClient.api.platform.snapshots.$get()
+      return fetchApiResponse(response, (data) =>
+        platformSnapshotsResponseSchema.parse(data),
+      )
+    },
+    queryKey: ["platform-snapshots"],
+    staleTime: 10_000,
   })
 }
 
@@ -117,6 +134,14 @@ export async function deployPlatformRuntime(orgSlug: string) {
 
   return fetchApiResponse(response, (data) =>
     platformActionResponseSchema.parse(data),
+  )
+}
+
+export async function bakePlatformSnapshot(): Promise<PlatformBakeOnboardingSnapshotResponse> {
+  const response = await apiClient.api.platform.snapshots.bake.$post()
+
+  return fetchApiResponse(response, (data) =>
+    platformBakeOnboardingSnapshotResponseSchema.parse(data),
   )
 }
 

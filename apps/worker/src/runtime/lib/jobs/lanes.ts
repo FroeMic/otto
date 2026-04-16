@@ -11,6 +11,7 @@ export const JOB_LANES = {
 export type JobLane = (typeof JOB_LANES)[keyof typeof JOB_LANES];
 
 const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
+  [JOB_TYPES.bakeHetznerOnboardingSnapshot]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantServer]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantServerFromSnapshot]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantOpenAiKey]: JOB_LANES.runtime,
