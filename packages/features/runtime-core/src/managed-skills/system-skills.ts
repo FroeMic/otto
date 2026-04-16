@@ -1,11 +1,11 @@
-import { buildManagedSkillMarkdown } from './markdown'
+import { buildManagedSkillMarkdown } from "./markdown"
 
 export type SystemManagedSkillDefinition = {
   files: Array<{
     contentText?: string | null
     path: string
   }>
-  installMode: 'default_installed' | 'manual_install'
+  installMode: "default_installed" | "manual_install"
   skillKey: string
   summary: string
   visibleInLibrary: boolean
@@ -14,9 +14,9 @@ export type SystemManagedSkillDefinition = {
 function buildSkillCreatorMarkdown() {
   const managedContent = buildManagedSkillMarkdown({
     description:
-      'Create, refine, split, or audit Otto workspace skills using Otto\'s managed skill primitives.',
+      "Create, refine, split, or audit Otto workspace skills using Otto's managed skill primitives.",
     integrationKeys: [],
-    name: 'skill-creator',
+    name: "skill-creator",
     skillKeys: [],
     skillBody: `# Skill Creator
 
@@ -83,7 +83,176 @@ After using the skill on real tasks, refine the wording, dependency metadata, an
 - Summarize the resulting structure so the user knows where Otto will read and write.`,
   })
 
-  return managedContent.replace('---\n', '---\nuser-invocable: false\n')
+  return managedContent.replace("---\n", "---\nuser-invocable: false\n")
+}
+
+function buildBusinessOnboardingMarkdown() {
+  return buildManagedSkillMarkdown({
+    description:
+      "Friendly onboarding for new business ideas, side businesses, startup concepts, and existing companies that need Otto support. Use when the user shares a new business idea, asks Otto to help build or run a business, or enters a workspace with a starter prompt but no project profile yet.",
+    integrationKeys: [],
+    name: "Business Onboarding",
+    skillKeys: [],
+    skillBody: `# Business Onboarding
+
+Turn a new or existing business idea into durable project context Otto can reuse.
+
+This is a light calibration, not an accelerator application. Keep it short, friendly, and useful.
+
+## Goal
+
+By the end, Otto should know:
+
+- what the user wants to build or improve
+- whether this is greenfield, brownfield, or unclear
+- who the first customer or user appears to be
+- what exists already
+- how the user wants Otto to help first
+- which next action or skill should run
+
+## When to use
+
+Use this skill when:
+
+- the user shares a new business idea
+- the user says they want to build a startup, product, side business, agency, marketplace, internal tool, or AI product
+- the user asks Otto to help build, validate, launch, operate, or run a business
+- a starter prompt exists but no matching \`projects/<project-key>/project.md\` exists yet
+
+Do not use this skill for narrow execution inside an already clear project. In that case, read the project files and continue with the requested work.
+
+## Project model
+
+Each serious business idea, company, product, or evaluation thread is one project.
+
+Project context lives under:
+
+\`projects/<project-key>/\`
+
+The project index lives at:
+
+\`projects/_index.md\`
+
+Use a short, stable, lowercase project key like \`dentalops-ai\`, \`creator-crm\`, or \`agency-productization\`.
+
+If the idea appears related to an existing project, ask whether to use that project or create a new one.
+
+## Workflow
+
+### Step 1: Understand the prompt
+
+Restate the idea in one sentence. Give it a provisional working name if none exists.
+
+Classify the situation:
+
+- \`greenfield\`: new idea, early exploration, no meaningful operating history yet
+- \`brownfield\`: existing business, product, team, customers, revenue, audience, codebase, or active operations
+- \`unclear\`: not enough context yet
+
+### Step 2: Ask only what is missing
+
+Ask at most five high-signal questions. Prefer fewer when the user already gave enough context.
+
+Useful questions:
+
+- Who is this for first?
+- What painful thing are they doing today instead?
+- What already exists: idea, team, code, audience, customers, revenue, distribution, domain, or assets?
+- What would you like Otto to take off your plate first?
+- What would make the next 30 days a win?
+
+For brownfield projects, prioritize existing customers, revenue model, team, current tools, constraints, and what must not break.
+
+For greenfield projects, prioritize first customer, pain, current conviction, first offer, and first validation move.
+
+### Step 3: Create or update project files
+
+Create the project folder if needed.
+
+Update \`projects/_index.md\` with:
+
+- project key
+- working name
+- one-liner
+- status: greenfield, brownfield, or unclear
+- current focus
+- path
+
+Create or update \`projects/<project-key>/project.md\` using this shape:
+
+\`\`\`markdown
+# Project: <Name>
+
+## One-Liner
+...
+
+## Status
+Greenfield / Brownfield / Unclear
+
+## What We Are Building
+...
+
+## Who It Is For
+...
+
+## Starting Point
+...
+
+## Existing Assets
+...
+
+## Constraints
+...
+
+## How Otto Should Help
+...
+
+## Current Focus
+...
+
+## Next Recommended Move
+...
+\`\`\`
+
+Create or update \`projects/<project-key>/onboarding.md\` with:
+
+\`\`\`markdown
+# Onboarding
+
+## Original Prompt
+...
+
+## Answers Gathered
+...
+
+## Assumptions
+...
+
+## Unresolved Questions
+...
+
+## Session Note
+...
+\`\`\`
+
+Do not create \`goals.md\`, \`experiments.md\`, \`decisions.md\`, or other files unless they are immediately useful for the conversation.
+
+### Step 4: Route to the next move
+
+End with a concise summary and one recommended next move.
+
+Good routing defaults:
+
+- Use \`dream-big\` when the user has a raw idea and wants to shape ambition, narrative, or endgame.
+- Use first-segment or customer-discovery work when the user wants validation or a first customer.
+- Use offer or landing-page work when the target user and pain are clear enough to present externally.
+- Use goals or operating-rhythm work when the project already exists and needs focus.
+- Use experiments or review work when prior attempts need to be logged, compared, or improved.
+
+## Style
+
+Follow the workspace's Otto personalization for tone. Be warm and direct. Avoid long questionnaires. Avoid startup theater. Preserve uncertainty instead of pretending the idea is clearer than it is.`,
+  })
 }
 
 const NAMING_STRATEGIES_REFERENCE = `# Naming Strategies
@@ -501,9 +670,9 @@ export { expandDomainCandidates };
 function buildNameAndDomainResearchMarkdown() {
   return buildManagedSkillMarkdown({
     description:
-      'Help founders generate, evaluate, and shortlist strong company names using web search plus live domain availability.',
-    integrationKeys: ['brave', 'gandi'],
-    name: 'Brand Name Generator',
+      "Help founders generate, evaluate, and shortlist strong company names using web search plus live domain availability.",
+    integrationKeys: ["brave", "gandi"],
+    name: "Brand Name Generator",
     skillKeys: [],
     skillBody: `# Brand Name Generator
 
@@ -549,53 +718,66 @@ Generate creative, memorable, and brandable names for companies, products, apps,
   })
 }
 
-export const SYSTEM_MANAGED_SKILL_DEFINITIONS: readonly SystemManagedSkillDefinition[] = [
-  {
-    files: [
-      {
-        contentText: buildSkillCreatorMarkdown(),
-        path: 'SKILL.md',
-      },
-    ],
-    installMode: 'default_installed',
-    skillKey: 'skill-creator',
-    summary: 'Install Otto system skill-creator guidance',
-    visibleInLibrary: false,
-  },
-  {
-    files: [
-      {
-        contentText: buildNameAndDomainResearchMarkdown(),
-        path: 'SKILL.md',
-      },
-      {
-        contentText: RAMP_SHORTLIST_EXAMPLE,
-        path: 'examples/ramp-shortlist.json',
-      },
-      {
-        contentText: NAMING_STRATEGIES_REFERENCE,
-        path: 'references/naming-strategies.md',
-      },
-      {
-        contentText: FULL_GUIDE_REFERENCE,
-        path: 'references/full-guide.md',
-      },
-      {
-        contentText: SETUP_REFERENCE,
-        path: 'references/setup.md',
-      },
-      {
-        contentText: GENERATE_DOMAIN_VARIANTS_SCRIPT,
-        path: 'scripts/generate-domain-variants.mjs',
-      },
-      {
-        contentText: RECOMMENDATION_SCHEMA_TEMPLATE,
-        path: 'templates/recommendation-schema.json',
-      },
-    ],
-    installMode: 'manual_install',
-    skillKey: 'name-and-domain-research',
-    summary: 'Install Otto system founder naming guidance',
-    visibleInLibrary: true,
-  },
-] as const
+export const SYSTEM_MANAGED_SKILL_DEFINITIONS: readonly SystemManagedSkillDefinition[] =
+  [
+    {
+      files: [
+        {
+          contentText: buildSkillCreatorMarkdown(),
+          path: "SKILL.md",
+        },
+      ],
+      installMode: "default_installed",
+      skillKey: "skill-creator",
+      summary: "Install Otto system skill-creator guidance",
+      visibleInLibrary: false,
+    },
+    {
+      files: [
+        {
+          contentText: buildBusinessOnboardingMarkdown(),
+          path: "SKILL.md",
+        },
+      ],
+      installMode: "default_installed",
+      skillKey: "otto-business-onboarding",
+      summary: "Install Otto system business onboarding guidance",
+      visibleInLibrary: false,
+    },
+    {
+      files: [
+        {
+          contentText: buildNameAndDomainResearchMarkdown(),
+          path: "SKILL.md",
+        },
+        {
+          contentText: RAMP_SHORTLIST_EXAMPLE,
+          path: "examples/ramp-shortlist.json",
+        },
+        {
+          contentText: NAMING_STRATEGIES_REFERENCE,
+          path: "references/naming-strategies.md",
+        },
+        {
+          contentText: FULL_GUIDE_REFERENCE,
+          path: "references/full-guide.md",
+        },
+        {
+          contentText: SETUP_REFERENCE,
+          path: "references/setup.md",
+        },
+        {
+          contentText: GENERATE_DOMAIN_VARIANTS_SCRIPT,
+          path: "scripts/generate-domain-variants.mjs",
+        },
+        {
+          contentText: RECOMMENDATION_SCHEMA_TEMPLATE,
+          path: "templates/recommendation-schema.json",
+        },
+      ],
+      installMode: "manual_install",
+      skillKey: "name-and-domain-research",
+      summary: "Install Otto system founder naming guidance",
+      visibleInLibrary: true,
+    },
+  ] as const
