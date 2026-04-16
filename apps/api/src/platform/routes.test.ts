@@ -74,6 +74,21 @@ function createDependencies(): PlatformRouteDependencies {
       timeFormatPreference: "auto",
       timezone: "UTC",
     }),
+    createPlatformOrganization: async ({ name, slug }) => ({
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+      configuredRuntimeImageVersion: "2026.4.12",
+      id: "org_new",
+      isReady: false,
+      locale: "en-US",
+      name,
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
+      slackIntegration: null,
+      slug: slug ?? "snapshot-test",
+      tenant: null,
+      timeFormatPreference: "auto",
+      timezone: "UTC",
+    }),
     getPlatformOrganizations: async () => [
       {
         configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
@@ -240,6 +255,43 @@ describe("platform routes", () => {
 
     assert.equal(response.status, 200)
     assert.equal(data.organizations[0]?.slug, "interaction42")
+  })
+
+  it("creates a platform organization from scratch", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations",
+      {
+        body: JSON.stringify({
+          name: "Snapshot Test",
+          slug: "snapshot-test",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+    const data = (await response.json()) as {
+      organization: { name: string; slug: string; tenant: null }
+    }
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(data.organization, {
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+      configuredRuntimeImageVersion: "2026.4.12",
+      id: "org_new",
+      isReady: false,
+      locale: "en-US",
+      name: "Snapshot Test",
+      observedRuntimeImage: null,
+      observedRuntimeImageVersion: null,
+      slackIntegration: null,
+      slug: "snapshot-test",
+      tenant: null,
+      timeFormatPreference: "auto",
+      timezone: "UTC",
+    })
   })
 
   it("returns platform snapshots", async () => {

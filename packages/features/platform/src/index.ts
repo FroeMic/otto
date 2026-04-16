@@ -93,6 +93,21 @@ export const platformOrganizationsResponseSchema = z.object({
   organizations: z.array(platformOrganizationListItemSchema),
 })
 
+export const platformCreateOrganizationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .optional(),
+})
+
+export const platformCreateOrganizationResponseSchema = z.object({
+  organization: platformOrganizationListItemSchema,
+})
+
 export const platformOpenAiProviderSummarySchema = z.object({
   activeApiKeyId: z.string().nullable(),
   activeCredentialCount: z.number(),
@@ -339,6 +354,12 @@ export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
 export type PlatformBakeOnboardingSnapshotResponse = z.infer<
   typeof platformBakeOnboardingSnapshotResponseSchema
+>
+export type PlatformCreateOrganizationInput = z.infer<
+  typeof platformCreateOrganizationSchema
+>
+export type PlatformCreateOrganizationResponse = z.infer<
+  typeof platformCreateOrganizationResponseSchema
 >
 export type PlatformSnapshotBake = z.infer<typeof platformSnapshotBakeSchema>
 export type PlatformSnapshotsResponse = z.infer<
