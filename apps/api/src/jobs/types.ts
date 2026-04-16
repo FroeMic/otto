@@ -1,5 +1,6 @@
 export const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  bakeHetznerOnboardingSnapshot: "bake_hetzner_onboarding_snapshot",
   deleteWorkspace: "delete_workspace",
   provisionTenantServer: "provision_tenant_server",
   provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",

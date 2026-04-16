@@ -55,4 +55,13 @@ describe("job lane metadata", () => {
       JOB_TYPES.provisionTenantServerFromSnapshot,
     );
   });
+
+  it("routes onboarding snapshot bake jobs through the runtime lane", () => {
+    expect(getJobLane(JOB_TYPES.bakeHetznerOnboardingSnapshot)).toBe(
+      JOB_LANES.runtime,
+    );
+    expect(getJobTypesForLane(JOB_LANES.runtime)).toContain(
+      JOB_TYPES.bakeHetznerOnboardingSnapshot,
+    );
+  });
 });

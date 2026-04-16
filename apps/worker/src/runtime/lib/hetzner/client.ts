@@ -45,6 +45,11 @@ export type HetznerImage = {
   type: string | null;
 };
 
+export type HetznerSnapshot = {
+  actionId: string | null;
+  id: string;
+};
+
 type HetznerActionResponse = {
   action?: {
     error?: {
@@ -273,6 +278,42 @@ export class HetznerClient {
     );
 
     return response.action ? String(response.action.id) : null;
+  }
+
+  async powerOffServer(serverId: string): Promise<string | null> {
+    const response = await this.request<{ action?: { id: number } | null }>(
+      `/servers/${serverId}/actions/poweroff`,
+      {
+        method: "POST",
+      },
+    );
+
+    return response.action ? String(response.action.id) : null;
+  }
+
+  async createSnapshot(
+    serverId: string,
+    description: string,
+  ): Promise<HetznerSnapshot> {
+    const response = await this.request<{
+      action?: { id: number } | null;
+      image?: { id: number } | null;
+    }>(`/servers/${serverId}/actions/create_image`, {
+      body: JSON.stringify({
+        description,
+        type: "snapshot",
+      }),
+      method: "POST",
+    });
+
+    if (!response.image?.id) {
+      throw new Error(`Hetzner snapshot creation did not return an image id`);
+    }
+
+    return {
+      actionId: response.action ? String(response.action.id) : null,
+      id: String(response.image.id),
+    };
   }
 
   async waitForServerAction(serverId: string, actionId: string): Promise<void> {

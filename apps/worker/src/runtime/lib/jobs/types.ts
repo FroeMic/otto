@@ -2,6 +2,7 @@ import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat";
 import type { ProviderUsageType } from "../providers/types";
 
 export const JOB_TYPES = {
+  bakeHetznerOnboardingSnapshot: "bake_hetzner_onboarding_snapshot",
   provisionTenantServer: "provision_tenant_server",
   provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
@@ -66,6 +67,21 @@ export const SNAPSHOT_PROVISIONING_STEPS = {
 export type SnapshotProvisioningStep =
   (typeof SNAPSHOT_PROVISIONING_STEPS)[keyof typeof SNAPSHOT_PROVISIONING_STEPS];
 
+export const BAKE_ONBOARDING_SNAPSHOT_STEPS = {
+  createServer: "create_server",
+  waitForServerAction: "wait_for_server_action",
+  fetchServerIp: "fetch_server_ip",
+  waitForSsh: "wait_for_ssh",
+  waitForHostBootstrap: "wait_for_host_bootstrap",
+  prepareSnapshotHost: "prepare_snapshot_host",
+  powerOffServer: "power_off_server",
+  waitForPowerOff: "wait_for_power_off",
+  createSnapshot: "create_snapshot",
+} as const;
+
+export type BakeOnboardingSnapshotStep =
+  (typeof BAKE_ONBOARDING_SNAPSHOT_STEPS)[keyof typeof BAKE_ONBOARDING_SNAPSHOT_STEPS];
+
 export const APPLY_STEPS = {
   loadingDesiredState: "loading_desired_state",
   renderingFiles: "rendering_files",
@@ -94,6 +110,18 @@ export type ProvisionTenantServerFromSnapshotPayload = {
   actionId?: string;
   ipv4?: string;
   sourceSnapshotId?: string;
+};
+
+export type BakeHetznerOnboardingSnapshotPayload = {
+  organizationId?: string;
+  organizationSlug?: string;
+  generation: string;
+  baseImage: string;
+  runtimeImage: string;
+  step?: BakeOnboardingSnapshotStep;
+  providerServerId?: string;
+  actionId?: string;
+  ipv4?: string;
 };
 
 export type ProvisionTenantOpenAiKeyPayload = {
@@ -192,6 +220,10 @@ export type SyncTenantSessionsPayload = {
 };
 
 export type ControlPlaneJobPayload =
+  | {
+      jobType: typeof JOB_TYPES.bakeHetznerOnboardingSnapshot;
+      payload: BakeHetznerOnboardingSnapshotPayload;
+    }
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
       payload: ProvisionTenantServerPayload;

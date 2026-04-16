@@ -122,6 +122,54 @@ export class RuntimeManager {
     );
   }
 
+  async prepareOnboardingSnapshotHost(
+    connection: SshConnection,
+    input: {
+      baseImage: string;
+      generation: string;
+      runtimeImage: string;
+    },
+  ): Promise<void> {
+    await this.ensureRuntimeDirectories(connection);
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        `docker pull ${shellQuoteForShell(input.runtimeImage)}`,
+      ]),
+      { timeoutMs: 300_000 },
+    );
+
+    await this.sshClient.writeFileAtomic(
+      connection,
+      SNAPSHOT_METADATA_PATH,
+      JSON.stringify(
+        {
+          baseImage: input.baseImage,
+          bakedAt: new Date().toISOString(),
+          generation: input.generation,
+          runtimeImage: input.runtimeImage,
+        },
+        null,
+        2,
+      ),
+      0o640,
+    );
+
+    await this.execChecked(
+      connection,
+      buildShellCommand([
+        "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/runtime",
+        "install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/workspace",
+        `chown openclaw:openclaw ${shellQuoteForShell(SNAPSHOT_METADATA_PATH)}`,
+        "chmod 750 /opt/openclaw /opt/openclaw/runtime",
+        "chmod 700 /opt/openclaw/home /opt/openclaw/home/workspace",
+        `chmod 640 ${shellQuoteForShell(SNAPSHOT_METADATA_PATH)}`,
+        `test -s ${shellQuoteForShell(SNAPSHOT_METADATA_PATH)}`,
+        `docker image inspect ${shellQuoteForShell(input.runtimeImage)} >/dev/null`,
+      ]),
+    );
+  }
+
   async bootstrapTenantRuntime(
     connection: SshConnection,
     input: {

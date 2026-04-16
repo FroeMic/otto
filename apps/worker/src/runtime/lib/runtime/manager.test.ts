@@ -98,6 +98,45 @@ describe("RuntimeManager.verifySnapshotHostReady", () => {
   });
 });
 
+describe("RuntimeManager.prepareOnboardingSnapshotHost", () => {
+  it("pulls the runtime image and writes snapshot metadata", async () => {
+    const sshClient = {
+      exec: vi
+        .fn()
+        .mockResolvedValue({ exitCode: 0, stderr: "", stdout: "" }),
+      writeFileAtomic: vi.fn(async () => undefined),
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.prepareOnboardingSnapshotHost(
+      {
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      },
+      {
+        baseImage: "ubuntu-24.04",
+        generation: "2026-04-15.180000",
+        runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
+      },
+    );
+
+    expect(sshClient.exec).toHaveBeenCalled();
+    const executedCommands = sshClient.exec.mock.calls
+      .map((call) => (typeof call[1] === "string" ? call[1] : ""))
+      .join("\n");
+
+    expect(executedCommands).toContain("docker pull");
+    expect(executedCommands).toContain("ghcr.io/froemic/openclaw:2026.4.12");
+    expect(sshClient.writeFileAtomic).toHaveBeenCalledWith(
+      expect.anything(),
+      "/opt/openclaw/runtime/snapshot-metadata.json",
+      expect.stringContaining('"generation": "2026-04-15.180000"'),
+      0o640,
+    );
+  });
+});
+
 describe("managed skill runtime file projection", () => {
   it("splits managed-entry files from install-only companion files", () => {
     const files = [

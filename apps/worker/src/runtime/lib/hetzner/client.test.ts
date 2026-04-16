@@ -138,4 +138,53 @@ describe("HetznerClient snapshot support", () => {
       }),
     );
   });
+
+  it("powers off a server and creates a snapshot image", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            action: { id: 77 },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            action: { id: 88 },
+            image: { id: 4567 },
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const client = new HetznerClient();
+    await expect(client.powerOffServer("42")).resolves.toBe("77");
+    await expect(
+      client.createSnapshot("42", "Otto onboarding snapshot 2026-04-15.180000"),
+    ).resolves.toEqual({
+      actionId: "88",
+      id: "4567",
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.hetzner.cloud/v1/servers/42/actions/poweroff",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.hetzner.cloud/v1/servers/42/actions/create_image",
+      expect.objectContaining({
+        body: JSON.stringify({
+          description: "Otto onboarding snapshot 2026-04-15.180000",
+          type: "snapshot",
+        }),
+        method: "POST",
+      }),
+    );
+  });
 });
