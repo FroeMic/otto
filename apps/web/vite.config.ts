@@ -16,7 +16,7 @@ export default defineConfig({
   },
   build: {
     emptyOutDir: false,
-    outDir: resolve(__dirname, "dist/public/assets"),
+    outDir: resolve(__dirname, "dist/public"),
     rollupOptions: {
       input: {
         landing: resolve(__dirname, "src/client/landing.tsx"),
@@ -24,15 +24,17 @@ export default defineConfig({
       },
       output: {
         entryFileNames: (chunkInfo) =>
-          chunkInfo.name === "landing" ? "landing.js" : "workspace.js",
+          chunkInfo.name === "landing"
+            ? "assets/landing.js"
+            : "assets/workspace.js",
         assetFileNames: (assetInfo) => {
           const name = assetInfo.names.at(0) ?? assetInfo.name ?? ""
 
           if (name.endsWith(".css")) {
-            return "workspace.css"
+            return "assets/workspace.css"
           }
 
-          return "[name]-[hash][extname]"
+          return "assets/[name]-[hash][extname]"
         },
       },
     },
