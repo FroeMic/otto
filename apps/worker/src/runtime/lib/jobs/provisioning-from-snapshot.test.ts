@@ -33,7 +33,7 @@ function buildDeps(
     startRuntime: vi.fn(async () => undefined),
     updateTenantServer: vi.fn(async () => undefined),
     verifySnapshotHostReady: vi.fn(async () => undefined),
-    waitForServerAction: vi.fn(async () => undefined),
+    waitForServerAction: vi.fn(async () => "success" as const),
     waitForSsh: vi.fn(async () => undefined),
     ...overrides,
   };
@@ -42,6 +42,8 @@ function buildDeps(
 describe("processProvisionTenantServerFromSnapshotJob", () => {
   afterEach(() => {
     delete process.env.DATABASE_URL;
+    delete process.env.HETZNER_API_TOKEN;
+    delete process.env.HETZNER_POLL_INTERVAL_MS;
     envTesting.resetEnvCacheForTests();
   });
 
@@ -121,5 +123,57 @@ describe("processProvisionTenantServerFromSnapshotJob", () => {
       }),
       expect.any(Date),
     );
+  });
+
+  it("requeues the action wait step when Hetzner is still creating the server", async () => {
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto";
+    process.env.HETZNER_API_TOKEN = "test-token";
+    process.env.HETZNER_POLL_INTERVAL_MS = "5000";
+    envTesting.resetEnvCacheForTests();
+    const deps = buildDeps({
+      waitForServerAction: vi.fn(async () => "running" as const),
+    });
+
+    await processProvisionTenantServerFromSnapshotJob(
+      {
+        attempt: 2,
+        id: "job_1",
+        jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
+        payload: {
+          actionId: "action_1",
+          providerServerId: "server_1",
+          sourceSnapshotId: "snapshot-123",
+          step: SNAPSHOT_PROVISIONING_STEPS.waitForHetznerAction,
+          tenantId: "tenant_1",
+        },
+        tenantId: "tenant_1",
+      },
+      deps,
+    );
+
+    expect(deps.updateTenantServer).toHaveBeenCalledWith("tenant_1", {
+      status: SNAPSHOT_PROVISIONING_STATUSES.waitingForServerAction,
+    });
+    expect(deps.appendJobEvent).toHaveBeenCalledWith(
+      "job_1",
+      SNAPSHOT_PROVISIONING_STATUSES.waitingForServerAction,
+      "hetzner snapshot server action is still running",
+      {
+        actionId: "action_1",
+        providerServerId: "server_1",
+        sourceSnapshotId: "snapshot-123",
+      },
+    );
+    expect(deps.requeueJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        actionId: "action_1",
+        providerServerId: "server_1",
+        step: SNAPSHOT_PROVISIONING_STEPS.waitForHetznerAction,
+      }),
+      expect.any(Date),
+    );
+    expect(deps.fetchServer).not.toHaveBeenCalled();
   });
 });
