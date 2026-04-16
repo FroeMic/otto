@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCycleChildCollectionCommandResult,
@@ -9,7 +9,7 @@ import {
   type LinearIssueNode,
   mapLinearIssue,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_CYCLE_ISSUES_QUERY = `
   query OttoLinearCycleListIssues($id: String!, $limit: Int!) {
@@ -22,35 +22,35 @@ const LIST_CYCLE_ISSUES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearCycleListIssues: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : "";
+  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : ""
 
   if (!cycleId) {
-    throw new Error("linear cycle.list_issues requires cycleId.");
+    throw new Error("linear cycle.list_issues requires cycleId.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     cycle?:
       | (LinearCycleNode & {
           issues?: {
-            nodes?: LinearIssueNode[] | null;
-          } | null;
+            nodes?: LinearIssueNode[] | null
+          } | null
         })
-      | null;
+      | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_CYCLE_ISSUES_QUERY,
@@ -58,10 +58,10 @@ export const executeLinearCycleListIssues: IntegrationCommandExecute = async ({
       id: cycleId,
       limit,
     },
-  });
+  })
 
   if (!data.cycle) {
-    throw new Error(`Linear could not find cycle ${cycleId}.`);
+    throw new Error(`Linear could not find cycle ${cycleId}.`)
   }
 
   return {
@@ -72,5 +72,5 @@ export const executeLinearCycleListIssues: IntegrationCommandExecute = async ({
       limit,
     }),
     lookup: cycleId,
-  };
-};
+  }
+}

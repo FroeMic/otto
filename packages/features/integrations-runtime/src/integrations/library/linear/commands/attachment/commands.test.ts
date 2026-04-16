@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "vitest";
 import { executeLinearAttachmentCreate } from "./create";
 import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-uploaded-file";
 import { executeLinearAttachmentGet } from "./get";

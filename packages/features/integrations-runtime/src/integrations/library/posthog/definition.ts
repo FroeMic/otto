@@ -2,7 +2,7 @@ import type {
   IntegrationCommandDefinition,
   IntegrationCommandExecute,
   IntegrationDefinition,
-} from "../../framework";
+} from "../../framework"
 import {
   buildPostHogEnvironmentPath,
   buildPostHogOrganizationPath,
@@ -11,7 +11,7 @@ import {
   prepareHogQlQuery,
   requestPostHog,
   resolvePostHogTarget,
-} from "./client";
+} from "./client"
 
 const TARGET_ARGUMENTS = {
   environmentId: {
@@ -34,32 +34,32 @@ const TARGET_ARGUMENTS = {
     minLength: 1,
     description: "Configured PostHog target key such as production or staging.",
   },
-} as const;
+} as const
 
 const LIMIT_ARGUMENT = {
   type: "integer",
   minimum: 1,
   maximum: 100,
   description: "Maximum number of results to return.",
-} as const;
+} as const
 
 const OFFSET_ARGUMENT = {
   type: "integer",
   minimum: 0,
   description: "Pagination offset.",
-} as const;
+} as const
 
-type IntegrationCommandExecuteInput = Parameters<IntegrationCommandExecute>[0];
+type IntegrationCommandExecuteInput = Parameters<IntegrationCommandExecute>[0]
 
 function readCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  execute: IntegrationCommandExecute;
-  label: string;
-  properties?: Record<string, Record<string, unknown>>;
-  required?: string[];
-  requiredProviderScopes: string[];
+  commandKey: string
+  commandPath: string[]
+  description: string
+  execute: IntegrationCommandExecute
+  label: string
+  properties?: Record<string, Record<string, unknown>>
+  required?: string[]
+  requiredProviderScopes: string[]
 }): IntegrationCommandDefinition & { execute: IntegrationCommandExecute } {
   return {
     argumentsSchema: {
@@ -80,20 +80,20 @@ function readCommand(input: {
     label: input.label,
     requiredProviderScopes: input.requiredProviderScopes,
     resultMode: "json",
-  };
+  }
 }
 
 function writeCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  executeConfirmed: IntegrationCommandExecute;
-  label: string;
-  properties?: Record<string, Record<string, unknown>>;
-  required?: string[];
-  requiredProviderScopes: string[];
-  safety?: "destructive" | "normal";
-  summary: string;
+  commandKey: string
+  commandPath: string[]
+  description: string
+  executeConfirmed: IntegrationCommandExecute
+  label: string
+  properties?: Record<string, Record<string, unknown>>
+  required?: string[]
+  requiredProviderScopes: string[]
+  safety?: "destructive" | "normal"
+  summary: string
 }) {
   return {
     argumentsSchema: {
@@ -129,35 +129,35 @@ function writeCommand(input: {
           planned: true,
           requiresConfirmation: true,
           summary: input.summary,
-        };
+        }
       }
 
-      return input.executeConfirmed(executeInput);
+      return input.executeConfirmed(executeInput)
     },
     inputMode: "json" as const,
     label: input.label,
     requiredProviderScopes: input.requiredProviderScopes,
     resultMode: "json" as const,
     safety: input.safety ?? "normal",
-  };
+  }
 }
 
 function listProjectResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: string;
-  requiredProviderScopes: string[];
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: string
+  requiredProviderScopes: string[]
 }) {
   return readCommand({
     ...input,
     execute: async ({ arguments: args, context }) => {
-      const target = requireProjectTarget(args, getPostHogAuth(context).state);
+      const target = requireProjectTarget(args, getPostHogAuth(context).state)
 
       return requestPostHog(context, {
         path: buildPostHogProjectPath(target.projectId, input.path),
-      });
+      })
     },
     properties: {
       limit: LIMIT_ARGUMENT,
@@ -168,29 +168,29 @@ function listProjectResourceCommand(input: {
         description: "Optional provider-supported search term.",
       },
     },
-  });
+  })
 }
 
 function getProjectResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  idLabel: string;
-  label: string;
-  path: (id: string) => string;
-  requiredProviderScopes: string[];
+  commandKey: string
+  commandPath: string[]
+  description: string
+  idLabel: string
+  label: string
+  path: (id: string) => string
+  requiredProviderScopes: string[]
 }) {
   return readCommand({
     ...input,
     execute: async ({ arguments: args, context }) => {
-      const target = requireProjectTarget(args, getPostHogAuth(context).state);
+      const target = requireProjectTarget(args, getPostHogAuth(context).state)
 
       return requestPostHog(context, {
         path: buildPostHogProjectPath(
           target.projectId,
           input.path(String(args.id)),
         ),
-      });
+      })
     },
     properties: {
       id: {
@@ -200,16 +200,16 @@ function getProjectResourceCommand(input: {
       },
     },
     required: ["id"],
-  });
+  })
 }
 
 function listEnvironmentResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: string;
-  requiredProviderScopes: string[];
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: string
+  requiredProviderScopes: string[]
 }) {
   return readCommand({
     ...input,
@@ -217,27 +217,27 @@ function listEnvironmentResourceCommand(input: {
       const target = requireEnvironmentTarget(
         args,
         getPostHogAuth(context).state,
-      );
+      )
 
       return requestPostHog(context, {
         path: buildPostHogEnvironmentPath(target.environmentId, input.path),
-      });
+      })
     },
     properties: {
       limit: LIMIT_ARGUMENT,
       offset: OFFSET_ARGUMENT,
     },
-  });
+  })
 }
 
 function getEnvironmentResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  idLabel: string;
-  label: string;
-  path: (id: string) => string;
-  requiredProviderScopes: string[];
+  commandKey: string
+  commandPath: string[]
+  description: string
+  idLabel: string
+  label: string
+  path: (id: string) => string
+  requiredProviderScopes: string[]
 }) {
   return readCommand({
     ...input,
@@ -245,14 +245,14 @@ function getEnvironmentResourceCommand(input: {
       const target = requireEnvironmentTarget(
         args,
         getPostHogAuth(context).state,
-      );
+      )
 
       return requestPostHog(context, {
         path: buildPostHogEnvironmentPath(
           target.environmentId,
           input.path(String(args.id)),
         ),
-      });
+      })
     },
     properties: {
       id: {
@@ -262,28 +262,28 @@ function getEnvironmentResourceCommand(input: {
       },
     },
     required: ["id"],
-  });
+  })
 }
 
 function createProjectResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: string;
-  requiredProviderScopes: string[];
-  summary: string;
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: string
+  requiredProviderScopes: string[]
+  summary: string
 }) {
   return writeCommand({
     ...input,
     executeConfirmed: async ({ arguments: args, context }) => {
-      const target = requireProjectTarget(args, getPostHogAuth(context).state);
+      const target = requireProjectTarget(args, getPostHogAuth(context).state)
 
       return requestPostHog(context, {
         body: args.payload,
         method: "POST",
         path: buildPostHogProjectPath(target.projectId, input.path),
-      });
+      })
     },
     properties: {
       payload: {
@@ -292,22 +292,22 @@ function createProjectResourceCommand(input: {
       },
     },
     required: ["payload"],
-  });
+  })
 }
 
 function updateProjectResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: (id: string) => string;
-  requiredProviderScopes: string[];
-  summary: string;
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: (id: string) => string
+  requiredProviderScopes: string[]
+  summary: string
 }) {
   return writeCommand({
     ...input,
     executeConfirmed: async ({ arguments: args, context }) => {
-      const target = requireProjectTarget(args, getPostHogAuth(context).state);
+      const target = requireProjectTarget(args, getPostHogAuth(context).state)
 
       return requestPostHog(context, {
         body: args.payload,
@@ -316,7 +316,7 @@ function updateProjectResourceCommand(input: {
           target.projectId,
           input.path(String(args.id)),
         ),
-      });
+      })
     },
     properties: {
       id: {
@@ -330,17 +330,17 @@ function updateProjectResourceCommand(input: {
       },
     },
     required: ["id", "payload"],
-  });
+  })
 }
 
 function createEnvironmentResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: string;
-  requiredProviderScopes: string[];
-  summary: string;
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: string
+  requiredProviderScopes: string[]
+  summary: string
 }) {
   return writeCommand({
     ...input,
@@ -348,13 +348,13 @@ function createEnvironmentResourceCommand(input: {
       const target = requireEnvironmentTarget(
         args,
         getPostHogAuth(context).state,
-      );
+      )
 
       return requestPostHog(context, {
         body: args.payload,
         method: "POST",
         path: buildPostHogEnvironmentPath(target.environmentId, input.path),
-      });
+      })
     },
     properties: {
       payload: {
@@ -363,17 +363,17 @@ function createEnvironmentResourceCommand(input: {
       },
     },
     required: ["payload"],
-  });
+  })
 }
 
 function updateEnvironmentResourceCommand(input: {
-  commandKey: string;
-  commandPath: string[];
-  description: string;
-  label: string;
-  path: (id: string) => string;
-  requiredProviderScopes: string[];
-  summary: string;
+  commandKey: string
+  commandPath: string[]
+  description: string
+  label: string
+  path: (id: string) => string
+  requiredProviderScopes: string[]
+  summary: string
 }) {
   return writeCommand({
     ...input,
@@ -381,7 +381,7 @@ function updateEnvironmentResourceCommand(input: {
       const target = requireEnvironmentTarget(
         args,
         getPostHogAuth(context).state,
-      );
+      )
 
       return requestPostHog(context, {
         body: args.payload,
@@ -390,7 +390,7 @@ function updateEnvironmentResourceCommand(input: {
           target.environmentId,
           input.path(String(args.id)),
         ),
-      });
+      })
     },
     properties: {
       id: {
@@ -404,7 +404,7 @@ function updateEnvironmentResourceCommand(input: {
       },
     },
     required: ["id", "payload"],
-  });
+  })
 }
 
 export const posthogIntegrationDefinition: IntegrationDefinition = {
@@ -437,14 +437,14 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               const target = requireOrganizationTarget(
                 args,
                 getPostHogAuth(context).state,
-              );
+              )
 
               return requestPostHog(context, {
                 path: buildPostHogOrganizationPath(
                   target.organizationId,
                   "projects/",
                 ),
-              });
+              })
             },
             label: "List projects",
             requiredProviderScopes: ["project:read"],
@@ -457,14 +457,14 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               const target = requireProjectTarget(
                 args,
                 getPostHogAuth(context).state,
-              );
+              )
 
               return requestPostHog(context, {
                 path: buildPostHogOrganizationPath(
                   target.organizationId,
                   `projects/${encodeURIComponent(target.projectId)}/`,
                 ),
-              });
+              })
             },
             label: "Get project",
             requiredProviderScopes: ["project:read"],
@@ -517,11 +517,11 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               const target = requireEnvironmentTarget(
                 args,
                 getPostHogAuth(context).state,
-              );
+              )
               const prepared = prepareHogQlQuery(
                 String(args.query),
                 typeof args.maxRows === "number" ? args.maxRows : 100,
-              );
+              )
 
               return requestPostHog(context, {
                 body: {
@@ -535,7 +535,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
                   target.environmentId,
                   "query/",
                 ),
-              });
+              })
             },
             label: "Run HogQL",
             properties: {
@@ -692,7 +692,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               const target = requireProjectTarget(
                 args,
                 getPostHogAuth(context).state,
-              );
+              )
 
               return requestPostHog(context, {
                 body: {
@@ -703,7 +703,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
                   target.projectId,
                   `feature_flags/${encodeURIComponent(String(args.id))}/`,
                 ),
-              });
+              })
             },
             label: "Archive feature flag",
             properties: {
@@ -769,7 +769,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               const target = requireProjectTarget(
                 args,
                 getPostHogAuth(context).state,
-              );
+              )
 
               return requestPostHog(context, {
                 body: {},
@@ -778,7 +778,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
                   target.projectId,
                   `experiments/${encodeURIComponent(String(args.id))}/archive/`,
                 ),
-              });
+              })
             },
             label: "Archive experiment",
             properties: {
@@ -865,7 +865,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/posthog/status`,
   showInWorkspaceCatalog: true,
-};
+}
 
 function requireOrganizationTarget(
   args: Record<string, unknown>,
@@ -874,46 +874,46 @@ function requireOrganizationTarget(
   const target = resolvePostHogTarget({
     arguments: args,
     state,
-  });
+  })
 
   if (!target.organizationId) {
-    throw new Error("PostHog command requires an organizationId.");
+    throw new Error("PostHog command requires an organizationId.")
   }
 
   return {
     ...target,
     organizationId: target.organizationId,
-  };
+  }
 }
 
 function requireProjectTarget(
   args: Record<string, unknown>,
   state: Record<string, unknown>,
 ) {
-  const target = requireOrganizationTarget(args, state);
+  const target = requireOrganizationTarget(args, state)
 
   if (!target.projectId) {
-    throw new Error("PostHog command requires a projectId.");
+    throw new Error("PostHog command requires a projectId.")
   }
 
   return {
     ...target,
     projectId: target.projectId,
-  };
+  }
 }
 
 function requireEnvironmentTarget(
   args: Record<string, unknown>,
   state: Record<string, unknown>,
 ) {
-  const target = requireProjectTarget(args, state);
+  const target = requireProjectTarget(args, state)
 
   if (!target.environmentId) {
-    throw new Error("PostHog command requires an environmentId.");
+    throw new Error("PostHog command requires an environmentId.")
   }
 
   return {
     ...target,
     environmentId: target.environmentId,
-  };
+  }
 }

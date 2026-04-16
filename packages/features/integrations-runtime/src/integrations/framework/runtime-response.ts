@@ -2,7 +2,7 @@ import {
   getCommandPolicy,
   isCommandUserControllable,
   resolveCommandCapabilityState,
-} from "./capabilities";
+} from "./capabilities"
 import type {
   IntegrationCapabilityPolicy,
   IntegrationDefinition,
@@ -18,7 +18,7 @@ import type {
   RuntimeIntegrationSettingsSummary,
   RuntimeIntegrationStatus,
   RuntimeIntegrationSummaryResponse,
-} from "./types";
+} from "./types"
 
 function buildCommandSummary(
   command: IntegrationRuntimeCommandDefinition,
@@ -27,7 +27,7 @@ function buildCommandSummary(
     commandKey: command.commandKey,
     commandPath: [...command.commandPath],
     label: command.label,
-  };
+  }
 }
 
 function countCommandsInGroup(
@@ -39,7 +39,7 @@ function countCommandsInGroup(
       (total, childGroup) => total + countCommandsInGroup(childGroup),
       0,
     ) ?? 0)
-  );
+  )
 }
 
 function buildCommandGroupSummary(
@@ -50,7 +50,7 @@ function buildCommandGroupSummary(
     groupKey: group.groupKey,
     groupPath: [...group.groupPath],
     label: group.label,
-  };
+  }
 }
 
 function buildUsageGuide() {
@@ -70,21 +70,21 @@ function buildUsageGuide() {
       "If status.needsAttention is true, call manage_integration before retrying.",
       "Execute commands with execute_integration_command using integrationKey plus commandKey or commandPath.",
     ],
-  };
+  }
 }
 
 function buildSettingsSummary(
   input: Pick<IntegrationDefinition, "key" | "settings">,
 ): RuntimeIntegrationSettingsSummary | null {
   if (!input.settings) {
-    return null;
+    return null
   }
 
   const recommendedWorkflow = input.settings.recommendedWorkflow ?? [
     `Call configure_integration with {"integrationKey":"${input.key}","action":"get"} first to inspect the current settings, editable fields, and update schema.`,
     "Use action=validate with a minimal patch to dry-run the change before saving it.",
     "Use action=apply with expectedEntryVersion from the most recent action=get response to persist the change.",
-  ];
+  ]
 
   const examples = input.settings.examples?.map((example) => ({
     call: {
@@ -103,7 +103,7 @@ function buildSettingsSummary(
       },
       description: `Read the current ${input.key} settings before making changes.`,
     },
-  ];
+  ]
 
   return {
     description: input.settings.description,
@@ -111,16 +111,16 @@ function buildSettingsSummary(
     label: input.settings.label,
     recommendedWorkflow,
     toolName: "configure_integration",
-  };
+  }
 }
 
 export function buildRuntimeIntegrationSummaryResponse(input: {
-  available?: boolean;
+  available?: boolean
   definition: IntegrationDefinition & {
-    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
-  };
-  installed?: boolean;
-  status: RuntimeIntegrationStatus;
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
+  }
+  installed?: boolean
+  status: RuntimeIntegrationStatus
 }): RuntimeIntegrationSummaryResponse {
   return {
     available: input.available ?? true,
@@ -138,14 +138,14 @@ export function buildRuntimeIntegrationSummaryResponse(input: {
     toolDescription: input.definition.runtimeSurface.toolDescription,
     toolName: input.definition.runtimeSurface.toolName,
     usageGuide: buildUsageGuide(),
-  };
+  }
 }
 
 function buildCommandDetails(input: {
-  command: IntegrationRuntimeCommandDefinition;
-  integrationKey: string;
-  policy: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+  command: IntegrationRuntimeCommandDefinition
+  integrationKey: string
+  policy: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): RuntimeIntegrationCommandDetails {
   return {
     activityPresentation: buildActivityPresentation({
@@ -175,7 +175,7 @@ function buildCommandDetails(input: {
     resultMode: input.command.resultMode,
     userControllable: isCommandUserControllable(input.command),
     usageNotes: input.command.usageNotes ?? [],
-  };
+  }
 }
 
 function buildCommandGroupDetails(
@@ -188,19 +188,19 @@ function buildCommandGroupDetails(
     groupKey: group.groupKey,
     groupPath: [...group.groupPath],
     label: group.label,
-  };
+  }
 }
 
 export function buildRuntimeIntegrationDetailsResponse(input: {
   definition: IntegrationDefinition & {
-    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
-  };
-  detailType: "command" | "command_group";
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
+  }
+  detailType: "command" | "command_group"
   detail:
     | IntegrationRuntimeCommandDefinition
-    | IntegrationRuntimeCommandGroupDefinition;
-  policy?: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+    | IntegrationRuntimeCommandGroupDefinition
+  policy?: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): RuntimeIntegrationDetailsResponse {
   return {
     ...(input.detailType === "command"
@@ -226,14 +226,14 @@ export function buildRuntimeIntegrationDetailsResponse(input: {
       status: input.status,
       usageGuide: buildUsageGuide(),
     },
-  };
+  }
 }
 
 export function buildIntegrationOverviewEntry(input: {
-  connected: boolean;
-  definition: IntegrationDefinition;
-  needsAttention: boolean;
-  orgSlug: string;
+  connected: boolean
+  definition: IntegrationDefinition
+  needsAttention: boolean
+  orgSlug: string
 }): IntegrationOverviewEntry {
   return {
     capabilitySummary:
@@ -257,16 +257,16 @@ export function buildIntegrationOverviewEntry(input: {
     label: input.definition.label,
     needsAttention: input.needsAttention,
     settingsPath: input.definition.settingsPath(input.orgSlug),
-  };
+  }
 }
 
 export function buildRuntimeIntegrationCommandMatch(input: {
-  command: IntegrationRuntimeCommandDefinition;
+  command: IntegrationRuntimeCommandDefinition
   definition: IntegrationDefinition & {
-    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
-  };
-  reason: string;
-  status: RuntimeIntegrationStatus;
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
+  }
+  reason: string
+  status: RuntimeIntegrationStatus
 }): RuntimeIntegrationCommandMatch {
   return {
     activityPresentation: buildActivityPresentation({
@@ -282,15 +282,15 @@ export function buildRuntimeIntegrationCommandMatch(input: {
     integrationLabel: input.definition.label,
     needsAttention: input.status.needsAttention,
     reason: input.reason,
-  };
+  }
 }
 
 function buildActivityPresentation(input: {
-  command: IntegrationRuntimeCommandDefinition;
-  integrationKey: string;
+  command: IntegrationRuntimeCommandDefinition
+  integrationKey: string
 }) {
   if (!input.command.activityPresentation) {
-    return undefined;
+    return undefined
   }
 
   return {
@@ -300,5 +300,5 @@ function buildActivityPresentation(input: {
       integrationKey: input.integrationKey,
       kind: "integration_command" as const,
     },
-  };
+  }
 }

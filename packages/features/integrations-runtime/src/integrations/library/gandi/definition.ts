@@ -1,17 +1,17 @@
-import type { IntegrationDefinition } from "../../framework";
+import type { IntegrationDefinition } from "../../framework"
 import {
   checkGandiDomainAvailability,
   getGandiDnsZone,
   getGandiDomainDetails,
   getGandiDomainRegistrationMetadata,
   listGandiDnsRecords,
-} from "./client";
+} from "./client"
 
 const DOMAIN_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Fully qualified domain name to inspect or check.",
-} as const;
+} as const
 
 const DOMAIN_ARRAY_ARGUMENT_SCHEMA = {
   type: "array",
@@ -22,7 +22,7 @@ const DOMAIN_ARRAY_ARGUMENT_SCHEMA = {
     minLength: 1,
   },
   description: "Domain names to check in one batch.",
-} as const;
+} as const
 
 export const gandiIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
@@ -99,11 +99,7 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
               "Batch-check startup domain options for naming and shortlist evaluation workflows.",
             effect: "read",
             exampleArguments: {
-              domains: [
-                "ledgerpilot.com",
-                "ledgerpilot.ai",
-                "ledgerpilot.co",
-              ],
+              domains: ["ledgerpilot.com", "ledgerpilot.ai", "ledgerpilot.co"],
             },
             inputMode: "json",
             intentKeywords: [
@@ -327,4 +323,4 @@ export const gandiIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/gandi/status`,
   showInWorkspaceCatalog: true,
-};
+}

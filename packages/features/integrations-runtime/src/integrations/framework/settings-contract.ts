@@ -2,33 +2,33 @@ import type {
   RuntimeIntegrationSettingsContract,
   RuntimeIntegrationSettingsEditableField,
   RuntimeIntegrationSettingsExample,
-} from "./types";
+} from "./types"
 
 type FieldMeaning = {
-  description: string;
-  key: string;
-  label: string;
-};
+  description: string
+  key: string
+  label: string
+}
 
 type PatchSchema = {
-  additionalProperties?: boolean;
-  properties?: Record<string, Record<string, unknown>>;
-  type: "object";
-};
+  additionalProperties?: boolean
+  properties?: Record<string, Record<string, unknown>>
+  type: "object"
+}
 
 export function buildRuntimeIntegrationSettingsContract(input: {
-  config: Record<string, unknown>;
-  fieldMeanings: FieldMeaning[];
-  patchSchema: PatchSchema;
-  settingsExamples: RuntimeIntegrationSettingsExample[];
-  settingsLabel: string;
-  uiFields: Record<string, unknown>;
-  workflow: string[];
+  config: Record<string, unknown>
+  fieldMeanings: FieldMeaning[]
+  patchSchema: PatchSchema
+  settingsExamples: RuntimeIntegrationSettingsExample[]
+  settingsLabel: string
+  uiFields: Record<string, unknown>
+  workflow: string[]
 }): RuntimeIntegrationSettingsContract {
-  const properties = input.patchSchema.properties ?? {};
+  const properties = input.patchSchema.properties ?? {}
   const fieldMeaningsByKey = new Map(
     input.fieldMeanings.map((meaning) => [meaning.key, meaning]),
-  );
+  )
   const orderedKeys = [
     ...input.fieldMeanings
       .map((meaning) => meaning.key)
@@ -36,12 +36,12 @@ export function buildRuntimeIntegrationSettingsContract(input: {
     ...Object.keys(properties).filter(
       (key) => !input.fieldMeanings.some((meaning) => meaning.key === key),
     ),
-  ];
+  ]
 
   const editableFields: RuntimeIntegrationSettingsEditableField[] =
     orderedKeys.map((key) => {
-      const meaning = fieldMeaningsByKey.get(key);
-      const uiHint = input.uiFields[key];
+      const meaning = fieldMeaningsByKey.get(key)
+      const uiHint = input.uiFields[key]
 
       return {
         currentValue: input.config[key],
@@ -57,8 +57,8 @@ export function buildRuntimeIntegrationSettingsContract(input: {
             : key),
         schema: properties[key] ?? {},
         uiHint,
-      };
-    });
+      }
+    })
 
   return {
     editableFields,
@@ -71,5 +71,5 @@ export function buildRuntimeIntegrationSettingsContract(input: {
     recommendedWorkflow: input.workflow,
     settingsLabel: input.settingsLabel,
     settingsToolName: "configure_integration",
-  };
+  }
 }

@@ -1,30 +1,30 @@
-import type { IntegrationDefinition, RuntimeIntegrationStatus } from "./types";
+import type { IntegrationDefinition, RuntimeIntegrationStatus } from "./types"
 
 type RuntimeIntegrationStatusRow = {
-  connectedAt: Date | null;
-  connectionStatus: string | null;
-  disconnectedAt: Date | null;
-  integrationStatus: string | null;
-  tenantIntegrationId: string;
-};
+  connectedAt: Date | null
+  connectionStatus: string | null
+  disconnectedAt: Date | null
+  integrationStatus: string | null
+  tenantIntegrationId: string
+}
 
 export function getIntegrationManagementMode(
   definition: Pick<IntegrationDefinition, "managementMode">,
 ) {
-  return definition.managementMode ?? "workspace_managed";
+  return definition.managementMode ?? "workspace_managed"
 }
 
 export function isPlatformManagedIntegration(
   definition: Pick<IntegrationDefinition, "managementMode">,
 ) {
-  return getIntegrationManagementMode(definition) === "platform_managed";
+  return getIntegrationManagementMode(definition) === "platform_managed"
 }
 
 export function resolvePlatformManagedIntegrationStatus(
   definition: Pick<IntegrationDefinition, "managementMode" | "resolveStatus">,
 ): RuntimeIntegrationStatus | null {
   if (!isPlatformManagedIntegration(definition)) {
-    return null;
+    return null
   }
 
   return (
@@ -35,19 +35,19 @@ export function resolvePlatformManagedIntegrationStatus(
       integrationStatus: "connected",
       needsAttention: false,
     }
-  );
+  )
 }
 
 export function resolveRuntimeIntegrationStatus(input: {
-  definition: Pick<IntegrationDefinition, "managementMode" | "resolveStatus">;
-  row: RuntimeIntegrationStatusRow | null;
+  definition: Pick<IntegrationDefinition, "managementMode" | "resolveStatus">
+  row: RuntimeIntegrationStatusRow | null
 }) {
   if (input.row) {
     const connected = Boolean(
       input.row.connectedAt && !input.row.disconnectedAt,
-    );
-    const integrationStatus = input.row.integrationStatus ?? null;
-    const connectionStatus = input.row.connectionStatus ?? null;
+    )
+    const integrationStatus = input.row.integrationStatus ?? null
+    const connectionStatus = input.row.connectionStatus ?? null
 
     return {
       installed: true,
@@ -63,19 +63,19 @@ export function resolveRuntimeIntegrationStatus(input: {
           connectionStatus === "needs_attention",
       } satisfies RuntimeIntegrationStatus,
       tenantIntegrationId: input.row.tenantIntegrationId,
-    };
+    }
   }
 
   const platformManagedStatus = resolvePlatformManagedIntegrationStatus(
     input.definition,
-  );
+  )
 
   if (platformManagedStatus) {
     return {
       installed: true,
       status: platformManagedStatus,
       tenantIntegrationId: null,
-    };
+    }
   }
 
   return {
@@ -88,5 +88,5 @@ export function resolveRuntimeIntegrationStatus(input: {
       needsAttention: false,
     } satisfies RuntimeIntegrationStatus,
     tenantIntegrationId: null,
-  };
+  }
 }

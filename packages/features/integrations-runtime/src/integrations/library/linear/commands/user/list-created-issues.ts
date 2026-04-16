@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearUserIssueCollectionCommandResult,
@@ -8,7 +8,7 @@ import {
   type LinearIssueNode,
   type LinearUserNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_CREATED_ISSUES_QUERY = `
   query OttoLinearUserListCreatedIssues($id: String!, $limit: Int!) {
@@ -21,34 +21,34 @@ const LIST_CREATED_ISSUES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearUserListCreatedIssues: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+    const userId = typeof args.userId === "string" ? args.userId.trim() : ""
 
     if (!userId) {
-      throw new Error("linear user.list_created_issues requires userId.");
+      throw new Error("linear user.list_created_issues requires userId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
 
     const data = await executeLinearGraphql<{
       user?:
         | (LinearUserNode & {
             createdIssues?: {
-              nodes?: LinearIssueNode[] | null;
-            } | null;
+              nodes?: LinearIssueNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_CREATED_ISSUES_QUERY,
@@ -56,10 +56,10 @@ export const executeLinearUserListCreatedIssues: IntegrationCommandExecute =
         id: userId,
         limit,
       },
-    });
+    })
 
     if (!data.user) {
-      throw new Error("Linear returned no user for user.list_created_issues.");
+      throw new Error("Linear returned no user for user.list_created_issues.")
     }
 
     return {
@@ -70,5 +70,5 @@ export const executeLinearUserListCreatedIssues: IntegrationCommandExecute =
         user: data.user,
       }),
       lookup: userId,
-    };
-  };
+    }
+  }

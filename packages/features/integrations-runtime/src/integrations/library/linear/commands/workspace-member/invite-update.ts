@@ -1,11 +1,11 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearOrganizationInviteCommandResult,
   executeLinearGraphql,
   getLinearUserFields,
   type LinearOrganizationInviteNode,
-} from "../../client";
+} from "../../client"
 
 const ORGANIZATION_INVITE_FIELDS = `
   acceptedAt
@@ -23,7 +23,7 @@ const ORGANIZATION_INVITE_FIELDS = `
   }
   role
   updatedAt
-`;
+`
 
 const UPDATE_WORKSPACE_MEMBER_INVITE_MUTATION = `
   mutation OttoLinearOrganizationInviteUpdate($id: String!, $input: OrganizationInviteUpdateInput!) {
@@ -35,21 +35,21 @@ const UPDATE_WORKSPACE_MEMBER_INVITE_MUTATION = `
       }
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceMemberInviteUpdate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const inviteId =
-      typeof args.inviteId === "string" ? args.inviteId.trim() : "";
+      typeof args.inviteId === "string" ? args.inviteId.trim() : ""
 
     if (!inviteId) {
       throw new Error(
         "linear workspace_member.invite_update requires inviteId.",
-      );
+      )
     }
 
     const teamIds = Array.isArray(args.teamIds)
@@ -57,20 +57,20 @@ export const executeLinearWorkspaceMemberInviteUpdate: IntegrationCommandExecute
           .filter((value): value is string => typeof value === "string")
           .map((value) => value.trim())
           .filter((value) => value.length > 0)
-      : [];
+      : []
 
     if (teamIds.length === 0) {
       throw new Error(
         "linear workspace_member.invite_update requires at least one teamId.",
-      );
+      )
     }
 
     const data = await executeLinearGraphql<{
       organizationInviteUpdate?: {
-        lastSyncId?: number | null;
-        organizationInvite?: LinearOrganizationInviteNode | null;
-        success?: boolean | null;
-      } | null;
+        lastSyncId?: number | null
+        organizationInvite?: LinearOrganizationInviteNode | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: UPDATE_WORKSPACE_MEMBER_INVITE_MUTATION,
@@ -80,7 +80,7 @@ export const executeLinearWorkspaceMemberInviteUpdate: IntegrationCommandExecute
           teamIds,
         },
       },
-    });
+    })
 
     return {
       ...buildLinearOrganizationInviteCommandResult({
@@ -90,5 +90,5 @@ export const executeLinearWorkspaceMemberInviteUpdate: IntegrationCommandExecute
         success: data.organizationInviteUpdate?.success,
       }),
       lookup: inviteId,
-    };
-  };
+    }
+  }

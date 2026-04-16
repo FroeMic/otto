@@ -1,47 +1,47 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm"
 
-import { getDb } from "./client";
+import { getDb } from "./client"
 import {
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
-} from "./schema";
+} from "./schema"
 
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
->[0];
+>[0]
 
 export type MessagingDirectoryMemberInput = {
-  avatarUrl: string | null;
-  displayName: string | null;
-  email: string | null;
-  externalMemberId: string;
-  fullName: string | null;
-  isDeleted: boolean;
-  memberType: "bot" | "user";
-  profileJson: unknown;
-  username: string | null;
-};
+  avatarUrl: string | null
+  displayName: string | null
+  email: string | null
+  externalMemberId: string
+  fullName: string | null
+  isDeleted: boolean
+  memberType: "bot" | "user"
+  profileJson: unknown
+  username: string | null
+}
 
 export type MessagingConversationInput = {
-  conversationType: string;
-  externalConversationId: string;
-  isArchived: boolean;
-  metadataJson: unknown;
-  name: string | null;
-  purpose: string | null;
-  topic: string | null;
-};
+  conversationType: string
+  externalConversationId: string
+  isArchived: boolean
+  metadataJson: unknown
+  name: string | null
+  purpose: string | null
+  topic: string | null
+}
 
 export async function syncMessagingDirectoryForTenantIntegration(input: {
-  conversations: MessagingConversationInput[];
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
-  members: MessagingDirectoryMemberInput[];
+  conversations: MessagingConversationInput[]
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
+  members: MessagingDirectoryMemberInput[]
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -49,11 +49,11 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     for (const member of input.members) {
       if (!member.externalMemberId) {
-        continue;
+        continue
       }
 
       await tx
@@ -88,7 +88,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
             updatedAt: now,
             username: member.username,
           },
-        });
+        })
     }
 
     await removeStaleMessagingWorkspaceMembers(tx, {
@@ -96,11 +96,11 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       syncedExternalMemberIds: input.members.map(
         (member) => member.externalMemberId,
       ),
-    });
+    })
 
     for (const conversation of input.conversations) {
       if (!conversation.externalConversationId) {
-        continue;
+        continue
       }
 
       await tx
@@ -131,7 +131,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
             topic: conversation.topic,
             updatedAt: now,
           },
-        });
+        })
     }
 
     await removeStaleMessagingConversations(tx, {
@@ -139,7 +139,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       syncedExternalConversationIds: input.conversations.map(
         (conversation) => conversation.externalConversationId,
       ),
-    });
+    })
 
     await tx
       .update(integrationMessagingWorkspaces)
@@ -150,18 +150,18 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         syncStatus: "succeeded",
         updatedAt: now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
-  });
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId))
+  })
 }
 
 export async function recordMessagingWorkspaceSyncFailure(input: {
-  error: string;
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
+  error: string
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -169,7 +169,7 @@ export async function recordMessagingWorkspaceSyncFailure(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     await tx
       .update(integrationMessagingWorkspaces)
@@ -179,17 +179,17 @@ export async function recordMessagingWorkspaceSyncFailure(input: {
         syncStatus: "failed",
         updatedAt: now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
-  });
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId))
+  })
 }
 
 async function upsertMessagingWorkspace(
   tx: DbTransaction,
   input: {
-    externalWorkspaceId: string;
-    now: Date;
-    tenantIntegrationId: string;
-    workspaceDisplayName: string | null;
+    externalWorkspaceId: string
+    now: Date
+    tenantIntegrationId: string
+    workspaceDisplayName: string | null
   },
 ) {
   const [existingWorkspace] = await tx
@@ -209,7 +209,7 @@ async function upsertMessagingWorkspace(
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingWorkspace) {
     await tx
@@ -218,35 +218,35 @@ async function upsertMessagingWorkspace(
         displayName: input.workspaceDisplayName,
         updatedAt: input.now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id));
+      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id))
 
-    return existingWorkspace.id;
+    return existingWorkspace.id
   }
 
   const [createdWorkspace] = await tx
-      .insert(integrationMessagingWorkspaces)
-      .values({
-        displayName: input.workspaceDisplayName,
-        externalWorkspaceId: input.externalWorkspaceId,
-        lastSyncedAt: input.now,
-        syncStatus: "succeeded",
-        tenantIntegrationId: input.tenantIntegrationId,
-      })
+    .insert(integrationMessagingWorkspaces)
+    .values({
+      displayName: input.workspaceDisplayName,
+      externalWorkspaceId: input.externalWorkspaceId,
+      lastSyncedAt: input.now,
+      syncStatus: "succeeded",
+      tenantIntegrationId: input.tenantIntegrationId,
+    })
     .returning({
       id: integrationMessagingWorkspaces.id,
-    });
+    })
 
-  return createdWorkspace.id;
+  return createdWorkspace.id
 }
 
 async function removeStaleMessagingWorkspaceMembers(
   tx: DbTransaction,
   input: {
-    messagingWorkspaceId: string;
-    syncedExternalMemberIds: string[];
+    messagingWorkspaceId: string
+    syncedExternalMemberIds: string[]
   },
 ) {
-  const syncedIds = input.syncedExternalMemberIds.filter(Boolean);
+  const syncedIds = input.syncedExternalMemberIds.filter(Boolean)
 
   if (syncedIds.length > 0) {
     await tx
@@ -262,8 +262,8 @@ async function removeStaleMessagingWorkspaceMembers(
             syncedIds,
           ),
         ),
-      );
-    return;
+      )
+    return
   }
 
   await tx
@@ -273,17 +273,17 @@ async function removeStaleMessagingWorkspaceMembers(
         integrationMessagingWorkspaceMembers.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
-    );
+    )
 }
 
 async function removeStaleMessagingConversations(
   tx: DbTransaction,
   input: {
-    messagingWorkspaceId: string;
-    syncedExternalConversationIds: string[];
+    messagingWorkspaceId: string
+    syncedExternalConversationIds: string[]
   },
 ) {
-  const syncedIds = input.syncedExternalConversationIds.filter(Boolean);
+  const syncedIds = input.syncedExternalConversationIds.filter(Boolean)
 
   if (syncedIds.length > 0) {
     await tx
@@ -299,8 +299,8 @@ async function removeStaleMessagingConversations(
             syncedIds,
           ),
         ),
-      );
-    return;
+      )
+    return
   }
 
   await tx
@@ -310,13 +310,13 @@ async function removeStaleMessagingConversations(
         integrationMessagingConversations.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
-    );
+    )
 }
 
 function normalizeJsonValue(value: unknown) {
   if (value === undefined) {
-    return null;
+    return null
   }
 
-  return value;
+  return value
 }

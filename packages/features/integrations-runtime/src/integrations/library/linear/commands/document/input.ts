@@ -3,7 +3,7 @@ import {
   normalizeOptionalString,
   normalizeOptionalStringArray,
   pruneGraphqlInput,
-} from "../../client";
+} from "../../client"
 
 export function buildLinearDocumentCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -27,7 +27,7 @@ export function buildLinearDocumentCreateInput(
       typeof argumentsObject.title === "string"
         ? argumentsObject.title.trim()
         : "",
-  });
+  })
 }
 
 export function buildLinearDocumentUpdateInput(
@@ -54,5 +54,5 @@ export function buildLinearDocumentUpdateInput(
       typeof argumentsObject.trashed === "boolean"
         ? argumentsObject.trashed
         : null,
-  });
+  })
 }

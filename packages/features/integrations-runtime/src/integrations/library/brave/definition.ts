@@ -1,10 +1,10 @@
-import type { IntegrationDefinition } from "../../framework";
-import { resolveRuntimeWebSearchConfig } from "../../../lib/web-search-config";
+import { resolveRuntimeWebSearchConfig } from "../../../lib/web-search-config"
+import type { IntegrationDefinition } from "../../framework"
 
 import {
   braveAgentCapabilities,
   braveSettingsExamples,
-} from "./settings-metadata";
+} from "./settings-metadata"
 
 export const braveIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: braveAgentCapabilities,
@@ -20,8 +20,8 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
   pageDescription:
     "Review the managed Brave web-search defaults Otto projects into runtimes for this workspace.",
   resolveStatus: () => {
-    const resolved = resolveRuntimeWebSearchConfig();
-    const braveIsSelected = resolved.surfaceConfig.provider === "brave";
+    const resolved = resolveRuntimeWebSearchConfig()
+    const braveIsSelected = resolved.surfaceConfig.provider === "brave"
 
     if (!resolved.enabled || !braveIsSelected) {
       return {
@@ -30,7 +30,7 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
         enabled: true,
         integrationStatus: "needs_attention",
         needsAttention: true,
-      };
+      }
     }
 
     return {
@@ -39,7 +39,7 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
       enabled: true,
       integrationStatus: "connected",
       needsAttention: false,
-    };
+    }
   },
   runtimeSurface: {
     commandGroups: [],
@@ -61,4 +61,4 @@ export const braveIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/brave/status`,
   showInWorkspaceCatalog: true,
-};
+}

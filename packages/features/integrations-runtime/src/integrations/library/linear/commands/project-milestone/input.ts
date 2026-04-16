@@ -1,4 +1,4 @@
-import { normalizeOptionalString, pruneGraphqlInput } from "../../client";
+import { normalizeOptionalString, pruneGraphqlInput } from "../../client"
 
 export function buildLinearProjectMilestoneCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -19,7 +19,7 @@ export function buildLinearProjectMilestoneCreateInput(
         ? argumentsObject.sortOrder
         : null,
     targetDate: normalizeOptionalString(argumentsObject.targetDate),
-  });
+  })
 }
 
 export function buildLinearProjectMilestoneUpdateInput(
@@ -35,7 +35,7 @@ export function buildLinearProjectMilestoneUpdateInput(
         ? argumentsObject.sortOrder
         : null,
     targetDate: normalizeOptionalString(argumentsObject.targetDate),
-  });
+  })
 }
 
 export function buildLinearProjectMilestoneMoveInput(
@@ -51,5 +51,5 @@ export function buildLinearProjectMilestoneMoveInput(
       typeof argumentsObject.projectId === "string"
         ? argumentsObject.projectId.trim()
         : "",
-  });
+  })
 }

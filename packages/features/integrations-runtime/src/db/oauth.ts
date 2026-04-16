@@ -1,6 +1,10 @@
-import { and, eq, isNotNull, lte, or } from "drizzle-orm";
-
-import { getDb } from "./client";
+import { and, eq, isNotNull, lte, or } from "drizzle-orm"
+import {
+  decryptControlPlaneSecret,
+  encryptControlPlaneSecret,
+} from "../lib/crypto"
+import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types"
+import { getDb } from "./client"
 import {
   integrationOauthConnections,
   integrationOauthCredentials,
@@ -9,82 +13,77 @@ import {
   organizations,
   tenantIntegrations,
   users,
-} from "./schema";
-import {
-  decryptControlPlaneSecret,
-  encryptControlPlaneSecret,
-} from "../lib/crypto";
-import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types";
+} from "./schema"
 
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
->[0];
+>[0]
 
 export type IntegrationOAuthSessionRecord = {
-  authorizeParams: Record<string, string>;
-  consumedAt: Date | null;
-  expiresAt: Date;
-  id: string;
-  mode: string;
-  organizationId: string;
-  organizationSlug: string;
-  pkceCodeVerifier: string | null;
-  providerKey: string;
-  requestedScopes: string[];
-  stateNonce: string;
-  tenantId: string;
-  tenantIntegrationId: string | null;
-  userId: string;
-};
+  authorizeParams: Record<string, string>
+  consumedAt: Date | null
+  expiresAt: Date
+  id: string
+  mode: string
+  organizationId: string
+  organizationSlug: string
+  pkceCodeVerifier: string | null
+  providerKey: string
+  requestedScopes: string[]
+  stateNonce: string
+  tenantId: string
+  tenantIntegrationId: string | null
+  userId: string
+}
 
 export type RefreshableOAuthConnection = {
-  connectionId: string;
-  credentialsExpiresAt: Date | null;
-  providerKey: string;
-  refreshRetryAfter: Date | null;
-  status: string;
-  tenantId: string;
-  tenantIntegrationId: string;
-};
+  connectionId: string
+  credentialsExpiresAt: Date | null
+  providerKey: string
+  refreshRetryAfter: Date | null
+  status: string
+  tenantId: string
+  tenantIntegrationId: string
+}
 
 export type ClaimedOAuthRefreshConnection = {
-  connectionId: string;
-  currentStatus: string;
-  lastRefreshStartedAt: Date | null;
-  providerKey: string;
-  refreshAttemptCount: number;
-  refreshToken: string | null;
-  tenantIntegrationId: string;
-  tokenVersion: number;
-};
+  connectionId: string
+  currentStatus: string
+  lastRefreshStartedAt: Date | null
+  providerKey: string
+  refreshAttemptCount: number
+  refreshToken: string | null
+  tenantIntegrationId: string
+  tokenVersion: number
+}
 
 export type ConnectedOauthAccessRecord = {
-  accessToken: string;
-  connectionId: string;
-  credentialsExpiresAt: Date | null;
-  externalAccountId: string | null;
-  externalAccountLabel: string | null;
-  grantedScopes: string[];
-  providerKey: string;
-  requestedScopes: string[];
-  status: string;
-  tenantIntegrationId: string;
-};
+  accessToken: string
+  connectionId: string
+  credentialsExpiresAt: Date | null
+  externalAccountId: string | null
+  externalAccountLabel: string | null
+  grantedScopes: string[]
+  providerKey: string
+  requestedScopes: string[]
+  status: string
+  tenantIntegrationId: string
+}
 
 export async function createIntegrationOauthSession(input: {
-  authorizeParams: Record<string, string>;
-  expiresAt: Date;
-  mode: "connect" | "reconnect";
-  organizationId: string;
-  pkceCodeVerifier: string | null;
-  providerKey: string;
-  requestedScopes: string[];
-  stateNonce: string;
-  tenantId: string;
-  tenantIntegrationId?: string | null;
-  userId: string;
+  authorizeParams: Record<string, string>
+  expiresAt: Date
+  mode: "connect" | "reconnect"
+  organizationId: string
+  pkceCodeVerifier: string | null
+  providerKey: string
+  requestedScopes: string[]
+  stateNonce: string
+  tenantId: string
+  tenantIntegrationId?: string | null
+  userId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [created] = await db
     .insert(integrationOauthSessions)
     .values({
@@ -102,29 +101,29 @@ export async function createIntegrationOauthSession(input: {
     })
     .returning({
       id: integrationOauthSessions.id,
-    });
+    })
 
-  return created;
+  return created
 }
 
 export async function getLocalUserIdForExternalId(userExternalId: string) {
-  const db = getDb();
+  const db = getDb()
   const [row] = await db
     .select({
       id: users.id,
     })
     .from(users)
     .where(eq(users.externalId, userExternalId))
-    .limit(1);
+    .limit(1)
 
-  return row?.id ?? null;
+  return row?.id ?? null
 }
 
 export async function getIntegrationOauthSessionRecord(input: {
-  providerKey: string;
-  sessionId: string;
+  providerKey: string
+  sessionId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [row] = await db
     .select({
       authorizeParams: integrationOauthSessions.authorizeParamsJson,
@@ -153,10 +152,10 @@ export async function getIntegrationOauthSessionRecord(input: {
         eq(integrationOauthSessions.providerKey, input.providerKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!row) {
-    return null;
+    return null
   }
 
   return {
@@ -174,14 +173,14 @@ export async function getIntegrationOauthSessionRecord(input: {
     tenantId: row.tenantId,
     tenantIntegrationId: row.tenantIntegrationId,
     userId: row.userId,
-  } satisfies IntegrationOAuthSessionRecord;
+  } satisfies IntegrationOAuthSessionRecord
 }
 
 export async function getConnectedOauthAccessForTenantIntegration(input: {
-  providerKey: string;
-  tenantIntegrationId: string;
+  providerKey: string
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [row] = await db
     .select({
       accessTokenCiphertext: integrationOauthCredentials.accessTokenCiphertext,
@@ -212,10 +211,10 @@ export async function getConnectedOauthAccessForTenantIntegration(input: {
         eq(integrationOauthConnections.providerKey, input.providerKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!row) {
-    return null;
+    return null
   }
 
   return {
@@ -229,20 +228,20 @@ export async function getConnectedOauthAccessForTenantIntegration(input: {
     requestedScopes: splitScopeCsv(row.requestedScopesCsv),
     status: row.status,
     tenantIntegrationId: row.tenantIntegrationId,
-  } satisfies ConnectedOauthAccessRecord;
+  } satisfies ConnectedOauthAccessRecord
 }
 
 export async function appendIntegrationOauthEventTx(
   tx: DbTransaction,
   input: {
-    connectionId?: string | null;
-    details?: Record<string, unknown>;
-    errorMessage?: string | null;
-    eventType: string;
-    providerKey: string;
-    statusAfter?: string | null;
-    statusBefore?: string | null;
-    tenantIntegrationId?: string | null;
+    connectionId?: string | null
+    details?: Record<string, unknown>
+    errorMessage?: string | null
+    eventType: string
+    providerKey: string
+    statusAfter?: string | null
+    statusBefore?: string | null
+    tenantIntegrationId?: string | null
   },
 ) {
   await tx.insert(integrationOauthEvents).values({
@@ -254,7 +253,7 @@ export async function appendIntegrationOauthEventTx(
     statusAfter: input.statusAfter ?? null,
     statusBefore: input.statusBefore ?? null,
     tenantIntegrationId: input.tenantIntegrationId ?? null,
-  });
+  })
 }
 
 export async function markIntegrationOauthSessionConsumedTx(
@@ -268,21 +267,21 @@ export async function markIntegrationOauthSessionConsumedTx(
       consumedAt: now,
       updatedAt: now,
     })
-    .where(eq(integrationOauthSessions.id, sessionId));
+    .where(eq(integrationOauthSessions.id, sessionId))
 }
 
 export async function upsertOauthConnectionForTenantIntegrationTx(
   tx: DbTransaction,
   input: {
-    actorType: string | null;
-    eventType: "connect" | "reconnect";
-    externalAccountId?: string | null;
-    externalAccountLabel?: string | null;
-    now: Date;
-    providerKey: string;
-    requestedScopes: string[];
-    tenantIntegrationId: string;
-    tokenResult: OAuthTokenExchangeResult;
+    actorType: string | null
+    eventType: "connect" | "reconnect"
+    externalAccountId?: string | null
+    externalAccountLabel?: string | null
+    now: Date
+    providerKey: string
+    requestedScopes: string[]
+    tenantIntegrationId: string
+    tokenResult: OAuthTokenExchangeResult
   },
 ) {
   const [existingConnection] = await tx
@@ -298,10 +297,10 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
         input.tenantIntegrationId,
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  let connectionId = existingConnection?.id ?? null;
-  const nextTokenVersion = (existingConnection?.tokenVersion ?? 0) + 1;
+  let connectionId = existingConnection?.id ?? null
+  const nextTokenVersion = (existingConnection?.tokenVersion ?? 0) + 1
 
   if (connectionId) {
     await tx
@@ -330,7 +329,7 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
         tokenVersion: nextTokenVersion,
         updatedAt: input.now,
       })
-      .where(eq(integrationOauthConnections.id, connectionId));
+      .where(eq(integrationOauthConnections.id, connectionId))
   } else {
     const [created] = await tx
       .insert(integrationOauthConnections)
@@ -357,13 +356,13 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
       })
       .returning({
         id: integrationOauthConnections.id,
-      });
+      })
 
-    connectionId = created.id;
+    connectionId = created.id
   }
 
   if (!connectionId) {
-    throw new Error("OAuth connection could not be created.");
+    throw new Error("OAuth connection could not be created.")
   }
 
   const [existingCredentials] = await tx
@@ -372,7 +371,7 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
     })
     .from(integrationOauthCredentials)
     .where(eq(integrationOauthCredentials.connectionId, connectionId))
-    .limit(1);
+    .limit(1)
 
   const credentialValues = {
     accessTokenCiphertext: encryptControlPlaneSecret(
@@ -388,18 +387,18 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
     rotatedAt: input.now,
     tokenType: input.tokenResult.tokenType,
     updatedAt: input.now,
-  };
+  }
 
   if (existingCredentials) {
     await tx
       .update(integrationOauthCredentials)
       .set(credentialValues)
-      .where(eq(integrationOauthCredentials.id, existingCredentials.id));
+      .where(eq(integrationOauthCredentials.id, existingCredentials.id))
   } else {
     await tx.insert(integrationOauthCredentials).values({
       ...credentialValues,
       connectionId,
-    });
+    })
   }
 
   await appendIntegrationOauthEventTx(tx, {
@@ -415,23 +414,23 @@ export async function upsertOauthConnectionForTenantIntegrationTx(
     statusAfter: "connected",
     statusBefore: existingConnection?.status ?? null,
     tenantIntegrationId: input.tenantIntegrationId,
-  });
+  })
 
   return {
     connectionId,
-  };
+  }
 }
 
 export async function listOauthConnectionsNeedingRefresh(input?: {
-  bufferMs?: number;
-  limit?: number;
+  bufferMs?: number
+  limit?: number
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
   const refreshCutoff = new Date(
     now.getTime() + (input?.bufferMs ?? 5 * 60 * 1000),
-  );
-  const staleRefreshCutoff = new Date(now.getTime() - 15 * 60 * 1000);
+  )
+  const staleRefreshCutoff = new Date(now.getTime() - 15 * 60 * 1000)
   const rows = await db
     .select({
       connectionId: integrationOauthConnections.id,
@@ -481,17 +480,17 @@ export async function listOauthConnectionsNeedingRefresh(input?: {
         ),
       ),
     )
-    .limit(input?.limit ?? 10);
+    .limit(input?.limit ?? 10)
 
-  return rows satisfies RefreshableOAuthConnection[];
+  return rows satisfies RefreshableOAuthConnection[]
 }
 
 export async function claimOauthConnectionForRefresh(input: {
-  connectionId: string;
+  connectionId: string
 }) {
-  const db = getDb();
-  const now = new Date();
-  const staleRefreshCutoff = new Date(now.getTime() - 15 * 60 * 1000);
+  const db = getDb()
+  const now = new Date()
+  const staleRefreshCutoff = new Date(now.getTime() - 15 * 60 * 1000)
 
   return db.transaction(async (tx) => {
     const [connection] = await tx
@@ -524,10 +523,10 @@ export async function claimOauthConnectionForRefresh(input: {
         status: integrationOauthConnections.status,
         tenantIntegrationId: integrationOauthConnections.tenantIntegrationId,
         tokenVersion: integrationOauthConnections.tokenVersion,
-      });
+      })
 
     if (!connection) {
-      return null;
+      return null
     }
 
     const [credentials] = await tx
@@ -537,7 +536,7 @@ export async function claimOauthConnectionForRefresh(input: {
       })
       .from(integrationOauthCredentials)
       .where(eq(integrationOauthCredentials.connectionId, connection.id))
-      .limit(1);
+      .limit(1)
 
     return {
       connectionId: connection.id,
@@ -550,19 +549,19 @@ export async function claimOauthConnectionForRefresh(input: {
         : null,
       tenantIntegrationId: connection.tenantIntegrationId,
       tokenVersion: connection.tokenVersion,
-    } satisfies ClaimedOAuthRefreshConnection;
-  });
+    } satisfies ClaimedOAuthRefreshConnection
+  })
 }
 
 export async function applyOauthRefreshSuccess(input: {
-  connectionId: string;
-  providerKey: string;
-  requestedScopes: string[];
-  tenantIntegrationId: string;
-  tokenResult: OAuthTokenExchangeResult;
+  connectionId: string
+  providerKey: string
+  requestedScopes: string[]
+  tenantIntegrationId: string
+  tokenResult: OAuthTokenExchangeResult
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [existingConnection] = await tx
@@ -572,10 +571,10 @@ export async function applyOauthRefreshSuccess(input: {
       })
       .from(integrationOauthConnections)
       .where(eq(integrationOauthConnections.id, input.connectionId))
-      .limit(1);
+      .limit(1)
 
     if (!existingConnection) {
-      throw new Error("OAuth connection not found.");
+      throw new Error("OAuth connection not found.")
     }
 
     await tx
@@ -594,7 +593,7 @@ export async function applyOauthRefreshSuccess(input: {
         tokenVersion: existingConnection.tokenVersion + 1,
         updatedAt: now,
       })
-      .where(eq(integrationOauthConnections.id, input.connectionId));
+      .where(eq(integrationOauthConnections.id, input.connectionId))
 
     await tx
       .update(integrationOauthCredentials)
@@ -613,7 +612,7 @@ export async function applyOauthRefreshSuccess(input: {
         tokenType: input.tokenResult.tokenType,
         updatedAt: now,
       })
-      .where(eq(integrationOauthCredentials.connectionId, input.connectionId));
+      .where(eq(integrationOauthCredentials.connectionId, input.connectionId))
 
     await tx
       .update(tenantIntegrations)
@@ -625,7 +624,7 @@ export async function applyOauthRefreshSuccess(input: {
         status: "connected",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, input.tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
 
     await appendIntegrationOauthEventTx(tx, {
       connectionId: input.connectionId,
@@ -638,21 +637,21 @@ export async function applyOauthRefreshSuccess(input: {
       statusAfter: "connected",
       statusBefore: existingConnection.status,
       tenantIntegrationId: input.tenantIntegrationId,
-    });
-  });
+    })
+  })
 }
 
 export async function recordOauthRefreshFailure(input: {
-  connectionId: string;
-  errorMessage: string;
-  kind: "reauthorize" | "transient";
-  providerKey: string;
-  tenantIntegrationId: string;
+  connectionId: string
+  errorMessage: string
+  kind: "reauthorize" | "transient"
+  providerKey: string
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
   const retryAfter =
-    input.kind === "transient" ? new Date(now.getTime() + 5 * 60 * 1000) : null;
+    input.kind === "transient" ? new Date(now.getTime() + 5 * 60 * 1000) : null
 
   await db.transaction(async (tx) => {
     const [existingConnection] = await tx
@@ -662,14 +661,14 @@ export async function recordOauthRefreshFailure(input: {
       })
       .from(integrationOauthConnections)
       .where(eq(integrationOauthConnections.id, input.connectionId))
-      .limit(1);
+      .limit(1)
 
     if (!existingConnection) {
-      return;
+      return
     }
 
     const nextStatus =
-      input.kind === "reauthorize" ? "needs_attention" : "connected";
+      input.kind === "reauthorize" ? "needs_attention" : "connected"
 
     await tx
       .update(integrationOauthConnections)
@@ -682,7 +681,7 @@ export async function recordOauthRefreshFailure(input: {
         status: nextStatus,
         updatedAt: now,
       })
-      .where(eq(integrationOauthConnections.id, input.connectionId));
+      .where(eq(integrationOauthConnections.id, input.connectionId))
 
     await tx
       .update(tenantIntegrations)
@@ -692,7 +691,7 @@ export async function recordOauthRefreshFailure(input: {
         status: input.kind === "reauthorize" ? "error" : "connected",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, input.tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
 
     await appendIntegrationOauthEventTx(tx, {
       connectionId: input.connectionId,
@@ -705,19 +704,19 @@ export async function recordOauthRefreshFailure(input: {
       statusAfter: nextStatus,
       statusBefore: existingConnection.status,
       tenantIntegrationId: input.tenantIntegrationId,
-    });
-  });
+    })
+  })
 }
 
 export async function recordOauthConnectionAttention(input: {
-  connectionId: string;
-  errorMessage: string;
-  eventType: string;
-  providerKey: string;
-  tenantIntegrationId: string;
+  connectionId: string
+  errorMessage: string
+  eventType: string
+  providerKey: string
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [existingConnection] = await tx
@@ -726,10 +725,10 @@ export async function recordOauthConnectionAttention(input: {
       })
       .from(integrationOauthConnections)
       .where(eq(integrationOauthConnections.id, input.connectionId))
-      .limit(1);
+      .limit(1)
 
     if (!existingConnection) {
-      return;
+      return
     }
 
     await tx
@@ -740,7 +739,7 @@ export async function recordOauthConnectionAttention(input: {
         status: "needs_attention",
         updatedAt: now,
       })
-      .where(eq(integrationOauthConnections.id, input.connectionId));
+      .where(eq(integrationOauthConnections.id, input.connectionId))
 
     await tx
       .update(tenantIntegrations)
@@ -750,7 +749,7 @@ export async function recordOauthConnectionAttention(input: {
         status: "error",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, input.tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
 
     await appendIntegrationOauthEventTx(tx, {
       connectionId: input.connectionId,
@@ -760,21 +759,21 @@ export async function recordOauthConnectionAttention(input: {
       statusAfter: "needs_attention",
       statusBefore: existingConnection.status,
       tenantIntegrationId: input.tenantIntegrationId,
-    });
-  });
+    })
+  })
 }
 
 function joinScopeCsv(scopes: string[]) {
-  return scopes.length > 0 ? scopes.join(",") : null;
+  return scopes.length > 0 ? scopes.join(",") : null
 }
 
 function splitScopeCsv(csv: string | null) {
   if (!csv) {
-    return [];
+    return []
   }
 
   return csv
     .split(",")
     .map((scope) => scope.trim())
-    .filter(Boolean);
+    .filter(Boolean)
 }

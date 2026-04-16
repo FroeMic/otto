@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDocumentCollectionCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearDocumentFields,
   type LinearDocumentNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const SEARCH_DOCUMENTS_QUERY = `
   query OttoLinearDocumentSearch($limit: Int!, $term: String!) {
@@ -16,31 +16,31 @@ const SEARCH_DOCUMENTS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearDocumentSearch: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const query = typeof args.query === "string" ? args.query.trim() : "";
+  const query = typeof args.query === "string" ? args.query.trim() : ""
 
   if (!query) {
-    throw new Error("linear document.search requires query.");
+    throw new Error("linear document.search requires query.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 10,
     max: 25,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     searchDocuments?: {
-      nodes?: LinearDocumentNode[] | null;
-    } | null;
+      nodes?: LinearDocumentNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: SEARCH_DOCUMENTS_QUERY,
@@ -48,7 +48,7 @@ export const executeLinearDocumentSearch: IntegrationCommandExecute = async ({
       limit,
       term: query,
     },
-  });
+  })
 
   return {
     ...buildLinearDocumentCollectionCommandResult({
@@ -57,5 +57,5 @@ export const executeLinearDocumentSearch: IntegrationCommandExecute = async ({
       limit,
     }),
     query,
-  };
-};
+  }
+}

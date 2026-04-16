@@ -1,18 +1,29 @@
 import {
-  forwardSlackIngressForTeam,
-  type SlackIngressRequestType,
-} from "../../../../db/control-plane";
-
-import {
   buildForwardedSlackHeaders,
   parseSlackIngressRequest,
 } from "./request";
+import type {
+  ForwardSlackIngressForTeam,
+  SlackIngressRequestType,
+} from "./types";
 
 export async function handleSlackIngressRequest(
   request: Request,
   requestType: SlackIngressRequestType,
+  options: {
+    forwardSlackIngressForTeam?: ForwardSlackIngressForTeam;
+  } = {},
 ) {
   try {
+    if (!options.forwardSlackIngressForTeam) {
+      return Response.json(
+        {
+          error: "Slack ingress forwarding is not configured for this runtime surface.",
+        },
+        { status: 501 },
+      );
+    }
+
     const body = await request.text();
     const parsed = parseSlackIngressRequest({
       body,
@@ -37,7 +48,7 @@ export async function handleSlackIngressRequest(
       );
     }
 
-    const response = await forwardSlackIngressForTeam({
+    const response = await options.forwardSlackIngressForTeam({
       body,
       enterpriseId: parsed.enterpriseId,
       headers: buildForwardedSlackHeaders(request),

@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDocumentCollectionCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearDocumentFields,
   type LinearDocumentNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_DOCUMENTS_QUERY = `
   query OttoLinearDocumentList($limit: Int!) {
@@ -16,36 +16,36 @@ const LIST_DOCUMENTS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearDocumentList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     documents?: {
-      nodes?: LinearDocumentNode[] | null;
-    } | null;
+      nodes?: LinearDocumentNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_DOCUMENTS_QUERY,
     variables: {
       limit,
     },
-  });
+  })
 
   return buildLinearDocumentCollectionCommandResult({
     commandKey: "document.list",
     items: data.documents?.nodes ?? [],
     limit,
-  });
-};
+  })
+}

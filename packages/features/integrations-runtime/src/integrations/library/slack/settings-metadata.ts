@@ -1,4 +1,4 @@
-import type { AgentCapability } from "../../../lib/agent-capabilities";
+import type { AgentCapability } from "../../../lib/agent-capabilities"
 
 type ToolSurfaceAction =
   | "install"
@@ -6,25 +6,25 @@ type ToolSurfaceAction =
   | "enable"
   | "disable"
   | "update"
-  | "reapply";
+  | "reapply"
 
 type ToolFieldMeaning = {
-  description: string;
-  key: string;
-  label: string;
-};
+  description: string
+  key: string
+  label: string
+}
 
 type ToolActionMeaning = {
-  action: ToolSurfaceAction;
-  description: string;
-  label: string;
-};
+  action: ToolSurfaceAction
+  description: string
+  label: string
+}
 
 type ToolAgentOperation = {
-  description: string;
-  key: string;
-  label: string;
-};
+  description: string
+  key: string
+  label: string
+}
 
 export const slackFieldMeanings: ToolFieldMeaning[] = [
   {
@@ -63,7 +63,7 @@ export const slackFieldMeanings: ToolFieldMeaning[] = [
     key: "ackReactionEnabled",
     label: "Ack reaction",
   },
-];
+]
 
 export const slackAgentOperations: ToolAgentOperation[] = [
   {
@@ -72,7 +72,7 @@ export const slackAgentOperations: ToolAgentOperation[] = [
     key: "configure_integration",
     label: "Configure Slack",
   },
-];
+]
 
 export const slackSettingsExamples = [
   {
@@ -97,7 +97,7 @@ export const slackSettingsExamples = [
     },
     summary: "Disabled Slack acknowledgement reaction",
   },
-];
+]
 
 export const slackAgentCapabilities: AgentCapability[] = [
   {
@@ -152,7 +152,7 @@ export const slackAgentCapabilities: AgentCapability[] = [
     source: "integration",
     userControllable: false,
   },
-];
+]
 
 export const slackActionMeanings: ToolActionMeaning[] = [
   {
@@ -191,4 +191,4 @@ export const slackActionMeanings: ToolActionMeaning[] = [
       "Re-run desired-state compilation and queue a tenant apply without changing the saved Slack settings.",
     label: "Reapply",
   },
-];
+]

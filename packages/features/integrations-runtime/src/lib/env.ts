@@ -88,7 +88,9 @@ export function getControlPlaneBaseUrl() {
     deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
     env.WORKOS_BASE_URL ??
     deriveBaseUrlFromUri(
-      env.WORKOS_REDIRECT_URI ?? env.SLACK_REDIRECT_URI ?? env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
+      env.WORKOS_REDIRECT_URI ??
+        env.SLACK_REDIRECT_URI ??
+        env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
     )
   )
 }

@@ -1,5 +1,5 @@
-import type { SlackIngressRequestType } from "../../../../db/control-plane";
 import type { IntegrationIngressDefinition } from "../../../framework";
+import type { SlackIngressRequestType } from "./types";
 
 export type SlackIngressEndpointKey = SlackIngressRequestType;
 

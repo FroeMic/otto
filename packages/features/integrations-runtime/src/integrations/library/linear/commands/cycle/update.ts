@@ -1,12 +1,12 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCycleCommandResult,
   executeLinearGraphql,
   getLinearCycleFields,
   type LinearCycleNode,
-} from "../../client";
-import { buildLinearCycleUpdateInput } from "./input";
+} from "../../client"
+import { buildLinearCycleUpdateInput } from "./input"
 
 const UPDATE_CYCLE_MUTATION = `
   mutation OttoLinearCycleUpdate($id: String!, $input: CycleUpdateInput!) {
@@ -18,29 +18,29 @@ const UPDATE_CYCLE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearCycleUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : "";
+  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : ""
 
   if (!cycleId) {
-    throw new Error("linear cycle.update requires cycleId.");
+    throw new Error("linear cycle.update requires cycleId.")
   }
 
-  const input = buildLinearCycleUpdateInput(args);
+  const input = buildLinearCycleUpdateInput(args)
   const data = await executeLinearGraphql<{
     cycleUpdate?: {
-      cycle?: LinearCycleNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      cycle?: LinearCycleNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_CYCLE_MUTATION,
@@ -48,7 +48,7 @@ export const executeLinearCycleUpdate: IntegrationCommandExecute = async ({
       id: cycleId,
       input,
     },
-  });
+  })
 
   return {
     ...buildLinearCycleCommandResult({
@@ -58,5 +58,5 @@ export const executeLinearCycleUpdate: IntegrationCommandExecute = async ({
       success: data.cycleUpdate?.success,
     }),
     lookup: cycleId,
-  };
-};
+  }
+}

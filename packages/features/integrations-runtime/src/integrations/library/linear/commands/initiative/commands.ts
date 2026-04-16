@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDeleteCommandResult,
@@ -15,11 +15,11 @@ import {
   type LinearInitiativeUpdateNode,
   type LinearProjectNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 import {
   buildLinearInitiativeCreateInput,
   buildLinearInitiativeUpdateInput,
-} from "./input";
+} from "./input"
 
 const LIST_INITIATIVES_QUERY = `
   query OttoLinearInitiativeList($limit: Int!) {
@@ -29,7 +29,7 @@ const LIST_INITIATIVES_QUERY = `
       }
     }
   }
-`;
+`
 
 const GET_INITIATIVE_QUERY = `
   query OttoLinearInitiativeGet($id: String!) {
@@ -37,7 +37,7 @@ const GET_INITIATIVE_QUERY = `
       ${getLinearInitiativeFields()}
     }
   }
-`;
+`
 
 const CREATE_INITIATIVE_MUTATION = `
   mutation OttoLinearInitiativeCreate($input: InitiativeCreateInput!) {
@@ -49,7 +49,7 @@ const CREATE_INITIATIVE_MUTATION = `
       success
     }
   }
-`;
+`
 
 const UPDATE_INITIATIVE_MUTATION = `
   mutation OttoLinearInitiativeUpdate($id: String!, $input: InitiativeUpdateInput!) {
@@ -61,7 +61,7 @@ const UPDATE_INITIATIVE_MUTATION = `
       success
     }
   }
-`;
+`
 
 const ARCHIVE_INITIATIVE_MUTATION = `
   mutation OttoLinearInitiativeArchive($id: String!) {
@@ -73,7 +73,7 @@ const ARCHIVE_INITIATIVE_MUTATION = `
       success
     }
   }
-`;
+`
 
 const DELETE_INITIATIVE_MUTATION = `
   mutation OttoLinearInitiativeDelete($id: String!) {
@@ -83,7 +83,7 @@ const DELETE_INITIATIVE_MUTATION = `
       success
     }
   }
-`;
+`
 
 const LIST_INITIATIVE_PROJECTS_QUERY = `
   query OttoLinearInitiativeListProjects($id: String!, $limit: Int!) {
@@ -96,7 +96,7 @@ const LIST_INITIATIVE_PROJECTS_QUERY = `
       }
     }
   }
-`;
+`
 
 const LIST_INITIATIVE_UPDATES_QUERY = `
   query OttoLinearInitiativeListUpdates($id: String!, $limit: Int!) {
@@ -109,7 +109,7 @@ const LIST_INITIATIVE_UPDATES_QUERY = `
       }
     }
   }
-`;
+`
 
 const CREATE_INITIATIVE_UPDATE_MUTATION = `
   mutation OttoLinearInitiativeUpdateCreate($input: InitiativeUpdateCreateInput!) {
@@ -121,60 +121,60 @@ const CREATE_INITIATIVE_UPDATE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearInitiativeList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     initiatives?: {
-      nodes?: LinearInitiativeNode[] | null;
-    } | null;
+      nodes?: LinearInitiativeNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_INITIATIVES_QUERY,
     variables: { limit },
-  });
+  })
 
   return buildLinearInitiativeCollectionCommandResult({
     commandKey: "initiative.list",
     items: data.initiatives?.nodes ?? [],
     limit,
-  });
-};
+  })
+}
 
 export const executeLinearInitiativeGet: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const initiativeId =
-    typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+    typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
   if (!initiativeId) {
-    throw new Error("linear initiative.get requires initiativeId.");
+    throw new Error("linear initiative.get requires initiativeId.")
   }
 
   const data = await executeLinearGraphql<{
-    initiative?: LinearInitiativeNode | null;
+    initiative?: LinearInitiativeNode | null
   }>({
     accessToken: context.auth.accessToken,
     query: GET_INITIATIVE_QUERY,
     variables: { id: initiativeId },
-  });
+  })
 
   return {
     ...buildLinearInitiativeCommandResult({
@@ -182,133 +182,133 @@ export const executeLinearInitiativeGet: IntegrationCommandExecute = async ({
       initiative: data.initiative,
     }),
     lookup: initiativeId,
-  };
-};
+  }
+}
 
 export const executeLinearInitiativeCreate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const input = buildLinearInitiativeCreateInput(args);
+  const input = buildLinearInitiativeCreateInput(args)
   const data = await executeLinearGraphql<{
     initiativeCreate?: {
-      initiative?: LinearInitiativeNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      initiative?: LinearInitiativeNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: CREATE_INITIATIVE_MUTATION,
     variables: { input },
-  });
+  })
 
   return buildLinearInitiativeCommandResult({
     commandKey: "initiative.create",
     initiative: data.initiativeCreate?.initiative,
     lastSyncId: data.initiativeCreate?.lastSyncId,
     success: data.initiativeCreate?.success,
-  });
-};
+  })
+}
 
 export const executeLinearInitiativeUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const initiativeId =
-    typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+    typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
   if (!initiativeId) {
-    throw new Error("linear initiative.update requires initiativeId.");
+    throw new Error("linear initiative.update requires initiativeId.")
   }
 
-  const input = buildLinearInitiativeUpdateInput(args);
+  const input = buildLinearInitiativeUpdateInput(args)
   const data = await executeLinearGraphql<{
     initiativeUpdate?: {
-      initiative?: LinearInitiativeNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      initiative?: LinearInitiativeNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_INITIATIVE_MUTATION,
     variables: { id: initiativeId, input },
-  });
+  })
 
   return buildLinearInitiativeCommandResult({
     commandKey: "initiative.update",
     initiative: data.initiativeUpdate?.initiative,
     lastSyncId: data.initiativeUpdate?.lastSyncId,
     success: data.initiativeUpdate?.success,
-  });
-};
+  })
+}
 
 export const executeLinearInitiativeArchive: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const initiativeId =
-      typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+      typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
     if (!initiativeId) {
-      throw new Error("linear initiative.archive requires initiativeId.");
+      throw new Error("linear initiative.archive requires initiativeId.")
     }
 
     const data = await executeLinearGraphql<{
       initiativeArchive?: {
-        entity?: LinearInitiativeNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entity?: LinearInitiativeNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: ARCHIVE_INITIATIVE_MUTATION,
       variables: { id: initiativeId },
-    });
+    })
 
     return buildLinearInitiativeCommandResult({
       commandKey: "initiative.archive",
       initiative: data.initiativeArchive?.entity,
       lastSyncId: data.initiativeArchive?.lastSyncId,
       success: data.initiativeArchive?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearInitiativeDelete: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const initiativeId =
-    typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+    typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
   if (!initiativeId) {
-    throw new Error("linear initiative.delete requires initiativeId.");
+    throw new Error("linear initiative.delete requires initiativeId.")
   }
 
   const data = await executeLinearGraphql<{
     initiativeDelete?: {
-      entityId?: string | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      entityId?: string | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: DELETE_INITIATIVE_MUTATION,
     variables: { id: initiativeId },
-  });
+  })
 
   return {
     ...buildLinearDeleteCommandResult({
@@ -319,45 +319,45 @@ export const executeLinearInitiativeDelete: IntegrationCommandExecute = async ({
       success: data.initiativeDelete?.success,
     }),
     lookup: initiativeId,
-  };
-};
+  }
+}
 
 export const executeLinearInitiativeListProjects: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const initiativeId =
-      typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+      typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
     if (!initiativeId) {
-      throw new Error("linear initiative.list_projects requires initiativeId.");
+      throw new Error("linear initiative.list_projects requires initiativeId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       initiative?:
         | (LinearInitiativeNode & {
             projects?: {
-              nodes?: LinearProjectNode[] | null;
-            } | null;
+              nodes?: LinearProjectNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_INITIATIVE_PROJECTS_QUERY,
       variables: { id: initiativeId, limit },
-    });
+    })
 
     if (!data.initiative) {
       throw new Error(
         "Linear returned no initiative for initiative.list_projects.",
-      );
+      )
     }
 
     return {
@@ -371,45 +371,45 @@ export const executeLinearInitiativeListProjects: IntegrationCommandExecute =
         initiative: data.initiative,
       }).initiative,
       lookup: initiativeId,
-    };
-  };
+    }
+  }
 
 export const executeLinearInitiativeListUpdates: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const initiativeId =
-      typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+      typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
     if (!initiativeId) {
-      throw new Error("linear initiative.list_updates requires initiativeId.");
+      throw new Error("linear initiative.list_updates requires initiativeId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       initiative?:
         | (LinearInitiativeNode & {
             initiativeUpdates?: {
-              nodes?: LinearInitiativeUpdateNode[] | null;
-            } | null;
+              nodes?: LinearInitiativeUpdateNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_INITIATIVE_UPDATES_QUERY,
       variables: { id: initiativeId, limit },
-    });
+    })
 
     if (!data.initiative) {
       throw new Error(
         "Linear returned no initiative for initiative.list_updates.",
-      );
+      )
     }
 
     return {
@@ -420,54 +420,54 @@ export const executeLinearInitiativeListUpdates: IntegrationCommandExecute =
         limit,
       }),
       lookup: initiativeId,
-    };
-  };
+    }
+  }
 
 export const executeLinearInitiativeCreateUpdate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const initiativeId =
-      typeof args.initiativeId === "string" ? args.initiativeId.trim() : "";
+      typeof args.initiativeId === "string" ? args.initiativeId.trim() : ""
 
     if (!initiativeId) {
-      throw new Error("linear initiative.create_update requires initiativeId.");
+      throw new Error("linear initiative.create_update requires initiativeId.")
     }
 
     const input: {
-      body?: string;
-      health?: string;
-      initiativeId: string;
-      isDiffHidden?: boolean;
+      body?: string
+      health?: string
+      initiativeId: string
+      isDiffHidden?: boolean
     } = {
       initiativeId,
-    };
+    }
 
     if (typeof args.body === "string" && args.body.trim()) {
-      input.body = args.body;
+      input.body = args.body
     }
 
     if (typeof args.health === "string" && args.health.trim()) {
-      input.health = args.health.trim();
+      input.health = args.health.trim()
     }
 
     if (typeof args.isDiffHidden === "boolean") {
-      input.isDiffHidden = args.isDiffHidden;
+      input.isDiffHidden = args.isDiffHidden
     }
 
     const data = await executeLinearGraphql<{
       initiativeUpdateCreate?: {
-        initiativeUpdate?: LinearInitiativeUpdateNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        initiativeUpdate?: LinearInitiativeUpdateNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: CREATE_INITIATIVE_UPDATE_MUTATION,
       variables: { input },
-    });
+    })
 
     return {
       ...buildLinearInitiativeUpdateCommandResult({
@@ -477,5 +477,5 @@ export const executeLinearInitiativeCreateUpdate: IntegrationCommandExecute =
         success: data.initiativeUpdateCreate?.success,
       }),
       lookup: initiativeId,
-    };
-  };
+    }
+  }
