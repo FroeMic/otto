@@ -3,6 +3,8 @@ import {
   platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
+  platformCreateOrganizationResponseSchema,
+  platformCreateOrganizationSchema,
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
@@ -28,6 +30,7 @@ import {
 } from "../workspace/data"
 import { authenticatePlatformRequest, type PlatformGuardDependencies } from "./guard"
 import {
+  createPlatformOrganization,
   getPlatformJobStatus,
   getPlatformOrganizationDetail,
   getPlatformOrganizations,
@@ -63,6 +66,11 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
     user: WorkspaceShellUser
   }) => Promise<unknown>
   getPlatformOrganizations: (input: {
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  createPlatformOrganization: (input: {
+    name: string
+    slug?: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
   getPlatformSnapshots: (input: {
@@ -130,6 +138,12 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
       }),
     getPlatformOrganizations: ({ user }) =>
       getPlatformOrganizations({
+        userExternalId: user.id,
+      }),
+    createPlatformOrganization: ({ name, slug, user }) =>
+      createPlatformOrganization({
+        name,
+        slug,
         userExternalId: user.id,
       }),
     getPlatformSnapshots: ({ user }) =>
@@ -225,7 +239,20 @@ function handlePlatformRouteError(error: unknown) {
 
   if (
     error instanceof Error &&
+    error.message === "Organization slug is required"
+  ) {
+    return {
+      code: "bad_request",
+      message: error.message,
+      status: 400,
+    } as const
+  }
+
+  if (
+    error instanceof Error &&
     (error.message === "Organization already has a tenant server" ||
+      error.message === "Organization slug is already in use" ||
+      error.message === "Organization slug is reserved" ||
       error.message === "Workspace deletion is already queued or running")
   ) {
     return {
@@ -310,6 +337,50 @@ export function createPlatformRouter(
         },
       )
     })
+    .post(
+      "/api/platform/organizations",
+      zValidator("json", platformCreateOrganizationSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const payload = context.req.valid("json")
+
+        try {
+          const organization = await dependencies.createPlatformOrganization({
+            name: payload.name,
+            slug: payload.slug,
+            user: authResult.user,
+          })
+
+          return context.json(
+            platformCreateOrganizationResponseSchema.parse({
+              organization,
+            }),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
     .get("/api/platform/snapshots", async (context) => {
       const authResult = await authenticateUser(context.req.raw)
 

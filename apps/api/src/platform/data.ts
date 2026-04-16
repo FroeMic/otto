@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto"
 import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "@otto/feature-workspace-slugs"
+import {
   creditLedgerEntries,
   integrationOauthConnections,
   jobEvents,
@@ -56,6 +60,42 @@ const JOB_TYPES = {
 } as const
 
 type PlatformProvisioningStrategy = "legacy_base_image" | "hetzner_snapshot"
+
+function buildPlatformOrganizationExternalId() {
+  return `platform_${randomUUID()}`
+}
+
+async function resolvePlatformOrganizationSlug(input: {
+  name: string
+  slug?: string
+}) {
+  const normalizedSlug =
+    typeof input.slug === "string" && input.slug.trim().length > 0
+      ? normalizeWorkspaceSlug(input.slug)
+      : normalizeWorkspaceSlug(input.name)
+
+  if (!normalizedSlug) {
+    throw new Error("Organization slug is required")
+  }
+
+  if (isReservedWorkspaceSlug(normalizedSlug)) {
+    throw new Error("Organization slug is reserved")
+  }
+
+  const [existingOrganization] = await getDb()
+    .select({
+      id: organizations.id,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, normalizedSlug))
+    .limit(1)
+
+  if (existingOrganization) {
+    throw new Error("Organization slug is already in use")
+  }
+
+  return normalizedSlug
+}
 
 function buildSnapshotGeneration() {
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
@@ -685,6 +725,56 @@ export async function getPlatformOrganizations(input: {
       timezone: organization.timezone,
     }
   })
+}
+
+export async function createPlatformOrganization(input: {
+  name: string
+  slug?: string
+  userExternalId: string
+}) {
+  const slug = await resolvePlatformOrganizationSlug({
+    name: input.name,
+    slug: input.slug,
+  })
+  const [createdOrganization] = await getDb()
+    .insert(organizations)
+    .values({
+      externalId: buildPlatformOrganizationExternalId(),
+      isReady: false,
+      name: input.name.trim(),
+      slug,
+    })
+    .returning({
+      id: organizations.id,
+      isReady: organizations.isReady,
+      locale: organizations.locale,
+      name: organizations.name,
+      slug: organizations.slug,
+      timeFormatPreference: organizations.timeFormatPreference,
+      timezone: organizations.timezone,
+    })
+
+  if (!createdOrganization) {
+    throw new Error("Failed to create platform organization")
+  }
+
+  return {
+    configuredRuntimeImage: getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null,
+    configuredRuntimeImageVersion: extractRuntimeImageVersion(
+      getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null,
+    ),
+    id: createdOrganization.id,
+    isReady: createdOrganization.isReady,
+    locale: createdOrganization.locale,
+    name: createdOrganization.name,
+    observedRuntimeImage: null,
+    observedRuntimeImageVersion: null,
+    slackIntegration: null,
+    slug: createdOrganization.slug,
+    tenant: null,
+    timeFormatPreference: createdOrganization.timeFormatPreference,
+    timezone: createdOrganization.timezone,
+  }
 }
 
 export async function getPlatformOrganizationDetail(input: {

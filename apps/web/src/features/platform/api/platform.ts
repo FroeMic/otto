@@ -2,6 +2,8 @@ import {
   platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
+  platformCreateOrganizationResponseSchema,
+  platformCreateOrganizationSchema,
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
@@ -15,6 +17,8 @@ import {
   platformUsageSchema,
   type PlatformBootstrap,
   type PlatformBakeOnboardingSnapshotResponse,
+  type PlatformCreateOrganizationInput,
+  type PlatformCreateOrganizationResponse,
   type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
@@ -53,6 +57,18 @@ export function platformOrganizationsQueryOptions() {
     queryKey: ["platform-organizations"],
     staleTime: 30_000,
   })
+}
+
+export async function createPlatformOrganization(
+  payload: PlatformCreateOrganizationInput,
+): Promise<PlatformCreateOrganizationResponse> {
+  const response = await apiClient.api.platform.organizations.$post({
+    json: platformCreateOrganizationSchema.parse(payload),
+  })
+
+  return fetchApiResponse(response, (data) =>
+    platformCreateOrganizationResponseSchema.parse(data),
+  )
 }
 
 export function platformSnapshotsQueryOptions() {
