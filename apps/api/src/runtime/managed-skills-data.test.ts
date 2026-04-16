@@ -25,7 +25,7 @@ vi.mock("@otto/feature-runtime-core", () => ({
       files: [
         {
           contentText:
-            "---\nname: Brand Name Generator\ndescription: Founders naming workflow.\nintegrations:\n- brave\n- gandi\nskills: []\n---\n\n# Brand Name Generator\n",
+            "---\nname: Name Generator\ndescription: Founders naming workflow.\nintegrations:\n- brave\n- gandi\nskills: []\n---\n\n# Name Generator\n",
           path: "SKILL.md",
         },
         {
@@ -52,7 +52,7 @@ function createDbListMock() {
   const orderBy = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
-      displayName: "Brand Name Generator",
+      displayName: "Name Generator",
       enabled: true,
       skillId: "skill_123",
       skillKey: "name-and-domain-research",
@@ -81,7 +81,7 @@ function createDbDetailMock() {
   const limitSkill = vi.fn().mockResolvedValue([
     {
       description: "Founders naming workflow",
-      displayName: "Brand Name Generator",
+      displayName: "Name Generator",
       enabled: true,
       skillId: "skill_123",
       skillKey: "name-and-domain-research",
@@ -118,7 +118,7 @@ function createDbDetailMock() {
     {
       contentEncoding: "utf8_text",
       contentSha256: "abc123",
-      contentText: "---\nname: Brand Name Generator\n---\n",
+      contentText: "---\nname: Name Generator\n---\n",
       contentType: "text/markdown",
       fileKind: "managed_entry",
       relativePath: "SKILL.md",
@@ -183,7 +183,7 @@ function createReadyRuntimeDbMockForInstall() {
     [
       {
         description: "Founders naming workflow",
-        displayName: "Brand Name Generator",
+        displayName: "Name Generator",
         enabled: true,
         skillId: "skill_123",
         skillKey: "name-and-domain-research",
@@ -204,7 +204,7 @@ function createReadyRuntimeDbMockForInstall() {
         contentEncoding: "utf8_text",
         contentSha256: "abc123",
         contentText:
-          "---\nname: Brand Name Generator\ndescription: Founders naming workflow.\n---\n",
+          "---\nname: Name Generator\ndescription: Founders naming workflow.\n---\n",
         contentType: "text/markdown",
         fileKind: "managed_entry",
         relativePath: "SKILL.md",
@@ -266,7 +266,7 @@ function createReadyRuntimeDbMockForDelete() {
     [
       {
         description: "Founders naming workflow",
-        displayName: "Brand Name Generator",
+        displayName: "Name Generator",
         enabled: true,
         skillId: "skill_123",
         skillKey: "name-and-domain-research",
@@ -287,7 +287,7 @@ function createReadyRuntimeDbMockForDelete() {
         contentEncoding: "utf8_text",
         contentSha256: "abc123",
         contentText:
-          "---\nname: Brand Name Generator\ndescription: Founders naming workflow.\n---\n",
+          "---\nname: Name Generator\ndescription: Founders naming workflow.\n---\n",
         contentType: "text/markdown",
         fileKind: "managed_entry",
         relativePath: "SKILL.md",
@@ -365,7 +365,7 @@ describe("api managed skill data", () => {
       files: [
         {
           contentText:
-            "---\nname: Brand Name Generator\ndescription: Founders naming workflow.\nintegrations:\n- brave\n- gandi\nskills: []\n---\n\n# Brand Name Generator\n",
+            "---\nname: Name Generator\ndescription: Founders naming workflow.\nintegrations:\n- brave\n- gandi\nskills: []\n---\n\n# Name Generator\n",
           path: "SKILL.md",
         },
         {
