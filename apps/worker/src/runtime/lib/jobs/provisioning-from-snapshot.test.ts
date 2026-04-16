@@ -125,6 +125,59 @@ describe("processProvisionTenantServerFromSnapshotJob", () => {
     );
   });
 
+  it("requeues snapshot host verification while the restored host is still settling", async () => {
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto";
+    process.env.HETZNER_API_TOKEN = "test-token";
+    process.env.HETZNER_POLL_INTERVAL_MS = "5000";
+    envTesting.resetEnvCacheForTests();
+    const deps = buildDeps({
+      verifySnapshotHostReady: vi.fn(async () => {
+        throw new Error("docker is not active");
+      }),
+    });
+
+    await processProvisionTenantServerFromSnapshotJob(
+      {
+        attempt: 27,
+        id: "job_1",
+        jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
+        payload: {
+          ipv4: "1.2.3.4",
+          providerServerId: "server_1",
+          snapshotHostVerifyStartedAt: new Date().toISOString(),
+          sourceSnapshotId: "snapshot-123",
+          step: SNAPSHOT_PROVISIONING_STEPS.verifySnapshotHost,
+          tenantId: "tenant_1",
+        },
+        tenantId: "tenant_1",
+      },
+      deps,
+    );
+
+    expect(deps.markJobFailed).not.toHaveBeenCalled();
+    expect(deps.appendJobEvent).toHaveBeenCalledWith(
+      "job_1",
+      SNAPSHOT_PROVISIONING_STATUSES.verifyingSnapshotHost,
+      "Snapshot host contract is not ready yet",
+      expect.objectContaining({
+        error: "docker is not active",
+        ipv4: "1.2.3.4",
+        providerServerId: "server_1",
+        sourceSnapshotId: "snapshot-123",
+      }),
+    );
+    expect(deps.requeueJob).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        providerServerId: "server_1",
+        snapshotHostVerifyStartedAt: expect.any(String),
+        step: SNAPSHOT_PROVISIONING_STEPS.verifySnapshotHost,
+      }),
+      expect.any(Date),
+    );
+  });
+
   it("requeues the action wait step when Hetzner is still creating the server", async () => {
     process.env.DATABASE_URL =
       "postgres://postgres:postgres@localhost:5432/otto";

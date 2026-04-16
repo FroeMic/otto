@@ -110,6 +110,7 @@ export type ProvisionTenantServerFromSnapshotPayload = {
   actionId?: string;
   ipv4?: string;
   sourceSnapshotId?: string;
+  snapshotHostVerifyStartedAt?: string;
 };
 
 export type BakeHetznerOnboardingSnapshotPayload = {

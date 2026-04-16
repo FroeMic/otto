@@ -248,6 +248,7 @@ function parseProvisionPayload(
   const providerServerId = payload.providerServerId;
   const actionId = payload.actionId;
   const ipv4 = payload.ipv4;
+  const snapshotHostVerifyStartedAt = payload.snapshotHostVerifyStartedAt;
   const sourceSnapshotId = payload.sourceSnapshotId;
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
@@ -259,6 +260,10 @@ function parseProvisionPayload(
     ipv4: typeof ipv4 === "string" ? ipv4 : undefined,
     providerServerId:
       typeof providerServerId === "string" ? providerServerId : undefined,
+    snapshotHostVerifyStartedAt:
+      typeof snapshotHostVerifyStartedAt === "string"
+        ? snapshotHostVerifyStartedAt
+        : undefined,
     sourceSnapshotId:
       typeof sourceSnapshotId === "string" ? sourceSnapshotId : undefined,
     step:
@@ -456,6 +461,7 @@ async function waitForSsh(
     jobId,
     {
       ...payload,
+      snapshotHostVerifyStartedAt: new Date().toISOString(),
       step: SNAPSHOT_PROVISIONING_STEPS.verifySnapshotHost,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
@@ -486,7 +492,45 @@ async function verifySnapshotHost(
       sourceSnapshotId: payload.sourceSnapshotId ?? null,
     },
   );
-  await deps.verifySnapshotHostReady(payload.ipv4);
+
+  const startedAt =
+    parseDateMs(payload.snapshotHostVerifyStartedAt) ?? Date.now();
+
+  try {
+    await deps.verifySnapshotHostReady(payload.ipv4);
+  } catch (error) {
+    const elapsedMs = Date.now() - startedAt;
+    const timeoutMs = getEnv().RUNTIME_SSH_READY_TIMEOUT_MS;
+
+    if (elapsedMs >= timeoutMs) {
+      throw error;
+    }
+
+    await deps.appendJobEvent(
+      jobId,
+      SNAPSHOT_PROVISIONING_STATUSES.verifyingSnapshotHost,
+      "Snapshot host contract is not ready yet",
+      {
+        elapsedMs,
+        error: getErrorMessage(error),
+        ipv4: payload.ipv4,
+        providerServerId: payload.providerServerId,
+        sourceSnapshotId: payload.sourceSnapshotId ?? null,
+        timeoutMs,
+      },
+    );
+    await deps.requeueJob(
+      jobId,
+      {
+        ...payload,
+        snapshotHostVerifyStartedAt: new Date(startedAt).toISOString(),
+        step: SNAPSHOT_PROVISIONING_STEPS.verifySnapshotHost,
+      },
+      new Date(Date.now() + getActionRetryDelayMs()),
+    );
+    return;
+  }
+
   await deps.appendJobEvent(
     jobId,
     SNAPSHOT_PROVISIONING_STATUSES.verifyingSnapshotHost,
@@ -989,6 +1033,15 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown snapshot provisioning error";
+}
+
+function parseDateMs(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function logStep(
