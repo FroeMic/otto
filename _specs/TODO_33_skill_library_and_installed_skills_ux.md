@@ -494,6 +494,8 @@ This is the smallest high-value UX fix.
 - [x] audit all skill-surface copy for brand neutrality and implementation leakage
 - [x] add a library skill detail page with dependencies, included files, and instructions preview
 - [x] improve the files page so it separates included package files from runtime-only files
+- [x] queue runtime apply jobs when skills are installed or removed so runtime files converge
+- [x] confirm destructive skill removal in the UI and prune the removed skill directory from the runtime
 
 ## Open Questions
 

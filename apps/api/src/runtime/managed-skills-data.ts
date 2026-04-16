@@ -159,6 +159,27 @@ async function getTenantRuntimeState(tenantId: string) {
   }
 }
 
+async function enqueueManagedSkillApplyIfRuntimeReady(input: {
+  desiredStateVersion: number
+  tenantId: string
+}) {
+  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+
+  if (!tenantRuntime.isRuntimeReady) {
+    return false
+  }
+
+  await enqueueJob({
+    jobType: JOB_TYPES.applyTenantConfig,
+    payload: {
+      desiredStateVersion: input.desiredStateVersion,
+      tenantId: input.tenantId,
+    },
+  })
+
+  return true
+}
+
 async function createNextDesiredStateVersionForManagedSkills(input: {
   remove?: boolean
   skillKey: string
@@ -564,10 +585,13 @@ export async function createTenantSystemManagedSkillForTenant(input: {
       tenantId: input.tenantId,
       version: createdDetail.version,
     })
-  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+  const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
+    desiredStateVersion: desiredStateVersion.version,
+    tenantId: input.tenantId,
+  })
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued,
     desiredStateVersion: desiredStateVersion.version,
     skillKey: createdDetail.skillKey,
     version: createdDetail.version,
@@ -694,10 +718,13 @@ export async function createTenantManagedSkillForTenant(input: {
       version: createdVersion.version,
     },
   )
-  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+  const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
+    desiredStateVersion: desiredStateVersion.version,
+    tenantId: input.tenantId,
+  })
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued,
     desiredStateVersion: desiredStateVersion.version,
     skillKey: createdSkill.skillKey,
     version: createdVersion.version,
@@ -709,6 +736,7 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
   createdByExternalId?: string | null
   createdByType: "runtime" | "system" | "user"
   expectedVersion?: number
+  queueApply?: boolean
   relativePath: string
   skillKey: string
   summary?: string
@@ -829,10 +857,15 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
       tenantId: input.tenantId,
       version: createdVersion.version,
     })
-  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+  const applyQueued = (input.queueApply ?? true)
+      ? await enqueueManagedSkillApplyIfRuntimeReady({
+          desiredStateVersion: desiredStateVersion.version,
+          tenantId: input.tenantId,
+        })
+      : false
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued,
     changed: true,
     currentVersion: createdVersion.version,
     desiredStateVersion: desiredStateVersion.version,
@@ -886,6 +919,7 @@ export async function updateTenantManagedSkillForTenant(input: {
       createdByExternalId: input.createdByExternalId ?? null,
       createdByType: input.createdByType,
       expectedVersion: currentVersion,
+      queueApply: false,
       relativePath: MANAGED_SKILL_ENTRY_FILE_PATH,
       skillKey: detail.skillKey,
       summary: input.summary,
@@ -930,10 +964,13 @@ export async function updateTenantManagedSkillForTenant(input: {
       version: currentVersion,
     },
   )
-  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+  const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
+    desiredStateVersion: desiredStateVersion.version,
+    tenantId: input.tenantId,
+  })
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued,
     changed: true,
     currentVersion,
     desiredStateVersion: desiredStateVersion.version,
@@ -977,10 +1014,13 @@ export async function deleteTenantManagedSkillForTenant(input: {
       tenantId: input.tenantId,
     },
   )
-  const tenantRuntime = await getTenantRuntimeState(input.tenantId)
+  const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
+    desiredStateVersion: desiredStateVersion.version,
+    tenantId: input.tenantId,
+  })
 
   return {
-    applyQueued: tenantRuntime.isRuntimeReady,
+    applyQueued,
     deleted: true,
     desiredStateVersion: desiredStateVersion.version,
     skillKey: detail.skillKey,

@@ -1,9 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IntegrationFloatingStatusChip } from "@/features/integrations/components/IntegrationFloatingStatusChip"
@@ -34,6 +44,7 @@ export function SkillOverviewCard({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isPending, startTransition] = useTransition()
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false)
   const resettableFiles = detail.files.filter((file) => file.resettable)
 
   function handleRestoreDefaults() {
@@ -83,6 +94,7 @@ export function SkillOverviewCard({
           await queryClient.invalidateQueries({
             queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
           })
+          setIsRemoveDialogOpen(false)
 
           void navigate({
             params: {
@@ -159,7 +171,12 @@ export function SkillOverviewCard({
               </Button>
             ) : null}
             {detail.removable ? (
-              <Button disabled={isPending} onClick={handleRemoveSkill} type="button" variant="outline">
+              <Button
+                disabled={isPending}
+                onClick={() => setIsRemoveDialogOpen(true)}
+                type="button"
+                variant="outline"
+              >
                 Remove skill
               </Button>
             ) : null}
@@ -176,6 +193,32 @@ export function SkillOverviewCard({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <AlertDialog
+        onOpenChange={setIsRemoveDialogOpen}
+        open={isRemoveDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this skill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Removing {detail.displayName} will uninstall it from this
+              workspace and delete its skill data, including included files and
+              workspace-local files for this skill.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending}
+              onClick={handleRemoveSkill}
+              variant="destructive"
+            >
+              Remove skill
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

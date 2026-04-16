@@ -1509,13 +1509,39 @@ export function buildManagedSkillPruneCommand(input: {
   previousPaths: string[];
 }) {
   const nextPaths = new Set(input.nextPaths);
-  const removedPaths = [...new Set(input.previousPaths)]
+  const removedPathCandidates = [...new Set(input.previousPaths)]
     .filter((path) => path.startsWith(`${MANAGED_SKILL_WORKSPACE_ROOT}/`))
     .filter((path) => !isManagedSkillLocalPath(path))
     .filter((path) => !nextPaths.has(path))
     .sort((left, right) => left.localeCompare(right));
+  const nextSkillRoots = new Set(
+    input.nextPaths.flatMap((path) => {
+      const skillRoot = getManagedSkillRootPath(path);
 
-  if (removedPaths.length === 0) {
+      return skillRoot ? [skillRoot] : [];
+    }),
+  );
+  const removedSkillRoots = [
+    ...new Set(
+      removedPathCandidates.flatMap((path) => {
+        const skillRoot = getManagedSkillRootPath(path);
+
+        if (!skillRoot || nextSkillRoots.has(skillRoot)) {
+          return [];
+        }
+
+        return [skillRoot];
+      }),
+    ),
+  ].sort((left, right) => right.length - left.length || left.localeCompare(right));
+  const removedSkillRootSet = new Set(removedSkillRoots);
+  const removedPaths = removedPathCandidates.filter((path) => {
+    const skillRoot = getManagedSkillRootPath(path);
+
+    return !skillRoot || !removedSkillRootSet.has(skillRoot);
+  });
+
+  if (removedPaths.length === 0 && removedSkillRoots.length === 0) {
     return null;
   }
 
@@ -1538,6 +1564,10 @@ export function buildManagedSkillPruneCommand(input: {
   );
 
   return [
+    ...removedSkillRoots.map(
+      (path) =>
+        `if test -d ${shellQuoteForShell(path)}; then rm -rf ${shellQuoteForShell(path)}; fi`,
+    ),
     ...removedPaths.map(
       (path) =>
         `if test -f ${shellQuoteForShell(path)}; then rm -f ${shellQuoteForShell(path)}; fi`,
@@ -1547,6 +1577,23 @@ export function buildManagedSkillPruneCommand(input: {
         `rmdir ${shellQuoteForShell(directory)} >/dev/null 2>&1 || true`,
     ),
   ].join(" ");
+}
+
+function getManagedSkillRootPath(path: string) {
+  const rootPrefix = `${MANAGED_SKILL_WORKSPACE_ROOT}/`;
+
+  if (!path.startsWith(rootPrefix)) {
+    return null;
+  }
+
+  const relativePath = path.slice(rootPrefix.length);
+  const [skillKey] = relativePath.split("/");
+
+  if (!skillKey) {
+    return null;
+  }
+
+  return `${rootPrefix}${skillKey}`;
 }
 
 export function buildManagedSkillRenameCommand(
