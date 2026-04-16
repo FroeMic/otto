@@ -1,12 +1,12 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCommentCommandResult,
   executeLinearGraphql,
   getLinearCommentFields,
   type LinearCommentNode,
-} from "../../client";
-import { buildLinearCommentUpdateInput } from "./input";
+} from "../../client"
+import { buildLinearCommentUpdateInput } from "./input"
 
 const UPDATE_COMMENT_MUTATION = `
   mutation OttoLinearCommentUpdate($id: String!, $input: CommentUpdateInput!) {
@@ -18,30 +18,30 @@ const UPDATE_COMMENT_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearCommentUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const commentId =
-    typeof args.commentId === "string" ? args.commentId.trim() : "";
+    typeof args.commentId === "string" ? args.commentId.trim() : ""
 
   if (!commentId) {
-    throw new Error("linear comment.update requires commentId.");
+    throw new Error("linear comment.update requires commentId.")
   }
 
-  const input = buildLinearCommentUpdateInput(args);
+  const input = buildLinearCommentUpdateInput(args)
   const data = await executeLinearGraphql<{
     commentUpdate?: {
-      comment?: LinearCommentNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      comment?: LinearCommentNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_COMMENT_MUTATION,
@@ -49,7 +49,7 @@ export const executeLinearCommentUpdate: IntegrationCommandExecute = async ({
       id: commentId,
       input,
     },
-  });
+  })
 
   return {
     ...buildLinearCommentCommandResult({
@@ -59,5 +59,5 @@ export const executeLinearCommentUpdate: IntegrationCommandExecute = async ({
       success: data.commentUpdate?.success,
     }),
     lookup: commentId,
-  };
-};
+  }
+}

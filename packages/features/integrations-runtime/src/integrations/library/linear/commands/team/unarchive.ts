@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearTeamCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearTeamFields,
   type LinearTeamNode,
   resolveLinearTeamId,
-} from "../../client";
+} from "../../client"
 
 const UNARCHIVE_TEAM_MUTATION = `
   mutation OttoLinearTeamUnarchive($id: String!) {
@@ -18,41 +18,41 @@ const UNARCHIVE_TEAM_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearTeamUnarchive: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const teamIdOrKey =
-    typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : "";
+    typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : ""
 
   if (!teamIdOrKey) {
-    throw new Error("linear team.unarchive requires teamIdOrKey.");
+    throw new Error("linear team.unarchive requires teamIdOrKey.")
   }
 
   const teamId = await resolveLinearTeamId({
     accessToken: context.auth.accessToken,
     teamIdOrKey,
-  });
+  })
 
   const data = await executeLinearGraphql<{
     teamUnarchive?: {
-      entity?: LinearTeamNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      entity?: LinearTeamNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UNARCHIVE_TEAM_MUTATION,
     variables: {
       id: teamId,
     },
-  });
+  })
 
   return {
     ...buildLinearTeamCommandResult({
@@ -62,5 +62,5 @@ export const executeLinearTeamUnarchive: IntegrationCommandExecute = async ({
       team: data.teamUnarchive?.entity,
     }),
     lookup: teamIdOrKey,
-  };
-};
+  }
+}

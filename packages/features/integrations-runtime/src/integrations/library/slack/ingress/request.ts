@@ -1,4 +1,4 @@
-import type { SlackIngressRequestType } from "../../../../db/control-plane";
+import type { SlackIngressRequestType } from "./types";
 
 export type ParsedSlackIngressRequest = {
   directResponse?: {

@@ -1,81 +1,81 @@
-import { getLinearOAuthConfig } from "../../../../lib/env";
+import { getLinearOAuthConfig } from "../../../../lib/env"
 import type {
   OAuthConnectionIdentity,
   OAuthProviderDefinition,
   OAuthProviderErrorKind,
   OAuthTokenExchangeResult,
-} from "../../../../lib/oauth/providers/types";
+} from "../../../../lib/oauth/providers/types"
 
-const LINEAR_AUTHORIZE_URL = "https://linear.app/oauth/authorize";
-const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
-const LINEAR_TOKEN_URL = "https://api.linear.app/oauth/token";
+const LINEAR_AUTHORIZE_URL = "https://linear.app/oauth/authorize"
+const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
+const LINEAR_TOKEN_URL = "https://api.linear.app/oauth/token"
 
 type LinearTokenResponse = {
-  access_token?: string;
-  error?: string;
-  error_description?: string;
-  expires_in?: number | string;
-  id_token?: string;
-  refresh_token?: string;
-  refresh_token_expires_in?: number | string;
-  scope?: string;
-  token_type?: string;
-};
+  access_token?: string
+  error?: string
+  error_description?: string
+  expires_in?: number | string
+  id_token?: string
+  refresh_token?: string
+  refresh_token_expires_in?: number | string
+  scope?: string
+  token_type?: string
+}
 
 type LinearViewerResponse = {
   data?: {
     viewer?: {
-      id?: string;
-      name?: string | null;
-    } | null;
-  };
+      id?: string
+      name?: string | null
+    } | null
+  }
   errors?: Array<{
-    message?: string;
-  }>;
-};
+    message?: string
+  }>
+}
 
 class LinearOAuthError extends Error {
-  code?: string;
-  kind: OAuthProviderErrorKind;
-  status?: number;
+  code?: string
+  kind: OAuthProviderErrorKind
+  status?: number
 
   constructor(
     message: string,
     options?: {
-      code?: string;
-      kind?: OAuthProviderErrorKind;
-      status?: number;
+      code?: string
+      kind?: OAuthProviderErrorKind
+      status?: number
     },
   ) {
-    super(message);
-    this.name = "LinearOAuthError";
-    this.code = options?.code;
-    this.kind = options?.kind ?? "transient";
-    this.status = options?.status;
+    super(message)
+    this.name = "LinearOAuthError"
+    this.code = options?.code
+    this.kind = options?.kind ?? "transient"
+    this.status = options?.status
   }
 }
 
 export const linearOAuthProvider: OAuthProviderDefinition = {
   buildAuthorizationUrl(input) {
-    const config = getLinearOAuthConfig();
-    const url = new URL(LINEAR_AUTHORIZE_URL);
+    const config = getLinearOAuthConfig()
+    const url = new URL(LINEAR_AUTHORIZE_URL)
 
-    url.searchParams.set("client_id", config.clientId);
-    url.searchParams.set("redirect_uri", config.redirectUri);
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope", config.scopes.join(","));
-    url.searchParams.set("state", input.state);
+    url.searchParams.set("client_id", config.clientId)
+    url.searchParams.set("redirect_uri", config.redirectUri)
+    url.searchParams.set("response_type", "code")
+    url.searchParams.set("scope", config.scopes.join(","))
+    url.searchParams.set("state", input.state)
 
     if (config.actor === "app") {
-      url.searchParams.set("actor", "app");
+      url.searchParams.set("actor", "app")
     }
 
     if (input.codeChallenge) {
-      url.searchParams.set("code_challenge", input.codeChallenge);
-      url.searchParams.set("code_challenge_method", "S256");
+      url.searchParams.set("code_challenge", input.codeChallenge)
+      url.searchParams.set("code_challenge_method", "S256")
     }
 
-    return url.toString();
+    return url.toString()
   },
 
   classifyError(error) {
@@ -87,7 +87,7 @@ export const linearOAuthProvider: OAuthProviderDefinition = {
             "status" in error &&
             typeof error.status === "number"
           ? error.status
-          : undefined;
+          : undefined
     const code =
       error instanceof LinearOAuthError
         ? error.code
@@ -96,7 +96,7 @@ export const linearOAuthProvider: OAuthProviderDefinition = {
             "code" in error &&
             typeof error.code === "string"
           ? error.code
-          : undefined;
+          : undefined
 
     if (
       (error instanceof LinearOAuthError && error.kind === "reauthorize") ||
@@ -104,10 +104,10 @@ export const linearOAuthProvider: OAuthProviderDefinition = {
       status === 403 ||
       code === "invalid_grant"
     ) {
-      return "reauthorize";
+      return "reauthorize"
     }
 
-    return "transient";
+    return "transient"
   },
 
   async exchangeCode(input) {
@@ -115,22 +115,22 @@ export const linearOAuthProvider: OAuthProviderDefinition = {
       code: input.code,
       codeVerifier: input.codeVerifier,
       grantType: "authorization_code",
-    });
+    })
   },
 
   getAuthorizeParams() {
-    const config = getLinearOAuthConfig();
-    const params: Record<string, string> = {};
+    const config = getLinearOAuthConfig()
+    const params: Record<string, string> = {}
 
     if (config.actor === "app") {
-      params.actor = "app";
+      params.actor = "app"
     }
 
-    return params;
+    return params
   },
 
   getRequestedScopes() {
-    return getLinearOAuthConfig().scopes;
+    return getLinearOAuthConfig().scopes
   },
 
   key: "linear",
@@ -140,42 +140,42 @@ export const linearOAuthProvider: OAuthProviderDefinition = {
     return requestLinearToken({
       grantType: "refresh_token",
       refreshToken: input.refreshToken,
-    });
+    })
   },
 
   usesPkce: true,
-};
+}
 
 async function requestLinearToken(input: {
-  code?: string;
-  codeVerifier?: string | null;
-  grantType: "authorization_code" | "refresh_token";
-  refreshToken?: string;
+  code?: string
+  codeVerifier?: string | null
+  grantType: "authorization_code" | "refresh_token"
+  refreshToken?: string
 }): Promise<OAuthTokenExchangeResult> {
-  const config = getLinearOAuthConfig();
+  const config = getLinearOAuthConfig()
   const body = new URLSearchParams({
     client_id: config.clientId,
     client_secret: config.clientSecret,
     grant_type: input.grantType,
     redirect_uri: config.redirectUri,
-  });
+  })
 
   if (input.grantType === "authorization_code") {
     if (!input.code) {
-      throw new LinearOAuthError("Missing Linear OAuth code.");
+      throw new LinearOAuthError("Missing Linear OAuth code.")
     }
 
-    body.set("code", input.code);
+    body.set("code", input.code)
 
     if (input.codeVerifier) {
-      body.set("code_verifier", input.codeVerifier);
+      body.set("code_verifier", input.codeVerifier)
     }
   } else {
     if (!input.refreshToken) {
-      throw new LinearOAuthError("Missing Linear refresh token.");
+      throw new LinearOAuthError("Missing Linear refresh token.")
     }
 
-    body.set("refresh_token", input.refreshToken);
+    body.set("refresh_token", input.refreshToken)
   }
 
   const response = await fetch(LINEAR_TOKEN_URL, {
@@ -184,9 +184,9 @@ async function requestLinearToken(input: {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     method: "POST",
-  });
+  })
 
-  const payload = (await response.json()) as LinearTokenResponse;
+  const payload = (await response.json()) as LinearTokenResponse
 
   if (!response.ok || !payload.access_token) {
     throw new LinearOAuthError(
@@ -203,10 +203,10 @@ async function requestLinearToken(input: {
             : "transient",
         status: response.status,
       },
-    );
+    )
   }
 
-  const identity = await fetchLinearViewerIdentity(payload.access_token);
+  const identity = await fetchLinearViewerIdentity(payload.access_token)
 
   return {
     accessToken: payload.access_token,
@@ -219,7 +219,7 @@ async function requestLinearToken(input: {
     refreshToken: payload.refresh_token ?? null,
     refreshTokenExpiresAt: parseExpiry(payload.refresh_token_expires_in),
     tokenType: payload.token_type ?? null,
-  };
+  }
 }
 
 async function fetchLinearViewerIdentity(
@@ -235,37 +235,37 @@ async function fetchLinearViewerIdentity(
         "Content-Type": "application/json",
       },
       method: "POST",
-    });
+    })
 
     if (!response.ok) {
-      return null;
+      return null
     }
 
-    const payload = (await response.json()) as LinearViewerResponse;
-    const viewer = payload.data?.viewer;
+    const payload = (await response.json()) as LinearViewerResponse
+    const viewer = payload.data?.viewer
 
     if (!viewer?.id) {
-      return null;
+      return null
     }
 
     return {
       externalAccountId: viewer.id,
       externalAccountLabel: viewer.name?.trim() || "Linear connection",
-    };
+    }
   } catch {
-    return null;
+    return null
   }
 }
 
 function normalizeScopeList(value: string | undefined) {
   if (!value) {
-    return null;
+    return null
   }
 
   return value
     .split(",")
     .map((scope) => scope.trim())
-    .filter(Boolean);
+    .filter(Boolean)
 }
 
 function parseExpiry(value: number | string | undefined) {
@@ -274,11 +274,11 @@ function parseExpiry(value: number | string | undefined) {
       ? value
       : typeof value === "string"
         ? Number(value)
-        : Number.NaN;
+        : Number.NaN
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
+    return null
   }
 
-  return new Date(Date.now() + parsed * 1000);
+  return new Date(Date.now() + parsed * 1000)
 }

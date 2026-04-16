@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearAttachmentCollectionCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearAttachmentFields,
   type LinearAttachmentNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_ATTACHMENTS_QUERY = `
   query OttoLinearAttachmentList($limit: Int!) {
@@ -16,37 +16,37 @@ const LIST_ATTACHMENTS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearAttachmentList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
 
   const data = await executeLinearGraphql<{
     attachments?: {
-      nodes?: LinearAttachmentNode[] | null;
-    } | null;
+      nodes?: LinearAttachmentNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_ATTACHMENTS_QUERY,
     variables: {
       limit,
     },
-  });
+  })
 
   return buildLinearAttachmentCollectionCommandResult({
     commandKey: "attachment.list",
     items: data.attachments?.nodes ?? [],
     limit,
-  });
-};
+  })
+}

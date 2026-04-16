@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearTeamCommandResult,
@@ -6,8 +6,8 @@ import {
   getLinearTeamFields,
   type LinearTeamNode,
   resolveLinearTeamId,
-} from "../../client";
-import { buildLinearTeamUpdateInput } from "./input";
+} from "../../client"
+import { buildLinearTeamUpdateInput } from "./input"
 
 const UPDATE_TEAM_MUTATION = `
   mutation OttoLinearTeamUpdate($id: String!, $input: TeamUpdateInput!) {
@@ -19,34 +19,34 @@ const UPDATE_TEAM_MUTATION = `
       }
     }
   }
-`;
+`
 
 export const executeLinearTeamUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const teamIdOrKey =
-    typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : "";
+    typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : ""
 
   if (!teamIdOrKey) {
-    throw new Error("linear team.update requires teamIdOrKey.");
+    throw new Error("linear team.update requires teamIdOrKey.")
   }
 
   const teamId = await resolveLinearTeamId({
     accessToken: context.auth.accessToken,
     teamIdOrKey,
-  });
-  const input = buildLinearTeamUpdateInput(args);
+  })
+  const input = buildLinearTeamUpdateInput(args)
   const data = await executeLinearGraphql<{
     teamUpdate?: {
-      lastSyncId?: number | null;
-      success?: boolean | null;
-      team?: LinearTeamNode | null;
-    } | null;
+      lastSyncId?: number | null
+      success?: boolean | null
+      team?: LinearTeamNode | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_TEAM_MUTATION,
@@ -54,12 +54,12 @@ export const executeLinearTeamUpdate: IntegrationCommandExecute = async ({
       id: teamId,
       input,
     },
-  });
+  })
 
   return buildLinearTeamCommandResult({
     commandKey: "team.update",
     lastSyncId: data.teamUpdate?.lastSyncId,
     success: data.teamUpdate?.success,
     team: data.teamUpdate?.team,
-  });
-};
+  })
+}

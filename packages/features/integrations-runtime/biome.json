@@ -7,7 +7,7 @@
       "!src/**/*.test.ts",
       "!src/**/*.tsx",
       "!src/integrations/framework/ingress.ts",
-      "!src/integrations/library/slack/ingress/**",
+      "!src/integrations/library/slack/ingress",
       "!dist"
     ]
   },

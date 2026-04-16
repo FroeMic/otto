@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearIssueBatchCommandResult,
@@ -6,11 +6,11 @@ import {
   getLinearIssueFields,
   type LinearIssueNode,
   resolveLinearIssueIds,
-} from "../../client";
+} from "../../client"
 import {
   buildLinearIssueUpdateInput,
   normalizeIssueIdentifierList,
-} from "./input";
+} from "./input"
 
 const ISSUE_BATCH_UPDATE_MUTATION = `
   mutation OttoLinearIssueBatchUpdate($ids: [UUID!]!, $input: IssueUpdateInput!) {
@@ -22,20 +22,20 @@ const ISSUE_BATCH_UPDATE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearIssueBatchUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const identifiersOrIds = normalizeIssueIdentifierList(args.identifiersOrIds);
+  const identifiersOrIds = normalizeIssueIdentifierList(args.identifiersOrIds)
 
   if (identifiersOrIds.length === 0) {
-    throw new Error("linear issue.batch_update requires identifiersOrIds.");
+    throw new Error("linear issue.batch_update requires identifiersOrIds.")
   }
 
   const [ids, input] = await Promise.all([
@@ -44,13 +44,13 @@ export const executeLinearIssueBatchUpdate: IntegrationCommandExecute = async ({
       identifiersOrIds,
     }),
     Promise.resolve(buildLinearIssueUpdateInput(args)),
-  ]);
+  ])
   const data = await executeLinearGraphql<{
     issueBatchUpdate?: {
-      issues?: LinearIssueNode[] | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      issues?: LinearIssueNode[] | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: ISSUE_BATCH_UPDATE_MUTATION,
@@ -58,7 +58,7 @@ export const executeLinearIssueBatchUpdate: IntegrationCommandExecute = async ({
       ids,
       input,
     },
-  });
+  })
 
   return {
     ...buildLinearIssueBatchCommandResult({
@@ -68,5 +68,5 @@ export const executeLinearIssueBatchUpdate: IntegrationCommandExecute = async ({
       success: data.issueBatchUpdate?.success,
     }),
     lookups: identifiersOrIds,
-  };
-};
+  }
+}

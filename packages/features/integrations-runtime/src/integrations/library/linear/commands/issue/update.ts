@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearIssueCommandResult,
@@ -6,8 +6,8 @@ import {
   getLinearIssueFields,
   type LinearIssueNode,
   resolveLinearIssueId,
-} from "../../client";
-import { buildLinearIssueUpdateInput } from "./input";
+} from "../../client"
+import { buildLinearIssueUpdateInput } from "./input"
 
 const UPDATE_ISSUE_MUTATION = `
   mutation OttoLinearIssueUpdate($id: String!, $input: IssueUpdateInput!) {
@@ -19,21 +19,21 @@ const UPDATE_ISSUE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearIssueUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const identifierOrId =
-    typeof args.identifierOrId === "string" ? args.identifierOrId.trim() : "";
+    typeof args.identifierOrId === "string" ? args.identifierOrId.trim() : ""
 
   if (!identifierOrId) {
-    throw new Error("linear issue.update requires identifierOrId.");
+    throw new Error("linear issue.update requires identifierOrId.")
   }
 
   const [id, input] = await Promise.all([
@@ -42,14 +42,14 @@ export const executeLinearIssueUpdate: IntegrationCommandExecute = async ({
       identifierOrId,
     }),
     Promise.resolve(buildLinearIssueUpdateInput(args)),
-  ]);
+  ])
 
   const data = await executeLinearGraphql<{
     issueUpdate?: {
-      issue?: LinearIssueNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      issue?: LinearIssueNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_ISSUE_MUTATION,
@@ -57,7 +57,7 @@ export const executeLinearIssueUpdate: IntegrationCommandExecute = async ({
       id,
       input,
     },
-  });
+  })
 
   return {
     ...buildLinearIssueCommandResult({
@@ -67,5 +67,5 @@ export const executeLinearIssueUpdate: IntegrationCommandExecute = async ({
       success: data.issueUpdate?.success,
     }),
     lookup: identifierOrId,
-  };
-};
+  }
+}

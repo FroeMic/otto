@@ -1,11 +1,11 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCycleCommandResult,
   executeLinearGraphql,
   getLinearCycleFields,
   type LinearCycleNode,
-} from "../../client";
+} from "../../client"
 
 const ARCHIVE_CYCLE_MUTATION = `
   mutation OttoLinearCycleArchive($id: String!) {
@@ -17,35 +17,35 @@ const ARCHIVE_CYCLE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearCycleArchive: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : "";
+  const cycleId = typeof args.cycleId === "string" ? args.cycleId.trim() : ""
 
   if (!cycleId) {
-    throw new Error("linear cycle.archive requires cycleId.");
+    throw new Error("linear cycle.archive requires cycleId.")
   }
 
   const data = await executeLinearGraphql<{
     cycleArchive?: {
-      entity?: LinearCycleNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      entity?: LinearCycleNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: ARCHIVE_CYCLE_MUTATION,
     variables: {
       id: cycleId,
     },
-  });
+  })
 
   return {
     ...buildLinearCycleCommandResult({
@@ -55,5 +55,5 @@ export const executeLinearCycleArchive: IntegrationCommandExecute = async ({
       success: data.cycleArchive?.success,
     }),
     lookup: cycleId,
-  };
-};
+  }
+}

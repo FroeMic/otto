@@ -2,9 +2,9 @@ import {
   normalizeOptionalBoolean,
   normalizeOptionalString,
   pruneGraphqlInput,
-} from "../../client";
+} from "../../client"
 
-const DEFAULT_LINEAR_LABEL_COLOR = "#4F46E5";
+const DEFAULT_LINEAR_LABEL_COLOR = "#4F46E5"
 
 export function buildLinearIssueLabelCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -22,7 +22,7 @@ export function buildLinearIssueLabelCreateInput(
     parentId: normalizeOptionalString(argumentsObject.parentId),
     retiredAt: normalizeOptionalString(argumentsObject.retiredAt),
     teamId: normalizeOptionalString(argumentsObject.teamId),
-  });
+  })
 }
 
 export function buildLinearIssueLabelUpdateInput(
@@ -35,7 +35,7 @@ export function buildLinearIssueLabelUpdateInput(
     name: normalizeOptionalString(argumentsObject.name),
     parentId: normalizeOptionalString(argumentsObject.parentId),
     retiredAt: normalizeOptionalString(argumentsObject.retiredAt),
-  });
+  })
 }
 
 export function buildLinearProjectLabelCreateInput(
@@ -53,7 +53,7 @@ export function buildLinearProjectLabelCreateInput(
         : "",
     parentId: normalizeOptionalString(argumentsObject.parentId),
     retiredAt: normalizeOptionalString(argumentsObject.retiredAt),
-  });
+  })
 }
 
 export function buildLinearProjectLabelUpdateInput(
@@ -66,5 +66,5 @@ export function buildLinearProjectLabelUpdateInput(
     name: normalizeOptionalString(argumentsObject.name),
     parentId: normalizeOptionalString(argumentsObject.parentId),
     retiredAt: normalizeOptionalString(argumentsObject.retiredAt),
-  });
+  })
 }

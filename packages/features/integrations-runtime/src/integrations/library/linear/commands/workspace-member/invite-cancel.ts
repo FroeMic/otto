@@ -1,9 +1,9 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDeleteCommandResult,
   executeLinearGraphql,
-} from "../../client";
+} from "../../client"
 
 const DELETE_WORKSPACE_MEMBER_INVITE_MUTATION = `
   mutation OttoLinearOrganizationInviteDelete($id: String!) {
@@ -13,36 +13,36 @@ const DELETE_WORKSPACE_MEMBER_INVITE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceMemberInviteCancel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const inviteId =
-      typeof args.inviteId === "string" ? args.inviteId.trim() : "";
+      typeof args.inviteId === "string" ? args.inviteId.trim() : ""
 
     if (!inviteId) {
       throw new Error(
         "linear workspace_member.invite_cancel requires inviteId.",
-      );
+      )
     }
 
     const data = await executeLinearGraphql<{
       organizationInviteDelete?: {
-        entityId?: string | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entityId?: string | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: DELETE_WORKSPACE_MEMBER_INVITE_MUTATION,
       variables: {
         id: inviteId,
       },
-    });
+    })
 
     return {
       ...buildLinearDeleteCommandResult({
@@ -53,5 +53,5 @@ export const executeLinearWorkspaceMemberInviteCancel: IntegrationCommandExecute
         success: data.organizationInviteDelete?.success,
       }),
       lookup: inviteId,
-    };
-  };
+    }
+  }

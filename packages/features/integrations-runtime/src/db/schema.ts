@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
@@ -12,7 +12,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/pg-core"
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -33,7 +33,7 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+})
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -45,7 +45,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+})
 
 export const userPlatformRoles = pgTable(
   "user_platform_roles",
@@ -66,7 +66,7 @@ export const userPlatformRoles = pgTable(
       table.role,
     ),
   }),
-);
+)
 
 export const memberships = pgTable(
   "memberships",
@@ -104,7 +104,7 @@ export const memberships = pgTable(
       "memberships_user_id_organization_id_idx",
     ).on(table.userId, table.organizationId),
   }),
-);
+)
 
 export const publicIntakeSessions = pgTable(
   "public_intake_sessions",
@@ -146,7 +146,7 @@ export const publicIntakeSessions = pgTable(
       "public_intake_sessions_status_created_at_idx",
     ).on(table.status, table.createdAt),
   }),
-);
+)
 
 export const workspaceOnboardingRuns = pgTable(
   "workspace_onboarding_runs",
@@ -203,7 +203,7 @@ export const workspaceOnboardingRuns = pgTable(
       "workspace_onboarding_runs_user_id_organization_id_idx",
     ).on(table.userId, table.organizationId),
   }),
-);
+)
 
 export const tenants = pgTable(
   "tenants",
@@ -226,7 +226,7 @@ export const tenants = pgTable(
       table.organizationId,
     ),
   }),
-);
+)
 
 export const tenantIntegrations = pgTable(
   "tenant_integrations",
@@ -258,7 +258,7 @@ export const tenantIntegrations = pgTable(
       "tenant_integrations_tenant_id_provider_key_idx",
     ).on(table.tenantId, table.providerKey),
   }),
-);
+)
 
 export const tenantIntegrationCapabilityStates = pgTable(
   "tenant_integration_capability_states",
@@ -287,7 +287,7 @@ export const tenantIntegrationCapabilityStates = pgTable(
       "tenant_integration_capability_states_tenant_integration_id_capability_key_idx",
     ).on(table.tenantIntegrationId, table.capabilityKey),
   }),
-);
+)
 
 export const integrationOauthSessions = pgTable(
   "integration_oauth_sessions",
@@ -334,7 +334,7 @@ export const integrationOauthSessions = pgTable(
     ),
     userIdx: index("integration_oauth_sessions_user_id_idx").on(table.userId),
   }),
-);
+)
 
 export const integrationOauthConnections = pgTable(
   "integration_oauth_connections",
@@ -390,7 +390,7 @@ export const integrationOauthConnections = pgTable(
       "integration_oauth_connections_provider_status_idx",
     ).on(table.providerKey, table.status),
   }),
-);
+)
 
 export const integrationOauthCredentials = pgTable(
   "integration_oauth_credentials",
@@ -420,7 +420,7 @@ export const integrationOauthCredentials = pgTable(
       "integration_oauth_credentials_connection_id_idx",
     ).on(table.connectionId),
   }),
-);
+)
 
 export const integrationApiCredentials = pgTable(
   "integration_api_credentials",
@@ -457,7 +457,7 @@ export const integrationApiCredentials = pgTable(
       "integration_api_credentials_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
   }),
-);
+)
 
 export const tenantIntegrationState = pgTable(
   "tenant_integration_state",
@@ -487,7 +487,7 @@ export const tenantIntegrationState = pgTable(
       "tenant_integration_state_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
   }),
-);
+)
 
 export const integrationOauthEvents = pgTable(
   "integration_oauth_events",
@@ -522,7 +522,7 @@ export const integrationOauthEvents = pgTable(
       "integration_oauth_events_tenant_integration_id_idx",
     ).on(table.tenantIntegrationId),
   }),
-);
+)
 
 export const integrationExecutionAudits = pgTable(
   "integration_execution_audits",
@@ -559,7 +559,7 @@ export const integrationExecutionAudits = pgTable(
       "integration_execution_audits_integration_key_command_key_created_at_idx",
     ).on(table.integrationKey, table.commandKey, table.createdAt),
   }),
-);
+)
 
 export const integrationIngressDeliveries = pgTable(
   "integration_ingress_deliveries",
@@ -597,7 +597,7 @@ export const integrationIngressDeliveries = pgTable(
       "integration_ingress_deliveries_provider_endpoint_created_at_idx",
     ).on(table.providerKey, table.endpointKey, table.createdAt),
   }),
-);
+)
 
 export const integrationMessagingWorkspaces = pgTable(
   "integration_messaging_workspaces",
@@ -629,7 +629,7 @@ export const integrationMessagingWorkspaces = pgTable(
       "integration_messaging_workspaces_tenant_integration_id_external_workspace_id_idx",
     ).on(table.tenantIntegrationId, table.externalWorkspaceId),
   }),
-);
+)
 
 export const integrationMessagingWorkspaceMembers = pgTable(
   "integration_messaging_workspace_members",
@@ -665,7 +665,7 @@ export const integrationMessagingWorkspaceMembers = pgTable(
       "integration_messaging_workspace_members_workspace_id_external_member_id_idx",
     ).on(table.messagingWorkspaceId, table.externalMemberId),
   }),
-);
+)
 
 export const integrationMessagingConversations = pgTable(
   "integration_messaging_conversations",
@@ -701,7 +701,7 @@ export const integrationMessagingConversations = pgTable(
       "integration_messaging_conversations_workspace_id_external_conversation_id_idx",
     ).on(table.messagingWorkspaceId, table.externalConversationId),
   }),
-);
+)
 
 export const tenantRuntimeConfigEntries = pgTable(
   "tenant_runtime_config_entries",
@@ -742,7 +742,7 @@ export const tenantRuntimeConfigEntries = pgTable(
       "tenant_runtime_config_entries_tenant_id_surface_kind_surface_key_idx",
     ).on(table.tenantId, table.surfaceKind, table.surfaceKey),
   }),
-);
+)
 
 export const tenantRuntimeConfigMutations = pgTable(
   "tenant_runtime_config_mutations",
@@ -777,7 +777,7 @@ export const tenantRuntimeConfigMutations = pgTable(
       table.tenantRuntimeConfigEntryId,
     ),
   }),
-);
+)
 
 export const tenantServers = pgTable(
   "tenant_servers",
@@ -805,7 +805,7 @@ export const tenantServers = pgTable(
   (table) => ({
     tenantIdx: index("tenant_servers_tenant_id_idx").on(table.tenantId),
   }),
-);
+)
 
 export const tenantDesiredStates = pgTable(
   "tenant_desired_states",
@@ -829,7 +829,7 @@ export const tenantDesiredStates = pgTable(
       "tenant_desired_states_tenant_id_version_idx",
     ).on(table.tenantId, table.version),
   }),
-);
+)
 
 export const tenantManagedConfigVersions = pgTable(
   "tenant_managed_config_versions",
@@ -857,7 +857,7 @@ export const tenantManagedConfigVersions = pgTable(
       "tenant_managed_config_versions_tenant_id_version_idx",
     ).on(table.tenantId, table.version),
   }),
-);
+)
 
 export const tenantManagedFileVersions = pgTable(
   "tenant_managed_file_versions",
@@ -885,7 +885,7 @@ export const tenantManagedFileVersions = pgTable(
       "tenant_managed_file_versions_config_version_id_path_idx",
     ).on(table.tenantManagedConfigVersionId, table.path),
   }),
-);
+)
 
 export const tenantSkills = pgTable(
   "tenant_skills",
@@ -918,7 +918,7 @@ export const tenantSkills = pgTable(
       "tenant_skills_tenant_id_skill_key_idx",
     ).on(table.tenantId, table.skillKey),
   }),
-);
+)
 
 export const tenantSkillVersions = pgTable(
   "tenant_skill_versions",
@@ -946,7 +946,7 @@ export const tenantSkillVersions = pgTable(
       "tenant_skill_versions_skill_id_version_idx",
     ).on(table.tenantSkillId, table.version),
   }),
-);
+)
 
 export const tenantSkillFiles = pgTable(
   "tenant_skill_files",
@@ -971,7 +971,7 @@ export const tenantSkillFiles = pgTable(
       "tenant_skill_files_skill_id_relative_path_idx",
     ).on(table.tenantSkillId, table.relativePath),
   }),
-);
+)
 
 export const tenantSkillFileVersions = pgTable(
   "tenant_skill_file_versions",
@@ -1006,7 +1006,7 @@ export const tenantSkillFileVersions = pgTable(
       "tenant_skill_file_versions_file_id_version_idx",
     ).on(table.tenantSkillFileId, table.version),
   }),
-);
+)
 
 export const tenantScheduledTasks = pgTable(
   "tenant_scheduled_tasks",
@@ -1061,7 +1061,7 @@ export const tenantScheduledTasks = pgTable(
       "tenant_scheduled_tasks_tenant_id_task_key_idx",
     ).on(table.tenantId, table.taskKey),
   }),
-);
+)
 
 export const tenantScheduledTaskSessions = pgTable(
   "tenant_scheduled_task_sessions",
@@ -1107,7 +1107,7 @@ export const tenantScheduledTaskSessions = pgTable(
       "tenant_scheduled_task_sessions_tenant_id_external_run_key_idx",
     ).on(table.tenantId, table.externalRunKey),
   }),
-);
+)
 
 export const jobRuns = pgTable(
   "job_runs",
@@ -1141,7 +1141,7 @@ export const jobRuns = pgTable(
     ),
     tenantIdx: index("job_runs_tenant_id_idx").on(table.tenantId),
   }),
-);
+)
 
 export const tenantRuntimeSecrets = pgTable(
   "tenant_runtime_secrets",
@@ -1170,7 +1170,7 @@ export const tenantRuntimeSecrets = pgTable(
       .on(table.secretType, table.lookupHash)
       .where(sql`${table.lookupHash} is not null`),
   }),
-);
+)
 
 export const tenantRuntimeBridgeStatuses = pgTable(
   "tenant_runtime_bridge_statuses",
@@ -1217,7 +1217,7 @@ export const tenantRuntimeBridgeStatuses = pgTable(
       "tenant_runtime_bridge_statuses_bridge_status_idx",
     ).on(table.bridgeStatus, table.lastReportedAt),
   }),
-);
+)
 
 export const providerAccounts = pgTable(
   "provider_accounts",
@@ -1256,7 +1256,7 @@ export const providerAccounts = pgTable(
       "provider_accounts_tenant_id_provider_key_status_idx",
     ).on(table.tenantId, table.providerKey, table.status),
   }),
-);
+)
 
 export const providerCredentials = pgTable(
   "provider_credentials",
@@ -1296,7 +1296,7 @@ export const providerCredentials = pgTable(
       "provider_credentials_provider_account_id_credential_type_revoked_at_idx",
     ).on(table.providerAccountId, table.credentialType, table.revokedAt),
   }),
-);
+)
 
 export const providerUsageSyncStates = pgTable(
   "provider_usage_sync_states",
@@ -1344,7 +1344,7 @@ export const providerUsageSyncStates = pgTable(
       table.lastErrorAt,
     ),
   }),
-);
+)
 
 export const providerUsageBuckets = pgTable(
   "provider_usage_buckets",
@@ -1406,7 +1406,7 @@ export const providerUsageBuckets = pgTable(
       "provider_usage_buckets_external_api_key_id_model_idx",
     ).on(table.externalApiKeyId, table.model),
   }),
-);
+)
 
 export const creditLedgerEntries = pgTable(
   "credit_ledger_entries",
@@ -1437,7 +1437,7 @@ export const creditLedgerEntries = pgTable(
       "credit_ledger_entries_source_type_source_id_entry_type_idx",
     ).on(table.sourceType, table.sourceId, table.entryType),
   }),
-);
+)
 
 export const billingCustomers = pgTable(
   "billing_customers",
@@ -1464,7 +1464,7 @@ export const billingCustomers = pgTable(
       "billing_customers_organization_id_idx",
     ).on(table.organizationId),
   }),
-);
+)
 
 export const billingSubscriptions = pgTable(
   "billing_subscriptions",
@@ -1503,7 +1503,7 @@ export const billingSubscriptions = pgTable(
       "billing_subscriptions_organization_id_status_idx",
     ).on(table.organizationId, table.status),
   }),
-);
+)
 
 export const billingCheckoutSessions = pgTable(
   "billing_checkout_sessions",
@@ -1535,7 +1535,7 @@ export const billingCheckoutSessions = pgTable(
       "billing_checkout_sessions_organization_id_created_at_idx",
     ).on(table.organizationId, table.createdAt),
   }),
-);
+)
 
 export const billingWebhookEvents = pgTable(
   "billing_webhook_events",
@@ -1555,7 +1555,7 @@ export const billingWebhookEvents = pgTable(
       table.createdAt,
     ),
   }),
-);
+)
 
 export const billingPreferences = pgTable(
   "billing_preferences",
@@ -1584,7 +1584,7 @@ export const billingPreferences = pgTable(
       "billing_preferences_organization_id_idx",
     ).on(table.organizationId),
   }),
-);
+)
 
 export const billingAutoTopOffRuns = pgTable(
   "billing_auto_top_off_runs",
@@ -1639,7 +1639,7 @@ export const billingAutoTopOffRuns = pgTable(
       "billing_auto_top_off_runs_stripe_invoice_id_idx",
     ).on(table.stripeInvoiceId),
   }),
-);
+)
 
 export const creditGrants = pgTable(
   "credit_grants",
@@ -1687,7 +1687,7 @@ export const creditGrants = pgTable(
       table.ledgerEntryId,
     ),
   }),
-);
+)
 
 export const providerUsageSettlements = pgTable(
   "provider_usage_settlements",
@@ -1747,7 +1747,7 @@ export const providerUsageSettlements = pgTable(
       table.settlementStatus,
     ),
   }),
-);
+)
 
 export const tenantApplyRuns = pgTable(
   "tenant_apply_runs",
@@ -1785,7 +1785,7 @@ export const tenantApplyRuns = pgTable(
       table.status,
     ),
   }),
-);
+)
 
 export const workspaceChatConversations = pgTable(
   "workspace_chat_conversations",
@@ -1828,7 +1828,7 @@ export const workspaceChatConversations = pgTable(
       .on(table.organizationId, table.slug)
       .where(sql`${table.slug} is not null`),
   }),
-);
+)
 
 export const workspaceChatMessages = pgTable(
   "workspace_chat_messages",
@@ -1866,7 +1866,7 @@ export const workspaceChatMessages = pgTable(
       .on(table.conversationId, table.clientMessageId)
       .where(sql`${table.clientMessageId} is not null`),
   }),
-);
+)
 
 export const workspaceChatAttachments = pgTable(
   "workspace_chat_attachments",
@@ -1901,14 +1901,14 @@ export const workspaceChatAttachments = pgTable(
     tenantIdx: index("workspace_chat_attachments_tenant_id_idx").on(
       table.tenantId,
     ),
-    uploadedByUserIdx: index("workspace_chat_attachments_uploaded_by_user_id_idx").on(
-      table.uploadedByUserId,
-    ),
+    uploadedByUserIdx: index(
+      "workspace_chat_attachments_uploaded_by_user_id_idx",
+    ).on(table.uploadedByUserId),
     storageKeyUniqueIdx: uniqueIndex(
       "workspace_chat_attachments_storage_key_idx",
     ).on(table.storageKey),
   }),
-);
+)
 
 export const workspaceChatMessageParts = pgTable(
   "workspace_chat_message_parts",
@@ -1936,7 +1936,7 @@ export const workspaceChatMessageParts = pgTable(
       table.messageId,
     ),
   }),
-);
+)
 
 export const workspaceChatMessageEvents = pgTable(
   "workspace_chat_message_events",
@@ -1978,12 +1978,11 @@ export const workspaceChatMessageEvents = pgTable(
     messageSequenceUniqueIdx: uniqueIndex(
       "workspace_chat_message_events_message_id_sequence_idx",
     ).on(table.messageId, table.sequence),
-    messageItemIdx: index("workspace_chat_message_events_message_id_item_id_idx").on(
-      table.messageId,
-      table.itemId,
-    ),
+    messageItemIdx: index(
+      "workspace_chat_message_events_message_id_item_id_idx",
+    ).on(table.messageId, table.itemId),
   }),
-);
+)
 
 export const tenantSessions = pgTable(
   "tenant_sessions",
@@ -2074,7 +2073,7 @@ export const tenantSessions = pgTable(
       "tenant_sessions_tenant_id_last_message_at_idx",
     ).on(table.tenantId, table.lastMessageAt),
   }),
-);
+)
 
 export const workspaceChatRuntimeSegments = pgTable(
   "workspace_chat_runtime_segments",
@@ -2086,9 +2085,12 @@ export const workspaceChatRuntimeSegments = pgTable(
     tenantId: uuid("tenant_id")
       .references(() => tenants.id, { onDelete: "cascade" })
       .notNull(),
-    tenantSessionId: uuid("tenant_session_id").references(() => tenantSessions.id, {
-      onDelete: "set null",
-    }),
+    tenantSessionId: uuid("tenant_session_id").references(
+      () => tenantSessions.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     sessionKey: text("session_key").notNull(),
     externalSessionId: text("external_session_id"),
     status: varchar("status", { length: 64 }).notNull(),
@@ -2109,7 +2111,7 @@ export const workspaceChatRuntimeSegments = pgTable(
       table.tenantId,
     ),
   }),
-);
+)
 
 export const userChannelIdentities = pgTable(
   "user_channel_identities",
@@ -2147,7 +2149,7 @@ export const userChannelIdentities = pgTable(
       "user_channel_identities_organization_id_provider_external_id_idx",
     ).on(table.organizationId, table.provider, table.externalId),
   }),
-);
+)
 
 export const jobEvents = pgTable(
   "job_events",
@@ -2166,4 +2168,4 @@ export const jobEvents = pgTable(
   (table) => ({
     jobRunIdx: index("job_events_job_run_id_idx").on(table.jobRunId),
   }),
-);
+)

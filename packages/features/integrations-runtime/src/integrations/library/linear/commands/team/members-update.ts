@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearTeamMembershipCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearTeamReferenceFields,
   getLinearUserFields,
   type LinearTeamMembershipNode,
-} from "../../client";
+} from "../../client"
 
 const UPDATE_TEAM_MEMBERSHIP_MUTATION = `
   mutation OttoLinearTeamMembershipUpdate($id: String!, $input: TeamMembershipUpdateInput!) {
@@ -28,46 +28,46 @@ const UPDATE_TEAM_MEMBERSHIP_MUTATION = `
       }
     }
   }
-`;
+`
 
 export const executeLinearTeamMembersUpdate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const membershipId =
-      typeof args.membershipId === "string" ? args.membershipId.trim() : "";
+      typeof args.membershipId === "string" ? args.membershipId.trim() : ""
 
     if (!membershipId) {
-      throw new Error("linear team.members_update requires membershipId.");
+      throw new Error("linear team.members_update requires membershipId.")
     }
 
     const input: {
-      owner?: boolean;
-      sortOrder?: number;
-    } = {};
+      owner?: boolean
+      sortOrder?: number
+    } = {}
 
     if (typeof args.owner === "boolean") {
-      input.owner = args.owner;
+      input.owner = args.owner
     }
 
     if (typeof args.sortOrder === "number" && Number.isFinite(args.sortOrder)) {
-      input.sortOrder = args.sortOrder;
+      input.sortOrder = args.sortOrder
     }
 
     if (Object.keys(input).length === 0) {
       throw new Error(
         "linear team.members_update requires at least one update field.",
-      );
+      )
     }
 
     const data = await executeLinearGraphql<{
       teamMembershipUpdate?: {
-        lastSyncId?: number | null;
-        success?: boolean | null;
-        teamMembership?: LinearTeamMembershipNode | null;
-      } | null;
+        lastSyncId?: number | null
+        success?: boolean | null
+        teamMembership?: LinearTeamMembershipNode | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: UPDATE_TEAM_MEMBERSHIP_MUTATION,
@@ -75,7 +75,7 @@ export const executeLinearTeamMembersUpdate: IntegrationCommandExecute =
         id: membershipId,
         input,
       },
-    });
+    })
 
     return {
       ...buildLinearTeamMembershipCommandResult({
@@ -85,5 +85,5 @@ export const executeLinearTeamMembersUpdate: IntegrationCommandExecute =
         teamMembership: data.teamMembershipUpdate?.teamMembership,
       }),
       lookup: membershipId,
-    };
-  };
+    }
+  }

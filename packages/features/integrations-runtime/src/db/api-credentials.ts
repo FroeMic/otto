@@ -1,58 +1,54 @@
-import { and, eq } from "drizzle-orm";
-
-import { getDb } from "./client";
-import {
-  integrationApiCredentials,
-  tenantIntegrationState,
-} from "./schema";
+import { and, eq } from "drizzle-orm"
 import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
-} from "../lib/crypto";
+} from "../lib/crypto"
+import { getDb } from "./client"
+import { integrationApiCredentials, tenantIntegrationState } from "./schema"
 
 export type ConnectedApiCredentialRecord = {
-  apiKey: string;
-  credentialId: string;
-  declaredScopes: string[];
-  externalAccountLabel: string | null;
-  metadata: Record<string, unknown>;
-  providerKey: string;
-  state: Record<string, unknown>;
-  stateVersion: number | null;
-  status: string;
-  tenantIntegrationId: string;
-};
+  apiKey: string
+  credentialId: string
+  declaredScopes: string[]
+  externalAccountLabel: string | null
+  metadata: Record<string, unknown>
+  providerKey: string
+  state: Record<string, unknown>
+  stateVersion: number | null
+  status: string
+  tenantIntegrationId: string
+}
 
 export function normalizeApiCredentialScopes(scopes: string[]) {
   return [...new Set(scopes.map((scope) => scope.trim()).filter(Boolean))].sort(
     (left, right) => left.localeCompare(right),
-  );
+  )
 }
 
 function joinScopeCsv(scopes: string[]) {
-  return normalizeApiCredentialScopes(scopes).join(",");
+  return normalizeApiCredentialScopes(scopes).join(",")
 }
 
 function splitScopeCsv(value: string | null | undefined) {
   if (!value) {
-    return [];
+    return []
   }
 
-  return normalizeApiCredentialScopes(value.split(","));
+  return normalizeApiCredentialScopes(value.split(","))
 }
 
 export async function upsertApiCredentialForTenantIntegration(input: {
-  apiKey: string;
-  credentialType: "personal_api_key" | (string & {});
-  declaredScopes: string[];
-  externalAccountLabel?: string | null;
-  lastValidatedAt?: Date | null;
-  metadata?: Record<string, unknown>;
-  providerKey: string;
-  tenantIntegrationId: string;
+  apiKey: string
+  credentialType: "personal_api_key" | (string & {})
+  declaredScopes: string[]
+  externalAccountLabel?: string | null
+  lastValidatedAt?: Date | null
+  metadata?: Record<string, unknown>
+  providerKey: string
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .insert(integrationApiCredentials)
@@ -85,16 +81,16 @@ export async function upsertApiCredentialForTenantIntegration(input: {
         updatedAt: now,
       },
       target: integrationApiCredentials.tenantIntegrationId,
-    });
+    })
 }
 
 export async function upsertTenantIntegrationState(input: {
-  providerKey: string;
-  state: Record<string, unknown>;
-  tenantIntegrationId: string;
+  providerKey: string
+  state: Record<string, unknown>
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .insert(tenantIntegrationState)
@@ -112,14 +108,14 @@ export async function upsertTenantIntegrationState(input: {
         updatedAt: now,
       },
       target: tenantIntegrationState.tenantIntegrationId,
-    });
+    })
 }
 
 export async function getConnectedApiCredentialForTenantIntegration(input: {
-  providerKey: string;
-  tenantIntegrationId: string;
+  providerKey: string
+  tenantIntegrationId: string
 }): Promise<ConnectedApiCredentialRecord | null> {
-  const db = getDb();
+  const db = getDb()
   const [row] = await db
     .select({
       credentialId: integrationApiCredentials.id,
@@ -150,10 +146,10 @@ export async function getConnectedApiCredentialForTenantIntegration(input: {
         eq(integrationApiCredentials.providerKey, input.providerKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!row) {
-    return null;
+    return null
   }
 
   return {
@@ -167,15 +163,15 @@ export async function getConnectedApiCredentialForTenantIntegration(input: {
     stateVersion: row.stateVersion ?? null,
     status: row.status,
     tenantIntegrationId: row.tenantIntegrationId,
-  };
+  }
 }
 
 export async function recordApiCredentialAttention(input: {
-  credentialId: string;
-  errorMessage: string;
+  credentialId: string
+  errorMessage: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(integrationApiCredentials)
@@ -185,15 +181,15 @@ export async function recordApiCredentialAttention(input: {
       status: "needs_attention",
       updatedAt: now,
     })
-    .where(eq(integrationApiCredentials.id, input.credentialId));
+    .where(eq(integrationApiCredentials.id, input.credentialId))
 }
 
 export async function disconnectApiCredentialForTenantIntegration(input: {
-  providerKey: string;
-  tenantIntegrationId: string;
+  providerKey: string
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .delete(integrationApiCredentials)
@@ -205,7 +201,7 @@ export async function disconnectApiCredentialForTenantIntegration(input: {
         ),
         eq(integrationApiCredentials.providerKey, input.providerKey),
       ),
-    );
+    )
 
   await db
     .update(tenantIntegrationState)
@@ -214,8 +210,11 @@ export async function disconnectApiCredentialForTenantIntegration(input: {
     })
     .where(
       and(
-        eq(tenantIntegrationState.tenantIntegrationId, input.tenantIntegrationId),
+        eq(
+          tenantIntegrationState.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
         eq(tenantIntegrationState.providerKey, input.providerKey),
       ),
-    );
+    )
 }

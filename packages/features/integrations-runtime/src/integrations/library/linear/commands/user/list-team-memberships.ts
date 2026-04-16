@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearUserTeamMembershipCollectionCommandResult,
@@ -8,7 +8,7 @@ import {
   type LinearTeamMembershipNode,
   type LinearUserNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_TEAM_MEMBERSHIPS_QUERY = `
   query OttoLinearUserListTeamMemberships($id: String!, $limit: Int!) {
@@ -31,34 +31,34 @@ const LIST_TEAM_MEMBERSHIPS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearUserListTeamMemberships: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+    const userId = typeof args.userId === "string" ? args.userId.trim() : ""
 
     if (!userId) {
-      throw new Error("linear user.list_team_memberships requires userId.");
+      throw new Error("linear user.list_team_memberships requires userId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
 
     const data = await executeLinearGraphql<{
       user?:
         | (LinearUserNode & {
             teamMemberships?: {
-              nodes?: LinearTeamMembershipNode[] | null;
-            } | null;
+              nodes?: LinearTeamMembershipNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_TEAM_MEMBERSHIPS_QUERY,
@@ -66,12 +66,10 @@ export const executeLinearUserListTeamMemberships: IntegrationCommandExecute =
         id: userId,
         limit,
       },
-    });
+    })
 
     if (!data.user) {
-      throw new Error(
-        "Linear returned no user for user.list_team_memberships.",
-      );
+      throw new Error("Linear returned no user for user.list_team_memberships.")
     }
 
     return {
@@ -82,5 +80,5 @@ export const executeLinearUserListTeamMemberships: IntegrationCommandExecute =
         user: data.user,
       }),
       lookup: userId,
-    };
-  };
+    }
+  }

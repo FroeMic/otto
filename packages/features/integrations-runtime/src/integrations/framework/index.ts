@@ -1,7 +1,7 @@
 export type {
   ResolvedIntegrationAgentCapability,
   ResolvedIntegrationCommandCapability,
-} from "./capabilities";
+} from "./capabilities"
 export {
   buildResolvedIntegrationAgentCapability,
   buildResolvedIntegrationCommandCapability,
@@ -11,9 +11,9 @@ export {
   listIntegrationCommands,
   resolveAgentCapabilityState,
   resolveCommandCapabilityState,
-} from "./capabilities";
-export { executeRegisteredIntegrationCommand } from "./execute";
-export { buildRuntimeIntegrationManifestForKeys } from "./manifest";
+} from "./capabilities"
+export { executeRegisteredIntegrationCommand } from "./execute"
+export { buildRuntimeIntegrationManifestForKeys } from "./manifest"
 export {
   getIntegrationDefinition,
   listIntegrationDefinitions,
@@ -21,22 +21,23 @@ export {
   listRuntimeIntegrationDefinitions,
   listSupportedRuntimeIntegrationKeys,
   listWorkspaceIntegrationDefinitions,
-} from "./registry";
+} from "./registry"
 export {
   buildIntegrationOverviewEntry,
   buildRuntimeIntegrationCommandMatch,
   buildRuntimeIntegrationDetailsResponse,
   buildRuntimeIntegrationSummaryResponse,
-} from "./runtime-response";
-export { collectCommands, findIntegrationCommandMatches } from "./search";
-export { buildRuntimeIntegrationSettingsContract } from "./settings-contract";
+} from "./runtime-response"
+export { collectCommands, findIntegrationCommandMatches } from "./search"
+export { buildRuntimeIntegrationSettingsContract } from "./settings-contract"
 export {
   getIntegrationManagementMode,
   isPlatformManagedIntegration,
   resolvePlatformManagedIntegrationStatus,
   resolveRuntimeIntegrationStatus,
-} from "./status";
+} from "./status"
 export type {
+  IntegrationAuthBinding,
   IntegrationCapabilityPolicy,
   IntegrationCommandDefinition,
   IntegrationCommandEffect,
@@ -46,7 +47,6 @@ export type {
   IntegrationCommandResultMode,
   IntegrationCommandSafety,
   IntegrationCommandValidate,
-  IntegrationAuthBinding,
   IntegrationDefinition,
   IntegrationExecutionContext,
   IntegrationIngressDefinition,
@@ -74,4 +74,4 @@ export type {
   RuntimeIntegrationStatus,
   RuntimeIntegrationSummaryResponse,
   RuntimeIntegrationUsageGuide,
-} from "./types";
+} from "./types"

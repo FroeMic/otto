@@ -1,35 +1,35 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   decodeLinearFileContentBase64,
   normalizeOptionalBoolean,
   requestLinearUploadUrl,
   uploadLinearFileBytes,
-} from "../../client";
-import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-uploaded-file";
+} from "../../client"
+import { executeLinearAttachmentCreateFromUploadedFile } from "./create-from-uploaded-file"
 
 export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const filename =
-      typeof args.filename === "string" ? args.filename.trim() : "";
+      typeof args.filename === "string" ? args.filename.trim() : ""
     const contentType =
-      typeof args.contentType === "string" ? args.contentType.trim() : "";
+      typeof args.contentType === "string" ? args.contentType.trim() : ""
 
     if (!filename || !contentType) {
       throw new Error(
         "attachment.upload_file requires filename and contentType.",
-      );
+      )
     }
 
     const bytes = decodeLinearFileContentBase64({
       contentBase64:
         typeof args.contentBase64 === "string" ? args.contentBase64 : "",
       filename,
-    });
+    })
 
     const upload = await requestLinearUploadUrl({
       accessToken: context.auth.accessToken,
@@ -43,17 +43,17 @@ export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
           ? (args.metaData as Record<string, unknown>)
           : null,
       size: bytes.byteLength,
-    });
+    })
 
     if (!upload.uploadFile?.assetUrl) {
-      throw new Error("Linear did not return an assetUrl for the upload.");
+      throw new Error("Linear did not return an assetUrl for the upload.")
     }
 
     await uploadLinearFileBytes({
       bytes,
       contentType,
       uploadFile: upload.uploadFile,
-    });
+    })
 
     const attachmentResult =
       (await executeLinearAttachmentCreateFromUploadedFile({
@@ -74,12 +74,12 @@ export const executeLinearAttachmentUploadFile: IntegrationCommandExecute =
           title: args.title,
         },
         context,
-      })) as Record<string, unknown>;
+      })) as Record<string, unknown>
 
     return {
       ...attachmentResult,
       commandKey: "attachment.upload_file",
       uploadFile: upload.uploadFile,
       uploadedBytes: bytes.byteLength,
-    };
-  };
+    }
+  }

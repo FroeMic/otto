@@ -1,5 +1,5 @@
-import type { SlackIngressRequestType } from "../../db/control-plane";
 import { handleSlackIngressRequest } from "../library/slack/ingress/handler";
+import type { SlackIngressRequestType } from "../library/slack/ingress/types";
 
 import { getIntegrationDefinition } from "./registry";
 

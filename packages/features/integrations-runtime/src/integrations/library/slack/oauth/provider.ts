@@ -1,38 +1,38 @@
-import { getSlackOAuthConfig } from "../../../../lib/env";
+import { getSlackOAuthConfig } from "../../../../lib/env"
 import type {
   OAuthProviderDefinition,
   OAuthProviderErrorKind,
-} from "../../../../lib/oauth/providers/types";
+} from "../../../../lib/oauth/providers/types"
 
-const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
-const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access";
+const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
+const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
 
 type SlackOAuthResponse = {
-  access_token?: string;
+  access_token?: string
   authed_user?: {
-    id?: string;
-  };
-  bot_user_id?: string;
-  error?: string;
-  ok: boolean;
-  scope?: string;
+    id?: string
+  }
+  bot_user_id?: string
+  error?: string
+  ok: boolean
+  scope?: string
   team?: {
-    id?: string;
-    name?: string;
-  };
-};
+    id?: string
+    name?: string
+  }
+}
 
 export const slackOAuthProvider: OAuthProviderDefinition = {
   buildAuthorizationUrl(input) {
-    const config = getSlackOAuthConfig();
-    const url = new URL(SLACK_AUTHORIZE_URL);
+    const config = getSlackOAuthConfig()
+    const url = new URL(SLACK_AUTHORIZE_URL)
 
-    url.searchParams.set("client_id", config.clientId);
-    url.searchParams.set("redirect_uri", config.redirectUri);
-    url.searchParams.set("scope", config.botScopes.join(","));
-    url.searchParams.set("state", input.state);
+    url.searchParams.set("client_id", config.clientId)
+    url.searchParams.set("redirect_uri", config.redirectUri)
+    url.searchParams.set("scope", config.botScopes.join(","))
+    url.searchParams.set("state", input.state)
 
-    return url.toString();
+    return url.toString()
   },
 
   classifyError(error) {
@@ -42,18 +42,16 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
       "status" in error &&
       typeof error.status === "number"
         ? error.status
-        : undefined;
+        : undefined
     const code =
       typeof error === "object" &&
       error &&
       "code" in error &&
       typeof error.code === "string"
         ? error.code
-        : undefined;
+        : undefined
     const message =
-      error instanceof Error
-        ? error.message.toLowerCase()
-        : String(error ?? "");
+      error instanceof Error ? error.message.toLowerCase() : String(error ?? "")
 
     if (
       status === 401 ||
@@ -62,14 +60,14 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
       message.includes("invalid_code") ||
       message.includes("invalid_auth")
     ) {
-      return "reauthorize";
+      return "reauthorize"
     }
 
-    return "transient";
+    return "transient"
   },
 
   async exchangeCode(input) {
-    const config = getSlackOAuthConfig();
+    const config = getSlackOAuthConfig()
     const response = await fetch(SLACK_TOKEN_URL, {
       body: new URLSearchParams({
         client_id: config.clientId,
@@ -81,14 +79,14 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       method: "POST",
-    });
-    const body = (await response.json()) as SlackOAuthResponse;
+    })
+    const body = (await response.json()) as SlackOAuthResponse
 
     if (!response.ok || !body.ok || !body.access_token || !body.team?.id) {
       throw createSlackOauthError(
         `Slack OAuth exchange failed${body.error ? `: ${body.error}` : ""}`,
         body.error === "invalid_code" ? "reauthorize" : "transient",
-      );
+      )
     }
 
     return {
@@ -120,15 +118,15 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
       refreshToken: null,
       refreshTokenExpiresAt: null,
       tokenType: null,
-    };
+    }
   },
 
   getAuthorizeParams() {
-    return {};
+    return {}
   },
 
   getRequestedScopes() {
-    return getSlackOAuthConfig().botScopes;
+    return getSlackOAuthConfig().botScopes
   },
 
   key: "slack",
@@ -138,18 +136,18 @@ export const slackOAuthProvider: OAuthProviderDefinition = {
     throw createSlackOauthError(
       "Slack access tokens cannot be refreshed automatically.",
       "reauthorize",
-    );
+    )
   },
 
   usesPkce: false,
-};
+}
 
 function createSlackOauthError(message: string, kind: OAuthProviderErrorKind) {
   const error = new Error(message) as Error & {
-    kind?: OAuthProviderErrorKind;
-  };
+    kind?: OAuthProviderErrorKind
+  }
 
-  error.kind = kind;
+  error.kind = kind
 
-  return error;
+  return error
 }

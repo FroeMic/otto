@@ -2,7 +2,7 @@ import {
   normalizeOptionalBoolean,
   normalizeOptionalString,
   pruneGraphqlInput,
-} from "../../client";
+} from "../../client"
 
 export function buildLinearTeamCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -16,13 +16,13 @@ export function buildLinearTeamCreateInput(
     name: normalizeOptionalString(argumentsObject.name),
     private: normalizeOptionalBoolean(argumentsObject.private),
     triageEnabled: normalizeOptionalBoolean(argumentsObject.triageEnabled),
-  });
+  })
 
   if (!input.name) {
-    throw new Error("team.create requires name.");
+    throw new Error("team.create requires name.")
   }
 
-  return input;
+  return input
 }
 
 export function buildLinearTeamUpdateInput(
@@ -37,11 +37,11 @@ export function buildLinearTeamUpdateInput(
     name: normalizeOptionalString(argumentsObject.name),
     private: normalizeOptionalBoolean(argumentsObject.private),
     triageEnabled: normalizeOptionalBoolean(argumentsObject.triageEnabled),
-  });
+  })
 
   if (Object.keys(input).length === 0) {
-    throw new Error("team.update requires at least one field to update.");
+    throw new Error("team.update requires at least one field to update.")
   }
 
-  return input;
+  return input
 }

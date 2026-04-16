@@ -1,11 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
-
-import { getDb } from "./client";
+import { and, desc, eq } from "drizzle-orm"
+import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types"
+import { getDb } from "./client"
 import {
-  appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
   upsertOauthConnectionForTenantIntegrationTx,
-} from "./oauth";
+} from "./oauth"
 import {
   memberships,
   organizations,
@@ -13,50 +12,49 @@ import {
   tenantServers,
   tenants,
   users,
-} from "./schema";
-import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types";
+} from "./schema"
 
-const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
-const LINEAR_PROVIDER_KEY = "linear";
-const SLACK_PROVIDER_KEY = "slack";
+const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active"
+const LINEAR_PROVIDER_KEY = "linear"
+const SLACK_PROVIDER_KEY = "slack"
 
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
->[0];
+>[0]
 
 export type TenantManagedIntegrationConnectContext = {
-  integrationStatus: string | null;
-  organizationId: string;
-  organizationName: string;
-  organizationSlug: string;
-  serverStatus: string | null;
-  tenantId: string;
-  tenantIntegrationId: string | null;
-  tenantStatus: string;
-  userEmail: string;
-  userId: string;
-};
+  integrationStatus: string | null
+  organizationId: string
+  organizationName: string
+  organizationSlug: string
+  serverStatus: string | null
+  tenantId: string
+  tenantIntegrationId: string | null
+  tenantStatus: string
+  userEmail: string
+  userId: string
+}
 
 export type CompletedManagedIntegrationOauthConnection = {
-  organizationSlug: string;
-  shouldEnqueueApply: boolean;
-  tenantId: string;
-  tenantIntegrationId: string;
-};
+  organizationSlug: string
+  shouldEnqueueApply: boolean
+  tenantId: string
+  tenantIntegrationId: string
+}
 
 export type CompletedManagedSlackOauthConnection =
   CompletedManagedIntegrationOauthConnection & {
-    slackTeamId: string;
-    slackTeamName: string | null;
-  };
+    slackTeamId: string
+    slackTeamName: string | null
+  }
 
 export async function getTenantManagedIntegrationConnectContext(input: {
-  orgSlug: string;
-  providerKey: string;
-  userExternalId: string;
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
 }): Promise<TenantManagedIntegrationConnectContext | null> {
-  const db = getDb();
-  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const db = getDb()
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase()
   const [row] = await db
     .select({
       integrationStatus: tenantIntegrations.status,
@@ -90,10 +88,10 @@ export async function getTenantManagedIntegrationConnectContext(input: {
       ),
     )
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!row) {
-    return null;
+    return null
   }
 
   if (
@@ -102,34 +100,34 @@ export async function getTenantManagedIntegrationConnectContext(input: {
   ) {
     throw new Error(
       `Managed integration ${input.providerKey} does not support connect sessions yet.`,
-    );
+    )
   }
 
-  return row;
+  return row
 }
 
 export async function persistManagedLinearOauthConnection(input: {
-  actorType: string | null;
-  externalAccountId?: string | null;
-  externalAccountLabel?: string | null;
-  mode: "connect" | "reconnect";
-  organizationId: string;
-  requestedScopes: string[];
-  sessionId: string;
-  tokenResult: OAuthTokenExchangeResult;
+  actorType: string | null
+  externalAccountId?: string | null
+  externalAccountLabel?: string | null
+  mode: "connect" | "reconnect"
+  organizationId: string
+  requestedScopes: string[]
+  sessionId: string
+  tokenResult: OAuthTokenExchangeResult
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   return db.transaction(async (tx) => {
     const authorizedTenant = await getAuthorizedTenantForOrganization(tx, {
       organizationId: input.organizationId,
       providerLabel: "Linear",
-    });
+    })
     const tenantIntegrationId = await upsertLinearIntegrationForTenantTx(tx, {
       now,
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     await upsertOauthConnectionForTenantIntegrationTx(tx, {
       actorType: input.actorType,
@@ -141,49 +139,49 @@ export async function persistManagedLinearOauthConnection(input: {
       requestedScopes: input.requestedScopes,
       tenantIntegrationId,
       tokenResult: input.tokenResult,
-    });
-    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+    })
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now)
 
     return {
       organizationSlug: authorizedTenant.organizationSlug,
       shouldEnqueueApply: authorizedTenant.shouldEnqueueApply,
       tenantId: authorizedTenant.tenantId,
       tenantIntegrationId,
-    } satisfies CompletedManagedIntegrationOauthConnection;
-  });
+    } satisfies CompletedManagedIntegrationOauthConnection
+  })
 }
 
 export async function persistManagedSlackOauthConnection(input: {
-  mode: "connect" | "reconnect";
-  organizationId: string;
-  requestedScopes: string[];
-  sessionId: string;
-  tokenResult: OAuthTokenExchangeResult;
+  mode: "connect" | "reconnect"
+  organizationId: string
+  requestedScopes: string[]
+  sessionId: string
+  tokenResult: OAuthTokenExchangeResult
 }) {
-  const metadata = input.tokenResult.identity?.providerMetadata ?? {};
+  const metadata = input.tokenResult.identity?.providerMetadata ?? {}
   const slackTeamId =
     input.tokenResult.identity?.externalAccountId ??
-    getStringMetadataValue(metadata, "slackTeamId");
+    getStringMetadataValue(metadata, "slackTeamId")
   const slackTeamName =
     input.tokenResult.identity?.externalAccountLabel ??
-    getNullableStringMetadataValue(metadata, "slackTeamName");
+    getNullableStringMetadataValue(metadata, "slackTeamName")
 
   if (!slackTeamId) {
-    throw new Error("Slack workspace id is missing from the OAuth response.");
+    throw new Error("Slack workspace id is missing from the OAuth response.")
   }
 
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   return db.transaction(async (tx) => {
     const authorizedTenant = await getAuthorizedTenantForOrganization(tx, {
       organizationId: input.organizationId,
       providerLabel: "Slack",
-    });
+    })
     const tenantIntegrationId = await upsertSlackIntegrationForTenantTx(tx, {
       now,
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     await upsertOauthConnectionForTenantIntegrationTx(tx, {
       actorType: input.tokenResult.actorType,
@@ -196,8 +194,8 @@ export async function persistManagedSlackOauthConnection(input: {
       requestedScopes: input.requestedScopes,
       tenantIntegrationId,
       tokenResult: input.tokenResult,
-    });
-    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+    })
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now)
 
     return {
       organizationSlug: authorizedTenant.organizationSlug,
@@ -206,57 +204,57 @@ export async function persistManagedSlackOauthConnection(input: {
       slackTeamName,
       tenantId: authorizedTenant.tenantId,
       tenantIntegrationId,
-    } satisfies CompletedManagedSlackOauthConnection;
-  });
+    } satisfies CompletedManagedSlackOauthConnection
+  })
 }
 
 export async function recordLinearOauthFailure(input: {
-  error: string;
-  organizationId: string;
+  error: string
+  organizationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const authorizedTenant = await getTenantIdForOrganizationTx(tx, {
       organizationId: input.organizationId,
       providerLabel: "Linear refresh failure",
-    });
+    })
 
     await recordLinearIntegrationErrorTx(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
-    });
-  });
+    })
+  })
 }
 
 export async function recordSlackManagedOauthFailure(input: {
-  error: string;
-  organizationId: string;
+  error: string
+  organizationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const authorizedTenant = await getTenantIdForOrganizationTx(tx, {
       organizationId: input.organizationId,
       providerLabel: "Slack OAuth failure",
-    });
+    })
 
     await recordSlackIntegrationErrorTx(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
-    });
-  });
+    })
+  })
 }
 
 async function getAuthorizedTenantForOrganization(
   tx: DbTransaction,
   input: {
-    organizationId: string;
-    providerLabel: string;
+    organizationId: string
+    providerLabel: string
   },
 ) {
   const [authorizedTenant] = await tx
@@ -271,12 +269,12 @@ async function getAuthorizedTenantForOrganization(
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(eq(organizations.id, input.organizationId))
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!authorizedTenant) {
     throw new Error(
       `The ${input.providerLabel} connection could not be matched to a workspace.`,
-    );
+    )
   }
 
   return {
@@ -285,14 +283,14 @@ async function getAuthorizedTenantForOrganization(
       authorizedTenant.tenantStatus === "ready" &&
       authorizedTenant.serverStatus === "ready",
     tenantId: authorizedTenant.tenantId,
-  };
+  }
 }
 
 async function getTenantIdForOrganizationTx(
   tx: DbTransaction,
   input: {
-    organizationId: string;
-    providerLabel: string;
+    organizationId: string
+    providerLabel: string
   },
 ) {
   const [authorizedTenant] = await tx
@@ -303,22 +301,22 @@ async function getTenantIdForOrganizationTx(
     .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
     .where(eq(organizations.id, input.organizationId))
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!authorizedTenant) {
     throw new Error(
       `The ${input.providerLabel} could not be matched to a workspace.`,
-    );
+    )
   }
 
-  return authorizedTenant;
+  return authorizedTenant
 }
 
 async function upsertSlackIntegrationForTenantTx(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -332,9 +330,9 @@ async function upsertSlackIntegrationForTenantTx(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  let tenantIntegrationId = existingIntegration?.id ?? null;
+  let tenantIntegrationId = existingIntegration?.id ?? null
 
   if (tenantIntegrationId) {
     await tx
@@ -347,7 +345,7 @@ async function upsertSlackIntegrationForTenantTx(
         status: "connected",
         updatedAt: input.now,
       })
-      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, tenantIntegrationId))
   } else {
     const [createdIntegration] = await tx
       .insert(tenantIntegrations)
@@ -359,23 +357,23 @@ async function upsertSlackIntegrationForTenantTx(
       })
       .returning({
         id: tenantIntegrations.id,
-      });
+      })
 
-    tenantIntegrationId = createdIntegration.id;
+    tenantIntegrationId = createdIntegration.id
   }
 
   if (!tenantIntegrationId) {
-    throw new Error("Slack integration could not be created.");
+    throw new Error("Slack integration could not be created.")
   }
 
-  return tenantIntegrationId;
+  return tenantIntegrationId
 }
 
 async function upsertLinearIntegrationForTenantTx(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -389,9 +387,9 @@ async function upsertLinearIntegrationForTenantTx(
         eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  let tenantIntegrationId = existingIntegration?.id ?? null;
+  let tenantIntegrationId = existingIntegration?.id ?? null
 
   if (tenantIntegrationId) {
     await tx
@@ -404,7 +402,7 @@ async function upsertLinearIntegrationForTenantTx(
         status: "connected",
         updatedAt: input.now,
       })
-      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, tenantIntegrationId))
   } else {
     const [createdIntegration] = await tx
       .insert(tenantIntegrations)
@@ -416,24 +414,24 @@ async function upsertLinearIntegrationForTenantTx(
       })
       .returning({
         id: tenantIntegrations.id,
-      });
+      })
 
-    tenantIntegrationId = createdIntegration.id;
+    tenantIntegrationId = createdIntegration.id
   }
 
   if (!tenantIntegrationId) {
-    throw new Error("Linear integration could not be created.");
+    throw new Error("Linear integration could not be created.")
   }
 
-  return tenantIntegrationId;
+  return tenantIntegrationId
 }
 
 async function recordSlackIntegrationErrorTx(
   tx: DbTransaction,
   input: {
-    error: string;
-    now: Date;
-    tenantId: string;
+    error: string
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -449,7 +447,7 @@ async function recordSlackIntegrationErrorTx(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!existingIntegration) {
     await tx.insert(tenantIntegrations).values({
@@ -458,8 +456,8 @@ async function recordSlackIntegrationErrorTx(
       providerKey: SLACK_PROVIDER_KEY,
       status: "error",
       tenantId: input.tenantId,
-    });
-    return;
+    })
+    return
   }
 
   await tx
@@ -472,15 +470,15 @@ async function recordSlackIntegrationErrorTx(
         : "error",
       updatedAt: input.now,
     })
-    .where(eq(tenantIntegrations.id, existingIntegration.id));
+    .where(eq(tenantIntegrations.id, existingIntegration.id))
 }
 
 async function recordLinearIntegrationErrorTx(
   tx: DbTransaction,
   input: {
-    error: string;
-    now: Date;
-    tenantId: string;
+    error: string
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -496,7 +494,7 @@ async function recordLinearIntegrationErrorTx(
         eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!existingIntegration) {
     await tx.insert(tenantIntegrations).values({
@@ -505,8 +503,8 @@ async function recordLinearIntegrationErrorTx(
       providerKey: LINEAR_PROVIDER_KEY,
       status: "error",
       tenantId: input.tenantId,
-    });
-    return;
+    })
+    return
   }
 
   await tx
@@ -519,27 +517,27 @@ async function recordLinearIntegrationErrorTx(
         : "error",
       updatedAt: input.now,
     })
-    .where(eq(tenantIntegrations.id, existingIntegration.id));
+    .where(eq(tenantIntegrations.id, existingIntegration.id))
 }
 
 function getStringMetadataValue(
   metadata: Record<string, unknown>,
   key: string,
 ) {
-  const value = metadata[key];
+  const value = metadata[key]
 
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
+  return typeof value === "string" && value.trim().length > 0 ? value : null
 }
 
 function getNullableStringMetadataValue(
   metadata: Record<string, unknown>,
   key: string,
 ) {
-  const value = metadata[key];
+  const value = metadata[key]
 
   if (value === null || value === undefined) {
-    return null;
+    return null
   }
 
-  return typeof value === "string" ? value : null;
+  return typeof value === "string" ? value : null
 }
