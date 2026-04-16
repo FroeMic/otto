@@ -74,6 +74,7 @@ function isInProgressStatus(status: string | null | undefined) {
 }
 
 function getLatestIssueTitle(input: {
+  latestFailureMessage?: string | null
   latestApplyRunStatus?: string | null
   latestJobStatus?: string | null
   slackError?: string | null
@@ -89,8 +90,12 @@ function getLatestIssueTitle(input: {
     return "Latest job needs attention"
   }
 
+  if (input.latestFailureMessage?.includes("Managed skill ")) {
+    return "Managed skills need attention"
+  }
+
   if (input.slackError) {
-    return "Slack integration needs attention"
+    return "Slack needs attention"
   }
 
   return "Latest issue"
@@ -173,6 +178,7 @@ export function PlatformOrganizationOverviewPage({
         ? `Latest job is ${formatStatus(latestJob?.status ?? null)}.`
         : null)
   const latestIssueTitle = getLatestIssueTitle({
+    latestFailureMessage,
     latestApplyRunStatus: latestApplyRun?.status,
     latestJobStatus: latestJob?.status,
     slackError: organization.slackIntegration?.lastError,

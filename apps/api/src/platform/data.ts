@@ -42,6 +42,7 @@ import { enqueueJob } from "../jobs/queue"
 import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
 import { getWorkspaceBillingOverview } from "../billing/data"
 import { getApiEnv } from "../env"
+import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
 import type { WorkspaceSummary } from "../workspace/data"
 import { inspectObservedRuntimeImageForTenant } from "./runtime"
 
@@ -1472,6 +1473,47 @@ export async function triggerPlatformOrganizationApply(input: {
   return {
     desiredStateChanged: desiredState.changed,
     desiredStateVersion: desiredState.version,
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  }
+}
+
+export async function triggerPlatformOrganizationSyncSkills(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found")
+  }
+
+  const syncResult = await syncDefaultTenantManagedSkillsForTenant({
+    tenantId: tenant.tenantId,
+  })
+  const desiredStateVersion =
+    syncResult.desiredStateVersion ??
+    (await getDesiredStateVersionForApply(tenant.tenantId)).version
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.applyTenantConfig,
+    payload: {
+      desiredStateVersion,
+      tenantId: tenant.tenantId,
+    },
+  })
+  const db = getDb()
+  await db.insert(tenantApplyRuns).values({
+    desiredStateVersion,
+    jobRunId: jobId,
+    status: "queued",
+    tenantId: tenant.tenantId,
+  })
+
+  return {
+    desiredStateChanged: syncResult.changed,
+    desiredStateVersion,
     jobId,
     queued: true,
     tenantId: tenant.tenantId,

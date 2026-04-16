@@ -543,6 +543,98 @@ async function createSystemManagedSkillForTenant(input: {
       version: createdVersion.version,
     })),
   )
+
+  return {
+    skillId: createdSkill.id,
+    skillKey: createdSkill.skillKey,
+    version: createdVersion.version,
+  }
+}
+
+export async function syncDefaultTenantManagedSkillsForTenant(input: {
+  tenantId: string
+}) {
+  const db = getDb()
+  const createdSkillKeys: string[] = []
+  let desiredStateVersion: number | null = null
+
+  for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
+    if (definition.installMode !== "default_installed") {
+      continue
+    }
+
+    const [skill] = await db
+      .select({
+        sourceType: tenantSkills.sourceType,
+        skillId: tenantSkills.id,
+      })
+      .from(tenantSkills)
+      .where(
+        and(
+          eq(tenantSkills.tenantId, input.tenantId),
+          eq(tenantSkills.skillKey, definition.skillKey),
+        ),
+      )
+      .limit(1)
+
+    let targetVersion: number
+
+    if (!skill) {
+      const createdSkill = await createSystemManagedSkillForTenant({
+        files: definition.files,
+        skillKey: definition.skillKey,
+        summary: definition.summary,
+        tenantId: input.tenantId,
+      })
+
+      targetVersion = createdSkill.version
+      createdSkillKeys.push(createdSkill.skillKey)
+    } else {
+      if (skill.sourceType !== "system") {
+        continue
+      }
+
+      const [skillVersion] = await db
+        .select({
+          version: tenantSkillVersions.version,
+        })
+        .from(tenantSkillVersions)
+        .where(eq(tenantSkillVersions.tenantSkillId, skill.skillId))
+        .orderBy(desc(tenantSkillVersions.version))
+        .limit(1)
+
+      if (!skillVersion) {
+        throw new Error(
+          `System managed skill ${definition.skillKey} is missing a version row.`,
+        )
+      }
+
+      targetVersion = skillVersion.version
+    }
+
+    const latestDesiredState = await getLatestDesiredState(input.tenantId)
+    const desiredVersions =
+      parseManagedSkillsDesiredState(latestDesiredState?.configJson).managedSkills
+        ?.versions ?? {}
+
+    if (desiredVersions[definition.skillKey] === targetVersion) {
+      continue
+    }
+
+    const desiredState = await createNextDesiredStateVersionForManagedSkills({
+      skillKey: definition.skillKey,
+      tenantId: input.tenantId,
+      version: targetVersion,
+    })
+
+    desiredStateVersion = desiredState.version
+  }
+
+  return {
+    changed: createdSkillKeys.length > 0,
+    createdSkillKeys,
+    desiredStateVersion,
+  }
 }
 
 export async function createTenantSystemManagedSkillForTenant(input: {
