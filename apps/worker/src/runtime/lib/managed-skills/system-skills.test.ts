@@ -60,6 +60,7 @@ describe("system managed skill definitions", () => {
       .map((file) => file.contentText ?? "")
       .join("\n")
 
+    assert.match(allContent, /Name Generator/)
     assert.match(allContent, /\bramp\b/i)
     assert.doesNotMatch(allContent, /\bvertical\b/i)
     assert.match(allContent, /recommendedNames/)

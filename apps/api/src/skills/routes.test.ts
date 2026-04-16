@@ -87,7 +87,7 @@ function createDependencies(): SkillsRouteDependencies {
           skills: [],
         },
         description: "Research names, brandability, and domains for founders.",
-        displayName: "Brand Name Generator",
+        displayName: "Name Generator",
         files: [
           {
             fileClass: "managed_entry",
@@ -104,7 +104,7 @@ function createDependencies(): SkillsRouteDependencies {
         ],
         installable: true,
         installed: false,
-        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillBody: "# Name Generator\n\nUse this skill when evaluating company names.\n",
         skillKey: "name-and-domain-research",
         summary: "Startup naming and domain research workflow",
       },
@@ -150,7 +150,7 @@ function createDependencies(): SkillsRouteDependencies {
             skills: [],
           },
           description: "Research names, brandability, and domains for founders.",
-          displayName: "Brand Name Generator",
+          displayName: "Name Generator",
           installed: false,
           installable: true,
           skillKey: "name-and-domain-research",
@@ -221,7 +221,7 @@ describe("skills routes", () => {
             skills: [],
           },
           description: "Research names, brandability, and domains for founders.",
-          displayName: "Brand Name Generator",
+          displayName: "Name Generator",
           installed: false,
           installable: true,
           skillKey: "name-and-domain-research",
@@ -299,7 +299,7 @@ describe("skills routes", () => {
           skills: [],
         },
         description: "Research names, brandability, and domains for founders.",
-        displayName: "Brand Name Generator",
+        displayName: "Name Generator",
         files: [
           {
             fileClass: "managed_entry",
@@ -316,7 +316,7 @@ describe("skills routes", () => {
         ],
         installable: true,
         installed: false,
-        skillBody: "# Brand Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillBody: "# Name Generator\n\nUse this skill when evaluating company names.\n",
         skillKey: "name-and-domain-research",
         summary: "Startup naming and domain research workflow",
       },

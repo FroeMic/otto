@@ -142,7 +142,7 @@ describe("managed skill runtime file projection", () => {
   it("splits managed-entry files from install-only companion files", () => {
     const files = [
       {
-        contents: "# Brand Name Generator",
+        contents: "# Name Generator",
         filename: "skills/name-and-domain-research/SKILL.md",
         projectionMode: "managed_entry" as const,
       },

@@ -79,7 +79,7 @@ describe("workspace skills visibility", () => {
       },
       {
         description: "Founders naming workflow",
-        displayName: "Brand Name Generator",
+        displayName: "Name Generator",
         enabled: true,
         skillId: "skill_name",
         skillKey: "name-and-domain-research",
