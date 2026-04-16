@@ -14,6 +14,12 @@ export interface LandingPageShellProps extends PropsWithChildren {
 export interface LandingHeaderViewer {
   email: string
   name: string
+  workspaces: Array<{
+    id: string
+    isReady: boolean
+    name: string
+    slug: string
+  }>
 }
 
 function OttoMark() {
@@ -30,6 +36,8 @@ export interface LandingHeaderProps {
 }
 
 export function LandingHeader({ viewer = null }: LandingHeaderProps) {
+  const defaultWorkspace = viewer?.workspaces[0] ?? null
+
   return (
     <header className="sticky top-0 z-20 border-b border-border/70 bg-background/92 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 md:px-10 lg:px-12">
@@ -50,18 +58,75 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
         </nav>
 
         {viewer ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <a
-              aria-label={`Signed in as ${viewer.name}`}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-border/75 bg-background px-3 text-sm font-medium text-foreground shadow-none transition-colors hover:bg-muted/45"
-              href="/logout"
+              aria-label={
+                defaultWorkspace
+                  ? `Open ${defaultWorkspace.name}`
+                  : `Signed in as ${viewer.name}`
+              }
+              className="inline-flex h-9 items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-foreground/70"
+              href={defaultWorkspace ? getWorkspaceHref(defaultWorkspace) : "/"}
               title={viewer.email}
             >
               <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-[0.68rem] font-semibold text-background">
                 {getViewerInitials(viewer)}
               </span>
-              <span className="max-w-36 truncate">{viewer.name}</span>
+              <span className="max-w-36 truncate">
+                {defaultWorkspace?.name ?? viewer.name}
+              </span>
             </a>
+            <details className="group relative">
+              <summary
+                aria-label="Open workspace menu"
+                className="flex h-9 cursor-pointer list-none items-center justify-center px-1 text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
+              >
+                <span
+                  aria-hidden="true"
+                  className="translate-y-[-1px] text-base transition-transform group-open:rotate-180"
+                >
+                  ⌄
+                </span>
+              </summary>
+              <div className="absolute right-0 top-full mt-3 flex w-72 flex-col overflow-hidden rounded-lg border border-border/75 bg-background text-sm shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
+                <div className="border-b border-border/65 px-4 py-3">
+                  <p className="truncate font-medium text-foreground">
+                    {viewer.name}
+                  </p>
+                  <p className="truncate text-muted-foreground">
+                    {viewer.email}
+                  </p>
+                </div>
+                {viewer.workspaces.length > 0 ? (
+                  <div className="flex flex-col py-2">
+                    {viewer.workspaces.map((workspace) => (
+                      <a
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 text-foreground transition-colors hover:bg-muted/45"
+                        href={getWorkspaceHref(workspace)}
+                        key={workspace.id}
+                      >
+                        <span className="truncate">{workspace.name}</span>
+                        {workspace.isReady ? null : (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            Setting up
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-4 py-3 text-muted-foreground">
+                    No workspaces yet.
+                  </p>
+                )}
+                <a
+                  className="border-t border-border/65 px-4 py-3 text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground"
+                  href="/logout"
+                >
+                  Log out
+                </a>
+              </div>
+            </details>
           </div>
         ) : (
           <div className="flex items-center gap-3">
@@ -88,6 +153,12 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
       </div>
     </header>
   )
+}
+
+function getWorkspaceHref(
+  workspace: LandingHeaderViewer["workspaces"][number],
+) {
+  return `/${workspace.slug}`
 }
 
 function getViewerInitials(viewer: LandingHeaderViewer) {
