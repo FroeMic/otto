@@ -1,3 +1,4 @@
+import type { ConnectedApiCredentialRecord } from "../../db/api-credentials";
 import type { ConnectedOauthAccessRecord } from "../../db/oauth";
 import type { AgentCapability } from "../../lib/agent-capabilities";
 import type { OAuthProviderDefinition } from "../../lib/oauth/providers/types";
@@ -14,6 +15,8 @@ export type IntegrationCapabilityPolicy = {
 };
 
 export type IntegrationCommandEffect = "read" | "write";
+
+export type IntegrationCommandSafety = "destructive" | "normal";
 
 export type IntegrationCommandActivityPresentationKind =
   | "config"
@@ -64,6 +67,8 @@ export type IntegrationCommandDefinition = {
   intentKeywords?: string[];
   label: string;
   resultMode: IntegrationCommandResultMode;
+  requiredProviderScopes?: string[];
+  safety?: IntegrationCommandSafety;
   userControllable?: boolean;
   usageNotes?: string[];
 };
@@ -254,13 +259,32 @@ export type RuntimeIntegrationCommandMatch = {
 };
 
 export type IntegrationExecutionContext = {
-  auth: ConnectedOauthAccessRecord | null;
+  auth:
+    | (ConnectedApiCredentialRecord & {
+        accessToken: never;
+        kind: "api_key";
+      })
+    | (ConnectedOauthAccessRecord & {
+        apiKey: never;
+        kind: "oauth";
+      })
+    | null;
   tenantIntegrationId: string | null;
 };
 
 export type IntegrationOauthBinding = {
   provider: OAuthProviderDefinition;
 };
+
+export type IntegrationAuthBinding =
+  | {
+      credentialType: "personal_api_key" | (string & {});
+      kind: "api_key";
+    }
+  | {
+      kind: "oauth";
+      provider: OAuthProviderDefinition;
+    };
 
 export type IntegrationIngressSetupMode =
   | "manual"
@@ -313,6 +337,7 @@ export type IntegrationManagementMode =
 
 export type IntegrationDefinition = {
   agentCapabilities: AgentCapability[];
+  auth?: IntegrationAuthBinding;
   categoryLabel: string;
   catalogDescription: string;
   description: string;
