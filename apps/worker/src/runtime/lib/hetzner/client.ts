@@ -50,6 +50,14 @@ export type HetznerSnapshot = {
   id: string;
 };
 
+export type HetznerActionStatus = {
+  errorCode: string | null;
+  errorMessage: string | null;
+  id: string;
+  progress: number | null;
+  status: string;
+};
+
 type HetznerActionResponse = {
   action?: {
     error?: {
@@ -320,17 +328,7 @@ export class HetznerClient {
     const deadline = Date.now() + this.actionTimeoutMs;
 
     while (Date.now() < deadline) {
-      const response = await this.request<HetznerActionResponse>(
-        `/actions/${actionId}`,
-      );
-
-      const action = response.action;
-
-      if (!action) {
-        throw new Error(
-          `Hetzner action ${actionId} was missing from the response`,
-        );
-      }
+      const action = await this.getAction(actionId);
 
       if (action.status === "success") {
         return;
@@ -338,9 +336,9 @@ export class HetznerClient {
 
       if (action.status === "error") {
         throw new HetznerApiError({
-          code: action.error?.code,
+          code: action.errorCode ?? undefined,
           message:
-            action.error?.message ??
+            action.errorMessage ??
             `Hetzner action ${actionId} failed for server ${serverId}`,
           responseStatus: 409,
         });
@@ -352,6 +350,26 @@ export class HetznerClient {
     throw new Error(
       `Hetzner action ${actionId} did not finish within ${this.actionTimeoutMs}ms`,
     );
+  }
+
+  async getAction(actionId: string): Promise<HetznerActionStatus> {
+    const response = await this.request<HetznerActionResponse>(
+      `/actions/${actionId}`,
+    );
+
+    const action = response.action;
+
+    if (!action) {
+      throw new Error(`Hetzner action ${actionId} was missing from the response`);
+    }
+
+    return {
+      errorCode: action.error?.code ?? null,
+      errorMessage: action.error?.message ?? null,
+      id: String(action.id),
+      progress: action.progress ?? null,
+      status: action.status,
+    };
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {

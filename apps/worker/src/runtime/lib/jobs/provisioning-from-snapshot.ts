@@ -23,7 +23,7 @@ import {
 } from "../../db/provider-accounts";
 import { organizations, tenantServers, tenants } from "../../db/schema";
 import { getEnv } from "../env";
-import { HetznerClient } from "../hetzner/client";
+import { HetznerApiError, HetznerClient } from "../hetzner/client";
 import { FakeHetznerClient } from "../hetzner/fake";
 import { buildOpenClawTenantConfig } from "../openclaw/config";
 import { OpenAiProvisioner } from "../providers/openai/provisioning";
@@ -111,7 +111,7 @@ export type SnapshotProvisioningDeps = {
   waitForServerAction: (
     providerServerId: string,
     actionId: string,
-  ) => Promise<void>;
+  ) => Promise<"running" | "success">;
   waitForSsh: (ipv4: string) => Promise<void>;
 };
 
@@ -146,7 +146,27 @@ const defaultDeps: SnapshotProvisioningDeps = {
     });
   },
   waitForServerAction: async (providerServerId, actionId) => {
-    await getProvisioningClient().waitForServerAction(providerServerId, actionId);
+    if (getProvisioningProvider() !== "hetzner") {
+      return "success";
+    }
+
+    const action = await getHetznerClient().getAction(actionId);
+
+    if (action.status === "success") {
+      return "success";
+    }
+
+    if (action.status === "error") {
+      throw new HetznerApiError({
+        code: action.errorCode ?? undefined,
+        message:
+          action.errorMessage ??
+          `Hetzner action ${actionId} failed for server ${providerServerId}`,
+        responseStatus: 409,
+      });
+    }
+
+    return "running";
   },
   waitForSsh: async (ipv4) => {
     if (getProvisioningProvider() !== "hetzner") {
@@ -309,10 +329,37 @@ async function waitForHetznerAction(
     );
   }
 
-  await deps.waitForServerAction(payload.providerServerId, payload.actionId);
   await deps.updateTenantServer(payload.tenantId, {
     status: SNAPSHOT_PROVISIONING_STATUSES.waitingForServerAction,
   });
+
+  const actionStatus = await deps.waitForServerAction(
+    payload.providerServerId,
+    payload.actionId,
+  );
+
+  if (actionStatus === "running") {
+    await deps.appendJobEvent(
+      jobId,
+      SNAPSHOT_PROVISIONING_STATUSES.waitingForServerAction,
+      `${getProvisioningProvider()} snapshot server action is still running`,
+      {
+        actionId: payload.actionId,
+        providerServerId: payload.providerServerId,
+        sourceSnapshotId: payload.sourceSnapshotId ?? null,
+      },
+    );
+    await deps.requeueJob(
+      jobId,
+      {
+        ...payload,
+        step: SNAPSHOT_PROVISIONING_STEPS.waitForHetznerAction,
+      },
+      new Date(Date.now() + getActionRetryDelayMs()),
+    );
+    return;
+  }
+
   await deps.appendJobEvent(
     jobId,
     SNAPSHOT_PROVISIONING_STATUSES.waitingForServerAction,
@@ -924,6 +971,12 @@ function buildHetznerServerName(tenantId: string) {
 
 function getProvisioningDelayMs() {
   return getProvisioningProvider() === "hetzner" ? 0 : STEP_DELAY_MS;
+}
+
+function getActionRetryDelayMs() {
+  return getProvisioningProvider() === "hetzner"
+    ? getEnv().HETZNER_POLL_INTERVAL_MS
+    : STEP_DELAY_MS;
 }
 
 function getProvisioningProvider() {
