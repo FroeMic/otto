@@ -89,6 +89,15 @@ function createDependencies(): PlatformRouteDependencies {
       timeFormatPreference: "auto",
       timezone: "UTC",
     }),
+    addCurrentUserAsPlatformOrganizationAdmin: async ({ orgSlug }) => ({
+      membership: {
+        id: "membership_1",
+        organizationId: "org_1",
+        organizationSlug: orgSlug,
+        role: "admin",
+        status: "active",
+      },
+    }),
     getPlatformOrganizations: async () => [
       {
         configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
@@ -350,6 +359,27 @@ describe("platform routes", () => {
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
+    })
+  })
+
+  it("adds the platform user as an organization admin member", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/admin-membership",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      membership: {
+        id: "membership_1",
+        organizationId: "org_1",
+        organizationSlug: "interaction42",
+        role: "admin",
+        status: "active",
+      },
     })
   })
 

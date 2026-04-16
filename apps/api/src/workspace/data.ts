@@ -614,7 +614,11 @@ async function reconcileWorkspaceMembershipsFromWorkOs(input: {
   }
 
   const staleMembershipIds = existingMembershipRows
-    .filter((membership) => !seenOrganizationIds.has(membership.organizationId))
+    .filter(
+      (membership) =>
+        membership.externalId !== null &&
+        !seenOrganizationIds.has(membership.organizationId),
+    )
     .map((membership) => membership.id)
 
   if (staleMembershipIds.length > 0) {

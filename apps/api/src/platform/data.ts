@@ -11,6 +11,7 @@ import {
   integrationOauthConnections,
   jobEvents,
   jobRuns,
+  memberships,
   organizations,
   providerAccounts,
   providerCredentials,
@@ -774,6 +775,78 @@ export async function createPlatformOrganization(input: {
     tenant: null,
     timeFormatPreference: createdOrganization.timeFormatPreference,
     timezone: createdOrganization.timezone,
+  }
+}
+
+export async function addCurrentUserAsPlatformOrganizationAdmin(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const db = getDb()
+  const now = new Date()
+  const [organization] = await db
+    .select({
+      id: organizations.id,
+      slug: organizations.slug,
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, input.orgSlug))
+    .limit(1)
+
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+    })
+    .from(users)
+    .where(eq(users.externalId, input.userExternalId))
+    .limit(1)
+
+  if (!user) {
+    throw new Error("Platform user not found")
+  }
+
+  const [membership] = await db
+    .insert(memberships)
+    .values({
+      lastSyncedAt: now,
+      organizationId: organization.id,
+      role: "admin",
+      status: "active",
+      userId: user.id,
+    })
+    .onConflictDoUpdate({
+      target: [memberships.userId, memberships.organizationId],
+      set: {
+        lastSyncedAt: now,
+        removedAt: null,
+        role: "admin",
+        status: "active",
+        updatedAt: now,
+      },
+    })
+    .returning({
+      id: memberships.id,
+      organizationId: memberships.organizationId,
+      role: memberships.role,
+      status: memberships.status,
+    })
+
+  if (!membership) {
+    throw new Error("Failed to add platform organization admin")
+  }
+
+  return {
+    membership: {
+      id: membership.id,
+      organizationId: membership.organizationId,
+      organizationSlug: organization.slug,
+      role: membership.role,
+      status: membership.status,
+    },
   }
 }
 
