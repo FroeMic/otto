@@ -278,7 +278,7 @@ Workspace setup should support a read-only mode by accepting a smaller declared 
 - [x] Integration execution supports API-key auth.
 - [x] PostHog client and target resolution added.
 - [x] PostHog read commands added.
-- [ ] PostHog write commands and confirmation behavior added.
+- [x] PostHog write commands and confirmation behavior added.
 - [ ] Workspace API and UI added.
 - [ ] Tests and build gates pass.
 
