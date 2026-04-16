@@ -16,15 +16,15 @@ export default defineConfig({
   },
   build: {
     emptyOutDir: false,
-    lib: {
-      entry: resolve(__dirname, "src/client/main.tsx"),
-      fileName: () => "workspace.js",
-      formats: ["es"],
-      name: "OttoWorkspace",
-    },
     outDir: resolve(__dirname, "dist/public/assets"),
     rollupOptions: {
+      input: {
+        landing: resolve(__dirname, "src/client/landing.tsx"),
+        workspace: resolve(__dirname, "src/client/main.tsx"),
+      },
       output: {
+        entryFileNames: (chunkInfo) =>
+          chunkInfo.name === "landing" ? "landing.js" : "workspace.js",
         assetFileNames: (assetInfo) => {
           const name = assetInfo.names.at(0) ?? assetInfo.name ?? ""
 

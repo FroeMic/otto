@@ -26,6 +26,29 @@ export function LandingPromptComposer({
   prompt,
   returnTo = "/",
 }: LandingPromptComposerProps) {
+  return (
+    <div
+      data-examples-heading={examplesHeading}
+      data-landing-prompt-composer=""
+      data-prompt={prompt ?? ""}
+      data-return-to={returnTo}
+    >
+      <LandingPromptComposerClient
+        className={className}
+        examplesHeading={examplesHeading}
+        prompt={prompt}
+        returnTo={returnTo}
+      />
+    </div>
+  )
+}
+
+export function LandingPromptComposerClient({
+  className,
+  examplesHeading = "Try one of these",
+  prompt,
+  returnTo = "/",
+}: LandingPromptComposerProps) {
   const [currentPrompt, setCurrentPrompt] = useState(prompt ?? "")
   const [isRecordingVoiceNote, setIsRecordingVoiceNote] = useState(false)
 

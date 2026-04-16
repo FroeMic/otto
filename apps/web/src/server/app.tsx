@@ -22,6 +22,7 @@ import {
 type PageDocumentProps = {
   children: React.ReactNode
   description: string
+  loadLandingScript?: boolean
   loadWorkspaceScript?: boolean
   path: string
   title: string
@@ -33,12 +34,14 @@ const BUILT_PUBLIC_ROOT = fileURLToPath(
 )
 const SOURCE_PUBLIC_ROOT = fileURLToPath(new URL("../../public", import.meta.url))
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
+const LANDING_SCRIPT_PATH = "/assets/landing.js"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 function PageDocument({
   children,
   description,
+  loadLandingScript = false,
   loadWorkspaceScript = false,
   path,
   title,
@@ -60,6 +63,9 @@ function PageDocument({
       </head>
       <body>
         {children}
+        {loadLandingScript ? (
+          <script type="module" src={LANDING_SCRIPT_PATH} />
+        ) : null}
         {loadWorkspaceScript ? (
           <script type="module" src={WORKSPACE_SCRIPT_PATH} />
         ) : null}
@@ -305,6 +311,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
           />
         ),
         description: "Sign in to Otto",
+        loadLandingScript: true,
         path: "/login",
         title: "Otto Sign In",
       }),
@@ -319,6 +326,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
         children: <LandingHomePage prompt={c.req.query("prompt")?.trim()} />,
         description:
           "Otto helps founders turn product momentum into a functioning software business.",
+        loadLandingScript: true,
         path: "/",
         title: "Otto",
       }),

@@ -34,6 +34,7 @@ describe("web app", () => {
     )
     expect(text).toContain("Where founders get stuck")
     expect(text).toContain("/assets/workspace.css")
+    expect(text).toContain("/assets/landing.js")
   })
 
   it("prefills the landing prompt from the query string", async () => {
@@ -62,6 +63,7 @@ describe("web app", () => {
 
     expect(response.status).toBe(200)
     expect(text).toContain("Create free account")
+    expect(text).toContain("/assets/landing.js")
     expect(text).toContain(
       "/auth/sign-up?returnTo=%2Facme%2Fsettings%2Fworkspace",
     )
