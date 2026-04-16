@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { OpenClawTenantConfig } from "../openclaw/config";
 import { __testing as envTesting } from "../env";
 import {
+  buildManagedSkillPruneCommand,
   listInstallOnlyManagedSkillFiles,
   listManagedEntryRuntimeFiles,
   RuntimeManager,
@@ -220,6 +221,20 @@ describe("managed skill runtime file projection", () => {
 
     expect(sshClient.writeFileAtomic).toHaveBeenCalledTimes(1);
     expect(sshClient.exec).not.toHaveBeenCalled();
+  });
+
+  it("deletes the full skill directory when a skill is removed from the manifest", () => {
+    const command = buildManagedSkillPruneCommand({
+      nextPaths: [],
+      previousPaths: [
+        "/opt/openclaw/home/workspace/skills/name-and-domain-research/SKILL.md",
+        "/opt/openclaw/home/workspace/skills/name-and-domain-research/references/setup.md",
+      ],
+    });
+
+    expect(command).toContain(
+      "rm -rf '/opt/openclaw/home/workspace/skills/name-and-domain-research'",
+    );
   });
 });
 
