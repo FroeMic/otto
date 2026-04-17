@@ -305,6 +305,9 @@ export const platformDeleteWorkspaceResponseSchema = z.object({
   queued: z.boolean(),
 })
 
+export const platformDeleteTenantServerResponseSchema =
+  platformActionResponseSchema
+
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -343,6 +346,9 @@ export type PlatformAddCurrentUserAdminResponse = z.infer<
 >
 export type PlatformDeleteWorkspaceResponse = z.infer<
   typeof platformDeleteWorkspaceResponseSchema
+>
+export type PlatformDeleteTenantServerResponse = z.infer<
+  typeof platformDeleteTenantServerResponseSchema
 >
 export type PlatformEventDetail = z.infer<typeof platformEventDetailSchema>
 export type PlatformGrantCreditsInput = z.infer<

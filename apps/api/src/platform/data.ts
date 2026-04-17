@@ -40,7 +40,10 @@ import {
 
 import { enqueueJob } from "../jobs/queue"
 import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
-import { getWorkspaceBillingOverview } from "../billing/data"
+import {
+  buildInitialWorkspaceCreditGrantInput,
+  getWorkspaceBillingOverview,
+} from "../billing/data"
 import { getApiEnv } from "../env"
 import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
 import type { WorkspaceSummary } from "../workspace/data"
@@ -53,6 +56,7 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
+  deleteTenantServer: "delete_tenant_server",
   provisionTenantServer: "provision_tenant_server",
   deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
@@ -373,6 +377,7 @@ async function getLatestTenantForOrganizationSlug(orgSlug: string) {
       ipv4: tenantServers.ipv4,
       organizationId: organizations.id,
       orgSlug: organizations.slug,
+      serverId: tenantServers.id,
       serverStatus: tenantServers.status,
       tenantId: tenants.id,
       tenantName: tenants.name,
@@ -404,7 +409,23 @@ async function getOrganizationSummaryBySlug(orgSlug: string) {
   return organization ?? null
 }
 
-function buildPlatformProvisioningJobInput(input: {
+export function buildPlatformInitialProvisioningCreditGrantInput(input: {
+  tenantId: string
+}) {
+  const grantInput = buildInitialWorkspaceCreditGrantInput(input)
+
+  return {
+    billableUnits: 0,
+    creditsDeltaMilli: grantInput.creditsDeltaMilli,
+    description: grantInput.description,
+    entryType: CREDIT_LEDGER_ENTRY_TYPES.manualGrant,
+    sourceId: grantInput.sourceId,
+    sourceType: grantInput.sourceType,
+    tenantId: input.tenantId,
+  } as const
+}
+
+export function buildPlatformProvisioningJobInput(input: {
   provisioningStrategy: PlatformProvisioningStrategy
   tenantId: string
 }) {
@@ -417,10 +438,29 @@ function buildPlatformProvisioningJobInput(input: {
     tenantServer: {
       provider: "hetzner",
       provisioningStrategy: "legacy_base_image",
-      sshUsername: "root",
+      sshUsername: "openclaw",
       status: "creating",
     },
   } as const
+}
+
+async function hasQueuedTenantServerDeleteJob(tenantId: string) {
+  const db = getDb()
+  const [job] = await db
+    .select({
+      id: jobRuns.id,
+    })
+    .from(jobRuns)
+    .where(
+      and(
+        eq(jobRuns.jobType, JOB_TYPES.deleteTenantServer),
+        eq(jobRuns.tenantId, tenantId),
+        inArray(jobRuns.status, ["queued", "running"]),
+      ),
+    )
+    .limit(1)
+
+  return Boolean(job)
 }
 
 async function hasQueuedWorkspaceDeleteJob(organizationId: string) {
@@ -1430,6 +1470,7 @@ export async function triggerPlatformOrganizationSyncSkills(input: {
     tenantName: tenant.tenantName,
   }
 }
+
 export async function triggerPlatformOrganizationProvisionServer(input: {
   orgSlug: string
   provisioningStrategy: PlatformProvisioningStrategy
@@ -1510,6 +1551,17 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
       })
     }
 
+    await tx
+      .insert(creditLedgerEntries)
+      .values(buildPlatformInitialProvisioningCreditGrantInput({ tenantId }))
+      .onConflictDoNothing({
+        target: [
+          creditLedgerEntries.sourceType,
+          creditLedgerEntries.sourceId,
+          creditLedgerEntries.entryType,
+        ],
+      })
+
     const provisioningJob = buildPlatformProvisioningJobInput({
       provisioningStrategy: input.provisioningStrategy,
       tenantId,
@@ -1555,6 +1607,39 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
       tenantName,
     }
   })
+}
+
+export async function triggerPlatformOrganizationDeleteTenantServer(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const tenant = await getLatestTenantForOrganizationSlug(input.orgSlug)
+
+  if (!tenant) {
+    throw new Error("Organization tenant not found")
+  }
+
+  if (!tenant.serverId) {
+    throw new Error("Organization tenant server not found")
+  }
+
+  if (await hasQueuedTenantServerDeleteJob(tenant.tenantId)) {
+    throw new Error("Tenant server deletion is already queued or running")
+  }
+
+  const jobId = await enqueueJob({
+    jobType: JOB_TYPES.deleteTenantServer,
+    payload: {
+      tenantId: tenant.tenantId,
+    },
+  })
+
+  return {
+    jobId,
+    queued: true,
+    tenantId: tenant.tenantId,
+    tenantName: tenant.tenantName,
+  }
 }
 
 export async function triggerPlatformOrganizationDeployRuntime(input: {

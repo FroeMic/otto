@@ -34,6 +34,7 @@ describe("job lane metadata", () => {
       JOB_TYPES.provisionTenantOpenAiKey,
       JOB_TYPES.applyTenantConfig,
       JOB_TYPES.refreshRuntimeImage,
+      JOB_TYPES.deleteTenantServer,
       JOB_TYPES.whatsappLinkSession,
       JOB_TYPES.whatsappDisconnect,
     ];

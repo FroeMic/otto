@@ -9,6 +9,7 @@ import type { PlatformOrganizationListItem } from "@otto/feature-platform"
 import {
   addCurrentUserAsPlatformOrganizationAdmin,
   applyPlatformOrganization,
+  deletePlatformTenantServer,
   deployPlatformRuntime,
   platformBootstrapQueryOptions,
   platformOrganizationsQueryOptions,
@@ -213,6 +214,7 @@ export function CopyableValue({ value }: CopyableValueProps) {
 type OrganizationAction =
   | "add-current-user-admin"
   | "apply"
+  | "delete-tenant-server"
   | "deploy-runtime"
   | "provision-server-legacy"
   | "refresh-image"
@@ -239,6 +241,8 @@ export function OrganizationActionsCell({
           await addCurrentUserAsPlatformOrganizationAdmin(organization.slug)
         } else if (action === "apply") {
           await applyPlatformOrganization(organization.slug)
+        } else if (action === "delete-tenant-server") {
+          await deletePlatformTenantServer(organization.slug)
         } else if (action === "deploy-runtime") {
           await deployPlatformRuntime(organization.slug)
         } else if (action === "provision-server-legacy") {
@@ -257,6 +261,8 @@ export function OrganizationActionsCell({
             ? "Added you as an admin member."
             : action === "apply"
             ? "Queued runtime apply."
+            : action === "delete-tenant-server"
+              ? "Queued tenant server deletion."
             : action === "deploy-runtime"
               ? "Queued runtime deploy."
               : action === "provision-server-legacy"
@@ -304,6 +310,13 @@ export function OrganizationActionsCell({
           onClick={() => runAction("provision-server-legacy")}
         >
           Provision server from base image
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={!organization.tenant?.serverStatus || pendingAction}
+          onClick={() => runAction("delete-tenant-server")}
+        >
+          Delete tenant server
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!runtimeReady || pendingAction}
