@@ -218,9 +218,14 @@ function createExternalProxyHandler(options: {
       method: context.req.method,
     }
     const response = await fetch(new Request(targetUrl, init))
+    const responseHeaders = new Headers(response.headers)
+
+    responseHeaders.delete("content-encoding")
+    responseHeaders.delete("content-length")
+    responseHeaders.delete("transfer-encoding")
 
     return new Response(response.body, {
-      headers: response.headers,
+      headers: responseHeaders,
       status: response.status,
     })
   }
@@ -466,6 +471,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
   })
 
   app.all("/ingest/static/*", postHogAssetProxyHandler)
+  app.all("/ingest/array/*", postHogAssetProxyHandler)
   app.all("/ingest/*", postHogProxyHandler)
 
   app.get("/login", async (c) => {
