@@ -11,7 +11,6 @@ import { PlatformOrganizationLogsPage } from "@/features/platform/pages/Platform
 import { PlatformOrganizationOverviewPage } from "@/features/platform/pages/PlatformOrganizationOverviewPage"
 import { PlatformOrganizationsPage } from "@/features/platform/pages/PlatformOrganizationsPage"
 import { PlatformOrganizationUsagePage } from "@/features/platform/pages/PlatformOrganizationUsagePage"
-import { PlatformSnapshotsPage } from "@/features/platform/pages/PlatformSnapshotsPage"
 
 const platformOrganizationRouteId =
   "/platform/platform-shell/organizations/$platformOrgSlug"
@@ -32,14 +31,6 @@ export function PlatformOrganizationsRoutePage(
   _props: PlatformOrganizationsRoutePageProps,
 ) {
   return <PlatformOrganizationsPage />
-}
-
-export interface PlatformSnapshotsRoutePageProps {}
-
-export function PlatformSnapshotsRoutePage(
-  _props: PlatformSnapshotsRoutePageProps,
-) {
-  return <PlatformSnapshotsPage />
 }
 
 export interface PlatformOrganizationLayoutRoutePageProps {}

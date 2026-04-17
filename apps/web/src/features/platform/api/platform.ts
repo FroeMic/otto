@@ -1,6 +1,5 @@
 import {
   platformAddCurrentUserAdminResponseSchema,
-  platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
   platformCreateOrganizationResponseSchema,
@@ -14,11 +13,9 @@ import {
   platformProvisionServerResponseSchema,
   platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
-  platformSnapshotsResponseSchema,
   platformUsageSchema,
   type PlatformBootstrap,
   type PlatformAddCurrentUserAdminResponse,
-  type PlatformBakeOnboardingSnapshotResponse,
   type PlatformCreateOrganizationInput,
   type PlatformCreateOrganizationResponse,
   type PlatformDeleteWorkspaceResponse,
@@ -29,7 +26,6 @@ import {
   type PlatformOrganizationsResponse,
   type PlatformProvisionServerInput,
   type PlatformProvisionServerResponse,
-  type PlatformSnapshotsResponse,
   type PlatformUsage,
 } from "@otto/feature-platform"
 import { queryOptions } from "@tanstack/react-query"
@@ -88,19 +84,6 @@ export async function addCurrentUserAsPlatformOrganizationAdmin(
   return fetchApiResponse(response, (data) =>
     platformAddCurrentUserAdminResponseSchema.parse(data),
   )
-}
-
-export function platformSnapshotsQueryOptions() {
-  return queryOptions({
-    queryFn: async (): Promise<PlatformSnapshotsResponse> => {
-      const response = await apiClient.api.platform.snapshots.$get()
-      return fetchApiResponse(response, (data) =>
-        platformSnapshotsResponseSchema.parse(data),
-      )
-    },
-    queryKey: ["platform-snapshots"],
-    staleTime: 10_000,
-  })
 }
 
 export function platformOrganizationDetailQueryOptions(orgSlug: string) {
@@ -182,14 +165,6 @@ export async function deployPlatformRuntime(orgSlug: string) {
 
   return fetchApiResponse(response, (data) =>
     platformActionResponseSchema.parse(data),
-  )
-}
-
-export async function bakePlatformSnapshot(): Promise<PlatformBakeOnboardingSnapshotResponse> {
-  const response = await apiClient.api.platform.snapshots.bake.$post()
-
-  return fetchApiResponse(response, (data) =>
-    platformBakeOnboardingSnapshotResponseSchema.parse(data),
   )
 }
 

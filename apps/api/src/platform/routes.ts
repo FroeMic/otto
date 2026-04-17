@@ -1,7 +1,6 @@
 import { zValidator } from "@hono/zod-validator"
 import {
   platformAddCurrentUserAdminResponseSchema,
-  platformBakeOnboardingSnapshotResponseSchema,
   platformActionResponseSchema,
   platformBootstrapSchema,
   platformCreateOrganizationResponseSchema,
@@ -15,7 +14,6 @@ import {
   platformProvisionServerResponseSchema,
   platformProvisionServerSchema,
   platformProvisionOpenAiKeyResponseSchema,
-  platformSnapshotsResponseSchema,
   platformUsageQuerySchema,
   platformUsageSchema,
 } from "@otto/feature-platform"
@@ -36,7 +34,6 @@ import {
   getPlatformJobStatus,
   getPlatformOrganizationDetail,
   getPlatformOrganizations,
-  getPlatformSnapshots,
   getPlatformUsage,
   getTenantRuntimeGatewayToken,
   grantPlatformOrganizationCredits,
@@ -47,7 +44,6 @@ import {
   triggerPlatformOrganizationProvisionOpenAiKey,
   triggerPlatformOrganizationRefreshImage,
   triggerPlatformOrganizationSyncSkills,
-  triggerPlatformSnapshotBake,
 } from "./data"
 
 const workspaceParamsSchema = z.object({
@@ -80,9 +76,6 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
     orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
-  getPlatformSnapshots: (input: {
-    user: WorkspaceShellUser
-  }) => Promise<unknown>
   getPlatformUsage: (input: {
     from: Date
     orgSlug: string
@@ -106,12 +99,9 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
     orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
-  triggerPlatformSnapshotBake: (input: {
-    user: WorkspaceShellUser
-  }) => Promise<unknown>
   triggerPlatformOrganizationProvisionServer: (input: {
     orgSlug: string
-    provisioningStrategy: "legacy_base_image" | "hetzner_snapshot"
+    provisioningStrategy: "legacy_base_image"
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationDeleteWorkspace: (input: {
@@ -162,10 +152,6 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         orgSlug,
         userExternalId: user.id,
       }),
-    getPlatformSnapshots: ({ user }) =>
-      getPlatformSnapshots({
-        userExternalId: user.id,
-      }),
     getPlatformUsage: ({ from, orgSlug, to, user }) =>
       getPlatformUsage({
         from,
@@ -191,10 +177,6 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
     triggerPlatformOrganizationSyncSkills: ({ orgSlug, user }) =>
       triggerPlatformOrganizationSyncSkills({
         orgSlug,
-        userExternalId: user.id,
-      }),
-    triggerPlatformSnapshotBake: ({ user }) =>
-      triggerPlatformSnapshotBake({
         userExternalId: user.id,
       }),
     triggerPlatformOrganizationProvisionServer: ({
@@ -403,61 +385,6 @@ export function createPlatformRouter(
         }
       },
     )
-    .get("/api/platform/snapshots", async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
-
-      if ("response" in authResult) {
-        return authResult.response
-      }
-
-      const snapshots = await dependencies.getPlatformSnapshots({
-        user: authResult.user,
-      })
-
-      return context.json(
-        platformSnapshotsResponseSchema.parse({
-          snapshots,
-        }),
-        200,
-        {
-          "Cache-Control": "no-store",
-        },
-      )
-    })
-    .post("/api/platform/snapshots/bake", async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
-
-      if ("response" in authResult) {
-        return authResult.response
-      }
-
-      try {
-        const result = await dependencies.triggerPlatformSnapshotBake({
-          user: authResult.user,
-        })
-
-        return context.json(
-          platformBakeOnboardingSnapshotResponseSchema.parse(result),
-          200,
-          {
-            "Cache-Control": "no-store",
-          },
-        )
-      } catch (error) {
-        const handled = handlePlatformRouteError(error)
-
-        return context.json(
-          {
-            code: handled.code,
-            message: handled.message,
-          },
-          handled.status,
-          {
-            "Cache-Control": "no-store",
-          },
-        )
-      }
-    })
     .get(
       "/api/platform/organizations/:orgSlug",
       zValidator("param", workspaceParamsSchema),

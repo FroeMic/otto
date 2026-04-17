@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BuildingsIcon, HardDrivesIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, BuildingsIcon } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import type { ComponentProps } from "react"
@@ -35,9 +35,6 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
   )
   const organizationsIsActive = Boolean(
     matchRoute({ fuzzy: true, to: "/platform/organizations" }),
-  )
-  const snapshotsIsActive = Boolean(
-    matchRoute({ fuzzy: true, to: "/platform/snapshots" }),
   )
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -83,17 +80,6 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
                 >
                   <BuildingsIcon />
                   <span>Organizations</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={snapshotsIsActive}
-                  render={<Link to="/platform/snapshots" />}
-                  tooltip="Snapshots"
-                  className="px-2.5"
-                >
-                  <HardDrivesIcon />
-                  <span>Snapshots</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

@@ -67,9 +67,7 @@ export const platformTenantSummarySchema = z.object({
   name: z.string(),
   provisioningStrategy: z.string().nullable(),
   serverStatus: z.string().nullable(),
-  snapshotGeneration: z.string().nullable(),
   sourceImage: z.string().nullable(),
-  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -192,9 +190,7 @@ export const platformTenantDetailSchema = z.object({
   recentEvents: z.array(platformEventDetailSchema),
   recentJobs: z.array(platformJobDetailSchema),
   serverStatus: z.string().nullable(),
-  snapshotGeneration: z.string().nullable(),
   sourceImage: z.string().nullable(),
-  sourceSnapshotId: z.string().nullable(),
   status: z.string(),
 })
 
@@ -292,13 +288,13 @@ export const platformActionResponseSchema = z.object({
 })
 
 export const platformProvisionServerSchema = z.object({
-  provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+  provisioningStrategy: z.literal("legacy_base_image"),
 })
 
 export const platformProvisionServerResponseSchema =
   platformActionResponseSchema.extend({
     provisionedTenant: z.boolean(),
-    provisioningStrategy: z.enum(["legacy_base_image", "hetzner_snapshot"]),
+    provisioningStrategy: z.literal("legacy_base_image"),
   })
 
 export const platformDeleteWorkspaceResponseSchema = z.object({
@@ -309,32 +305,6 @@ export const platformDeleteWorkspaceResponseSchema = z.object({
   queued: z.boolean(),
 })
 
-export const platformBakeOnboardingSnapshotResponseSchema = z.object({
-  baseImage: z.string(),
-  generation: z.string(),
-  jobId: z.string(),
-  queued: z.boolean(),
-  runtimeImage: z.string(),
-})
-
-export const platformSnapshotBakeSchema = z.object({
-  baseImage: z.string().nullable(),
-  createdAt: jsonDateSchema,
-  error: z.string().nullable(),
-  finishedAt: jsonDateSchema.nullable(),
-  generation: z.string().nullable(),
-  id: z.string(),
-  providerServerId: z.string().nullable(),
-  runtimeImage: z.string().nullable(),
-  snapshotId: z.string().nullable(),
-  startedAt: jsonDateSchema.nullable(),
-  status: z.string(),
-  step: z.string().nullable(),
-})
-
-export const platformSnapshotsResponseSchema = z.object({
-  snapshots: z.array(platformSnapshotBakeSchema),
-})
 export const platformProvisionOpenAiKeyResponseSchema =
   platformActionResponseSchema.extend({
     action: z.enum(["provision", "rotate"]),
@@ -362,9 +332,6 @@ export const platformJobStatusResponseSchema = z.object({
 
 export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema>
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
-export type PlatformBakeOnboardingSnapshotResponse = z.infer<
-  typeof platformBakeOnboardingSnapshotResponseSchema
->
 export type PlatformCreateOrganizationInput = z.infer<
   typeof platformCreateOrganizationSchema
 >
@@ -373,10 +340,6 @@ export type PlatformCreateOrganizationResponse = z.infer<
 >
 export type PlatformAddCurrentUserAdminResponse = z.infer<
   typeof platformAddCurrentUserAdminResponseSchema
->
-export type PlatformSnapshotBake = z.infer<typeof platformSnapshotBakeSchema>
-export type PlatformSnapshotsResponse = z.infer<
-  typeof platformSnapshotsResponseSchema
 >
 export type PlatformDeleteWorkspaceResponse = z.infer<
   typeof platformDeleteWorkspaceResponseSchema

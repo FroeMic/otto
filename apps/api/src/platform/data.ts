@@ -53,15 +53,13 @@ const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 const JOB_TYPES = {
   applyTenantConfig: "apply_tenant_config",
-  bakeHetznerOnboardingSnapshot: "bake_hetzner_onboarding_snapshot",
   provisionTenantServer: "provision_tenant_server",
-  provisionTenantServerFromSnapshot: "provision_tenant_server_from_snapshot",
   deleteWorkspace: "delete_workspace",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   refreshRuntimeImage: "refresh_runtime_image",
 } as const
 
-type PlatformProvisioningStrategy = "legacy_base_image" | "hetzner_snapshot"
+type PlatformProvisioningStrategy = "legacy_base_image"
 
 function buildPlatformOrganizationExternalId() {
   return `platform_${randomUUID()}`
@@ -97,11 +95,6 @@ async function resolvePlatformOrganizationSlug(input: {
   }
 
   return normalizedSlug
-}
-
-function buildSnapshotGeneration() {
-  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z")
-  return timestamp.replace("T", ".").replace(/:/g, "").replace("Z", "")
 }
 
 function recordFromUnknown(value: unknown) {
@@ -415,22 +408,6 @@ function buildPlatformProvisioningJobInput(input: {
   provisioningStrategy: PlatformProvisioningStrategy
   tenantId: string
 }) {
-  if (input.provisioningStrategy === "hetzner_snapshot") {
-    return {
-      jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
-      payloadJson: {
-        step: "create_server_from_snapshot",
-        tenantId: input.tenantId,
-      },
-      tenantServer: {
-        provider: "hetzner",
-        provisioningStrategy: "hetzner_snapshot",
-        sshUsername: "openclaw",
-        status: "creating",
-      },
-    } as const
-  }
-
   return {
     jobType: JOB_TYPES.provisionTenantServer,
     payloadJson: {
@@ -517,10 +494,8 @@ export async function getPlatformOrganizations(input: {
       name: tenants.name,
       provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
-      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
       sourceImage: tenantServers.sourceImage,
-      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -717,10 +692,8 @@ export async function getPlatformOrganizations(input: {
             name: tenant.name,
             provisioningStrategy: tenant.provisioningStrategy,
             serverStatus: tenant.serverStatus,
-            snapshotGeneration: tenant.snapshotGeneration,
             status: tenant.status,
             sourceImage: tenant.sourceImage,
-            sourceSnapshotId: tenant.sourceSnapshotId,
           }
         : null,
       timeFormatPreference: organization.timeFormatPreference,
@@ -886,10 +859,8 @@ export async function getPlatformOrganizationDetail(input: {
       name: tenants.name,
       provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
-      snapshotGeneration: tenantServers.snapshotGeneration,
       status: tenants.status,
       sourceImage: tenantServers.sourceImage,
-      sourceSnapshotId: tenantServers.sourceSnapshotId,
     })
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
@@ -1131,10 +1102,8 @@ export async function getPlatformOrganizationDetail(input: {
         }
       }),
       serverStatus: tenant.serverStatus,
-      snapshotGeneration: tenant.snapshotGeneration,
       status: tenant.status,
       sourceImage: tenant.sourceImage,
-      sourceSnapshotId: tenant.sourceSnapshotId,
     },
     timeFormatPreference: organization.timeFormatPreference,
     timezone: organization.timezone,
@@ -1372,65 +1341,6 @@ export async function getPlatformJobStatus(input: {
   }
 }
 
-export async function getPlatformSnapshots(_input: { userExternalId: string }) {
-  const rows = await getDb()
-    .select({
-      createdAt: jobRuns.createdAt,
-      error: jobRuns.error,
-      finishedAt: jobRuns.finishedAt,
-      id: jobRuns.id,
-      payloadJson: jobRuns.payloadJson,
-      resultJson: jobRuns.resultJson,
-      startedAt: jobRuns.startedAt,
-      status: jobRuns.status,
-    })
-    .from(jobRuns)
-    .where(eq(jobRuns.jobType, JOB_TYPES.bakeHetznerOnboardingSnapshot))
-    .orderBy(desc(jobRuns.createdAt))
-    .limit(50)
-
-  return rows.map((row) => {
-    const payload = recordFromUnknown(row.payloadJson)
-    const result = recordFromUnknown(row.resultJson)
-
-    return {
-      baseImage:
-        typeof result?.baseImage === "string"
-          ? result.baseImage
-          : typeof payload?.baseImage === "string"
-            ? payload.baseImage
-            : null,
-      createdAt: row.createdAt,
-      error: row.error,
-      finishedAt: row.finishedAt,
-      generation:
-        typeof result?.generation === "string"
-          ? result.generation
-          : typeof payload?.generation === "string"
-            ? payload.generation
-            : null,
-      id: row.id,
-      providerServerId:
-        typeof result?.providerServerId === "string"
-          ? result.providerServerId
-          : typeof payload?.providerServerId === "string"
-            ? payload.providerServerId
-            : null,
-      runtimeImage:
-        typeof result?.runtimeImage === "string"
-          ? result.runtimeImage
-          : typeof payload?.runtimeImage === "string"
-            ? payload.runtimeImage
-            : null,
-      snapshotId:
-        typeof result?.snapshotId === "string" ? result.snapshotId : null,
-      startedAt: row.startedAt,
-      status: row.status,
-      step: typeof payload?.step === "string" ? payload.step : null,
-    }
-  })
-}
-
 async function getDesiredStateVersionForApply(tenantId: string) {
   const version = await getLatestDesiredStateVersion(tenantId)
 
@@ -1520,34 +1430,6 @@ export async function triggerPlatformOrganizationSyncSkills(input: {
     tenantName: tenant.tenantName,
   }
 }
-
-export async function triggerPlatformSnapshotBake(_input: {
-  userExternalId: string
-}) {
-  const env = getApiEnv()
-  const generation = buildSnapshotGeneration()
-  const baseImage = env.HETZNER_DEFAULT_IMAGE
-  const runtimeImage =
-    env.RUNTIME_OPENCLAW_IMAGE ?? "ghcr.io/openclaw/openclaw:2026.4.12"
-
-  const jobId = await enqueueJob({
-    jobType: JOB_TYPES.bakeHetznerOnboardingSnapshot,
-    payload: {
-      baseImage,
-      generation,
-      runtimeImage,
-    },
-  })
-
-  return {
-    baseImage,
-    generation,
-    jobId,
-    queued: true,
-    runtimeImage,
-  }
-}
-
 export async function triggerPlatformOrganizationProvisionServer(input: {
   orgSlug: string
   provisioningStrategy: PlatformProvisioningStrategy

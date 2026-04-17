@@ -11,16 +11,6 @@ export type HetznerCreateServerInput = {
   userData: string;
 };
 
-export type HetznerCreateServerFromSnapshotInput = {
-  image: string;
-  labels?: Record<string, string>;
-  location: string;
-  name: string;
-  serverType: string;
-  sshKeys?: string[];
-  startAfterCreate?: boolean;
-};
-
 export type HetznerServer = {
   actionId: string | null;
   id: string;
@@ -32,22 +22,6 @@ export type HetznerServer = {
   name: string;
   serverType: string | null;
   status: string;
-};
-
-export type HetznerImage = {
-  architecture: string | null;
-  description: string | null;
-  id: string;
-  name: string | null;
-  osFlavor: string | null;
-  rapidDeploy: boolean;
-  status: string | null;
-  type: string | null;
-};
-
-export type HetznerSnapshot = {
-  actionId: string | null;
-  id: string;
 };
 
 export type HetznerActionStatus = {
@@ -139,42 +113,6 @@ export class HetznerClient {
     return normalizeHetznerServer(response.server, response.action?.id ?? null);
   }
 
-  async createServerFromSnapshot(
-    input: HetznerCreateServerFromSnapshotInput,
-  ): Promise<HetznerServer> {
-    const image = await this.getImage(input.image);
-
-    if (image.type !== "snapshot") {
-      throw new Error(
-        `Hetzner image ${input.image} is not a snapshot (got ${image.type ?? "unknown"})`,
-      );
-    }
-
-    await this.validateServerTypeLocation(
-      input.serverType,
-      input.location,
-      image.architecture,
-    );
-
-    const response = await this.request<{
-      action?: { id: number } | null;
-      server: HetznerServerResponse;
-    }>("/servers", {
-      body: JSON.stringify({
-        image: input.image,
-        labels: input.labels,
-        location: input.location,
-        name: input.name,
-        server_type: input.serverType,
-        ssh_keys: input.sshKeys,
-        start_after_create: input.startAfterCreate ?? true,
-      }),
-      method: "POST",
-    });
-
-    return normalizeHetznerServer(response.server, response.action?.id ?? null);
-  }
-
   async deleteServer(serverId: string): Promise<void> {
     await this.request(`/servers/${serverId}`, {
       method: "DELETE",
@@ -187,30 +125,6 @@ export class HetznerClient {
     );
 
     return normalizeHetznerServer(response.server, null);
-  }
-
-  async getImage(image: string): Promise<HetznerImage> {
-    if (isNumericIdentifier(image)) {
-      const response = await this.request<{ image: HetznerImageResponse }>(
-        `/images/${image}`,
-      );
-
-      return normalizeHetznerImage(response.image);
-    }
-
-    const searchParams = new URLSearchParams({
-      name: image,
-    });
-    const response = await this.request<{ images: HetznerImageResponse[] }>(
-      `/images?${searchParams.toString()}`,
-    );
-    const exactMatch = response.images.find((candidate) => candidate.name === image);
-
-    if (!exactMatch) {
-      throw new Error(`Hetzner image ${image} was not found`);
-    }
-
-    return normalizeHetznerImage(exactMatch);
   }
 
   async listServers(filters?: {
@@ -286,42 +200,6 @@ export class HetznerClient {
     );
 
     return response.action ? String(response.action.id) : null;
-  }
-
-  async powerOffServer(serverId: string): Promise<string | null> {
-    const response = await this.request<{ action?: { id: number } | null }>(
-      `/servers/${serverId}/actions/poweroff`,
-      {
-        method: "POST",
-      },
-    );
-
-    return response.action ? String(response.action.id) : null;
-  }
-
-  async createSnapshot(
-    serverId: string,
-    description: string,
-  ): Promise<HetznerSnapshot> {
-    const response = await this.request<{
-      action?: { id: number } | null;
-      image?: { id: number } | null;
-    }>(`/servers/${serverId}/actions/create_image`, {
-      body: JSON.stringify({
-        description,
-        type: "snapshot",
-      }),
-      method: "POST",
-    });
-
-    if (!response.image?.id) {
-      throw new Error(`Hetzner snapshot creation did not return an image id`);
-    }
-
-    return {
-      actionId: response.action ? String(response.action.id) : null,
-      id: String(response.image.id),
-    };
   }
 
   async waitForServerAction(serverId: string, actionId: string): Promise<void> {
@@ -433,17 +311,6 @@ type HetznerServerResponse = {
   status: string;
 };
 
-type HetznerImageResponse = {
-  architecture?: string | null;
-  description?: string | null;
-  id: number;
-  name?: string | null;
-  os_flavor?: string | null;
-  rapid_deploy?: boolean | null;
-  status?: string | null;
-  type?: string | null;
-};
-
 type HetznerServerTypeResponse = {
   architecture?: string | null;
   locations: Array<{
@@ -455,19 +322,6 @@ type HetznerServerTypeResponse = {
   }>;
   name: string;
 };
-
-function normalizeHetznerImage(image: HetznerImageResponse): HetznerImage {
-  return {
-    architecture: image.architecture ?? null,
-    description: image.description ?? null,
-    id: String(image.id),
-    name: image.name ?? null,
-    osFlavor: image.os_flavor ?? null,
-    rapidDeploy: image.rapid_deploy ?? false,
-    status: image.status ?? null,
-    type: image.type ?? null,
-  };
-}
 
 function normalizeHetznerServer(
   server: HetznerServerResponse,
@@ -489,10 +343,6 @@ function normalizeHetznerServer(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isNumericIdentifier(value: string) {
-  return /^\d+$/.test(value);
 }
 
 function isLocationCurrentlyAvailable(
