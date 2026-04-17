@@ -109,6 +109,88 @@ describe("web app", () => {
     expect((forwardedRequest as Request).headers.get("cookie")).toBeNull()
   })
 
+  it("proxies posthog remote config requests through the assets host", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ config: { token: "phc_test_token" } }), {
+        headers: {
+          "Content-Encoding": "br",
+          "Content-Length": "123",
+          "Content-Type": "application/json",
+        },
+        status: 200,
+      }),
+    )
+
+    const productionApp = createApp({
+      API_ORIGIN: "http://api.internal",
+      FRONTEND_PORT: 4100,
+      NEXT_PUBLIC_POSTHOG_ENABLED: true,
+      NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
+      NEXT_PUBLIC_POSTHOG_TOKEN: "phc_test_token",
+      NODE_ENV: "production",
+      POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+      POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
+      WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
+    })
+
+    const response = await productionApp.request(
+      "http://localhost/ingest/array/phc_test_token/config?ip=0",
+    )
+
+    expect(response.status).toBe(200)
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(Request))
+
+    const forwardedRequest = fetchSpy.mock.calls[0]?.[0]
+    expect(forwardedRequest).toBeInstanceOf(Request)
+    expect((forwardedRequest as Request).url).toBe(
+      "https://eu-assets.i.posthog.com/array/phc_test_token/config?ip=0",
+    )
+    expect(response.headers.get("content-encoding")).toBeNull()
+    expect(response.headers.get("content-length")).toBeNull()
+  })
+
+  it("proxies posthog feature flag requests through the ingest host", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ flags: [] }), {
+        status: 200,
+      }),
+    )
+
+    const productionApp = createApp({
+      API_ORIGIN: "http://api.internal",
+      FRONTEND_PORT: 4100,
+      NEXT_PUBLIC_POSTHOG_ENABLED: true,
+      NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
+      NEXT_PUBLIC_POSTHOG_TOKEN: "phc_test_token",
+      NODE_ENV: "production",
+      POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+      POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
+      WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
+    })
+
+    const response = await productionApp.request(
+      "http://localhost/ingest/flags/?v=2&ip=0&compression=base64",
+      {
+        body: JSON.stringify({ token: "phc_test_token" }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "wos-session=sealed-session",
+        },
+        method: "POST",
+      },
+    )
+
+    expect(response.status).toBe(200)
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(Request))
+
+    const forwardedRequest = fetchSpy.mock.calls[0]?.[0]
+    expect(forwardedRequest).toBeInstanceOf(Request)
+    expect((forwardedRequest as Request).url).toBe(
+      "https://eu.i.posthog.com/flags/?v=2&ip=0&compression=base64",
+    )
+    expect((forwardedRequest as Request).headers.get("cookie")).toBeNull()
+  })
+
   it("renders a landing workspace menu when the user is authenticated", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
