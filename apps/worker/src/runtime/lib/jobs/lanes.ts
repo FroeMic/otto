@@ -14,6 +14,7 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.provisionTenantServer]: JOB_LANES.runtime,
   [JOB_TYPES.provisionTenantOpenAiKey]: JOB_LANES.runtime,
   [JOB_TYPES.applyTenantConfig]: JOB_LANES.runtime,
+  [JOB_TYPES.deleteTenantServer]: JOB_LANES.runtime,
   [JOB_TYPES.deleteWorkspace]: JOB_LANES.runtime,
   [JOB_TYPES.refreshRuntimeImage]: JOB_LANES.runtime,
   [JOB_TYPES.runWorkspaceChatTurn]: JOB_LANES.chat,
@@ -39,6 +40,7 @@ const TENANT_MUTEX_GUARD_JOB_TYPES = [
   JOB_TYPES.provisionTenantOpenAiKey,
   JOB_TYPES.applyTenantConfig,
   JOB_TYPES.refreshRuntimeImage,
+  JOB_TYPES.deleteTenantServer,
   JOB_TYPES.whatsappLinkSession,
   JOB_TYPES.whatsappDisconnect,
 ] as const satisfies readonly JobType[];

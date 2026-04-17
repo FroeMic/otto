@@ -5,6 +5,7 @@ import {
   platformBootstrapSchema,
   platformCreateOrganizationResponseSchema,
   platformCreateOrganizationSchema,
+  platformDeleteTenantServerResponseSchema,
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
@@ -39,6 +40,7 @@ import {
   grantPlatformOrganizationCredits,
   triggerPlatformOrganizationApply,
   triggerPlatformOrganizationProvisionServer,
+  triggerPlatformOrganizationDeleteTenantServer,
   triggerPlatformOrganizationDeleteWorkspace,
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
@@ -102,6 +104,10 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
   triggerPlatformOrganizationProvisionServer: (input: {
     orgSlug: string
     provisioningStrategy: "legacy_base_image"
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
+  triggerPlatformOrganizationDeleteTenantServer: (input: {
+    orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
   triggerPlatformOrganizationDeleteWorkspace: (input: {
@@ -189,6 +195,11 @@ function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
         provisioningStrategy,
         userExternalId: user.id,
       }),
+    triggerPlatformOrganizationDeleteTenantServer: ({ orgSlug, user }) =>
+      triggerPlatformOrganizationDeleteTenantServer({
+        orgSlug,
+        userExternalId: user.id,
+      }),
     triggerPlatformOrganizationDeleteWorkspace: ({ orgSlug, user }) =>
       triggerPlatformOrganizationDeleteWorkspace({
         orgSlug,
@@ -255,8 +266,10 @@ function handlePlatformRouteError(error: unknown) {
   if (
     error instanceof Error &&
     (error.message === "Organization already has a tenant server" ||
+      error.message === "Organization tenant server not found" ||
       error.message === "Organization slug is already in use" ||
       error.message === "Organization slug is reserved" ||
+      error.message === "Tenant server deletion is already queued or running" ||
       error.message === "Workspace deletion is already queued or running")
   ) {
     return {
@@ -620,6 +633,48 @@ export function createPlatformRouter(
 
           return context.json(
             platformProvisionServerResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        } catch (error) {
+          const handled = handlePlatformRouteError(error)
+
+          return context.json(
+            {
+              code: handled.code,
+              message: handled.message,
+            },
+            handled.status,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        }
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/delete-tenant-server",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { orgSlug } = context.req.valid("param")
+
+        try {
+          const result =
+            await dependencies.triggerPlatformOrganizationDeleteTenantServer({
+              orgSlug,
+              user: authResult.user,
+            })
+
+          return context.json(
+            platformDeleteTenantServerResponseSchema.parse(result),
             200,
             {
               "Cache-Control": "no-store",

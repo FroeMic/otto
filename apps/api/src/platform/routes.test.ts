@@ -180,6 +180,12 @@ function createDependencies(): PlatformRouteDependencies {
       organizationSlug: "interaction42",
       queued: true,
     }),
+    triggerPlatformOrganizationDeleteTenantServer: async () => ({
+      jobId: "job_delete_server_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
+    }),
     triggerPlatformOrganizationDeployRuntime: async () => ({
       desiredStateChanged: false,
       desiredStateVersion: 12,
@@ -414,6 +420,24 @@ describe("platform routes", () => {
       organizationName: "Interaction42",
       organizationSlug: "interaction42",
       queued: true,
+    })
+  })
+
+  it("queues tenant server deletion without deleting the workspace", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/delete-tenant-server",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      jobId: "job_delete_server_1",
+      queued: true,
+      tenantId: "tenant_1",
+      tenantName: "interaction42-prod",
     })
   })
 

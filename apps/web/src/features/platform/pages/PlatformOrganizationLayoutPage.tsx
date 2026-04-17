@@ -30,6 +30,7 @@ export function PlatformOrganizationLayoutPage({
           <PlatformOrganizationActions
             hasTenant={Boolean(organization.tenant)}
             hasTenantOpenAiProvider={Boolean(organization.tenant?.openAiProvider)}
+            hasTenantServer={Boolean(organization.tenant?.serverStatus)}
             orgSlug={organization.slug}
             runtimeReady={Boolean(runtimeReady)}
           />

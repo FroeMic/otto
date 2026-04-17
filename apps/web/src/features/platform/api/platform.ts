@@ -4,6 +4,7 @@ import {
   platformBootstrapSchema,
   platformCreateOrganizationResponseSchema,
   platformCreateOrganizationSchema,
+  platformDeleteTenantServerResponseSchema,
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
@@ -18,6 +19,7 @@ import {
   type PlatformAddCurrentUserAdminResponse,
   type PlatformCreateOrganizationInput,
   type PlatformCreateOrganizationResponse,
+  type PlatformDeleteTenantServerResponse,
   type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
@@ -242,6 +244,23 @@ export async function deletePlatformWorkspace(
 
   return fetchApiResponse(response, (data) =>
     platformDeleteWorkspaceResponseSchema.parse(data),
+  )
+}
+
+export async function deletePlatformTenantServer(
+  orgSlug: string,
+): Promise<PlatformDeleteTenantServerResponse> {
+  const response =
+    await apiClient.api.platform.organizations[":orgSlug"][
+      "delete-tenant-server"
+    ].$post({
+      param: {
+        orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    platformDeleteTenantServerResponseSchema.parse(data),
   )
 }
 

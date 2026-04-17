@@ -5,6 +5,7 @@ export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
   provisionTenantOpenAiKey: "provision_tenant_openai_key",
   applyTenantConfig: "apply_tenant_config",
+  deleteTenantServer: "delete_tenant_server",
   deleteWorkspace: "delete_workspace",
   refreshRuntimeImage: "refresh_runtime_image",
   runWorkspaceChatTurn: "run_workspace_chat_turn",
@@ -98,6 +99,10 @@ export type DeleteWorkspacePayload = {
   organizationId: string;
   organizationSlug: string;
   organizationExternalId: string;
+};
+
+export type DeleteTenantServerPayload = {
+  tenantId: string;
 };
 
 export type RunWorkspaceChatTurnPayload = {
