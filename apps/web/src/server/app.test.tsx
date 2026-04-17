@@ -10,7 +10,11 @@ describe("web app", () => {
   const app = createApp({
     API_ORIGIN: "http://api.internal",
     FRONTEND_PORT: 4100,
+    NEXT_PUBLIC_POSTHOG_ENABLED: false,
+    NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
     NODE_ENV: "test",
+    POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+    POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
     WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
   })
 
@@ -38,6 +42,71 @@ describe("web app", () => {
     expect(text).not.toContain(
       "Describe the business you are trying to run. Otto will qualify the next step.",
     )
+    expect(text).not.toContain("__OTTO_POSTHOG__")
+  })
+
+  it("injects runtime posthog config when browser analytics is enabled", async () => {
+    const productionApp = createApp({
+      API_ORIGIN: "http://api.internal",
+      FRONTEND_PORT: 4100,
+      NEXT_PUBLIC_POSTHOG_ENABLED: true,
+      NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
+      NEXT_PUBLIC_POSTHOG_TOKEN: "phc_test_token",
+      NODE_ENV: "production",
+      POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+      POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
+      WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
+    })
+
+    const response = await productionApp.request("http://localhost/")
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain("__OTTO_POSTHOG__")
+    expect(text).toContain("\"apiHost\":\"/ingest\"")
+    expect(text).toContain("\"token\":\"phc_test_token\"")
+  })
+
+  it("proxies posthog ingest requests without forwarding browser cookies", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("ok", {
+        status: 202,
+      }),
+    )
+
+    const productionApp = createApp({
+      API_ORIGIN: "http://api.internal",
+      FRONTEND_PORT: 4100,
+      NEXT_PUBLIC_POSTHOG_ENABLED: true,
+      NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
+      NEXT_PUBLIC_POSTHOG_TOKEN: "phc_test_token",
+      NODE_ENV: "production",
+      POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+      POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
+      WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
+    })
+
+    const response = await productionApp.request(
+      "http://localhost/ingest/e/?ip=1",
+      {
+        body: JSON.stringify({ event: "landing_view" }),
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: "wos-session=sealed-session",
+        },
+        method: "POST",
+      },
+    )
+
+    expect(response.status).toBe(202)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(Request),
+    )
+
+    const forwardedRequest = fetchSpy.mock.calls[0]?.[0]
+    expect(forwardedRequest).toBeInstanceOf(Request)
+    expect((forwardedRequest as Request).url).toBe("https://eu.i.posthog.com/e/?ip=1")
+    expect((forwardedRequest as Request).headers.get("cookie")).toBeNull()
   })
 
   it("renders a landing workspace menu when the user is authenticated", async () => {

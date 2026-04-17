@@ -3,6 +3,7 @@ export const SYSTEM_RESERVED_WORKSPACE_SLUGS = [
   "api-docs",
   "app",
   "auth",
+  "ingest",
   "login",
   "logout",
   "oauth",

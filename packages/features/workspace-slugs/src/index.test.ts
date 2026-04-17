@@ -24,6 +24,7 @@ describe("workspace slugs", () => {
 
   it("reserves internal system namespaces", () => {
     assert.equal(isReservedWorkspaceSlug("api"), true)
+    assert.equal(isReservedWorkspaceSlug("ingest"), true)
     assert.equal(isReservedWorkspaceSlug("oauth"), true)
     assert.equal(isReservedWorkspaceSlug("platform"), true)
   })

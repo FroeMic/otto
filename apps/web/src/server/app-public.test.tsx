@@ -17,7 +17,11 @@ describe("web public assets", () => {
   const app = createApp({
     API_ORIGIN: "http://api.internal",
     FRONTEND_PORT: 4100,
+    NEXT_PUBLIC_POSTHOG_ENABLED: false,
+    NEXT_PUBLIC_POSTHOG_HOST: "/ingest",
     NODE_ENV: "test",
+    POSTHOG_ASSET_PROXY_TARGET: "https://eu-assets.i.posthog.com",
+    POSTHOG_PROXY_TARGET: "https://eu.i.posthog.com",
     WORKSPACE_APP_ORIGIN: "https://app.getyourotto.com",
   })
 
@@ -32,13 +36,14 @@ describe("web public assets", () => {
 
   it("serves integration icons from the built public asset root", async () => {
     mkdirSync(builtIntegrationRoot, { recursive: true })
+    const fileName = "test-built-icon.svg"
     writeFileSync(
-      `${builtIntegrationRoot}/slack.svg`,
+      `${builtIntegrationRoot}/${fileName}`,
       "<svg><title>built slack icon</title></svg>",
       "utf8",
     )
 
-    const response = await app.request("http://localhost/integrations/slack.svg")
+    const response = await app.request(`http://localhost/integrations/${fileName}`)
     const text = await response.text()
 
     expect(response.status).toBe(200)
