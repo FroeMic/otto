@@ -128,6 +128,12 @@ describe("production routing audit", () => {
 
     assert.match(
       webService,
+      /env_file:\s*\n\s+- \.env/,
+      "web must load .env so runtime browser config such as PostHog reaches SSR",
+    );
+
+    assert.match(
+      webService,
       /API_ORIGIN:\s+http:\/\/api:3002/,
       "web must proxy /api traffic to api:3002 in production compose",
     );
