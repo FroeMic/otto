@@ -83,12 +83,10 @@
   - first-time users should get a workspace automatically during post-auth bootstrap
   - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
   - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
-- Snapshot-based onboarding provisioning is now implemented in `_specs/DONE_34_snapshot_based_tenant_provisioning.md`:
-  - onboarding can now queue `provision_tenant_server_from_snapshot` while leaving the existing `provision_tenant_server` path intact as fallback
-  - tenant servers now persist provisioning strategy and snapshot provenance metadata
-  - Hetzner snapshot image validation plus baked-host verification now exist in the worker runtime
-  - platform operator payloads now expose snapshot provenance alongside tenant server details
-  - a manual runbook and bake helper script now define the first-pass onboarding snapshot workflow
+- Snapshot-based onboarding provisioning has been removed again:
+  - onboarding and platform provisioning now queue only the legacy `provision_tenant_server` job
+  - snapshot bake, snapshot provisioning, and snapshot operator surfaces are no longer part of the active codebase
+  - remaining tenant-server provisioning metadata is being reduced back to the legacy base-image path
 - The next domain-operations integration slice is now explicitly tracked in `_specs/TODO_29_gandi_domain_integration.md`:
   - `Gandi` should land as a `workspace_managed` integration in lifecycle, with Otto-owned platform credentials used inside the Gandi-specific implementation
   - the current status resolver treats `platform_managed` integrations as implicitly installed when no workspace row exists, which matches `Brave` but not Gandi

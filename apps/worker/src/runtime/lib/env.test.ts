@@ -6,7 +6,7 @@ const BASE_ENV = {
   DATABASE_URL: "postgres://postgres:postgres@localhost:5432/otto",
 } as const;
 
-describe("getEnv snapshot provisioning defaults", () => {
+describe("getEnv legacy provisioning env shape", () => {
   afterEach(() => {
     for (const key of ["DATABASE_URL"]) {
       delete process.env[key];
@@ -14,7 +14,7 @@ describe("getEnv snapshot provisioning defaults", () => {
     __testing.resetEnvCacheForTests();
   });
 
-  it("does not expose snapshot provisioning env settings", () => {
+  it("does not expose removed snapshot provisioning env settings", () => {
     Object.assign(process.env, BASE_ENV);
     __testing.resetEnvCacheForTests();
 

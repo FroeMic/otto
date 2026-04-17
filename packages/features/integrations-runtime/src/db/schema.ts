@@ -790,10 +790,8 @@ export const tenantServers = pgTable(
     providerServerId: varchar("provider_server_id", { length: 255 }),
     ipv4: varchar("ipv4", { length: 64 }),
     provisioningStrategy: varchar("provisioning_strategy", { length: 64 }),
-    snapshotGeneration: varchar("snapshot_generation", { length: 255 }),
     sshUsername: varchar("ssh_username", { length: 255 }),
     sourceImage: varchar("source_image", { length: 255 }),
-    sourceSnapshotId: varchar("source_snapshot_id", { length: 255 }),
     status: varchar("status", { length: 64 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
