@@ -774,7 +774,6 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
 
     const initialProvisioningJob =
       buildInitialProvisioningJobInputForWorkspaceOnboarding({
-        provisioningMode: getApiEnv().HETZNER_ONBOARDING_PROVISIONING_MODE,
         tenantId: tenant.id,
       })
 
@@ -834,25 +833,8 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
 }
 
 export function buildInitialProvisioningJobInputForWorkspaceOnboarding(input: {
-  provisioningMode: "legacy_base_image" | "hetzner_snapshot"
   tenantId: string
 }) {
-  if (input.provisioningMode === "hetzner_snapshot") {
-    return {
-      jobType: JOB_TYPES.provisionTenantServerFromSnapshot,
-      payloadJson: {
-        step: "create_server_from_snapshot",
-        tenantId: input.tenantId,
-      },
-      tenantServer: {
-        provider: "hetzner",
-        provisioningStrategy: "hetzner_snapshot",
-        sshUsername: "openclaw",
-        status: "creating",
-      },
-    } as const
-  }
-
   return {
     jobType: JOB_TYPES.provisionTenantServer,
     payloadJson: {

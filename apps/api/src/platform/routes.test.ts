@@ -61,15 +61,13 @@ function createDependencies(): PlatformRouteDependencies {
         latestJob: null,
         name: "interaction42-prod",
         openAiProvider: null,
-        provisioningStrategy: "hetzner_snapshot",
+        provisioningStrategy: "legacy_base_image",
         recentApplyRuns: [],
         recentEvents: [],
         recentJobs: [],
         serverStatus: "ready",
-        snapshotGeneration: "2026-04-15.1",
         status: "ready",
-        sourceImage: "snapshot-123",
-        sourceSnapshotId: "snapshot-123",
+        sourceImage: "ubuntu-24.04",
       },
       timeFormatPreference: "auto",
       timezone: "UTC",
@@ -84,7 +82,7 @@ function createDependencies(): PlatformRouteDependencies {
       observedRuntimeImage: null,
       observedRuntimeImageVersion: null,
       slackIntegration: null,
-      slug: slug ?? "snapshot-test",
+      slug: slug ?? "fresh-org",
       tenant: null,
       timeFormatPreference: "auto",
       timezone: "UTC",
@@ -116,31 +114,13 @@ function createDependencies(): PlatformRouteDependencies {
           latestApplyRun: null,
           latestJob: null,
           name: "interaction42-prod",
-          provisioningStrategy: "hetzner_snapshot",
+          provisioningStrategy: "legacy_base_image",
           serverStatus: "ready",
-          snapshotGeneration: "2026-04-15.1",
           status: "ready",
-          sourceImage: "snapshot-123",
-          sourceSnapshotId: "snapshot-123",
+          sourceImage: "ubuntu-24.04",
         },
         timeFormatPreference: "auto",
         timezone: "UTC",
-      },
-    ],
-    getPlatformSnapshots: async () => [
-      {
-        baseImage: "ubuntu-24.04",
-        createdAt: "2026-04-15T18:00:00.000Z",
-        error: null,
-        finishedAt: "2026-04-15T18:10:00.000Z",
-        generation: "2026-04-15.180000",
-        id: "job_bake_1",
-        providerServerId: "server_1",
-        runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
-        snapshotId: "snapshot_1",
-        startedAt: "2026-04-15T18:00:01.000Z",
-        status: "succeeded",
-        step: "create_snapshot",
       },
     ],
     getPlatformUsage: async () => ({
@@ -182,13 +162,6 @@ function createDependencies(): PlatformRouteDependencies {
       queued: true,
       tenantId: "tenant_1",
       tenantName: "interaction42-prod",
-    }),
-    triggerPlatformSnapshotBake: async () => ({
-      baseImage: "ubuntu-24.04",
-      generation: "2026-04-15.180000",
-      jobId: "job_bake_1",
-      queued: true,
-      runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
     }),
     triggerPlatformOrganizationProvisionServer: async ({
       provisioningStrategy,
@@ -280,8 +253,8 @@ describe("platform routes", () => {
       "http://api.local/api/platform/organizations",
       {
         body: JSON.stringify({
-          name: "Snapshot Test",
-          slug: "snapshot-test",
+          name: "Fresh Org",
+          slug: "fresh-org",
         }),
         headers: {
           "Content-Type": "application/json",
@@ -300,27 +273,15 @@ describe("platform routes", () => {
       id: "org_new",
       isReady: false,
       locale: "en-US",
-      name: "Snapshot Test",
+      name: "Fresh Org",
       observedRuntimeImage: null,
       observedRuntimeImageVersion: null,
       slackIntegration: null,
-      slug: "snapshot-test",
+      slug: "fresh-org",
       tenant: null,
       timeFormatPreference: "auto",
       timezone: "UTC",
     })
-  })
-
-  it("returns platform snapshots", async () => {
-    const app = createPlatformTestApp()
-    const response = await app.request("http://api.local/api/platform/snapshots")
-    const data = (await response.json()) as {
-      snapshots: Array<{ id: string; snapshotId: string | null }>
-    }
-
-    assert.equal(response.status, 200)
-    assert.equal(data.snapshots[0]?.id, "job_bake_1")
-    assert.equal(data.snapshots[0]?.snapshotId, "snapshot_1")
   })
 
   it("returns a platform organization detail payload", async () => {
@@ -453,25 +414,6 @@ describe("platform routes", () => {
       organizationName: "Interaction42",
       organizationSlug: "interaction42",
       queued: true,
-    })
-  })
-
-  it("queues platform snapshot bake", async () => {
-    const app = createPlatformTestApp()
-    const response = await app.request(
-      "http://api.local/api/platform/snapshots/bake",
-      {
-        method: "POST",
-      },
-    )
-
-    assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), {
-      baseImage: "ubuntu-24.04",
-      generation: "2026-04-15.180000",
-      jobId: "job_bake_1",
-      queued: true,
-      runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
     })
   })
 

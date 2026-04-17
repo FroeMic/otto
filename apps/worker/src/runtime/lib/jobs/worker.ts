@@ -9,7 +9,6 @@ import {
   processScheduleCreditSettlementJob,
   processSettleCreditUsageChunkJob,
 } from "./credit-burndown";
-import { processBakeHetznerOnboardingSnapshotJob } from "./bake-onboarding-snapshot";
 import {
   getRecurringSchedulerJobTypes,
   JOB_LANES,
@@ -25,7 +24,6 @@ import {
   processSyncOpenAiUsageTargetJob,
 } from "./openai-usage";
 import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
-import { processProvisionTenantServerFromSnapshotJob } from "./provisioning-from-snapshot";
 import { processProvisionTenantServerJob } from "./provisioning";
 import {
   claimAvailableJobsForLane,
@@ -52,9 +50,6 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   console.info(`[worker] claimed job ${job.id} (${job.jobType})`);
 
   switch (job.jobType) {
-    case JOB_TYPES.bakeHetznerOnboardingSnapshot:
-      await processBakeHetznerOnboardingSnapshotJob(job);
-      return;
     case JOB_TYPES.applyTenantConfig:
       await processApplyTenantConfigJob(job);
       return;
@@ -99,9 +94,6 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.provisionTenantServer:
       await processProvisionTenantServerJob(job);
-      return;
-    case JOB_TYPES.provisionTenantServerFromSnapshot:
-      await processProvisionTenantServerFromSnapshotJob(job);
       return;
     case JOB_TYPES.whatsappLinkSession:
       await processWhatsAppLinkSessionJob(job);

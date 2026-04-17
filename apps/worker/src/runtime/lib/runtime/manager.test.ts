@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenClawTenantConfig } from "../openclaw/config";
-import { __testing as envTesting } from "../env";
 import {
   buildManagedSkillPruneCommand,
   listInstallOnlyManagedSkillFiles,
@@ -55,86 +54,6 @@ describe("RuntimeManager.applyTenantConfig", () => {
       pullImage: false,
       strategy: "recreate",
     });
-  });
-});
-
-describe("RuntimeManager.verifySnapshotHostReady", () => {
-  it("checks the baked-host contract instead of waiting for cloud-init", async () => {
-    const previousDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL =
-      "postgres://postgres:postgres@localhost:5432/otto";
-    envTesting.resetEnvCacheForTests();
-    const sshClient = {
-      exec: vi.fn().mockResolvedValue({
-        exitCode: 0,
-        stderr: "",
-        stdout: "",
-      }),
-    };
-    const manager = new RuntimeManager(sshClient as never);
-
-    try {
-      await manager.verifySnapshotHostReady({
-        host: "tenant.test",
-        port: 22,
-        username: "root",
-      });
-    } finally {
-      process.env.DATABASE_URL = previousDatabaseUrl;
-      envTesting.resetEnvCacheForTests();
-    }
-
-    expect(sshClient.exec).toHaveBeenCalledTimes(1);
-    const firstExecCall = sshClient.exec.mock.calls.at(0) as unknown[] | undefined;
-    const executedCommand =
-      firstExecCall && typeof firstExecCall[1] === "string" ? firstExecCall[1] : "";
-
-    expect(executedCommand).toContain("command -v docker >/dev/null");
-    expect(executedCommand).toContain("systemctl is-active --quiet docker");
-    expect(executedCommand).toContain("id openclaw >/dev/null");
-    expect(executedCommand).toContain("docker image inspect");
-    expect(executedCommand).toContain(
-      "/opt/openclaw/runtime/snapshot-metadata.json",
-    );
-  });
-});
-
-describe("RuntimeManager.prepareOnboardingSnapshotHost", () => {
-  it("pulls the runtime image and writes snapshot metadata", async () => {
-    const sshClient = {
-      exec: vi
-        .fn()
-        .mockResolvedValue({ exitCode: 0, stderr: "", stdout: "" }),
-      writeFileAtomic: vi.fn(async () => undefined),
-    };
-    const manager = new RuntimeManager(sshClient as never);
-
-    await manager.prepareOnboardingSnapshotHost(
-      {
-        host: "tenant.test",
-        port: 22,
-        username: "root",
-      },
-      {
-        baseImage: "ubuntu-24.04",
-        generation: "2026-04-15.180000",
-        runtimeImage: "ghcr.io/froemic/openclaw:2026.4.12",
-      },
-    );
-
-    expect(sshClient.exec).toHaveBeenCalled();
-    const executedCommands = sshClient.exec.mock.calls
-      .map((call) => (typeof call[1] === "string" ? call[1] : ""))
-      .join("\n");
-
-    expect(executedCommands).toContain("docker pull");
-    expect(executedCommands).toContain("ghcr.io/froemic/openclaw:2026.4.12");
-    expect(sshClient.writeFileAtomic).toHaveBeenCalledWith(
-      expect.anything(),
-      "/opt/openclaw/runtime/snapshot-metadata.json",
-      expect.stringContaining('"generation": "2026-04-15.180000"'),
-      0o640,
-    );
   });
 });
 

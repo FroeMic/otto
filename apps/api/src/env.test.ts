@@ -48,20 +48,9 @@ describe("api env", () => {
     assert.equal(env.PUBLIC_APP_BASE_URL, "https://getyourotto.com")
   })
 
-  it("defaults onboarding provisioning mode to the legacy base-image path", () => {
+  it("does not expose onboarding provisioning mode in api env", () => {
     const env = resolveApiEnv({})
 
-    assert.equal(
-      env.HETZNER_ONBOARDING_PROVISIONING_MODE,
-      "legacy_base_image",
-    )
-  })
-
-  it("parses the snapshot onboarding provisioning mode when enabled", () => {
-    const env = resolveApiEnv({
-      HETZNER_ONBOARDING_PROVISIONING_MODE: "hetzner_snapshot",
-    })
-
-    assert.equal(env.HETZNER_ONBOARDING_PROVISIONING_MODE, "hetzner_snapshot")
+    assert.equal("HETZNER_ONBOARDING_PROVISIONING_MODE" in env, false)
   })
 })

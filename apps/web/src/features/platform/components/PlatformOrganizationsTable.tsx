@@ -215,7 +215,6 @@ type OrganizationAction =
   | "apply"
   | "deploy-runtime"
   | "provision-server-legacy"
-  | "provision-server-snapshot"
   | "refresh-image"
 
 export interface OrganizationActionsCellProps {
@@ -249,13 +248,6 @@ export function OrganizationActionsCell({
               provisioningStrategy: "legacy_base_image",
             },
           })
-        } else if (action === "provision-server-snapshot") {
-          await provisionPlatformServer({
-            orgSlug: organization.slug,
-            payload: {
-              provisioningStrategy: "hetzner_snapshot",
-            },
-          })
         } else {
           await refreshPlatformRuntimeImage(organization.slug)
         }
@@ -269,9 +261,7 @@ export function OrganizationActionsCell({
               ? "Queued runtime deploy."
               : action === "provision-server-legacy"
                 ? "Queued server provisioning from the base image."
-                : action === "provision-server-snapshot"
-                  ? "Queued server provisioning from the snapshot."
-              : "Queued runtime image refresh.",
+                : "Queued runtime image refresh.",
         )
         await queryClient.invalidateQueries({
           queryKey: platformOrganizationsQueryOptions().queryKey,
@@ -314,12 +304,6 @@ export function OrganizationActionsCell({
           onClick={() => runAction("provision-server-legacy")}
         >
           Provision server from base image
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          disabled={!canProvisionServer || pendingAction}
-          onClick={() => runAction("provision-server-snapshot")}
-        >
-          Provision server from snapshot
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!runtimeReady || pendingAction}

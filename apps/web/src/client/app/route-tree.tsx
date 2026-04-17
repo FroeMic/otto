@@ -1114,20 +1114,6 @@ const platformOrganizationsRoute = createRoute({
   path: "/organizations",
 })
 
-const platformSnapshotsRoute = createRoute({
-  component: lazyRouteComponent(
-    () => import("./platform-routes"),
-    "PlatformSnapshotsRoutePage",
-  ),
-  getParentRoute: () => platformShellRoute,
-  loader: async ({ context }) => {
-    const { platformSnapshotsQueryOptions } = await importPlatformApiModule()
-
-    return context.queryClient.ensureQueryData(platformSnapshotsQueryOptions())
-  },
-  path: "/snapshots",
-})
-
 const platformOrganizationRoute = createRoute({
   component: lazyRouteComponent(
     () => import("./platform-routes"),
@@ -1262,7 +1248,6 @@ export const routeTree = rootRoute.addChildren([
     platformShellRoute.addChildren([
       platformIndexRoute,
       platformOrganizationsRoute,
-      platformSnapshotsRoute,
       platformOrganizationRoute.addChildren([
         platformOrganizationIndexRoute,
         platformOrganizationOverviewRoute,
