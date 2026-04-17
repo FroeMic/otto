@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useLocation } from "@tanstack/react-router"
-import type { PropsWithChildren } from "react"
+import { useEffect, type PropsWithChildren } from "react"
 
 import { Separator } from "@/components/ui/separator"
 import {
@@ -12,6 +12,10 @@ import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 import {
   workspaceChatConversationDetailQueryOptions,
 } from "@/features/workspace-chat/api/chat"
+import {
+  capturePostHogBrowserEvent,
+  identifyPostHogBrowserUser,
+} from "@/client/posthog"
 import { WorkspaceChatRealtimeProvider } from "@/features/workspace-chat/realtime/provider"
 
 import { ShellStage } from "./ShellStage"
@@ -203,6 +207,38 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
     data.currentOrganization.slug,
     data.currentOrganization.name,
   )
+
+  useEffect(() => {
+    identifyPostHogBrowserUser({
+      email: data.user.email,
+      id: data.user.id,
+      name: data.user.name,
+      workspaceId: data.currentOrganization.id,
+      workspaceName: data.currentOrganization.name,
+      workspaceSlug: data.currentOrganization.slug,
+    })
+  }, [
+    data.currentOrganization.id,
+    data.currentOrganization.name,
+    data.currentOrganization.slug,
+    data.user.email,
+    data.user.id,
+    data.user.name,
+  ])
+
+  useEffect(() => {
+    capturePostHogBrowserEvent("workspace_opened", {
+      path: location.pathname,
+      workspaceId: data.currentOrganization.id,
+      workspaceName: data.currentOrganization.name,
+      workspaceSlug: data.currentOrganization.slug,
+    })
+  }, [
+    data.currentOrganization.id,
+    data.currentOrganization.name,
+    data.currentOrganization.slug,
+    location.pathname,
+  ])
 
   return (
     <WorkspaceChatRealtimeProvider orgSlug={orgSlug}>

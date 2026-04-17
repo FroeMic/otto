@@ -11,6 +11,7 @@ import { renderToString } from "react-dom/server"
 import { OttoAvatar } from "../components/OttoAvatar"
 import { buttonVariants } from "../shared/button-variants"
 import { cn } from "../shared/cn"
+import type { BrowserPostHogConfig } from "../shared/posthog"
 import type { FrontendEnv } from "./env"
 import { getEnv } from "./env"
 import {
@@ -18,8 +19,13 @@ import {
   LandingPricingPage,
   LandingSecurityPage,
 } from "./landing"
+import {
+  getBrowserPostHogConfig,
+  serializeBrowserPostHogConfig,
+} from "./posthog"
 
 type PageDocumentProps = {
+  browserPostHogConfig?: BrowserPostHogConfig | null
   children: React.ReactNode
   description: string
   loadLandingScript?: boolean
@@ -52,6 +58,7 @@ const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 function PageDocument({
+  browserPostHogConfig = null,
   children,
   description,
   loadLandingScript = false,
@@ -60,6 +67,9 @@ function PageDocument({
   title,
 }: PageDocumentProps) {
   const canonicalPath = path === "/" ? "" : path
+  const serializedPostHogConfig = serializeBrowserPostHogConfig(
+    browserPostHogConfig,
+  )
 
   return (
     <html lang="en">
@@ -76,6 +86,13 @@ function PageDocument({
       </head>
       <body>
         {children}
+        {serializedPostHogConfig ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__OTTO_POSTHOG__ = ${serializedPostHogConfig};`,
+            }}
+          />
+        ) : null}
         {loadLandingScript ? (
           <script type="module" src={LANDING_SCRIPT_PATH} />
         ) : null}
@@ -91,8 +108,12 @@ function renderDocument(props: PageDocumentProps) {
   return `<!DOCTYPE html>${renderToString(<PageDocument {...props} />)}`
 }
 
-function renderWorkspaceShell(path: string) {
+function renderWorkspaceShell(
+  path: string,
+  browserPostHogConfig: BrowserPostHogConfig | null,
+) {
   return renderDocument({
+    browserPostHogConfig,
     children: (
       <>
         {/* biome-ignore lint/correctness/useUniqueElementIds: static SPA mount point */}
@@ -159,6 +180,41 @@ function createProxyHandler(targetOrigin: string) {
           : context.req.raw.body,
       duplex: context.req.raw.body ? "half" : undefined,
       headers: context.req.raw.headers,
+      method: context.req.method,
+    }
+    const response = await fetch(new Request(targetUrl, init))
+
+    return new Response(response.body, {
+      headers: response.headers,
+      status: response.status,
+    })
+  }
+}
+
+function createExternalProxyHandler(options: {
+  pathPrefix: string
+  targetOrigin: string
+}) {
+  return async (context: Context) => {
+    const upstreamUrl = new URL(context.req.url)
+    const proxiedPath = upstreamUrl.pathname.startsWith(options.pathPrefix)
+      ? upstreamUrl.pathname.slice(options.pathPrefix.length) || "/"
+      : upstreamUrl.pathname
+    const targetUrl = new URL(`${proxiedPath}${upstreamUrl.search}`, options.targetOrigin)
+    const headers = new Headers(context.req.raw.headers)
+
+    headers.delete("cookie")
+    headers.delete("host")
+
+    const init: RequestInit & {
+      duplex?: "half"
+    } = {
+      body:
+        context.req.method === "GET" || context.req.method === "HEAD"
+          ? undefined
+          : context.req.raw.body,
+      duplex: context.req.raw.body ? "half" : undefined,
+      headers,
       method: context.req.method,
     }
     const response = await fetch(new Request(targetUrl, init))
@@ -292,7 +348,11 @@ function LandingAuthModal({
   const isSignIn = mode === "sign-in"
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[#1b2235]/62 px-6 py-12 backdrop-blur-[2px]">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-[#1b2235]/62 px-6 py-12 backdrop-blur-[2px]"
+      data-landing-auth-modal=""
+      data-mode={mode}
+    >
       <div className="relative flex w-full max-w-[25.5rem] flex-col gap-5 rounded-xl border border-black/8 bg-[#fcfbf8] px-7 py-7 text-foreground shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <a
           aria-label="Close"
@@ -351,6 +411,7 @@ function LandingAuthModal({
 
 export function createApp(env: FrontendEnv = getEnv()) {
   const app = new Hono()
+  const browserPostHogConfig = getBrowserPostHogConfig(env)
 
   app.use("*", logger())
   app.use("*", secureHeaders())
@@ -395,6 +456,17 @@ export function createApp(env: FrontendEnv = getEnv()) {
   )
 
   const apiProxyHandler = createProxyHandler(env.API_ORIGIN)
+  const postHogAssetProxyHandler = createExternalProxyHandler({
+    pathPrefix: "/ingest",
+    targetOrigin: env.POSTHOG_ASSET_PROXY_TARGET,
+  })
+  const postHogProxyHandler = createExternalProxyHandler({
+    pathPrefix: "/ingest",
+    targetOrigin: env.POSTHOG_PROXY_TARGET,
+  })
+
+  app.all("/ingest/static/*", postHogAssetProxyHandler)
+  app.all("/ingest/*", postHogProxyHandler)
 
   app.get("/login", async (c) => {
     const mode = c.req.query("mode") === "sign-in" ? "sign-in" : "sign-up"
@@ -404,6 +476,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
     return c.html(
       renderDocument({
+        browserPostHogConfig,
         children: (
           <LandingHomePage
             authModalSlot={
@@ -432,6 +505,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
 
     return c.html(
       renderDocument({
+        browserPostHogConfig,
         children: (
           <LandingHomePage
             prompt={c.req.query("prompt")?.trim()}
@@ -473,11 +547,11 @@ export function createApp(env: FrontendEnv = getEnv()) {
     const path = c.req.path
 
     if (path === "/platform" || path.startsWith("/platform/")) {
-      return c.html(renderWorkspaceShell(path))
+      return c.html(renderWorkspaceShell(path, browserPostHogConfig))
     }
 
     if (isWorkspaceSlugCandidate(path)) {
-      return c.html(renderWorkspaceShell(path))
+      return c.html(renderWorkspaceShell(path, browserPostHogConfig))
     }
 
     return c.html(renderNotFoundPage(path), 404)

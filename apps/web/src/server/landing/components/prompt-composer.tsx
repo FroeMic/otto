@@ -3,6 +3,7 @@
 import { Microphone } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 
+import { capturePostHogBrowserEvent } from "@/client/posthog"
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"
 
@@ -64,6 +65,12 @@ export function LandingPromptComposerClient({
         action="/api/public/intake"
         className="rounded-xl border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
         method="post"
+        onSubmit={() => {
+          capturePostHogBrowserEvent("landing_prompt_submitted", {
+            promptLength: currentPrompt.trim().length,
+            returnTo,
+          })
+        }}
       >
         <input name="returnTo" type="hidden" value={returnTo} />
         <div className="flex flex-col gap-4">
