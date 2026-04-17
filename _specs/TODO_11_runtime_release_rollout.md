@@ -58,10 +58,6 @@ Replace env-driven tenant runtime image selection with a control-plane-managed r
 - For v1, place release activation and rollout controls on the authenticated Agent status / deployment view so runtime operations live next to gateway access and recent deployment activity.
 - The workspace settings area may link users toward the Agent deployment surface, but should not own the rollout action itself.
 - Gate that control with an explicit operator allowlist such as `CONTROL_PLANE_OPERATOR_EMAILS`.
-- The release workflow now also has an onboarding-provisioning implication when snapshot-based provisioning is enabled:
-  - each active runtime image release should also produce one fresh onboarding snapshot built from that release
-  - the first pass may keep snapshot bake and snapshot-id activation as a documented manual operator workflow
-  - a later slice may attach snapshot ids directly to runtime release records
 - Until the DB-backed runtime release model lands, keep the existing platform operator surfaces consistent:
   - `/platform/organizations`
   - `/platform/organizations/[orgSlug]`
@@ -95,4 +91,3 @@ Replace env-driven tenant runtime image selection with a control-plane-managed r
 - Should rollout enqueue all eligible tenants at once, or batch them intentionally in v1?
 - Should a release record keep optional notes such as changelog / operator summary, or is the image digest enough for the first slice?
 - Should a later slice move release activation and rollout off the Agent deployment view into a dedicated operator surface?
-- Should runtime release activation eventually require a matching onboarding snapshot before the release can be treated as ready for new tenant provisioning?

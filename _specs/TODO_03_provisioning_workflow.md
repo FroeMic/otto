@@ -17,7 +17,6 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 - `TODO_00_architecture_and_job_runtime.md`
 - `TODO_01_repo_foundation.md`
 - `DONE_02_auth_and_tenant_model.md`
-- `DONE_34_snapshot_based_tenant_provisioning.md`
 
 ## Implementation notes
 
@@ -117,10 +116,7 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
   - if `provider_server_id` already exists, resume from `getServer` instead of creating a second VPS
   - if an action is still running, resume polling instead of issuing a new mutating call
   - only enqueue config apply after SSH has been proven reachable
-- Snapshot-based provisioning is now a tracked follow-on strategy:
-  - the current `provision_tenant_server` path remains the legacy base-image path
-  - snapshot provisioning should land as a second job type and strategy, not as an in-place rewrite of the legacy flow
-  - shared helpers may be reused, but the old job behavior should remain available as a rollback path
+- The current supported provisioning path is the legacy base-image workflow through `provision_tenant_server`.
 
 ## Exit criteria
 
@@ -145,4 +141,3 @@ Provision one dedicated Hetzner VPS per tenant through resumable background jobs
 
 - Do we need server deletion and rebuild flows in the first pass?
 - Decision: no, not for v1. Keep the wrapper surface ready for them, but do not block the first provisioning increment on those flows.
-- Once snapshot-based provisioning lands, should the legacy base-image path remain the permanent fallback, or should it become operator-only?
