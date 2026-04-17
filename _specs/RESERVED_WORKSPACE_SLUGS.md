@@ -14,6 +14,7 @@ The code source of truth lives in [`packages/features/workspace-slugs/src/index.
 - `api-docs`
 - `app`
 - `auth`
+- `ingest`
 - `login`
 - `logout`
 - `oauth`
