@@ -61,3 +61,66 @@ test("workspace chat reply dispatcher filters non-final payloads and suppresses 
   ]);
   assert.deepEqual(deltaCalls, []);
 });
+
+test("workspace chat reply dispatcher keeps only the last meaningful final reply", async () => {
+  const completionCalls = [];
+
+  const dispatcher = createWorkspaceChatReplyDispatcher(
+    {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
+    },
+    {
+      sendCompletion: async (payload) => {
+        completionCalls.push(payload);
+      },
+      sendDelta: async () => {},
+    },
+  );
+
+  await dispatcher.deliver(
+    { text: "I’m going to set this up properly as a project." },
+    { kind: "final" },
+  );
+  await dispatcher.deliver(
+    { text: "I’m going to create the project context for this idea." },
+    { kind: "final" },
+  );
+  await dispatcher.deliver({ text: "terminated" }, { kind: "final" });
+  await dispatcher.sendCompletion();
+
+  assert.deepEqual(completionCalls.map((call) => call.parts), [
+    [
+      {
+        text: "I’m going to create the project context for this idea.",
+        type: "text",
+      },
+    ],
+  ]);
+});
+
+test("workspace chat reply dispatcher drops terminal control partials", async () => {
+  const completionCalls = [];
+
+  const dispatcher = createWorkspaceChatReplyDispatcher(
+    {
+      assistantDisplayName: "Otto",
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      sessionKey: "agent:main:otto-workspace-chat:workspace:conv_1",
+    },
+    {
+      sendCompletion: async (payload) => {
+        completionCalls.push(payload);
+      },
+      sendDelta: async () => {},
+    },
+  );
+
+  await dispatcher.replyOptions.onPartialReply({ text: "terminated" });
+  await dispatcher.sendCompletion();
+
+  assert.deepEqual(completionCalls.map((call) => call.parts), [[]]);
+});
