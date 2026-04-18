@@ -65,6 +65,10 @@ export class SshClient {
             return;
           }
 
+          stream.on("error", (error: Error) => {
+            rejectOnce(error);
+          });
+
           stream.on("close", (code: number | undefined) => {
             exitCode = typeof code === "number" ? code : null;
             resolveOnce({
@@ -80,6 +84,10 @@ export class SshClient {
 
           stream.stderr.on("data", (chunk: Buffer | string) => {
             stderr += chunk.toString();
+          });
+
+          stream.stderr.on("error", (error: Error) => {
+            rejectOnce(error);
           });
         });
       });
