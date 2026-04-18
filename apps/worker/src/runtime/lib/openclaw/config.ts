@@ -548,6 +548,32 @@ export function buildOpenClawTenantConfig(input: {
     readOptionalString(config.timeFormat),
   );
   const primaryModel = env.RUNTIME_MODEL_PRIMARY;
+  const ottoPlugins = mergeOttoPlugins(
+    controlPlaneBaseUrl
+      ? [
+          {
+            id: "otto-managed-config",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-managed-skills",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-integrations",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-session-reporter",
+            timeoutMs: 15_000,
+          },
+          {
+            id: "otto-workspace-chat",
+          },
+        ]
+      : [],
+    parseOttoPlugins(config.ottoPlugins),
+  );
   const proxyModelConfig = resolveProxyModelConfig({
     audioUsesOpenAi: shouldRouteAudioThroughOpenAiProxy(audio),
     controlPlaneBaseUrl,
@@ -604,31 +630,7 @@ export function buildOpenClawTenantConfig(input: {
     primaryModel,
     prompts: parseStringRecord(config.prompts),
     timeFormat,
-    ...(controlPlaneBaseUrl
-      ? {
-          ottoPlugins: [
-            {
-              id: "otto-managed-config",
-              timeoutMs: 15_000,
-            },
-            {
-              id: "otto-managed-skills",
-              timeoutMs: 15_000,
-            },
-            {
-              id: "otto-integrations",
-              timeoutMs: 15_000,
-            },
-            {
-              id: "otto-session-reporter",
-              timeoutMs: 15_000,
-            },
-            {
-              id: "otto-workspace-chat",
-            },
-          ],
-        }
-      : {}),
+    ...(ottoPlugins.length > 0 ? { ottoPlugins } : {}),
     ...(hasSlackBotToken
       ? {
           slack: {
@@ -758,6 +760,53 @@ function parseStringArray(value: unknown) {
   return value.filter(
     (entry): entry is string => typeof entry === "string" && entry.length > 0,
   );
+}
+
+function parseOttoPlugins(
+  value: unknown,
+): NonNullable<OpenClawTenantConfig["ottoPlugins"]> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const plugin = parseRecord(entry);
+    const id = readOptionalString(plugin.id);
+
+    if (!id) {
+      return [];
+    }
+
+    const config = parseRecord(plugin.config);
+
+    return [
+      {
+        ...(Object.keys(config).length > 0 ? { config } : {}),
+        id,
+        ...(typeof plugin.timeoutMs === "number" &&
+        Number.isFinite(plugin.timeoutMs)
+          ? { timeoutMs: plugin.timeoutMs }
+          : {}),
+      },
+    ];
+  });
+}
+
+function mergeOttoPlugins(
+  ...pluginGroups: Array<NonNullable<OpenClawTenantConfig["ottoPlugins"]>>
+): NonNullable<OpenClawTenantConfig["ottoPlugins"]> {
+  const merged = new Map<
+    string,
+    NonNullable<OpenClawTenantConfig["ottoPlugins"]>[number]
+  >();
+
+  for (const plugins of pluginGroups) {
+    for (const plugin of plugins) {
+      merged.set(plugin.id, plugin);
+    }
+  }
+
+  return Array.from(merged.values());
 }
 
 function readOptionalString(value: unknown) {

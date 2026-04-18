@@ -29,6 +29,19 @@ function buildConfig(): OpenClawTenantConfig {
   };
 }
 
+function restoreEnvVar(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
+
+function saveEnvVars(names: string[]) {
+  return Object.fromEntries(names.map((name) => [name, process.env[name]]));
+}
+
 describe("renderOpenClawConfig", () => {
   it("builds a tenant config when web search config is absent", () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
@@ -44,6 +57,53 @@ describe("renderOpenClawConfig", () => {
       expect(config.tenantId).toBe("tenant_test");
     } finally {
       process.env.DATABASE_URL = previousDatabaseUrl;
+      envTesting.resetEnvCacheForTests();
+    }
+  });
+
+  it("honors Otto plugins declared in desired state config", () => {
+    const previousEnv = saveEnvVars([
+      "DATABASE_URL",
+      "LANDING_PAGE_DOMAIN",
+      "WORKOS_BASE_URL",
+      "WORKOS_REDIRECT_URI",
+      "SLACK_REDIRECT_URI",
+      "NEXT_PUBLIC_WORKOS_REDIRECT_URI",
+    ]);
+
+    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
+    delete process.env.LANDING_PAGE_DOMAIN;
+    delete process.env.WORKOS_BASE_URL;
+    delete process.env.WORKOS_REDIRECT_URI;
+    delete process.env.SLACK_REDIRECT_URI;
+    delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI;
+    envTesting.resetEnvCacheForTests();
+
+    try {
+      const config = buildOpenClawTenantConfig({
+        configJson: {
+          ottoPlugins: [{ id: "otto-workspace-chat" }],
+        },
+        tenantId: "tenant_test",
+      });
+      const rendered = JSON.parse(renderOpenClawConfig(config)) as {
+        channels: Record<string, { enabled: boolean; managed?: boolean }>;
+        plugins: {
+          entries: Record<string, { enabled: boolean }>;
+        };
+      };
+
+      expect(rendered.plugins.entries["otto-workspace-chat"]).toEqual({
+        enabled: true,
+      });
+      expect(rendered.channels["otto-workspace-chat"]).toEqual({
+        enabled: true,
+        managed: true,
+      });
+    } finally {
+      for (const [name, value] of Object.entries(previousEnv)) {
+        restoreEnvVar(name, value);
+      }
       envTesting.resetEnvCacheForTests();
     }
   });
