@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea"
 
 import { createWorkspaceSkill, workspaceSkillsQueryOptions } from "../api/skills"
 import type { WorkspaceInstalledSkillListEntry } from "../types"
+import { IntegrationDependencySelect } from "./IntegrationDependencySelect"
+import { SkillDependencySelect } from "./SkillDependencySelect"
 
 const DEFAULT_SKILL_BODY = `# New Skill
 
@@ -119,32 +120,6 @@ export function CreateSkillDialog({
     }
   }
 
-  function handleIntegrationToggle(
-    integrationKey: string,
-    checked: boolean | "indeterminate",
-  ) {
-    setSelectedIntegrationKeys((current) =>
-      checked === true
-        ? [...new Set([...current, integrationKey])].sort((a, b) =>
-            a.localeCompare(b),
-          )
-        : current.filter((entry) => entry !== integrationKey),
-    )
-  }
-
-  function handleSkillToggle(
-    dependencySkillKey: string,
-    checked: boolean | "indeterminate",
-  ) {
-    setSelectedSkillKeys((current) =>
-      checked === true
-        ? [...new Set([...current, dependencySkillKey])].sort((a, b) =>
-            a.localeCompare(b),
-          )
-        : current.filter((entry) => entry !== dependencySkillKey),
-    )
-  }
-
   return (
     <>
       <Button onClick={() => setIsOpen(true)} type="button">
@@ -223,35 +198,12 @@ export function CreateSkillDialog({
                     Optional prerequisites the agent should expect before using this
                     skill.
                   </FieldDescription>
-                  {knownIntegrationKeys.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {knownIntegrationKeys.map((integrationKey) => (
-                        <Field key={integrationKey} orientation="horizontal">
-                          <Checkbox
-                            checked={selectedIntegrationKeys.includes(
-                              integrationKey,
-                            )}
-                            id={`skill-dependency-${integrationKey}`}
-                            onCheckedChange={(nextChecked) =>
-                              handleIntegrationToggle(
-                                integrationKey,
-                                nextChecked,
-                              )
-                            }
-                          />
-                          <FieldLabel
-                            htmlFor={`skill-dependency-${integrationKey}`}
-                          >
-                            {integrationKey}
-                          </FieldLabel>
-                        </Field>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No integration definitions are available yet.
-                    </p>
-                  )}
+                  <IntegrationDependencySelect
+                    knownIntegrationKeys={knownIntegrationKeys}
+                    orgSlug={orgSlug}
+                    selectedIntegrationKeys={selectedIntegrationKeys}
+                    onSelectedIntegrationKeysChange={setSelectedIntegrationKeys}
+                  />
                 </FieldSet>
 
                 <FieldSet>
@@ -260,29 +212,12 @@ export function CreateSkillDialog({
                     Other skills this skill expects to exist first.
                   </FieldDescription>
                   {knownSkillKeys.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {knownSkillKeys.map((dependencySkillKey) => (
-                        <Field key={dependencySkillKey} orientation="horizontal">
-                          <Checkbox
-                            checked={selectedSkillKeys.includes(
-                              dependencySkillKey,
-                            )}
-                            id={`skill-skill-dependency-${dependencySkillKey}`}
-                            onCheckedChange={(nextChecked) =>
-                              handleSkillToggle(
-                                dependencySkillKey,
-                                nextChecked,
-                              )
-                            }
-                          />
-                          <FieldLabel
-                            htmlFor={`skill-skill-dependency-${dependencySkillKey}`}
-                          >
-                            {dependencySkillKey}
-                          </FieldLabel>
-                        </Field>
-                      ))}
-                    </div>
+                    <SkillDependencySelect
+                      knownSkillKeys={knownSkillKeys}
+                      selectedSkillKeys={selectedSkillKeys}
+                      skills={skills}
+                      onSelectedSkillKeysChange={setSelectedSkillKeys}
+                    />
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       No other skills exist in this workspace yet.

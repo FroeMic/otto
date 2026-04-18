@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 
@@ -9,7 +9,6 @@ import {
 } from "@otto/feature-runtime-core"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldContent,
@@ -29,6 +28,8 @@ import {
   workspaceSkillsQueryOptions,
 } from "../api/skills"
 import type { WorkspaceSkillDetail } from "../types"
+import { IntegrationDependencySelect } from "./IntegrationDependencySelect"
+import { SkillDependencySelect } from "./SkillDependencySelect"
 
 export interface SkillEditorCardProps {
   detail: WorkspaceSkillDetail
@@ -44,6 +45,9 @@ export function SkillEditorCard({
   orgSlug,
 }: SkillEditorCardProps) {
   const queryClient = useQueryClient()
+  const { data: skillsData } = useSuspenseQuery(
+    workspaceSkillsQueryOptions(orgSlug),
+  )
   const [description, setDescription] = useState(detail.description)
   const [isApplyingChanges, setIsApplyingChanges] = useState(false)
   const [name, setName] = useState(detail.displayName)
@@ -117,32 +121,6 @@ export function SkillEditorCard({
     setSelectedIntegrationKeys(detail.dependencies.integrations)
     setSelectedSkillKeys(detail.dependencies.skills)
     setSkillBody(parsedSkillDocument?.skillBody ?? "")
-  }
-
-  function handleIntegrationToggle(
-    integrationKey: string,
-    checked: boolean | "indeterminate",
-  ) {
-    setSelectedIntegrationKeys((current) =>
-      checked === true
-        ? [...new Set([...current, integrationKey])].sort((a, b) =>
-            a.localeCompare(b),
-          )
-        : current.filter((entry) => entry !== integrationKey),
-    )
-  }
-
-  function handleSkillToggle(
-    dependencySkillKey: string,
-    checked: boolean | "indeterminate",
-  ) {
-    setSelectedSkillKeys((current) =>
-      checked === true
-        ? [...new Set([...current, dependencySkillKey])].sort((a, b) =>
-            a.localeCompare(b),
-          )
-        : current.filter((entry) => entry !== dependencySkillKey),
-    )
   }
 
   function handleSave() {
@@ -270,29 +248,13 @@ export function SkillEditorCard({
               <FieldDescription>
                 Optional integrations the agent should expect before using this skill.
               </FieldDescription>
-              {knownIntegrationKeys.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {knownIntegrationKeys.map((integrationKey) => (
-                    <Field key={integrationKey} orientation="horizontal">
-                      <Checkbox
-                        checked={selectedIntegrationKeys.includes(integrationKey)}
-                        disabled={!detail.editable || isPending}
-                        id={`skill-integration-${integrationKey}`}
-                        onCheckedChange={(nextChecked) =>
-                          handleIntegrationToggle(integrationKey, nextChecked)
-                        }
-                      />
-                      <FieldLabel htmlFor={`skill-integration-${integrationKey}`}>
-                        {integrationKey}
-                      </FieldLabel>
-                    </Field>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No integration definitions are available yet.
-                </p>
-              )}
+              <IntegrationDependencySelect
+                disabled={!detail.editable || isPending}
+                knownIntegrationKeys={knownIntegrationKeys}
+                orgSlug={orgSlug}
+                selectedIntegrationKeys={selectedIntegrationKeys}
+                onSelectedIntegrationKeysChange={setSelectedIntegrationKeys}
+              />
             </FieldSet>
 
             <FieldSet>
@@ -301,23 +263,15 @@ export function SkillEditorCard({
                 Other skills this skill expects to exist first.
               </FieldDescription>
               {knownSkillKeys.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {knownSkillKeys.map((dependencySkillKey) => (
-                    <Field key={dependencySkillKey} orientation="horizontal">
-                      <Checkbox
-                        checked={selectedSkillKeys.includes(dependencySkillKey)}
-                        disabled={!detail.editable || isPending}
-                        id={`skill-dependency-${dependencySkillKey}`}
-                        onCheckedChange={(nextChecked) =>
-                          handleSkillToggle(dependencySkillKey, nextChecked)
-                        }
-                      />
-                      <FieldLabel htmlFor={`skill-dependency-${dependencySkillKey}`}>
-                        {dependencySkillKey}
-                      </FieldLabel>
-                    </Field>
-                  ))}
-                </div>
+                <SkillDependencySelect
+                  disabled={!detail.editable || isPending}
+                  knownSkillKeys={knownSkillKeys}
+                  selectedSkillKeys={selectedSkillKeys}
+                  skills={skillsData.installedSkills.filter(
+                    (skill) => skill.skillKey !== detail.skillKey,
+                  )}
+                  onSelectedSkillKeysChange={setSelectedSkillKeys}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No other skills exist in this workspace yet.
