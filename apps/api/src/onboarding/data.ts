@@ -1,14 +1,8 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
-  creditLedgerEntries,
-  jobEvents,
-  jobRuns,
   memberships,
   organizations,
   publicIntakeSessions,
-  tenantDesiredStates,
-  tenantServers,
-  tenants,
   users,
   workspaceOnboardingRuns,
 } from "@otto/feature-integrations-runtime/db/schema"
@@ -32,9 +26,10 @@ import {
   getApiEnv,
   hasWorkOsConfig,
 } from "../env"
-import { buildInitialWorkspaceCreditGrantInput } from "../billing/data"
-import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
-import { JOB_TYPES } from "../jobs/types"
+import {
+  buildInitialWorkspaceRuntimeProvisioningJobInput,
+  ensureInitialWorkspaceRuntimeProvisioning,
+} from "../workspace/initial-provisioning"
 import {
   generateUniqueWorkspaceSlug,
   getDashboardOrganizations,
@@ -130,34 +125,6 @@ function deriveWorkspaceNameFromUser(user: PostAuthUser) {
 
 function generateWorkspaceSlugSeed() {
   return `w-${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`
-}
-
-async function ensureInitialWorkspaceCreditsInTransaction(input: {
-  tenantId: string
-  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]
-}) {
-  const grantInput = buildInitialWorkspaceCreditGrantInput({
-    tenantId: input.tenantId,
-  })
-
-  await input.tx
-    .insert(creditLedgerEntries)
-    .values({
-      billableUnits: 0,
-      creditsDeltaMilli: grantInput.creditsDeltaMilli,
-      description: grantInput.description,
-      entryType: CREDIT_LEDGER_ENTRY_TYPES.manualGrant,
-      sourceId: grantInput.sourceId,
-      sourceType: grantInput.sourceType,
-      tenantId: input.tenantId,
-    })
-    .onConflictDoNothing({
-      target: [
-        creditLedgerEntries.sourceType,
-        creditLedgerEntries.sourceId,
-        creditLedgerEntries.entryType,
-      ],
-    })
 }
 
 export async function getPostAuthRedirectPathForWorkspaceOnboarding(
@@ -647,7 +614,7 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
 }) {
   const db = getDb()
 
-  return db.transaction(async (tx) => {
+  const provisioningRequest = await db.transaction(async (tx) => {
     const [run] = await tx
       .select({
         answersJson: workspaceOnboardingRuns.answersJson,
@@ -710,39 +677,9 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       throw new Error("You do not have access to this organization")
     }
 
-    const [existingTenant] = await tx
-      .select({
-        id: tenants.id,
-      })
-      .from(tenants)
-      .where(eq(tenants.organizationId, input.organizationId))
-      .limit(1)
-
-    if (existingTenant) {
-      await ensureInitialWorkspaceCreditsInTransaction({
-        tenantId: existingTenant.id,
-        tx,
-      })
-
-      await tx
-        .update(workspaceOnboardingRuns)
-        .set({
-          initialTenantId: existingTenant.id,
-          provisioningStartedAt: new Date(),
-          status: "provisioning",
-          updatedAt: new Date(),
-        })
-        .where(eq(workspaceOnboardingRuns.id, input.runId))
-
-      return {
-        jobId: null,
-        tenantId: existingTenant.id,
-      }
-    }
-
     const [organization] = await tx
       .select({
-        name: organizations.name,
+        id: organizations.id,
       })
       .from(organizations)
       .where(eq(organizations.id, input.organizationId))
@@ -752,100 +689,33 @@ export async function maybeStartInitialProvisioningForWorkspaceOnboarding(input:
       throw new Error("Organization not found")
     }
 
-    const [tenant] = await tx
-      .insert(tenants)
-      .values({
-        name: organization.name,
-        organizationId: input.organizationId,
-        status: "provisioning",
-      })
-      .returning({
-        id: tenants.id,
-      })
-
-    if (!tenant) {
-      throw new Error("Failed to create tenant")
-    }
-
-    await ensureInitialWorkspaceCreditsInTransaction({
-      tenantId: tenant.id,
-      tx,
-    })
-
-    const initialProvisioningJob =
-      buildInitialProvisioningJobInputForWorkspaceOnboarding({
-        tenantId: tenant.id,
-      })
-
-    await tx.insert(tenantServers).values({
-      ...initialProvisioningJob.tenantServer,
-      tenantId: tenant.id,
-    })
-
-    await tx.insert(tenantDesiredStates).values({
-      configJson: {},
-      tenantId: tenant.id,
-      version: 1,
-    })
-
-    const [job] = await tx
-      .insert(jobRuns)
-      .values({
-        availableAt: new Date(),
-        jobType: initialProvisioningJob.jobType,
-        payloadJson: initialProvisioningJob.payloadJson,
-        status: "queued",
-        tenantId: tenant.id,
-      })
-      .returning({
-        id: jobRuns.id,
-      })
-
-    if (!job) {
-      throw new Error("Failed to queue initial provisioning job")
-    }
-
-    await tx.insert(jobEvents).values({
-      dataJson: {
-        jobType: initialProvisioningJob.jobType,
-      },
-      eventType: "queued",
-      jobRunId: job.id,
-      message: "Job queued for execution",
-    })
-
-    await tx
-      .update(workspaceOnboardingRuns)
-      .set({
-        initialProvisioningJobId: job.id,
-        initialTenantId: tenant.id,
-        provisioningStartedAt: new Date(),
-        status: "provisioning",
-        updatedAt: new Date(),
-      })
-      .where(eq(workspaceOnboardingRuns.id, input.runId))
-
     return {
-      jobId: job.id,
-      tenantId: tenant.id,
+      organizationId: organization.id,
+      runId: run.id,
     }
   })
+
+  if (!provisioningRequest) {
+    return null
+  }
+
+  const provisioning = await ensureInitialWorkspaceRuntimeProvisioning({
+    onboardingRunId: provisioningRequest.runId,
+    organizationId: provisioningRequest.organizationId,
+    provisioningStrategy: "legacy_base_image",
+  })
+
+  return {
+    jobId: provisioning.jobId,
+    tenantId: provisioning.tenantId,
+  }
 }
 
 export function buildInitialProvisioningJobInputForWorkspaceOnboarding(input: {
   tenantId: string
 }) {
-  return {
-    jobType: JOB_TYPES.provisionTenantServer,
-    payloadJson: {
-      step: "create_server",
-      tenantId: input.tenantId,
-    },
-    tenantServer: {
-      provider: "hetzner",
-      provisioningStrategy: "legacy_base_image",
-      sshUsername: "openclaw",
-      status: "creating",
-    },
-  } as const
+  return buildInitialWorkspaceRuntimeProvisioningJobInput({
+    provisioningStrategy: "legacy_base_image",
+    tenantId: input.tenantId,
+  })
 }
