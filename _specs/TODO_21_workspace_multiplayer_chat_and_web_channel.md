@@ -237,6 +237,7 @@ Current implementation status for Increment 1:
   - duplicate reply payload deliveries are suppressed within a turn before callback delivery
   - non-final `tool` and `block` payloads are still sent to the Control Plane as hidden `assistant_message.filtered` activity events so they can be audited or surfaced later
   - only final payloads, or the latest canonical partial text fallback when no final payload exists, become visible assistant message content in the workspace conversation
+  - multiple distinct final payloads from one OpenClaw run are normalized to the latest final payload before completion, so a workspace assistant turn persists one coherent visible message instead of several incompatible text parts
 
 ## Frameworks And Packages To Use
 
