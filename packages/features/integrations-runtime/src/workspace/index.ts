@@ -134,6 +134,29 @@ export const workspaceIntegrationSettingsSchema = z.object({
   surface: workspaceIntegrationSurfaceSchema,
 })
 
+export const workspaceIntegrationSetupDefinitionSchema = z.object({
+  credential: z.object({
+    helpUrlTemplate: z.string().min(1).optional(),
+    label: z.string().min(1),
+    placeholder: z.string().optional(),
+  }),
+  discovery: z.object({
+    actionLabel: z.string().min(1),
+    defaultResourceSelectionMode: z.enum(["all", "first", "none"]),
+    resourceSelectionLabel: z.string().min(1),
+    supportsMultipleResources: z.boolean(),
+  }),
+  host: z
+    .object({
+      defaultValue: z.string().min(1),
+      helpText: z.string().optional(),
+      label: z.string().min(1),
+      placeholder: z.string().optional(),
+    })
+    .optional(),
+  mode: z.literal("api_key"),
+})
+
 export const workspaceIntegrationDetailSchema = z.object({
   availableSections: z.array(z.string().min(1)),
   capabilities: z.array(workspaceIntegrationCapabilityRowSchema),
@@ -148,6 +171,8 @@ export const workspaceIntegrationDetailSchema = z.object({
     pageDescription: z.string().min(1),
   }),
   settings: workspaceIntegrationSettingsSchema.nullable(),
+  setup: workspaceIntegrationSetupDefinitionSchema.nullable(),
+  setupState: z.record(z.string(), z.unknown()).nullable(),
   summary: workspaceManagedIntegrationSummarySchema.nullable(),
 })
 
@@ -234,6 +259,65 @@ export const workspaceApiKeyIntegrationSetupResponseSchema = z.object({
   status: z.string().min(1),
 })
 
+export const workspaceIntegrationSetupCapabilityRecommendationSchema = z.object(
+  {
+    capabilityKey: z.string().min(1),
+    defaultEnabled: z.boolean(),
+    label: z.string().min(1),
+    reason: z.string().nullable(),
+    requiredScopes: z.array(z.string().min(1)),
+    status: z.enum(["available", "recommended", "sensitive", "unavailable"]),
+  },
+)
+
+export const workspaceIntegrationSetupResourceSchema = z.object({
+  id: z.string().min(1),
+  key: z.string().min(1),
+  label: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  parentKey: z.string().min(1).optional(),
+  selectedByDefault: z.boolean().optional(),
+  type: z.string().min(1),
+})
+
+export const workspaceIntegrationSetupDiscoverSchema = z.object({
+  apiKey: z.string().trim().min(1),
+  host: z.string().trim().min(1).optional(),
+})
+
+export const workspaceIntegrationSetupDiscoverResponseSchema = z.object({
+  account: z
+    .object({
+      externalId: z.string().nullable(),
+      label: z.string().nullable(),
+    })
+    .nullable(),
+  capabilityRecommendations: z.array(
+    workspaceIntegrationSetupCapabilityRecommendationSchema,
+  ),
+  credential: z.object({
+    detectedScopes: z.array(z.string().min(1)),
+    warnings: z.array(z.string()),
+  }),
+  ok: z.boolean(),
+  resources: z.array(workspaceIntegrationSetupResourceSchema),
+  statePreview: z.record(z.string(), z.unknown()),
+  warnings: z.array(z.string()),
+})
+
+export const workspaceIntegrationSetupApplySchema = z.object({
+  apiKey: z.string().trim().min(1),
+  defaultResourceKey: z.string().trim().min(1).optional(),
+  enabledCapabilityKeys: z.array(z.string().trim().min(1)).default([]),
+  host: z.string().trim().min(1).optional(),
+  selectedResourceKeys: z.array(z.string().trim().min(1)).min(1),
+})
+
+export const workspaceIntegrationSetupApplyResponseSchema = z.object({
+  applyQueued: z.boolean(),
+  status: z.string().min(1),
+})
+
 export type WorkspaceIntegrationCatalogEntry = z.infer<
   typeof workspaceIntegrationCatalogEntrySchema
 >
@@ -266,4 +350,10 @@ export type WorkspaceSlackSettingsUpdateResponse = z.infer<
 >
 export type WorkspaceApiKeyIntegrationSetupResponse = z.infer<
   typeof workspaceApiKeyIntegrationSetupResponseSchema
+>
+export type WorkspaceIntegrationSetupApplyResponse = z.infer<
+  typeof workspaceIntegrationSetupApplyResponseSchema
+>
+export type WorkspaceIntegrationSetupDiscoverResponse = z.infer<
+  typeof workspaceIntegrationSetupDiscoverResponseSchema
 >

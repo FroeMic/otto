@@ -331,6 +331,27 @@ export type IntegrationSettingsDefinition = {
   recommendedWorkflow?: string[]
 }
 
+export type IntegrationSetupDefinition = {
+  credential: {
+    helpUrlTemplate?: string
+    label: string
+    placeholder?: string
+  }
+  discovery: {
+    actionLabel: string
+    defaultResourceSelectionMode: "all" | "first" | "none"
+    resourceSelectionLabel: string
+    supportsMultipleResources: boolean
+  }
+  host?: {
+    defaultValue: string
+    helpText?: string
+    label: string
+    placeholder?: string
+  }
+  mode: "api_key"
+}
+
 export type IntegrationManagementMode = "platform_managed" | "workspace_managed"
 
 export type IntegrationDefinition = {
@@ -348,6 +369,7 @@ export type IntegrationDefinition = {
   pageDescription: string
   resolveStatus?: () => RuntimeIntegrationStatus
   runtimeSurface: IntegrationRuntimeSurfaceDefinition | null
+  setup?: IntegrationSetupDefinition
   settings?: IntegrationSettingsDefinition
   settingsPath: (orgSlug: string) => string
   showInWorkspaceCatalog: boolean

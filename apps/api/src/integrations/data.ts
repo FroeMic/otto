@@ -2,6 +2,7 @@ import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   jobRuns,
   tenantIntegrationCapabilityStates,
+  tenantIntegrationState,
   tenantIntegrations,
 } from "@otto/feature-integrations-runtime/db/schema"
 import {
@@ -125,6 +126,31 @@ async function getManagedIntegrationSummary(input: {
       | "slack",
     status: integration.status,
   }
+}
+
+async function getManagedIntegrationSetupState(input: {
+  providerKey: string
+  tenantId: string
+}): Promise<Record<string, unknown> | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      stateJson: tenantIntegrationState.stateJson,
+    })
+    .from(tenantIntegrationState)
+    .innerJoin(
+      tenantIntegrations,
+      eq(tenantIntegrations.id, tenantIntegrationState.tenantIntegrationId),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrationState.providerKey, input.providerKey),
+      ),
+    )
+    .limit(1)
+
+  return row?.stateJson ?? null
 }
 
 function sortManagedIntegrationCapabilityRows(
@@ -336,7 +362,7 @@ export async function getWorkspaceIntegrationDetail(input: {
     return null
   }
 
-  const [summary, capabilities, settings, connection] = await Promise.all([
+  const [summary, capabilities, settings, connection, setupState] = await Promise.all([
     getManagedIntegrationSummary({
       providerKey: definition.key,
       tenantId,
@@ -352,6 +378,10 @@ export async function getWorkspaceIntegrationDetail(input: {
     }),
     getRuntimeIntegrationConnectionActionForTenant({
       integrationKey: definition.key,
+      tenantId,
+    }),
+    getManagedIntegrationSetupState({
+      providerKey: definition.key,
       tenantId,
     }),
   ])
@@ -416,6 +446,8 @@ export async function getWorkspaceIntegrationDetail(input: {
           surface: settings.surface,
         }
       : null,
+    setup: definition.setup ?? null,
+    setupState,
     summary,
   }
 }

@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export interface IntegrationSettingsShellProps {
   capabilities: ReactNode
+  capabilitiesLocked?: boolean
+  capabilitiesLockedReason?: ReactNode
   channels?: ReactNode
   configuration?: ReactNode
   currentSection: string
@@ -14,6 +16,8 @@ export interface IntegrationSettingsShellProps {
 
 export function IntegrationSettingsShell({
   capabilities,
+  capabilitiesLocked = false,
+  capabilitiesLockedReason,
   channels,
   configuration,
   currentSection,
@@ -25,7 +29,9 @@ export function IntegrationSettingsShell({
     <Tabs className="flex flex-col gap-6" onValueChange={onSectionChange} value={currentSection}>
       <TabsList className="h-auto justify-start overflow-x-auto p-1">
         <TabsTrigger value="status">Status</TabsTrigger>
-        <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+        <TabsTrigger disabled={capabilitiesLocked} value="capabilities">
+          Capabilities
+        </TabsTrigger>
         {configuration ? (
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
         ) : null}
@@ -34,7 +40,9 @@ export function IntegrationSettingsShell({
       </TabsList>
 
       <TabsContent value="status">{status}</TabsContent>
-      <TabsContent value="capabilities">{capabilities}</TabsContent>
+      <TabsContent value="capabilities">
+        {capabilitiesLocked ? (capabilitiesLockedReason ?? capabilities) : capabilities}
+      </TabsContent>
       {configuration ? (
         <TabsContent value="configuration">{configuration}</TabsContent>
       ) : null}

@@ -13,6 +13,10 @@ import {
   workspaceIntegrationDetailSchema,
   workspaceIntegrationDisconnectResponseSchema,
   workspaceIntegrationsResponseSchema,
+  workspaceIntegrationSetupApplyResponseSchema,
+  workspaceIntegrationSetupApplySchema,
+  workspaceIntegrationSetupDiscoverResponseSchema,
+  workspaceIntegrationSetupDiscoverSchema,
   workspaceSlackDirectoryResyncResponseSchema,
   workspaceSlackDirectoryResyncSchema,
   workspaceSlackChannelMembershipResponseSchema,
@@ -31,6 +35,8 @@ import {
   updateWorkspaceSlackChannelMembership,
   updateWorkspaceSlackSettings,
   connectWorkspaceApiKeyIntegration,
+  applyWorkspaceIntegrationSetup,
+  discoverWorkspaceIntegrationSetup,
 } from "./actions"
 import {
   getWorkspaceJobStatus,
@@ -81,6 +87,8 @@ export interface IntegrationsRouteDependencies {
   updateWorkspaceSlackChannelMembership: typeof updateWorkspaceSlackChannelMembership
   updateWorkspaceSlackSettings: typeof updateWorkspaceSlackSettings
   connectWorkspaceApiKeyIntegration: typeof connectWorkspaceApiKeyIntegration
+  applyWorkspaceIntegrationSetup: typeof applyWorkspaceIntegrationSetup
+  discoverWorkspaceIntegrationSetup: typeof discoverWorkspaceIntegrationSetup
 }
 
 function createDefaultIntegrationsRouteDependencies(): IntegrationsRouteDependencies {
@@ -97,6 +105,8 @@ function createDefaultIntegrationsRouteDependencies(): IntegrationsRouteDependen
     updateWorkspaceSlackChannelMembership,
     updateWorkspaceSlackSettings,
     connectWorkspaceApiKeyIntegration,
+    applyWorkspaceIntegrationSetup,
+    discoverWorkspaceIntegrationSetup,
   }
 }
 
@@ -288,6 +298,52 @@ export function createIntegrationsRouter(
 
         return jsonNoStore(
           workspaceSlackSettingsUpdateResponseSchema.parse(result),
+        )
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/integrations/:integrationKey/setup/discover",
+      zValidator("json", workspaceIntegrationSetupDiscoverSchema),
+      zValidator("param", workspaceIntegrationDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const result = await dependencies.discoverWorkspaceIntegrationSetup({
+          ...context.req.valid("json"),
+          orgSlug: context.req.valid("param").orgSlug,
+          providerKey: context.req.valid("param").integrationKey,
+          userExternalId: authResult.user.id,
+        })
+
+        return jsonNoStore(
+          workspaceIntegrationSetupDiscoverResponseSchema.parse(result),
+        )
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/integrations/:integrationKey/setup/apply",
+      zValidator("json", workspaceIntegrationSetupApplySchema),
+      zValidator("param", workspaceIntegrationDetailParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const result = await dependencies.applyWorkspaceIntegrationSetup({
+          ...context.req.valid("json"),
+          orgSlug: context.req.valid("param").orgSlug,
+          providerKey: context.req.valid("param").integrationKey,
+          userExternalId: authResult.user.id,
+        })
+
+        return jsonNoStore(
+          workspaceIntegrationSetupApplyResponseSchema.parse(result),
         )
       },
     )

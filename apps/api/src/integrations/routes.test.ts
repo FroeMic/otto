@@ -90,6 +90,8 @@ function createDependencies(): IntegrationsRouteDependencies {
         pageDescription: "Manage Slack connection status.",
       },
       settings: null,
+      setup: null,
+      setupState: null,
       summary: null,
     }),
     listWorkspaceIntegrations: async ({ orgSlug }) => [
@@ -136,6 +138,22 @@ function createDependencies(): IntegrationsRouteDependencies {
     connectWorkspaceApiKeyIntegration: async () => ({
       applyQueued: false,
       status: "connected",
+    }),
+    applyWorkspaceIntegrationSetup: async () => ({
+      applyQueued: false,
+      status: "connected",
+    }),
+    discoverWorkspaceIntegrationSetup: async () => ({
+      account: null,
+      capabilityRecommendations: [],
+      credential: {
+        detectedScopes: [],
+        warnings: [],
+      },
+      ok: true,
+      resources: [],
+      statePreview: {},
+      warnings: [],
     }),
   }
 }
@@ -186,6 +204,8 @@ describe("integrations routes", () => {
             "Enable Gandi so Otto can help with company naming, domain checks, and registration research.",
         },
         settings: null,
+        setup: null,
+        setupState: null,
         summary: null,
       }),
       listWorkspaceIntegrations: async ({ orgSlug }) => [
@@ -291,6 +311,63 @@ describe("integrations routes", () => {
               projectId: "project-1",
             },
           ],
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      applyQueued: false,
+      status: "connected",
+    })
+  })
+
+  it("discovers workspace integration setup", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/posthog/setup/discover",
+      {
+        body: JSON.stringify({
+          apiKey: "phx_secret",
+          host: "https://us.posthog.com",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      account: null,
+      capabilityRecommendations: [],
+      credential: {
+        detectedScopes: [],
+        warnings: [],
+      },
+      ok: true,
+      resources: [],
+      statePreview: {},
+      warnings: [],
+    })
+  })
+
+  it("applies workspace integration setup", async () => {
+    const app = createIntegrationsTestApp()
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/posthog/setup/apply",
+      {
+        body: JSON.stringify({
+          apiKey: "phx_secret",
+          defaultResourceKey: "product",
+          enabledCapabilityKeys: ["feature_flag.list"],
+          host: "https://us.posthog.com",
+          selectedResourceKeys: ["product"],
         }),
         headers: {
           "Content-Type": "application/json",
