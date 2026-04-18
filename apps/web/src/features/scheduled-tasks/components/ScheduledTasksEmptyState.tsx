@@ -4,13 +4,12 @@ export function ScheduledTasksEmptyState() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Scheduled Tasks</CardTitle>
+        <CardTitle>No scheduled tasks yet</CardTitle>
         <CardDescription>
-          Scheduled work appears here once Otto is provisioned for this
-          workspace.
+          This workspace is set up. Scheduled work will appear here after a
+          task is created in Otto.
         </CardDescription>
       </CardHeader>
     </Card>
   )
 }
-

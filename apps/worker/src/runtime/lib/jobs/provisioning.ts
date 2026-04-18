@@ -33,6 +33,7 @@ import { SshClient } from "../ssh/client";
 
 import {
   appendJobEvent,
+  enqueueJob,
   markJobFailed,
   markJobSucceeded,
   requeueJob,
@@ -793,10 +794,28 @@ async function markServerReady(
     providerServerId: payload.providerServerId,
   });
 
+  const scheduledTasksRefreshJobId = await enqueueJob({
+    jobType: JOB_TYPES.reconcileTenantScheduledTasks,
+    payload: {
+      tenantId: payload.tenantId,
+    },
+  });
+
+  await appendJobEvent(
+    jobId,
+    "scheduled_tasks_refresh_queued",
+    "Queued initial scheduled task refresh",
+    {
+      scheduledTasksRefreshJobId,
+      tenantId: payload.tenantId,
+    },
+  );
+
   await markJobSucceeded(jobId, {
     ipv4: payload.ipv4,
     provider: getProvisioningProvider(),
     providerServerId: payload.providerServerId,
+    scheduledTasksRefreshJobId,
   });
 
   console.info(
