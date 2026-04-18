@@ -15,6 +15,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { disconnectWorkspaceIntegration } from "@/features/integrations/api/integrations"
 import { IntegrationApiKeySetupFlow } from "@/features/integrations/components/IntegrationApiKeySetupFlow"
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
@@ -118,6 +125,7 @@ export function PostHogIntegrationStatusPage({
 }: PostHogIntegrationStatusPageProps) {
   const queryClient = useQueryClient()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSetupDialogOpen, setIsSetupDialogOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const connected = detail.connection.status.connected
@@ -162,6 +170,31 @@ export function PostHogIntegrationStatusPage({
 
   return (
     <div className="flex w-full max-w-none flex-col gap-6 pb-12">
+      <Dialog open={isSetupDialogOpen} onOpenChange={setIsSetupDialogOpen}>
+        <DialogContent className="max-h-[min(52rem,calc(100vh-2rem))] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Discover PostHog workspace</DialogTitle>
+            <DialogDescription>
+              Enter a Personal API key, discover the PostHog projects Otto can
+              use, then save the selected projects and capabilities.
+            </DialogDescription>
+          </DialogHeader>
+          <IntegrationApiKeySetupFlow
+            detail={detail}
+            onConnected={() => {
+              setSuccessMessage(
+                connected
+                  ? "PostHog workspace configuration has been updated."
+                  : "PostHog has been connected.",
+              )
+              setIsSetupDialogOpen(false)
+              invalidate()
+            }}
+            orgSlug={orgSlug}
+          />
+        </DialogContent>
+      </Dialog>
+
       <section className="flex max-w-3xl flex-col gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
@@ -273,6 +306,22 @@ export function PostHogIntegrationStatusPage({
                     </SettingsRow>
                     <SettingsRow>
                       <SettingsRowLabel>
+                        <SettingsRowTitle>Discover workspace</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Re-run discovery when the PostHog API key, project
+                          selection, or capability access changes.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <Button
+                        onClick={() => setIsSetupDialogOpen(true)}
+                        type="button"
+                        variant="outline"
+                      >
+                        Discover workspace
+                      </Button>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
                         <SettingsRowTitle>Disconnect PostHog</SettingsRowTitle>
                         <SettingsRowDescription>
                           Remove the current PostHog API key from this workspace.
@@ -291,14 +340,30 @@ export function PostHogIntegrationStatusPage({
                 </SettingsSection>
               </div>
             ) : (
-              <IntegrationApiKeySetupFlow
-                detail={detail}
-                onConnected={() => {
-                  setSuccessMessage("PostHog has been connected.")
-                  invalidate()
-                }}
-                orgSlug={orgSlug}
-              />
+              <SettingsSection>
+                <SettingsSectionTitle>Connect PostHog</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Start discovery with a Personal API key, choose the projects
+                  Otto may use, and save the detected capabilities.
+                </SettingsSectionDescription>
+                <SettingsCard>
+                  <SettingsRow>
+                    <SettingsRowLabel>
+                      <SettingsRowTitle>Discover workspace</SettingsRowTitle>
+                      <SettingsRowDescription>
+                        Otto validates the key and detects available PostHog
+                        projects and capabilities before saving anything.
+                      </SettingsRowDescription>
+                    </SettingsRowLabel>
+                    <Button
+                      onClick={() => setIsSetupDialogOpen(true)}
+                      type="button"
+                    >
+                      Discover workspace
+                    </Button>
+                  </SettingsRow>
+                </SettingsCard>
+              </SettingsSection>
             )}
           </SettingsPage>
         }

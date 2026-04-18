@@ -8,7 +8,7 @@ describe("PostHog integration setup", () => {
     vi.restoreAllMocks()
   })
 
-  it("discovers projects and probes access scopes", async () => {
+  it("discovers projects and infers available Personal API key scopes", async () => {
     const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
       const requestUrl = String(url)
 
@@ -34,14 +34,6 @@ describe("PostHog integration setup", () => {
         })
       }
 
-      if (requestUrl.endsWith("/api/projects/project-1/feature_flags/")) {
-        return jsonResponse({ results: [] })
-      }
-
-      if (requestUrl.endsWith("/api/environments/env-1/query/")) {
-        return jsonResponse({ results: [{ "?column?": 1 }] })
-      }
-
       return jsonResponse({ detail: "missing scope" }, 403)
     })
 
@@ -52,11 +44,10 @@ describe("PostHog integration setup", () => {
 
     assert.equal(result.account?.label, "product@example.com")
     assert.equal(result.resources[0]?.label, "Product App")
-    assert.deepEqual(result.credential.detectedScopes, [
-      "feature_flag:read",
-      "project:read",
-      "query:read",
-    ])
+    assert.ok(result.credential.detectedScopes.includes("feature_flag:read"))
+    assert.ok(result.credential.detectedScopes.includes("project:read"))
+    assert.ok(result.credential.detectedScopes.includes("query:read"))
+    assert.ok(result.credential.detectedScopes.includes("insight:write"))
     assert.equal(
       result.capabilityRecommendations.find(
         (entry) => entry.capabilityKey === "feature_flag.list",
@@ -69,7 +60,13 @@ describe("PostHog integration setup", () => {
       )?.status,
       "sensitive",
     )
-    assert.ok(fetch.mock.calls.length > 3)
+    assert.equal(
+      result.capabilityRecommendations.find(
+        (entry) => entry.capabilityKey === "insight.create",
+      )?.status,
+      "available",
+    )
+    assert.equal(fetch.mock.calls.length, 3)
   })
 })
 

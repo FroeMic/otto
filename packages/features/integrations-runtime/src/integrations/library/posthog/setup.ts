@@ -1,8 +1,6 @@
 import { collectCommands } from "../../framework/search"
 import {
-  buildPostHogEnvironmentPath,
   buildPostHogOrganizationPath,
-  buildPostHogProjectPath,
   normalizePostHogHost,
 } from "./client"
 import { posthogIntegrationDefinition } from "./definition"
@@ -101,11 +99,7 @@ export async function discoverPostHogIntegrationSetup(
     )
   }
 
-  const detectedScopes = await detectPostHogScopes({
-    apiKey: input.apiKey,
-    host,
-    resources,
-  })
+  const detectedScopes = inferPostHogScopesFromDiscoveredResources(resources)
   const capabilityRecommendations =
     buildPostHogCapabilityRecommendations(detectedScopes)
   const selectedResources = resources.filter(
@@ -400,106 +394,28 @@ function getPostHogSetupErrorMessage(payload: unknown, status: number) {
   return `PostHog setup discovery failed with status ${status}.`
 }
 
-async function detectPostHogScopes(input: {
-  apiKey: string
-  host: string
-  resources: PostHogProjectResource[]
-}) {
-  const target = input.resources[0]
-
-  if (!target) {
+function inferPostHogScopesFromDiscoveredResources(
+  resources: PostHogProjectResource[],
+) {
+  if (resources.length === 0) {
     return []
   }
 
-  const detected = new Set<string>(["project:read"])
-  const projectId = target.metadata.projectId
-  const environmentId = target.metadata.environmentId
-  const probes: Array<{
-    body?: unknown
-    method?: "GET" | "POST"
-    path: string | null
-    scope: string
-  }> = [
-    {
-      path: buildPostHogProjectPath(projectId, "actions/"),
-      scope: "action:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "annotations/"),
-      scope: "annotation:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "event_definitions/"),
-      scope: "event_definition:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "experiments/"),
-      scope: "experiment:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "feature_flags/"),
-      scope: "feature_flag:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "persons/"),
-      scope: "person:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "property_definitions/"),
-      scope: "property_definition:read",
-    },
-    {
-      path: buildPostHogProjectPath(projectId, "session_recordings/"),
-      scope: "session_recording:read",
-    },
-    {
-      path: environmentId
-        ? buildPostHogEnvironmentPath(environmentId, "dashboards/")
-        : null,
-      scope: "dashboard:read",
-    },
-    {
-      path: environmentId
-        ? buildPostHogEnvironmentPath(environmentId, "insights/")
-        : null,
-      scope: "insight:read",
-    },
-    {
-      body: {
-        query: {
-          kind: "HogQLQuery",
-          query: "select 1 limit 1",
-        },
-      },
-      method: "POST",
-      path: environmentId
-        ? buildPostHogEnvironmentPath(environmentId, "query/")
-        : null,
-      scope: "query:read",
-    },
-  ]
+  const runtimeSurface = posthogIntegrationDefinition.runtimeSurface
 
-  for (const probe of probes) {
-    if (!probe.path) {
-      continue
-    }
+  if (!runtimeSurface) {
+    return ["project:read"]
+  }
 
-    try {
-      await requestPostHogSetupApi({
-        apiKey: input.apiKey,
-        body: probe.body,
-        host: input.host,
-        method: probe.method,
-        path: probe.path,
-      })
-      detected.add(probe.scope)
-    } catch {
-      // A failed probe means the capability remains unavailable. The setup UI
-      // shows the missing scope on the corresponding capability.
+  const scopes = new Set<string>(["project:read"])
+
+  for (const command of collectCommands(runtimeSurface)) {
+    for (const scope of command.requiredProviderScopes ?? []) {
+      scopes.add(scope)
     }
   }
 
-  return [...detected].sort((left, right) => left.localeCompare(right))
+  return [...scopes].sort((left, right) => left.localeCompare(right))
 }
 
 function buildResourceKey(label: string, id: string) {

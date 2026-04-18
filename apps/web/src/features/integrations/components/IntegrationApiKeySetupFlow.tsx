@@ -1,4 +1,4 @@
-import { ArrowSquareOut } from "@phosphor-icons/react"
+import { CaretDown } from "@phosphor-icons/react"
 import { useMemo, useState, useTransition } from "react"
 
 import {
@@ -15,11 +15,24 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   applyWorkspaceIntegrationSetup,
   discoverWorkspaceIntegrationSetup,
@@ -28,6 +41,7 @@ import type {
   WorkspaceIntegrationDetail,
   WorkspaceIntegrationSetupDiscoverResponse,
 } from "@/features/integrations/types"
+import { cn } from "@/lib/utils"
 
 export interface IntegrationApiKeySetupFlowProps {
   detail: WorkspaceIntegrationDetail
@@ -40,6 +54,19 @@ type SetupResource =
 
 type CapabilityRecommendation =
   WorkspaceIntegrationSetupDiscoverResponse["capabilityRecommendations"][number]
+
+const capabilityGroupLabels: Record<string, string> = {
+  annotation: "Annotations",
+  dashboard: "Dashboards",
+  experiment: "Experiments",
+  feature_flag: "Feature Flags",
+  insight: "Insights",
+  person: "Persons",
+  query: "Query",
+  session_recording: "Session Recordings",
+  taxonomy: "Taxonomy",
+  workspace: "Workspace",
+}
 
 function buildCredentialHelpUrl(template: string | undefined, host: string) {
   if (!template) {
@@ -82,6 +109,176 @@ function getCapabilityStatusLabel(status: CapabilityRecommendation["status"]) {
   }
 }
 
+function getCapabilityGroupKey(capability: CapabilityRecommendation) {
+  return capability.capabilityKey.split(".")[0] ?? "other"
+}
+
+function getCapabilityGroupLabel(groupKey: string) {
+  return capabilityGroupLabels[groupKey] ?? groupKey
+}
+
+function getGroupedCapabilities(capabilities: CapabilityRecommendation[]) {
+  const groups = new Map<string, CapabilityRecommendation[]>()
+
+  for (const capability of capabilities) {
+    const groupKey = getCapabilityGroupKey(capability)
+    const current = groups.get(groupKey) ?? []
+    current.push(capability)
+    groups.set(groupKey, current)
+  }
+
+  return [...groups.entries()]
+    .map(([groupKey, entries]) => ({
+      entries: entries.sort((left, right) => left.label.localeCompare(right.label)),
+      groupKey,
+      label: getCapabilityGroupLabel(groupKey),
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+}
+
+function getResourceSummary(
+  resources: SetupResource[],
+  selectedResourceKeys: string[],
+) {
+  if (selectedResourceKeys.length === 0) {
+    return "Select projects"
+  }
+
+  const labelByKey = new Map(
+    resources.map((resource) => [resource.key, resource.label]),
+  )
+
+  return selectedResourceKeys
+    .map((key) => labelByKey.get(key) ?? key)
+    .sort((left, right) => left.localeCompare(right))
+    .join(", ")
+}
+
+function filterResources(resources: SetupResource[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase()
+
+  if (!normalizedQuery) {
+    return resources
+  }
+
+  return resources.filter((resource) =>
+    `${resource.label} ${resource.id} ${resource.type} ${resource.key}`
+      .toLowerCase()
+      .includes(normalizedQuery),
+  )
+}
+
+function toggleResourceSelection(selectedResourceKeys: string[], key: string) {
+  const selected = new Set(selectedResourceKeys)
+
+  if (selected.has(key)) {
+    selected.delete(key)
+  } else {
+    selected.add(key)
+  }
+
+  return [...selected].sort((left, right) => left.localeCompare(right))
+}
+
+interface ResourceMultiSelectProps {
+  disabled?: boolean
+  resources: SetupResource[]
+  selectedResourceKeys: string[]
+  onSelectedResourceKeysChange: (selectedResourceKeys: string[]) => void
+}
+
+function ResourceMultiSelect({
+  disabled = false,
+  onSelectedResourceKeysChange,
+  resources,
+  selectedResourceKeys,
+}: ResourceMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const selectedSet = useMemo(
+    () => new Set(selectedResourceKeys),
+    [selectedResourceKeys],
+  )
+  const filteredResources = useMemo(
+    () => filterResources(resources, search),
+    [resources, search],
+  )
+  const summary = getResourceSummary(resources, selectedResourceKeys)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            className="w-full justify-between overflow-hidden"
+            disabled={disabled}
+            type="button"
+            variant="outline"
+          />
+        }
+      >
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-left",
+            selectedResourceKeys.length === 0 && "text-muted-foreground",
+          )}
+        >
+          {summary}
+        </span>
+        <CaretDown className="size-4 shrink-0 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(34rem,var(--available-width))] gap-0 overflow-hidden p-0"
+        sideOffset={6}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            aria-label="Search PostHog projects"
+            onValueChange={setSearch}
+            placeholder="Search projects..."
+            value={search}
+          />
+          <CommandList className="max-h-72">
+            <CommandEmpty>No projects found.</CommandEmpty>
+            <CommandGroup>
+              {filteredResources.map((resource) => {
+                const selected = selectedSet.has(resource.key)
+
+                return (
+                  <CommandItem
+                    data-checked={selected}
+                    key={resource.key}
+                    onSelect={() =>
+                      onSelectedResourceKeysChange(
+                        toggleResourceSelection(
+                          selectedResourceKeys,
+                          resource.key,
+                        ),
+                      )
+                    }
+                    value={`${resource.label} ${resource.id} ${resource.key}`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
+                      <Checkbox checked={selected} tabIndex={-1} />
+                      <span className="min-w-0 flex-1 truncate">
+                        {resource.label}
+                      </span>
+                      <code className="shrink-0 text-xs text-muted-foreground">
+                        {resource.type} · {resource.id}
+                      </code>
+                    </div>
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function IntegrationApiKeySetupFlow({
   detail,
   onConnected,
@@ -108,6 +305,10 @@ export function IntegrationApiKeySetupFlow({
       ) ?? [],
     [discovery, selectedResourceKeys],
   )
+  const groupedCapabilities = useMemo(
+    () => getGroupedCapabilities(discovery?.capabilityRecommendations ?? []),
+    [discovery],
+  )
   const canSave =
     Boolean(discovery) &&
     selectedResourceKeys.length > 0 &&
@@ -119,18 +320,12 @@ export function IntegrationApiKeySetupFlow({
   }
   const setupDefinition = setup
 
-  function toggleResource(resource: SetupResource) {
-    setSelectedResourceKeys((current) => {
-      const next = current.includes(resource.key)
-        ? current.filter((key) => key !== resource.key)
-        : [...current, resource.key]
+  function handleSelectedResourceKeysChange(next: string[]) {
+    setSelectedResourceKeys(next)
 
-      if (!next.includes(defaultResourceKey)) {
-        setDefaultResourceKey(next[0] ?? "")
-      }
-
-      return next
-    })
+    if (!next.includes(defaultResourceKey)) {
+      setDefaultResourceKey(next[0] ?? "")
+    }
   }
 
   function toggleCapability(capability: CapabilityRecommendation) {
@@ -253,28 +448,31 @@ export function IntegrationApiKeySetupFlow({
               <SettingsRowDescription>
                 Use a Personal API key. Project API keys cannot read or manage
                 private integration resources.
+                {credentialHelpUrl ? (
+                  <>
+                    {" "}
+                    Create or review keys in{" "}
+                    <a
+                      className="underline underline-offset-3 hover:text-foreground"
+                      href={credentialHelpUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      PostHog user API key settings
+                    </a>
+                    .
+                  </>
+                ) : null}
               </SettingsRowDescription>
             </SettingsRowLabel>
             <div className="flex w-full max-w-sm flex-col gap-3">
-              {credentialHelpUrl ? (
-                <Button
-                  className="w-fit"
-                  onClick={() => window.open(credentialHelpUrl, "_blank", "noreferrer")}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Open API keys
-                  <ArrowSquareOut className="size-4" />
-                </Button>
-              ) : null}
               <Input
                 onChange={(event) => {
                   setApiKey(event.target.value)
                   setDiscovery(null)
                 }}
                 placeholder={setup.credential.placeholder}
-                type="password"
+                type="text"
                 value={apiKey}
               />
             </div>
@@ -324,27 +522,15 @@ export function IntegrationApiKeySetupFlow({
                     Choose one or more resources for Otto.
                   </SettingsRowDescription>
                 </SettingsRowLabel>
-                <div className="flex w-full max-w-sm flex-col gap-2">
+                <div className="w-full max-w-sm">
                   {discovery.resources.length > 0 ? (
-                    discovery.resources.map((resource) => (
-                      <label
-                        className="flex items-start gap-3 rounded-md border bg-background px-3 py-2"
-                        key={resource.key}
-                      >
-                        <Checkbox
-                          checked={selectedResourceKeys.includes(resource.key)}
-                          onCheckedChange={() => toggleResource(resource)}
-                        />
-                        <span className="flex min-w-0 flex-col gap-1">
-                          <span className="truncate text-sm font-medium">
-                            {resource.label}
-                          </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {resource.type} · {resource.id}
-                          </span>
-                        </span>
-                      </label>
-                    ))
+                    <ResourceMultiSelect
+                      resources={discovery.resources}
+                      selectedResourceKeys={selectedResourceKeys}
+                      onSelectedResourceKeysChange={
+                        handleSelectedResourceKeysChange
+                      }
+                    />
                   ) : (
                     <span className="text-sm text-muted-foreground">
                       No selectable resources were discovered.
@@ -384,38 +570,49 @@ export function IntegrationApiKeySetupFlow({
               write access starts off unless you enable it.
             </SettingsSectionDescription>
             <SettingsCard>
-              <div className="grid gap-2 p-4 sm:grid-cols-2">
-                {discovery.capabilityRecommendations.map((capability) => (
-                  <label
-                    className="flex min-w-0 items-start gap-3 rounded-md border bg-background px-3 py-2"
-                    key={capability.capabilityKey}
-                  >
-                    <Checkbox
-                      checked={enabledCapabilityKeys.includes(
-                        capability.capabilityKey,
-                      )}
-                      disabled={capability.status === "unavailable"}
-                      onCheckedChange={() => toggleCapability(capability)}
-                    />
-                    <span className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-medium">
-                          {capability.label}
-                        </span>
-                        <Badge
-                          className="shrink-0"
-                          variant={getCapabilityBadgeVariant(capability.status)}
+              <div className="flex flex-col gap-5 p-4">
+                {groupedCapabilities.map((group) => (
+                  <div className="flex flex-col gap-2" key={group.groupKey}>
+                    <h3 className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                      {group.label}
+                    </h3>
+                    <div className="flex flex-col gap-2">
+                      {group.entries.map((capability) => (
+                        <label
+                          className="flex min-w-0 items-start gap-3 rounded-md border bg-background px-3 py-2"
+                          key={capability.capabilityKey}
                         >
-                          {getCapabilityStatusLabel(capability.status)}
-                        </Badge>
-                      </span>
-                      {capability.reason ? (
-                        <span className="text-xs text-muted-foreground">
-                          {capability.reason}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
+                          <Checkbox
+                            checked={enabledCapabilityKeys.includes(
+                              capability.capabilityKey,
+                            )}
+                            disabled={capability.status === "unavailable"}
+                            onCheckedChange={() => toggleCapability(capability)}
+                          />
+                          <span className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                                {capability.label}
+                              </span>
+                              <Badge
+                                className="shrink-0"
+                                variant={getCapabilityBadgeVariant(
+                                  capability.status,
+                                )}
+                              >
+                                {getCapabilityStatusLabel(capability.status)}
+                              </Badge>
+                            </span>
+                            {capability.reason ? (
+                              <span className="text-xs text-muted-foreground">
+                                {capability.reason}
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
               <SettingsRow>
