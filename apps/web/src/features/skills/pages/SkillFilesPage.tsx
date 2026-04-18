@@ -9,7 +9,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { RuntimeFileBrowser } from "@/features/files/components/RuntimeFileBrowser"
 
-import { buildWorkspaceSkillFileDownloadUrl, workspaceSkillFilesQueryOptions } from "../api/skill-files"
+import {
+  buildWorkspaceSkillFileDownloadUrl,
+  workspaceSkillFilesQueryOptions,
+} from "../api/skill-files"
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { summarizeSkillFileProvenance } from "../file-provenance"
@@ -138,10 +141,26 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
           isRefreshing={filesQuery.isRefetching}
           missingRootMessage="The projected skill directory has not appeared on the runtime yet."
           onRefresh={() => filesQuery.refetch()}
+          pathDisplayNames={{
+            [`skills/${skillKey}`]: toSkillDirectoryDisplayName(
+              detailQuery.data.detail.displayName,
+              skillKey,
+            ),
+          }}
           rootPathFallback={`skills/${skillKey}`}
           snapshot={filesQuery.data.snapshot}
         />
       </SettingsPageContent>
     </SettingsPage>
   )
+}
+
+function toSkillDirectoryDisplayName(displayName: string, fallback: string) {
+  const normalized = displayName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+
+  return normalized || fallback
 }
