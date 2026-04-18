@@ -97,7 +97,7 @@ function buildBusinessOnboardingMarkdown() {
 
 Turn a new or existing business idea into durable project context Otto can reuse.
 
-This is a light calibration, not an accelerator application. Keep it short, friendly, and useful.
+This is guided compression, not an accelerator application, survey, or strategy essay. Keep it short, leading, and useful.
 
 ## Goal
 
@@ -109,6 +109,8 @@ By the end, Otto should know:
 - what exists already
 - how the user wants Otto to help first
 - which next action or skill should run
+
+The user should not have to push the conversation forward. Otto should absorb existing context, reflect the idea back, ask only the highest-value missing question, and move toward a concrete next action.
 
 ## When to use
 
@@ -139,9 +141,25 @@ If the idea appears related to an existing project, ask whether to use that proj
 
 ## Workflow
 
-### Step 1: Understand the prompt
+### Step 1: Read context before asking
 
-Restate the idea in one sentence. Give it a provisional working name if none exists.
+Before asking the user for more, read the relevant workspace context:
+
+- \`USER.md\` for the user/team and past experience
+- \`MEMORY.md\` for durable preferences and prior decisions
+- \`projects/_index.md\` to avoid duplicating an existing project
+- any matching \`projects/<project-key>/project.md\`
+
+If the project is clearly new, create a provisional project key and continue.
+
+### Step 2: Lead with a tight reflection
+
+Start with a short interpretation, not advice. Include:
+
+- a one-sentence summary of the idea
+- the likely customer or buyer, if visible
+- what seems differentiated or uncertain
+- the single biggest missing piece, if one exists
 
 Classify the situation:
 
@@ -149,23 +167,25 @@ Classify the situation:
 - \`brownfield\`: existing business, product, team, customers, revenue, audience, codebase, or active operations
 - \`unclear\`: not enough context yet
 
-### Step 2: Ask only what is missing
+### Step 3: Ask only what changes the recommendation
 
-Ask at most five high-signal questions. Prefer fewer when the user already gave enough context.
+Ask at most one focused question per turn. Ask zero questions when the next recommendation is already clear.
 
-Useful questions:
+Do not bundle a questionnaire. Do not ask for generic business-plan fields unless the answer will materially change the next step.
 
-- Who is this for first?
-- What painful thing are they doing today instead?
-- What already exists: idea, team, code, audience, customers, revenue, distribution, domain, or assets?
-- What would you like Otto to take off your plate first?
-- What would make the next 30 days a win?
+Priority order for the one question:
+
+1. who the first buyer or user is
+2. what they do today instead
+3. what already exists: team, code, audience, customers, revenue, distribution, domain, or assets
+4. what Otto should help produce next
+5. what would make the next 30 days a win
 
 For brownfield projects, prioritize existing customers, revenue model, team, current tools, constraints, and what must not break.
 
 For greenfield projects, prioritize first customer, pain, current conviction, first offer, and first validation move.
 
-### Step 3: Create or update project files
+### Step 4: Create or update project files
 
 Create the project folder if needed.
 
@@ -237,9 +257,32 @@ Create or update \`projects/<project-key>/onboarding.md\` with:
 
 Do not create \`goals.md\`, \`experiments.md\`, \`decisions.md\`, or other files unless they are immediately useful for the conversation.
 
-### Step 4: Route to the next move
+### Step 5: Route to one next move
 
-End with a concise summary and one recommended next move.
+End with a compact business frame and one recommended next move.
+
+Use this shape:
+
+\`\`\`markdown
+## Current Read
+
+- Idea: ...
+- Customer: ...
+- Offer: ...
+- Differentiation: ...
+- Biggest unknown: ...
+- One recommended next move: ...
+\`\`\`
+
+The recommended next move must be singular and actionable. Prefer a move Otto can immediately help execute:
+
+- define the MVP
+- define the first customer segment
+- define the landing-page pitch
+- define pricing and packaging
+- define a validation plan
+- identify first seller/customer targets
+- draft outreach
 
 Good routing defaults:
 
@@ -251,7 +294,9 @@ Good routing defaults:
 
 ## Style
 
-Follow the workspace's Otto personalization for tone. Be warm and direct. Avoid long questionnaires. Avoid startup theater. Preserve uncertainty instead of pretending the idea is clearer than it is.`,
+Follow the workspace's Otto personalization for tone. Be warm and direct. Avoid long questionnaires. Avoid startup theater. Preserve uncertainty instead of pretending the idea is clearer than it is.
+
+Do not write consultant-style essays during onboarding. Do not list every possible strategy before establishing the project. Do not end with a pile of questions. Lead the user to the next concrete action.`,
   })
 }
 

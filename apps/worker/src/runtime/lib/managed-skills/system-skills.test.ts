@@ -34,6 +34,10 @@ describe("system managed skill definitions", () => {
     assert.match(skillMarkdown, /brownfield/)
     assert.match(skillMarkdown, /project\.md/)
     assert.match(skillMarkdown, /onboarding\.md/)
+    assert.match(skillMarkdown, /guided compression/i)
+    assert.match(skillMarkdown, /ask at most one focused question/i)
+    assert.match(skillMarkdown, /One recommended next move/i)
+    assert.match(skillMarkdown, /Do not write consultant-style essays/i)
     assert.doesNotMatch(skillMarkdown, /references\//)
   })
 
