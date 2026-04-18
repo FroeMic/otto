@@ -1506,7 +1506,7 @@ export function buildManagedSkillPruneCommand(input: {
       (directory) =>
         `rmdir ${shellQuoteForShell(directory)} >/dev/null 2>&1 || true`,
     ),
-  ].join(" ");
+  ].join("; ");
 }
 
 function getManagedSkillRootPath(path: string) {
