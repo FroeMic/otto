@@ -104,37 +104,22 @@ function buildDeliveryKey({ kind, payload }) {
 }
 
 function resolveCompletionParts(deliveredPayloads, latestPartialText) {
-  const parts = [];
+  const finalPayloads = Array.isArray(deliveredPayloads)
+    ? deliveredPayloads
+    : [];
 
-  for (const payload of Array.isArray(deliveredPayloads) ? deliveredPayloads : []) {
-    const text =
-      typeof payload?.text === "string" ? payload.text.trim() : "";
+  for (let index = finalPayloads.length - 1; index >= 0; index -= 1) {
+    const parts = resolveCompletionPayloadParts(finalPayloads[index]);
 
-    if (text) {
-      parts.push({
-        text,
-        type: "text",
-      });
+    if (parts.length > 0) {
+      return parts;
     }
-
-    const mediaUrls = resolveMediaUrls(payload);
-
-    for (const mediaUrl of mediaUrls) {
-      parts.push({
-        text: `[Media] ${mediaUrl}`,
-        type: "text",
-      });
-    }
-  }
-
-  if (parts.length > 0) {
-    return parts;
   }
 
   const text =
     typeof latestPartialText === "string" ? latestPartialText.trim() : "";
 
-  return text
+  return text && !isTerminalControlText(text)
     ? [
         {
           text,
@@ -142,6 +127,34 @@ function resolveCompletionParts(deliveredPayloads, latestPartialText) {
         },
       ]
     : [];
+}
+
+function resolveCompletionPayloadParts(payload) {
+  const parts = [];
+  const text =
+    typeof payload?.text === "string" ? payload.text.trim() : "";
+
+  if (text && !isTerminalControlText(text)) {
+    parts.push({
+      text,
+      type: "text",
+    });
+  }
+
+  const mediaUrls = resolveMediaUrls(payload);
+
+  for (const mediaUrl of mediaUrls) {
+    parts.push({
+      text: `[Media] ${mediaUrl}`,
+      type: "text",
+    });
+  }
+
+  return parts;
+}
+
+function isTerminalControlText(text) {
+  return /^(terminated|completed|cancelled|canceled|stopped)$/i.test(text.trim());
 }
 
 function resolveMediaUrls(payload) {
