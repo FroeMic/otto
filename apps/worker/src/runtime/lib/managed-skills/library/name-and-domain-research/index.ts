@@ -416,13 +416,13 @@ export { expandDomainCandidates };
 function buildNameAndDomainResearchMarkdown() {
   return buildManagedSkillMarkdown({
     description:
-      "Help founders generate, evaluate, and shortlist strong company names using web search plus live domain availability.",
+      "Help founders generate, evaluate, and shortlist strong product, startup, company, and brand names using web search plus live domain availability.",
     integrationKeys: ["brave", "gandi"],
-    name: "Name Generator",
+    name: "Brand Name Generator",
     skillKeys: [],
-    skillBody: `# Name Generator
+    skillBody: `# Brand Name Generator
 
-Generate creative, memorable, and brandable names for companies, products, apps, and startups. Use web search for market context and Gandi for domain facts.
+Generate creative, memorable, and brandable names for products, startups, companies, and brands. Use web search for market context and Gandi for domain facts.
 
 ## When to use
 

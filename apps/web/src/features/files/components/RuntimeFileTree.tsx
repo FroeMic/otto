@@ -82,6 +82,9 @@ function RuntimeFileTreeNodeRow({
     kind: node.kind,
     path: node.path,
   })
+  const insetStyle = {
+    paddingLeft: `${getNodeInsetRem(node.kind, depth)}rem`,
+  }
 
   if (node.kind === "directory") {
     return (
@@ -89,9 +92,9 @@ function RuntimeFileTreeNodeRow({
         <div
           className={cn(
             "group flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
-            depth > 0 && "pl-6",
             isSelected && "bg-muted/60 text-foreground",
           )}
+          style={insetStyle}
         >
           <button
             className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
@@ -156,9 +159,9 @@ function RuntimeFileTreeNodeRow({
     <div
       className={cn(
         "group flex items-center gap-2 px-4 py-2 transition-colors hover:bg-muted/40",
-        depth > 0 && "pl-10",
         isSelected && "bg-muted/60 text-foreground",
       )}
+      style={insetStyle}
     >
       <button
         className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
@@ -189,4 +192,12 @@ function RuntimeFileTreeNodeRow({
       </a>
     </div>
   )
+}
+
+function getNodeInsetRem(kind: RuntimeFileTreeNode["kind"], depth: number) {
+  const baseInsetRem = 1
+  const depthInsetRem = depth * 1.25
+  const fileAlignmentOffsetRem = kind === "file" && depth > 0 ? 1.5 : 0
+
+  return baseInsetRem + depthInsetRem + fileAlignmentOffsetRem
 }

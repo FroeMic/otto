@@ -1,8 +1,8 @@
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react"
 import type {
   RuntimeDirectoryFileSnapshot,
   RuntimeDirectorySnapshot,
 } from "@otto/feature-runtime-core/runtime-files/types"
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react"
 import { useEffect, useState } from "react"
 
 import {
@@ -16,12 +16,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+import type { RuntimeFileSelection, RuntimeFileTreeNode } from "../types"
 import { RuntimeFilePreview } from "./RuntimeFilePreview"
 import { RuntimeFileTree } from "./RuntimeFileTree"
-import type {
-  RuntimeFileSelection,
-  RuntimeFileTreeNode,
-} from "../types"
 
 export interface RuntimeFileBrowserProps {
   buildDownloadUrl: (input: {
@@ -31,6 +28,7 @@ export interface RuntimeFileBrowserProps {
   }) => string
   emptyDirectoryMessage?: string
   explorerLabel: string
+  pathDisplayNames?: Record<string, string>
   hiddenPathPrefixes?: string[]
   hiddenPaths?: string[]
   isRefreshing?: boolean
@@ -46,6 +44,7 @@ export function RuntimeFileBrowser({
   buildDownloadUrl,
   emptyDirectoryMessage = "This directory is currently empty.",
   explorerLabel,
+  pathDisplayNames = {},
   hiddenPathPrefixes = EMPTY_HIDDEN_PATHS,
   hiddenPaths = EMPTY_HIDDEN_PATHS,
   isRefreshing = false,
@@ -63,8 +62,7 @@ export function RuntimeFileBrowser({
       !hiddenPaths.includes(file.path) &&
       !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
   )
-  const tree = buildExplorerTree(visibleFiles)
-  const visibleDirectoryPaths = collectVisibleDirectoryPaths(visibleFiles)
+  const tree = buildExplorerTree(visibleFiles, pathDisplayNames)
   const selectedFile =
     selectedNode?.kind === "file"
       ? (visibleFiles.find((file) => file.path === selectedNode.path) ?? null)
@@ -83,7 +81,8 @@ export function RuntimeFileBrowser({
         !hiddenPaths.includes(file.path) &&
         !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
     )
-    const nextVisibleDirectoryPaths = collectVisibleDirectoryPaths(nextVisibleFiles)
+    const nextVisibleDirectoryPaths =
+      collectVisibleDirectoryPaths(nextVisibleFiles)
 
     setExpandedDirectories(collectExpandedDirectories(nextVisibleFiles))
     setSelectedNode((current) => {
@@ -116,14 +115,15 @@ export function RuntimeFileBrowser({
         path: defaultFile.path,
       }
     })
-  }, [hiddenPathPrefixes, hiddenPaths, snapshot.files, snapshot.rootExists, snapshot.rootPath])
+  }, [hiddenPathPrefixes, hiddenPaths, snapshot.files])
 
   if (!snapshot.rootExists) {
     return (
       <Alert>
         <AlertTitle>Workspace directory not found</AlertTitle>
         <AlertDescription>
-          {missingRootMessage} Expected root: {snapshot.rootPath || rootPathFallback}
+          {missingRootMessage} Expected root:{" "}
+          {snapshot.rootPath || rootPathFallback}
         </AlertDescription>
       </Alert>
     )
@@ -195,6 +195,7 @@ export function RuntimeFileBrowser({
 
 function buildExplorerTree(
   files: RuntimeDirectoryFileSnapshot[],
+  pathDisplayNames: Record<string, string>,
 ): RuntimeFileTreeNode[] {
   const root = createMutableDirectoryNode("", "")
 
@@ -225,7 +226,7 @@ function buildExplorerTree(
     currentDirectory.files.push(file)
   }
 
-  return convertMutableDirectoryNode(root)
+  return convertMutableDirectoryNode(root, pathDisplayNames)
 }
 
 function collectExpandedDirectories(files: RuntimeDirectoryFileSnapshot[]) {
@@ -279,13 +280,16 @@ function createMutableDirectoryNode(
   }
 }
 
-function convertMutableDirectoryNode(node: MutableDirectoryNode): RuntimeFileTreeNode[] {
+function convertMutableDirectoryNode(
+  node: MutableDirectoryNode,
+  pathDisplayNames: Record<string, string>,
+): RuntimeFileTreeNode[] {
   const childDirectories = Array.from(node.directories.values())
     .sort((left, right) => left.path.localeCompare(right.path))
     .map((directory) => ({
-      children: convertMutableDirectoryNode(directory),
+      children: convertMutableDirectoryNode(directory, pathDisplayNames),
       kind: "directory" as const,
-      name: directory.name,
+      name: pathDisplayNames[directory.path] ?? directory.name,
       path: directory.path,
     }))
   const childFiles = [...node.files]
