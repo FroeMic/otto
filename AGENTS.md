@@ -10,6 +10,7 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 - `workspace` means the user-facing web UI, org-scoped area, and link into the app.
 - `control plane` remains the internal technical term for backend orchestration, APIs, worker logic, and DB-backed management.
 - `tenant runtime` and `tenant server` remain internal/operator-facing technical terms.
+- In internal engineering discussion, refer to backend services, APIs, routes, workers, orchestration logic, DB-backed management, and runtime callback handling that belong to the internal backend layer as `control-plane`, `control-plane service`, or `control-plane API`, not `Otto API`.
 - Do not use `control plane`, `control-plane`, or `Otto link` in user-facing or agent-facing copy.
 - Prefer `workspace`, `workspace URL`, `workspace settings`, and `workspace app` when referring to the web UI.
 - Prefer `Otto`, `Otto instructions`, and `Otto settings` when referring to the assistant itself.

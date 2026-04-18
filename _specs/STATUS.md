@@ -367,6 +367,7 @@
     - the old workspace-chat bridge-command runner path has been removed from the runtime image
     - the existing workspace websocket path now pushes repeated canonical `conversation.message_upserted` events so the same assistant bubble grows live until the final completion seals it as `completed`
     - `apps/web` now interpolates the last assistant text part locally between canonical cumulative snapshots so runtime block streaming feels smoother without changing callback cadence or delaying final completion
+    - `otto-workspace-chat` now treats multiple final payloads from one OpenClaw run as competing final candidates and completes the workspace assistant turn with one latest canonical final part instead of persisting each variant as a separate visible message part
   - the first browser-upload and plugin-owned attachment-ingress slice now also exists:
     - `apps/api` now stores durable `workspace_chat_attachments` records plus staged upload bytes under control-plane ownership and exposes both a user-facing upload route and a tenant-authenticated internal attachment fetch route
     - workspace chat dispatch now carries structured `parts` end to end through `apps/api`, `apps/worker`, and the tenant ingress contract instead of flattening everything to one text prompt string
