@@ -147,7 +147,7 @@ export async function executeRuntimeIntegrationInGateway(input: {
       )
     }
 
-    if (definition.oauth) {
+    if (definition.oauth || definition.auth?.kind === "api_key") {
       if (!integrationState?.id) {
         throw new Error(
           `${definition.label} is not connected in this workspace.`,
