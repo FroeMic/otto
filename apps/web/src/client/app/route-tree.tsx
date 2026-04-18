@@ -88,6 +88,7 @@ import {
 } from "@/features/workspace-chat/api/chat"
 import { WorkspaceAgentPage } from "@/features/workspace-chat/pages/WorkspaceAgentPage"
 import { WorkspaceConversationPage } from "@/features/workspace-chat/pages/WorkspaceConversationPage"
+import { reloadForStaleAssetError } from "../stale-asset-reload"
 
 function WorkspaceRouteOutlet() {
   return <Outlet />
@@ -462,6 +463,16 @@ function WorkspaceScheduledTaskDetailRouteErrorPage(props: { error: unknown }) {
 }
 
 function PlatformRouteErrorPage(props: { error: unknown }) {
+  if (reloadForStaleAssetError(props.error)) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center px-6 py-16">
+        <div className="text-sm text-muted-foreground">
+          Updating Otto…
+        </div>
+      </div>
+    )
+  }
+
   if (props.error instanceof ApiResponseError) {
     if (props.error.status === 401) {
       return <PlatformAuthRequiredPage message={props.error.message} />
