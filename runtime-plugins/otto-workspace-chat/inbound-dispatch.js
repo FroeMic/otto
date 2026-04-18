@@ -15,7 +15,6 @@ export async function prepareWorkspaceChatInboundTurn(input, dependencies) {
       dispatchInboundReply: prepared.dispatchInboundReply,
       inbound: prepared.inbound,
       input,
-      replyDispatcher: prepared.replyDispatcher,
       rethrowOnFailure: false,
       runtime: prepared.runtime,
     });
@@ -37,7 +36,6 @@ export async function dispatchWorkspaceChatInboundTurn(input, dependencies) {
     dispatchInboundReply: prepared.dispatchInboundReply,
     inbound: prepared.inbound,
     input,
-    replyDispatcher: prepared.replyDispatcher,
     rethrowOnFailure: true,
     runtime: prepared.runtime,
   });
@@ -53,7 +51,6 @@ async function runWorkspaceChatInboundTurn({
   dispatchInboundReply,
   inbound,
   input,
-  replyDispatcher,
   rethrowOnFailure,
   runtime,
 }) {
@@ -72,6 +69,26 @@ async function runWorkspaceChatInboundTurn({
     runtime,
     sessionKey: inbound.sessionKey,
   });
+  const replyDispatcher = createWorkspaceChatReplyDispatcher(
+    {
+      assistantDisplayName,
+      assistantMessageId: input.assistantMessageId,
+      conversationId: input.conversationId,
+      sessionKey: inbound.sessionKey,
+    },
+    {
+      recordFilteredReplyPayload: async ({ kind, payload, reason }) => {
+        activityEventReporter.recordFilteredReplyPayload({
+          delivery: {
+            kind,
+            reason,
+            visibility: "filtered",
+          },
+          message: normalizeReplyPayloadForActivity(payload),
+        });
+      },
+    },
+  );
 
   try {
     await dispatchInboundReply({
@@ -197,12 +214,6 @@ async function buildPreparedTurn(input, dependencies) {
     transcript: preparedParts.transcript,
     userMessageId: input.userMessageId,
   });
-  const replyDispatcher = createWorkspaceChatReplyDispatcher({
-    assistantDisplayName,
-    assistantMessageId: input.assistantMessageId,
-    conversationId: input.conversationId,
-    sessionKey: inbound.sessionKey,
-  });
 
   return {
     assistantDisplayName,
@@ -211,9 +222,39 @@ async function buildPreparedTurn(input, dependencies) {
       ...inbound,
       cfg,
     },
-    replyDispatcher,
     runtime,
   };
+}
+
+function normalizeReplyPayloadForActivity(payload) {
+  const message = {};
+  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+  const mediaUrls = resolveMediaUrls(payload);
+
+  if (text) {
+    message.text = text;
+  }
+
+  if (mediaUrls.length > 0) {
+    message.mediaUrls = mediaUrls;
+  }
+
+  return message;
+}
+
+function resolveMediaUrls(payload) {
+  if (Array.isArray(payload?.mediaUrls)) {
+    return payload.mediaUrls
+      .filter((entry) => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof payload?.mediaUrl === "string" && payload.mediaUrl.trim().length > 0) {
+    return [payload.mediaUrl.trim()];
+  }
+
+  return [];
 }
 
 function getErrorMessage(error) {

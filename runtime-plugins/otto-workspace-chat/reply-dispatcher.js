@@ -4,14 +4,20 @@ import {
 } from "./control-plane-client.js";
 import { createWorkspaceChatStreamReporter } from "./stream-reporter.js";
 
-export function createWorkspaceChatReplyDispatcher(input) {
+export function createWorkspaceChatReplyDispatcher(input, dependencies = {}) {
   const deliveredPayloads = [];
+  const deliveredKeys = new Set();
   let latestPartialText = "";
+  const sendDelta = dependencies.sendDelta ?? sendWorkspaceChatDelta;
+  const sendCompletion =
+    dependencies.sendCompletion ?? sendWorkspaceChatCompletion;
+  const recordFilteredReplyPayload =
+    dependencies.recordFilteredReplyPayload ?? (async () => {});
 
   const reporter = createWorkspaceChatStreamReporter({
     sendDelta: async ({ sequence, text }) => {
       latestPartialText = text;
-      await sendWorkspaceChatDelta({
+      await sendDelta({
         assistantDisplayName: input.assistantDisplayName,
         assistantMessageId: input.assistantMessageId,
         conversationId: input.conversationId,
@@ -23,8 +29,30 @@ export function createWorkspaceChatReplyDispatcher(input) {
   });
 
   return {
-    deliver: async (payload) => {
-      deliveredPayloads.push(payload);
+    deliver: async (payload, info = {}) => {
+      const kind = resolveReplyKind(info);
+      const deliveryKey = buildDeliveryKey({ kind, payload });
+
+      if (!deliveryKey) {
+        return;
+      }
+
+      if (deliveredKeys.has(deliveryKey)) {
+        return;
+      }
+
+      deliveredKeys.add(deliveryKey);
+
+      if (kind === "final") {
+        deliveredPayloads.push(payload);
+        return;
+      }
+
+      await recordFilteredReplyPayload({
+        kind,
+        payload,
+        reason: "non_final_reply",
+      });
     },
     replyOptions: {
       onPartialReply: async (payload) => {
@@ -40,7 +68,7 @@ export function createWorkspaceChatReplyDispatcher(input) {
 
       const parts = resolveCompletionParts(deliveredPayloads, latestPartialText);
 
-      await sendWorkspaceChatCompletion({
+      await sendCompletion({
         assistantDisplayName: input.assistantDisplayName,
         assistantMessageId: input.assistantMessageId,
         conversationId: input.conversationId,
@@ -52,6 +80,27 @@ export function createWorkspaceChatReplyDispatcher(input) {
       });
     },
   };
+}
+
+function resolveReplyKind(info) {
+  return info?.kind === "tool" || info?.kind === "block" || info?.kind === "final"
+    ? info.kind
+    : "final";
+}
+
+function buildDeliveryKey({ kind, payload }) {
+  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+  const mediaUrls = resolveMediaUrls(payload);
+
+  if (!text && mediaUrls.length === 0) {
+    return null;
+  }
+
+  return JSON.stringify({
+    kind,
+    mediaUrls,
+    text,
+  });
 }
 
 function resolveCompletionParts(deliveredPayloads, latestPartialText) {

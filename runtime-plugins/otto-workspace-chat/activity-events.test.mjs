@@ -520,3 +520,60 @@ test("createWorkspaceChatActivityEventReporter forwards direct runtime callback 
 
   reporter.stop();
 });
+
+test("createWorkspaceChatActivityEventReporter records filtered assistant payloads as hidden assistant message events", async () => {
+  const sentEvents = [];
+
+  const reporter = createWorkspaceChatActivityEventReporter(
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      sessionKey: "session_1",
+    },
+    {
+      sendActivityEvent: async (payload) => {
+        sentEvents.push(payload);
+      },
+    },
+  );
+
+  reporter.recordFilteredReplyPayload({
+    delivery: {
+      kind: "block",
+      reason: "non_final_reply",
+      visibility: "filtered",
+    },
+    message: {
+      text: "Working draft.",
+    },
+  });
+
+  await reporter.flush();
+
+  assert.deepEqual(sentEvents, [
+    {
+      assistantMessageId: "msg_1",
+      conversationId: "conv_1",
+      event: {
+        payload: {
+          delivery: {
+            kind: "block",
+            reason: "non_final_reply",
+            visibility: "filtered",
+          },
+          message: {
+            text: "Working draft.",
+          },
+        },
+        sequence: 1,
+        sessionKey: "session_1",
+        status: "completed",
+        summary: "Working draft.",
+        title: "Filtered assistant output",
+        type: "assistant_message.filtered",
+      },
+    },
+  ]);
+
+  reporter.stop();
+});

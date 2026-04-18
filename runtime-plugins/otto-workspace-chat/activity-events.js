@@ -99,6 +99,12 @@ export function createWorkspaceChatActivityEventReporter(
     recordAssistantMessageEvent(payload) {
       queueRuntimeActivity("assistant_message", payload);
     },
+    recordFilteredReplyPayload(payload) {
+      queueRuntimeActivity("assistant_message", {
+        ...payload,
+        phase: "filtered",
+      });
+    },
     recordThinkingEvent(payload) {
       queueRuntimeActivity("thinking", payload);
     },
@@ -245,6 +251,33 @@ export function normalizeWorkspaceChatRuntimeActivityEvent(event) {
 
 function normalizeAssistantMessageEvent(event, payload) {
   const phase = readString(payload.phase);
+
+  if (phase === "filtered") {
+    const message = readRecord(payload.message) ?? readRecord(payload.payload);
+    const delivery = readRecord(payload.delivery);
+    const kind =
+      readString(delivery?.kind) ??
+      readString(payload.kind);
+    const reason =
+      readString(delivery?.reason) ??
+      readString(payload.reason) ??
+      "non_final_reply";
+
+    return buildNormalizedEvent(event, payload, {
+      status: "completed",
+      summary: summarizeFilteredReplyPayload(message),
+      title: "Filtered assistant output",
+      type: "assistant_message.filtered",
+      payload: {
+        delivery: {
+          ...(kind ? { kind } : {}),
+          reason,
+          visibility: "filtered",
+        },
+        ...(message ? { message } : {}),
+      },
+    });
+  }
 
   if (phase !== "start" && phase !== "started") {
     return null;
@@ -539,7 +572,7 @@ function normalizeToolResultEvent(event, payload) {
 function buildNormalizedEvent(event, payload, normalized) {
   return {
     ...(normalized.itemId ? { itemId: normalized.itemId } : {}),
-    payload,
+    payload: readRecord(normalized.payload) ?? payload,
     ...(readString(event.runId) ? { runId: readString(event.runId) } : {}),
     ...(readString(event.sessionKey)
       ? { sessionKey: readString(event.sessionKey) }
@@ -600,6 +633,19 @@ function summarizePatchFiles(payload) {
   }
 
   return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function summarizeFilteredReplyPayload(payload) {
+  if (!payload) {
+    return undefined;
+  }
+
+  const text = readString(payload.text);
+  if (text) {
+    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+  }
+
+  return summarizeMediaUrls(payload.mediaUrls);
 }
 
 function summarizeMediaUrls(value) {

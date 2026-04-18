@@ -38,6 +38,7 @@ export const workspaceChatMessageEventTypeSchema = z.enum([
   "lifecycle.completed",
   "lifecycle.failed",
   "assistant_message.started",
+  "assistant_message.filtered",
   "item.started",
   "item.updated",
   "item.completed",
