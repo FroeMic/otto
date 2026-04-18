@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenClawTenantConfig } from "../openclaw/config";
@@ -154,6 +156,20 @@ describe("managed skill runtime file projection", () => {
     expect(command).toContain(
       "rm -rf '/opt/openclaw/home/workspace/skills/name-and-domain-research'",
     );
+  });
+
+  it("builds valid shell when multiple skill directories are removed", () => {
+    const command = buildManagedSkillPruneCommand({
+      nextPaths: [],
+      previousPaths: [
+        "/opt/openclaw/home/workspace/skills/linear-triage/SKILL.md",
+        "/opt/openclaw/home/workspace/skills/random-color/SKILL.md",
+        "/opt/openclaw/home/workspace/skills/test-skill/SKILL.md",
+      ],
+    });
+
+    expect(command).toBeTruthy();
+    execFileSync("bash", ["-n", "-c", command ?? ""]);
   });
 });
 
