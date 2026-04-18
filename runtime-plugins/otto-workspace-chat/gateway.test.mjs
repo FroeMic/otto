@@ -365,6 +365,123 @@ test("dispatchWorkspaceChatInboundTurn forwards normalized direct runtime callba
   }
 });
 
+test("dispatchWorkspaceChatInboundTurn filters non-final reply payloads into hidden control-plane events after duplicate suppression", async () => {
+  const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
+  const previousTenantToken = process.env.TENANT_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const fetchCalls = [];
+  const { runtime } = createRuntime();
+
+  process.env.OTTO_CONTROL_PLANE_BASE_URL = "https://workspace.example";
+  process.env.TENANT_TOKEN = "tenant-token";
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({
+      body: init?.body,
+      method: init?.method,
+      url,
+    });
+
+    return new Response(JSON.stringify({ ok: true, tenantId: "tenant_1" }), {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  try {
+    await dispatchWorkspaceChatInboundTurn(
+      {
+        assistantMessageId: "msg_1",
+        conversationKind: "ad_hoc",
+        conversationId: "conv_1",
+        conversationTitle: "Portfolio review",
+        conversationVisibility: "open",
+        parts: [
+          {
+            text: "Summarize the latest notes.",
+            type: "text",
+          },
+        ],
+        senderDisplayName: "Michael Froehlich",
+        senderExternalId: "user_1",
+        userMessageId: "user_msg_1",
+      },
+      {
+        cfg: {
+          session: {
+            store: {
+              path: "/tmp/sessions.json",
+            },
+          },
+        },
+        dispatchInboundReplyWithBase: async (params) => {
+          await params.deliver({ text: "Working draft." }, { kind: "block" });
+          await params.deliver({ text: "Working draft." }, { kind: "block" });
+          await params.deliver({ text: "Tool detail." }, { kind: "tool" });
+          await params.deliver({ text: "Final answer." }, { kind: "final" });
+          await params.deliver({ text: "Final answer." }, { kind: "final" });
+        },
+        runtime,
+      },
+    );
+
+    const filteredEventCalls = fetchCalls.filter((call) => {
+      if (!String(call.url).endsWith("/api/internal/runtime/workspace-chat/messages/events")) {
+        return false;
+      }
+
+      return JSON.parse(call.body).event?.type === "assistant_message.filtered";
+    });
+    const completionCall = fetchCalls.find((call) =>
+      String(call.url).endsWith("/api/internal/runtime/workspace-chat/messages/complete"),
+    );
+
+    assert.equal(filteredEventCalls.length, 2);
+    assert.deepEqual(
+      filteredEventCalls.map((call) => JSON.parse(call.body).event.payload),
+      [
+        {
+          delivery: {
+            kind: "block",
+            reason: "non_final_reply",
+            visibility: "filtered",
+          },
+          message: {
+            text: "Working draft.",
+          },
+        },
+        {
+          delivery: {
+            kind: "tool",
+            reason: "non_final_reply",
+            visibility: "filtered",
+          },
+          message: {
+            text: "Tool detail.",
+          },
+        },
+      ],
+    );
+    assert.deepEqual(JSON.parse(completionCall.body).message.parts, [
+      {
+        text: "Final answer.",
+        type: "text",
+      },
+    ]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) {
+      delete process.env.OTTO_CONTROL_PLANE_BASE_URL;
+    } else {
+      process.env.OTTO_CONTROL_PLANE_BASE_URL = previousBaseUrl;
+    }
+    if (previousTenantToken === undefined) {
+      delete process.env.TENANT_TOKEN;
+    } else {
+      process.env.TENANT_TOKEN = previousTenantToken;
+    }
+  }
+});
+
 test("dispatchWorkspaceChatInboundTurn reports a failed assistant message when shared dispatch throws", async () => {
   const previousBaseUrl = process.env.OTTO_CONTROL_PLANE_BASE_URL;
   const previousTenantToken = process.env.TENANT_TOKEN;
