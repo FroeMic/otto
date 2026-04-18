@@ -7,7 +7,10 @@ import { ConversationComposer } from "./ConversationComposer"
 export interface WorkspaceAgentPromptCardProps {
   disabled?: boolean
   initialDraft?: string
+  isRunning?: boolean
+  isStopping?: boolean
   orgSlug: string
+  onStop?: () => Promise<void> | void
   onSubmit: (input: {
     parts: ReturnType<typeof import("../composer-parts").buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
@@ -17,7 +20,10 @@ export interface WorkspaceAgentPromptCardProps {
 export function WorkspaceAgentPromptCard({
   disabled = false,
   initialDraft,
+  isRunning,
+  isStopping,
   orgSlug,
+  onStop,
   onSubmit,
   onUploadAttachment,
 }: WorkspaceAgentPromptCardProps) {
@@ -26,7 +32,10 @@ export function WorkspaceAgentPromptCard({
       className="border-border/65 bg-background/97"
       disabled={disabled}
       initialDraft={initialDraft}
+      isRunning={isRunning}
+      isStopping={isStopping}
       orgSlug={orgSlug}
+      onStop={onStop}
       onSubmit={onSubmit}
       onUploadAttachment={onUploadAttachment}
       placeholder="Message Otto in this workspace"

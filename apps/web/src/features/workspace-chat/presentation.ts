@@ -58,3 +58,20 @@ export function getWorkspaceConversationTurnName(input: {
 
   return "Workspace member"
 }
+
+export function getActiveWorkspaceChatAssistantMessageToStop(
+  messages: WorkspaceChatMessage[],
+) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+
+    if (
+      message.author.kind === "assistant" &&
+      (message.status === "pending" || message.status === "streaming")
+    ) {
+      return message
+    }
+  }
+
+  return null
+}

@@ -3,6 +3,10 @@ import assert from "node:assert/strict"
 import { WorkspaceSessionAuthError } from "@otto/auth"
 import { afterEach, describe, it, vi } from "vitest"
 
+vi.mock("hono/bun", () => ({
+  upgradeWebSocket: () => new Response(null, { status: 101 }),
+}))
+
 import {
   createWorkspaceChatRouter,
   type WorkspaceChatRouteDependencies,
@@ -57,6 +61,16 @@ function createDependencies(): WorkspaceChatRouteDependencies {
         parts,
         status: "completed",
       },
+    }),
+    cancelAssistantMessage: async ({ assistantMessageId }) => ({
+      author: {
+        kind: "assistant",
+        name: "Otto",
+      },
+      createdAt: "2026-04-10T09:32:01.000Z",
+      id: assistantMessageId,
+      parts: [],
+      status: "canceled",
     }),
     getConversationDetail: async () => ({
       conversation: {
@@ -239,6 +253,50 @@ describe("workspace chat routes", () => {
           },
         ],
         status: "completed",
+      },
+    })
+  })
+
+  it("cancels an active assistant message through the workspace chat route", async () => {
+    const cancelAssistantMessage = vi.fn(async ({ assistantMessageId }) => ({
+      author: {
+        kind: "assistant" as const,
+        name: "Otto",
+      },
+      createdAt: "2026-04-10T09:32:01.000Z",
+      id: assistantMessageId,
+      parts: [],
+      status: "canceled" as const,
+    }))
+    const app = createWorkspaceChatRouter({
+      ...createDependencies(),
+      cancelAssistantMessage,
+    })
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/chat/conversations/conv_1/messages/msg_assistant_1/cancel",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(cancelAssistantMessage.mock.calls[0]?.[0], {
+      assistantMessageId: "msg_assistant_1",
+      conversationId: "conv_1",
+      orgSlug: "otto",
+      userExternalId: "user_123",
+    })
+    assert.deepEqual(await response.json(), {
+      message: {
+        author: {
+          kind: "assistant",
+          name: "Otto",
+        },
+        createdAt: "2026-04-10T09:32:01.000Z",
+        id: "msg_assistant_1",
+        parts: [],
+        status: "canceled",
       },
     })
   })

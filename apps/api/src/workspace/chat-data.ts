@@ -963,12 +963,17 @@ export async function completeWorkspaceChatAssistantMessage(input: {
             and(
               eq(workspaceChatMessages.id, assistantMessageId),
               eq(workspaceChatMessages.conversationId, conversation.id),
+              inArray(workspaceChatMessages.status, ["pending", "streaming"]),
             ),
           )
           .returning({
             id: workspaceChatMessages.id,
           })
       : []
+
+    if (assistantMessageId && !updatedMessage) {
+      return null
+    }
 
     const [message] = updatedMessage
       ? [updatedMessage]
@@ -1372,6 +1377,64 @@ export async function markWorkspaceChatAssistantMessageStreaming(input: {
       type: "conversation.message_upserted",
     })
   }
+}
+
+export async function cancelWorkspaceChatAssistantMessageForUser(input: {
+  assistantMessageId: string
+  conversationId: string
+  orgSlug: string
+  userExternalId: string
+}): Promise<WorkspaceChatMessage | null> {
+  const actor = await resolveWorkspaceChatActor({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
+  })
+  const conversation = await getAccessibleWorkspaceChatConversation({
+    conversationId: input.conversationId,
+    organizationId: actor.organizationId,
+    userId: actor.userId,
+  })
+
+  if (!conversation) {
+    return null
+  }
+
+  const db = getDb()
+  const canceledAt = new Date()
+  const [updatedMessage] = await db
+    .update(workspaceChatMessages)
+    .set({
+      completedAt: canceledAt,
+      status: "canceled",
+      updatedAt: canceledAt,
+    })
+    .where(
+      and(
+        eq(workspaceChatMessages.id, input.assistantMessageId),
+        eq(workspaceChatMessages.conversationId, conversation.id),
+        eq(workspaceChatMessages.authorKind, "assistant"),
+        inArray(workspaceChatMessages.status, ["pending", "streaming"]),
+      ),
+    )
+    .returning({
+      id: workspaceChatMessages.id,
+    })
+
+  if (!updatedMessage) {
+    return null
+  }
+
+  const message = await getWorkspaceChatMessageById(updatedMessage.id)
+
+  if (message) {
+    await publishWorkspaceChatRealtimeEvent({
+      conversationId: conversation.id,
+      message,
+      type: "conversation.message_upserted",
+    })
+  }
+
+  return message
 }
 
 export async function markWorkspaceChatAssistantMessageFailed(input: {
