@@ -7,6 +7,7 @@ import {
   type WorkspaceChatMessagePart,
   type WorkspaceChatMessageCreateResponse,
   workspaceChatAttachmentUploadResponseSchema,
+  workspaceChatMessageCancelResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
   workspaceChatConversationDetailResponseSchema,
@@ -128,6 +129,27 @@ export async function sendWorkspaceChatMessage(input: {
   return fetchApiResponse(response, (data) =>
     workspaceChatMessageCreateResponseSchema.parse(data),
   ) satisfies Promise<WorkspaceChatMessageCreateResponse>
+}
+
+export async function cancelWorkspaceChatAssistantMessage(input: {
+  assistantMessageId: string
+  conversationId: string
+  orgSlug: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].chat.conversations[
+      ":conversationId"
+    ].messages[":assistantMessageId"].cancel.$post({
+      param: {
+        assistantMessageId: input.assistantMessageId,
+        conversationId: input.conversationId,
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceChatMessageCancelResponseSchema.parse(data),
+  )
 }
 
 export async function uploadWorkspaceChatAttachment(input: {

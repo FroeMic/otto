@@ -5,6 +5,7 @@ import {
   PaperPlaneTiltIcon,
   PaperclipIcon,
   PlayIcon,
+  StopIcon,
   WaveformIcon,
   XIcon,
 } from "@phosphor-icons/react"
@@ -34,7 +35,10 @@ export interface ConversationComposerProps {
   className?: string
   disabled?: boolean
   initialDraft?: string
+  isRunning?: boolean
+  isStopping?: boolean
   orgSlug: string
+  onStop?: () => Promise<void> | void
   onSubmit: (input: {
     parts: ReturnType<typeof buildWorkspaceChatComposerParts>
   }) => Promise<void> | void
@@ -46,6 +50,9 @@ export function ConversationComposer({
   className,
   disabled = false,
   initialDraft = "",
+  isRunning = false,
+  isStopping = false,
+  onStop,
   onSubmit,
   onUploadAttachment,
   placeholder = "Message Otto in this workspace conversation",
@@ -92,7 +99,7 @@ export function ConversationComposer({
       text: draft,
     })
 
-    if (parts.length === 0 || disabled) {
+    if (parts.length === 0 || disabled || isRunning) {
       return
     }
 
@@ -342,7 +349,7 @@ export function ConversationComposer({
 
       <Textarea
         className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
-        disabled={disabled || isUploading || isVoiceMode}
+        disabled={disabled || isRunning || isUploading || isVoiceMode}
         onChange={(event) => {
           setDraft(event.target.value)
         }}
@@ -382,7 +389,7 @@ export function ConversationComposer({
               <div className="flex items-center gap-2">
                 <Button
                   className="size-10 rounded-full text-muted-foreground"
-                  disabled={disabled || isUploading || !onUploadAttachment}
+                  disabled={disabled || isRunning || isUploading || !onUploadAttachment}
                   onClick={() => {
                     fileInputRef.current?.click()
                   }}
@@ -394,7 +401,7 @@ export function ConversationComposer({
                 </Button>
                 <Button
                   className="size-10 rounded-full text-muted-foreground"
-                  disabled={disabled || isUploading || !onUploadAttachment}
+                  disabled={disabled || isRunning || isUploading || !onUploadAttachment}
                   onClick={() => {
                     setIsVoiceMode(true)
                   }}
@@ -406,18 +413,31 @@ export function ConversationComposer({
                 </Button>
               </div>
 
-              <Button
-                className="rounded-full bg-primary px-5 text-primary-foreground shadow-none hover:bg-primary/90"
-                disabled={
-                  disabled ||
-                  isUploading ||
-                  (draft.trim().length === 0 && attachments.length === 0)
-                }
-                onClick={() => void submitDraft()}
-              >
-                <PaperPlaneTiltIcon data-icon="inline-start" />
-                Send
-              </Button>
+              {isRunning && onStop ? (
+                <Button
+                  className="rounded-full border-destructive/35 bg-destructive px-5 text-destructive-foreground shadow-none hover:bg-destructive/90"
+                  disabled={isStopping}
+                  onClick={() => void onStop()}
+                  type="button"
+                >
+                  <StopIcon data-icon="inline-start" weight="fill" />
+                  {isStopping ? "Stopping" : "Stop"}
+                </Button>
+              ) : (
+                <Button
+                  className="rounded-full bg-primary px-5 text-primary-foreground shadow-none hover:bg-primary/90"
+                  disabled={
+                    disabled ||
+                    isUploading ||
+                    (draft.trim().length === 0 && attachments.length === 0)
+                  }
+                  onClick={() => void submitDraft()}
+                  type="button"
+                >
+                  <PaperPlaneTiltIcon data-icon="inline-start" />
+                  Send
+                </Button>
+              )}
             </div>
           </>
         )}

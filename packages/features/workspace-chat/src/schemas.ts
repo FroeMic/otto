@@ -190,6 +190,10 @@ export const workspaceChatMessageCreateResponseSchema = z.object({
   message: workspaceChatMessageSchema,
 })
 
+export const workspaceChatMessageCancelResponseSchema = z.object({
+  message: workspaceChatMessageSchema,
+})
+
 export const workspaceChatAttachmentUploadResponseSchema = z.object({
   attachment: workspaceChatAttachmentSchema,
 })
@@ -325,6 +329,9 @@ export type WorkspaceChatMessageCreateRequest = z.infer<
 >
 export type WorkspaceChatMessageCreateResponse = z.infer<
   typeof workspaceChatMessageCreateResponseSchema
+>
+export type WorkspaceChatMessageCancelResponse = z.infer<
+  typeof workspaceChatMessageCancelResponseSchema
 >
 export type WorkspaceChatAttachment = z.infer<
   typeof workspaceChatAttachmentSchema

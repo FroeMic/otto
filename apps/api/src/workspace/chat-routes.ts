@@ -16,9 +16,11 @@ import {
   type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
   type WorkspaceChatMessageCreateRequest,
+  type WorkspaceChatMessage,
   type WorkspaceChatMessageCreateResponse,
   type WorkspaceChatUser,
   workspaceChatAttachmentUploadResponseSchema,
+  workspaceChatMessageCancelResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationListQuerySchema,
   workspaceChatMessageCreateRequestSchema,
@@ -27,6 +29,7 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import {
+  cancelWorkspaceChatAssistantMessageForUser,
   createWorkspaceChatConversation,
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
@@ -50,6 +53,9 @@ const workspaceConversationParamsSchema = workspaceParamsSchema.extend({
 
 const workspaceAttachmentParamsSchema = workspaceParamsSchema.extend({
   attachmentId: z.string().min(1),
+})
+const workspaceMessageParamsSchema = workspaceConversationParamsSchema.extend({
+  assistantMessageId: z.string().min(1),
 })
 const workspaceAttachmentDownloadQuerySchema = z.object({
   disposition: z.enum(["attachment", "inline"]).optional(),
@@ -90,6 +96,12 @@ export type WorkspaceChatRouteDependencies = {
     userDisplayName: string
     userExternalId: string
   }) => Promise<WorkspaceChatMessageCreateResponse>
+  cancelAssistantMessage: (payload: {
+    assistantMessageId: string
+    conversationId: string
+    orgSlug: string
+    userExternalId: string
+  }) => Promise<WorkspaceChatMessage | null>
   getConversationDetail: (payload: {
     conversationId: string
     orgSlug: string
@@ -124,6 +136,7 @@ function createDefaultWorkspaceChatRouteDependencies(): WorkspaceChatRouteDepend
       }
     },
     createConversation: createWorkspaceChatConversation,
+    cancelAssistantMessage: cancelWorkspaceChatAssistantMessageForUser,
     createMessage: createAndDispatchWorkspaceChatMessage,
     getConversationDetail: getWorkspaceChatConversationDetail,
     listConversations: listWorkspaceChatConversations,
@@ -397,6 +410,41 @@ export function createWorkspaceChatRouter(
           syncUserFromSession: dependencies.syncUserFromSession,
           user: authResult.user,
         })
+      },
+    )
+    .post(
+      "/api/workspace/:orgSlug/chat/conversations/:conversationId/messages/:assistantMessageId/cancel",
+      zValidator("param", workspaceMessageParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { assistantMessageId, conversationId, orgSlug } =
+          context.req.valid("param")
+        const message = await dependencies.cancelAssistantMessage({
+          assistantMessageId,
+          conversationId,
+          orgSlug,
+          userExternalId: authResult.user.id,
+        })
+
+        if (!message) {
+          return jsonNoStore(
+            {
+              error: "Active assistant message not found.",
+            },
+            404,
+          )
+        }
+
+        return jsonNoStore(
+          workspaceChatMessageCancelResponseSchema.parse({
+            message,
+          }),
+        )
       },
     )
 }
