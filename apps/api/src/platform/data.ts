@@ -3,10 +3,6 @@ import { randomUUID } from "node:crypto"
 import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
-  isReservedWorkspaceSlug,
-  normalizeWorkspaceSlug,
-} from "@otto/feature-workspace-slugs"
-import {
   creditLedgerEntries,
   integrationOauthConnections,
   jobEvents,
@@ -27,6 +23,11 @@ import {
   users,
 } from "@otto/feature-integrations-runtime/db/schema"
 import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "@otto/feature-workspace-slugs"
+import { WorkOS } from "@workos-inc/node"
+import {
   and,
   asc,
   desc,
@@ -44,7 +45,7 @@ import {
   buildInitialWorkspaceCreditGrantInput,
   getWorkspaceBillingOverview,
 } from "../billing/data"
-import { getApiEnv } from "../env"
+import { getApiEnv, hasWorkOsConfig } from "../env"
 import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
 import type { WorkspaceSummary } from "../workspace/data"
 import { inspectObservedRuntimeImageForTenant } from "./runtime"
@@ -64,10 +65,6 @@ const JOB_TYPES = {
 } as const
 
 type PlatformProvisioningStrategy = "legacy_base_image"
-
-function buildPlatformOrganizationExternalId() {
-  return `platform_${randomUUID()}`
-}
 
 async function resolvePlatformOrganizationSlug(input: {
   name: string
@@ -99,6 +96,114 @@ async function resolvePlatformOrganizationSlug(input: {
   }
 
   return normalizedSlug
+}
+
+function getPlatformWorkOsClient() {
+  const env = getApiEnv()
+
+  if (!hasWorkOsConfig(env)) {
+    throw new Error("WorkOS is not configured")
+  }
+
+  return new WorkOS(env.WORKOS_API_KEY ?? "", {
+    clientId: env.WORKOS_CLIENT_ID,
+  })
+}
+
+function isSyntheticPlatformOrganizationExternalId(externalId: string) {
+  return externalId.startsWith("platform_")
+}
+
+function getWorkOsMembershipRoleSlug(membership: {
+  role?: {
+    slug?: string | null
+  } | null
+}) {
+  return membership.role?.slug ?? "admin"
+}
+
+function getWorkOsMembershipStatus(membership: { status?: string | null }) {
+  return membership.status ?? "active"
+}
+
+async function deleteWorkOsOrganizationBestEffort(
+  externalOrganizationId: string,
+) {
+  try {
+    await getPlatformWorkOsClient().organizations.deleteOrganization(
+      externalOrganizationId,
+    )
+  } catch (error) {
+    console.error(
+      `[platform] failed to clean up WorkOS organization ${externalOrganizationId}: ${getErrorMessage(error)}`,
+    )
+  }
+}
+
+async function ensurePlatformOrganizationWorkOsProjection(input: {
+  externalId: string
+  id: string
+  name: string
+}) {
+  if (!isSyntheticPlatformOrganizationExternalId(input.externalId)) {
+    return input.externalId
+  }
+
+  const createdOrganization =
+    await getPlatformWorkOsClient().organizations.createOrganization({
+      name: input.name,
+    })
+
+  try {
+    await getDb()
+      .update(organizations)
+      .set({
+        externalId: createdOrganization.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, input.id))
+  } catch (error) {
+    await deleteWorkOsOrganizationBestEffort(createdOrganization.id)
+    throw error
+  }
+
+  return createdOrganization.id
+}
+
+async function getOrCreatePlatformAdminMembership(input: {
+  organizationExternalId: string
+  userExternalId: string
+}) {
+  const workos = getPlatformWorkOsClient()
+  const existingMemberships = await (
+    await workos.userManagement.listOrganizationMemberships({
+      userId: input.userExternalId,
+    })
+  ).autoPagination()
+  const existingMembership = existingMemberships.find(
+    (membership) =>
+      membership.organizationId === input.organizationExternalId &&
+      String(membership.status) !== "removed",
+  )
+
+  if (existingMembership) {
+    if (getWorkOsMembershipRoleSlug(existingMembership) === "admin") {
+      return existingMembership
+    }
+
+    return await workos.userManagement.updateOrganizationMembership(
+      existingMembership.id,
+      {
+        roleSlug: "admin",
+      },
+    )
+  }
+
+  return await workos.userManagement.createOrganizationMembership({
+    organizationId: input.organizationExternalId,
+    roleSlug: "admin",
+    userId: input.userExternalId,
+  })
 }
 
 function recordFromUnknown(value: unknown) {
@@ -137,6 +242,14 @@ function dateFromValue(value: unknown) {
   }
 
   return null
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message
+  }
+
+  return "Unknown error"
 }
 
 function extractRuntimeImageVersion(image: string | null) {
@@ -747,29 +860,54 @@ export async function createPlatformOrganization(input: {
   slug?: string
   userExternalId: string
 }) {
+  const workspaceName = input.name.trim()
   const slug = await resolvePlatformOrganizationSlug({
-    name: input.name,
+    name: workspaceName,
     slug: input.slug,
   })
-  const [createdOrganization] = await getDb()
-    .insert(organizations)
-    .values({
-      externalId: buildPlatformOrganizationExternalId(),
-      isReady: false,
-      name: input.name.trim(),
-      slug,
+  const createdWorkOsOrganization =
+    await getPlatformWorkOsClient().organizations.createOrganization({
+      name: workspaceName,
     })
-    .returning({
-      id: organizations.id,
-      isReady: organizations.isReady,
-      locale: organizations.locale,
-      name: organizations.name,
-      slug: organizations.slug,
-      timeFormatPreference: organizations.timeFormatPreference,
-      timezone: organizations.timezone,
-    })
+  let createdOrganization:
+    | {
+        id: string
+        isReady: boolean
+        locale: string
+        name: string
+        slug: string
+        timeFormatPreference: string
+        timezone: string
+      }
+    | undefined
+
+  try {
+    const [insertedOrganization] = await getDb()
+      .insert(organizations)
+      .values({
+        externalId: createdWorkOsOrganization.id,
+        isReady: false,
+        name: workspaceName,
+        slug,
+      })
+      .returning({
+        id: organizations.id,
+        isReady: organizations.isReady,
+        locale: organizations.locale,
+        name: organizations.name,
+        slug: organizations.slug,
+        timeFormatPreference: organizations.timeFormatPreference,
+        timezone: organizations.timezone,
+      })
+
+    createdOrganization = insertedOrganization
+  } catch (error) {
+    await deleteWorkOsOrganizationBestEffort(createdWorkOsOrganization.id)
+    throw error
+  }
 
   if (!createdOrganization) {
+    await deleteWorkOsOrganizationBestEffort(createdWorkOsOrganization.id)
     throw new Error("Failed to create platform organization")
   }
 
@@ -800,7 +938,9 @@ export async function addCurrentUserAsPlatformOrganizationAdmin(input: {
   const now = new Date()
   const [organization] = await db
     .select({
+      externalId: organizations.externalId,
       id: organizations.id,
+      name: organizations.name,
       slug: organizations.slug,
     })
     .from(organizations)
@@ -823,22 +963,37 @@ export async function addCurrentUserAsPlatformOrganizationAdmin(input: {
     throw new Error("Platform user not found")
   }
 
+  const organizationExternalId =
+    await ensurePlatformOrganizationWorkOsProjection({
+      externalId: organization.externalId,
+      id: organization.id,
+      name: organization.name,
+    })
+  const workOsMembership = await getOrCreatePlatformAdminMembership({
+    organizationExternalId,
+    userExternalId: input.userExternalId,
+  })
+  const role = getWorkOsMembershipRoleSlug(workOsMembership)
+  const status = getWorkOsMembershipStatus(workOsMembership)
+
   const [membership] = await db
     .insert(memberships)
     .values({
+      externalId: workOsMembership.id,
       lastSyncedAt: now,
       organizationId: organization.id,
-      role: "admin",
-      status: "active",
+      role,
+      status,
       userId: user.id,
     })
     .onConflictDoUpdate({
       target: [memberships.userId, memberships.organizationId],
       set: {
+        externalId: workOsMembership.id,
         lastSyncedAt: now,
         removedAt: null,
-        role: "admin",
-        status: "active",
+        role,
+        status,
         updatedAt: now,
       },
     })
