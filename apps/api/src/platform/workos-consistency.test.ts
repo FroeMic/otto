@@ -121,7 +121,22 @@ describe("platform WorkOS consistency", () => {
 
   it("creates platform workspaces with a real WorkOS organization id", async () => {
     const dbMock = createPlatformDbMock({
-      selectResults: [[]],
+      selectResults: [
+        [],
+        [
+          {
+            externalId: "org_workos_platform_1",
+            id: "org_local_1",
+            name: "Fresh Workspace",
+            slug: "fresh-workspace",
+          },
+        ],
+        [
+          {
+            id: "user_local_1",
+          },
+        ],
+      ],
     })
     mocks.getDb.mockReturnValue(dbMock.db)
 
@@ -140,6 +155,15 @@ describe("platform WorkOS consistency", () => {
     assert.equal(
       (dbMock.insertedValues[0] as { externalId: string }).externalId,
       "org_workos_platform_1",
+    )
+    assert.deepEqual(mocks.createOrganizationMembership.mock.calls[0]?.[0], {
+      organizationId: "org_workos_platform_1",
+      roleSlug: "admin",
+      userId: "user_1",
+    })
+    assert.equal(
+      (dbMock.insertedValues[1] as { externalId: string }).externalId,
+      "om_platform_admin_1",
     )
   })
 

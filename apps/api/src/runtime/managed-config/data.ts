@@ -186,6 +186,40 @@ async function createNextDesiredStateVersionForManagedConfig(input: {
   return createdDesiredState
 }
 
+export async function ensureTenantManagedConfigDesiredState(input: {
+  tenantId: string
+}) {
+  const latestConfig = await ensureLatestTenantManagedConfigVersion(
+    input.tenantId,
+  )
+  const latestDesiredState = await getLatestDesiredState(input.tenantId)
+  const currentConfig =
+    latestDesiredState?.configJson &&
+    typeof latestDesiredState.configJson === "object" &&
+    !Array.isArray(latestDesiredState.configJson)
+      ? (latestDesiredState.configJson as Record<string, unknown>)
+      : {}
+
+  if (currentConfig.managedConfigVersion === latestConfig.version) {
+    return {
+      changed: false,
+      desiredStateVersion: latestDesiredState.version,
+      managedConfigVersion: latestConfig.version,
+    }
+  }
+
+  const desiredState = await createNextDesiredStateVersionForManagedConfig({
+    managedConfigVersion: latestConfig.version,
+    tenantId: input.tenantId,
+  })
+
+  return {
+    changed: true,
+    desiredStateVersion: desiredState.version,
+    managedConfigVersion: latestConfig.version,
+  }
+}
+
 export async function getLatestTenantManagedConfig(tenantId: string) {
   const db = getDb()
   const latestVersion = await ensureLatestTenantManagedConfigVersion(tenantId)

@@ -48,6 +48,10 @@ import {
 import { getApiEnv, hasWorkOsConfig } from "../env"
 import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
 import type { WorkspaceSummary } from "../workspace/data"
+import {
+  buildInitialWorkspaceRuntimeProvisioningJobInput,
+  ensureInitialWorkspaceRuntimeProvisioning,
+} from "../workspace/initial-provisioning"
 import { inspectObservedRuntimeImageForTenant } from "./runtime"
 
 const OPENAI_PROVIDER_KEY = "openai"
@@ -542,19 +546,7 @@ export function buildPlatformProvisioningJobInput(input: {
   provisioningStrategy: PlatformProvisioningStrategy
   tenantId: string
 }) {
-  return {
-    jobType: JOB_TYPES.provisionTenantServer,
-    payloadJson: {
-      step: "create_server",
-      tenantId: input.tenantId,
-    },
-    tenantServer: {
-      provider: "hetzner",
-      provisioningStrategy: "legacy_base_image",
-      sshUsername: "openclaw",
-      status: "creating",
-    },
-  } as const
+  return buildInitialWorkspaceRuntimeProvisioningJobInput(input)
 }
 
 async function hasQueuedTenantServerDeleteJob(tenantId: string) {
@@ -909,6 +901,20 @@ export async function createPlatformOrganization(input: {
   if (!createdOrganization) {
     await deleteWorkOsOrganizationBestEffort(createdWorkOsOrganization.id)
     throw new Error("Failed to create platform organization")
+  }
+
+  try {
+    await addCurrentUserAsPlatformOrganizationAdmin({
+      orgSlug: createdOrganization.slug,
+      userExternalId: input.userExternalId,
+    })
+  } catch (error) {
+    await getDb()
+      .delete(organizations)
+      .where(eq(organizations.id, createdOrganization.id))
+      .catch(() => undefined)
+    await deleteWorkOsOrganizationBestEffort(createdWorkOsOrganization.id)
+    throw error
   }
 
   return {
@@ -1631,137 +1637,32 @@ export async function triggerPlatformOrganizationProvisionServer(input: {
   provisioningStrategy: PlatformProvisioningStrategy
   userExternalId: string
 }) {
-  const db = getDb()
+  const organization = await getOrganizationSummaryBySlug(input.orgSlug)
 
-  return db.transaction(async (tx) => {
-    const organization = await getOrganizationSummaryBySlug(input.orgSlug)
+  if (!organization) {
+    throw new Error("Platform organization not found")
+  }
 
-    if (!organization) {
-      throw new Error("Platform organization not found")
-    }
-
-    const [latestTenant] = await tx
-      .select({
-        id: tenants.id,
-        name: tenants.name,
-        serverId: tenantServers.id,
-      })
-      .from(tenants)
-      .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
-      .where(eq(tenants.organizationId, organization.organizationId))
-      .orderBy(desc(tenants.createdAt))
-      .limit(1)
-
-    if (latestTenant?.serverId) {
-      throw new Error("Organization already has a tenant server")
-    }
-
-    let tenantId = latestTenant?.id ?? null
-    let tenantName = latestTenant?.name ?? organization.organizationName
-    let provisionedTenant = false
-
-    if (!tenantId) {
-      const [createdTenant] = await tx
-        .insert(tenants)
-        .values({
-          name: organization.organizationName,
-          organizationId: organization.organizationId,
-          status: "provisioning",
-        })
-        .returning({
-          id: tenants.id,
-          name: tenants.name,
-        })
-
-      if (!createdTenant) {
-        throw new Error("Failed to create tenant")
-      }
-
-      tenantId = createdTenant.id
-      tenantName = createdTenant.name
-      provisionedTenant = true
-    } else {
-      await tx
-        .update(tenants)
-        .set({
-          status: "provisioning",
-          updatedAt: new Date(),
-        })
-        .where(eq(tenants.id, tenantId))
-    }
-
-    const [desiredState] = await tx
-      .select({
-        id: tenantDesiredStates.id,
-      })
-      .from(tenantDesiredStates)
-      .where(eq(tenantDesiredStates.tenantId, tenantId))
-      .limit(1)
-
-    if (!desiredState) {
-      await tx.insert(tenantDesiredStates).values({
-        configJson: {},
-        tenantId,
-        version: 1,
-      })
-    }
-
-    await tx
-      .insert(creditLedgerEntries)
-      .values(buildPlatformInitialProvisioningCreditGrantInput({ tenantId }))
-      .onConflictDoNothing({
-        target: [
-          creditLedgerEntries.sourceType,
-          creditLedgerEntries.sourceId,
-          creditLedgerEntries.entryType,
-        ],
-      })
-
-    const provisioningJob = buildPlatformProvisioningJobInput({
-      provisioningStrategy: input.provisioningStrategy,
-      tenantId,
-    })
-
-    await tx.insert(tenantServers).values({
-      ...provisioningJob.tenantServer,
-      tenantId,
-    })
-
-    const [job] = await tx
-      .insert(jobRuns)
-      .values({
-        availableAt: new Date(),
-        jobType: provisioningJob.jobType,
-        payloadJson: provisioningJob.payloadJson,
-        status: "queued",
-        tenantId,
-      })
-      .returning({
-        id: jobRuns.id,
-      })
-
-    if (!job) {
-      throw new Error("Failed to queue provisioning job")
-    }
-
-    await tx.insert(jobEvents).values({
-      dataJson: {
-        jobType: provisioningJob.jobType,
-      },
-      eventType: "queued",
-      jobRunId: job.id,
-      message: "Job queued for execution",
-    })
-
-    return {
-      jobId: job.id,
-      provisionedTenant,
-      provisioningStrategy: input.provisioningStrategy,
-      queued: true,
-      tenantId,
-      tenantName,
-    }
+  await addCurrentUserAsPlatformOrganizationAdmin({
+    orgSlug: input.orgSlug,
+    userExternalId: input.userExternalId,
   })
+
+  const provisioning = await ensureInitialWorkspaceRuntimeProvisioning({
+    createOrUpdateOnboardingRunForUserExternalId: input.userExternalId,
+    failIfTenantServerExists: true,
+    organizationId: organization.organizationId,
+    provisioningStrategy: input.provisioningStrategy,
+  })
+
+  return {
+    jobId: provisioning.jobId,
+    provisionedTenant: provisioning.provisionedTenant,
+    provisioningStrategy: provisioning.provisioningStrategy,
+    queued: provisioning.queued,
+    tenantId: provisioning.tenantId,
+    tenantName: provisioning.tenantName,
+  }
 }
 
 export async function triggerPlatformOrganizationDeleteTenantServer(input: {
