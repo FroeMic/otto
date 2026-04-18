@@ -19,10 +19,15 @@ import {
   getWorkspaceSummaryBySlugForUser,
 } from "../workspace/data"
 
-function getLatestSyncedAt(
+type LatestScheduledTasksRefreshJob = Awaited<
+  ReturnType<typeof getLatestTenantScheduledTasksRefreshJob>
+>
+
+export function getLatestScheduledTasksSyncedAt(
   tasks: Array<{ lastSyncedAt: Date | null }>,
+  latestRefreshJob: LatestScheduledTasksRefreshJob,
 ): Date | null {
-  return tasks.reduce<Date | null>((latest, task) => {
+  const latestTaskSyncedAt = tasks.reduce<Date | null>((latest, task) => {
     if (!task.lastSyncedAt) {
       return latest
     }
@@ -33,6 +38,19 @@ function getLatestSyncedAt(
 
     return latest > task.lastSyncedAt ? latest : task.lastSyncedAt
   }, null)
+
+  if (latestTaskSyncedAt) {
+    return latestTaskSyncedAt
+  }
+
+  if (
+    latestRefreshJob?.status === "succeeded" &&
+    latestRefreshJob.finishedAt
+  ) {
+    return latestRefreshJob.finishedAt
+  }
+
+  return null
 }
 
 type ScheduledTasksRefreshJob = NonNullable<
@@ -172,7 +190,9 @@ export async function listWorkspaceScheduledTasks(input: {
   return {
     dateTimePreferences,
     latestRefreshJob: mapRefreshJob(latestRefreshJob),
-    latestSyncedAt: getLatestSyncedAt(tasks)?.toISOString() ?? null,
+    latestSyncedAt:
+      getLatestScheduledTasksSyncedAt(tasks, latestRefreshJob)?.toISOString() ??
+      null,
     state: "ready",
     tasks: tasks.map(mapTask),
   }
@@ -210,7 +230,9 @@ export async function listWorkspaceScheduledTaskRuns(input: {
   return {
     dateTimePreferences,
     latestRefreshJob: mapRefreshJob(latestRefreshJob),
-    latestSyncedAt: getLatestSyncedAt(tasks)?.toISOString() ?? null,
+    latestSyncedAt:
+      getLatestScheduledTasksSyncedAt(tasks, latestRefreshJob)?.toISOString() ??
+      null,
     runs: runs.map(mapRun),
     state: "ready",
   }
