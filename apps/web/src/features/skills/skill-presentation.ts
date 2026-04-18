@@ -29,6 +29,22 @@ export function formatSkillOriginLabel(
   return origin === "custom" ? "Custom" : "From library"
 }
 
+export function formatDependencyIntegrationLabel(integrationKey: string) {
+  return `${formatDependencyName(integrationKey)} Integration`
+}
+
+export function formatDependencySkillLabel(skillKey: string) {
+  return `${formatDependencyName(skillKey)} Skill`
+}
+
+function formatDependencyName(value: string) {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export function getSkillStatusDescription(status: WorkspaceSkillDetail["status"]) {
   switch (status) {
     case "ready":

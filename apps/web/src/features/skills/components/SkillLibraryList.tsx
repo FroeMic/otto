@@ -1,9 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
-import { toast } from "sonner"
+import { CaretRightIcon } from "@phosphor-icons/react"
+import { Link } from "@tanstack/react-router"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   SettingsCard,
   SettingsRow,
@@ -12,8 +10,8 @@ import {
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
 
-import { installWorkspaceLibrarySkill, workspaceSkillsQueryOptions } from "../api/skills"
 import type { WorkspaceSkillLibraryEntry } from "../types"
+import { SkillDependencyChips } from "./SkillDependencyChips"
 
 export interface SkillLibraryListProps {
   orgSlug: string
@@ -21,110 +19,42 @@ export interface SkillLibraryListProps {
 }
 
 export function SkillLibraryList({ orgSlug, skills }: SkillLibraryListProps) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-
   return (
     <SettingsCard>
       {skills.map((skill) => (
-        <SettingsRow key={skill.skillKey}>
-          <SettingsRowLabel>
-            <div className="flex flex-wrap items-center gap-2">
-              <SettingsRowTitle>
-                <Link
-                  className="hover:underline"
-                  params={{
-                    orgSlug,
-                    skillKey: skill.skillKey,
-                  }}
-                  preload="intent"
-                  to="/$orgSlug/skills/library/$skillKey"
-                >
-                  {skill.displayName}
-                </Link>
-              </SettingsRowTitle>
-              <Badge variant={skill.installed ? "default" : "outline"}>
-                {skill.installed ? "Installed" : "Available"}
-              </Badge>
-            </div>
-            <SettingsRowDescription>{skill.description}</SettingsRowDescription>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {skill.dependencies.integrations.map((integrationKey) => (
-                <Badge key={`integration-${skill.skillKey}-${integrationKey}`} variant="secondary">
-                  Needs {integrationKey}
+        <Link
+          key={skill.skillKey}
+          className="block transition-colors hover:bg-muted/30"
+          params={{
+            orgSlug,
+            skillKey: skill.skillKey,
+          }}
+          preload="intent"
+          to={
+            skill.installed
+              ? "/$orgSlug/skills/$skillKey/overview"
+              : "/$orgSlug/skills/library/$skillKey"
+          }
+        >
+          <SettingsRow>
+            <SettingsRowLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                <SettingsRowTitle>{skill.displayName}</SettingsRowTitle>
+                <Badge variant={skill.installed ? "secondary" : "outline"}>
+                  {skill.installed ? "Installed" : "Available"}
                 </Badge>
-              ))}
-              {skill.dependencies.skills.map((dependencySkillKey) => (
-                <Badge key={`skill-${skill.skillKey}-${dependencySkillKey}`} variant="secondary">
-                  Needs {dependencySkillKey}
-                </Badge>
-              ))}
-            </div>
-          </SettingsRowLabel>
-          {skill.installed ? (
-            <Button
-              onClick={() => {
-                void navigate({
-                  params: {
-                    orgSlug,
-                    skillKey: skill.skillKey,
-                  },
-                  to: "/$orgSlug/skills/$skillKey/overview",
-                })
-              }}
-              type="button"
-              variant="outline"
-            >
-              Open
-            </Button>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                params={{
-                  orgSlug,
-                  skillKey: skill.skillKey,
-                }}
-                preload="intent"
-                to="/$orgSlug/skills/library/$skillKey"
-              >
-                <Button type="button" variant="outline">
-                  View
-                </Button>
-              </Link>
-              <Button
-                disabled={!skill.installable}
-                onClick={() => {
-                  void installWorkspaceLibrarySkill({
-                    orgSlug,
-                    skillKey: skill.skillKey,
-                  })
-                    .then(async (result) => {
-                      await queryClient.invalidateQueries({
-                        queryKey: workspaceSkillsQueryOptions(orgSlug).queryKey,
-                      })
-
-                      void navigate({
-                        params: {
-                          orgSlug,
-                          skillKey: result.skillKey,
-                        },
-                        to: "/$orgSlug/skills/$skillKey/overview",
-                      })
-                    })
-                    .catch((error) => {
-                      toast.error("Skill could not be installed", {
-                        description:
-                          error instanceof Error ? error.message : "Unknown error",
-                      })
-                    })
-                }}
-                type="button"
-              >
-                Install
-              </Button>
-            </div>
-          )}
-        </SettingsRow>
+              </div>
+              <SettingsRowDescription>{skill.description}</SettingsRowDescription>
+              <div className="mt-2">
+                <SkillDependencyChips
+                  integrations={skill.dependencies.integrations}
+                  skills={skill.dependencies.skills}
+                />
+              </div>
+            </SettingsRowLabel>
+            <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          </SettingsRow>
+        </Link>
       ))}
     </SettingsCard>
   )

@@ -9,7 +9,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
-import { SkillOverviewCard } from "../components/SkillOverviewCard"
+import { SkillDetailHeader } from "../components/SkillDetailHeader"
+import { SkillEditorCard } from "../components/SkillEditorCard"
 
 export interface SkillOverviewPageProps {
   orgSlug: string
@@ -47,6 +48,11 @@ export function SkillOverviewPage({
   return (
     <SettingsPage>
       <SettingsPageContent className="flex max-w-4xl flex-col gap-6 pb-8">
+        <SkillDetailHeader
+          detail={data.detail}
+          mode="installed"
+          orgSlug={orgSlug}
+        />
         <SkillDetailNavigation
           currentSection="overview"
           onSectionChange={(nextSection) => {
@@ -58,13 +64,16 @@ export function SkillOverviewPage({
               to:
                 nextSection === "files"
                   ? "/$orgSlug/skills/$skillKey/files"
-                  : nextSection === "instructions"
-                    ? "/$orgSlug/skills/$skillKey/instructions"
-                    : "/$orgSlug/skills/$skillKey/overview",
+                  : "/$orgSlug/skills/$skillKey/overview",
             })
           }}
         />
-        <SkillOverviewCard detail={data.detail} orgSlug={orgSlug} />
+        <SkillEditorCard
+          detail={data.detail}
+          knownIntegrationKeys={data.knownIntegrationKeys}
+          knownSkillKeys={data.knownSkillKeys}
+          orgSlug={orgSlug}
+        />
       </SettingsPageContent>
     </SettingsPage>
   )

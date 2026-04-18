@@ -58,6 +58,8 @@ export type WorkspaceSkillLibraryEntry = z.infer<
 >
 
 export const workspaceSkillLibraryFileSchema = z.object({
+  contentText: z.string().nullable(),
+  contentType: z.string().nullable(),
   fileClass: z.enum(["managed_entry", "managed_seeded"]),
   path: z.string().min(1),
   resettable: z.boolean(),

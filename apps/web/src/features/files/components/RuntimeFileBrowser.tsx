@@ -34,6 +34,7 @@ export interface RuntimeFileBrowserProps {
   isRefreshing?: boolean
   missingRootMessage: string
   onRefresh: () => void | Promise<unknown>
+  preferredFilePath?: string
   rootPathFallback: string
   snapshot: RuntimeDirectorySnapshot
 }
@@ -50,6 +51,7 @@ export function RuntimeFileBrowser({
   isRefreshing = false,
   missingRootMessage,
   onRefresh,
+  preferredFilePath,
   rootPathFallback,
   snapshot,
 }: RuntimeFileBrowserProps) {
@@ -101,6 +103,7 @@ export function RuntimeFileBrowser({
       }
 
       const defaultFile =
+        nextVisibleFiles.find((file) => file.path === preferredFilePath) ??
         nextVisibleFiles.find((file) => isPreviewableImage(file)) ??
         nextVisibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
         nextVisibleFiles[0] ??
@@ -115,7 +118,7 @@ export function RuntimeFileBrowser({
         path: defaultFile.path,
       }
     })
-  }, [hiddenPathPrefixes, hiddenPaths, snapshot.files])
+  }, [hiddenPathPrefixes, hiddenPaths, preferredFilePath, snapshot.files])
 
   if (!snapshot.rootExists) {
     return (

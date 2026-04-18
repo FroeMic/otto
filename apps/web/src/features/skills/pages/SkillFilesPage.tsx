@@ -15,6 +15,7 @@ import {
 } from "../api/skill-files"
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
 import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
+import { SkillDetailHeader } from "../components/SkillDetailHeader"
 import { summarizeSkillFileProvenance } from "../file-provenance"
 
 export interface SkillFilesPageProps {
@@ -66,6 +67,12 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
   return (
     <SettingsPage>
       <SettingsPageContent className="flex max-w-6xl flex-col gap-6 pb-8">
+        <SkillDetailHeader
+          detail={detailQuery.data.detail}
+          mode="installed"
+          orgSlug={orgSlug}
+        />
+
         <SkillDetailNavigation
           currentSection="files"
           onSectionChange={(nextSection) => {
@@ -83,23 +90,6 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
             })
           }}
         />
-
-        <Alert>
-          <AlertTitle>Included by this skill</AlertTitle>
-          <AlertDescription className="flex flex-wrap gap-2">
-            {provenance.instructionsFile ? (
-              <Badge variant="outline">
-                Instructions: {provenance.instructionsFile.path}
-              </Badge>
-            ) : null}
-            {provenance.templateFiles.map((file) => (
-              <Badge key={file.path} variant="outline">
-                {file.resettable ? "Template default" : "Included file"}:{" "}
-                {file.path}
-              </Badge>
-            ))}
-          </AlertDescription>
-        </Alert>
 
         {provenance.runtimeOnlyFiles.length > 0 ? (
           <Alert>
@@ -147,6 +137,7 @@ export function SkillFilesPage({ orgSlug, skillKey }: SkillFilesPageProps) {
               skillKey,
             ),
           }}
+          preferredFilePath="SKILL.md"
           rootPathFallback={`skills/${skillKey}`}
           snapshot={filesQuery.data.snapshot}
         />

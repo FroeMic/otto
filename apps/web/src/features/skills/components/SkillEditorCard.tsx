@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -179,15 +178,6 @@ export function SkillEditorCard({
         <IntegrationFloatingStatusChip message="Applying Changes" />
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {detail.displayName}
-        </h1>
-        <p className="max-w-4xl text-sm text-muted-foreground">
-          {detail.description}
-        </p>
-      </div>
-
       {!skillEntryFile ? (
         <Alert variant="destructive">
           <AlertTitle>Instructions file missing</AlertTitle>
@@ -204,16 +194,6 @@ export function SkillEditorCard({
         </Alert>
       ) : (
         <>
-          {!detail.editable ? (
-            <Alert>
-              <AlertTitle>Read-only skill</AlertTitle>
-              <AlertDescription>
-                Library-backed skills can be inspected here, but only custom
-                skills can be edited directly in the workspace.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
           <FieldGroup className="gap-6">
             <Field className="gap-3">
               <FieldLabel htmlFor="skill-name">Title</FieldLabel>
@@ -237,46 +217,41 @@ export function SkillEditorCard({
                   onChange={(event) => setDescription(event.target.value)}
                   value={description}
                 />
-                <FieldDescription>
-                  Short guidance for when the agent should use this skill.
-                </FieldDescription>
               </FieldContent>
             </Field>
 
             <FieldSet>
-              <FieldLegend>Integration dependencies</FieldLegend>
-              <FieldDescription>
-                Optional integrations the agent should expect before using this skill.
-              </FieldDescription>
-              <IntegrationDependencySelect
-                disabled={!detail.editable || isPending}
-                knownIntegrationKeys={knownIntegrationKeys}
-                orgSlug={orgSlug}
-                selectedIntegrationKeys={selectedIntegrationKeys}
-                onSelectedIntegrationKeysChange={setSelectedIntegrationKeys}
-              />
-            </FieldSet>
-
-            <FieldSet>
-              <FieldLegend>Skill dependencies</FieldLegend>
-              <FieldDescription>
-                Other skills this skill expects to exist first.
-              </FieldDescription>
-              {knownSkillKeys.length > 0 ? (
-                <SkillDependencySelect
-                  disabled={!detail.editable || isPending}
-                  knownSkillKeys={knownSkillKeys}
-                  selectedSkillKeys={selectedSkillKeys}
-                  skills={skillsData.installedSkills.filter(
-                    (skill) => skill.skillKey !== detail.skillKey,
+              <FieldLegend>Dependencies</FieldLegend>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field className="gap-2">
+                  <FieldLabel>Integrations</FieldLabel>
+                  <IntegrationDependencySelect
+                    disabled={!detail.editable || isPending}
+                    knownIntegrationKeys={knownIntegrationKeys}
+                    orgSlug={orgSlug}
+                    selectedIntegrationKeys={selectedIntegrationKeys}
+                    onSelectedIntegrationKeysChange={setSelectedIntegrationKeys}
+                  />
+                </Field>
+                <Field className="gap-2">
+                  <FieldLabel>Skills</FieldLabel>
+                  {knownSkillKeys.length > 0 ? (
+                    <SkillDependencySelect
+                      disabled={!detail.editable || isPending}
+                      knownSkillKeys={knownSkillKeys}
+                      selectedSkillKeys={selectedSkillKeys}
+                      skills={skillsData.installedSkills.filter(
+                        (skill) => skill.skillKey !== detail.skillKey,
+                      )}
+                      onSelectedSkillKeysChange={setSelectedSkillKeys}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No other skills exist in this workspace yet.
+                    </p>
                   )}
-                  onSelectedSkillKeysChange={setSelectedSkillKeys}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No other skills exist in this workspace yet.
-                </p>
-              )}
+                </Field>
+              </div>
             </FieldSet>
 
             <Field className="gap-3">

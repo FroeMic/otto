@@ -185,44 +185,40 @@ export function CreateSkillDialog({
                         onChange={(event) => setDescription(event.target.value)}
                         value={description}
                       />
-                      <FieldDescription>
-                        Short guidance for when the agent should reach for this skill.
-                      </FieldDescription>
                     </FieldContent>
                   </Field>
                 </FieldGroup>
 
                 <FieldSet>
-                  <FieldLegend>Integration dependencies</FieldLegend>
-                  <FieldDescription>
-                    Optional prerequisites the agent should expect before using this
-                    skill.
-                  </FieldDescription>
-                  <IntegrationDependencySelect
-                    knownIntegrationKeys={knownIntegrationKeys}
-                    orgSlug={orgSlug}
-                    selectedIntegrationKeys={selectedIntegrationKeys}
-                    onSelectedIntegrationKeysChange={setSelectedIntegrationKeys}
-                  />
-                </FieldSet>
-
-                <FieldSet>
-                  <FieldLegend>Skill dependencies</FieldLegend>
-                  <FieldDescription>
-                    Other skills this skill expects to exist first.
-                  </FieldDescription>
-                  {knownSkillKeys.length > 0 ? (
-                    <SkillDependencySelect
-                      knownSkillKeys={knownSkillKeys}
-                      selectedSkillKeys={selectedSkillKeys}
-                      skills={skills}
-                      onSelectedSkillKeysChange={setSelectedSkillKeys}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No other skills exist in this workspace yet.
-                    </p>
-                  )}
+                  <FieldLegend>Dependencies</FieldLegend>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field className="gap-2">
+                      <FieldLabel>Integrations</FieldLabel>
+                      <IntegrationDependencySelect
+                        knownIntegrationKeys={knownIntegrationKeys}
+                        orgSlug={orgSlug}
+                        selectedIntegrationKeys={selectedIntegrationKeys}
+                        onSelectedIntegrationKeysChange={
+                          setSelectedIntegrationKeys
+                        }
+                      />
+                    </Field>
+                    <Field className="gap-2">
+                      <FieldLabel>Skills</FieldLabel>
+                      {knownSkillKeys.length > 0 ? (
+                        <SkillDependencySelect
+                          knownSkillKeys={knownSkillKeys}
+                          selectedSkillKeys={selectedSkillKeys}
+                          skills={skills}
+                          onSelectedSkillKeysChange={setSelectedSkillKeys}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No other skills exist in this workspace yet.
+                        </p>
+                      )}
+                    </Field>
+                  </div>
                 </FieldSet>
 
                 <Field>
