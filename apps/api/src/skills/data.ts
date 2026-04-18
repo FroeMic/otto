@@ -252,6 +252,8 @@ function buildWorkspaceSkillLibraryDetail(input: {
     description: parsedDocument.description,
     displayName: parsedDocument.name,
     files: input.definition.files.map((file) => ({
+      contentText: file.contentText ?? null,
+      contentType: inferSkillFileContentType(file.path),
       fileClass:
         file.path === MANAGED_SKILL_ENTRY_FILE_PATH
           ? ("managed_entry" as const)
@@ -269,6 +271,22 @@ function buildWorkspaceSkillLibraryDetail(input: {
     skillKey: input.definition.skillKey,
     summary: input.definition.summary,
   } as const
+}
+
+function inferSkillFileContentType(path: string) {
+  if (path.endsWith(".json")) {
+    return "application/json"
+  }
+
+  if (path.endsWith(".mjs") || path.endsWith(".js")) {
+    return "text/javascript"
+  }
+
+  if (path.endsWith(".md")) {
+    return "text/markdown"
+  }
+
+  return "text/plain"
 }
 
 export async function listWorkspaceSkills(input: {

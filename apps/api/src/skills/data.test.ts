@@ -30,7 +30,11 @@ vi.mock("../runtime/managed-skills-data", () => ({
   updateTenantManagedSkillTextFileForTenant: vi.fn(),
 }))
 
-const { getWorkspaceSkillDetail, listWorkspaceSkills } = await import("./data")
+const {
+  getWorkspaceSkillDetail,
+  getWorkspaceSkillLibraryDetail,
+  listWorkspaceSkills,
+} = await import("./data")
 
 function mockReadyWorkspace() {
   getOrganizationWorkspaceBySlug.mockResolvedValue({
@@ -147,5 +151,30 @@ describe("workspace skills visibility", () => {
     })
 
     assert.equal(result, null)
+  })
+
+  it("returns preview content for library skill files", async () => {
+    listTenantManagedSkillsForTenant.mockResolvedValue([])
+
+    const result = await getWorkspaceSkillLibraryDetail({
+      orgSlug: "interaction42",
+      skillKey: "name-and-domain-research",
+      userExternalId: "user_123",
+    })
+
+    expect(result?.detail?.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contentText: expect.stringContaining("Brand Name Generator"),
+          path: "SKILL.md",
+          storageEncoding: "utf8_text",
+        }),
+        expect.objectContaining({
+          contentText: expect.stringContaining("expandDomainCandidates"),
+          path: "scripts/generate-domain-variants.mjs",
+          storageEncoding: "utf8_text",
+        }),
+      ]),
+    )
   })
 })

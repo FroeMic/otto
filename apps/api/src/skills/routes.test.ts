@@ -90,12 +90,16 @@ function createDependencies(): SkillsRouteDependencies {
         displayName: "Name Generator",
         files: [
           {
+            contentText: "# Name Generator",
+            contentType: "text/markdown",
             fileClass: "managed_entry",
             path: "SKILL.md",
             resettable: false,
             storageEncoding: "utf8_text",
           },
           {
+            contentText: "# Full Guide",
+            contentType: "text/markdown",
             fileClass: "managed_seeded",
             path: "references/full-guide.md",
             resettable: true,
@@ -302,12 +306,16 @@ describe("skills routes", () => {
         displayName: "Name Generator",
         files: [
           {
+            contentText: "# Name Generator",
+            contentType: "text/markdown",
             fileClass: "managed_entry",
             path: "SKILL.md",
             resettable: false,
             storageEncoding: "utf8_text",
           },
           {
+            contentText: "# Full Guide",
+            contentType: "text/markdown",
             fileClass: "managed_seeded",
             path: "references/full-guide.md",
             resettable: true,
