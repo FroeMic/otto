@@ -16,6 +16,8 @@ COPY --chown=node:node runtime-image/helpers /app/otto-helpers
 RUN install -d -o node -g node -m 700 /home/node/.openclaw \
  && install -d -o node -g node -m 700 /home/node/.openclaw/.cache \
  && install -d -o node -g node -m 700 /home/node/.openclaw/.cache/node-compile \
+ && install -d -o node -g node -m 700 /home/node/.openclaw/cron \
+ && install -d -o node -g node -m 700 /home/node/.openclaw/cron/runs \
  && install -d -o node -g node -m 700 /home/node/.openclaw/workspace \
  && find /app/dist/extensions/otto-managed-config -type d -exec chmod 755 {} + \
  && find /app/dist/extensions/otto-managed-config -type f -exec chmod 644 {} + \

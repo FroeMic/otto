@@ -59,6 +59,69 @@ describe("RuntimeManager.applyTenantConfig", () => {
   });
 });
 
+describe("RuntimeManager runtime home bootstrap", () => {
+  it("creates the cron directories mounted into the OpenClaw container", async () => {
+    const execMock = vi.fn(async () => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    }));
+    const sshClient = {
+      exec: execMock,
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.ensureRuntimeDirectories({
+      host: "tenant.test",
+      port: 22,
+      username: "root",
+    });
+
+    const command =
+      (execMock.mock.calls as unknown as Array<[unknown, string]>)[0]?.[1] ??
+      "";
+
+    expect(command).toContain("/opt/openclaw/home/cron");
+    expect(command).toContain("/opt/openclaw/home/cron/runs");
+  });
+
+  it("normalizes cron directory ownership and permissions for the container user", async () => {
+    const execMock = vi.fn(async () => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    }));
+    const sshClient = {
+      exec: execMock,
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.normalizeTenantRuntimeFilePermissions(
+      {
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      },
+      {
+        managedBootstrapFiles: [],
+        managedSkillFiles: [],
+        metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      },
+    );
+
+    const command =
+      (execMock.mock.calls as unknown as Array<[unknown, string]>)[0]?.[1] ??
+      "";
+
+    expect(command).toContain("/opt/openclaw/home/cron");
+    expect(command).toContain("/opt/openclaw/home/cron/runs");
+    expect(command).toContain(
+      "install -d -o openclaw -g openclaw -m 700",
+    );
+    expect(command).toContain("chmod 700");
+  });
+});
+
 describe("managed skill runtime file projection", () => {
   it("splits managed-entry files from install-only companion files", () => {
     const files = [
