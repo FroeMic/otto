@@ -8,7 +8,12 @@ import {
 
 import { workspaceIntegrationsQueryOptions } from "../api/integrations"
 import { IntegrationCatalogSection } from "../components/IntegrationCatalogSection"
+import { IntegrationsInstallStateSelect } from "../components/IntegrationsInstallStateSelect"
 import { IntegrationsSearchInput } from "../components/IntegrationsSearchInput"
+import {
+  filterIntegrationCatalogEntries,
+  parseIntegrationInstallStateFilter,
+} from "../integrations-filter"
 import { integrationOverviewRegistry } from "../registry"
 
 export interface IntegrationsPageProps {
@@ -40,17 +45,14 @@ function categorize<
 export function IntegrationsPage({ orgSlug }: IntegrationsPageProps) {
   const { data } = useSuspenseQuery(workspaceIntegrationsQueryOptions(orgSlug))
   const location = useLocation()
-  const searchQuery = new URLSearchParams(location.searchStr).get("q") ?? ""
-  const normalizedQuery = searchQuery.trim().toLowerCase()
-  const entries = data.filter((entry) => {
-    if (!normalizedQuery) {
-      return true
-    }
-
-    return (
-      entry.label.toLowerCase().includes(normalizedQuery) ||
-      entry.description.toLowerCase().includes(normalizedQuery)
-    )
+  const searchParams = new URLSearchParams(location.searchStr)
+  const searchQuery = searchParams.get("q") ?? ""
+  const installState = parseIntegrationInstallStateFilter(
+    searchParams.get("installState"),
+  )
+  const entries = filterIntegrationCatalogEntries(data, {
+    installState,
+    searchQuery,
   })
   const sections = categorize(entries)
 
@@ -64,12 +66,15 @@ export function IntegrationsPage({ orgSlug }: IntegrationsPageProps) {
               Connect the tools your team already uses to Otto.
             </p>
           </div>
-          <IntegrationsSearchInput initialValue={searchQuery} />
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+            <IntegrationsSearchInput initialValue={searchQuery} />
+            <IntegrationsInstallStateSelect value={installState} />
+          </div>
         </div>
 
         {sections.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No integrations match your search.
+            No integrations match your filters.
           </p>
         ) : (
           <div className="flex flex-col gap-8">
