@@ -20,9 +20,82 @@ import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skil
 
 export type InitialWorkspaceRuntimeProvisioningStrategy = "legacy_base_image"
 
+type InitialWorkspaceOttoPluginConfig = {
+  config?: Record<string, unknown>
+  id: string
+  timeoutMs?: number
+}
+
+const REQUIRED_INITIAL_WORKSPACE_OTTO_PLUGIN_IDS = [
+  "otto-workspace-chat",
+] as const
+
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
 >[0]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function parseInitialWorkspaceOttoPlugins(
+  value: unknown,
+): InitialWorkspaceOttoPluginConfig[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.id !== "string") {
+      return []
+    }
+
+    return [
+      {
+        ...(isRecord(entry.config) ? { config: entry.config } : {}),
+        id: entry.id,
+        ...(typeof entry.timeoutMs === "number" && Number.isFinite(entry.timeoutMs)
+          ? { timeoutMs: entry.timeoutMs }
+          : {}),
+      },
+    ]
+  })
+}
+
+function hasRequiredInitialWorkspaceOttoPlugins(configJson: unknown) {
+  if (!isRecord(configJson)) {
+    return false
+  }
+
+  const pluginIds = new Set(
+    parseInitialWorkspaceOttoPlugins(configJson.ottoPlugins).map(
+      (plugin) => plugin.id,
+    ),
+  )
+
+  return REQUIRED_INITIAL_WORKSPACE_OTTO_PLUGIN_IDS.every((pluginId) =>
+    pluginIds.has(pluginId),
+  )
+}
+
+export function buildInitialWorkspaceDesiredStateConfig(configJson: unknown) {
+  const currentConfig = isRecord(configJson) ? { ...configJson } : {}
+  const ottoPlugins = parseInitialWorkspaceOttoPlugins(
+    currentConfig.ottoPlugins,
+  )
+  const pluginIds = new Set(ottoPlugins.map((plugin) => plugin.id))
+
+  for (const pluginId of REQUIRED_INITIAL_WORKSPACE_OTTO_PLUGIN_IDS) {
+    if (!pluginIds.has(pluginId)) {
+      ottoPlugins.push({ id: pluginId })
+    }
+  }
+
+  return {
+    ...currentConfig,
+    ottoPlugins,
+  }
+}
 
 export function buildInitialWorkspaceRuntimeProvisioningJobInput(input: {
   provisioningStrategy?: InitialWorkspaceRuntimeProvisioningStrategy
@@ -118,6 +191,7 @@ async function ensureInitialTenantDesiredState(tenantId: string) {
   const db = getDb()
   const [latestDesiredState] = await db
     .select({
+      configJson: tenantDesiredStates.configJson,
       version: tenantDesiredStates.version,
     })
     .from(tenantDesiredStates)
@@ -125,16 +199,22 @@ async function ensureInitialTenantDesiredState(tenantId: string) {
     .orderBy(desc(tenantDesiredStates.version))
     .limit(1)
 
-  if (latestDesiredState) {
+  if (
+    latestDesiredState &&
+    hasRequiredInitialWorkspaceOttoPlugins(latestDesiredState.configJson)
+  ) {
     return latestDesiredState.version
   }
 
+  const configJson = buildInitialWorkspaceDesiredStateConfig(
+    latestDesiredState?.configJson,
+  )
   const [createdDesiredState] = await db
     .insert(tenantDesiredStates)
     .values({
-      configJson: {},
+      configJson,
       tenantId,
-      version: 1,
+      version: (latestDesiredState?.version ?? 0) + 1,
     })
     .returning({
       version: tenantDesiredStates.version,

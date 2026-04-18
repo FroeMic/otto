@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import {
+  buildInitialWorkspaceDesiredStateConfig,
   buildInitialWorkspaceRuntimeProvisioningJobInput,
   buildPlatformWorkspaceOnboardingProvisioningInsert,
   buildWorkspaceOnboardingProvisioningPatch,
@@ -28,6 +29,33 @@ describe("initial workspace runtime provisioning", () => {
         status: "creating",
       },
     })
+  })
+
+  it("includes workspace chat in the initial desired state config", () => {
+    assert.deepEqual(
+      buildInitialWorkspaceDesiredStateConfig({
+        managedConfigVersion: 1,
+        ottoPlugins: [{ id: "otto-managed-config", timeoutMs: 15_000 }],
+      }),
+      {
+        managedConfigVersion: 1,
+        ottoPlugins: [
+          { id: "otto-managed-config", timeoutMs: 15_000 },
+          { id: "otto-workspace-chat" },
+        ],
+      },
+    )
+  })
+
+  it("does not duplicate workspace chat in the initial desired state config", () => {
+    assert.deepEqual(
+      buildInitialWorkspaceDesiredStateConfig({
+        ottoPlugins: [{ id: "otto-workspace-chat" }],
+      }),
+      {
+        ottoPlugins: [{ id: "otto-workspace-chat" }],
+      },
+    )
   })
 
   it("marks an onboarding run as provisioning once runtime provisioning starts", () => {
