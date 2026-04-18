@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   creditLedgerEntries,
@@ -24,6 +26,18 @@ const HOP_BY_HOP_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ])
+
+type OpenAiProxyLogger = {
+  error: (message: string, fields: Record<string, unknown>) => void
+  info: (message: string, fields: Record<string, unknown>) => void
+  warn: (message: string, fields: Record<string, unknown>) => void
+}
+
+const consoleOpenAiProxyLogger: OpenAiProxyLogger = {
+  error: (message, fields) => console.error(message, fields),
+  info: (message, fields) => console.info(message, fields),
+  warn: (message, fields) => console.warn(message, fields),
+}
 
 export class OpenAiProxyError extends Error {
   status: number
@@ -136,11 +150,107 @@ function buildOpenAiResponseHeaders(upstreamHeaders: Headers) {
   return headers
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function getErrorName(error: unknown) {
+  return error instanceof Error ? error.name : typeof error
+}
+
+function formatCancelReason(reason: unknown) {
+  if (reason === undefined) {
+    return null
+  }
+
+  if (typeof reason === "string") {
+    return reason
+  }
+
+  return getErrorMessage(reason)
+}
+
+function getOpenAiRequestId(headers: Headers) {
+  return (
+    headers.get("x-request-id") ??
+    headers.get("request-id") ??
+    headers.get("openai-request-id") ??
+    null
+  )
+}
+
+export function createLoggedOpenAiProxyBody(input: {
+  body: ReadableStream<Uint8Array>
+  logger?: OpenAiProxyLogger
+  requestId: string
+  route: "audio_transcriptions" | "responses"
+  tenantId: string
+  upstreamRequestId: string | null
+  upstreamStatus: number
+}) {
+  const logger = input.logger ?? consoleOpenAiProxyLogger
+  const reader = input.body.getReader()
+  const startedAt = Date.now()
+  let bytes = 0
+  let chunks = 0
+
+  const fields = () => ({
+    bytes,
+    chunks,
+    durationMs: Date.now() - startedAt,
+    requestId: input.requestId,
+    route: input.route,
+    tenantId: input.tenantId,
+    upstreamRequestId: input.upstreamRequestId,
+    upstreamStatus: input.upstreamStatus,
+  })
+
+  return new ReadableStream<Uint8Array>({
+    async cancel(reason) {
+      logger.warn("[runtime-ai] openai proxy downstream stream cancelled", {
+        ...fields(),
+        reason: formatCancelReason(reason),
+      })
+      await reader.cancel(reason)
+    },
+    async pull(controller) {
+      if (chunks === 0 && bytes === 0) {
+        logger.info("[runtime-ai] openai proxy stream opened", fields())
+      }
+
+      try {
+        const result = await reader.read()
+
+        if (result.done) {
+          logger.info("[runtime-ai] openai proxy upstream stream completed", fields())
+          controller.close()
+          return
+        }
+
+        const chunkBytes = result.value.byteLength
+        bytes += chunkBytes
+        chunks += 1
+        controller.enqueue(result.value)
+      } catch (error) {
+        logger.error("[runtime-ai] openai proxy upstream stream failed", {
+          ...fields(),
+          error: getErrorMessage(error),
+          errorName: getErrorName(error),
+        })
+        controller.error(error)
+      }
+    },
+  })
+}
+
 async function proxyOpenAiRequest(input: {
   request: Request
   tenantId: string
   upstreamUrl: string
+  route: "responses"
 }) {
+  const requestId = randomUUID()
+  const startedAt = Date.now()
   const [apiKey, balanceCreditsMilli] = await Promise.all([
     getTenantOpenAiApiKey(input.tenantId),
     getTenantCreditBalanceMilli(input.tenantId),
@@ -161,6 +271,13 @@ async function proxyOpenAiRequest(input: {
   const bodyBuffer = Buffer.from(await input.request.arrayBuffer())
   let upstreamResponse: Response
 
+  console.info("[runtime-ai] openai proxy request starting", {
+    bodyBytes: bodyBuffer.byteLength,
+    requestId,
+    route: input.route,
+    tenantId: input.tenantId,
+  })
+
   try {
     upstreamResponse = await fetch(input.upstreamUrl, {
       body: bodyBuffer,
@@ -171,6 +288,14 @@ async function proxyOpenAiRequest(input: {
       method: "POST",
     })
   } catch (error) {
+    console.error("[runtime-ai] openai proxy upstream request failed", {
+      durationMs: Date.now() - startedAt,
+      error: getErrorMessage(error),
+      errorName: getErrorName(error),
+      requestId,
+      route: input.route,
+      tenantId: input.tenantId,
+    })
     throw new OpenAiProxyError(
       error instanceof Error
         ? `OpenAI upstream request failed: ${error.message}`
@@ -179,7 +304,41 @@ async function proxyOpenAiRequest(input: {
     )
   }
 
-  return new Response(upstreamResponse.body, {
+  const upstreamRequestId = getOpenAiRequestId(upstreamResponse.headers)
+
+  console.info("[runtime-ai] openai proxy upstream response received", {
+    contentType: upstreamResponse.headers.get("content-type"),
+    durationMs: Date.now() - startedAt,
+    requestId,
+    route: input.route,
+    tenantId: input.tenantId,
+    upstreamRequestId,
+    upstreamStatus: upstreamResponse.status,
+  })
+
+  if (!upstreamResponse.body) {
+    console.warn("[runtime-ai] openai proxy upstream response had no body", {
+      durationMs: Date.now() - startedAt,
+      requestId,
+      route: input.route,
+      tenantId: input.tenantId,
+      upstreamRequestId,
+      upstreamStatus: upstreamResponse.status,
+    })
+  }
+
+  const responseBody = upstreamResponse.body
+    ? createLoggedOpenAiProxyBody({
+        body: upstreamResponse.body,
+        requestId,
+        route: input.route,
+        tenantId: input.tenantId,
+        upstreamRequestId,
+        upstreamStatus: upstreamResponse.status,
+      })
+    : null
+
+  return new Response(responseBody, {
     headers: buildOpenAiResponseHeaders(upstreamResponse.headers),
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
@@ -192,6 +351,7 @@ export function proxyOpenAiResponsesRequest(input: {
 }) {
   return proxyOpenAiRequest({
     request: input.request,
+    route: "responses",
     tenantId: input.tenantId,
     upstreamUrl: OPENAI_RESPONSES_URL,
   })
