@@ -27,6 +27,11 @@ import {
   listIntegrationCommands,
 } from "@otto/feature-integrations-runtime/integrations/framework"
 import { normalizePostHogHost } from "@otto/feature-integrations-runtime/integrations/library/posthog/client"
+import {
+  buildPostHogSetupState,
+  discoverPostHogIntegrationSetup,
+  normalizePostHogSetupResources,
+} from "@otto/feature-integrations-runtime/integrations/library/posthog/setup"
 import { and, desc, eq } from "drizzle-orm"
 
 import { enqueueJob } from "../jobs/queue"
@@ -416,6 +421,155 @@ export async function connectWorkspaceApiKeyIntegration(input: {
     },
     tenantIntegrationId: integration.id,
   })
+
+  return {
+    applyQueued: false,
+    status: "connected",
+  }
+}
+
+export async function discoverWorkspaceIntegrationSetup(input: {
+  apiKey: string
+  host?: string
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
+}) {
+  await getAuthorizedTenantContext(input)
+  const providerKey = input.providerKey.trim().toLowerCase()
+
+  if (providerKey !== "posthog") {
+    throw new Error(`Setup discovery is not supported for ${providerKey}.`)
+  }
+
+  return discoverPostHogIntegrationSetup({
+    apiKey: input.apiKey,
+    host: input.host ?? "https://us.posthog.com",
+  })
+}
+
+export async function applyWorkspaceIntegrationSetup(input: {
+  apiKey: string
+  defaultResourceKey?: string
+  enabledCapabilityKeys: string[]
+  host?: string
+  orgSlug: string
+  providerKey: string
+  selectedResourceKeys: string[]
+  userExternalId: string
+}) {
+  const { tenantId } = await getAuthorizedTenantContext(input)
+  const providerKey = input.providerKey.trim().toLowerCase()
+
+  if (providerKey !== "posthog") {
+    throw new Error(`Setup apply is not supported for ${providerKey}.`)
+  }
+
+  const host = normalizePostHogHost(input.host ?? "https://us.posthog.com")
+  const discovery = await discoverPostHogIntegrationSetup({
+    apiKey: input.apiKey,
+    host,
+  })
+  const resources = normalizePostHogSetupResources(discovery.resources)
+  const selectedResourceKeys = [...new Set(input.selectedResourceKeys)]
+  const selectedResources = resources.filter((resource) =>
+    selectedResourceKeys.includes(resource.key),
+  )
+
+  if (selectedResources.length === 0) {
+    throw new Error("Select at least one discovered project before saving PostHog.")
+  }
+
+  const defaultResourceKey =
+    input.defaultResourceKey &&
+    selectedResources.some((resource) => resource.key === input.defaultResourceKey)
+      ? input.defaultResourceKey
+      : selectedResources[0]?.key
+
+  if (!defaultResourceKey) {
+    throw new Error("Select a default PostHog project before saving.")
+  }
+
+  const enabledCapabilityKeys = new Set(input.enabledCapabilityKeys)
+  const availableCapabilityKeys = new Set(
+    discovery.capabilityRecommendations
+      .filter((recommendation) => recommendation.status !== "unavailable")
+      .map((recommendation) => recommendation.capabilityKey),
+  )
+  const now = new Date()
+  const db = getDb()
+  const [integration] = await db
+    .insert(tenantIntegrations)
+    .values({
+      connectedAt: now,
+      disconnectedAt: null,
+      lastError: null,
+      lastErrorAt: null,
+      providerKey,
+      status: "connected",
+      tenantId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      set: {
+        connectedAt: now,
+        disconnectedAt: null,
+        lastError: null,
+        lastErrorAt: null,
+        status: "connected",
+        updatedAt: now,
+      },
+      target: [
+        tenantIntegrations.tenantId,
+        tenantIntegrations.providerKey,
+      ],
+    })
+    .returning({
+      id: tenantIntegrations.id,
+    })
+  const state = buildPostHogSetupState({
+    defaultResourceKey,
+    host,
+    resources,
+    selectedResourceKeys,
+  })
+
+  await upsertApiCredentialForTenantIntegration({
+    apiKey: input.apiKey,
+    credentialType: "personal_api_key",
+    declaredScopes: discovery.credential.detectedScopes,
+    externalAccountLabel: discovery.account?.label ?? "PostHog",
+    lastValidatedAt: now,
+    metadata: {
+      host,
+      setup: {
+        account: discovery.account,
+        appliedAt: now.toISOString(),
+        detectedScopes: discovery.credential.detectedScopes,
+        warnings: discovery.warnings,
+      },
+    },
+    providerKey,
+    tenantIntegrationId: integration.id,
+  })
+
+  await upsertTenantIntegrationState({
+    providerKey,
+    state,
+    tenantIntegrationId: integration.id,
+  })
+
+  for (const recommendation of discovery.capabilityRecommendations) {
+    await upsertTenantIntegrationCapabilityPolicy({
+      capabilityKey: recommendation.capabilityKey,
+      policy:
+        availableCapabilityKeys.has(recommendation.capabilityKey) &&
+        enabledCapabilityKeys.has(recommendation.capabilityKey)
+          ? { policy: "allow" }
+          : { policy: "block" },
+      tenantIntegrationId: integration.id,
+    })
+  }
 
   return {
     applyQueued: false,

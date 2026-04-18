@@ -15,12 +15,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  connectWorkspaceApiKeyIntegration,
-  disconnectWorkspaceIntegration,
-} from "@/features/integrations/api/integrations"
+import { disconnectWorkspaceIntegration } from "@/features/integrations/api/integrations"
+import { IntegrationApiKeySetupFlow } from "@/features/integrations/components/IntegrationApiKeySetupFlow"
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
 import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
 import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
@@ -31,40 +27,6 @@ export interface PostHogIntegrationStatusPageProps {
   onSectionChange: (section: string) => void
   orgSlug: string
 }
-
-const DEFAULT_SCOPES = [
-  "project:read",
-  "query:read",
-  "insight:read",
-  "insight:write",
-  "dashboard:read",
-  "feature_flag:read",
-  "feature_flag:write",
-  "activity_log:read",
-  "experiment:read",
-  "experiment:write",
-  "annotation:read",
-  "annotation:write",
-  "event_definition:read",
-  "property_definition:read",
-  "action:read",
-  "person:read",
-  "session_recording:read",
-]
-
-const DEFAULT_TARGETS = JSON.stringify(
-  [
-    {
-      environmentId: "",
-      key: "production",
-      label: "Production",
-      organizationId: "",
-      projectId: "",
-    },
-  ],
-  null,
-  2,
-)
 
 function getStatusLabel(detail: WorkspaceIntegrationDetail) {
   if (detail.connection.status.needsAttention) {
@@ -90,44 +52,62 @@ function getStatusVariant(detail: WorkspaceIntegrationDetail) {
   return "secondary" as const
 }
 
-function parseScopes(value: string) {
-  return value
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter(Boolean)
+function getStateRecord(detail: WorkspaceIntegrationDetail) {
+  return detail.setupState &&
+    typeof detail.setupState === "object" &&
+    !Array.isArray(detail.setupState)
+    ? detail.setupState
+    : null
 }
 
-function parseTargets(value: string) {
-  const parsed = JSON.parse(value) as unknown
+function getSetupRecord(detail: WorkspaceIntegrationDetail) {
+  const state = getStateRecord(detail)
+  const setup = state?.setup
 
-  if (!Array.isArray(parsed)) {
-    throw new Error("Targets must be a JSON array.")
+  return setup && typeof setup === "object" && !Array.isArray(setup)
+    ? (setup as Record<string, unknown>)
+    : null
+}
+
+function getSelectedResourceLabels(detail: WorkspaceIntegrationDetail) {
+  const setup = getSetupRecord(detail)
+  const selectedKeys = Array.isArray(setup?.selectedResourceKeys)
+    ? setup.selectedResourceKeys.filter((key): key is string => typeof key === "string")
+    : []
+  const resources = Array.isArray(setup?.resources)
+    ? setup.resources.filter(
+        (resource): resource is Record<string, unknown> =>
+          Boolean(resource && typeof resource === "object" && !Array.isArray(resource)),
+      )
+    : []
+
+  return selectedKeys.flatMap((key) => {
+    const resource = resources.find((entry) => entry.key === key)
+    const label = resource?.label
+
+    return typeof label === "string" && label.trim() ? [label] : [key]
+  })
+}
+
+function getDefaultResourceLabel(detail: WorkspaceIntegrationDetail) {
+  const setup = getSetupRecord(detail)
+  const defaultKey =
+    typeof setup?.defaultResourceKey === "string" ? setup.defaultResourceKey : null
+  const resources = Array.isArray(setup?.resources)
+    ? setup.resources.filter(
+        (resource): resource is Record<string, unknown> =>
+          Boolean(resource && typeof resource === "object" && !Array.isArray(resource)),
+      )
+    : []
+
+  if (!defaultKey) {
+    return null
   }
 
-  return parsed.map((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      throw new Error("Every target must be an object.")
-    }
+  const resource = resources.find((entry) => entry.key === defaultKey)
+  const label = resource?.label
 
-    const target = entry as Record<string, unknown>
-
-    return {
-      environmentId:
-        typeof target.environmentId === "string" && target.environmentId.trim()
-          ? target.environmentId.trim()
-          : undefined,
-      key: String(target.key ?? "").trim(),
-      label: String(target.label ?? "").trim(),
-      organizationId:
-        typeof target.organizationId === "string" && target.organizationId.trim()
-          ? target.organizationId.trim()
-          : undefined,
-      projectId:
-        typeof target.projectId === "string" && target.projectId.trim()
-          ? target.projectId.trim()
-          : undefined,
-    }
-  })
+  return typeof label === "string" && label.trim() ? label : defaultKey
 }
 
 export function PostHogIntegrationStatusPage({
@@ -137,14 +117,12 @@ export function PostHogIntegrationStatusPage({
   orgSlug,
 }: PostHogIntegrationStatusPageProps) {
   const queryClient = useQueryClient()
-  const [host, setHost] = useState("https://us.posthog.com")
-  const [apiKey, setApiKey] = useState("")
-  const [declaredScopes, setDeclaredScopes] = useState(DEFAULT_SCOPES.join("\n"))
-  const [defaultTargetKey, setDefaultTargetKey] = useState("production")
-  const [targets, setTargets] = useState(DEFAULT_TARGETS)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const connected = detail.connection.status.connected
+  const selectedResources = getSelectedResourceLabels(detail)
+  const defaultResource = getDefaultResourceLabel(detail)
 
   function invalidate() {
     void queryClient.invalidateQueries({
@@ -152,42 +130,6 @@ export function PostHogIntegrationStatusPage({
     })
     void queryClient.invalidateQueries({
       queryKey: ["workspace-integration-detail", orgSlug, detail.integration.key],
-    })
-  }
-
-  function handleConnect() {
-    let parsedTargets: ReturnType<typeof parseTargets>
-
-    try {
-      parsedTargets = parseTargets(targets)
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "PostHog targets are invalid.",
-      )
-      return
-    }
-
-    startTransition(() => {
-      void connectWorkspaceApiKeyIntegration({
-        apiKey,
-        declaredScopes: parseScopes(declaredScopes),
-        defaultTargetKey,
-        host,
-        integrationKey: detail.integration.key,
-        orgSlug,
-        targets: parsedTargets,
-      })
-        .then(() => {
-          setApiKey("")
-          setErrorMessage(null)
-          setSuccessMessage("PostHog has been connected for this workspace.")
-          invalidate()
-        })
-        .catch((error) => {
-          setErrorMessage(
-            error instanceof Error ? error.message : "PostHog request failed",
-          )
-        })
     })
   }
 
@@ -250,116 +192,85 @@ export function PostHogIntegrationStatusPage({
 
       <IntegrationSettingsShell
         capabilities={
-          <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
-            <IntegrationCapabilitiesTable
-              integrationKey={detail.integration.key}
-              onUpdated={invalidate}
-              orgSlug={orgSlug}
-              rows={detail.capabilities}
-            />
-          </div>
+          connected ? (
+            <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col">
+              <IntegrationCapabilitiesTable
+                integrationKey={detail.integration.key}
+                onUpdated={invalidate}
+                orgSlug={orgSlug}
+                rows={detail.capabilities}
+              />
+            </div>
+          ) : (
+            <SettingsPage className="mx-0 mt-4 max-w-3xl">
+              <SettingsSection>
+                <SettingsSectionTitle>Connect PostHog first</SettingsSectionTitle>
+                <SettingsSectionDescription>
+                  Capabilities are based on access detected from the Personal API
+                  key. Complete setup before configuring them.
+                </SettingsSectionDescription>
+              </SettingsSection>
+            </SettingsPage>
+          )
         }
+        capabilitiesLocked={!connected}
+        capabilitiesLockedReason="Connect PostHog before configuring capabilities."
         currentSection={currentSection}
         onSectionChange={onSectionChange}
         status={
           <SettingsPage className="mx-0 mt-4 max-w-3xl">
-            <div className="flex flex-col gap-8">
-              <SettingsSection>
-                <SettingsSectionTitle>Connection</SettingsSectionTitle>
-                <SettingsSectionDescription>
-                  Connect PostHog with a personal API key and one or more
-                  analytics targets.
-                </SettingsSectionDescription>
-                <SettingsCard>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Status</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Whether Otto can currently use PostHog in this workspace.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Badge variant={getStatusVariant(detail)}>
-                      {getStatusLabel(detail)}
-                    </Badge>
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Host</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Use the PostHog Cloud region or your self-hosted origin.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Input
-                      className="max-w-sm"
-                      onChange={(event) => setHost(event.target.value)}
-                      value={host}
-                    />
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>API key</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Paste a personal API key with the scopes Otto should use.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Input
-                      className="max-w-sm"
-                      onChange={(event) => setApiKey(event.target.value)}
-                      type="password"
-                      value={apiKey}
-                    />
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Default target</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        The target Otto should use when a command does not name one.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Input
-                      className="max-w-sm"
-                      onChange={(event) => setDefaultTargetKey(event.target.value)}
-                      value={defaultTargetKey}
-                    />
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Declared scopes</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        One scope per line or comma-separated.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Textarea
-                      className="min-h-44 max-w-sm font-mono text-xs"
-                      onChange={(event) => setDeclaredScopes(event.target.value)}
-                      value={declaredScopes}
-                    />
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Targets</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        JSON array of PostHog organization, project, and environment ids.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Textarea
-                      className="min-h-52 max-w-sm font-mono text-xs"
-                      onChange={(event) => setTargets(event.target.value)}
-                      value={targets}
-                    />
-                  </SettingsRow>
-                  <SettingsRow>
-                    <SettingsRowLabel>
-                      <SettingsRowTitle>Connect PostHog</SettingsRowTitle>
-                      <SettingsRowDescription>
-                        Save the encrypted API key and target configuration.
-                      </SettingsRowDescription>
-                    </SettingsRowLabel>
-                    <Button disabled={isPending || !apiKey.trim()} onClick={handleConnect}>
-                      {detail.connection.status.connected ? "Reconnect" : "Connect"}
-                    </Button>
-                  </SettingsRow>
-                  {detail.connection.status.connected ? (
+            {connected ? (
+              <div className="flex flex-col gap-8">
+                <SettingsSection>
+                  <SettingsSectionTitle>Connection</SettingsSectionTitle>
+                  <SettingsSectionDescription>
+                    PostHog is connected for this workspace. Otto can use the
+                    selected projects and enabled capabilities.
+                  </SettingsSectionDescription>
+                  <SettingsCard>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Status</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Whether Otto can currently use PostHog in this workspace.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <Badge variant={getStatusVariant(detail)}>
+                        {getStatusLabel(detail)}
+                      </Badge>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Projects Otto can use</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Selected during setup and stored as integration state.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <div className="flex max-w-sm flex-wrap gap-2">
+                        {selectedResources.length > 0 ? (
+                          selectedResources.map((resource) => (
+                            <Badge key={resource} variant="secondary">
+                              {resource}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No projects recorded.
+                          </span>
+                        )}
+                      </div>
+                    </SettingsRow>
+                    <SettingsRow>
+                      <SettingsRowLabel>
+                        <SettingsRowTitle>Default project</SettingsRowTitle>
+                        <SettingsRowDescription>
+                          Used when a request does not name a specific project.
+                        </SettingsRowDescription>
+                      </SettingsRowLabel>
+                      <span className="text-sm text-muted-foreground">
+                        {defaultResource ?? "Not recorded"}
+                      </span>
+                    </SettingsRow>
                     <SettingsRow>
                       <SettingsRowLabel>
                         <SettingsRowTitle>Disconnect PostHog</SettingsRowTitle>
@@ -376,10 +287,19 @@ export function PostHogIntegrationStatusPage({
                         Disconnect
                       </Button>
                     </SettingsRow>
-                  ) : null}
-                </SettingsCard>
-              </SettingsSection>
-            </div>
+                  </SettingsCard>
+                </SettingsSection>
+              </div>
+            ) : (
+              <IntegrationApiKeySetupFlow
+                detail={detail}
+                onConnected={() => {
+                  setSuccessMessage("PostHog has been connected.")
+                  invalidate()
+                }}
+                orgSlug={orgSlug}
+              />
+            )}
           </SettingsPage>
         }
       />

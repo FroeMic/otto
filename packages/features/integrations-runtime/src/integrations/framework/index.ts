@@ -59,6 +59,7 @@ export type {
   IntegrationRuntimeCommandGroupDefinition,
   IntegrationRuntimeSurfaceDefinition,
   IntegrationSettingsDefinition,
+  IntegrationSetupDefinition,
   RuntimeCapabilityState,
   RuntimeIntegrationCommandDetails,
   RuntimeIntegrationCommandGroupDetails,

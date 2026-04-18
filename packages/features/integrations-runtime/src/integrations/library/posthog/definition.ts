@@ -862,6 +862,27 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
       "PostHog product analytics commands for projects, taxonomy, HogQL, insights, dashboards, feature flags, experiments, annotations, persons, and session recordings.",
     toolName: "posthog",
   },
+  setup: {
+    credential: {
+      helpUrlTemplate: "{host}/settings/user-api-keys",
+      label: "Personal API key",
+      placeholder: "phx_...",
+    },
+    discovery: {
+      actionLabel: "Test and discover workspace",
+      defaultResourceSelectionMode: "first",
+      resourceSelectionLabel: "PostHog projects Otto can use",
+      supportsMultipleResources: true,
+    },
+    host: {
+      defaultValue: "https://us.posthog.com",
+      helpText:
+        "Use https://us.posthog.com for US Cloud, https://eu.posthog.com for EU Cloud, or your self-hosted PostHog origin.",
+      label: "PostHog host",
+      placeholder: "https://us.posthog.com",
+    },
+    mode: "api_key",
+  },
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/posthog/status`,
   showInWorkspaceCatalog: true,

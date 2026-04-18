@@ -3,6 +3,10 @@ import {
   workspaceIntegrationCapabilityPolicyUpdateSchema,
   workspaceIntegrationDetailSchema,
   workspaceIntegrationDisconnectResponseSchema,
+  workspaceIntegrationSetupApplyResponseSchema,
+  workspaceIntegrationSetupApplySchema,
+  workspaceIntegrationSetupDiscoverResponseSchema,
+  workspaceIntegrationSetupDiscoverSchema,
   workspaceApiKeyIntegrationSetupResponseSchema,
   workspaceApiKeyIntegrationSetupSchema,
   workspaceIntegrationsResponseSchema,
@@ -129,6 +133,58 @@ export async function connectWorkspaceApiKeyIntegration(input: {
 
   return fetchApiResponse(response, (data) =>
     workspaceApiKeyIntegrationSetupResponseSchema.parse(data),
+  )
+}
+
+export async function discoverWorkspaceIntegrationSetup(input: {
+  apiKey: string
+  host?: string
+  integrationKey: string
+  orgSlug: string
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].integrations[":integrationKey"].setup.discover.$post({
+      json: workspaceIntegrationSetupDiscoverSchema.parse({
+        apiKey: input.apiKey,
+        host: input.host,
+      }),
+      param: {
+        integrationKey: input.integrationKey,
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceIntegrationSetupDiscoverResponseSchema.parse(data),
+  )
+}
+
+export async function applyWorkspaceIntegrationSetup(input: {
+  apiKey: string
+  defaultResourceKey?: string
+  enabledCapabilityKeys: string[]
+  host?: string
+  integrationKey: string
+  orgSlug: string
+  selectedResourceKeys: string[]
+}) {
+  const response =
+    await apiClient.api.workspace[":orgSlug"].integrations[":integrationKey"].setup.apply.$post({
+      json: workspaceIntegrationSetupApplySchema.parse({
+        apiKey: input.apiKey,
+        defaultResourceKey: input.defaultResourceKey,
+        enabledCapabilityKeys: input.enabledCapabilityKeys,
+        host: input.host,
+        selectedResourceKeys: input.selectedResourceKeys,
+      }),
+      param: {
+        integrationKey: input.integrationKey,
+        orgSlug: input.orgSlug,
+      },
+    })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceIntegrationSetupApplyResponseSchema.parse(data),
   )
 }
 
