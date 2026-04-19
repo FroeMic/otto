@@ -34,6 +34,7 @@ import {
   resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillTextFileForTenant,
 } from "../runtime/managed-skills-data"
+import { getRuntimeIntegrationForTenant } from "../runtime/integrations"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
 const MANAGED_SKILLS_ROOT = "/opt/openclaw/home/workspace/skills"
 
@@ -41,6 +42,36 @@ type RuntimeWorkspaceRecord = {
   serverStatus: string | null
   tenantId: string
   tenantStatus: string
+}
+
+export class WorkspaceSkillInstallPrerequisiteError extends Error {
+  readonly missingIntegrations: string[]
+  readonly missingSkills: string[]
+
+  constructor(input: { missingIntegrations: string[]; missingSkills: string[] }) {
+    const parts = []
+
+    if (input.missingIntegrations.length > 0) {
+      parts.push(
+        `Missing required integrations: ${input.missingIntegrations.join(", ")}.`,
+      )
+    }
+
+    if (input.missingSkills.length > 0) {
+      parts.push(`Missing required skills: ${input.missingSkills.join(", ")}.`)
+    }
+
+    super(`Install blocked. ${parts.join(" ")}`)
+    this.name = "WorkspaceSkillInstallPrerequisiteError"
+    this.missingIntegrations = input.missingIntegrations
+    this.missingSkills = input.missingSkills
+  }
+}
+
+export function isWorkspaceSkillInstallPrerequisiteError(
+  error: unknown,
+): error is WorkspaceSkillInstallPrerequisiteError {
+  return error instanceof WorkspaceSkillInstallPrerequisiteError
 }
 
 async function getLatestWorkspaceRuntime(input: {
@@ -289,6 +320,56 @@ function inferSkillFileContentType(path: string) {
   return "text/plain"
 }
 
+async function assertWorkspaceLibrarySkillInstallPrerequisites(input: {
+  definition: NonNullable<ReturnType<typeof getSystemSkillDefinition>>
+  tenantId: string
+}) {
+  const entryFile =
+    input.definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
+
+  if (!entryFile?.contentText) {
+    return
+  }
+
+  const parsedDocument = parseManagedSkillMarkdown(entryFile.contentText)
+  const installedSkills = new Set(
+    (
+      await listTenantManagedSkillsForTenant({
+        tenantId: input.tenantId,
+      })
+    ).map((skill) => skill.skillKey),
+  )
+  const missingSkills = parsedDocument.skillKeys.filter(
+    (skillKey) => !installedSkills.has(skillKey),
+  )
+  const integrationStatuses = await Promise.all(
+    parsedDocument.integrationKeys.map(async (integrationKey) => {
+      const integration = await getRuntimeIntegrationForTenant({
+        integrationKey,
+        tenantId: input.tenantId,
+      })
+
+      return {
+        connected:
+          integration?.status.connected === true &&
+          integration.status.needsAttention !== true,
+        integrationKey,
+      }
+    }),
+  )
+  const missingIntegrations = integrationStatuses
+    .filter((status) => !status.connected)
+    .map((status) => status.integrationKey)
+
+  if (missingIntegrations.length > 0 || missingSkills.length > 0) {
+    throw new WorkspaceSkillInstallPrerequisiteError({
+      missingIntegrations,
+      missingSkills,
+    })
+  }
+}
+
 export async function listWorkspaceSkills(input: {
   orgSlug: string
   userExternalId: string
@@ -525,6 +606,11 @@ export async function installWorkspaceLibrarySkill(input: {
       version: existingDetail.version,
     }
   }
+
+  await assertWorkspaceLibrarySkillInstallPrerequisites({
+    definition,
+    tenantId: runtime.tenantId,
+  })
 
   return createTenantSystemManagedSkillForTenant({
     files: definition.files,

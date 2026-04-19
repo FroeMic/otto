@@ -40,6 +40,7 @@ import {
   getWorkspaceSkillLibraryDetail,
   getWorkspaceSkillFilesDirectoryListing,
   installWorkspaceLibrarySkill,
+  isWorkspaceSkillInstallPrerequisiteError,
   listWorkspaceSkills,
   removeWorkspaceSkill,
   resetWorkspaceSkillPackage,
@@ -332,11 +333,29 @@ export function createSkillsRouter(
           return authResult.response
         }
 
-        const response = await dependencies.installWorkspaceLibrarySkill({
-          orgSlug: context.req.valid("param").orgSlug,
-          skillKey: context.req.valid("param").skillKey,
-          userExternalId: authResult.user.id,
-        })
+        let response: WorkspaceSkillMutationResponse | null
+
+        try {
+          response = await dependencies.installWorkspaceLibrarySkill({
+            orgSlug: context.req.valid("param").orgSlug,
+            skillKey: context.req.valid("param").skillKey,
+            userExternalId: authResult.user.id,
+          })
+        } catch (error) {
+          if (isWorkspaceSkillInstallPrerequisiteError(error)) {
+            return jsonNoStore(
+              {
+                code: "skill_install_prerequisites_missing",
+                message: error.message,
+                missingIntegrations: error.missingIntegrations,
+                missingSkills: error.missingSkills,
+              },
+              409,
+            )
+          }
+
+          throw error
+        }
 
         if (!response) {
           return jsonNoStore(

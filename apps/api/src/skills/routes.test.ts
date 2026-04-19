@@ -8,6 +8,7 @@ import {
   createSkillsRouter,
   type SkillsRouteDependencies,
 } from "./routes"
+import { WorkspaceSkillInstallPrerequisiteError } from "./data"
 
 const user = {
   email: "test@getyourotto.com",
@@ -376,6 +377,33 @@ describe("skills routes", () => {
       desiredStateVersion: 7,
       skillKey: "name-and-domain-research",
       version: 1,
+    })
+  })
+
+  it("returns missing prerequisites when a library skill cannot be installed", async () => {
+    const app = createSkillsTestApp({
+      ...createDependencies(),
+      installWorkspaceLibrarySkill: async () => {
+        throw new WorkspaceSkillInstallPrerequisiteError({
+          missingIntegrations: ["gandi"],
+          missingSkills: ["business-review"],
+        })
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/skills/library/name-and-domain-research/install",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 409)
+    assert.deepEqual(await response.json(), {
+      code: "skill_install_prerequisites_missing",
+      message:
+        "Install blocked. Missing required integrations: gandi. Missing required skills: business-review.",
+      missingIntegrations: ["gandi"],
+      missingSkills: ["business-review"],
     })
   })
 

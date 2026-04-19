@@ -7,6 +7,8 @@ const listIntegrationDefinitions = vi.fn()
 const getOrganizationWorkspaceBySlug = vi.fn()
 const listTenantManagedSkillsForTenant = vi.fn()
 const getLatestTenantManagedSkillDetailForTenant = vi.fn()
+const createTenantSystemManagedSkillForTenant = vi.fn()
+const getRuntimeIntegrationForTenant = vi.fn()
 
 vi.mock("@otto/feature-integrations-runtime/db/client", () => ({
   getDb,
@@ -22,7 +24,7 @@ vi.mock("../workspace/data", () => ({
 
 vi.mock("../runtime/managed-skills-data", () => ({
   createTenantManagedSkillForTenant: vi.fn(),
-  createTenantSystemManagedSkillForTenant: vi.fn(),
+  createTenantSystemManagedSkillForTenant,
   deleteTenantManagedSkillForTenant: vi.fn(),
   getLatestTenantManagedSkillDetailForTenant,
   listTenantManagedSkillsForTenant,
@@ -30,9 +32,14 @@ vi.mock("../runtime/managed-skills-data", () => ({
   updateTenantManagedSkillTextFileForTenant: vi.fn(),
 }))
 
+vi.mock("../runtime/integrations", () => ({
+  getRuntimeIntegrationForTenant,
+}))
+
 const {
   getWorkspaceSkillDetail,
   getWorkspaceSkillLibraryDetail,
+  installWorkspaceLibrarySkill,
   listWorkspaceSkills,
 } = await import("./data")
 
@@ -177,5 +184,31 @@ describe("workspace skills visibility", () => {
         }),
       ]),
     )
+  })
+
+  it("rejects library skill installs when required integrations are missing", async () => {
+    listTenantManagedSkillsForTenant.mockResolvedValue([])
+    getLatestTenantManagedSkillDetailForTenant.mockResolvedValue(null)
+    getRuntimeIntegrationForTenant.mockImplementation(async ({ integrationKey }) =>
+      integrationKey === "brave"
+        ? {
+            status: {
+              connected: true,
+              needsAttention: false,
+            },
+          }
+        : null,
+    )
+
+    await expect(
+      installWorkspaceLibrarySkill({
+        orgSlug: "interaction42",
+        skillKey: "name-and-domain-research",
+        userExternalId: "user_123",
+      }),
+    ).rejects.toThrow(
+      "Install blocked. Missing required integrations: gandi.",
+    )
+    expect(createTenantSystemManagedSkillForTenant).not.toHaveBeenCalled()
   })
 })
