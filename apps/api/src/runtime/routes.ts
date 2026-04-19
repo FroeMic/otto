@@ -64,6 +64,8 @@ import {
 } from "./managed-skills-data"
 import {
   OpenAiProxyError,
+  createOpenAiResponsesWebSocketBridge,
+  prepareOpenAiResponsesWebSocketProxy,
   proxyOpenAiAudioTranscriptionsRequest,
   proxyOpenAiResponsesRequest,
 } from "./openai-proxy"
@@ -477,6 +479,55 @@ export function registerRuntimeRoutes(app: Hono) {
       return await proxyOpenAiResponsesRequest({
         request: context.req.raw,
         tenantId,
+      })
+    } catch (error) {
+      return handleOpenAiProxyError(error)
+    }
+  })
+
+  app.get("/api/internal/runtime/ai/openai/v1/responses", async (context) => {
+    let bridge:
+      | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
+      | undefined
+
+    try {
+      const { tenantId } = await authenticateTenantRuntimeRequest(
+        context.req.raw,
+      )
+      const proxy = await prepareOpenAiResponsesWebSocketProxy({
+        request: context.req.raw,
+        tenantId,
+      })
+      const { upgradeWebSocket } = await import("hono/bun")
+
+      return upgradeWebSocket(context, {
+        onClose(event) {
+          bridge?.handleDownstreamClose({
+            code: event.code,
+            reason: event.reason,
+          })
+        },
+        onMessage(event) {
+          bridge?.handleDownstreamMessage(event.data)
+        },
+        onOpen(_, ws) {
+          bridge = createOpenAiResponsesWebSocketBridge({
+            apiKey: proxy.apiKey,
+            downstream: {
+              close(code, reason) {
+                ws.close(code, reason)
+              },
+              send(data) {
+                ws.send(data as string)
+              },
+            },
+            openclawSessionId: proxy.openclawSessionId,
+            openclawTurnAttempt: proxy.openclawTurnAttempt,
+            openclawTurnId: proxy.openclawTurnId,
+            requestId: proxy.requestId,
+            tenantId,
+          })
+        },
       })
     } catch (error) {
       return handleOpenAiProxyError(error)

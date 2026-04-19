@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 
 import { describe, it } from "vitest"
 
-import { createLoggedOpenAiProxyBody } from "./openai-proxy"
+import {
+  createLoggedOpenAiProxyBody,
+  createOpenAiResponsesWebSocketBridge,
+} from "./openai-proxy"
 
 function createLogger() {
   const entries: Array<{
@@ -27,13 +30,48 @@ function createLogger() {
   }
 }
 
+class FakeWebSocket {
+  closed: Array<{ code?: number; reason?: string }> = []
+  listeners = new Map<string, Array<(event: Record<string, unknown>) => void>>()
+  sent: unknown[] = []
+
+  addEventListener(type: string, listener: (event: Record<string, unknown>) => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener])
+  }
+
+  close(code?: number, reason?: string) {
+    this.closed.push({ code, reason })
+  }
+
+  emit(type: string, event: Record<string, unknown> = {}) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event)
+    }
+  }
+
+  send(data: unknown) {
+    this.sent.push(data)
+  }
+}
+
 describe("OpenAI runtime proxy stream logging", () => {
-  it("logs successful upstream stream completion with byte counts", async () => {
+  it("logs successful upstream responses stream completion after response.completed", async () => {
     const { entries, logger } = createLogger()
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode("hello "))
-        controller.enqueue(new TextEncoder().encode("world"))
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_1"}}',
+              "",
+              "event: response.completed",
+              'data: {"response":{"id":"resp_1"}}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
         controller.close()
       },
     })
@@ -48,17 +86,103 @@ describe("OpenAI runtime proxy stream logging", () => {
       upstreamStatus: 200,
     })
 
-    assert.equal(await new Response(wrapped).text(), "hello world")
+    assert.match(await new Response(wrapped).text(), /response.completed/)
     assert.deepEqual(
       entries.map((entry) => entry.message),
       [
         "[runtime-ai] openai proxy stream opened",
-        "[runtime-ai] openai proxy upstream stream completed",
+        "[runtime-ai] openai proxy responses stream completed",
       ],
     )
-    assert.equal(entries[1]?.fields.bytes, 11)
-    assert.equal(entries[1]?.fields.chunks, 2)
+    assert.equal(entries[1]?.fields.terminalEventType, "response.completed")
+    assert.equal(entries[1]?.fields.responseId, "resp_1")
     assert.equal(entries[1]?.fields.tenantId, "tenant_1")
+  })
+
+  it("fails a responses stream that reaches EOF before a terminal event", async () => {
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_incomplete"}}',
+              "",
+              "event: response.output_text.delta",
+              'data: {"delta":"partial"}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_incomplete",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_incomplete",
+      upstreamStatus: 200,
+    })
+
+    await assert.rejects(
+      () => new Response(wrapped).text(),
+      /OpenAI Responses stream ended before a terminal event/,
+    )
+
+    const incompleteLog = entries.find(
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy responses stream incomplete",
+    )
+    assert.equal(incompleteLog?.level, "error")
+    assert.equal(incompleteLog?.fields.responseId, "resp_incomplete")
+    assert.equal(incompleteLog?.fields.streamOutcome, "incomplete")
+  })
+
+  it("fails a responses stream that receives a response.failed terminal event", async () => {
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.failed",
+              'data: {"response":{"id":"resp_failed"}}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_failed",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_failed",
+      upstreamStatus: 200,
+    })
+
+    await assert.rejects(
+      () => new Response(wrapped).text(),
+      /OpenAI Responses stream failed with terminal event response.failed/,
+    )
+
+    const failedLog = entries.find(
+      (entry) => entry.message === "[runtime-ai] openai proxy responses stream failed",
+    )
+    assert.equal(failedLog?.level, "error")
+    assert.equal(failedLog?.fields.terminalEventType, "response.failed")
+    assert.equal(failedLog?.fields.streamOutcome, "failed")
   })
 
   it("logs downstream cancellation while cancelling the upstream reader", async () => {
@@ -77,7 +201,7 @@ describe("OpenAI runtime proxy stream logging", () => {
       body,
       logger,
       requestId: "req_2",
-      route: "responses",
+      route: "audio_transcriptions",
       tenantId: "tenant_1",
       upstreamRequestId: null,
       upstreamStatus: 200,
@@ -122,5 +246,111 @@ describe("OpenAI runtime proxy stream logging", () => {
     assert.equal(errorLog?.level, "error")
     assert.equal(errorLog?.fields.error, "terminated")
     assert.equal(errorLog?.fields.upstreamRequestId, "upstream_3")
+  })
+})
+
+describe("OpenAI runtime proxy websocket bridge", () => {
+  it("forwards websocket messages and logs response.completed terminal close", () => {
+    const { entries, logger } = createLogger()
+    const downstream = new FakeWebSocket()
+    const upstream = new FakeWebSocket()
+
+    const bridge = createOpenAiResponsesWebSocketBridge({
+      apiKey: "sk-test",
+      downstream,
+      logger,
+      openAiWebSocketFactory: (url, options) => {
+        assert.equal(url, "wss://api.openai.com/v1/responses")
+        assert.equal(options.headers.Authorization, "Bearer sk-test")
+        assert.equal(options.headers["OpenAI-Beta"], "responses-websocket=v1")
+        return upstream
+      },
+      openclawSessionId: "session_1",
+      openclawTurnAttempt: "2",
+      openclawTurnId: "turn_1",
+      requestId: "ws_req_1",
+      tenantId: "tenant_1",
+    })
+
+    upstream.emit("open")
+    bridge.handleDownstreamMessage('{"type":"response.create"}')
+    upstream.emit("message", {
+      data: '{"type":"response.completed","response":{"id":"resp_ws_1"}}',
+    })
+    upstream.emit("close", { code: 1000, reason: "done" })
+
+    assert.deepEqual(upstream.sent, ['{"type":"response.create"}'])
+    assert.deepEqual(downstream.sent, [
+      '{"type":"response.completed","response":{"id":"resp_ws_1"}}',
+    ])
+    assert.equal(
+      entries.find(
+        (entry) =>
+          entry.message ===
+          "[runtime-ai] openai proxy websocket stream completed",
+      )?.fields.responseId,
+      "resp_ws_1",
+    )
+  })
+
+  it("logs upstream websocket close before terminal as incomplete", () => {
+    const { entries, logger } = createLogger()
+    const downstream = new FakeWebSocket()
+    const upstream = new FakeWebSocket()
+    createOpenAiResponsesWebSocketBridge({
+      apiKey: "sk-test",
+      downstream,
+      logger,
+      openAiWebSocketFactory: () => upstream,
+      requestId: "ws_req_2",
+      tenantId: "tenant_1",
+    })
+
+    upstream.emit("open")
+    upstream.emit("message", {
+      data: '{"type":"response.output_text.delta","delta":"partial"}',
+    })
+    upstream.emit("close", { code: 1006, reason: "abnormal" })
+
+    assert.deepEqual(downstream.closed, [
+      {
+        code: 1011,
+        reason: "OpenAI Responses websocket closed before terminal event.",
+      },
+    ])
+    const incompleteLog = entries.find(
+      (entry) =>
+        entry.message ===
+        "[runtime-ai] openai proxy websocket stream incomplete",
+    )
+    assert.equal(incompleteLog?.level, "error")
+    assert.equal(incompleteLog?.fields.streamOutcome, "incomplete")
+    assert.equal(incompleteLog?.fields.closeCode, 1006)
+  })
+
+  it("logs downstream websocket close before terminal and closes upstream", () => {
+    const { entries, logger } = createLogger()
+    const downstream = new FakeWebSocket()
+    const upstream = new FakeWebSocket()
+    const bridge = createOpenAiResponsesWebSocketBridge({
+      apiKey: "sk-test",
+      downstream,
+      logger,
+      openAiWebSocketFactory: () => upstream,
+      requestId: "ws_req_3",
+      tenantId: "tenant_1",
+    })
+
+    upstream.emit("open")
+    bridge.handleDownstreamClose({ code: 1001, reason: "client closed" })
+
+    assert.deepEqual(upstream.closed, [{ code: 1001, reason: "client closed" }])
+    const cancelLog = entries.find(
+      (entry) =>
+        entry.message ===
+        "[runtime-ai] openai proxy websocket downstream closed before terminal",
+    )
+    assert.equal(cancelLog?.level, "warn")
+    assert.equal(cancelLog?.fields.streamOutcome, "downstream_cancelled_before_terminal")
   })
 })

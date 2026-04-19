@@ -212,6 +212,14 @@
   - Otto does not yet proxy OpenAI-compatible embeddings, so managed memory still needs a dedicated `/api/internal/runtime/ai/openai/v1/embeddings` follow-on before tenant runtimes can use proxy-owned embedding credentials
   - tenant runtime `.env` no longer receives `OPENAI_API_KEY`
   - OpenAI key rotation now updates Otto DB state only and no longer reapplies or verifies tenant runtime env
+- Native-quality `openai-proxy` hardening is now tracked in `_specs/TODO_36_openai_proxy_native_quality_rewrite.md`:
+  - keep provider id `openai-proxy` instead of spoofing OpenClaw's bundled `openai`
+  - `runtime-plugins/otto-ai-provider` now mirrors the native OpenAI provider shape through explicit provider hooks, GPT-5.4-family model metadata, native replay policy, native reasoning mode, transport turn state, and WebSocket session policy
+  - the control-plane OpenAI Responses HTTP proxy now validates terminal SSE events and fails incomplete streams instead of letting partial output become successful assistant output
+  - the control-plane OpenAI Responses proxy now also exposes a runtime-authenticated WebSocket path that connects upstream to `wss://api.openai.com/v1/responses` with the native `OpenAI-Beta: responses-websocket=v1` handshake
+  - local focused verification passes for provider contract tests, OpenAI proxy tests, and `apps/api` build
+  - live tenant runtime verification remains the next deploy-side step for `transport: "auto"` and `transport: "sse"` against real OpenAI credentials
+  - the active implementation branch is `openai-proxy-native-rewrite`
 - Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
   - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes

@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { upgradeWebSocket } from "hono/bun"
+import type { Context } from "hono"
 import {
   authenticateWorkspaceSessionRequest,
   isWorkspaceSessionAuthError,
@@ -88,7 +88,7 @@ export function createWorkspaceChatRealtimeRouter(
       const { orgSlug } = context.req.valid("param")
       const connectionId = crypto.randomUUID()
 
-      return upgradeWebSocket(context, {
+      return upgradeWorkspaceChatWebSocket(context, {
         onClose() {
           realtimeHub.unregisterConnection(connectionId)
         },
@@ -119,6 +119,54 @@ export function createWorkspaceChatRealtimeRouter(
       })
     },
   )
+}
+
+type WorkspaceChatWebSocketEvents = {
+  onClose?: (event: CloseEvent, ws: WorkspaceChatWebSocketContext) => void
+  onMessage?: (event: MessageEvent, ws: WorkspaceChatWebSocketContext) => void
+  onOpen?: (event: Event, ws: WorkspaceChatWebSocketContext) => void
+}
+
+type WorkspaceChatWebSocketContext = {
+  close: (code?: number, reason?: string) => void
+  send: (data: string) => void
+}
+
+async function upgradeWorkspaceChatWebSocket(
+  context: Context,
+  events: WorkspaceChatWebSocketEvents,
+) {
+  const envUpgrade = (
+    context.env as
+      | {
+          upgrade?: (
+            request: Request,
+            options: {
+              data: {
+                events: WorkspaceChatWebSocketEvents
+                protocol: string
+                url: URL
+              }
+            },
+          ) => boolean
+        }
+      | undefined
+  )?.upgrade
+
+  if (envUpgrade) {
+    return envUpgrade(context.req.raw, {
+      data: {
+        events,
+        protocol: context.req.url,
+        url: new URL(context.req.url),
+      },
+    })
+      ? new Response(null)
+      : new Response(null, { status: 426 })
+  }
+
+  const { upgradeWebSocket } = await import("hono/bun")
+  return upgradeWebSocket(context, events)
 }
 
 async function handleWorkspaceChatRealtimeClientMessage(input: {
