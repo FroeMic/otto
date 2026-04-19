@@ -1,7 +1,7 @@
 ---
 user-invocable: false
 name: skill-creator
-description: Create, refine, split, or audit Otto workspace skills using Otto's managed skill primitives.
+description: Create, refine, split, or audit workspace skills using managed skill primitives.
 metadata:
   dependsOn:
     integrations: []
@@ -10,19 +10,19 @@ metadata:
 
 # Skill Creator
 
-This skill provides guidance for creating effective Otto workspace skills.
+This skill provides guidance for creating effective workspace skills.
 
-## About Otto skills
+## About workspace skills
 
-Otto skills are reusable packages that teach Otto how to handle recurring workspace-specific workflows. Keep the main operational guidance in `SKILL.md`, and use the local skill folders only when extra material is genuinely needed.
+Workspace skills are reusable packages that teach you how to handle recurring workspace-specific workflows. Keep the main operational guidance in `SKILL.md`, and use the local skill folders only when extra material is genuinely needed.
 
-### Anatomy of an Otto skill
+### Anatomy of a workspace skill
 
-Every Otto skill consists of:
+Every workspace skill consists of:
 
 ```
 skill-name/
-├── SKILL.md (required, Otto-managed)
+├── SKILL.md (required, managed)
 ├── references/         (seeded or runtime-local supporting docs)
 ├── scripts/            (seeded or runtime-local helper scripts)
 └── state/              (runtime-local generated data and caches)
@@ -34,7 +34,7 @@ skill-name/
 - Put detailed supporting markdown into `references/` and point to it from `SKILL.md`.
 - Put helper code in `scripts/`.
 - Put generated snapshots, caches, and other runtime-local data in `state/`.
-- Use reset only when the user explicitly wants to restore Otto's seeded defaults for a skill package.
+- Use reset only when the user explicitly wants to restore seeded defaults for a skill package.
 
 ## Skill creation process
 
@@ -58,8 +58,8 @@ When writing or updating `SKILL.md`:
 - Keep the frontmatter and instructions concise.
 - Use `metadata.dependsOn.integrations` for required workspace integrations.
 - Use `metadata.dependsOn.skills` for required managed skills.
-- Keep dependency lists tight and accurate so Otto can reason about prerequisites.
-- When splitting a skill, update `SKILL.md` so it explicitly tells Otto when to open the reference files.
+- Keep dependency lists tight and accurate so you can reason about prerequisites.
+- When splitting a skill, update `SKILL.md` so it explicitly tells you when to open the reference files.
 
 ### Step 4: Iterate
 
@@ -70,4 +70,4 @@ After using the skill on real tasks, refine the wording, dependency metadata, an
 - Prefer concise operational instructions over long explanations.
 - Move bulky procedures, examples, and notes into `references/*.md`.
 - Never put generated data or caches into `SKILL.md`.
-- Summarize the resulting structure so the user knows where Otto will read and write.
+- Summarize the resulting structure so the user knows where you will read and write.

@@ -16,6 +16,7 @@ Keep implementation aligned with the repo plan, preserve state across sessions, 
 - Prefer `Otto`, `Otto instructions`, and `Otto settings` when referring to the assistant itself.
 - If copy mentions both the web UI and the assistant, split the nouns explicitly, for example: "manage this in your workspace" and "Otto will use it".
 - Do not rename stable internal identifiers such as `db/control-plane.ts`, `CONTROL_PLANE_*`, or `OTTO_CONTROL_PLANE_BASE_URL` just to hide the technical term from users.
+- NEVER introduce explicit `otto` or `Otto` naming in new source code, skill files, reference files, generated skill content, or new identifiers. Use neutral names such as `assistant`, `workspace`, `managed`, or domain-specific names instead.
 
 ## Start here every session
 

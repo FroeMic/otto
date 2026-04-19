@@ -51,7 +51,7 @@ For a strong candidate like `ramp`, check:
 Return the full Gandi result, not just a flattened label.
 
 - `availability`
-  - coarse Otto bucket such as `available`, `unavailable`, `pending`, or `unknown`
+  - coarse availability bucket such as `available`, `unavailable`, `pending`, or `unknown`
 - `status`
   - raw Gandi status such as `available_reserved`, `unavailable_premium`, or `unavailable_restricted`
 - `currentPhase`

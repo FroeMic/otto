@@ -5,7 +5,7 @@ import { validateManagedSkillPackage } from "./package"
 import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "./system-skills"
 
 describe("system managed skill definitions", () => {
-  it("registers the expected seeded Otto skills", () => {
+  it("registers the expected seeded system skills", () => {
     assert.deepEqual(
       SYSTEM_MANAGED_SKILL_DEFINITIONS.map((definition) => definition.skillKey),
       [
@@ -166,7 +166,7 @@ describe("system managed skill definitions", () => {
     assert.doesNotMatch(allContent, /office hours/i)
   })
 
-  it("keeps Otto system skill packages valid against the managed skill contract", () => {
+  it("keeps system skill packages valid against the managed skill contract", () => {
     const knownSkillKeys = SYSTEM_MANAGED_SKILL_DEFINITIONS.map(
       (definition) => definition.skillKey,
     )
