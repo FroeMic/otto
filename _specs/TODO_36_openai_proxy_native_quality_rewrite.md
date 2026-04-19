@@ -383,7 +383,7 @@ responses, do not forward stale content-encoding headers.
 - [x] Update `_specs/README.md`.
 - [x] Update `_specs/STATUS.md`.
 - [x] Build/test docs-only baseline.
-- [ ] Commit.
+- [x] Commit.
 
 ### Step 2: Provider Contract Tests
 
@@ -403,7 +403,7 @@ responses, do not forward stale content-encoding headers.
 - [x] Remove deprecated capability field.
 - [x] Run provider tests.
 - [x] Run relevant build.
-- [ ] Commit.
+- [x] Commit.
 
 ### Step 4: HTTP SSE Proxy Tests
 
@@ -422,26 +422,26 @@ responses, do not forward stale content-encoding headers.
 - [x] Clean up controller-close race logging.
 - [x] Run API tests.
 - [x] Run API build.
-- [ ] Commit.
+- [x] Commit.
 
 ### Step 6: WebSocket Proxy Tests
 
-- [ ] Add failing tests for authenticated WebSocket proxying and abnormal close
+- [x] Add failing tests for authenticated WebSocket proxying and abnormal close
       classification.
-- [ ] Verify tests fail.
+- [x] Verify tests fail.
 - [ ] Commit failing tests only if local workflow allows, otherwise keep the
       red/green pair in one commit with command output noted.
 
 ### Step 7: WebSocket Proxy Implementation
 
-- [ ] Add runtime-authenticated WebSocket route.
-- [ ] Connect upstream to OpenAI Responses WebSocket.
-- [ ] Forward downstream/upstream frames.
-- [ ] Inject upstream auth only in the control-plane.
-- [ ] Track terminal events and abnormal closes.
-- [ ] Run API tests.
-- [ ] Run API build.
-- [ ] Commit.
+- [x] Add runtime-authenticated WebSocket route.
+- [x] Connect upstream to OpenAI Responses WebSocket.
+- [x] Forward downstream/upstream frames.
+- [x] Inject upstream auth only in the control-plane.
+- [x] Track terminal events and abnormal closes.
+- [x] Run API tests.
+- [x] Run API build.
+- [x] Commit.
 
 ### Step 8: Integration Verification
 

@@ -10,6 +10,7 @@ import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/li
 import { and, desc, eq, isNull, sql } from "drizzle-orm"
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+const OPENAI_RESPONSES_WS_URL = "wss://api.openai.com/v1/responses"
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL =
   "https://api.openai.com/v1/audio/transcriptions"
 const HOP_BY_HOP_HEADERS = new Set([
@@ -179,6 +180,11 @@ function getOpenAiRequestId(headers: Headers) {
   )
 }
 
+function getCorrelationValue(headers: Headers, name: string) {
+  const value = headers.get(name)?.trim()
+  return value ? value : null
+}
+
 type ResponsesTerminalEvent = "error" | "response.completed" | "response.failed"
 
 type ResponsesStreamObservation = {
@@ -255,6 +261,64 @@ function observeResponsesSseFrame(
       // The observer should never break byte forwarding because a data frame
       // was not JSON or had an unexpected shape.
     }
+  }
+
+  if (
+    eventType === "response.completed" ||
+    eventType === "response.failed" ||
+    eventType === "error"
+  ) {
+    observation.sawTerminal = true
+    observation.terminalEventType = eventType
+  }
+}
+
+function observeResponsesEventData(
+  data: unknown,
+  observation: ResponsesStreamObservation,
+) {
+  const text =
+    typeof data === "string"
+      ? data
+      : data instanceof ArrayBuffer
+        ? Buffer.from(data).toString("utf8")
+        : ArrayBuffer.isView(data)
+          ? Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString(
+              "utf8",
+            )
+          : String(data)
+
+  if (!text.trim()) {
+    return
+  }
+
+  let parsed: {
+    response?: { id?: unknown }
+    type?: unknown
+  }
+
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return
+  }
+
+  const eventType = typeof parsed.type === "string" ? parsed.type : null
+  if (!eventType) {
+    return
+  }
+
+  observation.firstEventType ??= eventType
+  observation.lastEventType = eventType
+
+  if (eventType === "response.output_item.added") {
+    observation.outputItemCount += 1
+  }
+
+  const responseId =
+    typeof parsed.response?.id === "string" ? parsed.response.id : null
+  if (responseId) {
+    observation.responseId = responseId
   }
 
   if (
@@ -440,6 +504,293 @@ export function createLoggedOpenAiProxyBody(input: {
       }
     },
   })
+}
+
+type UpstreamProxyWebSocketLike = {
+  addEventListener: (
+    type: "close" | "error" | "message" | "open",
+    listener: (event: Record<string, unknown>) => void,
+  ) => void
+  close: (code?: number, reason?: string) => void
+  send: (data: unknown) => void
+}
+
+type DownstreamProxyWebSocketLike = {
+  close: (code?: number, reason?: string) => void
+  send: (data: unknown) => void
+}
+
+type OpenAiResponsesWebSocketFactory = (
+  url: string,
+  options: { headers: Record<string, string> },
+) => UpstreamProxyWebSocketLike
+
+function buildOpenAiWebSocketHeaders(input: { apiKey: string }) {
+  return {
+    Authorization: `Bearer ${input.apiKey}`,
+    "OpenAI-Beta": "responses-websocket=v1",
+  }
+}
+
+function defaultOpenAiResponsesWebSocketFactory(
+  url: string,
+  options: { headers: Record<string, string> },
+) {
+  const WebSocketCtor = globalThis.WebSocket as unknown as
+    | (new (
+        url: string,
+        protocolsOrOptions?: { headers?: Record<string, string> },
+      ) => UpstreamProxyWebSocketLike)
+    | undefined
+
+  if (!WebSocketCtor) {
+    throw new OpenAiProxyError(
+      "This runtime does not provide a WebSocket client implementation.",
+      500,
+    )
+  }
+
+  return new WebSocketCtor(url, { headers: options.headers })
+}
+
+function getWebSocketCloseCode(event: Record<string, unknown>) {
+  return typeof event.code === "number" ? event.code : undefined
+}
+
+function getWebSocketCloseReason(event: Record<string, unknown>) {
+  if (typeof event.reason === "string") {
+    return event.reason
+  }
+
+  if (event.reason == null) {
+    return undefined
+  }
+
+  return String(event.reason)
+}
+
+export function createOpenAiResponsesWebSocketBridge(input: {
+  apiKey: string
+  downstream: DownstreamProxyWebSocketLike
+  logger?: OpenAiProxyLogger
+  openAiWebSocketFactory?: OpenAiResponsesWebSocketFactory
+  openclawSessionId?: string | null
+  openclawTurnAttempt?: string | null
+  openclawTurnId?: string | null
+  requestId: string
+  tenantId: string
+}) {
+  const logger = input.logger ?? consoleOpenAiProxyLogger
+  const startedAt = Date.now()
+  const observation = createResponsesStreamObservation()
+  let bytes = 0
+  let chunks = 0
+  let upstreamOpen = false
+  let upstreamClosed = false
+  let downstreamClosed = false
+  const queuedDownstreamMessages: unknown[] = []
+
+  const fields = () => ({
+    bytes,
+    chunks,
+    durationMs: Date.now() - startedAt,
+    firstEventType: observation.firstEventType ?? undefined,
+    lastEventType: observation.lastEventType ?? undefined,
+    openclawSessionId: input.openclawSessionId ?? undefined,
+    openclawTurnAttempt: input.openclawTurnAttempt ?? undefined,
+    openclawTurnId: input.openclawTurnId ?? undefined,
+    outputItemCount: observation.outputItemCount,
+    requestId: input.requestId,
+    responseId: observation.responseId ?? undefined,
+    route: "responses",
+    tenantId: input.tenantId,
+    terminalEventType: observation.terminalEventType ?? undefined,
+    transport: "websocket",
+  })
+
+  const upstream = (
+    input.openAiWebSocketFactory ?? defaultOpenAiResponsesWebSocketFactory
+  )(OPENAI_RESPONSES_WS_URL, {
+    headers: buildOpenAiWebSocketHeaders({ apiKey: input.apiKey }),
+  })
+
+  logger.info("[runtime-ai] openai proxy websocket request starting", fields())
+
+  upstream.addEventListener("open", () => {
+    upstreamOpen = true
+    logger.info("[runtime-ai] openai proxy websocket stream opened", fields())
+
+    while (queuedDownstreamMessages.length > 0) {
+      upstream.send(queuedDownstreamMessages.shift())
+    }
+  })
+
+  upstream.addEventListener("message", (event) => {
+    const data = event.data
+    if (data != null) {
+      const chunkBytes =
+        typeof data === "string"
+          ? Buffer.byteLength(data)
+          : data instanceof ArrayBuffer
+            ? data.byteLength
+            : ArrayBuffer.isView(data)
+              ? data.byteLength
+              : Buffer.byteLength(String(data))
+      bytes += chunkBytes
+      chunks += 1
+      observeResponsesEventData(data, observation)
+      input.downstream.send(data)
+    }
+  })
+
+  upstream.addEventListener("error", (event) => {
+    if (observation.sawTerminal) {
+      logger.warn(
+        "[runtime-ai] openai proxy websocket upstream error after terminal event",
+        {
+          ...fields(),
+          error: getErrorMessage(event.error),
+          errorName: getErrorName(event.error),
+        },
+      )
+      return
+    }
+
+    logger.error("[runtime-ai] openai proxy websocket stream failed", {
+      ...fields(),
+      error: getErrorMessage(event.error ?? "upstream websocket error"),
+      errorName: getErrorName(event.error),
+      streamOutcome: "failed",
+    })
+
+    if (!downstreamClosed) {
+      input.downstream.close(1011, "OpenAI Responses websocket failed.")
+    }
+  })
+
+  upstream.addEventListener("close", (event) => {
+    upstreamClosed = true
+    const closeCode = getWebSocketCloseCode(event)
+    const closeReason = getWebSocketCloseReason(event)
+    const terminalEventType = observation.terminalEventType
+
+    if (terminalEventType === "response.completed") {
+      logger.info("[runtime-ai] openai proxy websocket stream completed", {
+        ...fields(),
+        closeCode,
+        closeReason,
+        streamOutcome: "completed",
+      })
+      return
+    }
+
+    if (terminalEventType === "response.failed" || terminalEventType === "error") {
+      logger.error("[runtime-ai] openai proxy websocket stream failed", {
+        ...fields(),
+        closeCode,
+        closeReason,
+        streamOutcome: "failed",
+      })
+      if (!downstreamClosed) {
+        input.downstream.close(
+          1011,
+          `OpenAI Responses websocket failed with terminal event ${terminalEventType}.`,
+        )
+      }
+      return
+    }
+
+    if (downstreamClosed) {
+      logger.warn("[runtime-ai] openai proxy websocket upstream closed", {
+        ...fields(),
+        closeCode,
+        closeReason,
+        streamOutcome: "downstream_cancelled_before_terminal",
+      })
+      return
+    }
+
+    logger.error("[runtime-ai] openai proxy websocket stream incomplete", {
+      ...fields(),
+      closeCode,
+      closeReason,
+      streamOutcome: "incomplete",
+    })
+    input.downstream.close(
+      1011,
+      "OpenAI Responses websocket closed before terminal event.",
+    )
+  })
+
+  return {
+    handleDownstreamClose(event: { code?: number; reason?: string }) {
+      downstreamClosed = true
+
+      if (!observation.sawTerminal) {
+        logger.warn(
+          "[runtime-ai] openai proxy websocket downstream closed before terminal",
+          {
+            ...fields(),
+            closeCode: event.code,
+            closeReason: event.reason,
+            streamOutcome: "downstream_cancelled_before_terminal",
+          },
+        )
+      }
+
+      if (!upstreamClosed) {
+        upstream.close(event.code, event.reason)
+      }
+    },
+    handleDownstreamMessage(data: unknown) {
+      if (!upstreamOpen) {
+        queuedDownstreamMessages.push(data)
+        return
+      }
+
+      upstream.send(data)
+    },
+  }
+}
+
+export async function prepareOpenAiResponsesWebSocketProxy(input: {
+  request: Request
+  tenantId: string
+}) {
+  const requestId = randomUUID()
+  const [apiKey, balanceCreditsMilli] = await Promise.all([
+    getTenantOpenAiApiKey(input.tenantId),
+    getTenantCreditBalanceMilli(input.tenantId),
+  ])
+
+  assertTenantCreditsAvailable({
+    balanceCreditsMilli,
+    tenantId: input.tenantId,
+  })
+
+  if (!apiKey) {
+    throw new OpenAiProxyError(
+      "This workspace does not have an active OpenAI API key configured.",
+      503,
+    )
+  }
+
+  return {
+    apiKey,
+    openclawSessionId: getCorrelationValue(
+      input.request.headers,
+      "x-openclaw-session-id",
+    ),
+    openclawTurnAttempt: getCorrelationValue(
+      input.request.headers,
+      "x-openclaw-turn-attempt",
+    ),
+    openclawTurnId: getCorrelationValue(
+      input.request.headers,
+      "x-openclaw-turn-id",
+    ),
+    requestId,
+  }
 }
 
 async function proxyOpenAiRequest(input: {
