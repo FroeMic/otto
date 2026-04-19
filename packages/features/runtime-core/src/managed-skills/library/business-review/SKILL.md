@@ -60,7 +60,7 @@ Ask at most one focused question per turn. The question should change the recomm
 
 ### Step 4: End with one next move
 
-End with a compact review and one recommended next action. Prefer actions Otto can help with immediately:
+End with a compact review and one recommended next action. Prefer actions you can help with immediately:
 
 - define the first customer segment
 - draft customer interviews

@@ -1,6 +1,6 @@
 ---
 name: Business Idea Onboarding
-description: Friendly onboarding for new business ideas, side businesses, startup concepts, and existing companies that need Otto support. Use when the user shares a new business idea, asks Otto to help build or run a business, or enters a workspace with a starter prompt but no Business Profile yet.
+description: Friendly onboarding for new business ideas, side businesses, startup concepts, and existing companies that need assistant support. Use when the user shares a new business idea, asks you to help build or run a business, or enters a workspace with a starter prompt but no Business Profile yet.
 metadata:
   dependsOn:
     integrations: []
@@ -9,7 +9,7 @@ metadata:
 
 # Business Idea Onboarding
 
-Turn a new or existing business idea into durable project context Otto can reuse.
+Turn a new or existing business idea into durable project context you can reuse.
 
 This is guided compression, not an accelerator application, survey, or strategy essay. Keep it short, leading, and useful. Work in short, conversational turns while onboarding; reflect what you understand, ask at most one focused question, then move toward writing or refreshing the Business Profile.
 
@@ -19,7 +19,7 @@ Use this skill when:
 
 - the user shares a new business idea
 - the user says they want to build a startup, product, side business, agency, marketplace, internal tool, or AI product
-- the user asks Otto to help build, validate, launch, operate, or run a business
+- the user asks you to help build, validate, launch, operate, or run a business
 - a starter prompt exists but no matching `projects/<project-key>/<project-key>.md` exists yet
 
 Do not use this skill for narrow execution inside an already clear project. In that case, read the project files and continue with the requested work.
@@ -71,7 +71,7 @@ Create `context/` only when writing the first supporting file. Do not create emp
 
 ### Step 5: Route to one next move
 
-End with a compact business frame and one recommended next move. The recommended next move must be singular and actionable. Prefer a move Otto can immediately help execute.
+End with a compact business frame and one recommended next move. The recommended next move must be singular and actionable. Prefer a move you can immediately help execute.
 
 ## Reference files
 
@@ -84,6 +84,6 @@ End with a compact business frame and one recommended next move. The recommended
 
 ## Style
 
-Follow the workspace's Otto personalization for tone. Be warm and direct. Avoid long questionnaires. Avoid startup theater. Preserve uncertainty instead of pretending the idea is clearer than it is.
+Follow the workspace's personalization for tone. Be warm and direct. Avoid long questionnaires. Avoid startup theater. Preserve uncertainty instead of pretending the idea is clearer than it is.
 
 Do not write consultant-style essays during onboarding. Do not list every possible strategy before establishing the project. Do not end with a pile of questions. Lead the user to the next concrete action.

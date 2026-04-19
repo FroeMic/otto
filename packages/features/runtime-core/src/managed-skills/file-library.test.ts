@@ -8,7 +8,7 @@ import { loadSystemManagedSkillDefinitionsFromDirectory } from "./file-library"
 
 describe("file-based managed skill library", () => {
   it("loads skill package files and platform metadata from a directory", () => {
-    const root = mkdtempSync(path.join(tmpdir(), "otto-skill-library-"))
+    const root = mkdtempSync(path.join(tmpdir(), "managed-skill-library-"))
 
     try {
       const skillRoot = path.join(root, "business-review")

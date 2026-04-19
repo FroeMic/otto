@@ -38,7 +38,7 @@ Generate creative, memorable, and brandable names for products, startups, compan
 
 - Check the raw name first before inventing variants.
 - Prefer `.com`, then `.ai` or `.co` for startup use.
-- Return both Otto's coarse `availability` bucket and Gandi's raw `status`.
+- Return both the coarse `availability` bucket and Gandi's raw `status`.
 - Include `currentPhase` and `prices` when present so premium or restricted cases are visible.
 
 ## Reference files
