@@ -15,8 +15,17 @@ import {
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
 
+const silentLogger = {
+  info() {},
+  warn() {},
+};
+
+function buildProviderForTest(dependencies = {}) {
+  return buildOpenAiProxyProvider({ logger: silentLogger, ...dependencies });
+}
+
 test("openai-proxy provider exposes the native-shaped OpenAI Responses contract", () => {
-  const provider = buildOpenAiProxyProvider();
+  const provider = buildProviderForTest();
 
   assert.equal(provider.id, "openai-proxy");
   assert.equal(OPENAI_PROXY_PROVIDER_ID, "openai-proxy");
@@ -32,7 +41,7 @@ test("openai-proxy provider exposes the native-shaped OpenAI Responses contract"
 });
 
 test("openai-proxy auth uses tenant token and defaults to gpt-5.4", () => {
-  const provider = buildOpenAiProxyProvider();
+  const provider = buildProviderForTest();
   const auth = provider.auth[0];
 
   assert.equal(auth.envVar, "TENANT_TOKEN");
@@ -40,7 +49,7 @@ test("openai-proxy auth uses tenant token and defaults to gpt-5.4", () => {
 });
 
 test("openai-proxy extra params mirror native OpenAI websocket defaults", () => {
-  const provider = buildOpenAiProxyProvider();
+  const provider = buildProviderForTest();
 
   assert.deepEqual(provider.prepareExtraParams({ extraParams: {} }), {
     transport: "auto",
@@ -132,7 +141,7 @@ test("openai-proxy replay policy mirrors native OpenAI Responses replay", () => 
 });
 
 test("openai-proxy transport state sanitizes correlation headers and metadata", () => {
-  const provider = buildOpenAiProxyProvider();
+  const provider = buildProviderForTest();
   const state = provider.resolveTransportTurnState({
     provider: "openai-proxy",
     transport: "websocket",
@@ -167,4 +176,51 @@ test("openai-proxy transport state sanitizes correlation headers and metadata", 
       degradeCooldownMs: 60_000,
     },
   );
+});
+
+test("openai-proxy provider emits safe tenant-side diagnostics", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+  };
+  const provider = buildProviderForTest({ logger });
+
+  provider.prepareExtraParams({
+    modelId: "gpt-5.4",
+    extraParams: { transport: "sse", openaiWsWarmup: false },
+  });
+  provider.buildReplayPolicy({ modelApi: "openai-responses" });
+  provider.resolveTransportTurnState({
+    provider: "openai-proxy",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+  });
+  provider.resolveWebSocketSessionPolicy({
+    provider: "openai-proxy",
+    sessionId: "session-1",
+  });
+  await provider.prepareRuntimeAuth({
+    apiKey: "tenant-token-secret",
+    env: { OTTO_CONTROL_PLANE_BASE_URL: "https://otto.example/" },
+  });
+
+  assert.deepEqual(
+    events.map((event) => event.message),
+    [
+      "[otto-ai-provider] provider initialized",
+      "[otto-ai-provider] extra params prepared",
+      "[otto-ai-provider] replay policy resolved",
+      "[otto-ai-provider] transport turn state resolved",
+      "[otto-ai-provider] websocket session policy resolved",
+      "[otto-ai-provider] runtime auth resolved",
+    ],
+  );
+  assert.equal(events.at(-1).fields.hasApiKey, true);
+  assert.equal(events.at(-1).fields.apiKeyLength, 19);
+  assert.equal(events.at(-1).fields.apiKey, undefined);
+  assert.equal(events.at(-1).fields.baseUrl, "https://otto.example/api/internal/runtime/ai/openai/v1");
 });
