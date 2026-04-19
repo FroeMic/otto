@@ -34,6 +34,7 @@ import {
 } from "./queue";
 import { processRefreshRuntimeImageJob } from "./runtime-operations";
 import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
+import { processPruneJobHistoryJob } from "./retention";
 import { processSyncTenantSessionsJob } from "./sessions-sync";
 import {
   processResyncSlackChannelsJob,
@@ -113,6 +114,9 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     case JOB_TYPES.syncTenantSessions:
       await processSyncTenantSessionsJob(job);
+      return;
+    case JOB_TYPES.pruneJobHistory:
+      await processPruneJobHistoryJob(job);
       return;
     default:
       await markJobFailed(job.id, `Unsupported job type: ${job.jobType}`);

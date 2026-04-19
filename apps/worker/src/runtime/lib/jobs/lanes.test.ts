@@ -16,6 +16,13 @@ describe("job lane metadata", () => {
     );
   });
 
+  it("routes job history cleanup through the settlement lane", () => {
+    expect(getJobLane(JOB_TYPES.pruneJobHistory)).toBe(JOB_LANES.settlement);
+    expect(getJobTypesForLane(JOB_LANES.settlement)).toContain(
+      JOB_TYPES.pruneJobHistory,
+    );
+  });
+
   it("does not let workspace chat turns inherit the broad tenant sync mutex", () => {
     expect(getTenantMutexGuardJobTypesForLane(JOB_LANES.chat)).not.toContain(
       JOB_TYPES.runWorkspaceChatTurn,
