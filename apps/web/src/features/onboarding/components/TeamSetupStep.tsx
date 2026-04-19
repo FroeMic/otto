@@ -57,11 +57,11 @@ export function TeamSetupStep({
 
   return (
     <OnboardingStepLayout
-      currentStep={2}
+      currentStep={3}
       description="We use this to shape the first workspace around how many people will rely on it."
       onBack={onBack}
       title="Who is going to use Otto with you?"
-      totalSteps={2}
+      totalSteps={3}
     >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

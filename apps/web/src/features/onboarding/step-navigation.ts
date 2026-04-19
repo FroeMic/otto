@@ -3,6 +3,10 @@ import type { WorkspaceOnboardingStepKey } from "@otto/feature-workspace-onboard
 export function getPreviousWorkspaceOnboardingStep(
   stepKey: WorkspaceOnboardingStepKey,
 ): Exclude<WorkspaceOnboardingStepKey, "workspace_identity"> | null {
+  if (stepKey === "business_type") {
+    return "primary_goal"
+  }
+
   if (stepKey === "team_setup") {
     return "business_type"
   }

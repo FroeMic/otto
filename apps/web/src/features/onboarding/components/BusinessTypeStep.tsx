@@ -56,11 +56,11 @@ export function BusinessTypeStep({
 }: BusinessTypeStepProps) {
   return (
     <OnboardingStepLayout
-      currentStep={1}
+      currentStep={2}
       description="This helps Otto shape the first operating system around your product and business model."
       onBack={onBack}
       title="What kind of business are you building?"
-      totalSteps={2}
+      totalSteps={3}
     >
       <div className="mx-auto grid w-full max-w-4xl gap-4 md:grid-cols-2 xl:grid-cols-3">
         {businessTypeOptions.map((option) => (

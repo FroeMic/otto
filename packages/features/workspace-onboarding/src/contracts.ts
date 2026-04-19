@@ -2,10 +2,18 @@ import { z } from "zod"
 
 export const workspaceOnboardingAnswerKeys = {
   requiredForProvisioning: [
+    "primary_goal",
     "business_type",
     "team_size",
   ] as const,
 }
+
+export const workspaceOnboardingPrimaryGoalSchema = z.enum([
+  "start_new_business",
+  "compare_business_ideas",
+  "automate_repetitive_work",
+  "improve_existing_company",
+])
 
 export const workspaceOnboardingBusinessTypeSchema = z.enum([
   "saas",
@@ -26,6 +34,7 @@ export const workspaceOnboardingTeamSizeSchema = z.enum([
 export const workspaceOnboardingAnswerSchema = z.object({
   business_type: workspaceOnboardingBusinessTypeSchema.optional(),
   invite_emails: z.array(z.string().email()).optional(),
+  primary_goal: workspaceOnboardingPrimaryGoalSchema.optional(),
   team_size: workspaceOnboardingTeamSizeSchema.optional(),
   workspace_name: z.string().min(1).optional(),
   workspace_slug: z.string().min(1).optional(),
@@ -51,6 +60,7 @@ export const workspaceOnboardingWaitlistDecisionSchema = z.enum([
 
 export const workspaceOnboardingStepKeySchema = z.enum([
   "workspace_identity",
+  "primary_goal",
   "business_type",
   "team_setup",
 ])
@@ -88,6 +98,10 @@ export const workspaceOnboardingSaveRequestSchema = z.discriminatedUnion(
       workspaceSlug: z.string().min(1),
     }),
     z.object({
+      action: z.literal("save-primary-goal"),
+      primaryGoal: workspaceOnboardingPrimaryGoalSchema,
+    }),
+    z.object({
       action: z.literal("save-business-type"),
       businessType: workspaceOnboardingBusinessTypeSchema,
     }),
@@ -108,6 +122,10 @@ export type WorkspaceOnboardingBusinessType = z.infer<
 
 export type WorkspaceOnboardingHoldingState = z.infer<
   typeof workspaceOnboardingHoldingStateSchema
+>
+
+export type WorkspaceOnboardingPrimaryGoal = z.infer<
+  typeof workspaceOnboardingPrimaryGoalSchema
 >
 
 export type WorkspaceOnboardingRunStatus = z.infer<
