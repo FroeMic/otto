@@ -445,12 +445,49 @@ responses, do not forward stale content-encoding headers.
 
 ### Step 8: Integration Verification
 
-- [ ] Verify tenant runtime config projects `openai-proxy/gpt-5.4`.
-- [ ] Verify both `transport: "auto"` and `transport: "sse"` paths.
+- [x] Verify provider contract projects `openai-proxy/gpt-5.4` defaults.
+- [x] Verify provider contract preserves both `transport: "auto"` defaults and
+      explicit `transport: "sse"`.
 - [ ] Run representative long/tool-heavy turn.
 - [ ] Run fault-injection for truncated SSE and abnormal WebSocket close.
-- [ ] Update status/spec checklist.
-- [ ] Commit final verification notes.
+- [x] Run local provider contract tests.
+- [x] Run local OpenAI proxy tests.
+- [x] Run local API build.
+- [ ] Verify live tenant runtime config projects `openai-proxy/gpt-5.4`.
+- [ ] Verify live `transport: "auto"` WebSocket path against real OpenAI
+      credentials.
+- [ ] Verify live `transport: "sse"` HTTP path against real OpenAI
+      credentials.
+- [x] Update status/spec checklist.
+- [x] Commit final verification notes.
+
+## Local Verification Notes
+
+Passing:
+
+```text
+node --test runtime-plugins/otto-ai-provider/provider-contract.test.mjs
+bun run --cwd apps/api test src/runtime/openai-proxy.test.ts
+bun run build:api
+```
+
+Known broader API test baseline still failing outside this slice:
+
+```text
+bun run test:api
+```
+
+Current failures:
+
+- `src/workspace/chat-realtime-routes.ts` imports `hono/bun` at module load
+  time, which fails under non-Bun Vitest with `ReferenceError: Bun is not
+  defined`.
+- `src/skills/data.test.ts` expects only `name-and-domain-research` in
+  `librarySkills`, but the current library includes `business-review` as well.
+
+Live tenant verification is intentionally left for deployment because it needs
+a tenant runtime, tenant bearer token, configured workspace OpenAI credential,
+and real OpenAI WebSocket/SSE traffic.
 
 ## Acceptance Criteria
 
