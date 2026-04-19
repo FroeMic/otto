@@ -1,6 +1,6 @@
 {
   "skillKey": "business-review",
-  "installMode": "manual_install",
+  "installMode": "default_installed",
   "visibleInLibrary": true,
   "sortOrder": 40,
   "fileOrder": [

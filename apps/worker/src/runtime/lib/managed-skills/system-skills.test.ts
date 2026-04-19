@@ -133,7 +133,7 @@ describe("system managed skill definitions", () => {
       (definition) => definition.skillKey === "business-review",
     )
     assert.ok(businessReviewSkill)
-    assert.equal(businessReviewSkill.installMode, "manual_install")
+    assert.equal(businessReviewSkill.installMode, "default_installed")
     assert.equal(businessReviewSkill.visibleInLibrary, true)
   })
 
