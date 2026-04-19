@@ -28,7 +28,6 @@ import {
   upsertTenantSessionBatch,
 } from "@otto/feature-runtime-core/sessions/queries"
 import type { Hono } from "hono"
-import { upgradeWebSocket } from "hono/bun"
 import { z } from "zod"
 
 import { enqueueJob } from "../jobs/queue"
@@ -499,6 +498,7 @@ export function registerRuntimeRoutes(app: Hono) {
         request: context.req.raw,
         tenantId,
       })
+      const { upgradeWebSocket } = await import("hono/bun")
 
       return upgradeWebSocket(context, {
         onClose(event) {
