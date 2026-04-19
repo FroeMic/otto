@@ -9,8 +9,10 @@ import { z } from "zod"
 import type { SystemManagedSkillDefinition } from "./system-skills"
 
 const skillMetadataSchema = z.object({
+  fileOrder: z.array(z.string().trim().min(1)).optional(),
   installMode: z.enum(["default_installed", "manual_install"]),
   skillKey: z.string().trim().min(1),
+  sortOrder: z.number().optional(),
   summary: z.string().trim().min(1),
   visibleInLibrary: z.boolean(),
 })
@@ -35,33 +37,50 @@ export function loadSystemManagedSkillDefinitionsFromDirectory(
     .map((entryName) =>
       loadSystemManagedSkillDefinition(path.join(libraryRoot, entryName)),
     )
+    .sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.definition.skillKey.localeCompare(right.definition.skillKey),
+    )
+    .map((loadedDefinition) => loadedDefinition.definition)
 }
 
 function loadSystemManagedSkillDefinition(
   skillRoot: string,
-): SystemManagedSkillDefinition {
+): {
+  definition: SystemManagedSkillDefinition
+  sortOrder: number
+} {
   const metadata = skillMetadataSchema.parse(
     JSON.parse(readFileSync(path.join(skillRoot, "skill.json"), "utf8")),
   )
-  const files = listSkillPackageFiles(skillRoot).map((relativePath) => ({
-    contentText: readFileSync(path.join(skillRoot, relativePath), "utf8"),
-    path: relativePath,
-  }))
+  const files = listSkillPackageFiles(skillRoot, metadata.fileOrder).map(
+    (relativePath) => ({
+      contentText: readFileSync(path.join(skillRoot, relativePath), "utf8"),
+      path: relativePath,
+    }),
+  )
 
   return {
-    ...metadata,
-    files,
+    definition: {
+      files,
+      installMode: metadata.installMode,
+      skillKey: metadata.skillKey,
+      summary: metadata.summary,
+      visibleInLibrary: metadata.visibleInLibrary,
+    },
+    sortOrder: metadata.sortOrder ?? Number.MAX_SAFE_INTEGER,
   }
 }
 
-function listSkillPackageFiles(skillRoot: string) {
+function listSkillPackageFiles(skillRoot: string, fileOrder: string[] = []) {
   const filePaths: string[] = []
 
   visitDirectory(skillRoot, "", filePaths)
 
   return filePaths
     .filter(isManagedSkillPackageSourceFile)
-    .sort(compareSkillPackageFilePaths)
+    .sort((left, right) => compareSkillPackageFilePaths(left, right, fileOrder))
 }
 
 function visitDirectory(
@@ -96,7 +115,21 @@ function isManagedSkillPackageSourceFile(relativePath: string) {
   )
 }
 
-function compareSkillPackageFilePaths(left: string, right: string) {
+function compareSkillPackageFilePaths(
+  left: string,
+  right: string,
+  fileOrder: string[],
+) {
+  const leftOrder = fileOrder.indexOf(left)
+  const rightOrder = fileOrder.indexOf(right)
+
+  if (leftOrder !== -1 || rightOrder !== -1) {
+    return (
+      (leftOrder === -1 ? Number.MAX_SAFE_INTEGER : leftOrder) -
+      (rightOrder === -1 ? Number.MAX_SAFE_INTEGER : rightOrder)
+    )
+  }
+
   if (left === "SKILL.md") {
     return -1
   }

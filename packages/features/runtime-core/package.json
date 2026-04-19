@@ -17,7 +17,8 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "bun run clean && bun run typecheck && bun run build:package",
+    "generate:managed-skills": "bun run scripts/generate-managed-skills.ts",
+    "build": "bun run generate:managed-skills && bun run clean && bun run typecheck && bun run build:package",
     "build:package": "bun build src/index.ts --outdir dist --target bun",
     "format": "biome format --write .",
     "lint": "biome check .",

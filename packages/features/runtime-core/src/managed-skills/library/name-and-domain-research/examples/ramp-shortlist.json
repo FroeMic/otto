@@ -1,0 +1,87 @@
+{
+  "querySummary": {
+    "businessConcept": "Finance operations software",
+    "candidateCount": 4,
+    "preferredTlds": ["com", "ai", "co", "io"]
+  },
+  "recommendedNames": [
+    {
+      "name": "SignalMint",
+      "strategy": "compound",
+      "overallScore": 88,
+      "verdict": "strong_candidate",
+      "reasons": [
+        "distinctive without being obscure",
+        "clear finance and creation signal",
+        "multiple clean domain paths"
+      ],
+      "brandability": {
+        "memorability": 8,
+        "pronounceability": 9,
+        "spellability": 9,
+        "uniqueness": 9,
+        "meaningfulness": 8
+      },
+      "domainOptions": [
+        {
+          "domain": "signalmint.com",
+          "tld": "com",
+          "availability": "available",
+          "status": "available"
+        },
+        {
+          "domain": "signalmint.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": [],
+      "bestDomain": "signalmint.com"
+    },
+    {
+      "name": "Ramp",
+      "strategy": "abstract",
+      "overallScore": 84,
+      "verdict": "strong_but_operationally_constrained",
+      "reasons": [
+        "excellent brand quality",
+        "instant recognition",
+        "best exact domains already taken"
+      ],
+      "brandability": {
+        "memorability": 10,
+        "pronounceability": 10,
+        "spellability": 10,
+        "uniqueness": 7,
+        "meaningfulness": 8
+      },
+      "domainOptions": [
+        {
+          "domain": "ramp.com",
+          "tld": "com",
+          "availability": "unavailable",
+          "status": "unavailable"
+        },
+        {
+          "domain": "useramp.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": ["exact-match domain not realistically obtainable"],
+      "bestDomain": "useramp.ai"
+    }
+  ],
+  "rejectedNames": [
+    {
+      "name": "RampOpsify",
+      "reasons": [
+        "too long",
+        "forced suffix pattern",
+        "harder to say and remember"
+      ]
+    }
+  ]
+}

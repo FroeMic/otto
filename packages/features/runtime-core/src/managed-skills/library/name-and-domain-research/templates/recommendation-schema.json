@@ -1,0 +1,53 @@
+{
+  "querySummary": {
+    "businessConcept": "Expense automation for modern finance teams",
+    "candidateCount": 10,
+    "preferredTlds": ["com", "ai", "co"]
+  },
+  "recommendedNames": [
+    {
+      "name": "Ramp",
+      "strategy": "abstract",
+      "overallScore": 92,
+      "verdict": "strong_candidate",
+      "reasons": [
+        "short and memorable",
+        "clear upward-motion association",
+        "credible startup brand voice"
+      ],
+      "brandability": {
+        "memorability": 10,
+        "pronounceability": 10,
+        "spellability": 10,
+        "uniqueness": 7,
+        "meaningfulness": 9
+      },
+      "domainOptions": [
+        {
+          "domain": "ramp.com",
+          "tld": "com",
+          "availability": "unavailable",
+          "status": "unavailable"
+        },
+        {
+          "domain": "useramp.ai",
+          "tld": "ai",
+          "availability": "available",
+          "status": "available"
+        }
+      ],
+      "risks": ["exact-match .com unavailable"],
+      "bestDomain": "useramp.ai"
+    }
+  ],
+  "rejectedNames": [
+    {
+      "name": "Ramply",
+      "reasons": [
+        "weaker distinctiveness",
+        "suffix feels forced",
+        "domain path is less clean"
+      ]
+    }
+  ]
+}

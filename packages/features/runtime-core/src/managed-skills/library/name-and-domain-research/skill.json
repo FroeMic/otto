@@ -1,0 +1,16 @@
+{
+  "skillKey": "name-and-domain-research",
+  "installMode": "manual_install",
+  "visibleInLibrary": true,
+  "sortOrder": 30,
+  "fileOrder": [
+    "SKILL.md",
+    "examples/ramp-shortlist.json",
+    "references/naming-strategies.md",
+    "references/full-guide.md",
+    "references/setup.md",
+    "scripts/generate-domain-variants.mjs",
+    "templates/recommendation-schema.json"
+  ],
+  "summary": "Install Otto system founder naming guidance"
+}
