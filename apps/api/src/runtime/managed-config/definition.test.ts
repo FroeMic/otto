@@ -13,6 +13,8 @@ describe("managed config definitions", () => {
     assert.ok(agentDefinition)
     assert.match(agentDefinition.systemContent, /## Projects/)
     assert.match(agentDefinition.systemContent, /projects\/<project-key>\//)
+    assert.match(agentDefinition.systemContent, /projects\/<project-key>\/<project-key>\.md/)
+    assert.match(agentDefinition.systemContent, /canonical project entry point/)
     assert.match(agentDefinition.systemContent, /## Business Building Mode/)
     assert.match(agentDefinition.systemContent, /`greenfield`/)
     assert.match(agentDefinition.systemContent, /`brownfield`/)

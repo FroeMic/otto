@@ -119,7 +119,7 @@ Use this skill when:
 - the user shares a new business idea
 - the user says they want to build a startup, product, side business, agency, marketplace, internal tool, or AI product
 - the user asks Otto to help build, validate, launch, operate, or run a business
-- a starter prompt exists but no matching \`projects/<project-key>/project.md\` exists yet
+- a starter prompt exists but no matching \`projects/<project-key>/<project-key>.md\` exists yet
 
 Do not use this skill for narrow execution inside an already clear project. In that case, read the project files and continue with the requested work.
 
@@ -135,6 +135,12 @@ The project index lives at:
 
 \`projects/_index.md\`
 
+The canonical project entry point lives at:
+
+\`projects/<project-key>/<project-key>.md\`
+
+Repeat the project key in the filename so grep/find can discover project briefs directly.
+
 Use a short, stable, lowercase project key like \`dentalops-ai\`, \`creator-crm\`, or \`agency-productization\`.
 
 If the idea appears related to an existing project, ask whether to use that project or create a new one.
@@ -148,7 +154,7 @@ Before asking the user for more, read the relevant workspace context:
 - \`USER.md\` for the user/team and past experience
 - \`MEMORY.md\` for durable preferences and prior decisions
 - \`projects/_index.md\` to avoid duplicating an existing project
-- any matching \`projects/<project-key>/project.md\`
+- any matching \`projects/<project-key>/<project-key>.md\`
 
 If the project is clearly new, create a provisional project key and continue.
 
@@ -196,35 +202,48 @@ Update \`projects/_index.md\` with:
 - one-liner
 - status: greenfield, brownfield, or unclear
 - current focus
-- path
+- path: \`projects/<project-key>/<project-key>.md\`
 
-Create or update \`projects/<project-key>/project.md\` using this shape:
+Create or update \`projects/<project-key>/<project-key>.md\` as the canonical project entry point using this shape:
 
 \`\`\`markdown
 # Project: <Name>
 
+Updated: <YYYY-MM-DD>
+
+## Diarized Brief
+<A compact analyst brief in 5-8 sentences. Distill the useful judgment from everything known so far: what matters, what changed, what is still uncertain, and what tension should not be flattened. This is not a transcript.>
+
 ## One-Liner
 ...
 
-## Status
+## Situation
 Greenfield / Brownfield / Unclear
 
-## What We Are Building
+## Current Thesis
 ...
 
-## Who It Is For
+## Customer / User / Buyer
 ...
 
-## Starting Point
+## Problem And Existing Alternatives
 ...
 
-## Existing Assets
+## Offer / Wedge
 ...
 
-## Constraints
+## Evidence And Source Notes
+- ...
+- ...
+
+## Contradictions And Tensions
+- ...
+- ...
+
+## Assets And Constraints
 ...
 
-## How Otto Should Help
+## Confidence And Unknowns
 ...
 
 ## Current Focus
