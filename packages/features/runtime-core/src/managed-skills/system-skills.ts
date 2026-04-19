@@ -89,15 +89,15 @@ After using the skill on real tasks, refine the wording, dependency metadata, an
 function buildBusinessOnboardingMarkdown() {
   return buildManagedSkillMarkdown({
     description:
-      "Friendly onboarding for new business ideas, side businesses, startup concepts, and existing companies that need Otto support. Use when the user shares a new business idea, asks Otto to help build or run a business, or enters a workspace with a starter prompt but no project profile yet.",
+      "Friendly onboarding for new business ideas, side businesses, startup concepts, and existing companies that need Otto support. Use when the user shares a new business idea, asks Otto to help build or run a business, or enters a workspace with a starter prompt but no Business Profile yet.",
     integrationKeys: [],
     name: "Business Onboarding",
     skillKeys: [],
     skillBody: `# Business Onboarding
 
-Turn a new or existing business idea into durable project context Otto can reuse.
+Turn a new or existing business idea into a durable Business Profile Otto can reuse.
 
-This is guided compression, not an accelerator application, survey, or strategy essay. Keep it short, leading, and useful.
+This is guided compression, not an accelerator application, survey, or strategy essay. Keep it short, leading, and useful. Work in short, conversational turns while onboarding; reflect what you understand, ask at most one focused question, then move toward writing or refreshing the Business Profile.
 
 ## Goal
 
@@ -108,9 +108,9 @@ By the end, Otto should know:
 - who the first customer or user appears to be
 - what exists already
 - how the user wants Otto to help first
-- which next action or skill should run
+- which next action, roadmap item, or skill should run
 
-The user should not have to push the conversation forward. Otto should absorb existing context, reflect the idea back, ask only the highest-value missing question, and move toward a concrete next action.
+The user should not have to push the conversation forward. Otto should absorb existing context, reflect the idea back conversationally, ask only the highest-value missing question, and move toward a concrete next action.
 
 ## When to use
 
@@ -119,7 +119,7 @@ Use this skill when:
 - the user shares a new business idea
 - the user says they want to build a startup, product, side business, agency, marketplace, internal tool, or AI product
 - the user asks Otto to help build, validate, launch, operate, or run a business
-- a starter prompt exists but no matching \`projects/<project-key>/project.md\` exists yet
+- a starter prompt exists but no matching \`projects/<project-key>/<project-key>.md\` exists yet
 
 Do not use this skill for narrow execution inside an already clear project. In that case, read the project files and continue with the requested work.
 
@@ -131,9 +131,21 @@ Project context lives under:
 
 \`projects/<project-key>/\`
 
-The project index lives at:
+The workspace project registry lives at:
 
 \`projects/_index.md\`
+
+The canonical Business Profile lives at:
+
+\`projects/<project-key>/<project-key>.md\`
+
+Repeat the project key in the filename so grep/find can discover Business Profiles directly. This should be the only required root-level file in a project folder.
+
+Supporting context lives under:
+
+\`projects/<project-key>/context/\`
+
+Create \`context/\` only when writing the first supporting file. Do not create empty supporting files.
 
 Use a short, stable, lowercase project key like \`dentalops-ai\`, \`creator-crm\`, or \`agency-productization\`.
 
@@ -148,7 +160,8 @@ Before asking the user for more, read the relevant workspace context:
 - \`USER.md\` for the user/team and past experience
 - \`MEMORY.md\` for durable preferences and prior decisions
 - \`projects/_index.md\` to avoid duplicating an existing project
-- any matching \`projects/<project-key>/project.md\`
+- any matching Business Profile at \`projects/<project-key>/<project-key>.md\`
+- any linked supporting context under \`projects/<project-key>/context/\` when it exists and is relevant
 
 If the project is clearly new, create a provisional project key and continue.
 
@@ -185,7 +198,7 @@ For brownfield projects, prioritize existing customers, revenue model, team, cur
 
 For greenfield projects, prioritize first customer, pain, current conviction, first offer, and first validation move.
 
-### Step 4: Create or update project files
+### Step 4: Create or update the Business Profile
 
 Create the project folder if needed.
 
@@ -196,35 +209,48 @@ Update \`projects/_index.md\` with:
 - one-liner
 - status: greenfield, brownfield, or unclear
 - current focus
-- path
+- path: \`projects/<project-key>/<project-key>.md\`
 
-Create or update \`projects/<project-key>/project.md\` using this shape:
+Create or update \`projects/<project-key>/<project-key>.md\` as the canonical Business Profile using this shape. Adapt section labels lightly to the business type, but preserve each section's function.
 
 \`\`\`markdown
-# Project: <Name>
+# Business Profile: <Name>
+
+Updated: <YYYY-MM-DD>
+
+## Current Read
+<A compact analyst brief in 5-8 sentences. Distill the useful judgment from everything known so far: what matters, what changed, what is still uncertain, and what tension should not be flattened. This is not a transcript.>
 
 ## One-Liner
 ...
 
-## Status
+## Situation
 Greenfield / Brownfield / Unclear
 
-## What We Are Building
+## Current Thesis
 ...
 
-## Who It Is For
+## Customer / User / Buyer / Guest
 ...
 
-## Starting Point
+## Need / Occasion / Existing Alternatives
 ...
 
-## Existing Assets
+## Offer / Positioning
 ...
 
-## Constraints
+## Evidence And Source Notes
+- ...
+- ...
+
+## Contradictions And Tensions
+- ...
+- ...
+
+## Assets And Constraints
 ...
 
-## How Otto Should Help
+## Confidence And Unknowns
 ...
 
 ## Current Focus
@@ -232,9 +258,15 @@ Greenfield / Brownfield / Unclear
 
 ## Next Recommended Move
 ...
+
+## Supporting Context
+- [Onboarding](context/onboarding.md) - original prompt, intake answers, assumptions, and unresolved questions.
+- [Roadmap](context/roadmap.md) - lightweight plan, current phase, next steps, milestones, blockers.
 \`\`\`
 
-Create or update \`projects/<project-key>/onboarding.md\` with:
+Only include \`Supporting Context\` links for files that exist or that you create in the same turn.
+
+Create or update \`projects/<project-key>/context/onboarding.md\` with:
 
 \`\`\`markdown
 # Onboarding
@@ -255,7 +287,46 @@ Create or update \`projects/<project-key>/onboarding.md\` with:
 ...
 \`\`\`
 
-Do not create \`goals.md\`, \`experiments.md\`, \`decisions.md\`, or other files unless they are immediately useful for the conversation.
+Create \`projects/<project-key>/context/roadmap.md\` when the onboarding conversation produces a real lightweight plan or concrete next steps:
+
+\`\`\`markdown
+# Roadmap
+
+Updated: <YYYY-MM-DD>
+
+## Current Phase
+Discovery / Validation / Setup / Launch / Operations / Growth / Unknown
+
+## Goal
+...
+
+## Next Steps
+1. ...
+2. ...
+3. ...
+
+## Milestones
+- [ ] ...
+
+## Open Decisions
+- ...
+
+## Blockers / Risks
+- ...
+
+## Done Recently
+- ...
+\`\`\`
+
+Other optional supporting context files belong under \`projects/<project-key>/context/\`:
+
+- \`decisions.md\`: important decisions and why they were made
+- \`experiments.md\`: validation tests, outcomes, and learnings
+- \`research.md\`: customer, market, competitor, supplier, or sourcing notes
+- \`economics.md\`: pricing, margins, costs, break-even, and financial model notes
+- \`operations.md\`: workflows, staffing, tools, compliance, vendors, and fulfillment
+
+Do not create \`goals.md\`, \`experiments.md\`, \`decisions.md\`, or other files unless they are immediately useful for the conversation. Do not create empty supporting files.
 
 ### Step 5: Route to one next move
 
