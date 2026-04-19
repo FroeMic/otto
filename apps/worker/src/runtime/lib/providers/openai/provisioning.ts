@@ -6,6 +6,8 @@ import type {
 
 const OPENAI_ADMIN_API_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_PROVIDER_KEY = "openai";
+const OPENAI_KEY_VERIFICATION_MAX_ATTEMPTS = 5;
+const OPENAI_KEY_VERIFICATION_RETRY_DELAY_MS = 1_000;
 
 type OpenAiProject = {
   id: string;
@@ -163,6 +165,25 @@ async function archiveOpenAiProject(projectId: string): Promise<void> {
 }
 
 async function verifyOpenAiApiKey(apiKey: string) {
+  for (let attempt = 1; attempt <= OPENAI_KEY_VERIFICATION_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await verifyOpenAiApiKeyOnce(apiKey);
+      return;
+    } catch (error) {
+      if (
+        attempt < OPENAI_KEY_VERIFICATION_MAX_ATTEMPTS &&
+        isRetryableOpenAiKeyVerificationError(error)
+      ) {
+        await delay(OPENAI_KEY_VERIFICATION_RETRY_DELAY_MS);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+}
+
+async function verifyOpenAiApiKeyOnce(apiKey: string) {
   const configuredModel = getEnv().RUNTIME_MODEL_PRIMARY;
   const model = normalizeOpenAiModel(configuredModel);
 
@@ -187,7 +208,7 @@ async function verifyOpenAiApiKey(apiKey: string) {
   const body = (await response.json()) as unknown;
 
   if (!response.ok) {
-    throw new Error(buildOpenAiErrorMessage(body, response.status));
+    throw buildOpenAiRequestError(body, response.status);
   }
 }
 
@@ -209,10 +230,22 @@ async function fetchOpenAiAdminJson(
   const body = (await response.json()) as unknown;
 
   if (!response.ok) {
-    throw new Error(buildOpenAiErrorMessage(body, response.status));
+    throw buildOpenAiRequestError(body, response.status);
   }
 
   return getRecord(body, "OpenAI admin response");
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableOpenAiKeyVerificationError(error: unknown) {
+  return (
+    error instanceof OpenAiRequestError &&
+    error.status === 401 &&
+    error.code === "invalid_api_key"
+  );
 }
 
 function buildOpenAiProjectName(tenantName: string, tenantId: string) {
@@ -290,7 +323,26 @@ function getNullableString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function buildOpenAiErrorMessage(body: unknown, status: number) {
+class OpenAiRequestError extends Error {
+  readonly code: string | null;
+  readonly status: number;
+  readonly type: string | null;
+
+  constructor(input: {
+    code: string | null;
+    message: string;
+    status: number;
+    type: string | null;
+  }) {
+    super(input.message);
+    this.name = "OpenAiRequestError";
+    this.code = input.code;
+    this.status = input.status;
+    this.type = input.type;
+  }
+}
+
+function buildOpenAiRequestError(body: unknown, status: number) {
   const record =
     body && typeof body === "object" && !Array.isArray(body)
       ? (body as Record<string, unknown>)
@@ -310,14 +362,17 @@ function buildOpenAiErrorMessage(body: unknown, status: number) {
     typeof error.message === "string"
       ? error.message
       : `OpenAI request failed with HTTP ${status}`;
-  const code =
-    typeof error.code === "string" && error.code.length > 0
-      ? ` code=${error.code}`
-      : "";
-  const type =
-    typeof error.type === "string" && error.type.length > 0
-      ? ` type=${error.type}`
-      : "";
+  const code = typeof error.code === "string" ? error.code : null;
+  const type = typeof error.type === "string" ? error.type : null;
+  const details = [
+    code && code.length > 0 ? `code=${code}` : null,
+    type && type.length > 0 ? `type=${type}` : null,
+  ].filter(Boolean);
 
-  return `${message}${code}${type}`;
+  return new OpenAiRequestError({
+    code,
+    message: details.length > 0 ? `${message} ${details.join(" ")}` : message,
+    status,
+    type,
+  });
 }
