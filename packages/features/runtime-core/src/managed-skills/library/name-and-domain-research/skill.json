@@ -12,5 +12,5 @@
     "scripts/generate-domain-variants.mjs",
     "templates/recommendation-schema.json"
   ],
-  "summary": "Install Otto system founder naming guidance"
+  "summary": "Install system founder naming guidance"
 }

@@ -15,7 +15,7 @@ Do not bundle a questionnaire. Do not ask for generic business-plan fields unles
 1. who the first buyer or user is
 2. what they do today instead
 3. what already exists: team, code, audience, customers, revenue, distribution, domain, or assets
-4. what Otto should help produce next
+4. what you should help produce next
 5. what would make the next 30 days a win
 
 For brownfield projects, prioritize existing customers, revenue model, team, current tools, constraints, and what must not break.
