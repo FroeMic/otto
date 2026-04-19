@@ -387,22 +387,22 @@ responses, do not forward stale content-encoding headers.
 
 ### Step 2: Provider Contract Tests
 
-- [ ] Add failing tests for the native-shaped `openai-proxy` provider contract.
-- [ ] Verify tests fail against the current provider.
-- [ ] Commit failing tests only if local workflow allows, otherwise keep the
+- [x] Add failing tests for the native-shaped `openai-proxy` provider contract.
+- [x] Verify tests fail against the current provider.
+- [x] Commit failing tests only if local workflow allows, otherwise keep the
       red/green pair in one commit with command output noted.
 
 ### Step 3: Provider Rewrite
 
-- [ ] Implement explicit model catalog.
-- [ ] Implement native-style replay policy.
-- [ ] Implement native-style transport defaults.
-- [ ] Implement runtime auth helper.
-- [ ] Implement transport turn state and WebSocket session policy.
-- [ ] Adopt OpenAI Responses stream family hooks.
-- [ ] Remove deprecated capability field.
-- [ ] Run provider tests.
-- [ ] Run relevant build.
+- [x] Implement explicit model catalog.
+- [x] Implement native-style replay policy.
+- [x] Implement native-style transport defaults.
+- [x] Implement runtime auth helper.
+- [x] Implement transport turn state and WebSocket session policy.
+- [x] Adopt OpenAI Responses stream family hooks.
+- [x] Remove deprecated capability field.
+- [x] Run provider tests.
+- [x] Run relevant build.
 - [ ] Commit.
 
 ### Step 4: HTTP SSE Proxy Tests
