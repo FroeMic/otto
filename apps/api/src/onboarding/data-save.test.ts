@@ -21,6 +21,18 @@ describe("workspace onboarding save helpers", () => {
       getWorkspaceOnboardingSummaryLookupSlug({
         currentOrgSlug: "interaction42",
         request: {
+          action: "save-primary-goal",
+          primaryGoal: "start_new_business",
+        },
+      }),
+    ).toBe("interaction42")
+  })
+
+  it("keeps the current workspace slug for later onboarding steps", () => {
+    expect(
+      getWorkspaceOnboardingSummaryLookupSlug({
+        currentOrgSlug: "interaction42",
+        request: {
           action: "save-business-type",
           businessType: "saas",
         },

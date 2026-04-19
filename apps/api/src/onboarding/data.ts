@@ -12,6 +12,7 @@ import {
   workspaceOnboardingAnswerSchema,
   workspaceOnboardingRunSummarySchema,
   workspaceOnboardingRunStatusSchema,
+  type WorkspaceOnboardingAnswers,
   type WorkspaceOnboardingRunSummary,
   type WorkspaceOnboardingSaveRequest,
   workspaceOnboardingSaveRequestSchema,
@@ -294,7 +295,7 @@ export async function createWorkspaceOnboardingRun(input: {
     .insert(workspaceOnboardingRuns)
     .values({
       answersJson: {},
-      currentStepKey: "business_type",
+      currentStepKey: "primary_goal",
       flowKey: "workspace_onboarding",
       flowVersion: 1,
       organizationId: input.organizationId,
@@ -322,6 +323,24 @@ export function getWorkspaceOnboardingSummaryLookupSlug(input: {
   return input.request.action === "save-workspace-identity"
     ? input.request.workspaceSlug
     : input.currentOrgSlug
+}
+
+function getFirstMissingWorkspaceOnboardingStep(
+  answers: WorkspaceOnboardingAnswers,
+) {
+  if (!answers.primary_goal) {
+    return "primary_goal"
+  }
+
+  if (!answers.business_type) {
+    return "business_type"
+  }
+
+  if (!answers.team_size) {
+    return "team_setup"
+  }
+
+  return null
 }
 
 async function getWorkspaceOnboardingAccessRow(input: {
@@ -449,12 +468,16 @@ function buildWorkspaceOnboardingRunSummary(input: {
   const waitlistDecision = workspaceOnboardingWaitlistDecisionSchema.parse(
     input.run.waitlistDecision,
   )
+  const answers = workspaceOnboardingAnswerSchema.parse(input.run.answersJson)
+  const currentStepKey =
+    getFirstMissingWorkspaceOnboardingStep(answers) ??
+    (input.run.currentStepKey
+      ? workspaceOnboardingStepKeySchema.parse(input.run.currentStepKey)
+      : null)
 
   return workspaceOnboardingRunSummarySchema.parse({
-    answers: workspaceOnboardingAnswerSchema.parse(input.run.answersJson),
-    currentStepKey: input.run.currentStepKey
-      ? workspaceOnboardingStepKeySchema.parse(input.run.currentStepKey)
-      : null,
+    answers,
+    currentStepKey,
     holdingState: getWorkspaceOnboardingHoldingState({
       isOrganizationReady: input.access.isOrganizationReady,
       provisioningStartedAt: input.run.provisioningStartedAt,
@@ -537,7 +560,15 @@ export async function saveWorkspaceOnboardingRun(input: {
         workspace_name: request.workspaceName,
         workspace_slug: request.workspaceSlug,
       }
-      nextCurrentStepKey = "business_type"
+      nextCurrentStepKey = getFirstMissingWorkspaceOnboardingStep(nextAnswers)
+      break
+    }
+    case "save-primary-goal": {
+      nextAnswers = {
+        ...answers,
+        primary_goal: request.primaryGoal,
+      }
+      nextCurrentStepKey = getFirstMissingWorkspaceOnboardingStep(nextAnswers)
       break
     }
     case "save-business-type": {
@@ -545,7 +576,7 @@ export async function saveWorkspaceOnboardingRun(input: {
         ...answers,
         business_type: request.businessType,
       }
-      nextCurrentStepKey = "team_setup"
+      nextCurrentStepKey = getFirstMissingWorkspaceOnboardingStep(nextAnswers)
       break
     }
     case "save-team-setup": {
@@ -553,8 +584,9 @@ export async function saveWorkspaceOnboardingRun(input: {
         ...answers,
         team_size: request.teamSize,
       }
-      nextCurrentStepKey = null
-      nextStatus = "accepted_pending_provision"
+      nextCurrentStepKey = getFirstMissingWorkspaceOnboardingStep(nextAnswers)
+      nextStatus =
+        nextCurrentStepKey === null ? "accepted_pending_provision" : run.status
       break
     }
   }

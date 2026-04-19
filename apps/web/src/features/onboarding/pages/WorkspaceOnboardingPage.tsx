@@ -2,6 +2,7 @@
 
 import type {
   WorkspaceOnboardingBusinessType,
+  WorkspaceOnboardingPrimaryGoal,
   WorkspaceOnboardingStepKey,
   WorkspaceOnboardingTeamSize,
 } from "@otto/feature-workspace-onboarding"
@@ -17,6 +18,7 @@ import {
   workspaceOnboardingQueryOptions,
 } from "../api/onboarding"
 import { BusinessTypeStep } from "../components/BusinessTypeStep"
+import { PrimaryGoalStep } from "../components/PrimaryGoalStep"
 import { TeamSetupStep } from "../components/TeamSetupStep"
 import { getPreviousWorkspaceOnboardingStep } from "../step-navigation"
 import { getOnboardingRouteAfterSave } from "../workspace-identity"
@@ -36,7 +38,7 @@ export function WorkspaceOnboardingPage({
     "workspace_identity"
   > | null =
     summary.currentStepKey === "workspace_identity"
-      ? "business_type"
+      ? "primary_goal"
       : summary.currentStepKey
   const [visibleStep, setVisibleStep] = useState(normalizedCurrentStep)
 
@@ -79,6 +81,25 @@ export function WorkspaceOnboardingPage({
       }
     },
   })
+
+  if (visibleStep === "primary_goal") {
+    return (
+      <PrimaryGoalStep
+        onSelect={async (primaryGoal: WorkspaceOnboardingPrimaryGoal) => {
+          await saveMutation.mutateAsync({
+            action: "save-primary-goal",
+            primaryGoal,
+          })
+          setVisibleStep(
+            normalizedCurrentStep === "business_type"
+              ? "business_type"
+              : "primary_goal",
+          )
+        }}
+        selectedPrimaryGoal={summary.answers.primary_goal}
+      />
+    )
+  }
 
   if (visibleStep === "business_type") {
     return (

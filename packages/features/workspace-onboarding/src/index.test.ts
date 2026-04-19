@@ -14,6 +14,7 @@ describe("workspace onboarding status helpers", () => {
     const ready = isWorkspaceOnboardingReadyForProvisioning({
       answers: {
         business_type: "saas",
+        primary_goal: "start_new_business",
         team_size: "2_5",
       },
       currentStepKey: "team_setup",
@@ -29,6 +30,7 @@ describe("workspace onboarding status helpers", () => {
   it("blocks provisioning when the onboarding answers are incomplete", () => {
     const ready = isWorkspaceOnboardingReadyForProvisioning({
       answers: {
+        primary_goal: "start_new_business",
         business_type: "saas",
       },
       currentStepKey: "business_type",
@@ -45,6 +47,7 @@ describe("workspace onboarding status helpers", () => {
     const ready = isWorkspaceOnboardingReadyForProvisioning({
       answers: {
         business_type: "saas",
+        primary_goal: "start_new_business",
         team_size: "solo",
       },
       currentStepKey: "team_setup",
@@ -99,6 +102,7 @@ describe("workspace onboarding status helpers", () => {
 
   it("exports the required onboarding answer keys", () => {
     assert.deepEqual(workspaceOnboardingAnswerKeys.requiredForProvisioning, [
+      "primary_goal",
       "business_type",
       "team_size",
     ])
