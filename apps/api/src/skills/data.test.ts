@@ -114,6 +114,7 @@ describe("workspace skills visibility", () => {
     ])
     expect(result.librarySkills.map((skill) => skill.skillKey)).toEqual([
       "name-and-domain-research",
+      "business-review",
     ])
   })
 

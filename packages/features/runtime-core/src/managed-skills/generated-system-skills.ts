@@ -87,7 +87,7 @@ export const SYSTEM_MANAGED_SKILL_DEFINITIONS =
           "path": "templates/review-summary.md"
         }
       ],
-      "installMode": "manual_install",
+      "installMode": "default_installed",
       "skillKey": "business-review",
       "summary": "Install business review guidance",
       "visibleInLibrary": true
