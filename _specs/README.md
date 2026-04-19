@@ -89,6 +89,7 @@ This folder is the source of truth for implementation planning and session-to-se
 33. `DONE_32_skill_library_structure_and_naming_skill_rollout.md`
 34. `TODO_33_skill_library_and_installed_skills_ux.md`
 35. `TODO_35_posthog_integration.md`
+36. `TODO_36_openai_proxy_native_quality_rewrite.md`
 
 ## Trigger.dev decision
 
