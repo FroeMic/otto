@@ -1,0 +1,14 @@
+{
+  "skillKey": "business-review",
+  "installMode": "manual_install",
+  "visibleInLibrary": true,
+  "sortOrder": 40,
+  "fileOrder": [
+    "SKILL.md",
+    "references/anti-patterns.md",
+    "references/question-patterns.md",
+    "references/review-modes.md",
+    "templates/review-summary.md"
+  ],
+  "summary": "Install business review guidance"
+}

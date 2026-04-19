@@ -8,7 +8,12 @@ describe("system managed skill definitions", () => {
   it("registers the expected seeded Otto skills", () => {
     assert.deepEqual(
       SYSTEM_MANAGED_SKILL_DEFINITIONS.map((definition) => definition.skillKey),
-      ["skill-creator", "otto-business-onboarding", "name-and-domain-research"],
+      [
+        "skill-creator",
+        "otto-business-onboarding",
+        "name-and-domain-research",
+        "business-review",
+      ],
     )
   })
 
@@ -106,6 +111,42 @@ describe("system managed skill definitions", () => {
     assert.ok(namingSkill)
     assert.equal(namingSkill.installMode, "manual_install")
     assert.equal(namingSkill.visibleInLibrary, true)
+
+    const businessReviewSkill = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === "business-review",
+    )
+    assert.ok(businessReviewSkill)
+    assert.equal(businessReviewSkill.installMode, "manual_install")
+    assert.equal(businessReviewSkill.visibleInLibrary, true)
+  })
+
+  it("defines business review as a separate pressure-testing skill", () => {
+    const businessReviewSkill = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
+      (definition) => definition.skillKey === "business-review",
+    )
+
+    assert.ok(businessReviewSkill)
+    assert.deepEqual(
+      businessReviewSkill.files.map((file) => file.path),
+      [
+        "SKILL.md",
+        "references/anti-patterns.md",
+        "references/question-patterns.md",
+        "references/review-modes.md",
+        "templates/review-summary.md",
+      ],
+    )
+
+    const allContent = businessReviewSkill.files
+      .map((file) => file.contentText ?? "")
+      .join("\n")
+
+    assert.match(allContent, /Business Review/)
+    assert.match(allContent, /pressure-test/i)
+    assert.match(allContent, /one focused question/i)
+    assert.match(allContent, /interest from demand/i)
+    assert.match(allContent, /not Business Onboarding/i)
+    assert.doesNotMatch(allContent, /office hours/i)
   })
 
   it("keeps Otto system skill packages valid against the managed skill contract", () => {
