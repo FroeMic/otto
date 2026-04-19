@@ -25,13 +25,13 @@ vi.mock("@otto/feature-runtime-core", () => ({
       files: [
         {
           contentText:
-            "---\nname: Otto Business Onboarding\ndescription: Founder onboarding workflow.\nintegrations: []\nskills: []\n---\n\n# Otto Business Onboarding\n",
+            "---\nname: Business Idea Onboarding\ndescription: Founder onboarding workflow.\nintegrations: []\nskills: []\n---\n\n# Business Idea Onboarding\n",
           path: "SKILL.md",
         },
       ],
       installMode: "default_installed",
-      skillKey: "otto-business-onboarding",
-      summary: "Install Otto business onboarding guidance",
+      skillKey: "business-idea-onboarding",
+      summary: "Install business idea onboarding guidance",
       visibleInLibrary: false,
     },
     {
@@ -390,13 +390,13 @@ function createReadyRuntimeDbMockForDefaultSkillSync() {
   const insertResults = [
     [
       {
-        id: "skill_otto_onboarding",
-        skillKey: "otto-business-onboarding",
+        id: "skill_business_idea_onboarding",
+        skillKey: "business-idea-onboarding",
       },
     ],
     [
       {
-        id: "version_otto_onboarding_1",
+        id: "version_business_idea_onboarding_1",
         version: 1,
       },
     ],
@@ -424,7 +424,7 @@ function createReadyRuntimeDbMockForSeededDefaultSkillReprojection() {
   const selectResults = [
     [
       {
-        skillId: "skill_otto_onboarding",
+        skillId: "skill_business_idea_onboarding",
         sourceType: "system",
       },
     ],
@@ -549,7 +549,7 @@ describe("api managed skill data", () => {
 
     assert.deepEqual(result, {
       changed: true,
-      createdSkillKeys: ["otto-business-onboarding"],
+      createdSkillKeys: ["business-idea-onboarding"],
       desiredStateVersion: 13,
     })
     expect(enqueueJob).not.toHaveBeenCalled()

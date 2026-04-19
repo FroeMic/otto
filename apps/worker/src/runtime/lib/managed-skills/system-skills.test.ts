@@ -10,16 +10,16 @@ describe("system managed skill definitions", () => {
       SYSTEM_MANAGED_SKILL_DEFINITIONS.map((definition) => definition.skillKey),
       [
         "skill-creator",
-        "otto-business-onboarding",
+        "business-idea-onboarding",
         "name-and-domain-research",
         "business-review",
       ],
     )
   })
 
-  it("defines business onboarding as a default-installed project workspace skill", () => {
+  it("defines business idea onboarding as a default-installed project workspace skill", () => {
     const onboardingSkill = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
-      (definition) => definition.skillKey === "otto-business-onboarding",
+      (definition) => definition.skillKey === "business-idea-onboarding",
     )
 
     assert.ok(onboardingSkill)
@@ -27,36 +27,53 @@ describe("system managed skill definitions", () => {
     assert.equal(onboardingSkill.visibleInLibrary, false)
     assert.deepEqual(
       onboardingSkill.files.map((file) => file.path),
-      ["SKILL.md"],
+      [
+        "SKILL.md",
+        "examples/antique-books-marketplace.md",
+        "references/project-structure.md",
+        "references/question-priorities.md",
+        "templates/business-profile.md",
+        "templates/onboarding.md",
+        "templates/roadmap.md",
+      ],
     )
 
     const skillMarkdown = onboardingSkill.files[0]?.contentText ?? ""
+    const allContent = onboardingSkill.files
+      .map((file) => file.contentText ?? "")
+      .join("\n")
 
     assert.match(skillMarkdown, /new business idea/i)
+    assert.match(skillMarkdown, /Reference files/)
+    assert.match(skillMarkdown, /references\/project-structure\.md/)
+    assert.match(skillMarkdown, /templates\/business-profile\.md/)
+    assert.match(skillMarkdown, /examples\/antique-books-marketplace\.md/)
     assert.match(skillMarkdown, /projects\/<project-key>\//)
+    assert.doesNotMatch(skillMarkdown, /```markdown\n# Business Profile/)
+    assert.doesNotMatch(skillMarkdown, /## Done Recently/)
+    assert.match(allContent, /projects\/<project-key>\//)
     assert.match(skillMarkdown, /projects\/_index\.md/)
-    assert.match(skillMarkdown, /greenfield/)
-    assert.match(skillMarkdown, /brownfield/)
-    assert.match(skillMarkdown, /projects\/<project-key>\/<project-key>\.md/)
-    assert.match(skillMarkdown, /Business Profile/)
-    assert.match(skillMarkdown, /Current Read/)
-    assert.doesNotMatch(skillMarkdown, /Diarized Brief/)
-    assert.match(skillMarkdown, /Contradictions And Tensions/)
-    assert.match(skillMarkdown, /Confidence And Unknowns/)
-    assert.match(skillMarkdown, /Supporting Context/)
-    assert.match(skillMarkdown, /context\/onboarding\.md/)
-    assert.match(skillMarkdown, /context\/roadmap\.md/)
-    assert.match(skillMarkdown, /context\//)
-    assert.match(skillMarkdown, /create `context\/` only when writing the first supporting file/i)
-    assert.match(skillMarkdown, /Do not create empty supporting files/i)
-    assert.doesNotMatch(skillMarkdown, /projects\/<project-key>\/project\.md/)
-    assert.doesNotMatch(skillMarkdown, /projects\/<project-key>\/onboarding\.md/)
-    assert.match(skillMarkdown, /guided compression/i)
+    assert.match(allContent, /greenfield/)
+    assert.match(allContent, /brownfield/)
+    assert.match(allContent, /projects\/<project-key>\/<project-key>\.md/)
+    assert.match(allContent, /Business Profile/)
+    assert.match(allContent, /Current Read/)
+    assert.doesNotMatch(allContent, /Diarized Brief/)
+    assert.match(allContent, /Contradictions And Tensions/)
+    assert.match(allContent, /Confidence And Unknowns/)
+    assert.match(allContent, /Supporting Context/)
+    assert.match(allContent, /context\/onboarding\.md/)
+    assert.match(allContent, /context\/roadmap\.md/)
+    assert.match(allContent, /context\//)
+    assert.match(allContent, /create `context\/` only when writing the first supporting file/i)
+    assert.match(allContent, /Do not create empty supporting files/i)
+    assert.doesNotMatch(allContent, /projects\/<project-key>\/project\.md/)
+    assert.doesNotMatch(allContent, /projects\/<project-key>\/onboarding\.md/)
+    assert.match(allContent, /guided compression/i)
     assert.match(skillMarkdown, /short, conversational turns/i)
     assert.match(skillMarkdown, /ask at most one focused question/i)
-    assert.match(skillMarkdown, /One recommended next move/i)
+    assert.match(allContent, /One recommended next move/i)
     assert.match(skillMarkdown, /Do not write consultant-style essays/i)
-    assert.doesNotMatch(skillMarkdown, /references\//)
   })
 
   it("defines the naming skill as a packaged skill with companion references", () => {
@@ -102,7 +119,7 @@ describe("system managed skill definitions", () => {
     assert.equal(skillCreator.visibleInLibrary, false)
 
     const onboardingSkill = SYSTEM_MANAGED_SKILL_DEFINITIONS.find(
-      (definition) => definition.skillKey === "otto-business-onboarding",
+      (definition) => definition.skillKey === "business-idea-onboarding",
     )
     assert.ok(onboardingSkill)
     assert.equal(onboardingSkill.installMode, "default_installed")
@@ -145,7 +162,7 @@ describe("system managed skill definitions", () => {
     assert.match(allContent, /pressure-test/i)
     assert.match(allContent, /one focused question/i)
     assert.match(allContent, /interest from demand/i)
-    assert.match(allContent, /not Business Onboarding/i)
+    assert.match(allContent, /not Business Idea Onboarding/i)
     assert.doesNotMatch(allContent, /office hours/i)
   })
 

@@ -11,7 +11,7 @@ metadata:
 
 Use this skill to pressure-test and sharpen a business direction. The goal is better judgment, not a long memo.
 
-This is not Business Onboarding. Business Onboarding creates or refreshes durable project context. Business Review interrogates a business question, exposes weak assumptions, and turns ambiguity into one concrete next move.
+This is not Business Idea Onboarding. Business Idea Onboarding creates or refreshes durable project context. Business Review interrogates a business question, exposes weak assumptions, and turns ambiguity into one concrete next move.
 
 ## When to use
 

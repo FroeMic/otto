@@ -1,0 +1,16 @@
+{
+  "skillKey": "business-idea-onboarding",
+  "installMode": "default_installed",
+  "visibleInLibrary": false,
+  "sortOrder": 20,
+  "fileOrder": [
+    "SKILL.md",
+    "examples/antique-books-marketplace.md",
+    "references/project-structure.md",
+    "references/question-priorities.md",
+    "templates/business-profile.md",
+    "templates/onboarding.md",
+    "templates/roadmap.md"
+  ],
+  "summary": "Install business idea onboarding guidance"
+}
