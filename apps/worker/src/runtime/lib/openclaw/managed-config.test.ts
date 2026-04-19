@@ -12,9 +12,9 @@ describe("managed config definitions", () => {
     expect(agentDefinition?.systemContent).toContain(
       "projects/<project-key>/<project-key>.md",
     )
-    expect(agentDefinition?.systemContent).toContain(
-      "canonical project entry point",
-    )
+    expect(agentDefinition?.systemContent).toContain("Business Profile")
+    expect(agentDefinition?.systemContent).toContain("context/roadmap.md")
+    expect(agentDefinition?.systemContent).toContain("context/")
     expect(agentDefinition?.systemContent).toContain(
       "## Business Building Mode",
     )
