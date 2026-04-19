@@ -407,21 +407,21 @@ responses, do not forward stale content-encoding headers.
 
 ### Step 4: HTTP SSE Proxy Tests
 
-- [ ] Add failing tests for SSE terminal detection and incomplete-stream
+- [x] Add failing tests for SSE terminal detection and incomplete-stream
       behavior.
-- [ ] Verify tests fail against the current proxy.
-- [ ] Commit failing tests only if local workflow allows, otherwise keep the
+- [x] Verify tests fail against the current proxy.
+- [x] Commit failing tests only if local workflow allows, otherwise keep the
       red/green pair in one commit with command output noted.
 
 ### Step 5: HTTP SSE Proxy Rewrite
 
-- [ ] Add SSE observer/parser.
-- [ ] Integrate parser into `/responses` proxy path.
-- [ ] Enforce terminal stream semantics.
-- [ ] Add correlation logging.
-- [ ] Clean up controller-close race logging.
-- [ ] Run API tests.
-- [ ] Run API build.
+- [x] Add SSE observer/parser.
+- [x] Integrate parser into `/responses` proxy path.
+- [x] Enforce terminal stream semantics.
+- [x] Add correlation logging.
+- [x] Clean up controller-close race logging.
+- [x] Run API tests.
+- [x] Run API build.
 - [ ] Commit.
 
 ### Step 6: WebSocket Proxy Tests

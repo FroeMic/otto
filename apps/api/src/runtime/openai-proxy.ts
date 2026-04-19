@@ -179,6 +179,125 @@ function getOpenAiRequestId(headers: Headers) {
   )
 }
 
+type ResponsesTerminalEvent = "error" | "response.completed" | "response.failed"
+
+type ResponsesStreamObservation = {
+  firstEventType: string | null
+  lastEventType: string | null
+  outputItemCount: number
+  responseId: string | null
+  sawTerminal: boolean
+  terminalEventType: ResponsesTerminalEvent | null
+}
+
+function createResponsesStreamObservation(): ResponsesStreamObservation {
+  return {
+    firstEventType: null,
+    lastEventType: null,
+    outputItemCount: 0,
+    responseId: null,
+    sawTerminal: false,
+    terminalEventType: null,
+  }
+}
+
+function observeResponsesSseFrame(
+  frame: string,
+  observation: ResponsesStreamObservation,
+) {
+  let eventType: string | null = null
+  const dataLines: string[] = []
+
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event:")) {
+      eventType = line.slice("event:".length).trim()
+      continue
+    }
+
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice("data:".length).trimStart())
+    }
+  }
+
+  const data = dataLines.join("\n").trim()
+  if (!eventType && data && data !== "[DONE]") {
+    try {
+      const parsed = JSON.parse(data) as { type?: unknown }
+      eventType = typeof parsed.type === "string" ? parsed.type : null
+    } catch {
+      eventType = null
+    }
+  }
+
+  if (!eventType) {
+    return
+  }
+
+  observation.firstEventType ??= eventType
+  observation.lastEventType = eventType
+
+  if (eventType === "response.output_item.added") {
+    observation.outputItemCount += 1
+  }
+
+  if (data && data !== "[DONE]") {
+    try {
+      const parsed = JSON.parse(data) as {
+        response?: { id?: unknown }
+        item?: { id?: unknown }
+      }
+      const responseId =
+        typeof parsed.response?.id === "string" ? parsed.response.id : null
+      if (responseId) {
+        observation.responseId = responseId
+      }
+    } catch {
+      // The observer should never break byte forwarding because a data frame
+      // was not JSON or had an unexpected shape.
+    }
+  }
+
+  if (
+    eventType === "response.completed" ||
+    eventType === "response.failed" ||
+    eventType === "error"
+  ) {
+    observation.sawTerminal = true
+    observation.terminalEventType = eventType
+  }
+}
+
+function createResponsesSseObserver() {
+  const decoder = new TextDecoder()
+  const observation = createResponsesStreamObservation()
+  let pending = ""
+
+  const processPendingFrames = () => {
+    let separatorIndex = pending.indexOf("\n\n")
+    while (separatorIndex >= 0) {
+      const frame = pending.slice(0, separatorIndex)
+      pending = pending.slice(separatorIndex + 2)
+      observeResponsesSseFrame(frame, observation)
+      separatorIndex = pending.indexOf("\n\n")
+    }
+  }
+
+  return {
+    observation,
+    observeChunk(chunk: Uint8Array) {
+      pending += decoder.decode(chunk, { stream: true }).replace(/\r\n/g, "\n")
+      processPendingFrames()
+    },
+    flush() {
+      pending += decoder.decode().replace(/\r\n/g, "\n")
+      if (pending.trim()) {
+        observeResponsesSseFrame(pending, observation)
+      }
+      pending = ""
+    },
+  }
+}
+
 export function createLoggedOpenAiProxyBody(input: {
   body: ReadableStream<Uint8Array>
   logger?: OpenAiProxyLogger
@@ -193,20 +312,37 @@ export function createLoggedOpenAiProxyBody(input: {
   const startedAt = Date.now()
   let bytes = 0
   let chunks = 0
+  let downstreamCancelled = false
+  const responsesObserver =
+    input.route === "responses" ? createResponsesSseObserver() : null
 
   const fields = () => ({
     bytes,
     chunks,
     durationMs: Date.now() - startedAt,
+    firstEventType: responsesObserver?.observation.firstEventType ?? undefined,
+    lastEventType: responsesObserver?.observation.lastEventType ?? undefined,
+    outputItemCount: responsesObserver?.observation.outputItemCount ?? undefined,
     requestId: input.requestId,
+    responseId: responsesObserver?.observation.responseId ?? undefined,
     route: input.route,
     tenantId: input.tenantId,
+    terminalEventType:
+      responsesObserver?.observation.terminalEventType ?? undefined,
     upstreamRequestId: input.upstreamRequestId,
     upstreamStatus: input.upstreamStatus,
   })
 
   return new ReadableStream<Uint8Array>({
     async cancel(reason) {
+      downstreamCancelled = true
+      if (responsesObserver && !responsesObserver.observation.sawTerminal) {
+        logger.warn("[runtime-ai] openai proxy responses stream incomplete", {
+          ...fields(),
+          reason: formatCancelReason(reason),
+          streamOutcome: "downstream_cancelled_before_terminal",
+        })
+      }
       logger.warn("[runtime-ai] openai proxy downstream stream cancelled", {
         ...fields(),
         reason: formatCancelReason(reason),
@@ -222,6 +358,55 @@ export function createLoggedOpenAiProxyBody(input: {
         const result = await reader.read()
 
         if (result.done) {
+          responsesObserver?.flush()
+
+          if (responsesObserver) {
+            const terminalEventType =
+              responsesObserver.observation.terminalEventType
+            if (terminalEventType === "response.completed") {
+              logger.info(
+                "[runtime-ai] openai proxy responses stream completed",
+                {
+                  ...fields(),
+                  streamOutcome: "completed",
+                },
+              )
+              controller.close()
+              return
+            }
+
+            if (
+              terminalEventType === "response.failed" ||
+              terminalEventType === "error"
+            ) {
+              const error = new Error(
+                `OpenAI Responses stream failed with terminal event ${terminalEventType}.`,
+              )
+              logger.error("[runtime-ai] openai proxy responses stream failed", {
+                ...fields(),
+                error: error.message,
+                errorName: error.name,
+                streamOutcome: "failed",
+              })
+              controller.error(error)
+              return
+            }
+
+            const error = new Error(
+              "OpenAI Responses stream ended before a terminal event.",
+            )
+            logger.error("[runtime-ai] openai proxy responses stream incomplete", {
+              ...fields(),
+              error: error.message,
+              errorName: error.name,
+              streamOutcome: downstreamCancelled
+                ? "downstream_cancelled_before_terminal"
+                : "incomplete",
+            })
+            controller.error(error)
+            return
+          }
+
           logger.info("[runtime-ai] openai proxy upstream stream completed", fields())
           controller.close()
           return
@@ -230,8 +415,22 @@ export function createLoggedOpenAiProxyBody(input: {
         const chunkBytes = result.value.byteLength
         bytes += chunkBytes
         chunks += 1
+        responsesObserver?.observeChunk(result.value)
         controller.enqueue(result.value)
       } catch (error) {
+        if (responsesObserver && responsesObserver.observation.sawTerminal) {
+          logger.warn(
+            "[runtime-ai] openai proxy upstream stream closed after terminal event",
+            {
+              ...fields(),
+              error: getErrorMessage(error),
+              errorName: getErrorName(error),
+            },
+          )
+          controller.close()
+          return
+        }
+
         logger.error("[runtime-ai] openai proxy upstream stream failed", {
           ...fields(),
           error: getErrorMessage(error),

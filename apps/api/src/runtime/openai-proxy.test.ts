@@ -28,12 +28,23 @@ function createLogger() {
 }
 
 describe("OpenAI runtime proxy stream logging", () => {
-  it("logs successful upstream stream completion with byte counts", async () => {
+  it("logs successful upstream responses stream completion after response.completed", async () => {
     const { entries, logger } = createLogger()
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode("hello "))
-        controller.enqueue(new TextEncoder().encode("world"))
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_1"}}',
+              "",
+              "event: response.completed",
+              'data: {"response":{"id":"resp_1"}}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
         controller.close()
       },
     })
@@ -48,17 +59,103 @@ describe("OpenAI runtime proxy stream logging", () => {
       upstreamStatus: 200,
     })
 
-    assert.equal(await new Response(wrapped).text(), "hello world")
+    assert.match(await new Response(wrapped).text(), /response.completed/)
     assert.deepEqual(
       entries.map((entry) => entry.message),
       [
         "[runtime-ai] openai proxy stream opened",
-        "[runtime-ai] openai proxy upstream stream completed",
+        "[runtime-ai] openai proxy responses stream completed",
       ],
     )
-    assert.equal(entries[1]?.fields.bytes, 11)
-    assert.equal(entries[1]?.fields.chunks, 2)
+    assert.equal(entries[1]?.fields.terminalEventType, "response.completed")
+    assert.equal(entries[1]?.fields.responseId, "resp_1")
     assert.equal(entries[1]?.fields.tenantId, "tenant_1")
+  })
+
+  it("fails a responses stream that reaches EOF before a terminal event", async () => {
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_incomplete"}}',
+              "",
+              "event: response.output_text.delta",
+              'data: {"delta":"partial"}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_incomplete",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_incomplete",
+      upstreamStatus: 200,
+    })
+
+    await assert.rejects(
+      () => new Response(wrapped).text(),
+      /OpenAI Responses stream ended before a terminal event/,
+    )
+
+    const incompleteLog = entries.find(
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy responses stream incomplete",
+    )
+    assert.equal(incompleteLog?.level, "error")
+    assert.equal(incompleteLog?.fields.responseId, "resp_incomplete")
+    assert.equal(incompleteLog?.fields.streamOutcome, "incomplete")
+  })
+
+  it("fails a responses stream that receives a response.failed terminal event", async () => {
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.failed",
+              'data: {"response":{"id":"resp_failed"}}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_failed",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_failed",
+      upstreamStatus: 200,
+    })
+
+    await assert.rejects(
+      () => new Response(wrapped).text(),
+      /OpenAI Responses stream failed with terminal event response.failed/,
+    )
+
+    const failedLog = entries.find(
+      (entry) => entry.message === "[runtime-ai] openai proxy responses stream failed",
+    )
+    assert.equal(failedLog?.level, "error")
+    assert.equal(failedLog?.fields.terminalEventType, "response.failed")
+    assert.equal(failedLog?.fields.streamOutcome, "failed")
   })
 
   it("logs downstream cancellation while cancelling the upstream reader", async () => {
@@ -77,7 +174,7 @@ describe("OpenAI runtime proxy stream logging", () => {
       body,
       logger,
       requestId: "req_2",
-      route: "responses",
+      route: "audio_transcriptions",
       tenantId: "tenant_1",
       upstreamRequestId: null,
       upstreamStatus: 200,
