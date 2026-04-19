@@ -32,6 +32,7 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.settleCreditUsageChunk]: JOB_LANES.settlement,
   [JOB_TYPES.scheduleBillingAutoTopOffEnqueue]: JOB_LANES.settlement,
   [JOB_TYPES.executeBillingAutoTopOff]: JOB_LANES.settlement,
+  [JOB_TYPES.pruneJobHistory]: JOB_LANES.settlement,
 };
 
 const ALL_JOB_TYPES = Object.values(JOB_TYPES);
@@ -75,10 +76,12 @@ export function getRecurringSchedulerJobTypes(): RecurringSchedulerJobType[] {
     JOB_TYPES.scheduleOpenAiUsageSync,
     JOB_TYPES.scheduleCreditSettlement,
     JOB_TYPES.scheduleBillingAutoTopOffEnqueue,
+    JOB_TYPES.pruneJobHistory,
   ];
 }
 export type RecurringSchedulerJobType =
   | typeof JOB_TYPES.scheduleOauthConnectionRefresh
   | typeof JOB_TYPES.scheduleOpenAiUsageSync
   | typeof JOB_TYPES.scheduleCreditSettlement
-  | typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue;
+  | typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue
+  | typeof JOB_TYPES.pruneJobHistory;

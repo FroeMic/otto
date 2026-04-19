@@ -23,6 +23,7 @@ export const JOB_TYPES = {
   resyncSlackUsers: "resync_slack_users",
   resyncSlackChannels: "resync_slack_channels",
   syncTenantSessions: "sync_tenant_sessions",
+  pruneJobHistory: "prune_job_history",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -171,6 +172,8 @@ export type SyncTenantSessionsPayload = {
   tenantId: string;
 };
 
+export type PruneJobHistoryPayload = Record<string, never>;
+
 export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.provisionTenantServer;
@@ -251,6 +254,10 @@ export type ControlPlaneJobPayload =
   | {
       jobType: typeof JOB_TYPES.syncTenantSessions;
       payload: SyncTenantSessionsPayload;
+    }
+  | {
+      jobType: typeof JOB_TYPES.pruneJobHistory;
+      payload: PruneJobHistoryPayload;
     };
 
 export type ClaimedJob = {

@@ -407,6 +407,13 @@
       "when": 1776453618000,
       "tag": "0058_remove_snapshot_provisioning_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1776592800000,
+      "tag": "0059_job_history_retention_indexes",
+      "breakpoints": true
     }
   ]
 }

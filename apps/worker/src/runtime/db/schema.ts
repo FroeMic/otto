@@ -1126,6 +1126,11 @@ export const jobRuns = pgTable(
       table.status,
       table.availableAt,
     ),
+    typeStatusFinishedIdx: index("job_runs_job_type_status_finished_at_idx").on(
+      table.jobType,
+      table.status,
+      table.finishedAt,
+    ),
     tenantIdx: index("job_runs_tenant_id_idx").on(table.tenantId),
   }),
 );
