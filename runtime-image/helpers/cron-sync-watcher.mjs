@@ -26,6 +26,7 @@ let flushInFlight = false;
 let flushRequestedWhileBusy = false;
 let initialSyncDone = false;
 let initialSyncTimer = null;
+let initialSyncAttempt = 0;
 let pendingTaskRefresh = false;
 let rootWatcher = null;
 let runsWatcher = null;
@@ -59,6 +60,9 @@ async function waitForGateway() {
     try {
       const response = await fetch(localGatewayUrl("/healthz"));
       if (response.ok) {
+        console.info("[otto-cron-sync] local gateway health check passed", {
+          gatewayPort,
+        });
         return;
       }
     } catch {
@@ -70,8 +74,20 @@ async function waitForGateway() {
 }
 
 async function runInitialSync() {
+  const attempt = ++initialSyncAttempt;
+  const startedAt = Date.now();
+
+  console.info("[otto-cron-sync] initial sync starting", {
+    attempt,
+    controlPlaneHost: getUrlHost(controlPlaneBaseUrl),
+    gatewayPort,
+    timeoutMs: CONTROL_PLANE_TIMEOUT_MS,
+  });
+
   try {
-    const tasks = await listCronTasks();
+    const tasks = await runLoggedPhase("initial sync cron.list", {
+      attempt,
+    }, () => listCronTasks());
     const runs = [];
 
     for (const task of tasks) {
@@ -79,23 +95,41 @@ async function runInitialSync() {
         continue;
       }
 
-      const taskRuns = await listCronRuns(task.id);
+      const taskRuns = await runLoggedPhase("initial sync cron.runs", {
+        attempt,
+        jobId: task.id,
+      }, () => listCronRuns(task.id));
       runs.push(...taskRuns);
     }
 
-    await pushSnapshot({
-      reason: "startup",
-      runs,
-      tasks,
-    });
+    await runLoggedPhase("initial sync control-plane push", {
+      attempt,
+      chunks: Math.max(1, Math.ceil(runs.length / MAX_RUNS_PER_REQUEST)),
+      runsCount: runs.length,
+      tasksCount: tasks.length,
+    }, () =>
+      pushSnapshot({
+        reason: "startup",
+        runs,
+        tasks,
+      }),
+    );
     initialSyncDone = true;
     console.info(
       `[otto-cron-sync] initial sync pushed ${tasks.length} tasks and ${runs.length} runs`,
+      {
+        attempt,
+        durationMs: Date.now() - startedAt,
+      },
     );
   } catch (error) {
     console.error(
       "[otto-cron-sync] initial sync failed",
-      getErrorMessage(error),
+      {
+        attempt,
+        durationMs: Date.now() - startedAt,
+        ...describeError(error),
+      },
     );
     scheduleInitialSyncRetry();
   }
@@ -382,6 +416,15 @@ async function invokeGatewayTool(input) {
     () => controller.abort(),
     CONTROL_PLANE_TIMEOUT_MS,
   );
+  const startedAt = Date.now();
+  const requestContext = {
+    action: input.action ?? null,
+    gatewayPort,
+    timeoutMs: CONTROL_PLANE_TIMEOUT_MS,
+    tool: input.tool,
+  };
+
+  console.info("[otto-cron-sync] gateway tool request starting", requestContext);
 
   try {
     const response = await fetch(localGatewayUrl("/tools/invoke"), {
@@ -425,10 +468,22 @@ async function invokeGatewayTool(input) {
       typeof envelope.result.details === "object" &&
       !Array.isArray(envelope.result.details)
     ) {
+      console.info("[otto-cron-sync] gateway tool request succeeded", {
+        ...requestContext,
+        durationMs: Date.now() - startedAt,
+        status: response.status,
+      });
       return envelope.result.details;
     }
 
     throw new Error("Gateway tool invoke response did not include details");
+  } catch (error) {
+    console.error("[otto-cron-sync] gateway tool request failed", {
+      ...requestContext,
+      durationMs: Date.now() - startedAt,
+      ...describeError(error),
+    });
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -439,6 +494,22 @@ async function postScheduledTaskSync(payload) {
   const timeout = setTimeout(
     () => controller.abort(),
     CONTROL_PLANE_TIMEOUT_MS,
+  );
+  const startedAt = Date.now();
+  const requestContext = {
+    controlPlaneHost: getUrlHost(controlPlaneBaseUrl),
+    hasRuns: Array.isArray(payload.runs),
+    hasTasks: Array.isArray(payload.tasks),
+    reason: typeof payload.reason === "string" ? payload.reason : null,
+    runsCount: Array.isArray(payload.runs) ? payload.runs.length : 0,
+    source: typeof payload.source === "string" ? payload.source : null,
+    tasksCount: Array.isArray(payload.tasks) ? payload.tasks.length : 0,
+    timeoutMs: CONTROL_PLANE_TIMEOUT_MS,
+  };
+
+  console.info(
+    "[otto-cron-sync] control-plane scheduled task sync request starting",
+    requestContext,
   );
 
   try {
@@ -460,8 +531,48 @@ async function postScheduledTaskSync(payload) {
         `Control-plane scheduled task sync failed: ${response.status} ${await response.text()}`,
       );
     }
+    console.info(
+      "[otto-cron-sync] control-plane scheduled task sync request succeeded",
+      {
+        ...requestContext,
+        durationMs: Date.now() - startedAt,
+        status: response.status,
+      },
+    );
+  } catch (error) {
+    console.error(
+      "[otto-cron-sync] control-plane scheduled task sync request failed",
+      {
+        ...requestContext,
+        durationMs: Date.now() - startedAt,
+        ...describeError(error),
+      },
+    );
+    throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function runLoggedPhase(label, context, operation) {
+  const startedAt = Date.now();
+
+  console.info(`[otto-cron-sync] ${label} starting`, context);
+
+  try {
+    const result = await operation();
+    console.info(`[otto-cron-sync] ${label} succeeded`, {
+      ...context,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    console.error(`[otto-cron-sync] ${label} failed`, {
+      ...context,
+      durationMs: Date.now() - startedAt,
+      ...describeError(error),
+    });
+    throw error;
   }
 }
 
@@ -516,6 +627,35 @@ function chunk(entries, size) {
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function describeError(error) {
+  const details = {
+    aborted: false,
+    error: getErrorMessage(error),
+    errorName: null,
+  };
+
+  if (error instanceof Error) {
+    details.errorName = error.name;
+    details.aborted =
+      error.name === "AbortError" ||
+      error.message === "This operation was aborted";
+  }
+
+  if (error && typeof error === "object" && "code" in error) {
+    details.errorCode = error.code;
+  }
+
+  return details;
+}
+
+function getUrlHost(value) {
+  try {
+    return new URL(value).host;
+  } catch {
+    return "unknown";
+  }
 }
 
 function sleep(ms) {

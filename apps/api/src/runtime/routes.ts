@@ -630,12 +630,28 @@ export function registerRuntimeRoutes(app: Hono) {
   })
 
   app.post("/api/internal/runtime/scheduled-tasks/sync", async (context) => {
+    const startedAt = Date.now()
+    let syncLogContext: Record<string, unknown> = {}
+
     try {
       const { tenantId } = await authenticateTenantRuntimeRequest(
         context.req.raw,
       )
+      syncLogContext = { tenantId }
       const body = await context.req.raw.json()
       const payload = validateScheduledTaskSyncPayload(body)
+      syncLogContext = {
+        reason: payload.reason,
+        runsCount: payload.runs?.length ?? 0,
+        source: payload.source,
+        tasksCount: payload.tasks?.length ?? null,
+        tenantId,
+      }
+
+      console.info(
+        "[runtime-scheduled-tasks] sync callback received",
+        syncLogContext,
+      )
 
       const taskSnapshots = (payload.tasks ?? [])
         .map(normalizeRuntimeTask)
@@ -708,6 +724,13 @@ export function registerRuntimeRoutes(app: Hono) {
         }).catch(() => undefined)
       }
 
+      console.info("[runtime-scheduled-tasks] sync callback applied", {
+        ...syncLogContext,
+        durationMs: Date.now() - startedAt,
+        syncedRuns: runSnapshots.length,
+        syncedTasks: taskSnapshots.length,
+      })
+
       return jsonNoStore({
         ok: true,
         reason: payload.reason,
@@ -716,6 +739,11 @@ export function registerRuntimeRoutes(app: Hono) {
         syncedTasks: taskSnapshots.length,
       })
     } catch (error) {
+      console.error("[runtime-scheduled-tasks] sync callback failed", {
+        ...syncLogContext,
+        durationMs: Date.now() - startedAt,
+        ...describeRuntimeRouteError(error),
+      })
       return handleScheduledTaskSyncError(error)
     }
   })
@@ -1020,6 +1048,13 @@ function handleScheduledTaskSyncError(error: unknown) {
     },
     500,
   )
+}
+
+function describeRuntimeRouteError(error: unknown) {
+  return {
+    error: error instanceof Error ? error.message : String(error),
+    errorName: error instanceof Error ? error.name : null,
+  }
 }
 
 function handleRuntimeIntegrationSettingsError(error: unknown) {
