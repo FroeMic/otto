@@ -219,8 +219,8 @@
   - the control-plane OpenAI Responses proxy now also exposes a runtime-authenticated WebSocket path that connects upstream to `wss://api.openai.com/v1/responses` with the native `OpenAI-Beta: responses-websocket=v1` handshake
   - local focused verification passes for provider contract tests, OpenAI proxy tests, and `apps/api` build
   - PR #536 merged the native-quality rewrite, but live tenant runtime verification still shows downstream cancellation before a terminal OpenAI Responses event on the SSE path
-  - follow-up provider-side diagnostics now log provider initialization, transport defaults, replay policy, transport correlation headers, WebSocket session policy, runtime auth shape, and stream hook invocation without logging prompt text, response text, or tenant tokens
-  - the active follow-up implementation branch is `openai-proxy-provider-logging`
+  - follow-up diagnostics now log provider initialization, transport defaults, replay policy, runtime auth shape, stream hook and returned stream-function lifecycle, abort signals, safe Responses request shape, inbound request aborts, recent SSE event types, and event-type counts without logging prompt text, response text, or tenant tokens
+  - the active follow-up implementation branch is `openai-proxy-sse-diagnostics`
 - Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
   - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes

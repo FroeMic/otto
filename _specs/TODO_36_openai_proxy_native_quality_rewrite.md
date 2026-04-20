@@ -448,6 +448,9 @@ responses, do not forward stale content-encoding headers.
 - [x] Verify provider contract projects `openai-proxy/gpt-5.4` defaults.
 - [x] Verify provider contract preserves both `transport: "auto"` defaults and
       explicit `transport: "sse"`.
+- [x] Add follow-up SSE diagnostics for provider stream lifecycle, abort
+      signals, safe Responses request shape, inbound request aborts, and recent
+      terminal-event attribution.
 - [ ] Run representative long/tool-heavy turn.
 - [ ] Run fault-injection for truncated SSE and abnormal WebSocket close.
 - [x] Run local provider contract tests.
@@ -469,6 +472,7 @@ Passing:
 node --test runtime-plugins/otto-ai-provider/provider-contract.test.mjs
 bun run --cwd apps/api test src/runtime/openai-proxy.test.ts
 bun run build:api
+git diff --check
 ```
 
 Known broader API test baseline still failing outside this slice:

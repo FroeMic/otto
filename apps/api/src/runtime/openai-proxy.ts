@@ -185,25 +185,107 @@ function getCorrelationValue(headers: Headers, name: string) {
   return value ? value : null
 }
 
+export function summarizeOpenAiResponsesRequestBody(body: Buffer) {
+  let parsed: Record<string, unknown>
+
+  try {
+    parsed = JSON.parse(body.toString("utf8")) as Record<string, unknown>
+  } catch {
+    return {
+      parseError: "invalid_json",
+    }
+  }
+
+  const metadata =
+    parsed.metadata && typeof parsed.metadata === "object"
+      ? (parsed.metadata as Record<string, unknown>)
+      : null
+  const reasoning =
+    parsed.reasoning && typeof parsed.reasoning === "object"
+      ? (parsed.reasoning as Record<string, unknown>)
+      : null
+
+  return {
+    inputItemCount: Array.isArray(parsed.input) ? parsed.input.length : undefined,
+    maxOutputTokens:
+      typeof parsed.max_output_tokens === "number"
+        ? parsed.max_output_tokens
+        : undefined,
+    metadataKeys: metadata ? Object.keys(metadata).sort() : undefined,
+    model: typeof parsed.model === "string" ? parsed.model : undefined,
+    previousResponseIdPresent:
+      typeof parsed.previous_response_id === "string" &&
+      parsed.previous_response_id.trim().length > 0,
+    reasoningEffort:
+      typeof reasoning?.effort === "string" ? reasoning.effort : undefined,
+    reasoningSummary:
+      typeof reasoning?.summary === "string" ? reasoning.summary : undefined,
+    stream: typeof parsed.stream === "boolean" ? parsed.stream : undefined,
+    toolChoiceType:
+      parsed.tool_choice === undefined
+        ? undefined
+        : Array.isArray(parsed.tool_choice)
+          ? "array"
+          : typeof parsed.tool_choice,
+    toolsCount: Array.isArray(parsed.tools) ? parsed.tools.length : undefined,
+  }
+}
+
 type ResponsesTerminalEvent = "error" | "response.completed" | "response.failed"
 
 type ResponsesStreamObservation = {
+  eventTypeCounts: Record<string, number>
   firstEventType: string | null
+  lastEventAtMs: number | null
   lastEventType: string | null
   outputItemCount: number
+  recentEventTypes: string[]
   responseId: string | null
   sawTerminal: boolean
   terminalEventType: ResponsesTerminalEvent | null
 }
 
+const MAX_RECENT_RESPONSE_EVENT_TYPES = 20
+
 function createResponsesStreamObservation(): ResponsesStreamObservation {
   return {
+    eventTypeCounts: {},
     firstEventType: null,
+    lastEventAtMs: null,
     lastEventType: null,
     outputItemCount: 0,
+    recentEventTypes: [],
     responseId: null,
     sawTerminal: false,
     terminalEventType: null,
+  }
+}
+
+function recordResponsesEventType(
+  eventType: string,
+  observation: ResponsesStreamObservation,
+) {
+  observation.firstEventType ??= eventType
+  observation.lastEventType = eventType
+  observation.lastEventAtMs = Date.now()
+  observation.eventTypeCounts[eventType] =
+    (observation.eventTypeCounts[eventType] ?? 0) + 1
+  observation.recentEventTypes.push(eventType)
+  if (observation.recentEventTypes.length > MAX_RECENT_RESPONSE_EVENT_TYPES) {
+    observation.recentEventTypes.shift()
+  }
+
+  if (eventType === "response.output_item.added") {
+    observation.outputItemCount += 1
+  }
+
+  if (
+    eventType === "response.completed" ||
+    eventType === "response.failed" ||
+    eventType === "error"
+  ) {
+    observation.sawTerminal = true
+    observation.terminalEventType = eventType
   }
 }
 
@@ -239,12 +321,7 @@ function observeResponsesSseFrame(
     return
   }
 
-  observation.firstEventType ??= eventType
-  observation.lastEventType = eventType
-
-  if (eventType === "response.output_item.added") {
-    observation.outputItemCount += 1
-  }
+  recordResponsesEventType(eventType, observation)
 
   if (data && data !== "[DONE]") {
     try {
@@ -263,14 +340,6 @@ function observeResponsesSseFrame(
     }
   }
 
-  if (
-    eventType === "response.completed" ||
-    eventType === "response.failed" ||
-    eventType === "error"
-  ) {
-    observation.sawTerminal = true
-    observation.terminalEventType = eventType
-  }
 }
 
 function observeResponsesEventData(
@@ -308,12 +377,7 @@ function observeResponsesEventData(
     return
   }
 
-  observation.firstEventType ??= eventType
-  observation.lastEventType = eventType
-
-  if (eventType === "response.output_item.added") {
-    observation.outputItemCount += 1
-  }
+  recordResponsesEventType(eventType, observation)
 
   const responseId =
     typeof parsed.response?.id === "string" ? parsed.response.id : null
@@ -321,14 +385,6 @@ function observeResponsesEventData(
     observation.responseId = responseId
   }
 
-  if (
-    eventType === "response.completed" ||
-    eventType === "response.failed" ||
-    eventType === "error"
-  ) {
-    observation.sawTerminal = true
-    observation.terminalEventType = eventType
-  }
 }
 
 function createResponsesSseObserver() {
@@ -365,6 +421,7 @@ function createResponsesSseObserver() {
 export function createLoggedOpenAiProxyBody(input: {
   body: ReadableStream<Uint8Array>
   logger?: OpenAiProxyLogger
+  requestSignal?: AbortSignal
   requestId: string
   route: "audio_transcriptions" | "responses"
   tenantId: string
@@ -384,9 +441,22 @@ export function createLoggedOpenAiProxyBody(input: {
     bytes,
     chunks,
     durationMs: Date.now() - startedAt,
+    eventTypeCounts:
+      responsesObserver?.observation.eventTypeCounts &&
+      Object.keys(responsesObserver.observation.eventTypeCounts).length > 0
+        ? { ...responsesObserver.observation.eventTypeCounts }
+        : undefined,
     firstEventType: responsesObserver?.observation.firstEventType ?? undefined,
     lastEventType: responsesObserver?.observation.lastEventType ?? undefined,
+    msSinceLastEvent:
+      responsesObserver?.observation.lastEventAtMs == null
+        ? undefined
+        : Date.now() - responsesObserver.observation.lastEventAtMs,
     outputItemCount: responsesObserver?.observation.outputItemCount ?? undefined,
+    recentEventTypes:
+      responsesObserver && responsesObserver.observation.recentEventTypes.length > 0
+        ? [...responsesObserver.observation.recentEventTypes]
+        : undefined,
     requestId: input.requestId,
     responseId: responsesObserver?.observation.responseId ?? undefined,
     route: input.route,
@@ -397,8 +467,30 @@ export function createLoggedOpenAiProxyBody(input: {
     upstreamStatus: input.upstreamStatus,
   })
 
+  const requestAbortListener = () => {
+    logger.warn("[runtime-ai] openai proxy inbound request aborted", {
+      ...fields(),
+      reason: formatCancelReason(input.requestSignal?.reason),
+      streamOutcome:
+        responsesObserver && !responsesObserver.observation.sawTerminal
+          ? "downstream_cancelled_before_terminal"
+          : undefined,
+    })
+  }
+
+  if (input.requestSignal) {
+    if (input.requestSignal.aborted) {
+      requestAbortListener()
+    } else {
+      input.requestSignal.addEventListener("abort", requestAbortListener, {
+        once: true,
+      })
+    }
+  }
+
   return new ReadableStream<Uint8Array>({
     async cancel(reason) {
+      input.requestSignal?.removeEventListener("abort", requestAbortListener)
       downstreamCancelled = true
       if (responsesObserver && !responsesObserver.observation.sawTerminal) {
         logger.warn("[runtime-ai] openai proxy responses stream incomplete", {
@@ -422,6 +514,7 @@ export function createLoggedOpenAiProxyBody(input: {
         const result = await reader.read()
 
         if (result.done) {
+          input.requestSignal?.removeEventListener("abort", requestAbortListener)
           responsesObserver?.flush()
 
           if (responsesObserver) {
@@ -483,6 +576,7 @@ export function createLoggedOpenAiProxyBody(input: {
         controller.enqueue(result.value)
       } catch (error) {
         if (responsesObserver && responsesObserver.observation.sawTerminal) {
+          input.requestSignal?.removeEventListener("abort", requestAbortListener)
           logger.warn(
             "[runtime-ai] openai proxy upstream stream closed after terminal event",
             {
@@ -495,6 +589,7 @@ export function createLoggedOpenAiProxyBody(input: {
           return
         }
 
+        input.requestSignal?.removeEventListener("abort", requestAbortListener)
         logger.error("[runtime-ai] openai proxy upstream stream failed", {
           ...fields(),
           error: getErrorMessage(error),
@@ -819,11 +914,16 @@ async function proxyOpenAiRequest(input: {
   }
 
   const bodyBuffer = Buffer.from(await input.request.arrayBuffer())
+  const requestShape =
+    input.route === "responses"
+      ? summarizeOpenAiResponsesRequestBody(bodyBuffer)
+      : undefined
   let upstreamResponse: Response
 
   console.info("[runtime-ai] openai proxy request starting", {
     bodyBytes: bodyBuffer.byteLength,
     requestId,
+    requestShape,
     route: input.route,
     tenantId: input.tenantId,
   })
@@ -881,6 +981,7 @@ async function proxyOpenAiRequest(input: {
     ? createLoggedOpenAiProxyBody({
         body: upstreamResponse.body,
         requestId,
+        requestSignal: input.request.signal,
         route: input.route,
         tenantId: input.tenantId,
         upstreamRequestId,
