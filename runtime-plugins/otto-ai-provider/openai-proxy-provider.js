@@ -137,7 +137,58 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
         attempt: ctx?.attempt,
         hasStreamFn: typeof ctx?.streamFn === "function",
       });
-      return streamHooks.wrapStreamFn(ctx);
+      const wrappedStreamFn = streamHooks.wrapStreamFn(ctx);
+      if (typeof wrappedStreamFn !== "function") {
+        return wrappedStreamFn;
+      }
+
+      return async (model, context, options) => {
+        const startedAt = Date.now();
+        const signal = options?.signal;
+        const fields = () => ({
+          attempt: ctx?.attempt,
+          durationMs: Date.now() - startedAt,
+          hasAbortSignal: Boolean(signal),
+          modelApi: model?.api,
+          modelId: ctx?.modelId ?? model?.id,
+          provider: ctx?.provider ?? model?.provider,
+          sessionId: ctx?.sessionId,
+          signalAborted: Boolean(signal?.aborted),
+          transport: options?.transport ?? ctx?.transport,
+          turnId: ctx?.turnId,
+        });
+        const abortListener = () => {
+          diagnostics.warn("stream function abort signal received", {
+            ...fields(),
+            abortReason: formatDiagnosticReason(signal?.reason),
+          });
+        };
+
+        diagnostics.info("stream function starting", fields());
+
+        if (signal) {
+          if (signal.aborted) {
+            abortListener();
+          } else {
+            signal.addEventListener("abort", abortListener, { once: true });
+          }
+        }
+
+        try {
+          const result = await wrappedStreamFn(model, context, options);
+          diagnostics.info("stream function completed", fields());
+          return result;
+        } catch (error) {
+          diagnostics.error("stream function failed", {
+            ...fields(),
+            error: getDiagnosticErrorMessage(error),
+            errorName: getDiagnosticErrorName(error),
+          });
+          throw error;
+        } finally {
+          signal?.removeEventListener?.("abort", abortListener);
+        }
+      };
     },
   };
 }
@@ -146,4 +197,19 @@ function buildLocalOpenAiResponsesStreamHooks() {
   return {
     wrapStreamFn: (ctx) => ctx?.streamFn,
   };
+}
+
+function getDiagnosticErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getDiagnosticErrorName(error) {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+function formatDiagnosticReason(reason) {
+  if (reason === undefined) {
+    return null;
+  }
+  return typeof reason === "string" ? reason : getDiagnosticErrorMessage(reason);
 }

@@ -224,3 +224,112 @@ test("openai-proxy provider emits safe tenant-side diagnostics", async () => {
   assert.equal(events.at(-1).fields.apiKey, undefined);
   assert.equal(events.at(-1).fields.baseUrl, "https://otto.example/api/internal/runtime/ai/openai/v1");
 });
+
+test("openai-proxy provider wraps stream function lifecycle with safe diagnostics", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const abortController = new AbortController();
+  const innerStreamFn = async () => ({ ok: true });
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => innerStreamFn,
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  assert.equal(typeof wrapped, "function");
+  const result = await wrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { signal: abortController.signal, transport: "sse" },
+  );
+
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(
+    events.map((event) => event.message),
+    [
+      "[otto-ai-provider] provider initialized",
+      "[otto-ai-provider] stream hook invoked",
+      "[otto-ai-provider] stream function starting",
+      "[otto-ai-provider] stream function completed",
+    ],
+  );
+  assert.equal(events.at(-2).fields.hasAbortSignal, true);
+  assert.equal(events.at(-2).fields.signalAborted, false);
+  assert.equal(events.at(-1).fields.error, undefined);
+});
+
+test("openai-proxy provider logs stream abort signal and failure", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const abortController = new AbortController();
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async () => {
+        abortController.abort("runner cancelled");
+        throw new Error("terminated");
+      },
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  await assert.rejects(
+    () =>
+      wrapped(
+        { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+        { messages: [] },
+        { signal: abortController.signal, transport: "sse" },
+      ),
+    /terminated/,
+  );
+
+  const abortLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream function abort signal received",
+  );
+  assert.equal(abortLog?.level, "warn");
+  assert.equal(abortLog?.fields.abortReason, "runner cancelled");
+
+  const failedLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream function failed",
+  );
+  assert.equal(failedLog?.level, "error");
+  assert.equal(failedLog?.fields.error, "terminated");
+  assert.equal(failedLog?.fields.signalAborted, true);
+});

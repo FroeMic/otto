@@ -5,6 +5,7 @@ import { describe, it } from "vitest"
 import {
   createLoggedOpenAiProxyBody,
   createOpenAiResponsesWebSocketBridge,
+  summarizeOpenAiResponsesRequestBody,
 } from "./openai-proxy"
 
 function createLogger() {
@@ -246,6 +247,151 @@ describe("OpenAI runtime proxy stream logging", () => {
     assert.equal(errorLog?.level, "error")
     assert.equal(errorLog?.fields.error, "terminated")
     assert.equal(errorLog?.fields.upstreamRequestId, "upstream_3")
+  })
+
+  it("logs request signal aborts with current responses observation", async () => {
+    const { entries, logger } = createLogger()
+    const abortController = new AbortController()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_abort"}}',
+              "",
+              "event: response.output_text.delta",
+              'data: {"delta":"partial"}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_abort",
+      requestSignal: abortController.signal,
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_abort",
+      upstreamStatus: 200,
+    })
+
+    const reader = wrapped.getReader()
+    await reader.read()
+    abortController.abort("tenant closed request")
+
+    const abortLog = entries.find(
+      (entry) => entry.message === "[runtime-ai] openai proxy inbound request aborted",
+    )
+    assert.equal(abortLog?.level, "warn")
+    assert.equal(abortLog?.fields.reason, "tenant closed request")
+    assert.equal(abortLog?.fields.responseId, "resp_abort")
+    assert.equal(abortLog?.fields.lastEventType, "response.output_text.delta")
+    assert.deepEqual(abortLog?.fields.recentEventTypes, [
+      "response.created",
+      "response.output_text.delta",
+    ])
+
+    await reader.cancel("test cleanup")
+  })
+
+  it("tracks bounded responses event diagnostics without logging text", async () => {
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_recent"}}',
+              "",
+              "event: response.output_text.delta",
+              'data: {"delta":"secret text"}',
+              "",
+              "event: response.output_text.delta",
+              'data: {"delta":"more secret text"}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+        controller.close()
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      requestId: "req_recent",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_recent",
+      upstreamStatus: 200,
+    })
+
+    await assert.rejects(
+      () => new Response(wrapped).text(),
+      /OpenAI Responses stream ended before a terminal event/,
+    )
+
+    const incompleteLog = entries.find(
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy responses stream incomplete",
+    )
+    assert.deepEqual(incompleteLog?.fields.recentEventTypes, [
+      "response.created",
+      "response.output_text.delta",
+      "response.output_text.delta",
+    ])
+    assert.deepEqual(incompleteLog?.fields.eventTypeCounts, {
+      "response.created": 1,
+      "response.output_text.delta": 2,
+    })
+    assert.equal(JSON.stringify(incompleteLog?.fields).includes("secret text"), false)
+  })
+
+  it("summarizes OpenAI Responses request bodies without prompt content", () => {
+    const summary = summarizeOpenAiResponsesRequestBody(
+      Buffer.from(
+        JSON.stringify({
+          input: [
+            { role: "user", content: "do not log this" },
+            { type: "function_call_output", call_id: "call_1", output: "hidden" },
+          ],
+          max_output_tokens: 1234,
+          metadata: {
+            openclaw_session_id: "session-1",
+            secret: "hidden",
+          },
+          model: "gpt-5.4",
+          previous_response_id: "resp_prev",
+          reasoning: { effort: "high", summary: "auto" },
+          stream: true,
+          tool_choice: "auto",
+          tools: [{ type: "function", name: "lookup_secret" }],
+        }),
+      ),
+    )
+
+    assert.deepEqual(summary, {
+      inputItemCount: 2,
+      maxOutputTokens: 1234,
+      metadataKeys: ["openclaw_session_id", "secret"],
+      model: "gpt-5.4",
+      previousResponseIdPresent: true,
+      reasoningEffort: "high",
+      reasoningSummary: "auto",
+      stream: true,
+      toolChoiceType: "string",
+      toolsCount: 1,
+    })
+    assert.equal(JSON.stringify(summary).includes("do not log this"), false)
+    assert.equal(JSON.stringify(summary).includes("lookup_secret"), false)
   })
 })
 

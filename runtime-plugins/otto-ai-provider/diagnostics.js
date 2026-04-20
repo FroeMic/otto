@@ -6,6 +6,9 @@ export function createOpenAiProxyDiagnostics(logger = console) {
     info(event, fields = {}) {
       writeLog(logger, "info", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
     },
+    error(event, fields = {}) {
+      writeLog(logger, "error", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
+    },
     warn(event, fields = {}) {
       writeLog(logger, "warn", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
     },
