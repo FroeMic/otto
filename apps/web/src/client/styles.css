@@ -8,6 +8,7 @@
 @source "../server/**/*.{ts,tsx}";
 @source "../shared/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
+@source "../../node_modules/streamdown/dist/*.js";
 
 @theme inline {
   --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
