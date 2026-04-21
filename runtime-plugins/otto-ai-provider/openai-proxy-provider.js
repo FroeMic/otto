@@ -339,6 +339,8 @@ function summarizeStreamErrorEvent(event) {
   return {
     eventType: resolveStreamEventType(event),
     eventKeys: summarizeObjectKeys(event),
+    eventReason: event?.reason,
+    eventError: event?.error,
     eventErrorName: summarizeDiagnosticValue(error?.name),
     eventErrorMessage: summarizeDiagnosticValue(error?.message),
     eventErrorCode: summarizeDiagnosticValue(error?.code),

@@ -505,7 +505,7 @@ test("openai-proxy provider logs returned stream iteration failure", async () =>
   assert.equal(failedLog?.fields.error, "iterator terminated");
 });
 
-test("openai-proxy provider logs safe yielded error event details", async () => {
+test("openai-proxy provider logs yielded error event payload", async () => {
   const events = [];
   const logger = {
     info(message, fields) {
@@ -524,6 +524,7 @@ test("openai-proxy provider logs safe yielded error event details", async () => 
       wrapStreamFn: () => async function* () {
         yield {
           type: "error",
+          reason: "error",
           error: {
             name: "TypeError",
             message: "terminated",
@@ -568,15 +569,21 @@ test("openai-proxy provider logs safe yielded error event details", async () => 
   );
   assert.equal(errorEventLog?.level, "error");
   assert.equal(errorEventLog?.fields.eventType, "error");
+  assert.equal(errorEventLog?.fields.eventReason, "error");
+  assert.equal(errorEventLog?.fields.eventError?.message, "terminated");
+  assert.equal(errorEventLog?.fields.eventError?.code, "UND_ERR_SOCKET");
+  assert.equal(errorEventLog?.fields.eventError?.stack, "should not be logged");
+  assert.equal(
+    errorEventLog?.fields.eventError?.headers?.authorization,
+    "Bearer secret-token",
+  );
   assert.equal(errorEventLog?.fields.eventErrorName, "TypeError");
   assert.equal(errorEventLog?.fields.eventErrorMessage, "terminated");
   assert.equal(errorEventLog?.fields.eventErrorCode, "UND_ERR_SOCKET");
   assert.equal(errorEventLog?.fields.eventErrorCauseName, "SocketError");
   assert.equal(errorEventLog?.fields.eventErrorCauseMessage, "other side closed");
   assert.equal(errorEventLog?.fields.eventErrorCauseCode, "UND_ERR_SOCKET");
-  assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "type"]);
-  assert.equal(JSON.stringify(errorEventLog?.fields).includes("secret-token"), false);
-  assert.equal(JSON.stringify(errorEventLog?.fields).includes("should not be logged"), false);
+  assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "reason", "type"]);
 });
 
 test("openai-proxy provider can wrap an already instrumented stream without recursion", async () => {
