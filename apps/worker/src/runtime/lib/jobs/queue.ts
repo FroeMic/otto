@@ -431,7 +431,7 @@ export async function markJobSucceeded(
       finishedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(jobRuns.id, jobId));
+    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)));
 }
 
 export async function markJobFailed(
@@ -451,7 +451,7 @@ export async function markJobFailed(
       finishedAt: shouldRetry ? null : new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(jobRuns.id, jobId));
+    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)));
 }
 
 export async function requeueJob(

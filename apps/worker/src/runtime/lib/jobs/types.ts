@@ -29,6 +29,7 @@ export const JOB_TYPES = {
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
 export const JOB_STATUSES = {
+  canceled: "canceled",
   queued: "queued",
   running: "running",
   succeeded: "succeeded",

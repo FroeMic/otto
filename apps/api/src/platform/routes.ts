@@ -9,6 +9,7 @@ import {
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
+  platformJobCancelResponseSchema,
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
@@ -31,6 +32,7 @@ import {
 import { authenticatePlatformRequest, type PlatformGuardDependencies } from "./guard"
 import {
   addCurrentUserAsPlatformOrganizationAdmin,
+  cancelPlatformJob,
   createPlatformOrganization,
   getPlatformJobStatus,
   getPlatformOrganizationDetail,
@@ -57,6 +59,11 @@ const workspaceJobParamsSchema = workspaceParamsSchema.extend({
 })
 
 export interface PlatformRouteDependencies extends PlatformGuardDependencies {
+  cancelJob: (input: {
+    jobId: string
+    orgSlug: string
+    user: WorkspaceShellUser
+  }) => Promise<unknown>
   getJobStatus: (input: {
     jobId: string
     orgSlug: string
@@ -131,6 +138,12 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
 
 function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
   return {
+    cancelJob: ({ jobId, orgSlug, user }) =>
+      cancelPlatformJob({
+        jobId,
+        orgSlug,
+        userExternalId: user.id,
+      }),
     getDashboardOrganizations: getWorkspaceDashboardOrganizations,
     getJobStatus: ({ jobId, orgSlug, user }) =>
       getPlatformJobStatus({
@@ -936,6 +949,66 @@ export function createPlatformRouter(
             "Cache-Control": "no-store",
           },
         )
+      },
+    )
+    .post(
+      "/api/platform/organizations/:orgSlug/jobs/:jobId/cancel",
+      zValidator("param", workspaceJobParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
+
+        if ("response" in authResult) {
+          return authResult.response
+        }
+
+        const { jobId, orgSlug } = context.req.valid("param")
+
+        try {
+          const result = await dependencies.cancelJob({
+            jobId,
+            orgSlug,
+            user: authResult.user,
+          })
+
+          if (!result) {
+            return context.json(
+              {
+                code: "not_found",
+                message: "Platform job not found",
+              },
+              404,
+              {
+                "Cache-Control": "no-store",
+              },
+            )
+          }
+
+          return context.json(
+            platformJobCancelResponseSchema.parse(result),
+            200,
+            {
+              "Cache-Control": "no-store",
+            },
+          )
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "Platform job is not cancelable"
+          ) {
+            return context.json(
+              {
+                code: "job_not_cancelable",
+                message: error.message,
+              },
+              409,
+              {
+                "Cache-Control": "no-store",
+              },
+            )
+          }
+
+          throw error
+        }
       },
     )
 }
