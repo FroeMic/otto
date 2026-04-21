@@ -1,6 +1,6 @@
 {
   "name": "otto-session-reporter",
-  "version": "2026.4.15.2",
+  "version": "2026.4.15.3",
   "private": true,
   "type": "module",
   "main": "index.js",

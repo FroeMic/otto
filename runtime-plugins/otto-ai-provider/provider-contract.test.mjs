@@ -537,6 +537,14 @@ test("openai-proxy provider logs yielded error event payload", async () => {
     openAiResponsesStreamHooks: {
       wrapStreamFn: () => async function* () {
         yield {
+          type: "response.created",
+          response: {
+            id: "resp_123",
+            output: [],
+            status: "in_progress",
+          },
+        };
+        yield {
           type: "error",
           reason: "error",
           error: {
@@ -587,11 +595,15 @@ test("openai-proxy provider logs yielded error event payload", async () => {
     seen.push(event.type);
   }
 
-  assert.deepEqual(seen, ["error"]);
+  assert.deepEqual(seen, ["response.created", "error"]);
   const errorEventLog = events.find(
     (event) => event.message === "[otto-ai-provider] stream yielded error event",
   );
   assert.equal(errorEventLog?.level, "error");
+  assert.deepEqual(errorEventLog?.fields.eventTypeCounts, {
+    error: 1,
+    "response.created": 1,
+  });
   assert.equal(errorEventLog?.fields.eventType, "error");
   assert.equal(errorEventLog?.fields.eventReason, "error");
   assert.equal(errorEventLog?.fields.eventError?.message, "terminated");
@@ -617,6 +629,75 @@ test("openai-proxy provider logs yielded error event payload", async () => {
       },
       text: "terminated while streaming",
       type: "text",
+    },
+  ]);
+  assert.deepEqual(errorEventLog?.fields.recentEventShapes, [
+    {
+      contentKind: "array",
+      contentLength: 0,
+      contentItemShapes: [],
+      errorKind: "undefined",
+      eventType: "response.created",
+      fieldKinds: {
+        response: "object",
+        type: "string",
+      },
+      keys: ["response", "type"],
+      outputFieldKinds: {
+        id: "string",
+        output: "array",
+        status: "string",
+      },
+      outputKeys: ["id", "output", "status"],
+      responseIdPresent: true,
+      sequence: 1,
+      valueKind: "object",
+    },
+    {
+      errorContentItemShapes: [
+        {
+          fieldKinds: {
+            metadata: "object",
+            text: "string",
+            type: "string",
+          },
+          keys: ["metadata", "text", "type"],
+          textKind: "string",
+          textLength: 26,
+          type: "text",
+        },
+      ],
+      errorContentKind: "array",
+      errorContentLength: 1,
+      errorFieldKinds: {
+        cause: "object",
+        code: "string",
+        content: "array",
+        headers: "object",
+        message: "string",
+        name: "string",
+        stack: "string",
+      },
+      errorKeys: [
+        "cause",
+        "code",
+        "content",
+        "headers",
+        "message",
+        "name",
+        "stack",
+      ],
+      errorKind: "object",
+      eventType: "error",
+      fieldKinds: {
+        error: "object",
+        reason: "string",
+        type: "string",
+      },
+      keys: ["error", "reason", "type"],
+      responseIdPresent: false,
+      sequence: 2,
+      valueKind: "object",
     },
   ]);
   assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "reason", "type"]);

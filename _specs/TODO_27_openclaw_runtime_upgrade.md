@@ -28,7 +28,7 @@ validation flow aligned.
 - `publish-runtime-image.sh`, env examples, worker env defaults, and runtime
   image docs now align with the same `2026.4.15` baseline
 - bundled runtime plugin package versions now align with the custom
-  `2026.4.15.2` image tag
+  `2026.4.15.3` image tag
 
 ## Remaining Validation
 
