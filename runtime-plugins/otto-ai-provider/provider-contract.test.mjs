@@ -504,3 +504,75 @@ test("openai-proxy provider logs returned stream iteration failure", async () =>
   assert.equal(failedLog?.fields.events, 1);
   assert.equal(failedLog?.fields.error, "iterator terminated");
 });
+
+test("openai-proxy provider can wrap an already instrumented stream without recursion", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const sourceStream = {
+    async *[Symbol.asyncIterator]() {
+      yield { type: "response.created" };
+      yield { type: "response.completed" };
+    },
+  };
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async () => sourceStream,
+    },
+  });
+
+  const firstWrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    streamFn: async () => ({ unreachable: true }),
+  });
+  const firstStream = await firstWrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+
+  const secondProvider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async () => firstStream,
+    },
+  });
+  const secondWrapped = secondProvider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    streamFn: async () => ({ unreachable: true }),
+  });
+  const secondStream = await secondWrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+
+  const seen = [];
+  for await (const event of secondStream) {
+    seen.push(event.type);
+  }
+
+  assert.deepEqual(seen, ["response.created", "response.completed"]);
+  assert.equal(
+    events.some(
+      (event) =>
+        event.message === "[otto-ai-provider] stream iteration failed" &&
+        event.fields.error === "Maximum call stack size exceeded",
+    ),
+    false,
+  );
+});

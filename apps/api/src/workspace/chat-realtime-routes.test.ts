@@ -114,6 +114,32 @@ describe("workspace chat realtime routes", () => {
     assert.equal(publishedMessage.message.id, "msg_1")
   })
 
+  it("calls Bun server upgrade with the server as this binding", async () => {
+    const app = createWorkspaceChatRealtimeRouter({
+      authenticateWorkspaceUser: async () => user,
+      canAccessConversation: async () => true,
+      realtimeHub: createWorkspaceChatRealtimeHub(),
+      syncUserFromSession: async () => undefined,
+    })
+    const server = {
+      upgrade(
+        this: { upgrade: unknown },
+        _request: Request,
+        _options: { data: { events: unknown } },
+      ) {
+        assert.equal(this, server)
+        return true
+      },
+    }
+
+    const response = await app.fetch(
+      new Request("http://api.local/api/workspace/otto/chat/realtime"),
+      server as never,
+    )
+
+    assert.equal(response.status, 200)
+  })
+
   it("sends subscription_denied when the conversation is not accessible", async () => {
     const app = createWorkspaceChatRealtimeRouter({
       authenticateWorkspaceUser: async () => user,

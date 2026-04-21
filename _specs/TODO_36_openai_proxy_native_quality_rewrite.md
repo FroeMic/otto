@@ -454,6 +454,8 @@ responses, do not forward stale content-encoding headers.
 - [x] Add follow-up tenant-side async stream consumption diagnostics so returned
       stream iteration start, completion, early close, and iterator failure are
       visible without logging prompt or response text.
+- [x] Fix tenant-side async stream diagnostics to consume the captured source
+      iterator directly instead of recursively re-entering a wrapped stream.
 - [ ] Run representative long/tool-heavy turn.
 - [ ] Run fault-injection for truncated SSE and abnormal WebSocket close.
 - [x] Run local provider contract tests.
