@@ -206,7 +206,7 @@
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
-    animation: workspace-trace-shimmer 2.2s linear infinite;
+    animation: workspace-trace-shimmer 5.5s linear infinite;
   }
 
   .workspace-trace-roll {
