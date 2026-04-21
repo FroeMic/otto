@@ -44,6 +44,20 @@ const DELETE_WORKSPACE_EVENTS = {
 
 const openAiProvisioner = new OpenAiProvisioner();
 
+type DeleteOpenAiResourcesDependencies = {
+  appendJobEvent: typeof appendJobEvent;
+  openAiProvisioner: Pick<
+    OpenAiProvisioner,
+    "archiveProject" | "deleteTenantCredential"
+  >;
+};
+
+const defaultDeleteOpenAiResourcesDependencies: DeleteOpenAiResourcesDependencies =
+  {
+    appendJobEvent,
+    openAiProvisioner,
+  };
+
 export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> {
   if (job.jobType !== JOB_TYPES.deleteWorkspace) {
     throw new Error(
@@ -223,17 +237,31 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
 }
 
 async function deleteOpenAiResources(input: {
+  appendJobEvent?: typeof appendJobEvent;
   jobId: string;
   openAiCredentials: Array<{
     projectId: string | null;
     serviceAccountId: string | null;
     tenantId: string;
   }>;
+  openAiProvisioner?: Pick<
+    OpenAiProvisioner,
+    "archiveProject" | "deleteTenantCredential"
+  >;
 }) {
+  const dependencies: DeleteOpenAiResourcesDependencies = {
+    appendJobEvent:
+      input.appendJobEvent ??
+      defaultDeleteOpenAiResourcesDependencies.appendJobEvent,
+    openAiProvisioner:
+      input.openAiProvisioner ??
+      defaultDeleteOpenAiResourcesDependencies.openAiProvisioner,
+  };
   const uniqueCredentials = dedupeCredentialTargets(input.openAiCredentials);
+  let deletedCredentialCount = 0;
 
   for (const target of uniqueCredentials) {
-    await appendJobEvent(
+    await dependencies.appendJobEvent(
       input.jobId,
       DELETE_WORKSPACE_EVENTS.deletingOpenAiServiceAccount,
       "Deleting an OpenAI service account created for this workspace",
@@ -244,11 +272,12 @@ async function deleteOpenAiResources(input: {
     );
 
     try {
-      await openAiProvisioner.deleteTenantCredential({
+      await dependencies.openAiProvisioner.deleteTenantCredential({
         projectId: target.projectId,
         serviceAccountId: target.serviceAccountId,
       });
-      await appendJobEvent(
+      deletedCredentialCount += 1;
+      await dependencies.appendJobEvent(
         input.jobId,
         DELETE_WORKSPACE_EVENTS.deletedOpenAiServiceAccount,
         "Deleted an OpenAI service account for this workspace",
@@ -258,11 +287,13 @@ async function deleteOpenAiResources(input: {
         },
       );
     } catch (error) {
-      if (isOpenAiNotFoundError(error)) {
-        await appendJobEvent(
+      if (isOpenAiNotFoundError(error) || isOpenAiProjectArchivedError(error)) {
+        await dependencies.appendJobEvent(
           input.jobId,
           DELETE_WORKSPACE_EVENTS.skippedOpenAiServiceAccountDeletion,
-          "Skipped deleting an OpenAI service account because it was already gone",
+          isOpenAiProjectArchivedError(error)
+            ? "Skipped deleting an OpenAI service account because the project is already archived"
+            : "Skipped deleting an OpenAI service account because it was already gone",
           {
             projectId: target.projectId,
             serviceAccountId: target.serviceAccountId,
@@ -276,7 +307,7 @@ async function deleteOpenAiResources(input: {
   }
 
   for (const projectId of dedupeProjectIds(input.openAiCredentials)) {
-    await appendJobEvent(
+    await dependencies.appendJobEvent(
       input.jobId,
       DELETE_WORKSPACE_EVENTS.archivingOpenAiProject,
       "Archiving the OpenAI project for this workspace",
@@ -286,13 +317,15 @@ async function deleteOpenAiResources(input: {
     );
 
     try {
-      await openAiProvisioner.archiveProject(projectId);
+      await dependencies.openAiProvisioner.archiveProject(projectId);
     } catch (error) {
-      if (isOpenAiNotFoundError(error)) {
-        await appendJobEvent(
+      if (isOpenAiNotFoundError(error) || isOpenAiProjectArchivedError(error)) {
+        await dependencies.appendJobEvent(
           input.jobId,
           DELETE_WORKSPACE_EVENTS.skippedOpenAiProjectArchive,
-          "Skipped archiving an OpenAI project because it was already gone",
+          isOpenAiProjectArchivedError(error)
+            ? "Skipped archiving an OpenAI project because it was already archived"
+            : "Skipped archiving an OpenAI project because it was already gone",
           {
             projectId,
           },
@@ -304,7 +337,7 @@ async function deleteOpenAiResources(input: {
     }
   }
 
-  return uniqueCredentials.length;
+  return deletedCredentialCount;
 }
 
 async function deleteTenantServers(input: {
@@ -539,6 +572,20 @@ function isOpenAiNotFoundError(error: unknown) {
   const normalizedMessage = error.message.toLowerCase();
   return normalizedMessage.includes("not found");
 }
+
+function isOpenAiProjectArchivedError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedMessage = error.message.toLowerCase();
+  return normalizedMessage.includes("code=project_archived");
+}
+
+export const __testing = {
+  deleteOpenAiResources,
+  isOpenAiProjectArchivedError,
+};
 
 function isWorkOsNotFoundError(error: unknown) {
   return (
