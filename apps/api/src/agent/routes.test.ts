@@ -1,13 +1,15 @@
 import assert from "node:assert/strict"
 
 import { WorkspaceSessionAuthError } from "@otto/auth"
+import type {
+  WorkspaceChatConversationSummary,
+  WorkspaceChatMessageCreateResponse,
+  WorkspaceChatMessagePart,
+} from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import { describe, it } from "vitest"
 
-import {
-  createAgentRouter,
-  type AgentRouteDependencies,
-} from "./routes"
+import { type AgentRouteDependencies, createAgentRouter } from "./routes"
 
 const user = {
   email: "test@getyourotto.com",
@@ -79,6 +81,36 @@ function createDependencies(): AgentRouteDependencies {
         slug: instructionTab,
         systemContent: "AGENTS.md system content",
         version: 4,
+      },
+    }),
+    createPersonalizationOnboardingConversation: async () => ({
+      id: "conv_personalize",
+      kind: "ad_hoc",
+      lastActivityAt: "2026-04-10T09:30:00.000Z",
+      latestMessagePreview: null,
+      originKind: "manual",
+      title: "Personalize Otto",
+      visibility: "personal",
+    }),
+    markWorkspaceAgentPersonalized: async () => undefined,
+    sendPersonalizationOnboardingMessage: async ({
+      conversationId,
+      parts,
+    }) => ({
+      conversationId,
+      dispatch: {
+        status: "queued",
+      },
+      message: {
+        author: {
+          kind: "user",
+          name: "Test User",
+          userId: "user_123",
+        },
+        createdAt: "2026-04-10T09:32:00.000Z",
+        id: "msg_1",
+        parts,
+        status: "completed",
       },
     }),
   }
@@ -168,6 +200,112 @@ describe("agent routes", () => {
         version: 4,
       },
     })
+  })
+
+  it("starts a guided personalization onboarding conversation", async () => {
+    const createdConversations: Array<{
+      orgSlug: string
+      title: string
+      userExternalId: string
+      visibility: WorkspaceChatConversationSummary["visibility"]
+    }> = []
+    const sentMessages: Array<{
+      conversationId: string
+      orgSlug: string
+      parts: WorkspaceChatMessagePart[]
+      userExternalId: string
+    }> = []
+    const markedWorkspaces: Array<{
+      orgSlug: string
+      userExternalId: string
+    }> = []
+    const app = createAgentTestApp({
+      ...createDependencies(),
+      createPersonalizationOnboardingConversation: async (input) => {
+        createdConversations.push(input)
+
+        return {
+          id: "conv_personalize",
+          kind: "ad_hoc",
+          lastActivityAt: "2026-04-10T09:30:00.000Z",
+          latestMessagePreview: null,
+          originKind: "manual",
+          title: input.title,
+          visibility: input.visibility,
+        }
+      },
+      markWorkspaceAgentPersonalized: async (input) => {
+        markedWorkspaces.push(input)
+      },
+      sendPersonalizationOnboardingMessage: async (input) => {
+        sentMessages.push(input)
+
+        return {
+          conversationId: input.conversationId,
+          dispatch: {
+            status: "queued",
+          },
+          message: {
+            author: {
+              kind: "user",
+              name: "Test User",
+              userId: "user_123",
+            },
+            createdAt: "2026-04-10T09:32:00.000Z",
+            id: "msg_1",
+            parts: input.parts,
+            status: "completed",
+          },
+        } satisfies WorkspaceChatMessageCreateResponse
+      },
+    })
+
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/agent/personalization/onboarding/start",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 201)
+    assert.deepEqual(await response.json(), {
+      conversation: {
+        id: "conv_personalize",
+        kind: "ad_hoc",
+        lastActivityAt: "2026-04-10T09:30:00.000Z",
+        latestMessagePreview: null,
+        originKind: "manual",
+        title: "Personalize Otto",
+        visibility: "personal",
+      },
+    })
+    assert.deepEqual(createdConversations, [
+      {
+        orgSlug: "otto",
+        title: "Personalize Otto",
+        userExternalId: "user_123",
+        visibility: "personal",
+      },
+    ])
+    assert.equal(sentMessages.length, 1)
+    assert.equal(sentMessages[0]?.conversationId, "conv_personalize")
+    assert.equal(sentMessages[0]?.orgSlug, "otto")
+    assert.equal(sentMessages[0]?.userExternalId, "user_123")
+    assert.equal(sentMessages[0]?.parts[0]?.type, "hidden_text")
+    assert.match(
+      sentMessages[0]?.parts[0]?.text ?? "",
+      /first personalization onboarding/i,
+    )
+    assert.deepEqual(sentMessages[0]?.parts[1], {
+      text: "Get to know the user",
+      type: "text",
+    })
+    assert.deepEqual(markedWorkspaces, [
+      {
+        orgSlug: "otto",
+        userExternalId: "user_123",
+      },
+    ])
   })
 
   it("returns 401 when the workspace session is missing", async () => {

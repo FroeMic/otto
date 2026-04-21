@@ -287,4 +287,69 @@ describe("workspace chat feature", () => {
       },
     })
   })
+
+  it("accepts hidden text parts for runtime-only instructions", async () => {
+    let forwardedParts: unknown[] = []
+    const response = await handleWorkspaceChatMessageCreateRequest({
+      createMessage: async ({ conversationId, parts }) => {
+        forwardedParts = parts
+
+        return {
+          dispatch: {
+            status: "queued",
+          },
+          message: {
+            author: {
+              kind: "user",
+              name: "Test User",
+              userId: "user_123",
+            },
+            createdAt: "2026-04-10T09:32:00.000Z",
+            id: "msg_2",
+            parts,
+            status: "completed",
+          },
+          conversationId,
+        }
+      },
+      conversationId: "conv_1",
+      orgSlug: "otto",
+      request: new Request(
+        "https://otto.test/api/workspace/otto/chat/conversations/conv_1/messages",
+        {
+          body: JSON.stringify({
+            clientMessageId: "client-msg-1",
+            parts: [
+              {
+                text: "Only Otto should receive this setup context.",
+                type: "hidden_text",
+              },
+              {
+                text: "Get to know the user",
+                type: "text",
+              },
+            ],
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        },
+      ),
+      syncUserFromSession: async () => undefined,
+      user,
+    })
+
+    assert.equal(response.status, 202)
+    assert.deepEqual(forwardedParts, [
+      {
+        text: "Only Otto should receive this setup context.",
+        type: "hidden_text",
+      },
+      {
+        text: "Get to know the user",
+        type: "text",
+      },
+    ])
+  })
 })

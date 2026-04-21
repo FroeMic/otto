@@ -13,7 +13,7 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
   const transcripts = [];
 
   for (const part of input.parts) {
-    if (part.type === "text") {
+    if (part.type === "text" || part.type === "hidden_text") {
       const text = part.text.trim();
 
       if (text) {

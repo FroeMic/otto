@@ -75,6 +75,11 @@ export const workspaceChatTextPartSchema = z.object({
   type: z.literal("text"),
 })
 
+export const workspaceChatHiddenTextPartSchema = z.object({
+  text: z.string().trim().min(1),
+  type: z.literal("hidden_text"),
+})
+
 export const workspaceChatFilePartSchema = z.object({
   attachmentId: z.string().trim().min(1),
   fileName: z.string().trim().min(1),
@@ -92,6 +97,7 @@ export const workspaceChatAudioPartSchema = z.object({
 
 export const workspaceChatMessagePartSchema = z.discriminatedUnion("type", [
   workspaceChatTextPartSchema,
+  workspaceChatHiddenTextPartSchema,
   workspaceChatFilePartSchema,
   workspaceChatAudioPartSchema,
 ])

@@ -105,6 +105,10 @@ export function buildWorkspaceChatMessagePreview(
       return truncatePreview(part.text)
     }
 
+    if (part.type === "hidden_text") {
+      continue
+    }
+
     if (part.type === "file") {
       return truncatePreview(part.fileName)
     }
@@ -182,6 +186,13 @@ export function mapWorkspaceChatMessagePartRecord(
     return {
       text: record.textValue ?? "",
       type: "text",
+    }
+  }
+
+  if (record.partKind === "hidden_text") {
+    return {
+      text: record.textValue ?? "",
+      type: "hidden_text",
     }
   }
 
@@ -317,7 +328,7 @@ export async function listWorkspaceChatConversations(input: {
     .limit(pageSize + 1)
 
   const pageRows = rows.slice(0, pageSize)
-  const nextRow = rows.length > pageSize ? pageRows.at(-1) ?? null : null
+  const nextRow = rows.length > pageSize ? (pageRows.at(-1) ?? null) : null
 
   return {
     conversations: pageRows.map(mapWorkspaceChatConversationSummary),
@@ -512,11 +523,13 @@ export async function getWorkspaceChatConversationDetail(input: {
   }
 
   const mappedEvents = eventRows.map(mapWorkspaceChatMessageEventRecord)
-  const sessionKeys = [...new Set(
-    mappedEvents
-      .map((event) => event.sessionKey)
-      .filter((sessionKey): sessionKey is string => Boolean(sessionKey)),
-  )]
+  const sessionKeys = [
+    ...new Set(
+      mappedEvents
+        .map((event) => event.sessionKey)
+        .filter((sessionKey): sessionKey is string => Boolean(sessionKey)),
+    ),
+  ]
   const sessionRows =
     sessionKeys.length === 0
       ? []
@@ -1696,7 +1709,7 @@ async function insertWorkspaceChatParts(input: {
       ordinal: index,
       partKind: part.type,
       textValue:
-        part.type === "text"
+        part.type === "text" || part.type === "hidden_text"
           ? part.text
           : part.type === "audio"
             ? (part.transcript ?? null)

@@ -1,11 +1,14 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
+import {
+  organizations,
+  tenants,
+} from "@otto/feature-integrations-runtime/db/schema"
 import type {
   AgentInstruction,
   AgentInstructionUpdateResponse,
   AgentPersonalizationDetailResponse,
   AgentPersonalizationOverviewResponse,
 } from "@otto/feature-runtime-core"
-import { tenants } from "@otto/feature-integrations-runtime/db/schema"
 import { desc, eq } from "drizzle-orm"
 
 import {
@@ -183,4 +186,20 @@ export async function updateAgentPersonalizationInstruction(input: {
     }),
     managedConfigVersion: updateResult.managedConfigVersion,
   }
+}
+
+export async function markWorkspaceAgentPersonalized(input: {
+  orgSlug: string
+  userExternalId: string
+}) {
+  const workspace = await getOrganizationWorkspaceBySlug(input)
+  const db = getDb()
+
+  await db
+    .update(organizations)
+    .set({
+      agentPersonalizedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(organizations.id, workspace.id))
 }

@@ -7,6 +7,7 @@ import {
 } from "./normalization"
 
 export const workspaceSummarySchema = z.object({
+  agentPersonalizedAt: z.string().nullable().optional(),
   id: z.string(),
   isReady: z.boolean(),
   locale: z.string(),

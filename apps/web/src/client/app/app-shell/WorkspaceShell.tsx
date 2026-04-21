@@ -1,7 +1,10 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useLocation } from "@tanstack/react-router"
-import { useEffect, type PropsWithChildren } from "react"
-
+import { type PropsWithChildren, useEffect } from "react"
+import {
+  capturePostHogBrowserEvent,
+  identifyPostHogBrowserUser,
+} from "@/client/posthog"
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -9,13 +12,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
-import {
-  workspaceChatConversationDetailQueryOptions,
-} from "@/features/workspace-chat/api/chat"
-import {
-  capturePostHogBrowserEvent,
-  identifyPostHogBrowserUser,
-} from "@/client/posthog"
+import { workspaceChatConversationDetailQueryOptions } from "@/features/workspace-chat/api/chat"
 import { WorkspaceChatRealtimeProvider } from "@/features/workspace-chat/realtime/provider"
 
 import { ShellStage } from "./ShellStage"
@@ -102,8 +99,10 @@ function useWorkspaceBreadcrumbs(
   if (segments[0] === "skills") {
     const secondSegment = segments[1] ?? null
     const isLibraryRoute = secondSegment === "library"
-    const skillKey = isLibraryRoute ? segments[2] ?? null : secondSegment
-    const section = isLibraryRoute ? segments[3] ?? null : segments[2] ?? null
+    const skillKey = isLibraryRoute ? (segments[2] ?? null) : secondSegment
+    const section = isLibraryRoute
+      ? (segments[3] ?? null)
+      : (segments[2] ?? null)
     const breadcrumbs: BreadcrumbSegment[] = [
       { href: `${base}/skills`, label: "Skills" },
     ]
@@ -138,8 +137,8 @@ function useWorkspaceBreadcrumbs(
 
   if (segments[0] === "scheduled-tasks") {
     const secondSegment = segments[1] ?? null
-    const taskKey = secondSegment === "tasks" ? segments[2] ?? null : null
-    const section = taskKey ? segments[3] ?? null : null
+    const taskKey = secondSegment === "tasks" ? (segments[2] ?? null) : null
+    const section = taskKey ? (segments[3] ?? null) : null
     const breadcrumbs: BreadcrumbSegment[] = [
       {
         href: `${base}/scheduled-tasks/tasks`,
@@ -193,7 +192,7 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
     .split("/")
     .filter(Boolean)
   const conversationId =
-    pathSegments[0] === "c" ? pathSegments[1] ?? null : null
+    pathSegments[0] === "c" ? (pathSegments[1] ?? null) : null
   const { data: conversationDetail } = useQuery({
     ...workspaceChatConversationDetailQueryOptions(
       orgSlug,
@@ -247,6 +246,8 @@ export function WorkspaceShell({ children, orgSlug }: WorkspaceShellProps) {
           <SidebarProvider className="h-full min-h-0">
             <WorkspaceSidebar
               currentOrganization={{
+                agentPersonalizedAt:
+                  data.currentOrganization.agentPersonalizedAt ?? null,
                 name: data.currentOrganization.name,
                 slug: data.currentOrganization.slug,
               }}
