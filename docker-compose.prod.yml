@@ -58,8 +58,6 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    ports:
-      - "116.203.190.123:3002:3002"
     volumes:
       - otto_control_plane_workspace_chat_attachments:/var/lib/otto/workspace-chat-attachments
     healthcheck:
