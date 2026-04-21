@@ -13,6 +13,10 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 const OPENAI_RESPONSES_WS_URL = "wss://api.openai.com/v1/responses"
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL =
   "https://api.openai.com/v1/audio/transcriptions"
+const OPENAI_PROXY_STREAM_PATH_PREFIX = "/api/internal/runtime/ai/openai/v1/"
+const BUN_DEFAULT_IDLE_TIMEOUT_SECONDS = 10
+const OPENAI_PROXY_QUIET_WARNING_MS = 8_000
+const OPENAI_PROXY_QUIET_WARNING_INTERVAL_MS = 1_000
 const HOP_BY_HOP_HEADERS = new Set([
   "authorization",
   "connection",
@@ -34,10 +38,50 @@ type OpenAiProxyLogger = {
   warn: (message: string, fields: Record<string, unknown>) => void
 }
 
+type BunRequestTimeoutServer = {
+  timeout: (request: Request, seconds: number) => void
+}
+
 const consoleOpenAiProxyLogger: OpenAiProxyLogger = {
   error: (message, fields) => console.error(message, fields),
   info: (message, fields) => console.info(message, fields),
   warn: (message, fields) => console.warn(message, fields),
+}
+
+function getRequestPathname(request: Request) {
+  try {
+    return new URL(request.url).pathname
+  } catch {
+    return null
+  }
+}
+
+export function configureOpenAiProxyBunRequestTimeout(input: {
+  idleTimeoutSeconds?: number
+  logger?: OpenAiProxyLogger
+  request: Request
+  server?: BunRequestTimeoutServer
+}) {
+  const pathname = getRequestPathname(input.request)
+  if (!pathname?.startsWith(OPENAI_PROXY_STREAM_PATH_PREFIX)) {
+    return false
+  }
+
+  const logger = input.logger ?? consoleOpenAiProxyLogger
+  const timeoutOverrideApplied = input.idleTimeoutSeconds !== undefined
+
+  if (timeoutOverrideApplied) {
+    input.server?.timeout(input.request, input.idleTimeoutSeconds ?? 0)
+  }
+
+  logger.info("[api] openai proxy Bun timeout policy", {
+    bunDefaultIdleTimeoutSeconds: BUN_DEFAULT_IDLE_TIMEOUT_SECONDS,
+    idleTimeoutSeconds: input.idleTimeoutSeconds ?? null,
+    path: pathname,
+    timeoutOverrideApplied,
+  })
+
+  return true
 }
 
 export class OpenAiProxyError extends Error {
@@ -206,7 +250,9 @@ export function summarizeOpenAiResponsesRequestBody(body: Buffer) {
       : null
 
   return {
-    inputItemCount: Array.isArray(parsed.input) ? parsed.input.length : undefined,
+    inputItemCount: Array.isArray(parsed.input)
+      ? parsed.input.length
+      : undefined,
     maxOutputTokens:
       typeof parsed.max_output_tokens === "number"
         ? parsed.max_output_tokens
@@ -339,7 +385,6 @@ function observeResponsesSseFrame(
       // was not JSON or had an unexpected shape.
     }
   }
-
 }
 
 function observeResponsesEventData(
@@ -384,7 +429,6 @@ function observeResponsesEventData(
   if (responseId) {
     observation.responseId = responseId
   }
-
 }
 
 function createResponsesSseObserver() {
@@ -421,6 +465,8 @@ function createResponsesSseObserver() {
 export function createLoggedOpenAiProxyBody(input: {
   body: ReadableStream<Uint8Array>
   logger?: OpenAiProxyLogger
+  quietWarningIntervalMs?: number
+  quietWarningMs?: number
   requestSignal?: AbortSignal
   requestId: string
   route: "audio_transcriptions" | "responses"
@@ -434,8 +480,16 @@ export function createLoggedOpenAiProxyBody(input: {
   let bytes = 0
   let chunks = 0
   let downstreamCancelled = false
+  let lastChunkAtMs: number | null = null
+  let quietWarningLogged = false
+  let quietInterval: ReturnType<typeof setInterval> | undefined
   const responsesObserver =
     input.route === "responses" ? createResponsesSseObserver() : null
+  const quietWarningMs = input.quietWarningMs ?? OPENAI_PROXY_QUIET_WARNING_MS
+  const quietWarningIntervalMs =
+    input.quietWarningIntervalMs ?? OPENAI_PROXY_QUIET_WARNING_INTERVAL_MS
+
+  const msSinceLastChunk = () => Date.now() - (lastChunkAtMs ?? startedAt)
 
   const fields = () => ({
     bytes,
@@ -452,12 +506,16 @@ export function createLoggedOpenAiProxyBody(input: {
       responsesObserver?.observation.lastEventAtMs == null
         ? undefined
         : Date.now() - responsesObserver.observation.lastEventAtMs,
-    outputItemCount: responsesObserver?.observation.outputItemCount ?? undefined,
+    msSinceLastChunk: msSinceLastChunk(),
+    outputItemCount:
+      responsesObserver?.observation.outputItemCount ?? undefined,
     recentEventTypes:
-      responsesObserver && responsesObserver.observation.recentEventTypes.length > 0
+      responsesObserver &&
+      responsesObserver.observation.recentEventTypes.length > 0
         ? [...responsesObserver.observation.recentEventTypes]
         : undefined,
     requestId: input.requestId,
+    requestSignalAborted: input.requestSignal?.aborted ?? false,
     responseId: responsesObserver?.observation.responseId ?? undefined,
     route: input.route,
     tenantId: input.tenantId,
@@ -488,9 +546,45 @@ export function createLoggedOpenAiProxyBody(input: {
     }
   }
 
+  const cleanup = () => {
+    if (quietInterval) {
+      clearInterval(quietInterval)
+      quietInterval = undefined
+    }
+    input.requestSignal?.removeEventListener("abort", requestAbortListener)
+  }
+
   return new ReadableStream<Uint8Array>({
+    start() {
+      if (input.route !== "responses" || quietWarningMs <= 0) {
+        return
+      }
+
+      quietInterval = setInterval(() => {
+        if (quietWarningLogged) {
+          return
+        }
+
+        const quietMs = msSinceLastChunk()
+        if (quietMs < quietWarningMs) {
+          return
+        }
+
+        quietWarningLogged = true
+        logger.warn("[runtime-ai] openai proxy stream quiet", {
+          ...fields(),
+          expectedBunIdleTimeoutSeconds: BUN_DEFAULT_IDLE_TIMEOUT_SECONDS,
+          quietMs,
+          streamOutcome:
+            responsesObserver && !responsesObserver.observation.sawTerminal
+              ? "quiet_before_terminal"
+              : undefined,
+        })
+      }, quietWarningIntervalMs)
+      quietInterval.unref?.()
+    },
     async cancel(reason) {
-      input.requestSignal?.removeEventListener("abort", requestAbortListener)
+      cleanup()
       downstreamCancelled = true
       if (responsesObserver && !responsesObserver.observation.sawTerminal) {
         logger.warn("[runtime-ai] openai proxy responses stream incomplete", {
@@ -514,7 +608,7 @@ export function createLoggedOpenAiProxyBody(input: {
         const result = await reader.read()
 
         if (result.done) {
-          input.requestSignal?.removeEventListener("abort", requestAbortListener)
+          cleanup()
           responsesObserver?.flush()
 
           if (responsesObserver) {
@@ -539,12 +633,15 @@ export function createLoggedOpenAiProxyBody(input: {
               const error = new Error(
                 `OpenAI Responses stream failed with terminal event ${terminalEventType}.`,
               )
-              logger.error("[runtime-ai] openai proxy responses stream failed", {
-                ...fields(),
-                error: error.message,
-                errorName: error.name,
-                streamOutcome: "failed",
-              })
+              logger.error(
+                "[runtime-ai] openai proxy responses stream failed",
+                {
+                  ...fields(),
+                  error: error.message,
+                  errorName: error.name,
+                  streamOutcome: "failed",
+                },
+              )
               controller.error(error)
               return
             }
@@ -552,19 +649,25 @@ export function createLoggedOpenAiProxyBody(input: {
             const error = new Error(
               "OpenAI Responses stream ended before a terminal event.",
             )
-            logger.error("[runtime-ai] openai proxy responses stream incomplete", {
-              ...fields(),
-              error: error.message,
-              errorName: error.name,
-              streamOutcome: downstreamCancelled
-                ? "downstream_cancelled_before_terminal"
-                : "incomplete",
-            })
+            logger.error(
+              "[runtime-ai] openai proxy responses stream incomplete",
+              {
+                ...fields(),
+                error: error.message,
+                errorName: error.name,
+                streamOutcome: downstreamCancelled
+                  ? "downstream_cancelled_before_terminal"
+                  : "incomplete",
+              },
+            )
             controller.error(error)
             return
           }
 
-          logger.info("[runtime-ai] openai proxy upstream stream completed", fields())
+          logger.info(
+            "[runtime-ai] openai proxy upstream stream completed",
+            fields(),
+          )
           controller.close()
           return
         }
@@ -572,11 +675,13 @@ export function createLoggedOpenAiProxyBody(input: {
         const chunkBytes = result.value.byteLength
         bytes += chunkBytes
         chunks += 1
+        lastChunkAtMs = Date.now()
+        quietWarningLogged = false
         responsesObserver?.observeChunk(result.value)
         controller.enqueue(result.value)
       } catch (error) {
-        if (responsesObserver && responsesObserver.observation.sawTerminal) {
-          input.requestSignal?.removeEventListener("abort", requestAbortListener)
+        if (responsesObserver?.observation.sawTerminal) {
+          cleanup()
           logger.warn(
             "[runtime-ai] openai proxy upstream stream closed after terminal event",
             {
@@ -589,7 +694,7 @@ export function createLoggedOpenAiProxyBody(input: {
           return
         }
 
-        input.requestSignal?.removeEventListener("abort", requestAbortListener)
+        cleanup()
         logger.error("[runtime-ai] openai proxy upstream stream failed", {
           ...fields(),
           error: getErrorMessage(error),
@@ -779,7 +884,10 @@ export function createOpenAiResponsesWebSocketBridge(input: {
       return
     }
 
-    if (terminalEventType === "response.failed" || terminalEventType === "error") {
+    if (
+      terminalEventType === "response.failed" ||
+      terminalEventType === "error"
+    ) {
       logger.error("[runtime-ai] openai proxy websocket stream failed", {
         ...fields(),
         closeCode,
@@ -1039,7 +1147,10 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   let contentType = incomingContentType ?? ""
 
   if (!contentType.startsWith("multipart/form-data")) {
-    const firstLine = bodyBuffer.subarray(0, 200).toString("utf-8").split("\r\n")[0]
+    const firstLine = bodyBuffer
+      .subarray(0, 200)
+      .toString("utf-8")
+      .split("\r\n")[0]
     if (firstLine.startsWith("--")) {
       const boundary = firstLine.slice(2)
       contentType = `multipart/form-data; boundary=${boundary}`

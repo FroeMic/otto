@@ -8,6 +8,12 @@ const rawApiEnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(255)
+    .optional(),
   RUNTIME_DEPLOY_PRIVATE_KEY: z.string().optional(),
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
   RUNTIME_SSH_COMMAND_TIMEOUT_MS: z.coerce
@@ -38,6 +44,7 @@ export type ApiEnv = {
   HETZNER_DEFAULT_IMAGE: string
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
+  OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS?: number
   PUBLIC_APP_BASE_URL: string
   RUNTIME_DEPLOY_PRIVATE_KEY?: string
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH?: string
@@ -107,6 +114,8 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     HETZNER_DEFAULT_IMAGE: raw.HETZNER_DEFAULT_IMAGE,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,
+    OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS:
+      raw.OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS,
     PUBLIC_APP_BASE_URL: publicAppBaseUrl,
     RUNTIME_DEPLOY_PRIVATE_KEY:
       raw.RUNTIME_DEPLOY_PRIVATE_KEY?.trim() || undefined,

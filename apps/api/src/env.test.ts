@@ -53,4 +53,12 @@ describe("api env", () => {
 
     assert.equal("HETZNER_ONBOARDING_PROVISIONING_MODE" in env, false)
   })
+
+  it("parses optional OpenAI proxy stream idle timeout override", () => {
+    const env = resolveApiEnv({
+      OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS: "0",
+    })
+
+    assert.equal(env.OPENAI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS, 0)
+  })
 })
