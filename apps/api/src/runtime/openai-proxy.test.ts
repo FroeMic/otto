@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import {
+  configureOpenAiProxyBunRequestTimeout,
   createLoggedOpenAiProxyBody,
   createOpenAiResponsesWebSocketBridge,
   summarizeOpenAiResponsesRequestBody,
@@ -36,7 +37,10 @@ class FakeWebSocket {
   listeners = new Map<string, Array<(event: Record<string, unknown>) => void>>()
   sent: unknown[] = []
 
-  addEventListener(type: string, listener: (event: Record<string, unknown>) => void) {
+  addEventListener(
+    type: string,
+    listener: (event: Record<string, unknown>) => void,
+  ) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener])
   }
 
@@ -55,7 +59,82 @@ class FakeWebSocket {
   }
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe("OpenAI runtime proxy stream logging", () => {
+  it("logs Bun timeout policy for OpenAI proxy streaming requests", () => {
+    const { entries, logger } = createLogger()
+    const timeoutCalls: Array<{ request: Request; seconds: number }> = []
+    const request = new Request(
+      "https://getyourotto.com/api/internal/runtime/ai/openai/v1/responses",
+    )
+
+    const matched = configureOpenAiProxyBunRequestTimeout({
+      idleTimeoutSeconds: 3,
+      logger,
+      request,
+      server: {
+        timeout: (timeoutRequest, seconds) => {
+          timeoutCalls.push({ request: timeoutRequest, seconds })
+        },
+      },
+    })
+
+    assert.equal(matched, true)
+    assert.equal(timeoutCalls.length, 1)
+    assert.equal(timeoutCalls[0]?.request, request)
+    assert.equal(timeoutCalls[0]?.seconds, 3)
+    assert.equal(entries[0]?.message, "[api] openai proxy Bun timeout policy")
+    assert.equal(
+      entries[0]?.fields.path,
+      "/api/internal/runtime/ai/openai/v1/responses",
+    )
+    assert.equal(entries[0]?.fields.bunDefaultIdleTimeoutSeconds, 10)
+    assert.equal(entries[0]?.fields.idleTimeoutSeconds, 3)
+    assert.equal(entries[0]?.fields.timeoutOverrideApplied, true)
+  })
+
+  it("logs Bun default timeout policy when no per-route override is configured", () => {
+    const { entries, logger } = createLogger()
+    const request = new Request(
+      "https://getyourotto.com/api/internal/runtime/ai/openai/v1/responses",
+    )
+
+    const matched = configureOpenAiProxyBunRequestTimeout({
+      logger,
+      request,
+      server: {
+        timeout: () => {
+          throw new Error("timeout override should not be applied")
+        },
+      },
+    })
+
+    assert.equal(matched, true)
+    assert.equal(entries[0]?.fields.bunDefaultIdleTimeoutSeconds, 10)
+    assert.equal(entries[0]?.fields.idleTimeoutSeconds, null)
+    assert.equal(entries[0]?.fields.timeoutOverrideApplied, false)
+  })
+
+  it("ignores non-OpenAI-proxy requests for Bun timeout diagnostics", () => {
+    const { entries, logger } = createLogger()
+    const matched = configureOpenAiProxyBunRequestTimeout({
+      idleTimeoutSeconds: 3,
+      logger,
+      request: new Request("https://getyourotto.com/api/workspace"),
+      server: {
+        timeout: () => {
+          throw new Error("timeout override should not be applied")
+        },
+      },
+    })
+
+    assert.equal(matched, false)
+    assert.equal(entries.length, 0)
+  })
+
   it("logs successful upstream responses stream completion after response.completed", async () => {
     const { entries, logger } = createLogger()
     const body = new ReadableStream<Uint8Array>({
@@ -138,7 +217,8 @@ describe("OpenAI runtime proxy stream logging", () => {
 
     const incompleteLog = entries.find(
       (entry) =>
-        entry.message === "[runtime-ai] openai proxy responses stream incomplete",
+        entry.message ===
+        "[runtime-ai] openai proxy responses stream incomplete",
     )
     assert.equal(incompleteLog?.level, "error")
     assert.equal(incompleteLog?.fields.responseId, "resp_incomplete")
@@ -179,7 +259,8 @@ describe("OpenAI runtime proxy stream logging", () => {
     )
 
     const failedLog = entries.find(
-      (entry) => entry.message === "[runtime-ai] openai proxy responses stream failed",
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy responses stream failed",
     )
     assert.equal(failedLog?.level, "error")
     assert.equal(failedLog?.fields.terminalEventType, "response.failed")
@@ -214,7 +295,9 @@ describe("OpenAI runtime proxy stream logging", () => {
 
     assert.equal(upstreamCancelled, true)
     const cancelLog = entries.find(
-      (entry) => entry.message === "[runtime-ai] openai proxy downstream stream cancelled",
+      (entry) =>
+        entry.message ===
+        "[runtime-ai] openai proxy downstream stream cancelled",
     )
     assert.equal(cancelLog?.level, "warn")
     assert.equal(cancelLog?.fields.reason, "client closed")
@@ -241,7 +324,8 @@ describe("OpenAI runtime proxy stream logging", () => {
 
     await assert.rejects(() => new Response(wrapped).text(), /terminated/)
     const errorLog = entries.find(
-      (entry) => entry.message === "[runtime-ai] openai proxy upstream stream failed",
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy upstream stream failed",
     )
 
     assert.equal(errorLog?.level, "error")
@@ -286,16 +370,64 @@ describe("OpenAI runtime proxy stream logging", () => {
     abortController.abort("tenant closed request")
 
     const abortLog = entries.find(
-      (entry) => entry.message === "[runtime-ai] openai proxy inbound request aborted",
+      (entry) =>
+        entry.message === "[runtime-ai] openai proxy inbound request aborted",
     )
     assert.equal(abortLog?.level, "warn")
     assert.equal(abortLog?.fields.reason, "tenant closed request")
     assert.equal(abortLog?.fields.responseId, "resp_abort")
     assert.equal(abortLog?.fields.lastEventType, "response.output_text.delta")
+    assert.equal(typeof abortLog?.fields.msSinceLastChunk, "number")
     assert.deepEqual(abortLog?.fields.recentEventTypes, [
       "response.created",
       "response.output_text.delta",
     ])
+
+    await reader.cancel("test cleanup")
+  })
+
+  it("logs quiet stream diagnostics before the expected Bun idle timeout", async () => {
+    vi.useFakeTimers()
+    const { entries, logger } = createLogger()
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              "event: response.created",
+              'data: {"response":{"id":"resp_quiet"}}',
+              "",
+              "",
+            ].join("\n"),
+          ),
+        )
+      },
+    })
+
+    const wrapped = createLoggedOpenAiProxyBody({
+      body,
+      logger,
+      quietWarningIntervalMs: 5,
+      quietWarningMs: 10,
+      requestId: "req_quiet",
+      route: "responses",
+      tenantId: "tenant_1",
+      upstreamRequestId: "upstream_quiet",
+      upstreamStatus: 200,
+    })
+
+    const reader = wrapped.getReader()
+    await reader.read()
+    await vi.advanceTimersByTimeAsync(15)
+
+    const quietLog = entries.find(
+      (entry) => entry.message === "[runtime-ai] openai proxy stream quiet",
+    )
+    assert.equal(quietLog?.level, "warn")
+    assert.equal(quietLog?.fields.responseId, "resp_quiet")
+    assert.equal(quietLog?.fields.streamOutcome, "quiet_before_terminal")
+    assert.equal(quietLog?.fields.expectedBunIdleTimeoutSeconds, 10)
+    assert.equal(typeof quietLog?.fields.msSinceLastChunk, "number")
 
     await reader.cancel("test cleanup")
   })
@@ -341,7 +473,8 @@ describe("OpenAI runtime proxy stream logging", () => {
 
     const incompleteLog = entries.find(
       (entry) =>
-        entry.message === "[runtime-ai] openai proxy responses stream incomplete",
+        entry.message ===
+        "[runtime-ai] openai proxy responses stream incomplete",
     )
     assert.deepEqual(incompleteLog?.fields.recentEventTypes, [
       "response.created",
@@ -352,7 +485,10 @@ describe("OpenAI runtime proxy stream logging", () => {
       "response.created": 1,
       "response.output_text.delta": 2,
     })
-    assert.equal(JSON.stringify(incompleteLog?.fields).includes("secret text"), false)
+    assert.equal(
+      JSON.stringify(incompleteLog?.fields).includes("secret text"),
+      false,
+    )
   })
 
   it("summarizes OpenAI Responses request bodies without prompt content", () => {
@@ -361,7 +497,11 @@ describe("OpenAI runtime proxy stream logging", () => {
         JSON.stringify({
           input: [
             { role: "user", content: "do not log this" },
-            { type: "function_call_output", call_id: "call_1", output: "hidden" },
+            {
+              type: "function_call_output",
+              call_id: "call_1",
+              output: "hidden",
+            },
           ],
           max_output_tokens: 1234,
           metadata: {
@@ -497,6 +637,9 @@ describe("OpenAI runtime proxy websocket bridge", () => {
         "[runtime-ai] openai proxy websocket downstream closed before terminal",
     )
     assert.equal(cancelLog?.level, "warn")
-    assert.equal(cancelLog?.fields.streamOutcome, "downstream_cancelled_before_terminal")
+    assert.equal(
+      cancelLog?.fields.streamOutcome,
+      "downstream_cancelled_before_terminal",
+    )
   })
 })
