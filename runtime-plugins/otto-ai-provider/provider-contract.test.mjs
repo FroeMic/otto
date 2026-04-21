@@ -18,6 +18,7 @@ import {
   resolveOpenAiProxyTransport,
   toOpenAiProxyWebSocketUrl,
 } from "./transport.js";
+import { resolveOpenAiProxyWebSocketTenantToken } from "./responses-websocket.js";
 
 const silentLogger = {
   info() {},
@@ -87,6 +88,26 @@ test("openai-proxy websocket URL mirrors native Responses path", () => {
   assert.equal(
     toOpenAiProxyWebSocketUrl("http://127.0.0.1:3002/api/internal/runtime/ai/openai/v1/"),
     "ws://127.0.0.1:3002/api/internal/runtime/ai/openai/v1/responses",
+  );
+});
+
+test("openai-proxy websocket auth falls back to tenant env token", () => {
+  assert.equal(
+    resolveOpenAiProxyWebSocketTenantToken(
+      { apiKey: " runtime-token " },
+      { TENANT_TOKEN: "tenant-token" },
+    ),
+    "runtime-token",
+  );
+
+  assert.equal(
+    resolveOpenAiProxyWebSocketTenantToken({}, { TENANT_TOKEN: " tenant-token " }),
+    "tenant-token",
+  );
+
+  assert.throws(
+    () => resolveOpenAiProxyWebSocketTenantToken({}, {}),
+    /OpenAI proxy WebSocket transport requires a tenant token/,
   );
 });
 

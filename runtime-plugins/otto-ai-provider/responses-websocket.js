@@ -41,10 +41,7 @@ async function runOpenAiProxyWebSocketStream(params) {
     });
     const wsPayload = normalizeWebSocketPayload(payload);
     const wsUrl = toOpenAiProxyWebSocketUrl(params.model?.baseUrl);
-    const apiKey = params.options?.apiKey;
-    if (!apiKey) {
-      throw new Error("OpenAI proxy WebSocket transport requires a tenant token.");
-    }
+    const apiKey = resolveOpenAiProxyWebSocketTenantToken(params.options);
 
     client = new MinimalWebSocketClient(wsUrl, {
       headers: {
@@ -76,6 +73,24 @@ async function runOpenAiProxyWebSocketStream(params) {
   } finally {
     client?.close();
   }
+}
+
+export function resolveOpenAiProxyWebSocketTenantToken(options = {}, env = process.env) {
+  const optionToken = normalizeToken(options?.apiKey);
+  if (optionToken) {
+    return optionToken;
+  }
+
+  const envToken = normalizeToken(env?.TENANT_TOKEN);
+  if (envToken) {
+    return envToken;
+  }
+
+  throw new Error("OpenAI proxy WebSocket transport requires a tenant token.");
+}
+
+function normalizeToken(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 async function captureResponseCreatePayload(params) {
