@@ -14,7 +14,7 @@ export function ConversationMarkdown({
       className="text-sm leading-7 text-foreground"
       disallowedElements={["img"]}
       isAnimating={isStreaming}
-      linkSafety={{ enabled: true }}
+      linkSafety={{ enabled: false }}
       skipHtml
       unwrapDisallowed
     >

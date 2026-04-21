@@ -33,6 +33,7 @@ export interface ConversationMessageBubbleProps {
   events: WorkspaceChatMessageEvent[]
   message: WorkspaceChatMessage
   orgSlug: string
+  showHeader?: boolean
 }
 
 export function ConversationMessageBubble({
@@ -40,6 +41,7 @@ export function ConversationMessageBubble({
   events,
   message,
   orgSlug,
+  showHeader = true,
 }: ConversationMessageBubbleProps) {
   const turnKind = getWorkspaceConversationTurnKind({
     currentUserId,
@@ -113,11 +115,13 @@ export function ConversationMessageBubble({
   return (
     <ConversationTurnShell kind={turnKind}>
       <div className="flex w-full max-w-3xl flex-col gap-2">
-        <ConversationTurnHeader
-          kind={turnKind}
-          name={displayName}
-          timestampLabel={timestampLabel}
-        />
+        {showHeader ? (
+          <ConversationTurnHeader
+            kind={turnKind}
+            name={displayName}
+            timestampLabel={timestampLabel}
+          />
+        ) : null}
 
         {isAssistant ? (
           <div className="flex w-full flex-col gap-3">
@@ -176,14 +180,14 @@ export function ConversationMessageBubble({
         ) : (
           <div
             className={cn(
-              "max-w-[85%] px-4 py-3",
+              "max-w-[85%] border px-4 py-3 shadow-sm",
               turnKind === "current_user" ? "self-end" : "self-start",
               turnKind === "other_user"
-                ? "rounded-[1.15rem] bg-muted/65 text-foreground"
+                ? "rounded-[1.15rem] border-border/70 bg-muted/65 text-foreground"
                 : "rounded-[1.15rem]",
               turnKind === "current_user"
-                ? "bg-secondary text-foreground"
-                : "text-foreground",
+                ? "border-primary/10 bg-primary/[0.08] text-foreground"
+                : "border-transparent text-foreground",
             )}
           >
             {textParts.map((part, index) => (
