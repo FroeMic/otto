@@ -177,7 +177,7 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
         try {
           const result = await wrappedStreamFn(model, context, options);
           diagnostics.info("stream function completed", fields());
-          return result;
+          return instrumentReturnedStream(result, diagnostics, fields);
         } catch (error) {
           diagnostics.error("stream function failed", {
             ...fields(),
@@ -191,6 +191,106 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
       };
     },
   };
+}
+
+function instrumentReturnedStream(result, diagnostics, baseFields) {
+  if (!isAsyncIterable(result)) {
+    return result;
+  }
+
+  const startedAt = Date.now();
+  const state = {
+    events: 0,
+    firstEventType: undefined,
+    lastEventType: undefined,
+    terminalEventType: undefined,
+  };
+
+  const fields = () => ({
+    ...baseFields(),
+    durationMs: Date.now() - startedAt,
+    events: state.events,
+    firstEventType: state.firstEventType,
+    lastEventType: state.lastEventType,
+    terminalEventType: state.terminalEventType,
+  });
+
+  async function* instrumentedIterator() {
+    let completed = false;
+    let failed = false;
+
+    diagnostics.info("stream iteration started", fields());
+
+    try {
+      for await (const event of result) {
+        recordStreamEvent(state, event);
+        yield event;
+      }
+
+      completed = true;
+      diagnostics.info("stream iteration completed", fields());
+    } catch (error) {
+      failed = true;
+      diagnostics.error("stream iteration failed", {
+        ...fields(),
+        error: getDiagnosticErrorMessage(error),
+        errorName: getDiagnosticErrorName(error),
+      });
+      throw error;
+    } finally {
+      if (!completed && !failed) {
+        diagnostics.warn("stream iteration closed early", fields());
+      }
+    }
+  }
+
+  return new Proxy(result, {
+    get(target, property, receiver) {
+      if (property === Symbol.asyncIterator) {
+        return instrumentedIterator;
+      }
+
+      return Reflect.get(target, property, receiver);
+    },
+  });
+}
+
+function isAsyncIterable(value) {
+  return Boolean(value && typeof value[Symbol.asyncIterator] === "function");
+}
+
+function recordStreamEvent(state, event) {
+  const eventType = resolveStreamEventType(event);
+  state.events += 1;
+
+  if (eventType) {
+    state.firstEventType ??= eventType;
+    state.lastEventType = eventType;
+
+    if (isTerminalOpenAiResponsesEvent(eventType)) {
+      state.terminalEventType = eventType;
+    }
+  }
+}
+
+function resolveStreamEventType(event) {
+  const type =
+    typeof event?.type === "string"
+      ? event.type
+      : typeof event?.event === "string"
+        ? event.event
+        : undefined;
+  const normalized = type?.trim();
+
+  return normalized ? normalized : undefined;
+}
+
+function isTerminalOpenAiResponsesEvent(eventType) {
+  return (
+    eventType === "response.completed" ||
+    eventType === "response.failed" ||
+    eventType === "error"
+  );
 }
 
 function buildLocalOpenAiResponsesStreamHooks() {

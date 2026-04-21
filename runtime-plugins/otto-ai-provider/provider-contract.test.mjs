@@ -333,3 +333,174 @@ test("openai-proxy provider logs stream abort signal and failure", async () => {
   assert.equal(failedLog?.fields.error, "terminated");
   assert.equal(failedLog?.fields.signalAborted, true);
 });
+
+test("openai-proxy provider logs returned stream consumption lifecycle", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async function* () {
+        yield { type: "response.created" };
+        yield { type: "response.in_progress" };
+        yield { type: "response.completed" };
+      },
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  const stream = await wrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+  const seen = [];
+  for await (const event of stream) {
+    seen.push(event.type);
+  }
+
+  assert.deepEqual(seen, [
+    "response.created",
+    "response.in_progress",
+    "response.completed",
+  ]);
+  assert.ok(
+    events.some(
+      (event) =>
+        event.message === "[otto-ai-provider] stream iteration started" &&
+        event.fields.provider === "openai-proxy",
+    ),
+  );
+  const completedLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream iteration completed",
+  );
+  assert.equal(completedLog?.level, "info");
+  assert.equal(completedLog?.fields.events, 3);
+  assert.equal(completedLog?.fields.firstEventType, "response.created");
+  assert.equal(completedLog?.fields.lastEventType, "response.completed");
+});
+
+test("openai-proxy provider logs returned stream early close", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async function* () {
+        yield { type: "response.created" };
+        yield { type: "response.in_progress" };
+      },
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  const stream = await wrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+
+  for await (const event of stream) {
+    assert.equal(event.type, "response.created");
+    break;
+  }
+
+  const closedLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream iteration closed early",
+  );
+  assert.equal(closedLog?.level, "warn");
+  assert.equal(closedLog?.fields.events, 1);
+  assert.equal(closedLog?.fields.lastEventType, "response.created");
+  assert.equal(closedLog?.fields.terminalEventType, undefined);
+});
+
+test("openai-proxy provider logs returned stream iteration failure", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async function* () {
+        yield { type: "response.created" };
+        throw new Error("iterator terminated");
+      },
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  const stream = await wrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+
+  await assert.rejects(async () => {
+    for await (const _event of stream) {
+      // drain
+    }
+  }, /iterator terminated/);
+
+  const failedLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream iteration failed",
+  );
+  assert.equal(failedLog?.level, "error");
+  assert.equal(failedLog?.fields.events, 1);
+  assert.equal(failedLog?.fields.error, "iterator terminated");
+});
