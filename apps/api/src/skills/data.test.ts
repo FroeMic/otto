@@ -76,7 +76,7 @@ describe("workspace skills visibility", () => {
     mockReadyWorkspace()
   })
 
-  it("hides non-library default-installed system skills from installed user surfaces", async () => {
+  it("hides internal helper system skills but shows user-facing default skills", async () => {
     listTenantManagedSkillsForTenant.mockResolvedValue([
       {
         description: "Internal helper guidance",
@@ -84,6 +84,16 @@ describe("workspace skills visibility", () => {
         enabled: true,
         skillId: "skill_helper",
         skillKey: "skill-creator",
+        sourceType: "system",
+        status: "ready",
+        updatedAt: new Date("2026-04-15T12:00:00.000Z"),
+      },
+      {
+        description: "Business idea onboarding workflow",
+        displayName: "Business Idea Onboarding",
+        enabled: true,
+        skillId: "skill_business_idea",
+        skillKey: "business-idea-onboarding",
         sourceType: "system",
         status: "ready",
         updatedAt: new Date("2026-04-15T12:00:00.000Z"),
@@ -116,11 +126,13 @@ describe("workspace skills visibility", () => {
     })
 
     expect(result.installedSkills.map((skill) => skill.skillKey)).toEqual([
+      "business-idea-onboarding",
       "name-and-domain-research",
       "triage",
     ])
     expect(result.librarySkills.map((skill) => skill.skillKey)).toEqual([
       "name-and-domain-research",
+      "business-idea-onboarding",
       "business-review",
     ])
   })

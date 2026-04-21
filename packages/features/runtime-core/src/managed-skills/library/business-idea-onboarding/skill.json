@@ -1,7 +1,7 @@
 {
   "skillKey": "business-idea-onboarding",
   "installMode": "default_installed",
-  "visibleInLibrary": false,
+  "visibleInLibrary": true,
   "sortOrder": 20,
   "fileOrder": [
     "SKILL.md",
