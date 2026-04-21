@@ -1,0 +1,6 @@
+{
+  "path": "USER.md",
+  "label": "People",
+  "description": "About the people the agent is helping. Update this over time as it learns how to support them well.",
+  "sortOrder": 60
+}

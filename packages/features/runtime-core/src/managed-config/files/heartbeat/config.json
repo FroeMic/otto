@@ -1,0 +1,6 @@
+{
+  "path": "HEARTBEAT.md",
+  "label": "Heartbeat",
+  "description": "The current pulse of the workspace. Use this for active priorities, open loops, and what the agent should keep in view right now.",
+  "sortOrder": 20
+}

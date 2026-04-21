@@ -1,0 +1,6 @@
+{
+  "path": "IDENTITY.md",
+  "label": "Identity",
+  "description": "Who the agent is. Use this to define its name, presence, and how it should come across.",
+  "sortOrder": 30
+}
