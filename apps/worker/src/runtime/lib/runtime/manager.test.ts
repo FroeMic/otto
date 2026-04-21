@@ -171,6 +171,61 @@ describe("RuntimeManager runtime home bootstrap", () => {
     );
     expect(command).toContain("chmod 700");
   });
+
+  it("keeps managed personalization files root-owned while preserving writable workspace areas", async () => {
+    const execMock = vi.fn(async () => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    }));
+    const sshClient = {
+      exec: execMock,
+    };
+    const manager = new RuntimeManager(sshClient as never);
+
+    await manager.normalizeTenantRuntimeFilePermissions(
+      {
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      },
+      {
+        managedBootstrapFiles: [
+          {
+            contents: "# AGENTS",
+            filename: "AGENTS.md",
+          },
+          {
+            contents: "# USER",
+            filename: "USER.md",
+          },
+        ],
+        managedSkillFiles: [],
+        metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      },
+    );
+
+    const command =
+      (execMock.mock.calls as unknown as Array<[unknown, string]>)[0]?.[1] ??
+      "";
+
+    expect(command).toContain(
+      "install -d -o root -g openclaw -m 755 /opt/openclaw/home/workspace",
+    );
+    expect(command).toContain(
+      "install -d -o openclaw -g openclaw -m 770",
+    );
+    expect(command).toContain("/opt/openclaw/home/workspace/memory");
+    expect(command).toContain("/opt/openclaw/home/workspace/projects");
+    expect(command).toContain(
+      "chown root:openclaw",
+    );
+    expect(command).toContain("/opt/openclaw/home/workspace/AGENTS.md");
+    expect(command).toContain("/opt/openclaw/home/workspace/USER.md");
+    expect(command).toContain("chmod 755 /opt/openclaw/home/workspace");
+    expect(command).toContain("chmod 770");
+    expect(command).toContain("chmod 444");
+  });
 });
 
 describe("managed skill runtime file projection", () => {
