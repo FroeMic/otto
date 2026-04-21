@@ -12,6 +12,9 @@ import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
+import {
+  getWorkspaceConversationTurnGroupKey,
+} from "../presentation"
 
 export interface ConversationMessageListProps {
   bottomInset?: number
@@ -75,15 +78,20 @@ export function ConversationMessageList({
   return (
     <ScrollArea className="h-full min-h-0">
       <div
-        className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 md:py-10"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 md:py-10"
         style={{
           paddingBottom: `${bottomInset + 32}px`,
         }}
       >
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const events = messageEvents.filter(
             (messageEvent) => messageEvent.messageId === message.id,
           )
+          const showHeader = !isGroupedWithPreviousMessage({
+            currentMessage: message,
+            currentUserId,
+            previousMessage: messages[index - 1],
+          })
 
           return (
             <div
@@ -102,6 +110,7 @@ export function ConversationMessageList({
                 events={events}
                 message={message}
                 orgSlug={orgSlug}
+                showHeader={showHeader}
               />
             </div>
           )
@@ -132,4 +141,27 @@ export function ConversationMessageList({
       </div>
     </ScrollArea>
   )
+}
+
+function isGroupedWithPreviousMessage(input: {
+  currentMessage: WorkspaceChatMessage
+  currentUserId?: string
+  previousMessage: WorkspaceChatMessage | undefined
+}) {
+  const { currentMessage, currentUserId, previousMessage } = input
+
+  if (!previousMessage) {
+    return false
+  }
+
+  const currentKey = getWorkspaceConversationTurnGroupKey({
+    currentUserId,
+    message: currentMessage,
+  })
+  const previousKey = getWorkspaceConversationTurnGroupKey({
+    currentUserId,
+    message: previousMessage,
+  })
+
+  return currentKey === previousKey
 }
