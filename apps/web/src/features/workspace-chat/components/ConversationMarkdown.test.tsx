@@ -24,6 +24,12 @@ describe("ConversationMarkdown", () => {
 
     assert.match(markup, /Plan/)
     assert.match(markup, /<ul/)
+    assert.match(markup, /leading-5/)
+    assert.match(markup, /data-streamdown=code-block\]\]:my-0/)
+    assert.match(markup, /data-streamdown=code-block\]\]:border-0/)
+    assert.match(markup, /data-streamdown=code-block\]\]:bg-transparent/)
+    assert.match(markup, /data-streamdown=code-block\]\]:p-0/)
+    assert.equal(markup.includes("data-streamdown=code-block-body]]:border-0"), false)
     assert.match(markup, /data-streamdown="strong"/)
     assert.match(markup, /<code/)
     assert.match(markup, /<pre/)
