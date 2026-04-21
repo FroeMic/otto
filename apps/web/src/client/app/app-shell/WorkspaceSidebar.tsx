@@ -117,7 +117,7 @@ export function WorkspaceSidebar({
         {currentOrganization.agentPersonalizedAt ? null : (
           <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
             <RainbowButton
-              className="h-10 w-full rounded-xl text-sm shadow-sm"
+              className="h-10 w-full rounded-full text-sm shadow-sm"
               disabled={startPersonalizationMutation.isPending}
               onClick={() => {
                 startPersonalizationMutation.mutate()
