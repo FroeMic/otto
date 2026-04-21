@@ -124,6 +124,16 @@ export function WorkspaceConversationPage({
   const activeAssistantMessage = getActiveWorkspaceChatAssistantMessageToStop(
     data.messages,
   )
+  async function sendSuggestedPrompt(text: string) {
+    await sendMessageMutation.mutateAsync({
+      parts: [
+        {
+          text,
+          type: "text",
+        },
+      ],
+    })
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -139,7 +149,11 @@ export function WorkspaceConversationPage({
           isWaitingForReply={isWaitingForReply}
           messageEvents={data.messageEvents}
           messages={data.messages}
+          onSuggestedPromptSelect={(prompt) => {
+            void sendSuggestedPrompt(prompt)
+          }}
           orgSlug={orgSlug}
+          suggestedPromptsDisabled={sendMessageMutation.isPending}
         />
       </div>
 

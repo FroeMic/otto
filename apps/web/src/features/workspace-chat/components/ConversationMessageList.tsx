@@ -4,6 +4,13 @@ import type {
 } from "@otto/feature-workspace-chat"
 import { useEffect, useRef } from "react"
 
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
@@ -12,9 +19,8 @@ import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
-import {
-  getWorkspaceConversationTurnGroupKey,
-} from "../presentation"
+import { getWorkspaceConversationTurnGroupKey } from "../presentation"
+import { WorkspaceChatPromptSuggestions } from "./WorkspaceChatPromptSuggestions"
 
 export interface ConversationMessageListProps {
   bottomInset?: number
@@ -22,7 +28,9 @@ export interface ConversationMessageListProps {
   isWaitingForReply: boolean
   messageEvents: WorkspaceChatMessageEvent[]
   messages: WorkspaceChatMessage[]
+  onSuggestedPromptSelect?: (prompt: string) => void
   orgSlug: string
+  suggestedPromptsDisabled?: boolean
 }
 
 export function ConversationMessageList({
@@ -31,7 +39,9 @@ export function ConversationMessageList({
   isWaitingForReply,
   messageEvents,
   messages,
+  onSuggestedPromptSelect,
   orgSlug,
+  suggestedPromptsDisabled = false,
 }: ConversationMessageListProps) {
   const lastMessage = messages.at(-1)
   const messageRefs = useRef(new Map<string, HTMLDivElement>())
@@ -60,17 +70,25 @@ export function ConversationMessageList({
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-[20rem] items-center justify-center">
-        <div className="flex max-w-lg flex-col gap-3 px-6 text-center">
-          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-            Workspace Chat
-          </p>
-          <h2 className="text-3xl font-semibold tracking-tight">
-            Start a conversation with Otto
-          </h2>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Ask Otto to research, summarize, or take action in this workspace.
-          </p>
-        </div>
+        <Empty className="border-0 px-6 py-0">
+          <EmptyHeader>
+            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+              Workspace Chat
+            </p>
+            <EmptyTitle className="text-3xl font-semibold">
+              Start a conversation with Otto
+            </EmptyTitle>
+            <EmptyDescription>
+              Ask Otto to research, summarize, or take action in this workspace.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="max-w-2xl">
+            <WorkspaceChatPromptSuggestions
+              disabled={suggestedPromptsDisabled}
+              onSelect={onSuggestedPromptSelect}
+            />
+          </EmptyContent>
+        </Empty>
       </div>
     )
   }
