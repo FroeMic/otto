@@ -50,7 +50,7 @@ export const SYSTEM_MANAGED_SKILL_DEFINITIONS =
       "installMode": "default_installed",
       "skillKey": "business-idea-onboarding",
       "summary": "Install business idea onboarding guidance",
-      "visibleInLibrary": false
+      "visibleInLibrary": true
     },
     {
       "files": [
