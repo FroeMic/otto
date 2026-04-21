@@ -1,16 +1,14 @@
 const DEFAULT_OPENAI_PROXY_WS_DEGRADE_COOLDOWN_MS = 60_000;
 const MAX_IDENTITY_LENGTH = 160;
 
-export function prepareOpenAiProxyExtraParams(ctx) {
+export function prepareOpenAiProxyExtraParams(ctx, env = process.env) {
   const extraParams = ctx?.extraParams ?? {};
-  const transport = extraParams.transport;
-  const hasSupportedTransport =
-    transport === "auto" || transport === "sse" || transport === "websocket";
+  const { transport } = resolveOpenAiProxyTransport(env);
   const hasExplicitWarmup = typeof extraParams.openaiWsWarmup === "boolean";
 
   return {
     ...extraParams,
-    ...(hasSupportedTransport ? {} : { transport: "auto" }),
+    transport,
     ...(hasExplicitWarmup ? {} : { openaiWsWarmup: true }),
   };
 }
@@ -91,3 +89,4 @@ export function normalizeIdentityValue(value) {
     ? normalized.slice(0, MAX_IDENTITY_LENGTH)
     : normalized;
 }
+import { resolveOpenAiProxyTransport } from "./transport.js";

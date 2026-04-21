@@ -216,13 +216,14 @@
   - keep provider id `openai-proxy` instead of spoofing OpenClaw's bundled `openai`
   - `runtime-plugins/otto-ai-provider` now mirrors the native OpenAI provider shape through explicit provider hooks, GPT-5.4-family model metadata, native replay policy, native reasoning mode, transport turn state, and WebSocket session policy
   - the control-plane OpenAI Responses HTTP proxy now validates terminal SSE events and fails incomplete streams instead of letting partial output become successful assistant output
-  - the control-plane OpenAI Responses proxy now also exposes a runtime-authenticated WebSocket path that connects upstream to `wss://api.openai.com/v1/responses` with the native `OpenAI-Beta: responses-websocket=v1` handshake
   - local focused verification passes for provider contract tests, OpenAI proxy tests, and `apps/api` build
   - PR #536 merged the native-quality rewrite, but live tenant runtime verification still shows downstream cancellation before a terminal OpenAI Responses event on the SSE path
   - follow-up diagnostics now log provider initialization, transport defaults, replay policy, runtime auth shape, stream hook and returned stream-function lifecycle, abort signals, safe Responses request shape, inbound request aborts, recent SSE event types, and event-type counts without logging prompt text, response text, or tenant tokens
   - follow-up tenant-side diagnostics now also wrap the returned async stream object so iteration start, completion, early close, and iterator failure are logged with safe event-type summaries
   - a follow-up hotfix now captures and consumes the source async iterator directly so stream-consumption diagnostics do not recursively re-enter a wrapped stream
-  - the active follow-up implementation branch is `fix-openai-proxy-iterator-recursion`
+  - direct API-port/Caddy-bypass testing showed the same `terminated` SSE failure after tenant-to-control-plane reachability was confirmed, so Caddy is no longer the root-cause hypothesis
+  - `runtime-plugins/otto-ai-provider` now implements an explicit `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket` force switch, defaulting generated tenant env to `sse` and routing `websocket` through a provider-owned OpenAI Responses WebSocket stream on the same `/responses` resource URL shape as native OpenAI
+  - the provider WebSocket path authenticates to the control-plane proxy with `TENANT_TOKEN`; the upstream OpenAI key remains control-plane-only
 - Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
   - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes
@@ -790,11 +791,11 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_16_runtime_ai_provider_proxy.md` by:
-  - broadening canary coverage for `openai-proxy/gpt-5.4` plus proxied audio transcription on tenant runtimes
-  - deciding whether TTS, voice-call, and embeddings should be proxied next or kept unsupported
-  - adding request attribution metadata for proxied OpenAI calls so later billing and reconciliation can tie requests to the active provider credential revision
-  - deciding whether the next auth hardening step should introduce a dedicated Otto AI bootstrap credential or keep `TENANT_TOKEN` as the first production auth boundary for the proxy
+- Continue `TODO_36_openai_proxy_native_quality_rewrite.md` by:
+  - publishing a new runtime image that includes the provider force switch
+  - deploy with `OTTO_OPENAI_PROXY_TRANSPORT=websocket` for a canary tenant runtime, recreate/restart the tenant runtime, and confirm logs show `[otto-ai-provider] transport resolved` with `transport: "websocket"`
+  - run one long/tool-heavy workspace turn and verify no `terminated` SSE event is emitted on the tenant path
+  - keep `OTTO_OPENAI_PROXY_TRANSPORT=sse` as the explicit rollback branch
 - Then continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
   - adding the runtime release schema migration and DB-backed active release record
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth

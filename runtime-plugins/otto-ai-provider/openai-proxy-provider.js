@@ -15,7 +15,9 @@ import {
   summarizeWebSocketSessionPolicy,
 } from "./diagnostics.js";
 import { buildOpenAiProxyReplayPolicy } from "./replay-policy.js";
+import { createOpenAiProxyWebSocketStreamFn } from "./responses-websocket.js";
 import { resolveOpenAiProxyRuntimeAuth } from "./runtime-auth.js";
+import { resolveOpenAiProxyTransport } from "./transport.js";
 import {
   normalizeOpenAiProxyResolvedModel,
   normalizeOpenAiProxyTransport,
@@ -36,6 +38,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
   const instrumentedStreamHooks = instrumentOpenAiResponsesStreamHooks(
     streamHooks,
     diagnostics,
+    dependencies.createWebSocketStreamFn ?? createOpenAiProxyWebSocketStreamFn,
   );
 
   diagnostics.info("provider initialized", {
@@ -122,7 +125,11 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
   };
 }
 
-function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
+function instrumentOpenAiResponsesStreamHooks(
+  streamHooks,
+  diagnostics,
+  createWebSocketStreamFn,
+) {
   if (typeof streamHooks?.wrapStreamFn !== "function") {
     return streamHooks;
   }
@@ -146,6 +153,7 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
 
       return async (model, context, options) => {
         const startedAt = Date.now();
+        const resolvedTransport = resolveOpenAiProxyTransport();
         const signal = options?.signal;
         const fields = () => ({
           attempt: ctx?.attempt,
@@ -156,7 +164,7 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
           provider: ctx?.provider ?? model?.provider,
           sessionId: ctx?.sessionId,
           signalAborted: Boolean(signal?.aborted),
-          transport: options?.transport ?? ctx?.transport,
+          transport: resolvedTransport.transport,
           turnId: ctx?.turnId,
         });
         const abortListener = () => {
@@ -177,7 +185,21 @@ function instrumentOpenAiResponsesStreamHooks(streamHooks, diagnostics) {
         }
 
         try {
-          const result = await wrappedStreamFn(model, context, options);
+          diagnostics.info("transport resolved", {
+            provider: ctx?.provider ?? model?.provider,
+            modelId: ctx?.modelId ?? model?.id,
+            transport: resolvedTransport.transport,
+            source: resolvedTransport.source,
+          });
+          const transportOptions = {
+            ...options,
+            transport: resolvedTransport.transport,
+          };
+          const streamFn =
+            resolvedTransport.transport === "websocket"
+              ? createWebSocketStreamFn(wrappedStreamFn, diagnostics)
+              : wrappedStreamFn;
+          const result = await streamFn(model, context, transportOptions);
           diagnostics.info("stream function completed", fields());
           return instrumentReturnedStream(result, diagnostics, fields);
         } catch (error) {

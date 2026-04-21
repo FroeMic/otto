@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { getControlPlaneBaseUrl, getEnv, getOpenAiProxyBaseUrl } from "../env";
+import {
+  getControlPlaneBaseUrl,
+  getEnv,
+  getOpenAiProxyBaseUrl,
+  getOpenAiProxyTransport,
+} from "../env";
 import {
   OPENCLAW_GATEWAY_CONTAINER_PORT,
   OPENCLAW_GATEWAY_HOST_PORT,
@@ -1139,6 +1144,7 @@ async function buildRuntimeEnvFile(input: {
   if (openAiProxyBaseUrl) {
     lines.push(`OTTO_OPENAI_PROXY_BASE_URL=${openAiProxyBaseUrl}`);
   }
+  lines.push(`OTTO_OPENAI_PROXY_TRANSPORT=${getOpenAiProxyTransport()}`);
 
   if (input.slackBotToken) {
     lines.push(`SLACK_BOT_TOKEN=${input.slackBotToken}`);

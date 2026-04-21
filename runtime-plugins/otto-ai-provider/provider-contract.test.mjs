@@ -14,6 +14,10 @@ import {
   normalizeControlPlaneBaseUrl,
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
+import {
+  resolveOpenAiProxyTransport,
+  toOpenAiProxyWebSocketUrl,
+} from "./transport.js";
 
 const silentLogger = {
   info() {},
@@ -22,6 +26,14 @@ const silentLogger = {
 
 function buildProviderForTest(dependencies = {}) {
   return buildOpenAiProxyProvider({ logger: silentLogger, ...dependencies });
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
 
 test("openai-proxy provider exposes the native-shaped OpenAI Responses contract", () => {
@@ -48,11 +60,41 @@ test("openai-proxy auth uses tenant token and defaults to gpt-5.4", () => {
   assert.equal(auth.defaultModel, "openai-proxy/gpt-5.4");
 });
 
-test("openai-proxy extra params mirror native OpenAI websocket defaults", () => {
+test("openai-proxy transport env defaults to forced SSE and validates overrides", () => {
+  assert.deepEqual(resolveOpenAiProxyTransport({}), {
+    transport: "sse",
+    source: "default",
+  });
+  assert.deepEqual(resolveOpenAiProxyTransport({ OTTO_OPENAI_PROXY_TRANSPORT: "websocket" }), {
+    transport: "websocket",
+    source: "env",
+  });
+  assert.deepEqual(resolveOpenAiProxyTransport({ OTTO_OPENAI_PROXY_TRANSPORT: " sse " }), {
+    transport: "sse",
+    source: "env",
+  });
+  assert.throws(
+    () => resolveOpenAiProxyTransport({ OTTO_OPENAI_PROXY_TRANSPORT: "auto" }),
+    /Invalid OTTO_OPENAI_PROXY_TRANSPORT "auto"/,
+  );
+});
+
+test("openai-proxy websocket URL mirrors native Responses path", () => {
+  assert.equal(
+    toOpenAiProxyWebSocketUrl("https://otto.example/api/internal/runtime/ai/openai/v1"),
+    "wss://otto.example/api/internal/runtime/ai/openai/v1/responses",
+  );
+  assert.equal(
+    toOpenAiProxyWebSocketUrl("http://127.0.0.1:3002/api/internal/runtime/ai/openai/v1/"),
+    "ws://127.0.0.1:3002/api/internal/runtime/ai/openai/v1/responses",
+  );
+});
+
+test("openai-proxy extra params use forced transport defaults", () => {
   const provider = buildProviderForTest();
 
   assert.deepEqual(provider.prepareExtraParams({ extraParams: {} }), {
-    transport: "auto",
+    transport: "sse",
     openaiWsWarmup: true,
   });
 
@@ -71,11 +113,22 @@ test("openai-proxy extra params mirror native OpenAI websocket defaults", () => 
       extraParams: { transport: "websocket", serviceTier: "priority" },
     }),
     {
-      transport: "websocket",
+      transport: "sse",
       openaiWsWarmup: true,
       serviceTier: "priority",
     },
   );
+
+  const previous = process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+  process.env.OTTO_OPENAI_PROXY_TRANSPORT = "websocket";
+  try {
+    assert.deepEqual(provider.prepareExtraParams({ extraParams: {} }), {
+      transport: "websocket",
+      openaiWsWarmup: true,
+    });
+  } finally {
+    restoreEnv("OTTO_OPENAI_PROXY_TRANSPORT", previous);
+  }
 });
 
 test("openai-proxy runtime auth resolves the control-plane OpenAI base URL", () => {
@@ -282,12 +335,84 @@ test("openai-proxy provider wraps stream function lifecycle with safe diagnostic
       "[otto-ai-provider] provider initialized",
       "[otto-ai-provider] stream hook invoked",
       "[otto-ai-provider] stream function starting",
+      "[otto-ai-provider] transport resolved",
       "[otto-ai-provider] stream function completed",
     ],
   );
-  assert.equal(events.at(-2).fields.hasAbortSignal, true);
-  assert.equal(events.at(-2).fields.signalAborted, false);
+  const startingLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream function starting",
+  );
+  assert.equal(startingLog?.fields.hasAbortSignal, true);
+  assert.equal(startingLog?.fields.signalAborted, false);
   assert.equal(events.at(-1).fields.error, undefined);
+});
+
+test("openai-proxy provider uses SSE branch when transport resolves to sse", async () => {
+  const previous = process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+  delete process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+  const calls = [];
+  const provider = buildProviderForTest({
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async (_model, _context, options) => {
+        calls.push(options.transport);
+        return { ok: true };
+      },
+    },
+  });
+
+  try {
+    const wrapped = provider.wrapStreamFn({
+      provider: "openai-proxy",
+      modelId: "gpt-5.4",
+      streamFn: async () => ({ unreachable: true }),
+    });
+    const result = await wrapped(
+      { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+      { messages: [] },
+      {},
+    );
+
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(calls, ["sse"]);
+  } finally {
+    restoreEnv("OTTO_OPENAI_PROXY_TRANSPORT", previous);
+  }
+});
+
+test("openai-proxy provider uses WebSocket branch when transport resolves to websocket", async () => {
+  const previous = process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+  process.env.OTTO_OPENAI_PROXY_TRANSPORT = "websocket";
+  const calls = [];
+  const provider = buildProviderForTest({
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async () => {
+        calls.push("sse");
+        return { ok: false };
+      },
+    },
+    createWebSocketStreamFn: () => async (_model, _context, options) => {
+      calls.push(options.transport);
+      return { ok: true };
+    },
+  });
+
+  try {
+    const wrapped = provider.wrapStreamFn({
+      provider: "openai-proxy",
+      modelId: "gpt-5.4",
+      streamFn: async () => ({ unreachable: true }),
+    });
+    const result = await wrapped(
+      { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+      { messages: [] },
+      {},
+    );
+
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(calls, ["websocket"]);
+  } finally {
+    restoreEnv("OTTO_OPENAI_PROXY_TRANSPORT", previous);
+  }
 });
 
 test("openai-proxy provider logs stream abort signal and failure", async () => {
