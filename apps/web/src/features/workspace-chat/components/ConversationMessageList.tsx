@@ -44,28 +44,36 @@ export function ConversationMessageList({
   suggestedPromptsDisabled = false,
 }: ConversationMessageListProps) {
   const lastMessage = messages.at(-1)
-  const messageRefs = useRef(new Map<string, HTMLDivElement>())
-  const previousUserMessageIdRef = useRef<string | null>(null)
+  const endRef = useRef<HTMLDivElement | null>(null)
+  const previousLatestTurnKeyRef = useRef<string | null>(null)
+  const latestTurnKey = lastMessage
+    ? `${lastMessage.id}:${lastMessage.status}:${getMessageContentRevision(lastMessage)}`
+    : null
 
   useEffect(() => {
-    if (
-      !lastMessage ||
-      lastMessage.author.kind !== "user" ||
-      !currentUserId ||
-      lastMessage.author.userId !== currentUserId
-    ) {
+    if (!lastMessage || !latestTurnKey) {
       return
     }
 
-    if (previousUserMessageIdRef.current === lastMessage.id) {
+    const isOwnUserMessage =
+      lastMessage.author.kind === "user" &&
+      Boolean(currentUserId) &&
+      lastMessage.author.userId === currentUserId
+    const isActiveAssistantMessage =
+      lastMessage.author.kind === "assistant" &&
+      (lastMessage.status === "pending" || lastMessage.status === "streaming")
+
+    if (!isOwnUserMessage && !isWaitingForReply && !isActiveAssistantMessage) {
       return
     }
 
-    previousUserMessageIdRef.current = lastMessage.id
-    messageRefs.current
-      .get(lastMessage.id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }, [currentUserId, lastMessage])
+    if (previousLatestTurnKeyRef.current === latestTurnKey) {
+      return
+    }
+
+    previousLatestTurnKeyRef.current = latestTurnKey
+    endRef.current?.scrollIntoView({ behavior: "auto", block: "end" })
+  }, [currentUserId, isWaitingForReply, lastMessage, latestTurnKey])
 
   if (messages.length === 0) {
     return (
@@ -112,17 +120,7 @@ export function ConversationMessageList({
           })
 
           return (
-            <div
-              key={message.id}
-              ref={(node) => {
-                if (node) {
-                  messageRefs.current.set(message.id, node)
-                  return
-                }
-
-                messageRefs.current.delete(message.id)
-              }}
-            >
+            <div key={message.id}>
               <ConversationMessageBubble
                 currentUserId={currentUserId}
                 events={events}
@@ -156,9 +154,30 @@ export function ConversationMessageList({
             </div>
           </ConversationTurnShell>
         ) : null}
+        <div
+          aria-hidden
+          className="h-px"
+          ref={endRef}
+        />
       </div>
     </ScrollArea>
   )
+}
+
+function getMessageContentRevision(message: WorkspaceChatMessage) {
+  return message.parts
+    .map((part) => {
+      if (part.type === "text") {
+        return part.text.length
+      }
+
+      if (part.type === "file" || part.type === "audio") {
+        return part.attachmentId
+      }
+
+      return part.type
+    })
+    .join(":")
 }
 
 function isGroupedWithPreviousMessage(input: {
