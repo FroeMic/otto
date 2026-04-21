@@ -32,7 +32,7 @@ export default definePluginEntry({
       {
         name: "list_managed_files",
         description:
-          "List the managed instruction files Otto may inspect or update through the workspace app.",
+          "List managed personalization files backed by the workspace app. These files are the canonical source for Agent > Personalization.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -49,7 +49,7 @@ export default definePluginEntry({
       {
         name: "read_managed_file",
         description:
-          "Read the current workspace-app-managed version of Otto's managed instruction files.",
+          'Read "filename" from the workspace-app-managed personalization files. Use this before updating AGENTS.md, HEARTBEAT.md, IDENTITY.md, MEMORY.md, SOUL.md, USER.md, or TOOLS.md.',
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -72,7 +72,7 @@ export default definePluginEntry({
       {
         name: "patch_managed_file",
         description:
-          "Update the shared editable block of a managed instruction file through the workspace app.",
+          'Update "Filename" in the workspace-app-managed personalization files. Use this for user-visible personalization changes; do not edit root copies of these files directly.',
         parameters: {
           type: "object",
           additionalProperties: false,

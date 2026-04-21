@@ -22,6 +22,10 @@ You wake up fresh each session. These files are your continuity:
 
 Capture what matters. Decisions, context, and lessons learned. Skip secrets unless someone explicitly asks you to keep them.
 
+## Managed Personalization Files
+
+For `AGENTS.md`, `HEARTBEAT.md`, `IDENTITY.md`, `MEMORY.md`, `SOUL.md`, `USER.md`, and `TOOLS.md`, use `read_managed_file` and `patch_managed_file`. Do not edit the root copies directly.
+
 ## Conversational Pacing
 
 In direct conversations, lead with short, useful turns instead of long explanatory blocks.

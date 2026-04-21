@@ -498,6 +498,7 @@ function normalizePlanEvent(event, payload) {
 
 function normalizeToolEvent(event, payload) {
   const phase = readString(payload.phase);
+  const title = formatToolTitle(payload);
   const status =
     normalizeStatus(readString(payload.status)) ??
     (phase === "start"
@@ -517,7 +518,7 @@ function normalizeToolEvent(event, payload) {
       readString(payload.resultText) ??
       readString(payload.error) ??
       readString(payload.message),
-    title: readString(payload.name) ?? DEFAULT_TOOL_TITLE,
+    title,
     type:
       phase === "start"
         ? "tool.started"
@@ -529,6 +530,31 @@ function normalizeToolEvent(event, payload) {
             ? "tool.failed"
             : "tool.updated",
   });
+}
+
+function formatToolTitle(payload) {
+  const toolName = readString(payload.name);
+  const filePath = readToolFilePath(payload);
+
+  if (toolName === "read_managed_file") {
+    return filePath ? `Read "${filePath}"` : 'Read "managed file"';
+  }
+
+  if (toolName === "patch_managed_file") {
+    return filePath ? `Update "${filePath}"` : 'Update "managed file"';
+  }
+
+  return toolName ?? DEFAULT_TOOL_TITLE;
+}
+
+function readToolFilePath(payload) {
+  return (
+    readString(payload.filePath) ??
+    readString(readRecord(payload.params)?.filePath) ??
+    readString(readRecord(payload.input)?.filePath) ??
+    readString(readRecord(payload.arguments)?.filePath) ??
+    readString(readJsonRecord(readString(payload.arguments))?.filePath)
+  );
 }
 
 function normalizeThinkingEvent(event, payload) {
@@ -684,6 +710,18 @@ function readRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value
     : null;
+}
+
+function readJsonRecord(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return readRecord(JSON.parse(value));
+  } catch {
+    return null;
+  }
 }
 
 function readString(value) {

@@ -85,6 +85,56 @@ test("normalizeWorkspaceChatRuntimeActivityEvent maps direct runtime callback pa
   assert.deepEqual(
     normalizeWorkspaceChatRuntimeActivityEvent({
       payload: {
+        arguments: JSON.stringify({ filePath: "IDENTITY.md" }),
+        name: "read_managed_file",
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "tool",
+    }),
+    {
+      payload: {
+        arguments: JSON.stringify({ filePath: "IDENTITY.md" }),
+        name: "read_managed_file",
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      title: 'Read "IDENTITY.md"',
+      type: "tool.started",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        name: "patch_managed_file",
+        params: { filePath: "SOUL.md" },
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "tool",
+    }),
+    {
+      payload: {
+        name: "patch_managed_file",
+        params: { filePath: "SOUL.md" },
+        phase: "start",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      title: 'Update "SOUL.md"',
+      type: "tool.started",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
         approvalId: "approval_1",
         message: "Waiting on approval",
         phase: "requested",
