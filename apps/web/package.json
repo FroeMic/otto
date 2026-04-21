@@ -33,6 +33,7 @@
     "@otto/feature-workspace-onboarding": "workspace:*",
     "@otto/feature-workspace-slugs": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-router": "^1.139.3",
     "@tanstack/react-table": "^8.21.3",
