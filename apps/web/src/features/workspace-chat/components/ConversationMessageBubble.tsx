@@ -26,6 +26,7 @@ import {
   getWorkspaceConversationTurnName,
 } from "../presentation"
 import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
+import { ConversationMarkdown } from "./ConversationMarkdown"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
@@ -140,12 +141,10 @@ export function ConversationMessageBubble({
                   index === lastTextPartIndex ? animatedLastTextPart : part.text
 
                 return (
-                  <p
+                  <ConversationMarkdown
                     key={`${message.id}:${index}`}
-                    className="whitespace-pre-wrap text-sm leading-7 text-foreground"
-                  >
-                    {displayText}
-                  </p>
+                    text={displayText}
+                  />
                 )
               })}
               {fileParts.length > 0 || audioParts.length > 0 ? (
