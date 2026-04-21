@@ -16,6 +16,9 @@ import {
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").defaultRandom().primaryKey(),
+  agentPersonalizedAt: timestamp("agent_personalized_at", {
+    withTimezone: true,
+  }),
   externalId: varchar("external_id", { length: 255 }).notNull().unique(),
   isReady: boolean("is_ready").default(false).notNull(),
   locale: varchar("locale", { length: 32 }).default("en-US").notNull(),

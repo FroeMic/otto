@@ -1,14 +1,13 @@
 import type {
-  WorkspaceChatMessagePart,
   WorkspaceChatMessageCreateRequest,
   WorkspaceChatMessageCreateResponse,
+  WorkspaceChatMessagePart,
 } from "@otto/feature-workspace-chat"
-
+import { validateWorkspaceChatAttachmentOwnership } from "./chat-attachments-service"
 import {
   createWorkspaceChatMessageRecord,
   markWorkspaceChatAssistantMessageFailed,
 } from "./chat-data"
-import { validateWorkspaceChatAttachmentOwnership } from "./chat-attachments-service"
 import { dispatchWorkspaceChatMessage } from "./chat-dispatch"
 
 type CreateAndDispatchWorkspaceChatMessageDependencies = {
@@ -54,14 +53,17 @@ type CreateAndDispatchWorkspaceChatMessageDependencies = {
   }) => Promise<void>
 }
 
-export async function createAndDispatchWorkspaceChatMessage(input: {
-  clientMessageId?: string
-  conversationId: string
-  orgSlug: string
-  parts: WorkspaceChatMessageCreateRequest["parts"]
-  userDisplayName: string
-  userExternalId: string
-}, dependencies: CreateAndDispatchWorkspaceChatMessageDependencies = {}) {
+export async function createAndDispatchWorkspaceChatMessage(
+  input: {
+    clientMessageId?: string
+    conversationId: string
+    orgSlug: string
+    parts: WorkspaceChatMessageCreateRequest["parts"]
+    userDisplayName: string
+    userExternalId: string
+  },
+  dependencies: CreateAndDispatchWorkspaceChatMessageDependencies = {},
+) {
   const createMessageRecord =
     dependencies.createMessageRecord ?? createWorkspaceChatMessageRecord
   const dispatchMessage =
@@ -134,15 +136,12 @@ export async function createAndDispatchWorkspaceChatMessage(input: {
       message: created.message,
     } satisfies WorkspaceChatMessageCreateResponse
   } catch (error) {
-    console.error(
-      "[workspace-chat] runtime dispatch failed",
-      {
-        assistantMessageId: created.assistantMessageId ?? null,
-        conversationId: created.conversationId,
-        error: error instanceof Error ? error.message : error,
-        tenantId: created.tenantId,
-      },
-    )
+    console.error("[workspace-chat] runtime dispatch failed", {
+      assistantMessageId: created.assistantMessageId ?? null,
+      conversationId: created.conversationId,
+      error: error instanceof Error ? error.message : error,
+      tenantId: created.tenantId,
+    })
 
     if (created.assistantMessageId) {
       await markAssistantMessageFailed({
@@ -165,7 +164,7 @@ function collectWorkspaceChatAttachmentIds(
   parts: WorkspaceChatMessageCreateRequest["parts"],
 ) {
   return parts.flatMap((part) => {
-    if (part.type === "text") {
+    if (part.type === "text" || part.type === "hidden_text") {
       return []
     }
 

@@ -1900,6 +1900,7 @@ export async function getDashboardOrganizations(
   const db = getDb()
   const rows = await db
     .select({
+      agentPersonalizedAt: organizations.agentPersonalizedAt,
       id: organizations.id,
       isReady: organizations.isReady,
       locale: organizations.locale,
@@ -1911,5 +1912,14 @@ export async function getDashboardOrganizations(
     .from(organizations)
     .orderBy(asc(organizations.name), asc(organizations.slug))
 
-  return rows
+  return rows.map((row) => ({
+    agentPersonalizedAt: row.agentPersonalizedAt?.toISOString() ?? null,
+    id: row.id,
+    isReady: row.isReady,
+    locale: row.locale,
+    name: row.name,
+    slug: row.slug,
+    timeFormatPreference: row.timeFormatPreference,
+    timezone: row.timezone,
+  }))
 }

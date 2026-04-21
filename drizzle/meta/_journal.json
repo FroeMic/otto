@@ -414,6 +414,13 @@
       "when": 1776592800000,
       "tag": "0059_job_history_retention_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1776754000000,
+      "tag": "0060_agent_personalization_onboarding",
+      "breakpoints": true
     }
   ]
 }

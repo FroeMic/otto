@@ -28,6 +28,7 @@ type WorkspaceShellUser = {
 }
 
 export type WorkspaceSummary = {
+  agentPersonalizedAt?: string | null
   id: string
   isReady: boolean
   locale: string
@@ -105,6 +106,7 @@ export async function getDashboardOrganizations(
 
   const rows = await db
     .select({
+      agentPersonalizedAt: organizations.agentPersonalizedAt,
       id: organizations.id,
       isReady: organizations.isReady,
       locale: organizations.locale,
@@ -124,7 +126,7 @@ export async function getDashboardOrganizations(
     )
     .orderBy(asc(organizations.name), asc(organizations.slug))
 
-  return rows
+  return rows.map(mapWorkspaceSummaryRow)
 }
 
 export async function getWorkspaceSummaryBySlugForUser(input: {
@@ -134,6 +136,7 @@ export async function getWorkspaceSummaryBySlugForUser(input: {
   const db = getDb()
   const [organization] = await db
     .select({
+      agentPersonalizedAt: organizations.agentPersonalizedAt,
       id: organizations.id,
       isReady: organizations.isReady,
       locale: organizations.locale,
@@ -154,7 +157,29 @@ export async function getWorkspaceSummaryBySlugForUser(input: {
     )
     .limit(1)
 
-  return organization ?? null
+  return organization ? mapWorkspaceSummaryRow(organization) : null
+}
+
+function mapWorkspaceSummaryRow(row: {
+  agentPersonalizedAt: Date | null
+  id: string
+  isReady: boolean
+  locale: string
+  name: string
+  slug: string
+  timeFormatPreference: string
+  timezone: string
+}): WorkspaceSummary {
+  return {
+    agentPersonalizedAt: row.agentPersonalizedAt?.toISOString() ?? null,
+    id: row.id,
+    isReady: row.isReady,
+    locale: row.locale,
+    name: row.name,
+    slug: row.slug,
+    timeFormatPreference: row.timeFormatPreference,
+    timezone: row.timezone,
+  }
 }
 
 export async function getOrganizationWorkspaceBySlug(input: {

@@ -10,6 +10,7 @@
 @source "./**/*.{ts,tsx}";
 
 @theme inline {
+  --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
   --color-background: var(--background);
@@ -50,9 +51,24 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  @keyframes rainbow {
+    0% {
+      background-position: 0%;
+    }
+
+    100% {
+      background-position: 200%;
+    }
+  }
 }
 
 :root {
+  --color-1: 0 100% 63%;
+  --color-2: 270 100% 63%;
+  --color-3: 210 100% 63%;
+  --color-4: 195 100% 63%;
+  --color-5: 90 100% 63%;
   --background: oklch(0.9909 0.0014 275.36);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -200,9 +216,10 @@
         color-mix(in oklch, var(--muted-foreground) 45%, transparent) 0%,
         color-mix(in oklch, var(--foreground) 68%, white) 48%,
         color-mix(in oklch, var(--muted-foreground) 45%, transparent) 100%
-      ),
-      linear-gradient(var(--muted-foreground), var(--muted-foreground));
-    background-size: 220% 100%, 100% 100%;
+      ), linear-gradient(var(--muted-foreground), var(--muted-foreground));
+    background-size:
+      220% 100%,
+      100% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;

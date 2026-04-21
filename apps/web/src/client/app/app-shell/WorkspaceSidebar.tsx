@@ -1,9 +1,12 @@
 "use client"
 
-import { PlusIcon } from "@phosphor-icons/react"
-import { Link } from "@tanstack/react-router"
+import { MagicWandIcon, PlusIcon } from "@phosphor-icons/react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { RainbowButton } from "@/components/ui/rainbow-button"
 import {
   Sidebar,
   SidebarContent,
@@ -11,6 +14,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { startAgentPersonalizationOnboarding } from "@/features/workspace-chat/api/chat"
 import { ConversationHistorySection } from "@/features/workspace-chat/sidebar/ConversationHistorySection"
 
 import { WorkspacePrimaryNav } from "./WorkspacePrimaryNav"
@@ -22,6 +26,7 @@ import {
 
 export interface WorkspaceSidebarProps {
   currentOrganization: {
+    agentPersonalizedAt: string | null
     name: string
     slug: string
   }
@@ -44,6 +49,41 @@ export function WorkspaceSidebar({
   orgSlug,
   user,
 }: WorkspaceSidebarProps) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const startPersonalizationMutation = useMutation({
+    mutationFn: async () => {
+      return await startAgentPersonalizationOnboarding({ orgSlug })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to start personalization.",
+      )
+    },
+    onSuccess: async (conversation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["shell-bootstrap", orgSlug],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["workspace-chat-conversations", orgSlug],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["workspace-chat-conversation", orgSlug, conversation.id],
+        }),
+      ])
+      await navigate({
+        params: {
+          conversationId: conversation.id,
+          orgSlug,
+        },
+        to: "/$orgSlug/c/$conversationId",
+      })
+    },
+  })
+
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader className="shrink-0 gap-2 pb-2">
@@ -74,6 +114,21 @@ export function WorkspaceSidebar({
       </SidebarContent>
 
       <SidebarFooter className="shrink-0 border-t border-sidebar-border/70 pt-3">
+        {currentOrganization.agentPersonalizedAt ? null : (
+          <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
+            <RainbowButton
+              className="h-10 w-full rounded-xl text-sm shadow-sm"
+              disabled={startPersonalizationMutation.isPending}
+              onClick={() => {
+                startPersonalizationMutation.mutate()
+              }}
+              type="button"
+            >
+              <MagicWandIcon weight="bold" />
+              <span>Personalize Otto</span>
+            </RainbowButton>
+          </div>
+        )}
         {user.isPlatformAdmin ? (
           <WorkspaceFooterPlatformLink orgSlug={orgSlug} />
         ) : null}

@@ -4,15 +4,15 @@ import {
   type WorkspaceChatConversationDetailResponse,
   type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
-  type WorkspaceChatMessagePart,
   type WorkspaceChatMessageCreateResponse,
+  type WorkspaceChatMessagePart,
   workspaceChatAttachmentUploadResponseSchema,
-  workspaceChatMessageCancelResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationCreateResponseSchema,
   workspaceChatConversationDetailResponseSchema,
   workspaceChatConversationListQuerySchema,
   workspaceChatConversationListResponseSchema,
+  workspaceChatMessageCancelResponseSchema,
   workspaceChatMessageCreateRequestSchema,
   workspaceChatMessageCreateResponseSchema,
 } from "@otto/feature-workspace-chat"
@@ -41,16 +41,17 @@ export function workspaceChatConversationListQueryOptions(orgSlug: string) {
         cursor: pageParam,
         limit: 30,
       })
-      const response =
-        await apiClient.api.workspace[":orgSlug"].chat.conversations.$get({
-          param: {
-            orgSlug,
-          },
-          query: {
-            cursor: query.cursor,
-            limit: query.limit ? String(query.limit) : undefined,
-          },
-        })
+      const response = await apiClient.api.workspace[
+        ":orgSlug"
+      ].chat.conversations.$get({
+        param: {
+          orgSlug,
+        },
+        query: {
+          cursor: query.cursor,
+          limit: query.limit ? String(query.limit) : undefined,
+        },
+      })
 
       return fetchApiResponse(response, parseWorkspaceChatConversationList)
     },
@@ -67,15 +68,14 @@ export function workspaceChatConversationDetailQueryOptions(
 ) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].chat.conversations[
-          ":conversationId"
-        ].$get({
-          param: {
-            conversationId,
-            orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[
+        ":orgSlug"
+      ].chat.conversations[":conversationId"].$get({
+        param: {
+          conversationId,
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, parseWorkspaceChatConversationDetail)
     },
@@ -89,17 +89,34 @@ export async function createWorkspaceChatConversation(input: {
   orgSlug: string
   title?: string
 }): Promise<WorkspaceChatConversationSummary> {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].chat.conversations.$post({
-      json: workspaceChatConversationCreateRequestSchema.parse({
-        kind: "ad_hoc",
-        title: input.title?.trim() || "New conversation",
-        visibility: "open",
-      }),
-      param: {
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].chat.conversations.$post({
+    json: workspaceChatConversationCreateRequestSchema.parse({
+      kind: "ad_hoc",
+      title: input.title?.trim() || "New conversation",
+      visibility: "open",
+    }),
+    param: {
+      orgSlug: input.orgSlug,
+    },
+  })
+
+  return fetchApiResponse(response, (data) =>
+    workspaceChatConversationCreateResponseSchema.parse(data),
+  ).then((data) => data.conversation)
+}
+
+export async function startAgentPersonalizationOnboarding(input: {
+  orgSlug: string
+}): Promise<WorkspaceChatConversationSummary> {
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].agent.personalization.onboarding.start.$post({
+    param: {
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceChatConversationCreateResponseSchema.parse(data),
@@ -112,19 +129,18 @@ export async function sendWorkspaceChatMessage(input: {
   orgSlug: string
   parts: WorkspaceChatMessagePart[]
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].chat.conversations[
-      ":conversationId"
-    ].messages.$post({
-      json: workspaceChatMessageCreateRequestSchema.parse({
-        clientMessageId: input.clientMessageId,
-        parts: input.parts,
-      }),
-      param: {
-        conversationId: input.conversationId,
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].chat.conversations[
+    ":conversationId"
+  ].messages.$post({
+    json: workspaceChatMessageCreateRequestSchema.parse({
+      clientMessageId: input.clientMessageId,
+      parts: input.parts,
+    }),
+    param: {
+      conversationId: input.conversationId,
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceChatMessageCreateResponseSchema.parse(data),
@@ -136,16 +152,15 @@ export async function cancelWorkspaceChatAssistantMessage(input: {
   conversationId: string
   orgSlug: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].chat.conversations[
-      ":conversationId"
-    ].messages[":assistantMessageId"].cancel.$post({
-      param: {
-        assistantMessageId: input.assistantMessageId,
-        conversationId: input.conversationId,
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].chat.conversations[
+    ":conversationId"
+  ].messages[":assistantMessageId"].cancel.$post({
+    param: {
+      assistantMessageId: input.assistantMessageId,
+      conversationId: input.conversationId,
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceChatMessageCancelResponseSchema.parse(data),
