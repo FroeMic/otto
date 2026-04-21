@@ -177,13 +177,16 @@ function getErrorMessage(error) {
 }
 
 function normalizeWorkspaceChatIngressPart(part) {
-  if (part?.type === "text" && typeof part.text === "string") {
+  if (
+    (part?.type === "text" || part?.type === "hidden_text") &&
+    typeof part.text === "string"
+  ) {
     const text = part.text.trim();
 
     return text
       ? {
           text,
-          type: "text",
+          type: part.type,
         }
       : null;
   }

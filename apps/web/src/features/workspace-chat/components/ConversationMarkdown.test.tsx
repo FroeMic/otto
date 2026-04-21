@@ -8,8 +8,8 @@ import { ConversationMarkdown } from "./ConversationMarkdown"
 describe("ConversationMarkdown", () => {
   it("renders common assistant markdown blocks", () => {
     const markup = renderToStaticMarkup(
-      <ConversationMarkdown
-        text={[
+      <ConversationMarkdown isStreaming={false}>
+        {[
           "## Plan",
           "",
           "- **Research** the market",
@@ -19,12 +19,12 @@ describe("ConversationMarkdown", () => {
           "const ready = true",
           "```",
         ].join("\n")}
-      />,
+      </ConversationMarkdown>,
     )
 
-    assert.match(markup, /<h3/)
+    assert.match(markup, /Plan/)
     assert.match(markup, /<ul/)
-    assert.match(markup, /<strong/)
+    assert.match(markup, /data-streamdown="strong"/)
     assert.match(markup, /<code/)
     assert.match(markup, /<pre/)
     assert.match(markup, /const ready = true/)
@@ -32,10 +32,12 @@ describe("ConversationMarkdown", () => {
 
   it("renders safe links and leaves unsafe links as text", () => {
     const markup = renderToStaticMarkup(
-      <ConversationMarkdown text="[Otto](https://getyourotto.com) [bad](javascript:alert(1))" />,
+      <ConversationMarkdown isStreaming={false}>
+        [Otto](https://getyourotto.com) [bad](javascript:alert(1))
+      </ConversationMarkdown>,
     )
 
     assert.match(markup, /href="https:\/\/getyourotto.com\/"/)
-    assert.match(markup, /\[bad\]\(javascript:alert\(1\)\)/)
+    assert.equal(markup.includes("javascript:alert"), false)
   })
 })

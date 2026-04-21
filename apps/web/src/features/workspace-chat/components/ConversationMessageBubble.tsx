@@ -1,3 +1,7 @@
+import type {
+  WorkspaceChatMessage,
+  WorkspaceChatMessageEvent,
+} from "@otto/feature-workspace-chat"
 import {
   DownloadSimpleIcon,
   FileIcon,
@@ -5,16 +9,7 @@ import {
   PlayIcon,
   WaveformIcon,
 } from "@phosphor-icons/react"
-import type {
-  WorkspaceChatMessage,
-  WorkspaceChatMessageEvent,
-} from "@otto/feature-workspace-chat"
-import {
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -25,13 +20,13 @@ import {
   getWorkspaceConversationTurnKind,
   getWorkspaceConversationTurnName,
 } from "../presentation"
+import { formatVoiceNoteDuration } from "../voice-note"
 import { ConversationAssistantTrace } from "./ConversationAssistantTrace"
 import { ConversationMarkdown } from "./ConversationMarkdown"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
-import { formatVoiceNoteDuration } from "../voice-note"
 
 export interface ConversationMessageBubbleProps {
   currentUserId?: string
@@ -143,8 +138,10 @@ export function ConversationMessageBubble({
                 return (
                   <ConversationMarkdown
                     key={`${message.id}:${index}`}
-                    text={displayText}
-                  />
+                    isStreaming={message.status === "streaming"}
+                  >
+                    {displayText}
+                  </ConversationMarkdown>
                 )
               })}
               {fileParts.length > 0 || audioParts.length > 0 ? (
