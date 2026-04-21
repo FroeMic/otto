@@ -451,6 +451,9 @@ responses, do not forward stale content-encoding headers.
 - [x] Add follow-up SSE diagnostics for provider stream lifecycle, abort
       signals, safe Responses request shape, inbound request aborts, and recent
       terminal-event attribution.
+- [x] Add follow-up tenant-side async stream consumption diagnostics so returned
+      stream iteration start, completion, early close, and iterator failure are
+      visible without logging prompt or response text.
 - [ ] Run representative long/tool-heavy turn.
 - [ ] Run fault-injection for truncated SSE and abnormal WebSocket close.
 - [x] Run local provider contract tests.
@@ -470,6 +473,7 @@ Passing:
 
 ```text
 node --test runtime-plugins/otto-ai-provider/provider-contract.test.mjs
+node --test runtime-plugins/otto-ai-provider/*.test.mjs
 bun run --cwd apps/api test src/runtime/openai-proxy.test.ts
 bun run build:api
 git diff --check
