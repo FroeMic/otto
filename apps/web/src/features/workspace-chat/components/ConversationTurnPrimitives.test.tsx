@@ -6,19 +6,31 @@ import { describe, it } from "vitest"
 import { ConversationTurnHeader } from "./ConversationTurnPrimitives"
 
 describe("ConversationTurnHeader", () => {
-  it("does not render assistant identity or running status tags beside the name", () => {
+  it("renders the name and timestamp without identity or status tags", () => {
     const markup = renderToStaticMarkup(
       <ConversationTurnHeader
-        badgeLabel="Otto"
         kind="assistant"
         name="Otto"
-        statusLabel="Running"
         timestampLabel="10:30"
       />,
     )
 
     assert.match(markup, />Otto</)
-    assert.equal(markup.includes(">Running<"), false)
+    assert.match(markup, />10:30</)
     assert.equal(markup.includes("data-slot=\"badge\""), false)
+  })
+
+  it("keeps user metadata in one inline row after the avatar", () => {
+    const markup = renderToStaticMarkup(
+      <ConversationTurnHeader
+        kind="current_user"
+        name="Username"
+        timestampLabel="14:40"
+      />,
+    )
+
+    assert.match(markup, />Username</)
+    assert.match(markup, />14:40</)
+    assert.match(markup, /flex min-w-0 items-center gap-2/)
   })
 })
