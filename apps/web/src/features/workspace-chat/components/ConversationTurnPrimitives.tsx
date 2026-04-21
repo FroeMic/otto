@@ -44,13 +44,24 @@ export function ConversationTurnHeader({
 }: ConversationTurnHeaderProps) {
   const isCurrentUser = kind === "current_user"
 
+  if (isCurrentUser) {
+    return (
+      <div className="flex max-w-full flex-nowrap items-center justify-end gap-3 overflow-hidden text-right">
+        <div className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap">
+          <p className="shrink-0 text-xs text-muted-foreground">
+            {timestampLabel}
+          </p>
+          <p className="truncate text-xs font-medium text-foreground/75">
+            {name}
+          </p>
+        </div>
+        <ConversationTurnAvatar kind={kind} name={name} />
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={cn(
-        "flex max-w-full flex-nowrap items-center gap-3 overflow-hidden",
-        isCurrentUser ? "text-right" : "text-left",
-      )}
-    >
+    <div className="flex max-w-full flex-nowrap items-center gap-3 overflow-hidden text-left">
       <ConversationTurnAvatar kind={kind} name={name} />
       <div className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap">
         <p className="truncate text-xs font-medium text-foreground/75">
