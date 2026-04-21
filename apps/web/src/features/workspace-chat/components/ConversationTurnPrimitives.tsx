@@ -48,6 +48,7 @@ export function ConversationTurnHeader({
   timestampLabel,
 }: ConversationTurnHeaderProps) {
   const isCurrentUser = kind === "current_user"
+  const shouldShowTags = kind !== "assistant"
 
   return (
     <div
@@ -65,12 +66,12 @@ export function ConversationTurnHeader({
       >
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-medium text-foreground/75">{name}</p>
-          {badgeLabel ? (
+          {shouldShowTags && badgeLabel ? (
             <Badge className="px-1.5 py-0 text-[10px]" variant="outline">
               {badgeLabel}
             </Badge>
           ) : null}
-          {statusLabel ? (
+          {shouldShowTags && statusLabel ? (
             <Badge className="px-1.5 py-0 text-[10px]" variant="secondary">
               {statusLabel}
             </Badge>

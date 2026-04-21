@@ -12,7 +12,7 @@ import {
 } from "./trace-presentation"
 
 describe("workspace chat trace presentation helpers", () => {
-  it("rotates through the loading verbs over time with a stable per-message seed", () => {
+  it("chooses stable loading verbs with a longer interval between changes", () => {
     assert.equal(
       getWorkspaceChatLoadingVerb({
         elapsedMs: 0,
@@ -39,7 +39,17 @@ describe("workspace chat trace presentation helpers", () => {
         seed: "msg_alpha",
       }),
       getWorkspaceChatLoadingVerb({
+        elapsedMs: 5000,
+        seed: "msg_alpha",
+      }),
+    )
+    assert.equal(
+      getWorkspaceChatLoadingVerb({
         elapsedMs: 1600,
+        seed: "msg_alpha",
+      }),
+      getWorkspaceChatLoadingVerb({
+        elapsedMs: 0,
         seed: "msg_alpha",
       }),
     )
