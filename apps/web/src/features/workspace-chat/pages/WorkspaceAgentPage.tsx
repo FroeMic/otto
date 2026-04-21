@@ -29,7 +29,6 @@ import {
 } from "../api/chat"
 import { WorkspaceAgentPromptCard } from "../components/WorkspaceAgentPromptCard"
 import { WorkspaceChatPromptSuggestions } from "../components/WorkspaceChatPromptSuggestions"
-import { useViewportDockBounds } from "../hooks/useViewportDockBounds"
 
 export interface WorkspaceAgentPageProps {
   orgSlug: string
@@ -40,7 +39,6 @@ export function WorkspaceAgentPage({
 }: WorkspaceAgentPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { boundsRef, dockStyle } = useViewportDockBounds()
   const { data: onboarding } = useSuspenseQuery(
     workspaceOnboardingQueryOptions(orgSlug),
   )
@@ -113,14 +111,9 @@ export function WorkspaceAgentPage({
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-        <div
-          aria-hidden
-          className="mx-auto h-0 w-full max-w-3xl px-4"
-          ref={boundsRef}
-        />
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pb-44 pt-14 text-center">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pb-8 pt-14 text-center">
           <Empty className="border-0 p-0">
             <EmptyHeader className="max-w-2xl gap-3">
               <p className="text-sm font-medium tracking-[0.18em] text-primary/80 uppercase">
@@ -145,11 +138,8 @@ export function WorkspaceAgentPage({
           </Empty>
         </div>
 
-        <div
-          className="pointer-events-none fixed bottom-0 z-30"
-          style={dockStyle}
-        >
-          <div className="pointer-events-auto w-full px-4 pb-5">
+        <div className="z-30 shrink-0 bg-gradient-to-t from-background via-background to-background/80 px-4 pb-5 pt-3">
+          <div className="mx-auto w-full max-w-3xl">
             <WorkspaceAgentPromptCard
               disabled={startConversationMutation.isPending}
               initialDraft={initialDraft}
