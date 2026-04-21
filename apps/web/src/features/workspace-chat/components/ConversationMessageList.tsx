@@ -111,10 +111,8 @@ export function ConversationMessageList({
           <ConversationTurnShell kind="assistant">
             <div className="flex w-full max-w-3xl flex-col gap-2">
               <ConversationTurnHeader
-                badgeLabel="Otto"
                 kind="assistant"
                 name="Otto"
-                statusLabel="Queued"
                 timestampLabel={new Date().toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",

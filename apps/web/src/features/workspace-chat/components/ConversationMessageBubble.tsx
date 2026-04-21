@@ -58,14 +58,6 @@ export function ConversationMessageBubble({
     message,
     turnKind,
   })
-  const statusLabel =
-    message.status === "pending"
-      ? "Queued"
-      : message.status === "streaming"
-        ? "Running"
-        : message.status === "failed"
-          ? "Failed"
-          : null
   const animatedLastTextPart = useStreamingText({
     isEnabled: isAssistant,
     messageId: message.id,
@@ -126,10 +118,8 @@ export function ConversationMessageBubble({
     <ConversationTurnShell kind={turnKind}>
       <div className="flex w-full max-w-3xl flex-col gap-2">
         <ConversationTurnHeader
-          badgeLabel={isAssistant ? "Otto" : undefined}
           kind={turnKind}
           name={displayName}
-          statusLabel={statusLabel}
           timestampLabel={timestampLabel}
         />
 

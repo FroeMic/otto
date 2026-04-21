@@ -1,5 +1,4 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 import type { WorkspaceConversationTurnKind } from "../presentation"
@@ -33,50 +32,30 @@ export function ConversationTurnShell({
 }
 
 export interface ConversationTurnHeaderProps {
-  badgeLabel?: string
   kind: WorkspaceConversationTurnKind
   name: string
-  statusLabel?: string | null
   timestampLabel: string
 }
 
 export function ConversationTurnHeader({
-  badgeLabel,
   kind,
   name,
-  statusLabel,
   timestampLabel,
 }: ConversationTurnHeaderProps) {
   const isCurrentUser = kind === "current_user"
-  const shouldShowTags = kind !== "assistant"
 
   return (
     <div
       className={cn(
         "flex items-center gap-3",
-        isCurrentUser ? "flex-row-reverse text-right" : "flex-row",
+        isCurrentUser ? "text-right" : "text-left",
       )}
     >
       <ConversationTurnAvatar kind={kind} name={name} />
-      <div
-        className={cn(
-          "flex min-w-0 flex-col gap-0.5",
-          isCurrentUser ? "items-end" : "items-start",
-        )}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-medium text-foreground/75">{name}</p>
-          {shouldShowTags && badgeLabel ? (
-            <Badge className="px-1.5 py-0 text-[10px]" variant="outline">
-              {badgeLabel}
-            </Badge>
-          ) : null}
-          {shouldShowTags && statusLabel ? (
-            <Badge className="px-1.5 py-0 text-[10px]" variant="secondary">
-              {statusLabel}
-            </Badge>
-          ) : null}
-        </div>
+      <div className="flex min-w-0 items-center gap-2">
+        <p className="truncate text-xs font-medium text-foreground/75">
+          {name}
+        </p>
         <p className="text-xs text-muted-foreground">{timestampLabel}</p>
       </div>
     </div>
