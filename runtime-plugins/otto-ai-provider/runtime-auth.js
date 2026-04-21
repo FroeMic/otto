@@ -1,13 +1,13 @@
 const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
 
 export function resolveOpenAiProxyRuntimeAuth(ctx) {
-  const controlPlaneBaseUrl = normalizeControlPlaneBaseUrl(
-    ctx?.env?.OTTO_CONTROL_PLANE_BASE_URL,
-  );
+  const proxyBaseUrl =
+    normalizeControlPlaneBaseUrl(ctx?.env?.OTTO_OPENAI_PROXY_BASE_URL) ??
+    normalizeControlPlaneBaseUrl(ctx?.env?.OTTO_CONTROL_PLANE_BASE_URL);
 
-  if (!controlPlaneBaseUrl) {
+  if (!proxyBaseUrl) {
     throw new Error(
-      "OTTO_CONTROL_PLANE_BASE_URL is required to use openai-proxy.",
+      "OTTO_OPENAI_PROXY_BASE_URL or OTTO_CONTROL_PLANE_BASE_URL is required to use openai-proxy.",
     );
   }
 
@@ -17,7 +17,7 @@ export function resolveOpenAiProxyRuntimeAuth(ctx) {
 
   return {
     apiKey: ctx.apiKey,
-    baseUrl: `${controlPlaneBaseUrl}${DEFAULT_BASE_URL_PATH}`,
+    baseUrl: `${proxyBaseUrl}${DEFAULT_BASE_URL_PATH}`,
   };
 }
 

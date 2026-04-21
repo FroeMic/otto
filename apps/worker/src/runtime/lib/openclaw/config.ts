@@ -1,5 +1,5 @@
 import { normalizeTimeFormatPreference, normalizeTimeZone } from "../date-time";
-import { getControlPlaneBaseUrl, getEnv } from "../env";
+import { getControlPlaneBaseUrl, getEnv, getOpenAiProxyBaseUrl } from "../env";
 import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "../managed-skills/system-skills";
 import { validateOpenClawSlackConfig } from "./slack-schema";
 import {
@@ -538,6 +538,7 @@ export function buildOpenClawTenantConfig(input: {
   const config = parseRecord(input.configJson);
   const env = getEnv();
   const controlPlaneBaseUrl = getControlPlaneBaseUrl();
+  const openAiProxyBaseUrl = getOpenAiProxyBaseUrl();
   const hasSlackBotToken = Boolean(input.slackBotToken);
   const audio = parseAudioConfig(config.media);
   const slackPolicy = parseSlackPolicy(config.slack);
@@ -576,7 +577,7 @@ export function buildOpenClawTenantConfig(input: {
   );
   const proxyModelConfig = resolveProxyModelConfig({
     audioUsesOpenAi: shouldRouteAudioThroughOpenAiProxy(audio),
-    controlPlaneBaseUrl,
+    openAiProxyBaseUrl,
     primaryModel,
   });
 
@@ -674,7 +675,7 @@ export function buildOpenClawTenantConfig(input: {
 
 function resolveProxyModelConfig(input: {
   audioUsesOpenAi: boolean;
-  controlPlaneBaseUrl?: string;
+  openAiProxyBaseUrl?: string;
   primaryModel: string;
 }) {
   const needsProxyConfig =
@@ -685,9 +686,9 @@ function resolveProxyModelConfig(input: {
     return null;
   }
 
-  if (!input.controlPlaneBaseUrl) {
+  if (!input.openAiProxyBaseUrl) {
     throw new Error(
-      `${OPENAI_PROXY_PROVIDER_ID} requires OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
+      `${OPENAI_PROXY_PROVIDER_ID} requires OTTO_OPENAI_PROXY_BASE_URL or OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
     );
   }
 
@@ -699,7 +700,7 @@ function resolveProxyModelConfig(input: {
         apiKey: "${TENANT_TOKEN}",
         baseUrl:
           // biome-ignore lint/suspicious/noTemplateCurlyInString: OpenClaw config placeholder
-          "${OTTO_CONTROL_PLANE_BASE_URL}/api/internal/runtime/ai/openai/v1",
+          "${OTTO_OPENAI_PROXY_BASE_URL}/api/internal/runtime/ai/openai/v1",
         models: [],
       },
     },

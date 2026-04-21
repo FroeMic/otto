@@ -49,16 +49,22 @@ function resolveProxyBaseUrl(value) {
   const controlPlaneBaseUrl = normalizeControlPlaneBaseUrl(
     process.env.OTTO_CONTROL_PLANE_BASE_URL,
   );
+  const openAiProxyBaseUrl = normalizeControlPlaneBaseUrl(
+    process.env.OTTO_OPENAI_PROXY_BASE_URL,
+  );
 
-  if (!controlPlaneBaseUrl) {
+  if (!openAiProxyBaseUrl && !controlPlaneBaseUrl) {
     throw new Error(
-      "openai-proxy audio transcription requires a configured baseUrl or OTTO_CONTROL_PLANE_BASE_URL.",
+      "openai-proxy audio transcription requires a configured baseUrl, OTTO_OPENAI_PROXY_BASE_URL, or OTTO_CONTROL_PLANE_BASE_URL.",
     );
   }
 
   return resolveOpenAiProxyRuntimeAuth({
     apiKey: "audio-transcription",
     env: {
+      ...(openAiProxyBaseUrl
+        ? { OTTO_OPENAI_PROXY_BASE_URL: openAiProxyBaseUrl }
+        : {}),
       OTTO_CONTROL_PLANE_BASE_URL: controlPlaneBaseUrl,
     },
   }).baseUrl;

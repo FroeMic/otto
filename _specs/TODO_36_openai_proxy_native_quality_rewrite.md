@@ -83,7 +83,8 @@ must know whether a Responses stream completed, failed, or ended incomplete.
 - Provider id remains `openai-proxy`.
 - Default model becomes `openai-proxy/gpt-5.4`.
 - Runtime auth uses `TENANT_TOKEN`.
-- Runtime base URL resolves from `OTTO_CONTROL_PLANE_BASE_URL`.
+- Runtime base URL resolves from `OTTO_OPENAI_PROXY_BASE_URL`, falling back to
+  `OTTO_CONTROL_PLANE_BASE_URL`.
 
 ### Provider Hooks
 
@@ -141,7 +142,7 @@ forward-compatible model policy.
 
 `prepareRuntimeAuth` must:
 
-- require `OTTO_CONTROL_PLANE_BASE_URL`
+- require `OTTO_OPENAI_PROXY_BASE_URL` or `OTTO_CONTROL_PLANE_BASE_URL`
 - trim trailing slashes
 - use `ctx.apiKey` as the tenant runtime bearer
 - return a base URL ending in `/api/internal/runtime/ai/openai/v1`
@@ -324,7 +325,8 @@ responses, do not forward stale content-encoding headers.
 - Default model is `openai-proxy/gpt-5.4`.
 - Deprecated `capabilities.providerFamily` is absent.
 - Auth uses `TENANT_TOKEN`.
-- Runtime auth requires `OTTO_CONTROL_PLANE_BASE_URL`.
+- Runtime auth prefers `OTTO_OPENAI_PROXY_BASE_URL` and falls back to
+  `OTTO_CONTROL_PLANE_BASE_URL`.
 - Runtime auth trims trailing slash and returns the OpenAI proxy base URL.
 - `prepareExtraParams` defaults to `transport: "auto"` and
   `openaiWsWarmup: true`.
