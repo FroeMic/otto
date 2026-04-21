@@ -28,7 +28,6 @@ import {
   upsertTenantSessionBatch,
 } from "@otto/feature-runtime-core/sessions/queries"
 import type { Hono } from "hono"
-import { upgradeWebSocket } from "hono/bun"
 import { z } from "zod"
 
 import { enqueueJob } from "../jobs/queue"
@@ -549,51 +548,56 @@ export function registerRuntimeRoutes(app: Hono) {
 
   app.get(
     OPENAI_RESPONSES_PROXY_PATH,
-    upgradeWebSocket((context) => {
-      const prepared = getOpenAiResponsesWebSocketPreparedProxy(context)
+    async (context, next) => {
+      const { upgradeWebSocket } = await import("hono/bun")
 
-      if (!prepared) {
-        throw new OpenAiProxyError(
-          "OpenAI Responses WebSocket proxy was not prepared.",
-          500,
-        )
-      }
+      return upgradeWebSocket((webSocketContext) => {
+        const prepared =
+          getOpenAiResponsesWebSocketPreparedProxy(webSocketContext)
 
-      const { proxy, tenantId } = prepared
-      let bridge:
-        | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
-        | undefined
+        if (!prepared) {
+          throw new OpenAiProxyError(
+            "OpenAI Responses WebSocket proxy was not prepared.",
+            500,
+          )
+        }
 
-      return {
-        onClose(event) {
-          bridge?.handleDownstreamClose({
-            code: event.code,
-            reason: event.reason,
-          })
-        },
-        onMessage(event) {
-          bridge?.handleDownstreamMessage(event.data)
-        },
-        onOpen(_, ws) {
-          bridge = createOpenAiResponsesWebSocketBridge({
-            apiKey: proxy.apiKey,
-            downstream: {
-              close(code, reason) {
-                ws.close(code, reason)
+        const { proxy, tenantId } = prepared
+        let bridge:
+          | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
+          | undefined
+
+        return {
+          onClose(event) {
+            bridge?.handleDownstreamClose({
+              code: event.code,
+              reason: event.reason,
+            })
+          },
+          onMessage(event) {
+            bridge?.handleDownstreamMessage(event.data)
+          },
+          onOpen(_, ws) {
+            bridge = createOpenAiResponsesWebSocketBridge({
+              apiKey: proxy.apiKey,
+              downstream: {
+                close(code, reason) {
+                  ws.close(code, reason)
+                },
+                send(data) {
+                  ws.send(data as string)
+                },
               },
-              send(data) {
-                ws.send(data as string)
-              },
-            },
-            openclawSessionId: proxy.openclawSessionId,
-            openclawTurnAttempt: proxy.openclawTurnAttempt,
-            openclawTurnId: proxy.openclawTurnId,
-            requestId: proxy.requestId,
-            tenantId,
-          })
-        },
-      }
-    }),
+              openclawSessionId: proxy.openclawSessionId,
+              openclawTurnAttempt: proxy.openclawTurnAttempt,
+              openclawTurnId: proxy.openclawTurnId,
+              requestId: proxy.requestId,
+              tenantId,
+            })
+          },
+        }
+      })(context, next)
+    },
   )
 
   app.post(
