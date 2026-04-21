@@ -65,7 +65,7 @@ export const WORKSPACE_CHAT_LOADING_VERBS = [
   "Wrangling",
 ] as const;
 
-const LOADING_VERB_INTERVAL_MS = 5000;
+const LOADING_VERB_INTERVAL_MS = 15000;
 
 export function getWorkspaceChatLoadingVerb(input: {
   elapsedMs: number;

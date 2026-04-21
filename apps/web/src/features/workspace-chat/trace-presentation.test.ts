@@ -39,13 +39,13 @@ describe("workspace chat trace presentation helpers", () => {
         seed: "msg_alpha",
       }),
       getWorkspaceChatLoadingVerb({
-        elapsedMs: 5000,
+        elapsedMs: 15_000,
         seed: "msg_alpha",
       }),
     )
     assert.equal(
       getWorkspaceChatLoadingVerb({
-        elapsedMs: 1600,
+        elapsedMs: 5000,
         seed: "msg_alpha",
       }),
       getWorkspaceChatLoadingVerb({

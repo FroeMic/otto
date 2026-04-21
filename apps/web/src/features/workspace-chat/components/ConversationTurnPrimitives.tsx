@@ -47,16 +47,18 @@ export function ConversationTurnHeader({
   return (
     <div
       className={cn(
-        "flex items-center gap-3",
+        "flex max-w-full flex-nowrap items-center gap-3 overflow-hidden",
         isCurrentUser ? "text-right" : "text-left",
       )}
     >
       <ConversationTurnAvatar kind={kind} name={name} />
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap">
         <p className="truncate text-xs font-medium text-foreground/75">
           {name}
         </p>
-        <p className="text-xs text-muted-foreground">{timestampLabel}</p>
+        <p className="shrink-0 text-xs text-muted-foreground">
+          {timestampLabel}
+        </p>
       </div>
     </div>
   )

@@ -31,6 +31,8 @@ describe("ConversationTurnHeader", () => {
 
     assert.match(markup, />Username</)
     assert.match(markup, />14:40</)
-    assert.match(markup, /flex min-w-0 items-center gap-2/)
+    assert.match(markup, /flex max-w-full flex-nowrap items-center/)
+    assert.match(markup, /flex min-w-0 flex-nowrap items-center/)
+    assert.match(markup, /shrink-0 text-xs text-muted-foreground/)
   })
 })
