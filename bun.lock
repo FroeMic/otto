@@ -116,6 +116,7 @@
       "name": "@otto/worker",
       "version": "0.1.0",
       "dependencies": {
+        "@otto/feature-runtime-core": "workspace:*",
         "@otto/feature-workspace-chat": "workspace:*",
         "@workos-inc/node": "^8.9.0",
         "dotenv": "^17.2.3",

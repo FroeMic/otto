@@ -1,0 +1,6 @@
+{
+  "path": "MEMORY.md",
+  "label": "Memory",
+  "description": "Durable workspace memory. Use this for preferences, stable facts, and decisions the agent should keep over time.",
+  "sortOrder": 40
+}

@@ -41,7 +41,7 @@ describe("managed config definitions", () => {
     )
 
     assert.ok(memoryDefinition)
-    assert.match(memoryDefinition.systemContent, /Michael prefers Otto to lead/)
+    assert.match(memoryDefinition.systemContent, /Michael prefers the agent to lead/)
     assert.match(memoryDefinition.systemContent, /shorter replies/)
     assert.match(memoryDefinition.systemContent, /fewer bundled questions/)
   })

@@ -1,0 +1,6 @@
+{
+  "path": "AGENTS.md",
+  "label": "Working rules",
+  "description": "The main workspace playbook. It tells the agent how to start each session, what to read first, and how to work safely here.",
+  "sortOrder": 10
+}

@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest"
 
-import { getManagedBootstrapFileDefinition } from "./managed-config"
+import {
+  getManagedBootstrapFileDefinition,
+  getManagedBootstrapFileDefinitions,
+} from "./managed-config"
 
 describe("managed config definitions", () => {
+  it("uses the shared seven-file managed config definition set", () => {
+    expect(
+      getManagedBootstrapFileDefinitions().map((definition) => definition.path),
+    ).toEqual([
+      "AGENTS.md",
+      "HEARTBEAT.md",
+      "IDENTITY.md",
+      "MEMORY.md",
+      "SOUL.md",
+      "USER.md",
+      "TOOLS.md",
+    ])
+  })
+
   it("includes the project workspace contract in AGENTS.md", () => {
     const agentDefinition = getManagedBootstrapFileDefinition("AGENTS.md")
 
