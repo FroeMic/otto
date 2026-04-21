@@ -335,12 +335,18 @@ function formatDiagnosticReason(reason) {
 function summarizeStreamErrorEvent(event) {
   const error = event?.error ?? event;
   const cause = error?.cause;
+  const errorContent = error?.content;
 
   return {
     eventType: resolveStreamEventType(event),
     eventKeys: summarizeObjectKeys(event),
     eventReason: event?.reason,
     eventError: event?.error,
+    eventErrorContentKind: summarizeDiagnosticContentKind(errorContent),
+    eventErrorContentLength: summarizeDiagnosticContentLength(errorContent),
+    eventErrorContentPreview: summarizeDiagnosticContent(errorContent),
+    eventErrorContentPreviewTruncated:
+      Array.isArray(errorContent) && errorContent.length > 8 ? true : undefined,
     eventErrorName: summarizeDiagnosticValue(error?.name),
     eventErrorMessage: summarizeDiagnosticValue(error?.message),
     eventErrorCode: summarizeDiagnosticValue(error?.code),
@@ -371,4 +377,56 @@ function summarizeDiagnosticValue(value) {
   }
 
   return trimmed.length > 240 ? `${trimmed.slice(0, 240)}...` : trimmed;
+}
+
+function summarizeDiagnosticContent(value, depth = 0) {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 8)
+      .map((item) => summarizeDiagnosticContent(item, depth + 1));
+  }
+
+  if (typeof value !== "object") {
+    return summarizeDiagnosticValue(value);
+  }
+
+  if (depth >= 4) {
+    return summarizeDiagnosticValue(value);
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .slice(0, 24)
+      .map(([key, item]) => [
+        key,
+        isSensitiveDiagnosticKey(key)
+          ? "[redacted]"
+          : summarizeDiagnosticContent(item, depth + 1),
+      ]),
+  );
+}
+
+function summarizeDiagnosticContentKind(value) {
+  if (value == null) {
+    return undefined;
+  }
+
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+function summarizeDiagnosticContentLength(value) {
+  if (Array.isArray(value) || typeof value === "string") {
+    return value.length;
+  }
+
+  return undefined;
+}
+
+function isSensitiveDiagnosticKey(key) {
+  return /authorization|api[-_]?key|secret|token|password/i.test(key);
 }

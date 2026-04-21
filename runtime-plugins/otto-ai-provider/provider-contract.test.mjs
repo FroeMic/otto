@@ -543,6 +543,16 @@ test("openai-proxy provider logs yielded error event payload", async () => {
             name: "TypeError",
             message: "terminated",
             code: "UND_ERR_SOCKET",
+            content: [
+              {
+                type: "text",
+                text: "terminated\nwhile streaming",
+                metadata: {
+                  token: "secret-content-token",
+                  source: "adapter",
+                },
+              },
+            ],
             stack: "should not be logged",
             headers: { authorization: "Bearer secret-token" },
             cause: {
@@ -597,6 +607,18 @@ test("openai-proxy provider logs yielded error event payload", async () => {
   assert.equal(errorEventLog?.fields.eventErrorCauseName, "SocketError");
   assert.equal(errorEventLog?.fields.eventErrorCauseMessage, "other side closed");
   assert.equal(errorEventLog?.fields.eventErrorCauseCode, "UND_ERR_SOCKET");
+  assert.equal(errorEventLog?.fields.eventErrorContentKind, "array");
+  assert.equal(errorEventLog?.fields.eventErrorContentLength, 1);
+  assert.deepEqual(errorEventLog?.fields.eventErrorContentPreview, [
+    {
+      metadata: {
+        source: "adapter",
+        token: "[redacted]",
+      },
+      text: "terminated while streaming",
+      type: "text",
+    },
+  ]);
   assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "reason", "type"]);
 });
 
