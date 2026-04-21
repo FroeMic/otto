@@ -92,9 +92,23 @@ test("openai-proxy runtime auth resolves the control-plane OpenAI base URL", () 
     },
   );
 
+  assert.deepEqual(
+    resolveOpenAiProxyRuntimeAuth({
+      apiKey: "tenant-token",
+      env: {
+        OTTO_CONTROL_PLANE_BASE_URL: "https://otto.example/",
+        OTTO_OPENAI_PROXY_BASE_URL: "http://116.203.190.123:3002/",
+      },
+    }),
+    {
+      apiKey: "tenant-token",
+      baseUrl: "http://116.203.190.123:3002/api/internal/runtime/ai/openai/v1",
+    },
+  );
+
   assert.throws(
     () => resolveOpenAiProxyRuntimeAuth({ apiKey: "tenant-token", env: {} }),
-    /OTTO_CONTROL_PLANE_BASE_URL is required/,
+    /OTTO_OPENAI_PROXY_BASE_URL or OTTO_CONTROL_PLANE_BASE_URL is required/,
   );
 });
 

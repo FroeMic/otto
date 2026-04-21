@@ -173,4 +173,40 @@ describe("renderOpenClawConfig", () => {
       "otto-integrations",
     ]);
   });
+
+  it("projects openai-proxy model provider against the dedicated proxy base URL placeholder", () => {
+    const previousEnv = saveEnvVars([
+      "DATABASE_URL",
+      "LANDING_PAGE_DOMAIN",
+      "OTTO_OPENAI_PROXY_BASE_URL",
+      "RUNTIME_MODEL_PRIMARY",
+    ]);
+
+    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
+    process.env.LANDING_PAGE_DOMAIN = "getyourotto.com";
+    process.env.OTTO_OPENAI_PROXY_BASE_URL = "http://116.203.190.123:3002";
+    process.env.RUNTIME_MODEL_PRIMARY = "openai-proxy/gpt-5.4";
+    envTesting.resetEnvCacheForTests();
+
+    try {
+      const config = buildOpenClawTenantConfig({
+        configJson: {},
+        tenantId: "tenant_test",
+      });
+      const rendered = JSON.parse(renderOpenClawConfig(config)) as {
+        models: {
+          providers: Record<string, { baseUrl: string }>;
+        };
+      };
+
+      expect(rendered.models.providers["openai-proxy"].baseUrl).toBe(
+        "${OTTO_OPENAI_PROXY_BASE_URL}/api/internal/runtime/ai/openai/v1",
+      );
+    } finally {
+      for (const [name, value] of Object.entries(previousEnv)) {
+        restoreEnvVar(name, value);
+      }
+      envTesting.resetEnvCacheForTests();
+    }
+  });
 });

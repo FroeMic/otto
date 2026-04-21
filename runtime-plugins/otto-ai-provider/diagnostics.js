@@ -21,6 +21,9 @@ export function summarizeRuntimeAuth(input, resolved) {
     baseHost: safeHost(resolved?.baseUrl),
     hasApiKey: typeof input?.apiKey === "string" && input.apiKey.length > 0,
     apiKeyLength: typeof input?.apiKey === "string" ? input.apiKey.length : 0,
+    hasOpenAiProxyBaseUrl:
+      typeof input?.env?.OTTO_OPENAI_PROXY_BASE_URL === "string" &&
+      input.env.OTTO_OPENAI_PROXY_BASE_URL.length > 0,
     hasControlPlaneBaseUrl:
       typeof input?.env?.OTTO_CONTROL_PLANE_BASE_URL === "string" &&
       input.env.OTTO_CONTROL_PLANE_BASE_URL.length > 0,
