@@ -28,6 +28,7 @@ import {
   upsertTenantSessionBatch,
 } from "@otto/feature-runtime-core/sessions/queries"
 import type { Hono } from "hono"
+import { upgradeWebSocket } from "hono/bun"
 import { z } from "zod"
 
 import { enqueueJob } from "../jobs/queue"
@@ -79,6 +80,44 @@ import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
 import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
 import { handleWorkOsWebhookRequest } from "../webhooks/workos"
+
+const OPENAI_RESPONSES_PROXY_PATH =
+  "/api/internal/runtime/ai/openai/v1/responses"
+const OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY =
+  "openAiResponsesWebSocketProxy"
+
+type OpenAiResponsesWebSocketPreparedProxy = {
+  tenantId: string
+  proxy: Awaited<ReturnType<typeof prepareOpenAiResponsesWebSocketProxy>>
+}
+
+type OpenAiResponsesWebSocketContext = {
+  get: (
+    key: typeof OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
+  ) => OpenAiResponsesWebSocketPreparedProxy | undefined
+  set: (
+    key: typeof OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
+    value: OpenAiResponsesWebSocketPreparedProxy,
+  ) => void
+}
+
+function setOpenAiResponsesWebSocketPreparedProxy(
+  context: unknown,
+  value: OpenAiResponsesWebSocketPreparedProxy,
+) {
+  const typedContext = context as OpenAiResponsesWebSocketContext
+  typedContext.set(
+    OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
+    value,
+  )
+}
+
+function getOpenAiResponsesWebSocketPreparedProxy(context: unknown) {
+  const typedContext = context as OpenAiResponsesWebSocketContext
+  return typedContext.get(
+    OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
+  )
+}
 
 export function registerRuntimeRoutes(app: Hono) {
   registerWorkspaceChatRuntimeRoutes(app)
@@ -470,7 +509,7 @@ export function registerRuntimeRoutes(app: Hono) {
     }
   })
 
-  app.post("/api/internal/runtime/ai/openai/v1/responses", async (context) => {
+  app.post(OPENAI_RESPONSES_PROXY_PATH, async (context) => {
     try {
       const { tenantId } = await authenticateTenantRuntimeRequest(
         context.req.raw,
@@ -485,11 +524,10 @@ export function registerRuntimeRoutes(app: Hono) {
     }
   })
 
-  app.get("/api/internal/runtime/ai/openai/v1/responses", async (context) => {
-    let bridge:
-      | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
-      | undefined
-
+  app.use(OPENAI_RESPONSES_PROXY_PATH, async (context, next) => {
+    if (context.req.method !== "GET") {
+      return next()
+    }
     try {
       const { tenantId } = await authenticateTenantRuntimeRequest(
         context.req.raw,
@@ -498,9 +536,35 @@ export function registerRuntimeRoutes(app: Hono) {
         request: context.req.raw,
         tenantId,
       })
-      const { upgradeWebSocket } = await import("hono/bun")
 
-      return upgradeWebSocket(context, {
+      setOpenAiResponsesWebSocketPreparedProxy(context, {
+        proxy,
+        tenantId,
+      })
+      return next()
+    } catch (error) {
+      return handleOpenAiProxyError(error)
+    }
+  })
+
+  app.get(
+    OPENAI_RESPONSES_PROXY_PATH,
+    upgradeWebSocket((context) => {
+      const prepared = getOpenAiResponsesWebSocketPreparedProxy(context)
+
+      if (!prepared) {
+        throw new OpenAiProxyError(
+          "OpenAI Responses WebSocket proxy was not prepared.",
+          500,
+        )
+      }
+
+      const { proxy, tenantId } = prepared
+      let bridge:
+        | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
+        | undefined
+
+      return {
         onClose(event) {
           bridge?.handleDownstreamClose({
             code: event.code,
@@ -528,11 +592,9 @@ export function registerRuntimeRoutes(app: Hono) {
             tenantId,
           })
         },
-      })
-    } catch (error) {
-      return handleOpenAiProxyError(error)
-    }
-  })
+      }
+    }),
+  )
 
   app.post(
     "/api/internal/runtime/ai/openai/v1/audio/transcriptions",
