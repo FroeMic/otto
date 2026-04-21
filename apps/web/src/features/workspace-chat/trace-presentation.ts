@@ -65,23 +65,22 @@ export const WORKSPACE_CHAT_LOADING_VERBS = [
   "Wrangling",
 ] as const;
 
-const LOADING_VERB_INTERVAL_MS = 1600;
+const LOADING_VERB_INTERVAL_MS = 5000;
 
 export function getWorkspaceChatLoadingVerb(input: {
   elapsedMs: number;
   seed?: string;
 }) {
-  const seedOffset = resolveLoadingVerbSeedOffset(input.seed);
+  const intervalIndex =
+    input.elapsedMs <= 0
+      ? 0
+      : Math.floor(input.elapsedMs / LOADING_VERB_INTERVAL_MS);
+  const verbIndex = resolveLoadingVerbIndex({
+    intervalIndex,
+    seed: input.seed,
+  });
 
-  if (input.elapsedMs <= 0) {
-    return WORKSPACE_CHAT_LOADING_VERBS[seedOffset];
-  }
-
-  const index =
-    (seedOffset + Math.floor(input.elapsedMs / LOADING_VERB_INTERVAL_MS)) %
-    WORKSPACE_CHAT_LOADING_VERBS.length;
-
-  return WORKSPACE_CHAT_LOADING_VERBS[index];
+  return WORKSPACE_CHAT_LOADING_VERBS[verbIndex];
 }
 
 export function getWorkspaceChatPendingLabel(input: {
@@ -114,18 +113,37 @@ export function getWorkspaceChatPendingLabel(input: {
   return null;
 }
 
-function resolveLoadingVerbSeedOffset(seed?: string) {
-  if (!seed) {
-    return 0;
+function resolveLoadingVerbIndex(input: {
+  intervalIndex: number;
+  seed?: string;
+}): number {
+  const index = hashLoadingVerbSeed(
+    `${input.seed ?? "workspace-chat"}:${input.intervalIndex}`,
+  ) % WORKSPACE_CHAT_LOADING_VERBS.length;
+
+  if (input.intervalIndex <= 0) {
+    return index;
   }
 
-  let hash = 0;
+  const previousIndex: number = resolveLoadingVerbIndex({
+    intervalIndex: input.intervalIndex - 1,
+    seed: input.seed,
+  });
+
+  return index === previousIndex
+    ? (index + 1) % WORKSPACE_CHAT_LOADING_VERBS.length
+    : index;
+}
+
+function hashLoadingVerbSeed(seed: string) {
+  let hash = 2166136261;
 
   for (const character of seed) {
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
   }
 
-  return hash % WORKSPACE_CHAT_LOADING_VERBS.length;
+  return hash;
 }
 
 export function formatWorkspaceChatActivityDuration(input: {
