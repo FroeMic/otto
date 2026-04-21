@@ -24,6 +24,7 @@ import {
 import { getWorkspaceChatAttachmentContentForTenant } from "../workspace/chat-attachments-service"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
+import { runtimeDebugLog } from "./debug-logging"
 
 export type WorkspaceChatRuntimeRouteDependencies = {
   authenticateTenantRuntime?: (request: Request) => Promise<{
@@ -218,7 +219,7 @@ export function createWorkspaceChatRuntimeRouter(
           await context.req.json(),
         )
 
-        console.info("[workspace-chat] runtime delta callback received", {
+        runtimeDebugLog("[workspace-chat] runtime delta callback received", {
           assistantMessageId: payload.assistantMessageId ?? null,
           conversationId: payload.conversationId,
           sequence: payload.sequence,
@@ -254,7 +255,7 @@ export function createWorkspaceChatRuntimeRouter(
           )
         }
 
-        console.info("[workspace-chat] runtime delta callback applied", {
+        runtimeDebugLog("[workspace-chat] runtime delta callback applied", {
           applied: result.applied,
           conversationId: result.conversationId,
           messageId: result.messageId,
@@ -287,7 +288,7 @@ export function createWorkspaceChatRuntimeRouter(
           await context.req.json(),
         )
 
-        console.info("[workspace-chat] runtime completion callback received", {
+        runtimeDebugLog("[workspace-chat] runtime completion callback received", {
           assistantMessageId: payload.assistantMessageId ?? null,
           conversationId: payload.conversationId,
           partsCount: payload.message.parts.length,
@@ -321,7 +322,7 @@ export function createWorkspaceChatRuntimeRouter(
           )
         }
 
-        console.info("[workspace-chat] runtime completion callback applied", {
+        runtimeDebugLog("[workspace-chat] runtime completion callback applied", {
           conversationId: result.conversationId,
           messageId: result.messageId,
           runtimeSegmentId: result.runtimeSegmentId,
@@ -354,7 +355,7 @@ export function createWorkspaceChatRuntimeRouter(
           await context.req.json(),
         )
 
-        console.info("[workspace-chat] runtime failure callback received", {
+        runtimeDebugLog("[workspace-chat] runtime failure callback received", {
           assistantMessageId: payload.assistantMessageId ?? null,
           conversationId: payload.conversationId,
           error: payload.error ?? null,
@@ -387,7 +388,7 @@ export function createWorkspaceChatRuntimeRouter(
           )
         }
 
-        console.info("[workspace-chat] runtime failure callback applied", {
+        runtimeDebugLog("[workspace-chat] runtime failure callback applied", {
           conversationId: result.conversationId,
           messageId: result.messageId,
           tenantId: result.tenantId,
@@ -419,7 +420,7 @@ export function createWorkspaceChatRuntimeRouter(
             await context.req.json(),
           )
 
-        console.info(
+        runtimeDebugLog(
           "[workspace-chat] runtime activity event callback received",
           {
             assistantMessageId: payload.assistantMessageId,
@@ -456,7 +457,7 @@ export function createWorkspaceChatRuntimeRouter(
           )
         }
 
-        console.info(
+        runtimeDebugLog(
           "[workspace-chat] runtime activity event callback applied",
           {
             conversationId: result.conversationId,

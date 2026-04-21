@@ -56,7 +56,7 @@ async function runOpenAiProxyWebSocketStream(params) {
     signal?.addEventListener?.("abort", abort, { once: true });
 
     await client.connect();
-    params.diagnostics?.info?.("websocket stream connected", {
+    params.diagnostics?.debug?.("websocket stream connected", {
       modelId: params.model?.id,
       provider: params.model?.provider,
       urlHost: safeUrlHost(wsUrl),
