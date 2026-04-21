@@ -232,7 +232,13 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
         }
 
         const event = next.value;
-        recordStreamEvent(state, event);
+        const eventType = recordStreamEvent(state, event);
+        if (eventType === "error") {
+          diagnostics.error("stream yielded error event", {
+            ...fields(),
+            ...summarizeStreamErrorEvent(event),
+          });
+        }
         yield event;
       }
 
@@ -281,6 +287,8 @@ function recordStreamEvent(state, event) {
       state.terminalEventType = eventType;
     }
   }
+
+  return eventType;
 }
 
 function resolveStreamEventType(event) {
@@ -322,4 +330,43 @@ function formatDiagnosticReason(reason) {
     return null;
   }
   return typeof reason === "string" ? reason : getDiagnosticErrorMessage(reason);
+}
+
+function summarizeStreamErrorEvent(event) {
+  const error = event?.error ?? event;
+  const cause = error?.cause;
+
+  return {
+    eventType: resolveStreamEventType(event),
+    eventKeys: summarizeObjectKeys(event),
+    eventErrorName: summarizeDiagnosticValue(error?.name),
+    eventErrorMessage: summarizeDiagnosticValue(error?.message),
+    eventErrorCode: summarizeDiagnosticValue(error?.code),
+    eventErrorType: summarizeDiagnosticValue(error?.type),
+    eventErrorCauseName: summarizeDiagnosticValue(cause?.name),
+    eventErrorCauseMessage: summarizeDiagnosticValue(cause?.message),
+    eventErrorCauseCode: summarizeDiagnosticValue(cause?.code),
+  };
+}
+
+function summarizeObjectKeys(value) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  return Object.keys(value).sort().slice(0, 20);
+}
+
+function summarizeDiagnosticValue(value) {
+  if (value == null) {
+    return undefined;
+  }
+
+  const text = typeof value === "string" ? value : String(value);
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.length > 240 ? `${trimmed.slice(0, 240)}...` : trimmed;
 }
