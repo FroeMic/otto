@@ -150,26 +150,57 @@ forward-compatible model policy.
 
 ### Transport Policy
 
-Native OpenAI currently works over WebSocket. The proxy must therefore support
-OpenClaw's WebSocket path instead of permanently forcing SSE.
+Native OpenAI currently works over WebSocket. The proxy must support a
+provider-owned WebSocket path instead of relying on OpenClaw's native
+`provider === "openai"` WebSocket gate.
 
-`prepareExtraParams` should mirror native OpenAI defaults:
-
-```js
-transport: "auto"
-openaiWsWarmup: true
-```
-
-Explicit supported values remain valid:
+Transport selection is explicit and operator-controlled:
 
 ```text
-auto
-sse
-websocket
+OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket
 ```
 
-The provider may override unsupported values, but it should not silently force
-SSE once the control-plane WebSocket proxy is implemented.
+Semantics:
+
+- `sse` uses the current HTTP/SSE implementation through the control-plane
+  `POST /api/internal/runtime/ai/openai/v1/responses` proxy.
+- `websocket` uses the new provider-owned WebSocket implementation through the
+  control-plane WebSocket upgrade on
+  `/api/internal/runtime/ai/openai/v1/responses`.
+
+Do not use `auto` for Otto transport selection in this rewrite. `auto` made the
+runtime logs ambiguous because OpenClaw could report native-style defaults while
+`openai-proxy` still executed on the generic SSE path.
+
+Rollout default:
+
+- During implementation and first deployment, generated tenant runtime env must
+  default to `OTTO_OPENAI_PROXY_TRANSPORT=sse`.
+- After live WebSocket verification, the generated default may switch to
+  `websocket`.
+- Rollback must be possible by changing the tenant env back to `sse` and
+  restarting/reapplying the runtime, without code rollback.
+
+The provider must log the resolved transport for every model request:
+
+```text
+[otto-ai-provider] transport resolved {
+  provider: "openai-proxy",
+  modelId: "gpt-5.4",
+  transport: "sse" | "websocket",
+  source: "default" | "env"
+}
+```
+
+Invalid values must fail fast with a precise operator-facing error:
+
+```text
+Invalid OTTO_OPENAI_PROXY_TRANSPORT "<value>". Expected "sse" or "websocket".
+```
+
+`prepareExtraParams` may continue to set OpenAI-native wrapper defaults that are
+independent of the transport switch, but it must not reintroduce ambiguous
+transport selection.
 
 ### Replay Policy
 
@@ -255,14 +286,36 @@ OpenClaw cannot treat partial output as a valid assistant completion.
 ### WebSocket Responses Proxy
 
 Add a WebSocket proxy for OpenAI Responses so `openai-proxy` can support native
-OpenAI's `transport: "auto"` and `transport: "websocket"` paths.
+OpenAI Responses WebSocket semantics without exposing upstream OpenAI
+credentials to tenant runtimes.
+
+The route shape must mirror native OpenAI. Native OpenAI uses the same resource
+path for HTTP and WebSocket:
+
+```text
+https://api.openai.com/v1/responses
+wss://api.openai.com/v1/responses
+```
+
+Otto must do the same:
+
+```text
+POST      /api/internal/runtime/ai/openai/v1/responses
+WEBSOCKET /api/internal/runtime/ai/openai/v1/responses
+```
+
+Do not add a custom `/responses/ws` route unless the Hono/Bun upgrade path makes
+same-path dispatch impossible. If a separate route becomes necessary, document
+it as an explicit deviation from native OpenAI before implementation.
 
 The proxy must:
 
 - authenticate tenant runtime requests with the same runtime auth as HTTP proxy
   calls
-- connect upstream to OpenAI's native WebSocket Responses endpoint
+- connect upstream to OpenAI's native WebSocket Responses endpoint:
+  `wss://api.openai.com/v1/responses`
 - inject the upstream OpenAI credential only on the control-plane side
+- set upstream `OpenAI-Beta: responses-websocket=v1`
 - forward frames with minimal mutation
 - preserve OpenClaw session/turn/attempt correlation
 - observe terminal events when available
@@ -272,6 +325,109 @@ The proxy must:
 The route shape should stay under the runtime AI proxy namespace. If OpenClaw's
 client constructs WebSocket URLs by converting the configured base URL, the
 control-plane route must match that expectation.
+
+### WebSocket Implementation References
+
+Use OpenClaw's native OpenAI WebSocket implementation as the primary reference:
+
+- `/Users/michaelfrohlich/Repositories/openclaw/src/agents/openai-ws-connection.ts`
+- `/Users/michaelfrohlich/Repositories/openclaw/src/agents/openai-ws-stream.ts`
+- `/Users/michaelfrohlich/Repositories/openclaw/src/agents/openai-ws-request.ts`
+
+Important native behaviors to mirror:
+
+- default upstream URL is `wss://api.openai.com/v1/responses`
+- upstream headers include:
+  - `Authorization: Bearer <upstream OpenAI key>`
+  - `OpenAI-Beta: responses-websocket=v1`
+- client-to-server frames are typed `response.create` events
+- warm-up uses `response.create` with `generate: false`
+- the stream tracks `previous_response_id` for incremental tool-result turns
+- `response.completed` is the successful terminal event
+- `response.failed`, `error`, abnormal close before terminal, and timeout are
+  failed terminal outcomes
+- event mapping must preserve assistant text deltas, tool calls, response ids,
+  usage, and stop reasons
+
+Existing bundled provider plugins such as Anthropic, GitHub Copilot, Fireworks,
+OpenRouter, and Kimi are useful only for plugin `wrapStreamFn` structure and
+payload/event wrapping patterns. They do not provide a full replacement text
+LLM WebSocket transport. OpenAI realtime transcription/voice providers are
+useful only for low-level WebSocket lifecycle style.
+
+### Code Co-Location
+
+Control-plane OpenAI proxy code should stay co-located by capability and route:
+
+```text
+apps/api/src/runtime/ai/openai/
+  routes.ts
+  auth.ts
+  upstream.ts
+  responses-http.ts
+  responses-websocket.ts
+  responses-observer.ts
+```
+
+Responsibilities:
+
+- `routes.ts` registers the OpenAI proxy routes and dispatches same-path
+  `/responses` traffic by protocol:
+  - WebSocket upgrade -> `responses-websocket.ts`
+  - HTTP `POST` -> `responses-http.ts`
+- `auth.ts` owns runtime tenant auth and server-side OpenAI credential
+  resolution.
+- `upstream.ts` owns OpenAI upstream URLs and upstream header builders.
+- `responses-http.ts` owns the existing HTTP/SSE transport loop and terminal
+  validation.
+- `responses-websocket.ts` owns WebSocket upgrade handling, upstream WebSocket
+  connection, bidirectional frame forwarding, and close/error handling.
+- `responses-observer.ts` owns the tiny shared OpenAI Responses event observer:
+  first event type, last event type, terminal event type, event counts, response
+  id, and incomplete/failure classification.
+
+Do not over-share implementation between HTTP/SSE and WebSocket. They should
+share only:
+
+- auth
+- upstream URL/header helpers
+- event observation/log metadata
+
+The actual transport loops must remain separate.
+
+Runtime provider code should mirror the same separation:
+
+```text
+runtime-plugins/otto-ai-provider/
+  transport.js
+  runtime-auth.js
+  responses-sse.js
+  responses-websocket.js
+```
+
+Responsibilities:
+
+- `transport.js` resolves and validates
+  `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket`.
+- `runtime-auth.js` keeps existing tenant-token/base-URL resolution.
+- `responses-sse.js` preserves the current SSE implementation as the rollback
+  baseline.
+- `responses-websocket.js` ports/mirrors OpenClaw's native OpenAI WebSocket
+  stream behavior, with these adaptations:
+  - connect to the control-plane WebSocket URL, not OpenAI directly
+  - use the tenant runtime bearer token for downstream auth
+  - never receive or log the upstream OpenAI key
+
+The provider WebSocket URL is derived from the runtime auth base URL by
+converting protocol and appending the native Responses resource:
+
+```text
+https://getyourotto.com/api/internal/runtime/ai/openai/v1
+-> wss://getyourotto.com/api/internal/runtime/ai/openai/v1/responses
+
+http://127.0.0.1:3002/api/internal/runtime/ai/openai/v1
+-> ws://127.0.0.1:3002/api/internal/runtime/ai/openai/v1/responses
+```
 
 ### Logging
 
@@ -328,10 +484,15 @@ responses, do not forward stale content-encoding headers.
 - Runtime auth prefers `OTTO_OPENAI_PROXY_BASE_URL` and falls back to
   `OTTO_CONTROL_PLANE_BASE_URL`.
 - Runtime auth trims trailing slash and returns the OpenAI proxy base URL.
-- `prepareExtraParams` defaults to `transport: "auto"` and
-  `openaiWsWarmup: true`.
-- Explicit `transport: "sse"` is preserved.
-- Explicit `transport: "websocket"` is preserved.
+- `OTTO_OPENAI_PROXY_TRANSPORT` defaults to `sse` during rollout.
+- `OTTO_OPENAI_PROXY_TRANSPORT=sse` selects the current SSE implementation.
+- `OTTO_OPENAI_PROXY_TRANSPORT=websocket` selects the provider-owned WebSocket
+  implementation.
+- Invalid `OTTO_OPENAI_PROXY_TRANSPORT` values fail fast with a precise error.
+- WebSocket URL conversion preserves the native `/responses` path and converts
+  `http`/`https` to `ws`/`wss`.
+- `prepareExtraParams` does not reintroduce ambiguous `auto` transport
+  selection.
 - Replay policy matches native OpenAI Responses expectations.
 - Reasoning output mode is `native`.
 - Stream family hook is installed.
@@ -369,8 +530,12 @@ responses, do not forward stale content-encoding headers.
 ### End-to-End Smoke
 
 - Tenant runtime resolves `openai-proxy/gpt-5.4`.
-- `transport: "auto"` can use WebSocket through the control-plane proxy.
-- `transport: "sse"` can use HTTP SSE through the control-plane proxy.
+- `OTTO_OPENAI_PROXY_TRANSPORT=websocket` uses WebSocket through the
+  control-plane proxy.
+- `OTTO_OPENAI_PROXY_TRANSPORT=sse` uses HTTP SSE through the control-plane
+  proxy.
+- Runtime logs clearly show `transport: "websocket"` or `transport: "sse"` for
+  every model request.
 - Successful run logs `response.completed`.
 - Fault-injected truncated HTTP stream fails cleanly.
 - Fault-injected abnormal WebSocket close fails cleanly.
@@ -428,28 +593,53 @@ responses, do not forward stale content-encoding headers.
 
 ### Step 6: WebSocket Proxy Tests
 
-- [x] Add failing tests for authenticated WebSocket proxying and abnormal close
+- [ ] Add failing tests for authenticated WebSocket proxying and abnormal close
       classification.
-- [x] Verify tests fail.
+- [ ] Verify tests fail.
 - [ ] Commit failing tests only if local workflow allows, otherwise keep the
       red/green pair in one commit with command output noted.
 
 ### Step 7: WebSocket Proxy Implementation
 
-- [x] Add runtime-authenticated WebSocket route.
-- [x] Connect upstream to OpenAI Responses WebSocket.
-- [x] Forward downstream/upstream frames.
-- [x] Inject upstream auth only in the control-plane.
-- [x] Track terminal events and abnormal closes.
-- [x] Run API tests.
-- [x] Run API build.
-- [x] Commit.
+- [ ] Add same-path runtime-authenticated WebSocket upgrade handling on
+      `/api/internal/runtime/ai/openai/v1/responses`.
+- [ ] Connect upstream to `wss://api.openai.com/v1/responses`.
+- [ ] Forward downstream/upstream frames.
+- [ ] Inject upstream auth only in the control-plane.
+- [ ] Track terminal events and abnormal closes.
+- [ ] Run API tests.
+- [ ] Run API build.
+- [ ] Commit.
 
-### Step 8: Integration Verification
+### Step 8: Provider Force-Switch Tests
+
+- [ ] Add failing tests for `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket`.
+- [ ] Add failing tests for invalid transport values.
+- [ ] Add failing tests for WebSocket URL conversion.
+- [ ] Add failing tests proving the `sse` branch calls the existing SSE stream
+      implementation.
+- [ ] Add failing tests proving the `websocket` branch calls the new WebSocket
+      stream implementation.
+- [ ] Verify tests fail.
+
+### Step 9: Provider WebSocket Implementation
+
+- [ ] Add `transport.js`.
+- [ ] Keep the current SSE behavior as the named rollback branch.
+- [ ] Port/mirror OpenClaw native OpenAI WebSocket stream behavior into
+      `responses-websocket.js`.
+- [ ] Adapt auth so downstream uses `TENANT_TOKEN` and never receives the
+      upstream OpenAI key.
+- [ ] Emit explicit resolved-transport logs for every model request.
+- [ ] Run provider tests.
+- [ ] Run runtime plugin tests.
+- [ ] Commit.
+
+### Step 10: Integration Verification
 
 - [x] Verify provider contract projects `openai-proxy/gpt-5.4` defaults.
-- [x] Verify provider contract preserves both `transport: "auto"` defaults and
-      explicit `transport: "sse"`.
+- [ ] Verify provider contract preserves explicit `sse` and `websocket`
+      transport branches.
 - [x] Add follow-up SSE diagnostics for provider stream lifecycle, abort
       signals, safe Responses request shape, inbound request aborts, and recent
       terminal-event attribution.
@@ -464,10 +654,10 @@ responses, do not forward stale content-encoding headers.
 - [x] Run local OpenAI proxy tests.
 - [x] Run local API build.
 - [ ] Verify live tenant runtime config projects `openai-proxy/gpt-5.4`.
-- [ ] Verify live `transport: "auto"` WebSocket path against real OpenAI
-      credentials.
-- [ ] Verify live `transport: "sse"` HTTP path against real OpenAI
-      credentials.
+- [ ] Verify live `OTTO_OPENAI_PROXY_TRANSPORT=websocket` path against real
+      OpenAI credentials.
+- [ ] Verify live `OTTO_OPENAI_PROXY_TRANSPORT=sse` HTTP path against real
+      OpenAI credentials.
 - [x] Update status/spec checklist.
 - [x] Commit final verification notes.
 
@@ -517,9 +707,9 @@ and real OpenAI WebSocket/SSE traffic.
 
 ## Open Questions
 
-- Which exact WebSocket URL does OpenClaw's OpenAI transport derive from the
-  configured `baseUrl`, and does the control-plane route need to mirror
-  `/responses` exactly?
+- Can Hono/Bun reliably dispatch HTTP POST and WebSocket upgrade on the exact
+  same `/responses` path in the current `apps/api` server setup, or do we need
+  a documented fallback route?
 - Does OpenAI's WebSocket response stream expose upstream request ids in headers
   or only in event payloads?
 - Should cost metadata mirror native OpenAI prices or stay zero because Otto
