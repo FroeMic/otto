@@ -8,7 +8,7 @@ Project context lives under:
 
 The workspace project registry lives at:
 
-`projects/_index.md`
+`projects/PROJECTS.md`
 
 The canonical Business Profile lives at:
 
@@ -28,7 +28,7 @@ If the idea appears related to an existing project, ask whether to use that proj
 
 ## Project registry
 
-Update `projects/_index.md` with:
+Update `projects/PROJECTS.md` with:
 
 - project key
 - working name

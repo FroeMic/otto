@@ -121,9 +121,11 @@ export function buildWorkspaceChatActivityModel(
         lastSequence: messageEvent.sequence,
         presentation,
         status: messageEvent.status,
-        summary: messageEvent.summary,
+        summary: sanitizeWorkspacePathReferences(messageEvent.summary),
         title:
-          presentation?.title ?? messageEvent.title ?? getFallbackTitle(kind),
+          presentation?.title ??
+          sanitizeWorkspacePathReferences(messageEvent.title) ??
+          getFallbackTitle(kind),
         visibility: getActivityEntryVisibility(messageEvent, kind),
       })
       continue
@@ -134,9 +136,13 @@ export function buildWorkspaceChatActivityModel(
     existingEntry.lastSequence = messageEvent.sequence
     existingEntry.presentation = presentation ?? existingEntry.presentation
     existingEntry.status = messageEvent.status
-    existingEntry.summary = messageEvent.summary ?? existingEntry.summary
+    existingEntry.summary =
+      sanitizeWorkspacePathReferences(messageEvent.summary) ??
+      existingEntry.summary
     existingEntry.title =
-      presentation?.title ?? messageEvent.title ?? existingEntry.title
+      presentation?.title ??
+      sanitizeWorkspacePathReferences(messageEvent.title) ??
+      existingEntry.title
 
     if (!existingEntry.itemId && messageEvent.itemId) {
       existingEntry.itemId = messageEvent.itemId
@@ -389,7 +395,7 @@ function getExplicitActivityPresentation(
 
   const presentation: WorkspaceChatActivityPresentation = {
     kind,
-    title,
+    title: sanitizeWorkspacePathReferences(title) ?? title,
   }
   const iconKey = getStringValue(activityPresentation.iconKey)
   const source = getActivityPresentationSource(activityPresentation.source)
@@ -440,7 +446,7 @@ function getActivityPresentationSource(
       return {
         kind,
         memoryKind,
-        path,
+        path: sanitizeWorkspaceDisplayPath(path),
       }
     }
   }
@@ -458,7 +464,7 @@ function getActivityPresentationSource(
       return {
         documentKind,
         kind,
-        path,
+        path: sanitizeWorkspaceDisplayPath(path),
         skillKey,
       }
     }
@@ -476,9 +482,11 @@ function deriveInternalPresentation(
   const normalizedReadTitle = normalizedReadMatch?.groups?.path
     ? `read from ${normalizedReadMatch.groups.path}`
     : title
+  const workspaceDisplayReadTitle =
+    sanitizeWorkspacePathReferences(normalizedReadTitle) ?? normalizedReadTitle
 
-  const dailyMemoryMatch = normalizedReadTitle.match(
-    /^read from (?<path>~\/\.openclaw\/workspace\/memory\/\d{4}-\d{2}-\d{2}\.md)$/,
+  const dailyMemoryMatch = workspaceDisplayReadTitle.match(
+    /^read from (?<path>\/memory\/\d{4}-\d{2}-\d{2}\.md)$/,
   )
 
   if (dailyMemoryMatch?.groups?.path) {
@@ -494,8 +502,8 @@ function deriveInternalPresentation(
     }
   }
 
-  const workspaceMemoryMatch = normalizedReadTitle.match(
-    /^read from (?<path>~\/\.openclaw\/workspace\/MEMORY\.md)$/,
+  const workspaceMemoryMatch = workspaceDisplayReadTitle.match(
+    /^read from (?<path>\/MEMORY\.md)$/,
   )
 
   if (workspaceMemoryMatch?.groups?.path) {
@@ -511,8 +519,8 @@ function deriveInternalPresentation(
     }
   }
 
-  const skillDocumentMatch = normalizedReadTitle.match(
-    /^read from (?<path>~\/\.openclaw\/workspace\/skills\/(?<skillKey>[^/]+)\/(?<documentKind>SKILL|DETAILS)\.md)$/,
+  const skillDocumentMatch = workspaceDisplayReadTitle.match(
+    /^read from (?<path>\/skills\/(?<skillKey>[^/]+)\/(?<documentKind>SKILL|DETAILS)\.md)$/,
   )
 
   if (skillDocumentMatch?.groups?.path && skillDocumentMatch.groups.skillKey) {
@@ -561,7 +569,28 @@ function deriveInternalPresentation(
     }
   }
 
+  if (workspaceDisplayReadTitle !== normalizedReadTitle) {
+    return {
+      kind: "read",
+      title: workspaceDisplayReadTitle,
+    }
+  }
+
   return undefined
+}
+
+function sanitizeWorkspaceDisplayPath(path: string) {
+  return path.replace(
+    /^(?:~|\/home\/node|\/opt\/openclaw\/home)\/\.openclaw\/workspace(?=\/|$)|^\/opt\/openclaw\/home\/workspace(?=\/|$)/u,
+    "",
+  )
+}
+
+function sanitizeWorkspacePathReferences(value: string | undefined) {
+  return value?.replace(
+    /(?:~|\/home\/node|\/opt\/openclaw\/home)\/\.openclaw\/workspace(?=\/|$)|\/opt\/openclaw\/home\/workspace(?=\/|$)/gu,
+    "",
+  )
 }
 
 function isInternalExecutionTitle(title: string | undefined) {

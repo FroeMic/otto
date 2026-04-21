@@ -32,7 +32,7 @@ Before asking the user for more, read relevant workspace context:
 
 - `USER.md` for the user/team and past experience
 - `MEMORY.md` for durable preferences and prior decisions
-- `projects/_index.md` to avoid duplicating an existing project
+- `projects/PROJECTS.md` to avoid duplicating an existing project
 - any matching Business Profile at `projects/<project-key>/<project-key>.md`
 - linked supporting context under `projects/<project-key>/context/` when it exists and is relevant
 
@@ -57,7 +57,7 @@ Do not bundle a questionnaire. Do not ask for generic business-plan fields unles
 
 ### Step 4: Create or update project files
 
-Create the project folder if needed. Update `projects/_index.md`, the canonical Business Profile, and any immediately useful supporting context.
+Create the project folder if needed. Update `projects/PROJECTS.md`, the canonical Business Profile, and any immediately useful supporting context.
 
 The canonical Business Profile lives at:
 
