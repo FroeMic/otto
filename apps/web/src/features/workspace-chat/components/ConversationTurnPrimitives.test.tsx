@@ -20,7 +20,7 @@ describe("ConversationTurnHeader", () => {
     assert.equal(markup.includes("data-slot=\"badge\""), false)
   })
 
-  it("keeps user metadata in one inline row after the avatar", () => {
+  it("right-aligns current user metadata before the avatar", () => {
     const markup = renderToStaticMarkup(
       <ConversationTurnHeader
         kind="current_user"
@@ -31,8 +31,11 @@ describe("ConversationTurnHeader", () => {
 
     assert.match(markup, />Username</)
     assert.match(markup, />14:40</)
-    assert.match(markup, /flex max-w-full flex-nowrap items-center/)
+    assert.match(markup, /justify-end/)
+    assert.match(markup, /text-right/)
     assert.match(markup, /flex min-w-0 flex-nowrap items-center/)
+    assert.ok(markup.indexOf(">14:40<") < markup.indexOf(">Username<"))
+    assert.ok(markup.indexOf(">Username<") < markup.indexOf(">U<"))
     assert.match(markup, /shrink-0 text-xs text-muted-foreground/)
   })
 })
