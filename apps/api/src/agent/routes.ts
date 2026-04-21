@@ -108,31 +108,40 @@ function createDefaultAgentRouteDependencies(): AgentRouteDependencies {
   }
 }
 
-const PERSONALIZATION_ONBOARDING_VISIBLE_PROMPT = "Get to know the user"
+function buildPersonalizationOnboardingVisiblePrompt(user: AgentRouteUser) {
+  const name = user.firstName?.trim() || buildUserDisplayName(user)
+  return `Hi, I'm ${name}. I'd love to get to know you and personalize my experience.`
+}
 
-const PERSONALIZATION_ONBOARDING_HIDDEN_PROMPT = [
-  "You are running Otto's first personalization onboarding for this workspace.",
-  "",
-  'The visible user message is: "Get to know the user".',
-  "",
-  "First visible assistant message:",
-  "- Introduce yourself briefly as Otto.",
-  "- Explain that the better Otto knows and understands the user, the better Otto will work for them.",
-  "- Keep this introduction concise, then ask one focused question.",
-  "",
-  "Goals:",
-  "- Get to know the user, their role, preferred working style, communication preferences, recurring goals, and what they want Otto to feel like.",
-  "- Ask about Otto's personality and collaboration style: concise vs. expansive, proactive vs. wait-for-instructions, tone, preferred challenge level, and any hard boundaries.",
-  "- Help the user understand that they can use the voice button for long messages.",
-  "- Explain that they can ask Otto to change these settings any time, or review them in workspace settings under Agent > Personalization.",
-  "- Introduce useful workspace features naturally when relevant: sessions history, files, skills, scheduled tasks, integrations, and workspace settings.",
-  "- If personalization files are still in template mode, populate the managed files that fit what the user tells you. Preserve any non-template content and do not overwrite user-specific edits.",
-  "",
-  "Conversation style:",
-  "- After the first-message introduction, keep future turns conversational and focused.",
-  "- Do not ask a long questionnaire.",
-  "- Prefer short turns, reflect what you learned, then update the managed personalization files when there is enough signal.",
-].join("\n")
+function buildPersonalizationOnboardingHiddenPrompt(visiblePrompt: string) {
+  return [
+    "You are running Otto's first personalization onboarding for this workspace.",
+    "",
+    `The visible user message is: "${visiblePrompt}".`,
+    "",
+    "First visible assistant message:",
+    "- Introduce yourself briefly as Otto.",
+    "- Explain that the better Otto knows and understands the user, the better Otto will work for them.",
+    "- Keep this introduction concise, then ask one focused question.",
+    "",
+    "This is personalization onboarding, not business idea onboarding.",
+    "Do not use the business idea onboarding skill unless the user explicitly asks to work on a business idea.",
+    "Do not start by asking what they are building.",
+    "",
+    "Goals:",
+    "- Get to know the user, their role, preferred working style, communication preferences, recurring goals, and what they want Otto to feel like.",
+    "- Ask about Otto's personality and collaboration style: concise vs. expansive, proactive vs. wait-for-instructions, tone, preferred challenge level, and any hard boundaries.",
+    "- Help the user understand that they can use the voice button for long messages.",
+    "- Explain that they can ask Otto to change these settings any time, or review them in workspace settings under Agent > Personalization.",
+    "- Introduce useful workspace features naturally when relevant: sessions history, files, skills, scheduled tasks, integrations, and workspace settings.",
+    "- If personalization files are still in template mode, populate the managed files that fit what the user tells you. Preserve any non-template content and do not overwrite user-specific edits.",
+    "",
+    "Conversation style:",
+    "- Start conversationally with one focused question about the user or preferred working style.",
+    "- Do not ask a long questionnaire.",
+    "- Prefer short turns, reflect what you learned, then update the managed personalization files when there is enough signal.",
+  ].join("\n")
+}
 
 function buildUserDisplayName(user: AgentRouteUser) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
@@ -261,6 +270,9 @@ export function createAgentRouter(
         }
 
         const orgSlug = context.req.valid("param").orgSlug
+        const visiblePrompt = buildPersonalizationOnboardingVisiblePrompt(
+          authResult.user,
+        )
         const conversation =
           await dependencies.createPersonalizationOnboardingConversation({
             orgSlug,
@@ -275,11 +287,11 @@ export function createAgentRouter(
           orgSlug,
           parts: [
             {
-              text: PERSONALIZATION_ONBOARDING_HIDDEN_PROMPT,
+              text: buildPersonalizationOnboardingHiddenPrompt(visiblePrompt),
               type: "hidden_text",
             },
             {
-              text: PERSONALIZATION_ONBOARDING_VISIBLE_PROMPT,
+              text: visiblePrompt,
               type: "text",
             },
           ],

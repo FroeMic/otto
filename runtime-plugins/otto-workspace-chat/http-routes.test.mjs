@@ -47,6 +47,10 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
       conversationVisibility: "open",
       parts: [
         {
+          text: "Only Otto should receive this setup context.",
+          type: "hidden_text",
+        },
+        {
           text: "Hello there",
           type: "text",
         },
@@ -120,6 +124,14 @@ test("handleWorkspaceChatHttpRequest dispatches a posted workspace event", async
     assert.equal(
       dispatchCalls[0].ctxPayload.SessionKey,
       "agent:main:otto-workspace-chat:workspace:conv_1",
+    );
+    assert.equal(
+      dispatchCalls[0].ctxPayload.BodyForAgent,
+      "Only Otto should receive this setup context.\n\nHello there",
+    );
+    assert.equal(
+      dispatchCalls[0].ctxPayload.BodyForCommands,
+      "Only Otto should receive this setup context.\n\nHello there",
     );
   } finally {
     releaseDispatch();
