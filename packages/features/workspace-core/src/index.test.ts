@@ -190,10 +190,9 @@ describe("workspace core", () => {
         usageByType: [],
       }),
       orgSlug: "otto",
-      request: new Request(
-        "https://otto.test/api/workspace/otto/usage?from=2026-01-01T00:00:00.000Z&to=2026-01-31T00:00:00.000Z",
-      ),
       syncUserFromSession: async () => undefined,
+      from: new Date("2026-01-01T00:00:00.000Z"),
+      to: new Date("2026-01-31T00:00:00.000Z"),
       user,
     })
 
@@ -210,16 +209,10 @@ describe("workspace core", () => {
       }),
       orgSlug: "otto",
       renameOrganization: async () => undefined,
-      request: new Request("https://otto.test/api/workspace/otto/settings", {
-        body: JSON.stringify({
-          action: "update-name",
-          name: "Otto Next",
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      }),
+      body: {
+        action: "update-name",
+        name: "Otto Next",
+      },
       syncUserFromSession: async () => undefined,
       updateOrganizationSlug: async () => "ok",
       updateWorkspaceDateTimePreferences: async () => ({
@@ -245,16 +238,10 @@ describe("workspace core", () => {
       }),
       orgSlug: "otto",
       renameOrganization: async () => undefined,
-      request: new Request("https://otto.test/api/workspace/otto/settings", {
-        body: JSON.stringify({
-          action: "update-timezone",
-          timezone: "Europe/Berlin",
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      }),
+      body: {
+        action: "update-timezone",
+        timezone: "Europe/Berlin",
+      },
       syncUserFromSession: async () => undefined,
       updateOrganizationSlug: async () => "ok",
       updateWorkspaceDateTimePreferences: async () => ({
@@ -283,16 +270,10 @@ describe("workspace core", () => {
       }),
       orgSlug: "otto",
       renameOrganization: async () => undefined,
-      request: new Request("https://otto.test/api/workspace/otto/settings", {
-        body: JSON.stringify({
-          action: "update-slug",
-          slug: "already-used",
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      }),
+      body: {
+        action: "update-slug",
+        slug: "already-used",
+      },
       syncUserFromSession: async () => undefined,
       updateOrganizationSlug: async () => "slug_taken",
       updateWorkspaceDateTimePreferences: async () => ({
@@ -319,16 +300,10 @@ describe("workspace core", () => {
       }),
       orgSlug: "otto",
       renameOrganization: async () => undefined,
-      request: new Request("https://otto.test/api/workspace/otto/settings", {
-        body: JSON.stringify({
-          action: "update-slug",
-          slug: "docs",
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      }),
+      body: {
+        action: "update-slug",
+        slug: "docs",
+      },
       syncUserFromSession: async () => undefined,
       updateOrganizationSlug: async () => "ok",
       updateWorkspaceDateTimePreferences: async () => ({
