@@ -1,6 +1,6 @@
 {
   "name": "@otto/openclaw-otto-managed-skills",
-  "version": "2026.4.12.1",
+  "version": "2026.4.15.1",
   "private": true,
   "description": "Otto managed skills runtime plugin",
   "type": "module",

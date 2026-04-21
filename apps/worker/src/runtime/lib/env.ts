@@ -22,7 +22,7 @@ const envSchema = z.object({
   RUNTIME_DEPLOY_PRIVATE_KEY_PATH: z.string().optional(),
   RUNTIME_OPENCLAW_IMAGE: z
     .string()
-    .default("ghcr.io/openclaw/openclaw:2026.4.12"),
+    .default("ghcr.io/openclaw/openclaw:2026.4.15"),
   RUNTIME_BRAVE_API_KEY: z.string().optional(),
   RUNTIME_GEMINI_API_KEY: z.string().optional(),
   RUNTIME_KIMI_API_KEY: z.string().optional(),
