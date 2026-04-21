@@ -26,6 +26,8 @@ import {
 
 export { OPENAI_PROXY_PROVIDER_ID };
 
+const RECENT_EVENT_SHAPE_LIMIT = 12;
+
 export function buildOpenAiProxyProvider(dependencies = {}) {
   const diagnostics = createOpenAiProxyDiagnostics(dependencies.logger);
   const streamHooks =
@@ -201,9 +203,11 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
   const sourceIteratorFactory = result[Symbol.asyncIterator].bind(result);
   const startedAt = Date.now();
   const state = {
+    eventTypeCounts: {},
     events: 0,
     firstEventType: undefined,
     lastEventType: undefined,
+    recentEventShapes: [],
     terminalEventType: undefined,
   };
 
@@ -211,8 +215,14 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
     ...baseFields(),
     durationMs: Date.now() - startedAt,
     events: state.events,
+    eventTypeCounts:
+      Object.keys(state.eventTypeCounts).length > 0
+        ? state.eventTypeCounts
+        : undefined,
     firstEventType: state.firstEventType,
     lastEventType: state.lastEventType,
+    recentEventShapes:
+      state.recentEventShapes.length > 0 ? state.recentEventShapes : undefined,
     terminalEventType: state.terminalEventType,
   });
 
@@ -278,10 +288,15 @@ function isAsyncIterable(value) {
 function recordStreamEvent(state, event) {
   const eventType = resolveStreamEventType(event);
   state.events += 1;
+  state.recentEventShapes.push(summarizeStreamEventShape(event, state.events));
+  if (state.recentEventShapes.length > RECENT_EVENT_SHAPE_LIMIT) {
+    state.recentEventShapes.shift();
+  }
 
   if (eventType) {
     state.firstEventType ??= eventType;
     state.lastEventType = eventType;
+    state.eventTypeCounts[eventType] = (state.eventTypeCounts[eventType] ?? 0) + 1;
 
     if (isTerminalOpenAiResponsesEvent(eventType)) {
       state.terminalEventType = eventType;
@@ -357,12 +372,89 @@ function summarizeStreamErrorEvent(event) {
   };
 }
 
+function summarizeStreamEventShape(event, sequence) {
+  const error = event?.error;
+  const output = event?.output ?? event?.item ?? event?.response;
+  const content =
+    event?.content ??
+    event?.delta ??
+    event?.part ??
+    event?.item?.content ??
+    event?.response?.output;
+  const errorContent = error?.content;
+
+  return {
+    sequence,
+    eventType: resolveStreamEventType(event),
+    valueKind: summarizeDiagnosticValueKind(event),
+    keys: summarizeObjectKeys(event),
+    fieldKinds: summarizeObjectFieldKinds(event),
+    outputKeys: summarizeObjectKeys(output),
+    outputFieldKinds: summarizeObjectFieldKinds(output),
+    contentKind: summarizeDiagnosticContentKind(content),
+    contentLength: summarizeDiagnosticContentLength(content),
+    contentItemShapes: summarizeDiagnosticArrayItemShapes(content),
+    errorKind: summarizeDiagnosticValueKind(error),
+    errorKeys: summarizeObjectKeys(error),
+    errorFieldKinds: summarizeObjectFieldKinds(error),
+    errorContentKind: summarizeDiagnosticContentKind(errorContent),
+    errorContentLength: summarizeDiagnosticContentLength(errorContent),
+    errorContentItemShapes: summarizeDiagnosticArrayItemShapes(errorContent),
+    responseIdPresent: Boolean(
+      event?.responseId ??
+        event?.response_id ??
+        event?.response?.id ??
+        error?.responseId ??
+        error?.response_id,
+    ),
+  };
+}
+
 function summarizeObjectKeys(value) {
   if (!value || typeof value !== "object") {
     return undefined;
   }
 
   return Object.keys(value).sort().slice(0, 20);
+}
+
+function summarizeObjectFieldKinds(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .slice(0, 24)
+      .map((key) => [key, summarizeDiagnosticValueKind(value[key])]),
+  );
+}
+
+function summarizeDiagnosticArrayItemShapes(value) {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value.slice(0, 4).map((item) => ({
+    keys: summarizeObjectKeys(item),
+    fieldKinds: summarizeObjectFieldKinds(item),
+    textKind: summarizeDiagnosticValueKind(item?.text),
+    textLength: typeof item?.text === "string" ? item.text.length : undefined,
+    type: summarizeDiagnosticValue(item?.type),
+  }));
+}
+
+function summarizeDiagnosticValueKind(value) {
+  if (value === null) {
+    return "null";
+  }
+
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  return typeof value;
 }
 
 function summarizeDiagnosticValue(value) {
