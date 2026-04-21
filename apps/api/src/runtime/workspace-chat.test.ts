@@ -1,11 +1,20 @@
 import assert from "node:assert/strict"
 
-import { describe, it } from "vitest"
+import { afterEach, describe, it, vi } from "vitest"
 
 import {
   createWorkspaceChatRuntimeRouter,
   type WorkspaceChatRuntimeRouteDependencies,
 } from "./workspace-chat"
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+
+  process.env[name] = value
+}
 
 function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
   return {
@@ -49,6 +58,10 @@ function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
 }
 
 describe("workspace chat runtime routes", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it("streams a workspace chat attachment to the tenant runtime", async () => {
     const app = createWorkspaceChatRuntimeRouter(createDependencies())
 
@@ -191,6 +204,38 @@ describe("workspace chat runtime routes", () => {
     })
     assert.equal(receivedAssistantMessageId, "msg_assistant_1")
     assert.equal(receivedSequence, 3)
+  })
+
+  it("does not emit per-delta success logs by default", async () => {
+    const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS
+    delete process.env.OTTO_RUNTIME_DEBUG_LOGS
+    const info = vi.spyOn(console, "info").mockImplementation(() => {})
+    const app = createWorkspaceChatRuntimeRouter(createDependencies())
+
+    try {
+      const response = await app.request(
+        "http://api.local/api/internal/runtime/workspace-chat/messages/delta",
+        {
+          body: JSON.stringify({
+            assistantMessageId: "msg_assistant_1",
+            conversationId: "conv_1",
+            message: {
+              text: "Here is the partial answer.",
+            },
+            sequence: 3,
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        },
+      )
+
+      assert.equal(response.status, 200)
+      assert.equal(info.mock.calls.length, 0)
+    } finally {
+      restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous)
+    }
   })
 
   it("returns 404 when the conversation is not available to the tenant", async () => {

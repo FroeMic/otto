@@ -267,55 +267,97 @@ test("openai-proxy transport state sanitizes correlation headers and metadata", 
 });
 
 test("openai-proxy provider emits safe tenant-side diagnostics", async () => {
+  const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  process.env.OTTO_RUNTIME_DEBUG_LOGS = "1";
   const events = [];
   const logger = {
+    debug(message, fields) {
+      events.push({ level: "debug", message, fields });
+    },
     info(message, fields) {
       events.push({ level: "info", message, fields });
     },
   };
-  const provider = buildProviderForTest({ logger });
 
-  provider.prepareExtraParams({
-    modelId: "gpt-5.4",
-    extraParams: { transport: "sse", openaiWsWarmup: false },
-  });
-  provider.buildReplayPolicy({ modelApi: "openai-responses" });
-  provider.resolveTransportTurnState({
-    provider: "openai-proxy",
-    transport: "sse",
-    sessionId: "session-1",
-    turnId: "turn-1",
-    attempt: 2,
-  });
-  provider.resolveWebSocketSessionPolicy({
-    provider: "openai-proxy",
-    sessionId: "session-1",
-  });
-  await provider.prepareRuntimeAuth({
-    apiKey: "tenant-token-secret",
-    env: { OTTO_CONTROL_PLANE_BASE_URL: "https://otto.example/" },
-  });
+  try {
+    const provider = buildProviderForTest({ logger });
 
-  assert.deepEqual(
-    events.map((event) => event.message),
-    [
-      "[otto-ai-provider] provider initialized",
-      "[otto-ai-provider] extra params prepared",
-      "[otto-ai-provider] replay policy resolved",
-      "[otto-ai-provider] transport turn state resolved",
-      "[otto-ai-provider] websocket session policy resolved",
-      "[otto-ai-provider] runtime auth resolved",
-    ],
-  );
-  assert.equal(events.at(-1).fields.hasApiKey, true);
-  assert.equal(events.at(-1).fields.apiKeyLength, 19);
-  assert.equal(events.at(-1).fields.apiKey, undefined);
-  assert.equal(events.at(-1).fields.baseUrl, "https://otto.example/api/internal/runtime/ai/openai/v1");
+    provider.prepareExtraParams({
+      modelId: "gpt-5.4",
+      extraParams: { transport: "sse", openaiWsWarmup: false },
+    });
+    provider.buildReplayPolicy({ modelApi: "openai-responses" });
+    provider.resolveTransportTurnState({
+      provider: "openai-proxy",
+      transport: "sse",
+      sessionId: "session-1",
+      turnId: "turn-1",
+      attempt: 2,
+    });
+    provider.resolveWebSocketSessionPolicy({
+      provider: "openai-proxy",
+      sessionId: "session-1",
+    });
+    await provider.prepareRuntimeAuth({
+      apiKey: "tenant-token-secret",
+      env: { OTTO_CONTROL_PLANE_BASE_URL: "https://otto.example/" },
+    });
+
+    assert.deepEqual(
+      events.map((event) => event.message),
+      [
+        "[otto-ai-provider] provider initialized",
+        "[otto-ai-provider] extra params prepared",
+        "[otto-ai-provider] replay policy resolved",
+        "[otto-ai-provider] transport turn state resolved",
+        "[otto-ai-provider] websocket session policy resolved",
+        "[otto-ai-provider] runtime auth resolved",
+      ],
+    );
+    assert.equal(events.every((event) => event.level === "debug"), true);
+    assert.equal(events.at(-1).fields.hasApiKey, true);
+    assert.equal(events.at(-1).fields.apiKeyLength, 19);
+    assert.equal(events.at(-1).fields.apiKey, undefined);
+    assert.equal(events.at(-1).fields.baseUrl, "https://otto.example/api/internal/runtime/ai/openai/v1");
+  } finally {
+    restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous);
+  }
+});
+
+test("openai-proxy provider suppresses debug diagnostics by default", () => {
+  const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  delete process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  const events = [];
+  const logger = {
+    debug(message, fields) {
+      events.push({ level: "debug", message, fields });
+    },
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+  };
+
+  try {
+    const provider = buildProviderForTest({ logger });
+    provider.prepareExtraParams({
+      modelId: "gpt-5.4",
+      extraParams: { transport: "sse" },
+    });
+
+    assert.deepEqual(events, []);
+  } finally {
+    restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous);
+  }
 });
 
 test("openai-proxy provider wraps stream function lifecycle with safe diagnostics", async () => {
+  const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  process.env.OTTO_RUNTIME_DEBUG_LOGS = "1";
   const events = [];
   const logger = {
+    debug(message, fields) {
+      events.push({ level: "debug", message, fields });
+    },
     info(message, fields) {
       events.push({ level: "info", message, fields });
     },
@@ -325,47 +367,52 @@ test("openai-proxy provider wraps stream function lifecycle with safe diagnostic
   };
   const abortController = new AbortController();
   const innerStreamFn = async () => ({ ok: true });
-  const provider = buildProviderForTest({
-    logger,
-    openAiResponsesStreamHooks: {
-      wrapStreamFn: () => innerStreamFn,
-    },
-  });
+  try {
+    const provider = buildProviderForTest({
+      logger,
+      openAiResponsesStreamHooks: {
+        wrapStreamFn: () => innerStreamFn,
+      },
+    });
 
-  const wrapped = provider.wrapStreamFn({
-    provider: "openai-proxy",
-    modelId: "gpt-5.4",
-    transport: "sse",
-    sessionId: "session-1",
-    turnId: "turn-1",
-    attempt: 2,
-    streamFn: async () => ({ unreachable: true }),
-  });
+    const wrapped = provider.wrapStreamFn({
+      provider: "openai-proxy",
+      modelId: "gpt-5.4",
+      transport: "sse",
+      sessionId: "session-1",
+      turnId: "turn-1",
+      attempt: 2,
+      streamFn: async () => ({ unreachable: true }),
+    });
 
-  assert.equal(typeof wrapped, "function");
-  const result = await wrapped(
-    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
-    { messages: [] },
-    { signal: abortController.signal, transport: "sse" },
-  );
+    assert.equal(typeof wrapped, "function");
+    const result = await wrapped(
+      { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+      { messages: [] },
+      { signal: abortController.signal, transport: "sse" },
+    );
 
-  assert.deepEqual(result, { ok: true });
-  assert.deepEqual(
-    events.map((event) => event.message),
-    [
-      "[otto-ai-provider] provider initialized",
-      "[otto-ai-provider] stream hook invoked",
-      "[otto-ai-provider] stream function starting",
-      "[otto-ai-provider] transport resolved",
-      "[otto-ai-provider] stream function completed",
-    ],
-  );
-  const startingLog = events.find(
-    (event) => event.message === "[otto-ai-provider] stream function starting",
-  );
-  assert.equal(startingLog?.fields.hasAbortSignal, true);
-  assert.equal(startingLog?.fields.signalAborted, false);
-  assert.equal(events.at(-1).fields.error, undefined);
+    assert.deepEqual(result, { ok: true });
+    assert.deepEqual(
+      events.map((event) => event.message),
+      [
+        "[otto-ai-provider] provider initialized",
+        "[otto-ai-provider] stream hook invoked",
+        "[otto-ai-provider] stream function starting",
+        "[otto-ai-provider] transport resolved",
+        "[otto-ai-provider] stream function completed",
+      ],
+    );
+    assert.equal(events.every((event) => event.level === "debug"), true);
+    const startingLog = events.find(
+      (event) => event.message === "[otto-ai-provider] stream function starting",
+    );
+    assert.equal(startingLog?.fields.hasAbortSignal, true);
+    assert.equal(startingLog?.fields.signalAborted, false);
+    assert.equal(events.at(-1).fields.error, undefined);
+  } finally {
+    restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous);
+  }
 });
 
 test("openai-proxy provider uses SSE branch when transport resolves to sse", async () => {
@@ -495,8 +542,13 @@ test("openai-proxy provider logs stream abort signal and failure", async () => {
 });
 
 test("openai-proxy provider logs returned stream consumption lifecycle", async () => {
+  const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  process.env.OTTO_RUNTIME_DEBUG_LOGS = "1";
   const events = [];
   const logger = {
+    debug(message, fields) {
+      events.push({ level: "debug", message, fields });
+    },
     info(message, fields) {
       events.push({ level: "info", message, fields });
     },
@@ -507,56 +559,60 @@ test("openai-proxy provider logs returned stream consumption lifecycle", async (
       events.push({ level: "error", message, fields });
     },
   };
-  const provider = buildProviderForTest({
-    logger,
-    openAiResponsesStreamHooks: {
-      wrapStreamFn: () => async function* () {
-        yield { type: "response.created" };
-        yield { type: "response.in_progress" };
-        yield { type: "response.completed" };
+  try {
+    const provider = buildProviderForTest({
+      logger,
+      openAiResponsesStreamHooks: {
+        wrapStreamFn: () => async function* () {
+          yield { type: "response.created" };
+          yield { type: "response.in_progress" };
+          yield { type: "response.completed" };
+        },
       },
-    },
-  });
+    });
 
-  const wrapped = provider.wrapStreamFn({
-    provider: "openai-proxy",
-    modelId: "gpt-5.4",
-    transport: "sse",
-    sessionId: "session-1",
-    turnId: "turn-1",
-    attempt: 2,
-    streamFn: async () => ({ unreachable: true }),
-  });
+    const wrapped = provider.wrapStreamFn({
+      provider: "openai-proxy",
+      modelId: "gpt-5.4",
+      transport: "sse",
+      sessionId: "session-1",
+      turnId: "turn-1",
+      attempt: 2,
+      streamFn: async () => ({ unreachable: true }),
+    });
 
-  const stream = await wrapped(
-    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
-    { messages: [] },
-    { transport: "sse" },
-  );
-  const seen = [];
-  for await (const event of stream) {
-    seen.push(event.type);
+    const stream = await wrapped(
+      { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+      { messages: [] },
+      { transport: "sse" },
+    );
+    const seen = [];
+    for await (const event of stream) {
+      seen.push(event.type);
+    }
+
+    assert.deepEqual(seen, [
+      "response.created",
+      "response.in_progress",
+      "response.completed",
+    ]);
+    assert.ok(
+      events.some(
+        (event) =>
+          event.message === "[otto-ai-provider] stream iteration started" &&
+          event.fields.provider === "openai-proxy",
+      ),
+    );
+    const completedLog = events.find(
+      (event) => event.message === "[otto-ai-provider] stream iteration completed",
+    );
+    assert.equal(completedLog?.level, "debug");
+    assert.equal(completedLog?.fields.events, 3);
+    assert.equal(completedLog?.fields.firstEventType, "response.created");
+    assert.equal(completedLog?.fields.lastEventType, "response.completed");
+  } finally {
+    restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous);
   }
-
-  assert.deepEqual(seen, [
-    "response.created",
-    "response.in_progress",
-    "response.completed",
-  ]);
-  assert.ok(
-    events.some(
-      (event) =>
-        event.message === "[otto-ai-provider] stream iteration started" &&
-        event.fields.provider === "openai-proxy",
-    ),
-  );
-  const completedLog = events.find(
-    (event) => event.message === "[otto-ai-provider] stream iteration completed",
-  );
-  assert.equal(completedLog?.level, "info");
-  assert.equal(completedLog?.fields.events, 3);
-  assert.equal(completedLog?.fields.firstEventType, "response.created");
-  assert.equal(completedLog?.fields.lastEventType, "response.completed");
 });
 
 test("openai-proxy provider logs returned stream early close", async () => {
@@ -666,8 +722,13 @@ test("openai-proxy provider logs returned stream iteration failure", async () =>
 });
 
 test("openai-proxy provider logs yielded error event payload", async () => {
+  const previous = process.env.OTTO_RUNTIME_DEBUG_LOGS;
+  process.env.OTTO_RUNTIME_DEBUG_LOGS = "1";
   const events = [];
   const logger = {
+    debug(message, fields) {
+      events.push({ level: "debug", message, fields });
+    },
     info(message, fields) {
       events.push({ level: "info", message, fields });
     },
@@ -678,96 +739,104 @@ test("openai-proxy provider logs yielded error event payload", async () => {
       events.push({ level: "error", message, fields });
     },
   };
-  const provider = buildProviderForTest({
-    logger,
-    openAiResponsesStreamHooks: {
-      wrapStreamFn: () => async function* () {
-        yield {
-          type: "response.created",
-          response: {
-            id: "resp_123",
-            output: [],
-            status: "in_progress",
-          },
-        };
-        yield {
-          type: "error",
-          reason: "error",
-          error: {
-            name: "TypeError",
-            message: "terminated",
-            code: "UND_ERR_SOCKET",
-            content: [
-              {
-                type: "text",
-                text: "terminated\nwhile streaming",
-                metadata: {
-                  token: "secret-content-token",
-                  source: "adapter",
-                },
-              },
-            ],
-            stack: "should not be logged",
-            headers: { authorization: "Bearer secret-token" },
-            cause: {
-              name: "SocketError",
-              message: "other side closed",
-              code: "UND_ERR_SOCKET",
+  try {
+    const provider = buildProviderForTest({
+      logger,
+      openAiResponsesStreamHooks: {
+        wrapStreamFn: () => async function* () {
+          yield {
+            type: "response.created",
+            response: {
+              id: "resp_123",
+              output: [],
+              status: "in_progress",
             },
-          },
-        };
+          };
+          yield {
+            type: "error",
+            reason: "error",
+            error: {
+              name: "TypeError",
+              message: "terminated",
+              code: "UND_ERR_SOCKET",
+              content: [
+                {
+                  type: "text",
+                  text: "terminated\nwhile streaming",
+                  metadata: {
+                    token: "secret-content-token",
+                    source: "adapter",
+                  },
+                },
+              ],
+              stack: "should not be logged",
+              headers: { authorization: "Bearer secret-token" },
+              cause: {
+                name: "SocketError",
+                message: "other side closed",
+                code: "UND_ERR_SOCKET",
+              },
+            },
+          };
+        },
       },
-    },
-  });
+    });
 
-  const wrapped = provider.wrapStreamFn({
-    provider: "openai-proxy",
-    modelId: "gpt-5.4",
-    transport: "sse",
-    sessionId: "session-1",
-    turnId: "turn-1",
-    attempt: 2,
-    streamFn: async () => ({ unreachable: true }),
-  });
+    const wrapped = provider.wrapStreamFn({
+      provider: "openai-proxy",
+      modelId: "gpt-5.4",
+      transport: "sse",
+      sessionId: "session-1",
+      turnId: "turn-1",
+      attempt: 2,
+      streamFn: async () => ({ unreachable: true }),
+    });
 
-  const stream = await wrapped(
-    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
-    { messages: [] },
-    { transport: "sse" },
-  );
+    const stream = await wrapped(
+      { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+      { messages: [] },
+      { transport: "sse" },
+    );
 
-  const seen = [];
-  for await (const event of stream) {
-    seen.push(event.type);
-  }
+    const seen = [];
+    for await (const event of stream) {
+      seen.push(event.type);
+    }
 
-  assert.deepEqual(seen, ["response.created", "error"]);
-  const errorEventLog = events.find(
-    (event) => event.message === "[otto-ai-provider] stream yielded error event",
-  );
-  assert.equal(errorEventLog?.level, "error");
-  assert.deepEqual(errorEventLog?.fields.eventTypeCounts, {
-    error: 1,
-    "response.created": 1,
-  });
-  assert.equal(errorEventLog?.fields.eventType, "error");
-  assert.equal(errorEventLog?.fields.eventReason, "error");
-  assert.equal(errorEventLog?.fields.eventError?.message, "terminated");
-  assert.equal(errorEventLog?.fields.eventError?.code, "UND_ERR_SOCKET");
-  assert.equal(errorEventLog?.fields.eventError?.stack, "should not be logged");
-  assert.equal(
-    errorEventLog?.fields.eventError?.headers?.authorization,
-    "Bearer secret-token",
-  );
-  assert.equal(errorEventLog?.fields.eventErrorName, "TypeError");
-  assert.equal(errorEventLog?.fields.eventErrorMessage, "terminated");
-  assert.equal(errorEventLog?.fields.eventErrorCode, "UND_ERR_SOCKET");
-  assert.equal(errorEventLog?.fields.eventErrorCauseName, "SocketError");
-  assert.equal(errorEventLog?.fields.eventErrorCauseMessage, "other side closed");
-  assert.equal(errorEventLog?.fields.eventErrorCauseCode, "UND_ERR_SOCKET");
-  assert.equal(errorEventLog?.fields.eventErrorContentKind, "array");
-  assert.equal(errorEventLog?.fields.eventErrorContentLength, 1);
-  assert.deepEqual(errorEventLog?.fields.eventErrorContentPreview, [
+    assert.deepEqual(seen, ["response.created", "error"]);
+    const errorEventLog = events.find(
+      (event) => event.message === "[otto-ai-provider] stream yielded error event",
+    );
+    assert.equal(errorEventLog?.level, "error");
+    assert.deepEqual(errorEventLog?.fields.eventTypeCounts, {
+      error: 1,
+      "response.created": 1,
+    });
+    assert.equal(errorEventLog?.fields.eventType, "error");
+    assert.equal(errorEventLog?.fields.eventReason, "error");
+    assert.equal(errorEventLog?.fields.eventError, undefined);
+    assert.equal(errorEventLog?.fields.eventErrorName, "TypeError");
+    assert.equal(errorEventLog?.fields.eventErrorMessage, "terminated");
+    assert.equal(errorEventLog?.fields.eventErrorCode, "UND_ERR_SOCKET");
+    assert.equal(errorEventLog?.fields.eventErrorCauseName, "SocketError");
+    assert.equal(errorEventLog?.fields.eventErrorCauseMessage, "other side closed");
+    assert.equal(errorEventLog?.fields.eventErrorCauseCode, "UND_ERR_SOCKET");
+
+    const errorDetailsLog = events.find(
+      (event) =>
+        event.message === "[otto-ai-provider] stream yielded error event details",
+    );
+    assert.equal(errorDetailsLog?.level, "debug");
+    assert.equal(errorDetailsLog?.fields.eventError?.message, "terminated");
+    assert.equal(errorDetailsLog?.fields.eventError?.code, "UND_ERR_SOCKET");
+    assert.equal(errorDetailsLog?.fields.eventError?.stack, "should not be logged");
+    assert.equal(
+      errorDetailsLog?.fields.eventError?.headers?.authorization,
+      "Bearer secret-token",
+    );
+    assert.equal(errorDetailsLog?.fields.eventErrorContentKind, "array");
+    assert.equal(errorDetailsLog?.fields.eventErrorContentLength, 1);
+    assert.deepEqual(errorDetailsLog?.fields.eventErrorContentPreview, [
     {
       metadata: {
         source: "adapter",
@@ -776,8 +845,8 @@ test("openai-proxy provider logs yielded error event payload", async () => {
       text: "terminated while streaming",
       type: "text",
     },
-  ]);
-  assert.deepEqual(errorEventLog?.fields.recentEventShapes, [
+    ]);
+    assert.deepEqual(errorDetailsLog?.fields.recentEventShapes, [
     {
       contentKind: "array",
       contentLength: 0,
@@ -845,8 +914,11 @@ test("openai-proxy provider logs yielded error event payload", async () => {
       sequence: 2,
       valueKind: "object",
     },
-  ]);
-  assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "reason", "type"]);
+    ]);
+    assert.deepEqual(errorDetailsLog?.fields.eventKeys, ["error", "reason", "type"]);
+  } finally {
+    restoreEnv("OTTO_RUNTIME_DEBUG_LOGS", previous);
+  }
 });
 
 test("openai-proxy provider can wrap an already instrumented stream without recursion", async () => {

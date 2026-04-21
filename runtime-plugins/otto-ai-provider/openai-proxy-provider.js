@@ -41,7 +41,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     dependencies.createWebSocketStreamFn ?? createOpenAiProxyWebSocketStreamFn,
   );
 
-  diagnostics.info("provider initialized", {
+  diagnostics.debug("provider initialized", {
     providerId: OPENAI_PROXY_PROVIDER_ID,
     defaultModel: `${OPENAI_PROXY_PROVIDER_ID}/gpt-5.4`,
     hasInjectedStreamHooks: Boolean(dependencies.openAiResponsesStreamHooks),
@@ -73,7 +73,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     resolveDynamicModel: (ctx) => buildOpenAiProxyModel(ctx.modelId),
     normalizeResolvedModel: (ctx) => {
       const resolved = normalizeOpenAiProxyResolvedModel(ctx);
-      diagnostics.info(
+      diagnostics.debug(
         "resolved model normalized",
         summarizeResolvedModel(ctx, resolved),
       );
@@ -81,7 +81,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     },
     normalizeTransport: (ctx) => {
       const resolved = normalizeOpenAiProxyTransport(ctx);
-      diagnostics.info(
+      diagnostics.debug(
         "transport normalized",
         summarizeTransportNormalization(ctx, resolved),
       );
@@ -89,18 +89,18 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     },
     buildReplayPolicy: (ctx) => {
       const resolved = buildOpenAiProxyReplayPolicy(ctx);
-      diagnostics.info("replay policy resolved", summarizeReplayPolicy(ctx, resolved));
+      diagnostics.debug("replay policy resolved", summarizeReplayPolicy(ctx, resolved));
       return resolved;
     },
     prepareExtraParams: (ctx) => {
       const resolved = prepareOpenAiProxyExtraParams(ctx);
-      diagnostics.info("extra params prepared", summarizeExtraParams(ctx, resolved));
+      diagnostics.debug("extra params prepared", summarizeExtraParams(ctx, resolved));
       return resolved;
     },
     ...instrumentedStreamHooks,
     resolveTransportTurnState: (ctx) => {
       const resolved = resolveOpenAiProxyTransportTurnState(ctx);
-      diagnostics.info(
+      diagnostics.debug(
         "transport turn state resolved",
         summarizeTransportTurnState(ctx, resolved),
       );
@@ -108,7 +108,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     },
     resolveWebSocketSessionPolicy: (ctx) => {
       const resolved = resolveOpenAiProxyWebSocketSessionPolicy(ctx);
-      diagnostics.info(
+      diagnostics.debug(
         "websocket session policy resolved",
         summarizeWebSocketSessionPolicy(ctx, resolved),
       );
@@ -117,7 +117,7 @@ export function buildOpenAiProxyProvider(dependencies = {}) {
     resolveReasoningOutputMode: () => "native",
     prepareRuntimeAuth: async (ctx) => {
       const resolved = resolveOpenAiProxyRuntimeAuth(ctx);
-      diagnostics.info("runtime auth resolved", summarizeRuntimeAuth(ctx, resolved));
+      diagnostics.debug("runtime auth resolved", summarizeRuntimeAuth(ctx, resolved));
       return resolved;
     },
     supportsXHighThinking: ({ modelId }) => isOpenAiProxyXHighModel(modelId),
@@ -137,7 +137,7 @@ function instrumentOpenAiResponsesStreamHooks(
   return {
     ...streamHooks,
     wrapStreamFn: (ctx) => {
-      diagnostics.info("stream hook invoked", {
+      diagnostics.debug("stream hook invoked", {
         provider: ctx?.provider,
         modelId: ctx?.modelId,
         transport: ctx?.transport,
@@ -174,7 +174,7 @@ function instrumentOpenAiResponsesStreamHooks(
           });
         };
 
-        diagnostics.info("stream function starting", fields());
+        diagnostics.debug("stream function starting", fields());
 
         if (signal) {
           if (signal.aborted) {
@@ -185,7 +185,7 @@ function instrumentOpenAiResponsesStreamHooks(
         }
 
         try {
-          diagnostics.info("transport resolved", {
+          diagnostics.debug("transport resolved", {
             provider: ctx?.provider ?? model?.provider,
             modelId: ctx?.modelId ?? model?.id,
             transport: resolvedTransport.transport,
@@ -200,7 +200,7 @@ function instrumentOpenAiResponsesStreamHooks(
               ? createWebSocketStreamFn(wrappedStreamFn, diagnostics)
               : wrappedStreamFn;
           const result = await streamFn(model, context, transportOptions);
-          diagnostics.info("stream function completed", fields());
+          diagnostics.debug("stream function completed", fields());
           return instrumentReturnedStream(result, diagnostics, fields);
         } catch (error) {
           diagnostics.error("stream function failed", {
@@ -253,7 +253,7 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
     let failed = false;
     const sourceIterator = sourceIteratorFactory();
 
-    diagnostics.info("stream iteration started", fields());
+    diagnostics.debug("stream iteration started", fields());
 
     try {
       while (true) {
@@ -268,6 +268,10 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
         if (eventType === "error") {
           diagnostics.error("stream yielded error event", {
             ...fields(),
+            ...summarizeConciseStreamErrorEvent(event),
+          });
+          diagnostics.debug("stream yielded error event details", {
+            ...fields(),
             ...summarizeStreamErrorEvent(event),
           });
         }
@@ -275,7 +279,7 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
       }
 
       completed = true;
-      diagnostics.info("stream iteration completed", fields());
+      diagnostics.debug("stream iteration completed", fields());
     } catch (error) {
       failed = true;
       diagnostics.error("stream iteration failed", {
@@ -287,7 +291,11 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
     } finally {
       if (!completed && !failed) {
         await sourceIterator.return?.();
-        diagnostics.warn("stream iteration closed early", fields());
+        const logStreamClosedEarly =
+          isSuccessfulTerminalStreamEvent(state.lastEventType)
+            ? diagnostics.debug
+            : diagnostics.warn;
+        logStreamClosedEarly("stream iteration closed early", fields());
       }
     }
   }
@@ -344,8 +352,13 @@ function isTerminalOpenAiResponsesEvent(eventType) {
   return (
     eventType === "response.completed" ||
     eventType === "response.failed" ||
+    eventType === "done" ||
     eventType === "error"
   );
+}
+
+function isSuccessfulTerminalStreamEvent(eventType) {
+  return eventType === "response.completed" || eventType === "done";
 }
 
 function buildLocalOpenAiResponsesStreamHooks() {
@@ -386,6 +399,26 @@ function summarizeStreamErrorEvent(event) {
       Array.isArray(errorContent) && errorContent.length > 8 ? true : undefined,
     eventErrorName: summarizeDiagnosticValue(error?.name),
     eventErrorMessage: summarizeDiagnosticValue(error?.message),
+    eventErrorCode: summarizeDiagnosticValue(error?.code),
+    eventErrorType: summarizeDiagnosticValue(error?.type),
+    eventErrorCauseName: summarizeDiagnosticValue(cause?.name),
+    eventErrorCauseMessage: summarizeDiagnosticValue(cause?.message),
+    eventErrorCauseCode: summarizeDiagnosticValue(cause?.code),
+  };
+}
+
+function summarizeConciseStreamErrorEvent(event) {
+  const error = event?.error ?? event;
+  const cause = error?.cause;
+
+  return {
+    eventType: resolveStreamEventType(event),
+    eventKeys: summarizeObjectKeys(event),
+    eventReason: event?.reason,
+    eventErrorName: summarizeDiagnosticValue(error?.name),
+    eventErrorMessage: summarizeDiagnosticValue(
+      error?.errorMessage ?? error?.message,
+    ),
     eventErrorCode: summarizeDiagnosticValue(error?.code),
     eventErrorType: summarizeDiagnosticValue(error?.type),
     eventErrorCauseName: summarizeDiagnosticValue(cause?.name),

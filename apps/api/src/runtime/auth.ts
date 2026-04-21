@@ -6,6 +6,8 @@ import { tenantRuntimeSecrets } from "@otto/feature-integrations-runtime/db/sche
 import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import { and, eq } from "drizzle-orm"
 
+import { isRuntimeDebugLoggingEnabled } from "./debug-logging"
+
 const TENANT_TOKEN_SECRET_TYPE = "tenant_token"
 
 function createTokenLookupHash(token: string) {
@@ -52,9 +54,11 @@ export async function getTenantByTenantToken(tenantToken: string) {
 export async function authenticateTenantRuntimeRequest(request: Request) {
   return authenticateTenantRuntimeRequestWithPackage({
     getTenantByTenantToken,
-    log: (message) => {
-      console.log(message)
-    },
+    log: isRuntimeDebugLoggingEnabled()
+      ? (message) => {
+          console.debug(message)
+        }
+      : undefined,
     request,
     resolveTenantId: (tenant) => tenant.tenantId,
   })

@@ -1,8 +1,15 @@
 const LOG_PREFIX = "[otto-ai-provider]";
 const MAX_FIELD_LENGTH = 240;
+const TRUTHY_DEBUG_VALUES = new Set(["1", "true", "yes", "on"]);
 
 export function createOpenAiProxyDiagnostics(logger = console) {
   return {
+    debug(event, fields = {}) {
+      if (!isOpenAiProxyDebugLoggingEnabled()) {
+        return;
+      }
+      writeLog(logger, "debug", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
+    },
     info(event, fields = {}) {
       writeLog(logger, "info", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
     },
@@ -13,6 +20,14 @@ export function createOpenAiProxyDiagnostics(logger = console) {
       writeLog(logger, "warn", `${LOG_PREFIX} ${event}`, sanitizeFields(fields));
     },
   };
+}
+
+export function isOpenAiProxyDebugLoggingEnabled(env = process.env) {
+  const value =
+    typeof env?.OTTO_RUNTIME_DEBUG_LOGS === "string"
+      ? env.OTTO_RUNTIME_DEBUG_LOGS
+      : "";
+  return TRUTHY_DEBUG_VALUES.has(value.trim().toLowerCase());
 }
 
 export function summarizeRuntimeAuth(input, resolved) {
