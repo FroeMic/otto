@@ -595,50 +595,50 @@ responses, do not forward stale content-encoding headers.
 
 - [ ] Add failing tests for authenticated WebSocket proxying and abnormal close
       classification.
-- [ ] Verify tests fail.
-- [ ] Commit failing tests only if local workflow allows, otherwise keep the
+- [x] Verify tests fail.
+- [x] Commit failing tests only if local workflow allows, otherwise keep the
       red/green pair in one commit with command output noted.
 
 ### Step 7: WebSocket Proxy Implementation
 
-- [ ] Add same-path runtime-authenticated WebSocket upgrade handling on
+- [x] Add same-path runtime-authenticated WebSocket upgrade handling on
       `/api/internal/runtime/ai/openai/v1/responses`.
-- [ ] Connect upstream to `wss://api.openai.com/v1/responses`.
-- [ ] Forward downstream/upstream frames.
-- [ ] Inject upstream auth only in the control-plane.
-- [ ] Track terminal events and abnormal closes.
-- [ ] Run API tests.
-- [ ] Run API build.
-- [ ] Commit.
+- [x] Connect upstream to `wss://api.openai.com/v1/responses`.
+- [x] Forward downstream/upstream frames.
+- [x] Inject upstream auth only in the control-plane.
+- [x] Track terminal events and abnormal closes.
+- [x] Run API tests.
+- [x] Run API build.
+- [x] Commit.
 
 ### Step 8: Provider Force-Switch Tests
 
-- [ ] Add failing tests for `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket`.
-- [ ] Add failing tests for invalid transport values.
-- [ ] Add failing tests for WebSocket URL conversion.
-- [ ] Add failing tests proving the `sse` branch calls the existing SSE stream
+- [x] Add failing tests for `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket`.
+- [x] Add failing tests for invalid transport values.
+- [x] Add failing tests for WebSocket URL conversion.
+- [x] Add failing tests proving the `sse` branch calls the existing SSE stream
       implementation.
-- [ ] Add failing tests proving the `websocket` branch calls the new WebSocket
+- [x] Add failing tests proving the `websocket` branch calls the new WebSocket
       stream implementation.
-- [ ] Verify tests fail.
+- [x] Verify tests fail.
 
 ### Step 9: Provider WebSocket Implementation
 
-- [ ] Add `transport.js`.
-- [ ] Keep the current SSE behavior as the named rollback branch.
-- [ ] Port/mirror OpenClaw native OpenAI WebSocket stream behavior into
+- [x] Add `transport.js`.
+- [x] Keep the current SSE behavior as the named rollback branch.
+- [x] Port/mirror OpenClaw native OpenAI WebSocket stream behavior into
       `responses-websocket.js`.
-- [ ] Adapt auth so downstream uses `TENANT_TOKEN` and never receives the
+- [x] Adapt auth so downstream uses `TENANT_TOKEN` and never receives the
       upstream OpenAI key.
-- [ ] Emit explicit resolved-transport logs for every model request.
-- [ ] Run provider tests.
-- [ ] Run runtime plugin tests.
-- [ ] Commit.
+- [x] Emit explicit resolved-transport logs for every model request.
+- [x] Run provider tests.
+- [x] Run runtime plugin tests.
+- [x] Commit.
 
 ### Step 10: Integration Verification
 
 - [x] Verify provider contract projects `openai-proxy/gpt-5.4` defaults.
-- [ ] Verify provider contract preserves explicit `sse` and `websocket`
+- [x] Verify provider contract preserves explicit `sse` and `websocket`
       transport branches.
 - [x] Add follow-up SSE diagnostics for provider stream lifecycle, abort
       signals, safe Responses request shape, inbound request aborts, and recent
@@ -653,6 +653,8 @@ responses, do not forward stale content-encoding headers.
 - [x] Run local provider contract tests.
 - [x] Run local OpenAI proxy tests.
 - [x] Run local API build.
+- [x] Run local worker runtime manager tests.
+- [x] Run local worker build.
 - [ ] Verify live tenant runtime config projects `openai-proxy/gpt-5.4`.
 - [ ] Verify live `OTTO_OPENAI_PROXY_TRANSPORT=websocket` path against real
       OpenAI credentials.
@@ -669,7 +671,9 @@ Passing:
 node --test runtime-plugins/otto-ai-provider/provider-contract.test.mjs
 node --test runtime-plugins/otto-ai-provider/*.test.mjs
 bun run --cwd apps/api test src/runtime/openai-proxy.test.ts
+bun run --cwd apps/worker test src/runtime/lib/runtime/manager.test.ts
 bun run build:api
+bun run build:worker
 git diff --check
 ```
 

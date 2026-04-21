@@ -222,7 +222,8 @@
   - follow-up tenant-side diagnostics now also wrap the returned async stream object so iteration start, completion, early close, and iterator failure are logged with safe event-type summaries
   - a follow-up hotfix now captures and consumes the source async iterator directly so stream-consumption diagnostics do not recursively re-enter a wrapped stream
   - direct API-port/Caddy-bypass testing showed the same `terminated` SSE failure after tenant-to-control-plane reachability was confirmed, so Caddy is no longer the root-cause hypothesis
-  - the next hardening step is to implement an explicit `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket` force switch and a provider-owned OpenAI Responses WebSocket path on the same `/responses` resource URL shape as native OpenAI
+  - `runtime-plugins/otto-ai-provider` now implements an explicit `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket` force switch, defaulting generated tenant env to `sse` and routing `websocket` through a provider-owned OpenAI Responses WebSocket stream on the same `/responses` resource URL shape as native OpenAI
+  - the provider WebSocket path authenticates to the control-plane proxy with `TENANT_TOKEN`; the upstream OpenAI key remains control-plane-only
 - Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
   - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes
@@ -791,10 +792,10 @@
 ## Next recommended implementation step
 
 - Continue `TODO_36_openai_proxy_native_quality_rewrite.md` by:
-  - adding `OTTO_OPENAI_PROXY_TRANSPORT=sse|websocket` projection and provider-side validation, defaulting to `sse` during rollout
-  - adding same-path WebSocket upgrade handling on `/api/internal/runtime/ai/openai/v1/responses`
-  - porting/mirroring OpenClaw's native OpenAI WebSocket stream behavior into `runtime-plugins/otto-ai-provider` behind the `websocket` branch
-  - preserving the existing SSE path as the explicit rollback branch
+  - publishing a new runtime image that includes the provider force switch
+  - deploy with `OTTO_OPENAI_PROXY_TRANSPORT=websocket` for a canary tenant runtime, recreate/restart the tenant runtime, and confirm logs show `[otto-ai-provider] transport resolved` with `transport: "websocket"`
+  - run one long/tool-heavy workspace turn and verify no `terminated` SSE event is emitted on the tenant path
+  - keep `OTTO_OPENAI_PROXY_TRANSPORT=sse` as the explicit rollback branch
 - Then continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
   - adding the runtime release schema migration and DB-backed active release record
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth

@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenClawTenantConfig } from "../openclaw/config";
+import { __testing as envTesting } from "../env";
 import {
   buildManagedSkillPruneCommand,
   listInstallOnlyManagedSkillFiles,
@@ -60,6 +61,56 @@ describe("RuntimeManager.applyTenantConfig", () => {
 });
 
 describe("RuntimeManager runtime home bootstrap", () => {
+  it("writes the OpenAI proxy transport switch to the tenant runtime env", async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const previousTransport = process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
+    process.env.OTTO_OPENAI_PROXY_TRANSPORT = "websocket";
+    envTesting.resetEnvCacheForTests();
+
+    const manager = new RuntimeManager({} as never);
+    vi.spyOn(manager, "moveManagedSkillDirectories").mockResolvedValue(undefined);
+    vi.spyOn(manager, "applyInstallOnlyManagedSkillFiles").mockResolvedValue(undefined);
+    vi.spyOn(manager, "reconcileManagedSkillFiles").mockResolvedValue(undefined);
+    vi.spyOn(manager, "normalizeTenantRuntimeFilePermissions").mockResolvedValue(undefined);
+    const applyFilesSpy = vi
+      .spyOn(manager, "applyTenantFiles")
+      .mockResolvedValue(undefined);
+
+    try {
+      await manager.writeTenantConfigFiles(
+        { host: "tenant.test" } as never,
+        {
+          desiredStateVersion: 1,
+          gatewayToken: "gateway-token",
+          managedBootstrapFiles: [],
+          managedSkillFiles: [],
+          metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+          metadataTimestampKey: "appliedAt",
+          openClawConfig: buildConfig(),
+          tenantId: "tenant_test",
+          tenantToken: "tenant-token",
+        },
+      );
+
+      const files = applyFilesSpy.mock.calls[0]?.[1] ?? [];
+      const envFile = files.find((file) => file.path === "/opt/openclaw/home/.env");
+      expect(envFile?.contents).toContain("OTTO_OPENAI_PROXY_TRANSPORT=websocket");
+    } finally {
+      if (previousDatabaseUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = previousDatabaseUrl;
+      }
+      if (previousTransport === undefined) {
+        delete process.env.OTTO_OPENAI_PROXY_TRANSPORT;
+      } else {
+        process.env.OTTO_OPENAI_PROXY_TRANSPORT = previousTransport;
+      }
+      envTesting.resetEnvCacheForTests();
+    }
+  });
+
   it("creates the cron directories mounted into the OpenClaw container", async () => {
     const execMock = vi.fn(async () => ({
       exitCode: 0,

@@ -32,6 +32,7 @@ const envSchema = z.object({
   RUNTIME_PERPLEXITY_API_KEY: z.string().optional(),
   RUNTIME_SLACK_APP_TOKEN: z.string().optional(),
   OTTO_OPENAI_PROXY_BASE_URL: z.string().url().optional(),
+  OTTO_OPENAI_PROXY_TRANSPORT: z.enum(["sse", "websocket"]).default("sse"),
   RUNTIME_WEB_SEARCH_BRAVE_MODE: z.enum(["web", "llm-context"]).optional(),
   RUNTIME_WEB_SEARCH_CACHE_TTL_MINUTES: z.coerce
     .number()
@@ -223,6 +224,10 @@ export function getOpenAiProxyBaseUrl() {
   const env = getEnv();
 
   return env.OTTO_OPENAI_PROXY_BASE_URL ?? getControlPlaneBaseUrl();
+}
+
+export function getOpenAiProxyTransport() {
+  return getEnv().OTTO_OPENAI_PROXY_TRANSPORT;
 }
 
 export function getSlackOAuthConfig() {
