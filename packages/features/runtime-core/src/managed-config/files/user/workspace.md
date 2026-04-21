@@ -1,13 +1,7 @@
-### Key People
+## People
 
-- Name:
-- What to call them:
-- Pronouns: (optional)
-- Timezone:
-- Notes:
+Add people as you get to know them.
 
-### Team Context
+### Name
 
-- What they care about
-- Current projects
-- Preferences worth remembering
+-
