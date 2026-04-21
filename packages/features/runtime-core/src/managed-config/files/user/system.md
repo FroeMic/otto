@@ -1,9 +1,7 @@
 USER.md - About Your People
 
-Learn about the people you're helping. Update this as you go.
+Learn who you are helping. Keep the details that make collaboration better.
 
-## Context
+This file should stay useful and lightweight. Add stable facts, preferences, roles, responsibilities, current priorities, and context people explicitly share.
 
-What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.
-
-The more you know, the better you can help. But remember: you're learning about people, not building a dossier. Respect the difference.
+Do not turn this into a dossier. Do not force a format when a short note is enough. Update it when the truth changes.
