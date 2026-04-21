@@ -505,6 +505,80 @@ test("openai-proxy provider logs returned stream iteration failure", async () =>
   assert.equal(failedLog?.fields.error, "iterator terminated");
 });
 
+test("openai-proxy provider logs safe yielded error event details", async () => {
+  const events = [];
+  const logger = {
+    info(message, fields) {
+      events.push({ level: "info", message, fields });
+    },
+    warn(message, fields) {
+      events.push({ level: "warn", message, fields });
+    },
+    error(message, fields) {
+      events.push({ level: "error", message, fields });
+    },
+  };
+  const provider = buildProviderForTest({
+    logger,
+    openAiResponsesStreamHooks: {
+      wrapStreamFn: () => async function* () {
+        yield {
+          type: "error",
+          error: {
+            name: "TypeError",
+            message: "terminated",
+            code: "UND_ERR_SOCKET",
+            stack: "should not be logged",
+            headers: { authorization: "Bearer secret-token" },
+            cause: {
+              name: "SocketError",
+              message: "other side closed",
+              code: "UND_ERR_SOCKET",
+            },
+          },
+        };
+      },
+    },
+  });
+
+  const wrapped = provider.wrapStreamFn({
+    provider: "openai-proxy",
+    modelId: "gpt-5.4",
+    transport: "sse",
+    sessionId: "session-1",
+    turnId: "turn-1",
+    attempt: 2,
+    streamFn: async () => ({ unreachable: true }),
+  });
+
+  const stream = await wrapped(
+    { provider: "openai-proxy", id: "gpt-5.4", api: "openai-responses" },
+    { messages: [] },
+    { transport: "sse" },
+  );
+
+  const seen = [];
+  for await (const event of stream) {
+    seen.push(event.type);
+  }
+
+  assert.deepEqual(seen, ["error"]);
+  const errorEventLog = events.find(
+    (event) => event.message === "[otto-ai-provider] stream yielded error event",
+  );
+  assert.equal(errorEventLog?.level, "error");
+  assert.equal(errorEventLog?.fields.eventType, "error");
+  assert.equal(errorEventLog?.fields.eventErrorName, "TypeError");
+  assert.equal(errorEventLog?.fields.eventErrorMessage, "terminated");
+  assert.equal(errorEventLog?.fields.eventErrorCode, "UND_ERR_SOCKET");
+  assert.equal(errorEventLog?.fields.eventErrorCauseName, "SocketError");
+  assert.equal(errorEventLog?.fields.eventErrorCauseMessage, "other side closed");
+  assert.equal(errorEventLog?.fields.eventErrorCauseCode, "UND_ERR_SOCKET");
+  assert.deepEqual(errorEventLog?.fields.eventKeys, ["error", "type"]);
+  assert.equal(JSON.stringify(errorEventLog?.fields).includes("secret-token"), false);
+  assert.equal(JSON.stringify(errorEventLog?.fields).includes("should not be logged"), false);
+});
+
 test("openai-proxy provider can wrap an already instrumented stream without recursion", async () => {
   const events = [];
   const logger = {
