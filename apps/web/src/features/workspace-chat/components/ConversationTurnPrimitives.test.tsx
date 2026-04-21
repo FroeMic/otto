@@ -17,6 +17,8 @@ describe("ConversationTurnHeader", () => {
 
     assert.match(markup, />Otto</)
     assert.match(markup, />10:30</)
+    assert.match(markup, /viewBox="0 0 64 64"/)
+    assert.equal(markup.includes(">O</span>"), false)
     assert.equal(markup.includes("data-slot=\"badge\""), false)
   })
 
