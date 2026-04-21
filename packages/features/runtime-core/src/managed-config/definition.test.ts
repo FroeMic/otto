@@ -90,4 +90,20 @@ describe("managed config definitions", () => {
     assert.equal(normalizeManagedBootstrapFilePath("USER.md"), "USER.md")
     assert.equal(normalizeManagedBootstrapFilePath("missing.md"), null)
   })
+
+  it("keeps the soul template concise, opinionated, and non-corporate", () => {
+    const soulDefinition = getManagedBootstrapFileDefinitions().find(
+      (definition) => definition.path === "SOUL.md",
+    )
+
+    assert.ok(soulDefinition)
+    assert.match(soulDefinition.systemContent, /Have strong opinions/)
+    assert.match(soulDefinition.systemContent, /Brevity is mandatory/)
+    assert.match(
+      soulDefinition.systemContent,
+      /Never open with "Great question," "I'd be happy to help," or "Absolutely\."/,
+    )
+    assert.match(soulDefinition.systemContent, /Call things out/)
+    assert.match(soulDefinition.systemContent, /Humor is allowed/)
+  })
 })
