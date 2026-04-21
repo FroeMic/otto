@@ -49,7 +49,7 @@ transport policy, WebSocket-capable proxying, and stream correctness checks.
 ## Dependencies
 
 - `TODO_16_runtime_ai_provider_proxy.md` for the original AI proxy boundary.
-- `TODO_27_openclaw_2026_4_12_runtime_upgrade.md` for the current runtime
+- `TODO_27_openclaw_runtime_upgrade.md` for the current runtime
   plugin compatibility baseline.
 - OpenClaw native provider reference files:
   - `extensions/openai/openai-provider.ts`

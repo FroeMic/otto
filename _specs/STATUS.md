@@ -228,12 +228,12 @@
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes
   - `memory-core` is currently disabled by default in rendered tenant config, so managed memory requires explicit config projection and allowlist updates
   - OpenClaw `Active Memory` is present in current docs/main but not in the stable `v2026.4.9` tag Otto is currently aligned to, so it is a canary/follow-on feature rather than part of the first stable spec
-- The OpenClaw `2026.4.12` runtime-base upgrade planning now lives in `TODO_27_openclaw_2026_4_12_runtime_upgrade.md`:
-  - the latest verified upstream release is `v2026.4.12` published April 13, 2026
-  - the main Otto-side risk is stricter plugin loading and activation around manifest-declared metadata, not model or memory behavior
+- The OpenClaw `2026.4.15` runtime-base upgrade planning now lives in `TODO_27_openclaw_runtime_upgrade.md`:
+  - the latest verified upstream release is `v2026.4.15` published April 16, 2026
+  - the main Otto-side risks are stricter plugin dependency isolation, tool-name collision validation, and changed OpenAI Responses stream/failover behavior
   - Otto's bundled runtime plugins now all carry `package.json` metadata plus `openclaw.extensions`, including `otto-web-provider`, `otto-integrations`, `otto-session-reporter`, and `otto-workspace-chat`
-  - the repo defaults and custom runtime image baseline are now bumped from `2026.4.8` to `2026.4.12`
-  - because nothing is in production yet, the recommended strategy remains: metadata normalization first, then the base-image bump, then local and canary validation, rather than building a long-lived compatibility layer
+  - the repo defaults and custom runtime image baseline are now bumped from `2026.4.12` to `2026.4.15`
+  - the recommended strategy remains: build and publish the custom image, refresh one tenant runtime, then compare OpenAI Responses stream behavior before broader rollout
 - The first raw OpenAI usage-ingestion foundation now exists:
   - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
   - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
