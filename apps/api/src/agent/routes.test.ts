@@ -296,6 +296,14 @@ describe("agent routes", () => {
       sentMessages[0]?.parts[0]?.text ?? "",
       /first personalization onboarding/i,
     )
+    assert.match(
+      sentMessages[0]?.parts[0]?.text ?? "",
+      /introduce yourself briefly/i,
+    )
+    assert.match(
+      sentMessages[0]?.parts[0]?.text ?? "",
+      /better Otto knows and understands the user, the better Otto will work/i,
+    )
     assert.deepEqual(sentMessages[0]?.parts[1], {
       text: "Get to know the user",
       type: "text",
