@@ -154,7 +154,7 @@ async function upgradeWorkspaceChatWebSocket(
   )?.upgrade
 
   if (envUpgrade) {
-    return envUpgrade(context.req.raw, {
+    return envUpgrade.call(context.env, context.req.raw, {
       data: {
         events,
         protocol: context.req.url,

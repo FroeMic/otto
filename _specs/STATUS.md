@@ -221,7 +221,8 @@
   - PR #536 merged the native-quality rewrite, but live tenant runtime verification still shows downstream cancellation before a terminal OpenAI Responses event on the SSE path
   - follow-up diagnostics now log provider initialization, transport defaults, replay policy, runtime auth shape, stream hook and returned stream-function lifecycle, abort signals, safe Responses request shape, inbound request aborts, recent SSE event types, and event-type counts without logging prompt text, response text, or tenant tokens
   - follow-up tenant-side diagnostics now also wrap the returned async stream object so iteration start, completion, early close, and iterator failure are logged with safe event-type summaries
-  - the active follow-up implementation branch is `openai-proxy-stream-consumption-diagnostics`
+  - a follow-up hotfix now captures and consumes the source async iterator directly so stream-consumption diagnostics do not recursively re-enter a wrapped stream
+  - the active follow-up implementation branch is `fix-openai-proxy-iterator-recursion`
 - Managed runtime memory planning now lives in `TODO_26_managed_runtime_memory.md`:
   - the recommended first shipping path is builtin OpenClaw `memory-core`, not QMD, Honcho, or a separate Otto-owned memory engine
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes

@@ -198,6 +198,7 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
     return result;
   }
 
+  const sourceIteratorFactory = result[Symbol.asyncIterator].bind(result);
   const startedAt = Date.now();
   const state = {
     events: 0,
@@ -218,11 +219,19 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
   async function* instrumentedIterator() {
     let completed = false;
     let failed = false;
+    const sourceIterator = sourceIteratorFactory();
 
     diagnostics.info("stream iteration started", fields());
 
     try {
-      for await (const event of result) {
+      while (true) {
+        const next = await sourceIterator.next();
+
+        if (next.done) {
+          break;
+        }
+
+        const event = next.value;
         recordStreamEvent(state, event);
         yield event;
       }
@@ -239,6 +248,7 @@ function instrumentReturnedStream(result, diagnostics, baseFields) {
       throw error;
     } finally {
       if (!completed && !failed) {
+        await sourceIterator.return?.();
         diagnostics.warn("stream iteration closed early", fields());
       }
     }
