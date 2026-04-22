@@ -373,7 +373,7 @@ function AudioAttachmentBlock({
         )}
       >
         {children}
-        <span className="min-w-0 truncate">{displayLabel}</span>
+        <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
         <button
           aria-label={isPlaying ? `Pause ${label}` : `Play ${label}`}
           className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
