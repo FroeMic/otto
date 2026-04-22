@@ -3,6 +3,16 @@ import fs from "node:fs"
 
 import { z } from "zod"
 
+const PROVISIONING_PROVIDER_ENV_VALUES = [
+  "auto",
+  "docker",
+  "fake",
+  "hetzner",
+] as const
+const PROVISIONING_PROVIDER_VALUES = ["docker", "fake", "hetzner"] as const
+export type ProvisioningProviderMode =
+  (typeof PROVISIONING_PROVIDER_VALUES)[number]
+
 const envSchema = z.object({
   DATABASE_URL: z.url(),
   HETZNER_ACTION_TIMEOUT_MS: z.coerce.number().int().positive().default(300000),
@@ -125,6 +135,9 @@ const envSchema = z.object({
     .positive()
     .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
+  TENANT_RUNTIME_PROVIDER: z
+    .enum(PROVISIONING_PROVIDER_ENV_VALUES)
+    .optional(),
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -145,6 +158,7 @@ export const __testing = {
   resetEnvCacheForTests() {
     cachedEnv = null
   },
+  resolveProvisioningProviderMode,
 } as const
 
 export function getRuntimeSshAuthSource() {
@@ -228,6 +242,15 @@ export function getOpenAiProxyBaseUrl() {
 
 export function getOpenAiProxyTransport() {
   return getEnv().OTTO_OPENAI_PROXY_TRANSPORT
+}
+
+export function getProvisioningProviderMode() {
+  const env = getEnv()
+
+  return resolveProvisioningProviderMode({
+    hetznerApiToken: env.HETZNER_API_TOKEN,
+    tenantRuntimeProvider: env.TENANT_RUNTIME_PROVIDER,
+  })
 }
 
 export function getSlackOAuthConfig() {
@@ -433,4 +456,33 @@ function resolveControlPlaneSecret(
 
 function deriveFixedLengthSecret(value: string) {
   return crypto.createHash("sha256").update(value).digest()
+}
+
+function resolveProvisioningProviderMode(input: {
+  hetznerApiToken?: string
+  tenantRuntimeProvider?: string
+}): ProvisioningProviderMode {
+  const provider = input.tenantRuntimeProvider?.trim()
+
+  if (provider) {
+    if (provider === "auto") {
+      return input.hetznerApiToken ? "hetzner" : "fake"
+    }
+
+    if (isProvisioningProviderMode(provider)) {
+      return provider
+    }
+
+    throw new Error(
+      `TENANT_RUNTIME_PROVIDER must be one of: ${PROVISIONING_PROVIDER_ENV_VALUES.join(", ")}`,
+    )
+  }
+
+  return input.hetznerApiToken ? "hetzner" : "fake"
+}
+
+function isProvisioningProviderMode(
+  value: string,
+): value is ProvisioningProviderMode {
+  return PROVISIONING_PROVIDER_VALUES.includes(value as ProvisioningProviderMode)
 }
