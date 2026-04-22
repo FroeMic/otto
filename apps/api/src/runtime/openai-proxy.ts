@@ -13,10 +13,13 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 const OPENAI_RESPONSES_WS_URL = "wss://api.openai.com/v1/responses"
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL =
   "https://api.openai.com/v1/audio/transcriptions"
+const DEFAULT_OPENAI_AUDIO_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe"
 const OPENAI_PROXY_STREAM_PATH_PREFIX = "/api/internal/runtime/ai/openai/v1/"
 const BUN_DEFAULT_IDLE_TIMEOUT_SECONDS = 10
 const OPENAI_PROXY_QUIET_WARNING_MS = 8_000
 const OPENAI_PROXY_QUIET_WARNING_INTERVAL_MS = 1_000
+const AUDIO_PROXY_ERROR_BODY_LOG_LIMIT = 4_000
+const REDACTED_HEADER_VALUE = "[redacted]"
 const HOP_BY_HOP_HEADERS = new Set([
   "authorization",
   "connection",
@@ -30,6 +33,13 @@ const HOP_BY_HOP_HEADERS = new Set([
   "trailer",
   "transfer-encoding",
   "upgrade",
+])
+const SENSITIVE_LOG_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+  "set-cookie",
+  "x-api-key",
 ])
 
 type OpenAiProxyLogger = {
@@ -53,6 +63,191 @@ function getRequestPathname(request: Request) {
     return new URL(request.url).pathname
   } catch {
     return null
+  }
+}
+
+function truncateForLog(value: string, maxLength = AUDIO_PROXY_ERROR_BODY_LOG_LIMIT) {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
+}
+
+function describeUnknownError(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function redactHeadersForLog(headers: Headers) {
+  const result: Record<string, string> = {}
+  for (const [name, value] of headers.entries()) {
+    result[name] = SENSITIVE_LOG_HEADERS.has(name.toLowerCase())
+      ? REDACTED_HEADER_VALUE
+      : value
+  }
+  return result
+}
+
+export function resolveOpenAiAudioTranscriptionModel(
+  value: unknown,
+  fallback = DEFAULT_OPENAI_AUDIO_TRANSCRIPTION_MODEL,
+) {
+  if (typeof value !== "string") {
+    return fallback
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return fallback
+  }
+
+  const normalized = trimmed.toLowerCase()
+  return normalized === "undefined" || normalized === "null"
+    ? fallback
+    : trimmed
+}
+
+type AudioProxyMultipartFieldLog = {
+  name: string
+  sizeBytes: number
+  value?: string
+}
+
+type AudioProxyMultipartFileLog = {
+  contentType: string | null
+  fileName: string
+  name: string
+  sizeBytes: number
+}
+
+type AudioProxyMultipartLog = {
+  fields: AudioProxyMultipartFieldLog[]
+  files: AudioProxyMultipartFileLog[]
+  model: string | null
+  modelRepaired: boolean
+  resolvedModel: string
+}
+
+type AudioProxyRequestDiagnostics = {
+  bodyBytes: number
+  contentType: string | null
+  headers: Record<string, string>
+  incomingContentType: string | null
+  multipart?: AudioProxyMultipartLog
+  multipartParseError?: string
+}
+
+function shouldLogFormFieldValue(name: string) {
+  const normalized = name.trim().toLowerCase()
+  return normalized === "model" || normalized === "language"
+}
+
+function summarizeAudioTranscriptionFormData(
+  formData: FormData,
+): Omit<AudioProxyMultipartLog, "modelRepaired" | "resolvedModel"> {
+  const fields: AudioProxyMultipartFieldLog[] = []
+  const files: AudioProxyMultipartFileLog[] = []
+  let model: string | null = null
+
+  for (const [name, value] of formData.entries()) {
+    if (typeof value === "string") {
+      if (name === "model") {
+        model = value
+      }
+      fields.push({
+        name,
+        sizeBytes: Buffer.byteLength(value),
+        ...(shouldLogFormFieldValue(name)
+          ? { value: truncateForLog(value, 500) }
+          : {}),
+      })
+      continue
+    }
+
+    files.push({
+      contentType: value.type || null,
+      fileName: value.name,
+      name,
+      sizeBytes: value.size,
+    })
+  }
+
+  return { fields, files, model }
+}
+
+async function parseAudioTranscriptionFormData(input: {
+  bodyBuffer: Buffer
+  contentType: string
+}) {
+  if (!input.contentType.startsWith("multipart/form-data")) {
+    return null
+  }
+
+  const request = new Request("http://audio-proxy.local/transcriptions", {
+    body: input.bodyBuffer,
+    headers: {
+      "Content-Type": input.contentType,
+    },
+    method: "POST",
+  })
+
+  return request.formData()
+}
+
+export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
+  bodyBuffer: Buffer
+  contentType: string
+  headers: Headers
+  incomingContentType: string | null
+}) {
+  const diagnostics: AudioProxyRequestDiagnostics = {
+    bodyBytes: input.bodyBuffer.byteLength,
+    contentType: input.contentType || null,
+    headers: redactHeadersForLog(input.headers),
+    incomingContentType: input.incomingContentType,
+  }
+
+  let formData: FormData | null = null
+  try {
+    formData = await parseAudioTranscriptionFormData({
+      bodyBuffer: input.bodyBuffer,
+      contentType: input.contentType,
+    })
+  } catch (error) {
+    diagnostics.multipartParseError = describeUnknownError(error)
+  }
+
+  if (!formData) {
+    return {
+      body: input.bodyBuffer,
+      contentType: input.contentType || null,
+      diagnostics,
+      modelRepaired: false,
+    }
+  }
+
+  const multipart = summarizeAudioTranscriptionFormData(formData)
+  const resolvedModel = resolveOpenAiAudioTranscriptionModel(multipart.model)
+  const modelRepaired = multipart.model !== resolvedModel
+
+  diagnostics.multipart = {
+    ...multipart,
+    modelRepaired,
+    resolvedModel,
+  }
+
+  if (!modelRepaired) {
+    return {
+      body: input.bodyBuffer,
+      contentType: input.contentType || null,
+      diagnostics,
+      modelRepaired,
+    }
+  }
+
+  formData.set("model", resolvedModel)
+
+  return {
+    body: formData,
+    contentType: null,
+    diagnostics,
+    modelRepaired,
   }
 }
 
@@ -1161,15 +1356,38 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     }
   }
 
+  const prepared = await prepareOpenAiAudioTranscriptionProxyRequest({
+    bodyBuffer,
+    contentType,
+    headers: input.request.headers,
+    incomingContentType,
+  })
+
+  console.info("[audio-proxy] request diagnostics", {
+    request: prepared.diagnostics,
+    tenantId: input.tenantId,
+  })
+
+  if (prepared.modelRepaired) {
+    console.warn("[audio-proxy] repaired audio transcription model", {
+      request: prepared.diagnostics,
+      tenantId: input.tenantId,
+    })
+  }
+
+  const upstreamHeaders = new Headers({
+    Authorization: `Bearer ${apiKey}`,
+  })
+  if (prepared.contentType) {
+    upstreamHeaders.set("Content-Type", prepared.contentType)
+  }
+
   let upstreamResponse: Response
   try {
     upstreamResponse = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": contentType,
-      },
-      body: bodyBuffer,
+      headers: upstreamHeaders,
+      body: prepared.body,
     })
   } catch (error) {
     throw new OpenAiProxyError(
@@ -1181,8 +1399,18 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
   }
 
   if (!upstreamResponse.ok) {
+    const upstreamErrorBody = await upstreamResponse
+      .clone()
+      .text()
+      .then((body) => truncateForLog(body))
+      .catch(describeUnknownError)
+
     console.error("[audio-proxy] upstream error", {
+      request: prepared.diagnostics,
       status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      tenantId: input.tenantId,
+      upstreamErrorBody,
     })
   }
 

@@ -6,6 +6,7 @@ import {
   configureOpenAiProxyBunRequestTimeout,
   createLoggedOpenAiProxyBody,
   createOpenAiResponsesWebSocketBridge,
+  prepareOpenAiAudioTranscriptionProxyRequest,
   summarizeOpenAiResponsesRequestBody,
 } from "./openai-proxy"
 
@@ -61,6 +62,64 @@ class FakeWebSocket {
 
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe("OpenAI audio transcription proxy diagnostics", () => {
+  it("repairs missing model values and reports safe multipart request metadata", async () => {
+    const form = new FormData()
+    form.append(
+      "file",
+      new Blob([Buffer.from("audio-bytes")], { type: "audio/x-m4a" }),
+      "voice-note.m4a",
+    )
+    form.append("model", "undefined")
+
+    const request = new Request(
+      "https://getyourotto.com/api/internal/runtime/ai/openai/v1/audio/transcriptions",
+      {
+        body: form,
+        headers: {
+          Authorization: "Bearer tenant-token",
+        },
+        method: "POST",
+      },
+    )
+    const incomingContentType = request.headers.get("content-type")
+    const prepared = await prepareOpenAiAudioTranscriptionProxyRequest({
+      bodyBuffer: Buffer.from(await request.arrayBuffer()),
+      contentType: incomingContentType ?? "",
+      headers: request.headers,
+      incomingContentType,
+    })
+
+    assert.equal(prepared.contentType, null)
+    assert.equal(prepared.modelRepaired, true)
+    assert.equal(prepared.diagnostics.headers.authorization, "[redacted]")
+    assert.equal(prepared.diagnostics.multipart?.model, "undefined")
+    assert.equal(prepared.diagnostics.multipart?.resolvedModel, "gpt-4o-mini-transcribe")
+    assert.deepEqual(prepared.diagnostics.multipart?.fields, [
+      {
+        name: "model",
+        sizeBytes: "undefined".length,
+        value: "undefined",
+      },
+    ])
+    assert.deepEqual(prepared.diagnostics.multipart?.files, [
+      {
+        contentType: "audio/x-m4a",
+        fileName: "voice-note.m4a",
+        name: "file",
+        sizeBytes: "audio-bytes".length,
+      },
+    ])
+
+    const rewritten = prepared.body as FormData
+    assert.equal(rewritten.get("model"), "gpt-4o-mini-transcribe")
+    const file = rewritten.get("file")
+    assert.equal(file instanceof File, true)
+    assert.equal((file as File).name, "voice-note.m4a")
+    assert.equal(await (file as File).text(), "audio-bytes")
+  })
 })
 
 describe("OpenAI runtime proxy stream logging", () => {

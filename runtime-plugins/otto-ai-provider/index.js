@@ -4,6 +4,7 @@ import { buildProviderStreamFamilyHooks } from "openclaw/plugin-sdk/provider-str
 import { buildOpenAiProxyProvider } from "./openai-proxy-provider.js";
 import {
   normalizeControlPlaneBaseUrl,
+  resolveOpenAiProxyAudioTranscriptionModel,
   resolveOpenAiProxyApiBaseUrl,
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
@@ -34,6 +35,7 @@ export default defineSingleProviderPluginEntry({
           baseUrl,
           defaultBaseUrl: baseUrl,
           defaultModel: DEFAULT_AUDIO_TRANSCRIPTION_MODEL,
+          model: resolveOpenAiProxyAudioTranscriptionModel(params.model),
           provider: PROVIDER_ID,
         });
       },
