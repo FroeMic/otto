@@ -137,6 +137,13 @@ type AudioProxyRequestDiagnostics = {
   multipartParseError?: string
 }
 
+type PreparedOpenAiAudioTranscriptionProxyRequest = {
+  body: Blob | FormData
+  contentType: string | null
+  diagnostics: AudioProxyRequestDiagnostics
+  modelRepaired: boolean
+}
+
 function shouldLogFormFieldValue(name: string) {
   const normalized = name.trim().toLowerCase()
   return normalized === "model" || normalized === "language"
@@ -199,7 +206,7 @@ export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
   contentType: string
   headers: Headers
   incomingContentType: string | null
-}) {
+}): Promise<PreparedOpenAiAudioTranscriptionProxyRequest> {
   const diagnostics: AudioProxyRequestDiagnostics = {
     bodyBytes: input.bodyBuffer.byteLength,
     contentType: input.contentType || null,
@@ -252,6 +259,70 @@ export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
     contentType: null,
     diagnostics,
     modelRepaired,
+  }
+}
+
+function describeProxyBodyForLog(body: Blob | FormData) {
+  if (body instanceof FormData) {
+    const multipart = summarizeAudioTranscriptionFormData(body)
+    return {
+      kind: "FormData",
+      multipart,
+    }
+  }
+
+  return {
+    contentType: body.type || null,
+    kind: "Blob",
+    rawBytesLogged: false,
+    sizeBytes: body.size,
+  }
+}
+
+export function buildOpenAiAudioProxyFailureDiagnostics(input: {
+  controlPlaneRequest: {
+    method: string
+    url: string
+  }
+  preparedRequest: PreparedOpenAiAudioTranscriptionProxyRequest
+  tenantId: string
+  upstreamRequest: {
+    headers: Headers
+    method: string
+    url: string
+  }
+  upstreamResponse: {
+    body: string
+    headers: Headers
+    status: number
+    statusText: string
+  }
+}) {
+  return {
+    controlPlane: {
+      request: {
+        ...input.preparedRequest.diagnostics,
+        method: input.controlPlaneRequest.method,
+        url: input.controlPlaneRequest.url,
+      },
+    },
+    tenantId: input.tenantId,
+    upstream: {
+      request: {
+        body: describeProxyBodyForLog(input.preparedRequest.body),
+        contentType: input.preparedRequest.contentType,
+        headers: redactHeadersForLog(input.upstreamRequest.headers),
+        method: input.upstreamRequest.method,
+        modelRepaired: input.preparedRequest.modelRepaired,
+        url: input.upstreamRequest.url,
+      },
+      response: {
+        body: input.upstreamResponse.body,
+        headers: redactHeadersForLog(input.upstreamResponse.headers),
+        status: input.upstreamResponse.status,
+        statusText: input.upstreamResponse.statusText,
+      },
+    },
   }
 }
 
@@ -1406,7 +1477,6 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     const upstreamErrorBody = await upstreamResponse
       .clone()
       .text()
-      .then((body) => truncateForLog(body))
       .catch(describeUnknownError)
 
     console.error("[audio-proxy] upstream error", {
@@ -1415,7 +1485,30 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
       statusText: upstreamResponse.statusText,
       tenantId: input.tenantId,
       upstreamErrorBody,
+      upstreamErrorBodyExact: upstreamErrorBody,
     })
+    console.error(
+      "[audio-proxy] full failed transcription request diagnostics",
+      buildOpenAiAudioProxyFailureDiagnostics({
+        controlPlaneRequest: {
+          method: input.request.method,
+          url: input.request.url,
+        },
+        preparedRequest: prepared,
+        tenantId: input.tenantId,
+        upstreamRequest: {
+          headers: upstreamHeaders,
+          method: "POST",
+          url: OPENAI_AUDIO_TRANSCRIPTIONS_URL,
+        },
+        upstreamResponse: {
+          body: upstreamErrorBody,
+          headers: upstreamResponse.headers,
+          status: upstreamResponse.status,
+          statusText: upstreamResponse.statusText,
+        },
+      }),
+    )
   }
 
   return new Response(upstreamResponse.body, {
