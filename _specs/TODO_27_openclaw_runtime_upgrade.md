@@ -32,7 +32,7 @@ merged. Keep commits small enough to separate:
 ## Target Release
 
 - Target upstream runtime image: `ghcr.io/openclaw/openclaw:2026.4.21`
-- Target custom image tag: `ghcr.io/froemic/otto-openclaw:2026.4.21.1`
+- Target custom image tag: `ghcr.io/froemic/otto-openclaw:2026.4.21.2`
 - Rollback image: `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
 - Latest verified upstream package signal: `openclaw@2026.4.21`
 
@@ -66,12 +66,12 @@ documented here.
 
 - `runtime-image/Dockerfile` now defaults to
   `ghcr.io/openclaw/openclaw:2026.4.21`.
-- `publish-runtime-image.sh` now defaults to `IMAGE_REVISION=1` and
+- `publish-runtime-image.sh` now defaults to `IMAGE_REVISION=2` and
   `ghcr.io/openclaw/openclaw:2026.4.21`.
 - `apps/worker/src/runtime/lib/env.ts` now defaults
   `RUNTIME_OPENCLAW_IMAGE` to the raw upstream `2026.4.21` image.
 - Runtime plugin package versions now align with custom image
-  `2026.4.21.1`.
+  `2026.4.21.2`.
 - The custom runtime image copies managed plugins into `/app/dist/extensions`,
   which is still the correct packaged image discovery location.
 - `runtime-image/helpers/cron-sync-watcher.mjs` now treats `jobs-state.json`
@@ -87,6 +87,15 @@ documented here.
   pre-creates only `/opt/openclaw/home/workspace/.openclaw` as
   `openclaw:openclaw` mode `770` while keeping the managed workspace root
   `root:openclaw` mode `755`, and the workspace files surface hides `.openclaw`.
+- Follow-on tenant testing found two additional compatibility issues:
+  OpenClaw now keeps stable cron base session keys alongside per-run
+  `...:cron:<job>:run:<run>` keys, and audio transcription can call the
+  OpenAI-compatible media provider with a raw control-plane base URL. Otto now
+  filters base cron placeholders and empty placeholder sessions from the
+  Sessions list, and normalizes raw OpenAI proxy media base URLs to the
+  internal `/api/internal/runtime/ai/openai/v1` path before transcription.
+  These post-canary fixes are carried by the next custom image revision,
+  `ghcr.io/froemic/otto-openclaw:2026.4.21.2`.
 
 ## Risk Register
 
@@ -224,6 +233,47 @@ Mitigation:
 - Re-apply tenant config or run the permission normalization path on upgraded
   tenants before re-testing workspace chat.
 
+### Cron Session Projection
+
+Risk: medium.
+
+OpenClaw `2026.4.21` deliberately writes both the stable cron base key and
+ephemeral per-run keys for isolated cron runs. Otto previously imported base
+rows before the first run and did not hide them once run-specific rows existed,
+so the Sessions list could show both:
+
+```text
+agent:main:cron:<job>
+agent:main:cron:<job>:run:<run>
+```
+
+Mitigation:
+
+- Prefer run-specific cron keys over base cron keys during session sync.
+- Filter already-synced base cron placeholders from the Sessions list whenever
+  a matching run-specific row exists.
+- Filter empty placeholder sessions from the Sessions list so failed pre-model
+  turns do not show as transcript-less chats.
+
+### Audio Transcription Proxy
+
+Risk: high.
+
+Workspace voice notes reached OpenClaw media-understanding, but transcription
+failed with `Audio transcription failed (HTTP 404)`, leaving the model to see
+raw media paths and try local Whisper/ffmpeg. The expected path is the
+Otto-owned OpenAI audio proxy, not local transcription binaries in the tenant
+runtime.
+
+Mitigation:
+
+- Normalize raw control-plane OpenAI proxy base URLs in `otto-ai-provider` to
+  `/api/internal/runtime/ai/openai/v1` before the OpenAI-compatible audio
+  helper appends `/audio/transcriptions`.
+- Publish a new custom runtime image because this fix lives in a runtime
+  plugin.
+- Re-test workspace voice notes after applying the new image.
+
 ### Session Transcript Projection
 
 Risk: medium.
@@ -291,11 +341,11 @@ Exit criteria:
   `ghcr.io/openclaw/openclaw:2026.4.21`.
 - [x] Update `publish-runtime-image.sh` defaults:
   - `OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21`
-  - `IMAGE_REVISION=1`
+  - `IMAGE_REVISION=2`
 - [x] Update `apps/worker/src/runtime/lib/env.ts` default
   `RUNTIME_OPENCLAW_IMAGE`.
-- [x] Update runtime image docs and examples to `2026.4.21.1`.
-- [x] Update all managed runtime plugin package versions to `2026.4.21.1`.
+- [x] Update runtime image docs and examples to `2026.4.21.2`.
+- [x] Update all managed runtime plugin package versions to `2026.4.21.2`.
 - [x] Update any tests that assert configured/observed runtime image versions.
 
 Exit criteria:
@@ -354,6 +404,8 @@ Local image verification:
 - A container file inspection found all managed plugin manifests under
   `/app/dist/extensions` and confirmed `/app/otto-helpers/cron-sync-watcher-rules.mjs`
   is packaged.
+- The deployable follow-up image is `2026.4.21.2`; publish and tenant canary
+  verification are tracked in Phase 9.
 
 Exit criteria:
 
@@ -392,6 +444,10 @@ Pending live canary.
 - [x] Patch live tenant permission regression where OpenClaw `2026.4.21` needs
   workspace-local `.openclaw` state under the protected managed workspace root.
 - [x] Hide `.openclaw` from the workspace settings/files surface.
+- [x] Filter OpenClaw cron base session placeholders when matching per-run
+  session rows exist.
+- [x] Filter transcript-less placeholder sessions from the Sessions list.
+- [x] Normalize raw OpenAI proxy media base URLs before audio transcription.
 - [ ] Workspace chat text turn succeeds.
 - [ ] Workspace chat attachment turn succeeds.
 - [ ] Workspace chat voice-note turn succeeds.
@@ -465,14 +521,14 @@ Exit criteria:
 
 ```bash
 OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21 \
-IMAGE_REVISION=1 \
+IMAGE_REVISION=2 \
 ./publish-runtime-image.sh
 ```
 
 - [ ] Set or confirm:
 
 ```text
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.21.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.21.2
 ```
 
 - [ ] Refresh exactly one tenant runtime:
@@ -538,6 +594,8 @@ Exit criteria:
 - [x] Local image built.
 - [x] Workspace-local `.openclaw` state permission hotfix added after live
   tenant failure.
+- [x] Cron session projection and audio transcription proxy follow-up hotfixes
+  added after live tenant testing.
 - [ ] Tenant-like local boot verified.
 - [ ] Custom image published.
 - [ ] Single-tenant canary passed.

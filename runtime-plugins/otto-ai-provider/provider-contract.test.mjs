@@ -12,6 +12,7 @@ import {
 import { buildOpenAiProxyReplayPolicy } from "./replay-policy.js";
 import {
   normalizeControlPlaneBaseUrl,
+  resolveOpenAiProxyApiBaseUrl,
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
 import {
@@ -183,6 +184,17 @@ test("openai-proxy runtime auth resolves the control-plane OpenAI base URL", () 
   assert.throws(
     () => resolveOpenAiProxyRuntimeAuth({ apiKey: "tenant-token", env: {} }),
     /OTTO_OPENAI_PROXY_BASE_URL or OTTO_CONTROL_PLANE_BASE_URL is required/,
+  );
+});
+
+test("openai-proxy audio resolves raw and fully-qualified proxy base URLs", () => {
+  assert.equal(
+    resolveOpenAiProxyApiBaseUrl("https://otto.example"),
+    "https://otto.example/api/internal/runtime/ai/openai/v1",
+  );
+  assert.equal(
+    resolveOpenAiProxyApiBaseUrl("https://otto.example/api/internal/runtime/ai/openai/v1"),
+    "https://otto.example/api/internal/runtime/ai/openai/v1",
   );
 });
 

@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
+export const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
 
 export function resolveOpenAiProxyRuntimeAuth(ctx) {
   const proxyBaseUrl =
@@ -17,8 +17,18 @@ export function resolveOpenAiProxyRuntimeAuth(ctx) {
 
   return {
     apiKey: ctx.apiKey,
-    baseUrl: `${proxyBaseUrl}${DEFAULT_BASE_URL_PATH}`,
+    baseUrl: resolveOpenAiProxyApiBaseUrl(proxyBaseUrl),
   };
+}
+
+export function resolveOpenAiProxyApiBaseUrl(value) {
+  const baseUrl = normalizeControlPlaneBaseUrl(value);
+  if (!baseUrl) {
+    return null;
+  }
+  return baseUrl.endsWith(DEFAULT_BASE_URL_PATH)
+    ? baseUrl
+    : `${baseUrl}${DEFAULT_BASE_URL_PATH}`;
 }
 
 export function normalizeControlPlaneBaseUrl(value) {
