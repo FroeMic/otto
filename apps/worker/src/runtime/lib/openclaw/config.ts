@@ -19,6 +19,7 @@ export type OpenClawAudioModelConfig = {
 }
 
 export type OpenClawTenantAudioConfig = {
+  attachmentsMax?: number
   attachmentsMode?: "all" | "first"
   echoTranscript?: boolean
   enabled: boolean
@@ -360,6 +361,10 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         }
       })()
     : undefined
+  const audioMaxAttachments =
+    config.audio?.attachmentsMode === "all"
+      ? (config.audio.attachmentsMax ?? 10)
+      : config.audio?.attachmentsMax
   const mediaTools = config.audio
     ? {
         media: {
@@ -367,6 +372,11 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             ...(config.audio.attachmentsMode
               ? {
                   attachments: {
+                    ...(typeof audioMaxAttachments === "number" &&
+                    Number.isInteger(audioMaxAttachments) &&
+                    audioMaxAttachments > 0
+                      ? { maxAttachments: audioMaxAttachments }
+                      : {}),
                     mode: config.audio.attachmentsMode,
                   },
                 }
@@ -867,6 +877,13 @@ function parseAudioConfig(
   }
 
   return {
+    ...(typeof audioConfig.maxAttachments === "number" &&
+    Number.isInteger(audioConfig.maxAttachments) &&
+    audioConfig.maxAttachments > 0
+      ? {
+          attachmentsMax: audioConfig.maxAttachments,
+        }
+      : {}),
     ...(audioConfig.attachmentsMode === "all" ||
     audioConfig.attachmentsMode === "first"
       ? {

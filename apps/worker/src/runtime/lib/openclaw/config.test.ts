@@ -157,6 +157,7 @@ describe("renderOpenClawConfig", () => {
         media?: {
           audio?: {
             attachments?: {
+              maxAttachments?: number
               mode?: string
             }
             enabled?: boolean
@@ -167,10 +168,63 @@ describe("renderOpenClawConfig", () => {
 
     expect(rendered.tools.media?.audio).toMatchObject({
       attachments: {
+        maxAttachments: 10,
         mode: "all",
       },
       enabled: true,
     })
+  })
+
+  it("honors desired audio max attachment count", () => {
+    const previousEnv = saveEnvVars([
+      "DATABASE_URL",
+      "OTTO_OPENAI_PROXY_BASE_URL",
+    ])
+
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto"
+    process.env.OTTO_OPENAI_PROXY_BASE_URL = "http://api.local"
+    envTesting.resetEnvCacheForTests()
+
+    try {
+      const config = buildOpenClawTenantConfig({
+        configJson: {
+          media: {
+            audio: {
+              attachmentsMode: "all",
+              echoTranscript: false,
+              enabled: true,
+              maxAttachments: 4,
+              model: "gpt-4o-mini-transcribe",
+              provider: "openai",
+            },
+          },
+        },
+        tenantId: "tenant_test",
+      })
+      const rendered = JSON.parse(renderOpenClawConfig(config)) as {
+        tools: {
+          media?: {
+            audio?: {
+              attachments?: {
+                maxAttachments?: number
+                mode?: string
+              }
+            }
+          }
+        }
+      }
+
+      expect(rendered.tools.media?.audio?.attachments).toEqual({
+        maxAttachments: 4,
+        mode: "all",
+      })
+    } finally {
+      for (const [name, value] of Object.entries(previousEnv)) {
+        restoreEnvVar(name, value)
+      }
+      envTesting.resetEnvCacheForTests()
+    }
   })
 
   it("allowlists optional Otto tool plugins without including non-tool plugins", () => {
