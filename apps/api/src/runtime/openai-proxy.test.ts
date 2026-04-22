@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 import { afterEach, describe, it, vi } from "vitest"
 
 import {
-  buildOpenAiAudioProxyFailureDiagnostics,
   configureOpenAiProxyBunRequestTimeout,
   createLoggedOpenAiProxyBody,
   createOpenAiResponsesWebSocketBridge,
@@ -157,88 +156,6 @@ describe("OpenAI audio transcription proxy diagnostics", () => {
     assert.equal(rewritten.get("model"), "gpt-4o-mini-transcribe")
   })
 
-  it("builds a full safe failure diagnostic without audio bytes or secrets", () => {
-    const diagnostics = buildOpenAiAudioProxyFailureDiagnostics({
-      controlPlaneRequest: {
-        method: "POST",
-        url: "https://getyourotto.com/api/internal/runtime/ai/openai/v1/audio/transcriptions",
-      },
-      preparedRequest: {
-        body: new Blob([Buffer.from("secret-audio-bytes")], {
-          type: "audio/x-m4a",
-        }),
-        contentType: "multipart/form-data; boundary=abc",
-        diagnostics: {
-          bodyBytes: "secret-audio-bytes".length,
-          contentType: "multipart/form-data; boundary=abc",
-          headers: {
-            authorization: "[redacted]",
-            "content-type": "text/plain;charset=UTF-8",
-          },
-          incomingContentType: "text/plain;charset=UTF-8",
-          multipart: {
-            fields: [
-              {
-                name: "model",
-                sizeBytes: "undefined".length,
-                value: "undefined",
-              },
-            ],
-            files: [
-              {
-                contentType: "audio/x-m4a",
-                fileName: "voice-note.m4a",
-                name: "file",
-                sizeBytes: "secret-audio-bytes".length,
-              },
-            ],
-            model: "undefined",
-            modelRepaired: true,
-            resolvedModel: "gpt-4o-mini-transcribe",
-          },
-        },
-        modelRepaired: true,
-      },
-      tenantId: "tenant_1",
-      upstreamRequest: {
-        headers: new Headers({
-          Authorization: "Bearer upstream-secret",
-          "Content-Type": "multipart/form-data; boundary=abc",
-        }),
-        method: "POST",
-        url: "https://api.openai.com/v1/audio/transcriptions",
-      },
-      upstreamResponse: {
-        body: "{\"error\":{\"message\":\"Invalid URL\"}}",
-        headers: new Headers({
-          "x-request-id": "req_123",
-        }),
-        status: 404,
-        statusText: "Not Found",
-      },
-    })
-
-    assert.equal(diagnostics.tenantId, "tenant_1")
-    assert.equal(
-      diagnostics.upstream.request.url,
-      "https://api.openai.com/v1/audio/transcriptions",
-    )
-    assert.equal(diagnostics.upstream.request.headers.authorization, "[redacted]")
-    assert.equal(diagnostics.upstream.request.body.kind, "Blob")
-    assert.equal(diagnostics.upstream.request.body.sizeBytes, "secret-audio-bytes".length)
-    assert.equal(diagnostics.upstream.request.body.rawBytesLogged, false)
-    assert.equal(diagnostics.controlPlane.request.headers.authorization, "[redacted]")
-    assert.equal(diagnostics.controlPlane.request.multipart?.model, "undefined")
-    assert.equal(
-      diagnostics.controlPlane.request.multipart?.resolvedModel,
-      "gpt-4o-mini-transcribe",
-    )
-    assert.equal(
-      JSON.stringify(diagnostics).includes("secret-audio-bytes"),
-      false,
-    )
-    assert.equal(JSON.stringify(diagnostics).includes("upstream-secret"), false)
-  })
 })
 
 describe("OpenAI runtime proxy stream logging", () => {

@@ -267,70 +267,6 @@ export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
   }
 }
 
-function describeProxyBodyForLog(body: Blob | FormData) {
-  if (body instanceof FormData) {
-    const multipart = summarizeAudioTranscriptionFormData(body)
-    return {
-      kind: "FormData",
-      multipart,
-    }
-  }
-
-  return {
-    contentType: body.type || null,
-    kind: "Blob",
-    rawBytesLogged: false,
-    sizeBytes: body.size,
-  }
-}
-
-export function buildOpenAiAudioProxyFailureDiagnostics(input: {
-  controlPlaneRequest: {
-    method: string
-    url: string
-  }
-  preparedRequest: PreparedOpenAiAudioTranscriptionProxyRequest
-  tenantId: string
-  upstreamRequest: {
-    headers: Headers
-    method: string
-    url: string
-  }
-  upstreamResponse: {
-    body: string
-    headers: Headers
-    status: number
-    statusText: string
-  }
-}) {
-  return {
-    controlPlane: {
-      request: {
-        ...input.preparedRequest.diagnostics,
-        method: input.controlPlaneRequest.method,
-        url: input.controlPlaneRequest.url,
-      },
-    },
-    tenantId: input.tenantId,
-    upstream: {
-      request: {
-        body: describeProxyBodyForLog(input.preparedRequest.body),
-        contentType: input.preparedRequest.contentType,
-        headers: redactHeadersForLog(input.upstreamRequest.headers),
-        method: input.upstreamRequest.method,
-        modelRepaired: input.preparedRequest.modelRepaired,
-        url: input.upstreamRequest.url,
-      },
-      response: {
-        body: input.upstreamResponse.body,
-        headers: redactHeadersForLog(input.upstreamResponse.headers),
-        status: input.upstreamResponse.status,
-        statusText: input.upstreamResponse.statusText,
-      },
-    },
-  }
-}
-
 export function configureOpenAiProxyBunRequestTimeout(input: {
   idleTimeoutSeconds?: number
   logger?: OpenAiProxyLogger
@@ -1443,14 +1379,10 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
     incomingContentType,
   })
 
-  console.info("[audio-proxy] request diagnostics", {
-    request: prepared.diagnostics,
-    tenantId: input.tenantId,
-  })
-
   if (prepared.modelRepaired) {
     console.warn("[audio-proxy] repaired audio transcription model", {
-      request: prepared.diagnostics,
+      model: prepared.diagnostics.multipart?.model ?? null,
+      resolvedModel: prepared.diagnostics.multipart?.resolvedModel ?? null,
       tenantId: input.tenantId,
     })
   }
@@ -1485,35 +1417,13 @@ export async function proxyOpenAiAudioTranscriptionsRequest(input: {
       .catch(describeUnknownError)
 
     console.error("[audio-proxy] upstream error", {
-      request: prepared.diagnostics,
+      model: prepared.diagnostics.multipart?.model ?? null,
+      resolvedModel: prepared.diagnostics.multipart?.resolvedModel ?? null,
       status: upstreamResponse.status,
       statusText: upstreamResponse.statusText,
       tenantId: input.tenantId,
-      upstreamErrorBody,
-      upstreamErrorBodyExact: upstreamErrorBody,
+      upstreamErrorBody: truncateForLog(upstreamErrorBody),
     })
-    console.error(
-      "[audio-proxy] full failed transcription request diagnostics",
-      buildOpenAiAudioProxyFailureDiagnostics({
-        controlPlaneRequest: {
-          method: input.request.method,
-          url: input.request.url,
-        },
-        preparedRequest: prepared,
-        tenantId: input.tenantId,
-        upstreamRequest: {
-          headers: upstreamHeaders,
-          method: "POST",
-          url: OPENAI_AUDIO_TRANSCRIPTIONS_URL,
-        },
-        upstreamResponse: {
-          body: upstreamErrorBody,
-          headers: upstreamResponse.headers,
-          status: upstreamResponse.status,
-          statusText: upstreamResponse.statusText,
-        },
-      }),
-    )
   }
 
   return new Response(upstreamResponse.body, {
