@@ -1,3 +1,5 @@
+import { extractWorkspaceAudioTranscriptFromText } from "@otto/feature-runtime-core/sessions/audio-transcripts"
+
 export interface ParsedUserMessage {
   channel: string | null
   senderId: string | null
@@ -111,6 +113,11 @@ function extractConversationInfo(
 }
 
 function extractCleanText(rawText: string) {
+  const audioTranscript = extractWorkspaceAudioTranscriptFromText(rawText)
+  if (audioTranscript) {
+    return audioTranscript
+  }
+
   let text = rawText
 
   text = text.replace(/^System:\s*\[.*?\]\s*.*?\n\n?/, "")

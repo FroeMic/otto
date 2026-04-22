@@ -43,6 +43,28 @@ function buildUserMessage(text: string): WorkspaceChatMessage {
   }
 }
 
+function buildUserVoiceNoteMessage(transcript?: string): WorkspaceChatMessage {
+  return {
+    author: {
+      kind: "user",
+      name: "User",
+      userId: "user_1",
+    },
+    createdAt: "2026-04-21T10:31:00.000Z",
+    id: "message_2",
+    parts: [
+      {
+        attachmentId: "attachment_1",
+        durationMs: 9000,
+        mimeType: "audio/webm",
+        ...(transcript ? { transcript } : {}),
+        type: "audio",
+      },
+    ],
+    status: "completed",
+  }
+}
+
 describe("ConversationMessageBubble", () => {
   it("renders assistant text parts as markdown", () => {
     const markup = renderToStaticMarkup(
@@ -121,5 +143,19 @@ describe("ConversationMessageBubble", () => {
 
     assert.equal(markup.includes("<img"), false)
     assert.equal(markup.includes("<script"), false)
+  })
+
+  it("renders voice note transcripts as readable message text", () => {
+    const markup = renderToStaticMarkup(
+      <ConversationMessageBubble
+        currentUserId="user_1"
+        events={[]}
+        message={buildUserVoiceNoteMessage("This is the transcript.")}
+        orgSlug="acme"
+      />,
+    )
+
+    assert.match(markup, /This is the transcript\./)
+    assert.match(markup, /Voice note · 0:09/)
   })
 })

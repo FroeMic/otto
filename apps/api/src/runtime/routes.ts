@@ -34,6 +34,7 @@ import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
 import { handleStripeWebhookRequest } from "../webhooks/stripe"
 import { handleWorkOsWebhookRequest } from "../webhooks/workos"
+import { projectWorkspaceChatAudioTranscriptsFromSessionTranscript } from "../workspace/chat-data"
 import { authenticateTenantRuntimeRequest } from "./auth"
 import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
 import { manageRuntimeIntegrationConnection } from "./integration-management"
@@ -733,9 +734,35 @@ export function registerRuntimeRoutes(app: Hono) {
       const sessions = validateSessionSyncPayload(body)
 
       await upsertTenantSessionBatch(tenantId, sessions)
+      const audioTranscriptResults = await Promise.all(
+        sessions
+          .filter((session) => session.transcriptJsonl)
+          .map((session) =>
+            projectWorkspaceChatAudioTranscriptsFromSessionTranscript({
+              publishRealtime: true,
+              tenantId,
+              transcriptJsonl: session.transcriptJsonl,
+            }).catch((error) => {
+              console.error(
+                "[runtime-sessions] audio transcript projection failed",
+                {
+                  error: error instanceof Error ? error.message : String(error),
+                  sessionKey: session.sessionKey,
+                  tenantId,
+                },
+              )
+              return { updatedMessages: 0, updatedParts: 0 }
+            }),
+          ),
+      )
+      const projectedAudioTranscripts = audioTranscriptResults.reduce(
+        (total, result) => total + result.updatedParts,
+        0,
+      )
 
       return jsonNoStore({
         ok: true,
+        projectedAudioTranscripts,
         synced: sessions.length,
       })
     } catch (error) {

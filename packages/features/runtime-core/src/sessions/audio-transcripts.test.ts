@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest"
+
+import { extractWorkspaceAudioTranscriptsFromSessionJsonl } from "./audio-transcripts"
+
+describe("session audio transcript extraction", () => {
+  it("extracts workspace chat message transcripts from OpenClaw audio turns", () => {
+    const transcriptJsonl = [
+      JSON.stringify({
+        id: "msg_1",
+        message: {
+          content: [
+            {
+              text: `Conversation info (untrusted metadata):
+\`\`\`json
+{
+  "chat_id": "workspace:conversation_1",
+  "message_id": "205f0bf0-3489-4e3d-a508-93fd80341c88",
+  "sender_id": "user_123"
+}
+\`\`\`
+
+Sender (untrusted metadata):
+\`\`\`json
+{
+  "id": "user_123",
+  "name": "Michael Froehlich"
+}
+\`\`\`
+
+[Audio]
+User text:
+[Workspace Chat Michael Froehlich Wed 2026-04-22 10:10 GMT+2] Ok cool, how does the story continue?
+Transcript:
+Like his friend or something? Would that be possible?`,
+              type: "text",
+            },
+          ],
+          role: "user",
+          timestamp: 1776845414633,
+        },
+        type: "message",
+      }),
+    ].join("\n")
+
+    expect(
+      extractWorkspaceAudioTranscriptsFromSessionJsonl(transcriptJsonl),
+    ).toEqual([
+      {
+        messageId: "205f0bf0-3489-4e3d-a508-93fd80341c88",
+        transcript: "Like his friend or something? Would that be possible?",
+      },
+    ])
+  })
+})
