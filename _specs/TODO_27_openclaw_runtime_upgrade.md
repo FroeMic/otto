@@ -100,8 +100,7 @@ documented here.
   multipart `model=undefined` on failing automatic media-understanding turns.
   Otto now sanitizes literal missing model values in `otto-ai-provider`, repairs
   invalid audio model fields at the control-plane proxy boundary, and logs
-  safe audio proxy diagnostics with redacted headers, multipart field/file
-  metadata, and upstream error bodies. These fixes target
+  concise model-repair and upstream-error summaries. These fixes target
   `ghcr.io/froemic/otto-openclaw:2026.4.21.3`.
 - Additional live logs showed OpenClaw can pass the active chat model
   `gpt-5.4` into audio transcription. Otto now treats transcription models as a
