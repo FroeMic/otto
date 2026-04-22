@@ -263,7 +263,9 @@ describe("RuntimeManager runtime home bootstrap", () => {
       "chown openclaw:openclaw /opt/openclaw/home/workspace/.openclaw",
     )
     expect(command).toContain("chmod 755 /opt/openclaw/home/workspace")
-    expect(command).toContain("chmod 770 /opt/openclaw/home/workspace/.openclaw")
+    expect(command).toContain(
+      "chmod 770 /opt/openclaw/home/workspace/.openclaw",
+    )
   })
 })
 
