@@ -1543,6 +1543,67 @@ export async function getPlatformJobStatus(input: {
   }
 }
 
+export async function cancelPlatformJob(input: {
+  jobId: string
+  orgSlug: string
+  userExternalId: string
+}) {
+  const status = await getPlatformJobStatus(input)
+
+  if (!status) {
+    return null
+  }
+
+  if (status.status !== "queued" && status.status !== "running") {
+    throw new Error("Platform job is not cancelable")
+  }
+
+  const db = getDb()
+  const canceledAt = new Date()
+  const cancelMessage = "Canceled manually by platform admin"
+  const [job] = await db
+    .update(jobRuns)
+    .set({
+      error: cancelMessage,
+      finishedAt: canceledAt,
+      status: "canceled",
+      updatedAt: canceledAt,
+    })
+    .where(
+      and(
+        eq(jobRuns.id, input.jobId),
+        inArray(jobRuns.status, ["queued", "running"]),
+      ),
+    )
+    .returning({
+      error: jobRuns.error,
+      finishedAt: jobRuns.finishedAt,
+      status: jobRuns.status,
+    })
+
+  if (!job) {
+    throw new Error("Platform job is not cancelable")
+  }
+
+  await db.insert(jobEvents).values({
+    dataJson: {
+      canceledByUserExternalId: input.userExternalId,
+    },
+    eventType: "canceled",
+    jobRunId: input.jobId,
+    message: cancelMessage,
+  })
+
+  return {
+    error: job.error,
+    finishedAt: job.finishedAt,
+    jobId: input.jobId,
+    ok: false,
+    orgSlug: input.orgSlug,
+    status: job.status,
+  }
+}
+
 async function getDesiredStateVersionForApply(tenantId: string) {
   const version = await getLatestDesiredStateVersion(tenantId)
 

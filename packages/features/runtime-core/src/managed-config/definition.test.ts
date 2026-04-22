@@ -106,4 +106,25 @@ describe("managed config definitions", () => {
     assert.match(soulDefinition.systemContent, /Call things out/)
     assert.match(soulDefinition.systemContent, /Humor is allowed/)
   })
+
+  it("tells agents to use managed tools for personalization files", () => {
+    const definitions = getManagedBootstrapFileDefinitions()
+    const agentsDefinition = definitions.find(
+      (definition) => definition.path === "AGENTS.md",
+    )
+    const toolsDefinition = definitions.find(
+      (definition) => definition.path === "TOOLS.md",
+    )
+
+    assert.ok(agentsDefinition)
+    assert.ok(toolsDefinition)
+    assert.match(agentsDefinition.systemContent, /read_managed_file/)
+    assert.match(agentsDefinition.systemContent, /patch_managed_file/)
+    assert.match(agentsDefinition.systemContent, /Do not edit the root copies/)
+    assert.match(
+      toolsDefinition.systemContent,
+      /managed versions are canonical/,
+    )
+    assert.match(toolsDefinition.systemContent, /Never edit the root copies/)
+  })
 })

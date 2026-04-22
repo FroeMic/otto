@@ -7,6 +7,7 @@ import {
   type PlatformDeleteWorkspaceResponse,
   type PlatformGrantCreditsInput,
   type PlatformGrantCreditsResponse,
+  type PlatformJobCancelResponse,
   type PlatformJobStatusResponse,
   type PlatformOrganizationDetailResponse,
   type PlatformOrganizationsResponse,
@@ -22,6 +23,7 @@ import {
   platformDeleteWorkspaceResponseSchema,
   platformGrantCreditsResponseSchema,
   platformGrantCreditsSchema,
+  platformJobCancelResponseSchema,
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
@@ -290,5 +292,23 @@ export async function fetchPlatformJobStatus(input: {
 
   return fetchApiResponse(response, (data) =>
     platformJobStatusResponseSchema.parse(data),
+  )
+}
+
+export async function cancelPlatformJob(input: {
+  jobId: string
+  orgSlug: string
+}): Promise<PlatformJobCancelResponse> {
+  const response = await apiClient.api.platform.organizations[":orgSlug"].jobs[
+    ":jobId"
+  ].cancel.$post({
+    param: {
+      jobId: input.jobId,
+      orgSlug: input.orgSlug,
+    },
+  })
+
+  return fetchApiResponse(response, (data) =>
+    platformJobCancelResponseSchema.parse(data),
   )
 }

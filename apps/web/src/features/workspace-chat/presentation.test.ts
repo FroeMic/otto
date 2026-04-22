@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import {
+  getWorkspaceConversationTurnGroupKey,
   getWorkspaceConversationTurnKind,
   getWorkspaceConversationTurnName,
 } from "./presentation"
@@ -107,6 +108,54 @@ describe("workspace chat presentation helpers", () => {
         turnKind: "current_user",
       }),
       "You",
+    )
+  })
+
+  it("builds group keys from the rendered turn identity", () => {
+    const firstMessage = {
+      author: {
+        kind: "assistant" as const,
+      },
+      createdAt: "2026-04-13T09:00:00.000Z",
+      id: "msg_assistant_1",
+      parts: [],
+      status: "completed" as const,
+    }
+    const secondMessage = {
+      ...firstMessage,
+      id: "msg_assistant_2",
+    }
+
+    assert.equal(
+      getWorkspaceConversationTurnGroupKey({
+        currentUserId: "user_1",
+        message: firstMessage,
+      }),
+      getWorkspaceConversationTurnGroupKey({
+        currentUserId: "user_1",
+        message: secondMessage,
+      }),
+    )
+
+    assert.notEqual(
+      getWorkspaceConversationTurnGroupKey({
+        currentUserId: "user_1",
+        message: firstMessage,
+      }),
+      getWorkspaceConversationTurnGroupKey({
+        currentUserId: "user_1",
+        message: {
+          author: {
+            kind: "user",
+            name: "Test User",
+            userId: "user_1",
+          },
+          createdAt: "2026-04-13T09:01:00.000Z",
+          id: "msg_user",
+          parts: [],
+          status: "completed",
+        },
+      }),
     )
   })
 })

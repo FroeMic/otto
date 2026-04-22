@@ -33,6 +33,7 @@ export interface ConversationMessageBubbleProps {
   events: WorkspaceChatMessageEvent[]
   message: WorkspaceChatMessage
   orgSlug: string
+  showHeader?: boolean
 }
 
 export function ConversationMessageBubble({
@@ -40,6 +41,7 @@ export function ConversationMessageBubble({
   events,
   message,
   orgSlug,
+  showHeader = true,
 }: ConversationMessageBubbleProps) {
   const turnKind = getWorkspaceConversationTurnKind({
     currentUserId,
@@ -113,11 +115,13 @@ export function ConversationMessageBubble({
   return (
     <ConversationTurnShell kind={turnKind}>
       <div className="flex w-full max-w-3xl flex-col gap-2">
-        <ConversationTurnHeader
-          kind={turnKind}
-          name={displayName}
-          timestampLabel={timestampLabel}
-        />
+        {showHeader ? (
+          <ConversationTurnHeader
+            kind={turnKind}
+            name={displayName}
+            timestampLabel={timestampLabel}
+          />
+        ) : null}
 
         {isAssistant ? (
           <div className="flex w-full flex-col gap-3">
@@ -135,6 +139,7 @@ export function ConversationMessageBubble({
                   <ConversationMarkdown
                     key={`${message.id}:${index}`}
                     isStreaming={message.status === "streaming"}
+                    orgSlug={orgSlug}
                   >
                     {displayText}
                   </ConversationMarkdown>

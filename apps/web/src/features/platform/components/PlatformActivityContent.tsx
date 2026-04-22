@@ -1,17 +1,26 @@
+import { DotsThreeIcon } from "@phosphor-icons/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
+import { toast } from "sonner"
 import { DataTable } from "@/components/data-table"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Switch } from "@/components/ui/switch"
 import type {
   PlatformActivityEventRow,
   PlatformActivityJobRow,
 } from "@/features/platform/activity"
+import { cancelPlatformJob } from "@/features/platform/api/platform"
 import {
   formatPreciseDateTime,
   type PlatformDateTimePreferences,
@@ -60,6 +69,68 @@ function getStatusVariant(status: string | null) {
     default:
       return "outline" as const
   }
+}
+
+function isCancelableJobStatus(status: string) {
+  return status === "queued" || status === "running"
+}
+
+interface PlatformJobActionsCellProps {
+  job: PlatformActivityJobRow
+  orgSlug: string
+}
+
+function PlatformJobActionsCell({ job, orgSlug }: PlatformJobActionsCellProps) {
+  const queryClient = useQueryClient()
+  const [isPending, startTransition] = useTransition()
+  const canCancel = isCancelableJobStatus(job.status)
+
+  function handleCancel() {
+    startTransition(async () => {
+      try {
+        await cancelPlatformJob({
+          jobId: job.id,
+          orgSlug,
+        })
+        toast.success("Job canceled.")
+        await queryClient.invalidateQueries({
+          queryKey: ["platform-organization-detail", orgSlug],
+        })
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Job cancel failed.",
+        )
+      }
+    })
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Open job actions"
+            className="text-muted-foreground"
+            disabled={isPending}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <DotsThreeIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={!canCancel || isPending}
+          onClick={handleCancel}
+        >
+          Cancel job
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export interface PlatformActivityContentProps {
@@ -208,6 +279,16 @@ export function PlatformActivityContent({
         formatPreciseDateTime(row.original.finishedAt, dateTimePreferences),
       size: 180,
     },
+    {
+      id: "actions",
+      enableHiding: false,
+      enableSorting: false,
+      header: "Actions",
+      cell: ({ row }) => (
+        <PlatformJobActionsCell job={row.original} orgSlug={orgSlug} />
+      ),
+      size: 90,
+    },
   ]
 
   const eventColumns: Array<ColumnDef<PlatformActivityEventRow>> = [
@@ -281,7 +362,7 @@ export function PlatformActivityContent({
       rowClassName="hover:bg-transparent"
       searchKeys={["id", "jobType", "status", "step", "searchText"]}
       searchPlaceholder="Search jobs"
-      tableClassName="min-w-[1280px] table-fixed"
+      tableClassName="min-w-[1370px] table-fixed"
       toolbar={
         <div className="flex w-full min-w-0 items-center gap-2">
           <NativeSelect

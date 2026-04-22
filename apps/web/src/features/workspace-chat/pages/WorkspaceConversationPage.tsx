@@ -5,7 +5,6 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
-import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
@@ -18,7 +17,6 @@ import {
 } from "../api/chat"
 import { ConversationComposer } from "../components/ConversationComposer"
 import { ConversationMessageList } from "../components/ConversationMessageList"
-import { useViewportDockBounds } from "../hooks/useViewportDockBounds"
 import { getActiveWorkspaceChatAssistantMessageToStop } from "../presentation"
 import { useWorkspaceConversationRealtime } from "../realtime/useWorkspaceConversationRealtime"
 
@@ -31,10 +29,6 @@ export function WorkspaceConversationPage({
   conversationId,
   orgSlug,
 }: WorkspaceConversationPageProps) {
-  const composerRef = useRef<HTMLDivElement | null>(null)
-  const [composerHeight, setComposerHeight] = useState(0)
-  const { boundsRef, dockStyle } = useViewportDockBounds()
-
   useWorkspaceConversationRealtime({
     conversationId,
   })
@@ -96,56 +90,41 @@ export function WorkspaceConversationPage({
     },
   })
 
-  useEffect(() => {
-    const composerElement = composerRef.current
-
-    if (!composerElement) {
-      return
-    }
-
-    const updateHeight = () => {
-      setComposerHeight(composerElement.getBoundingClientRect().height)
-    }
-
-    updateHeight()
-
-    const resizeObserver = new ResizeObserver(updateHeight)
-    resizeObserver.observe(composerElement)
-
-    return () => {
-      resizeObserver.disconnect()
-    }
-  }, [])
-
   const lastMessage = data.messages.at(-1)
   const isWaitingForReply = lastMessage?.author.kind === "user"
   const activeAssistantMessage = getActiveWorkspaceChatAssistantMessageToStop(
     data.messages,
   )
+  async function sendSuggestedPrompt(text: string) {
+    await sendMessageMutation.mutateAsync({
+      parts: [
+        {
+          text,
+          type: "text",
+        },
+      ],
+    })
+  }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div
-        aria-hidden
-        className="mx-auto h-0 w-full max-w-3xl px-4"
-        ref={boundsRef}
-      />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1">
         <ConversationMessageList
-          bottomInset={composerHeight + 32}
+          bottomInset={24}
           currentUserId={shellBootstrap.user.id}
           isWaitingForReply={isWaitingForReply}
           messageEvents={data.messageEvents}
           messages={data.messages}
+          onSuggestedPromptSelect={(prompt) => {
+            void sendSuggestedPrompt(prompt)
+          }}
           orgSlug={orgSlug}
+          suggestedPromptsDisabled={sendMessageMutation.isPending}
         />
       </div>
 
-      <div
-        className="pointer-events-none fixed bottom-0 z-30"
-        style={dockStyle}
-      >
-        <div className="pointer-events-auto w-full px-4 pb-5" ref={composerRef}>
+      <div className="z-30 shrink-0 bg-gradient-to-t from-background via-background to-background/80 px-4 pb-5 pt-3">
+        <div className="mx-auto w-full max-w-3xl">
           <ConversationComposer
             disabled={sendMessageMutation.isPending}
             isRunning={Boolean(activeAssistantMessage)}

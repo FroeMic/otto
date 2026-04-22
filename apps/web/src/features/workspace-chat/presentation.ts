@@ -59,6 +59,19 @@ export function getWorkspaceConversationTurnName(input: {
   return "Workspace member"
 }
 
+export function getWorkspaceConversationTurnGroupKey(input: {
+  currentUserId?: string
+  message: WorkspaceChatMessage
+}) {
+  const turnKind = getWorkspaceConversationTurnKind(input)
+  const name = getWorkspaceConversationTurnName({
+    message: input.message,
+    turnKind,
+  })
+
+  return `${turnKind}:${name}`
+}
+
 export function getActiveWorkspaceChatAssistantMessageToStop(
   messages: WorkspaceChatMessage[],
 ) {

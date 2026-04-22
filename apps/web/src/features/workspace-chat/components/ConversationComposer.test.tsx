@@ -19,4 +19,20 @@ describe("ConversationComposer", () => {
     assert.match(html, /Stop/)
     assert.doesNotMatch(html, />Send</)
   })
+
+  it("keeps the draft textarea editable while a conversation turn is running", () => {
+    const html = renderToStaticMarkup(
+      <ConversationComposer
+        isRunning={true}
+        orgSlug="otto"
+        onStop={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+
+    const textareaMarkup = html.match(/<textarea[^>]*>/)?.[0] ?? ""
+
+    assert.notEqual(textareaMarkup, "")
+    assert.doesNotMatch(textareaMarkup, /\sdisabled(=|\s|>)/)
+  })
 })

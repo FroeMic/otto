@@ -21,6 +21,11 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 import {
@@ -81,7 +86,7 @@ export function ConversationComposer({
 
     textarea.style.height = "0px"
     textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`
-  }, [])
+  })
 
   useEffect(() => {
     setDraft((current) => {
@@ -350,7 +355,7 @@ export function ConversationComposer({
 
       <Textarea
         className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
-        disabled={disabled || isRunning || isUploading || isVoiceMode}
+        disabled={disabled || isUploading || isVoiceMode}
         onChange={(event) => {
           setDraft(event.target.value)
         }}
@@ -390,34 +395,58 @@ export function ConversationComposer({
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Button
-                  className="size-10 rounded-full text-muted-foreground"
-                  disabled={
-                    disabled || isRunning || isUploading || !onUploadAttachment
-                  }
-                  onClick={() => {
-                    fileInputRef.current?.click()
-                  }}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <PaperclipIcon />
-                </Button>
-                <Button
-                  className="size-10 rounded-full text-muted-foreground"
-                  disabled={
-                    disabled || isRunning || isUploading || !onUploadAttachment
-                  }
-                  onClick={() => {
-                    setIsVoiceMode(true)
-                  }}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                >
-                  <MicrophoneIcon />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label="Attach files"
+                        className="size-10 rounded-full text-muted-foreground"
+                        disabled={
+                          disabled ||
+                          isRunning ||
+                          isUploading ||
+                          !onUploadAttachment
+                        }
+                        onClick={() => {
+                          fileInputRef.current?.click()
+                        }}
+                        size="icon"
+                        title="Attach files"
+                        type="button"
+                        variant="ghost"
+                      />
+                    }
+                  >
+                    <PaperclipIcon />
+                  </TooltipTrigger>
+                  <TooltipContent>Attach files</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        aria-label="Record voice note"
+                        className="size-10 rounded-full text-muted-foreground"
+                        disabled={
+                          disabled ||
+                          isRunning ||
+                          isUploading ||
+                          !onUploadAttachment
+                        }
+                        onClick={() => {
+                          setIsVoiceMode(true)
+                        }}
+                        size="icon"
+                        title="Record voice note"
+                        type="button"
+                        variant="ghost"
+                      />
+                    }
+                  >
+                    <MicrophoneIcon />
+                  </TooltipTrigger>
+                  <TooltipContent>Record voice note</TooltipContent>
+                </Tooltip>
               </div>
 
               {isRunning && onStop ? (

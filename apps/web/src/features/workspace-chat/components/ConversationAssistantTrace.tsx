@@ -93,14 +93,16 @@ export function ConversationAssistantTrace({
 
   return (
     <Collapsible className="w-full">
-      <CollapsibleTrigger className="group flex items-center gap-1 py-0.5 text-left">
-        <span className="text-xs font-medium text-foreground/70">
-          {durationLabel}
+      <CollapsibleTrigger className="group -ml-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1.5 text-left transition-colors hover:bg-muted/55 focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none">
+        <span className="truncate text-xs font-medium text-foreground/72">
+          What Otto did
         </span>
-        <TraceCaretIcon className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+        <span className="text-xs text-muted-foreground">{durationLabel}</span>
+        <span className="sr-only">Show activity details</span>
+        <TraceCaretIcon className="transition-transform duration-150 group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pt-1.5">
-        <div className="flex flex-col gap-0">
+      <CollapsibleContent className="pt-1">
+        <div className="flex flex-col gap-0 rounded-2xl bg-muted/25 px-3 py-2">
           {visibleEntries.map((entry) => (
             <ConversationTraceEntry entry={entry} key={entry.id} />
           ))}
@@ -125,9 +127,11 @@ function ConversationTraceEntry({ entry }: ConversationTraceEntryProps) {
 
   return (
     <Collapsible defaultOpen={false}>
-      <CollapsibleTrigger className="group flex items-center gap-1 py-1.5 text-left">
-        <p className={getEntryTitleClassName(entry)}>{entry.title}</p>
-        <TraceCaretIcon className="transition-transform duration-200 group-data-[state=open]:rotate-90" />
+      <CollapsibleTrigger className="group -ml-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1.5 text-left transition-colors hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none">
+        <span className={cn(getEntryTitleClassName(entry), "truncate")}>
+          {entry.title}
+        </span>
+        <TraceCaretIcon className="transition-transform duration-150 group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-0.5 pb-1">
         <ConversationTraceEntrySummary>

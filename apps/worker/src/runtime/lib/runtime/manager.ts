@@ -449,27 +449,43 @@ export class RuntimeManager {
       input.managedSkillFiles,
     )
 
-    const ownershipTargets = [
+    const workspaceWritableDirectoryPaths = [
+      "/opt/openclaw/home/workspace/memory",
+      "/opt/openclaw/home/workspace/projects",
+    ]
+
+    const openClawOwnershipTargets = [
       "/opt/openclaw",
       "/opt/openclaw/home",
       RUNTIME_CRON_ROOT,
       RUNTIME_CRON_RUNS_ROOT,
-      "/opt/openclaw/home/workspace",
       MANAGED_SKILL_WORKSPACE_ROOT,
       "/opt/openclaw/runtime",
       "/opt/openclaw/home/openclaw.json",
       "/opt/openclaw/home/.env",
       input.metadataPath,
       MANAGED_SKILL_MANIFEST_PATH,
-      ...managedFilePaths,
+      ...workspaceWritableDirectoryPaths,
       ...managedSkillDirectoryPaths,
       ...managedSkillLocalDirectoryPaths,
       ...managedSkillPaths,
     ]
 
-    const quotedOwnershipTargets = ownershipTargets
+    const protectedRootTargets = [
+      "/opt/openclaw/home/workspace",
+      ...managedFilePaths,
+    ]
+
+    const quotedOpenClawOwnershipTargets = openClawOwnershipTargets
       .map((path) => shellQuoteForShell(path))
       .join(" ")
+    const quotedProtectedRootTargets = protectedRootTargets
+      .map((path) => shellQuoteForShell(path))
+      .join(" ")
+    const quotedWorkspaceWritableDirectoryPaths =
+      workspaceWritableDirectoryPaths
+        .map((path) => shellQuoteForShell(path))
+        .join(" ")
 
     const quotedManagedFilePaths = managedFilePaths
       .map((path) => shellQuoteForShell(path))
@@ -487,7 +503,9 @@ export class RuntimeManager {
 
     const commands = [
       "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/runtime",
-      `install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      `install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      "install -d -o root -g openclaw -m 755 /opt/openclaw/home/workspace",
+      `install -d -o openclaw -g openclaw -m 770 ${quotedWorkspaceWritableDirectoryPaths}`,
       ...(quotedManagedSkillDirectoryPaths.length > 0
         ? [
             `install -d -o openclaw -g openclaw -m 750 ${quotedManagedSkillDirectoryPaths}`,
@@ -499,9 +517,12 @@ export class RuntimeManager {
           ]
         : []),
       "rm -f /opt/openclaw/home/workspace/USERS.md",
-      `chown openclaw:openclaw ${quotedOwnershipTargets}`,
+      `chown openclaw:openclaw ${quotedOpenClawOwnershipTargets}`,
+      `chown root:openclaw ${quotedProtectedRootTargets}`,
       "chmod 750 /opt/openclaw /opt/openclaw/runtime",
-      `chmod 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} /opt/openclaw/home/workspace ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      `chmod 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
+      "chmod 755 /opt/openclaw/home/workspace",
+      `chmod 770 ${quotedWorkspaceWritableDirectoryPaths}`,
       "chmod 600 /opt/openclaw/home/openclaw.json",
       "chmod 600 /opt/openclaw/home/.env",
       `chmod 640 ${shellQuoteForShell(MANAGED_SKILL_MANIFEST_PATH)}`,
@@ -509,7 +530,7 @@ export class RuntimeManager {
     ]
 
     if (quotedManagedFilePaths.length > 0) {
-      commands.push(`chmod 640 ${quotedManagedFilePaths}`)
+      commands.push(`chmod 444 ${quotedManagedFilePaths}`)
     }
 
     if (quotedManagedSkillPaths.length > 0) {

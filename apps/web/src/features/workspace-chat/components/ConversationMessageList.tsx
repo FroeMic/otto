@@ -4,14 +4,22 @@ import type {
 } from "@otto/feature-workspace-chat"
 import { useEffect, useRef } from "react"
 
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
+import { getWorkspaceConversationTurnGroupKey } from "../presentation"
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
 import { ConversationPendingState } from "./ConversationPendingState"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
+import { WorkspaceChatPromptSuggestions } from "./WorkspaceChatPromptSuggestions"
 
 export interface ConversationMessageListProps {
   bottomInset?: number
@@ -19,7 +27,9 @@ export interface ConversationMessageListProps {
   isWaitingForReply: boolean
   messageEvents: WorkspaceChatMessageEvent[]
   messages: WorkspaceChatMessage[]
+  onSuggestedPromptSelect?: (prompt: string) => void
   orgSlug: string
+  suggestedPromptsDisabled?: boolean
 }
 
 export function ConversationMessageList({
@@ -28,46 +38,64 @@ export function ConversationMessageList({
   isWaitingForReply,
   messageEvents,
   messages,
+  onSuggestedPromptSelect,
   orgSlug,
+  suggestedPromptsDisabled = false,
 }: ConversationMessageListProps) {
   const lastMessage = messages.at(-1)
-  const messageRefs = useRef(new Map<string, HTMLDivElement>())
-  const previousUserMessageIdRef = useRef<string | null>(null)
+  const endRef = useRef<HTMLDivElement | null>(null)
+  const previousLatestTurnKeyRef = useRef<string | null>(null)
+  const latestTurnKey = lastMessage
+    ? `${lastMessage.id}:${lastMessage.status}:${getMessageContentRevision(lastMessage)}`
+    : null
 
   useEffect(() => {
-    if (
-      !lastMessage ||
-      lastMessage.author.kind !== "user" ||
-      !currentUserId ||
-      lastMessage.author.userId !== currentUserId
-    ) {
+    if (!lastMessage || !latestTurnKey) {
       return
     }
 
-    if (previousUserMessageIdRef.current === lastMessage.id) {
+    const isOwnUserMessage =
+      lastMessage.author.kind === "user" &&
+      Boolean(currentUserId) &&
+      lastMessage.author.userId === currentUserId
+    const isActiveAssistantMessage =
+      lastMessage.author.kind === "assistant" &&
+      (lastMessage.status === "pending" || lastMessage.status === "streaming")
+
+    if (!isOwnUserMessage && !isWaitingForReply && !isActiveAssistantMessage) {
       return
     }
 
-    previousUserMessageIdRef.current = lastMessage.id
-    messageRefs.current
-      .get(lastMessage.id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }, [currentUserId, lastMessage])
+    if (previousLatestTurnKeyRef.current === latestTurnKey) {
+      return
+    }
+
+    previousLatestTurnKeyRef.current = latestTurnKey
+    endRef.current?.scrollIntoView({ behavior: "auto", block: "end" })
+  }, [currentUserId, isWaitingForReply, lastMessage, latestTurnKey])
 
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-[20rem] items-center justify-center">
-        <div className="flex max-w-lg flex-col gap-3 px-6 text-center">
-          <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-            Workspace Chat
-          </p>
-          <h2 className="text-3xl font-semibold tracking-tight">
-            Start a conversation with Otto
-          </h2>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Ask Otto to research, summarize, or take action in this workspace.
-          </p>
-        </div>
+        <Empty className="border-0 px-6 py-0">
+          <EmptyHeader>
+            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
+              Workspace Chat
+            </p>
+            <EmptyTitle className="text-3xl font-semibold">
+              Start a conversation with Otto
+            </EmptyTitle>
+            <EmptyDescription>
+              Ask Otto to research, summarize, or take action in this workspace.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent className="max-w-2xl">
+            <WorkspaceChatPromptSuggestions
+              disabled={suggestedPromptsDisabled}
+              onSelect={onSuggestedPromptSelect}
+            />
+          </EmptyContent>
+        </Empty>
       </div>
     )
   }
@@ -75,33 +103,29 @@ export function ConversationMessageList({
   return (
     <ScrollArea className="h-full min-h-0">
       <div
-        className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 md:py-10"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 md:py-10"
         style={{
           paddingBottom: `${bottomInset + 32}px`,
         }}
       >
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const events = messageEvents.filter(
             (messageEvent) => messageEvent.messageId === message.id,
           )
+          const showHeader = !isGroupedWithPreviousMessage({
+            currentMessage: message,
+            currentUserId,
+            previousMessage: messages[index - 1],
+          })
 
           return (
-            <div
-              key={message.id}
-              ref={(node) => {
-                if (node) {
-                  messageRefs.current.set(message.id, node)
-                  return
-                }
-
-                messageRefs.current.delete(message.id)
-              }}
-            >
+            <div key={message.id}>
               <ConversationMessageBubble
                 currentUserId={currentUserId}
                 events={events}
                 message={message}
                 orgSlug={orgSlug}
+                showHeader={showHeader}
               />
             </div>
           )
@@ -127,7 +151,47 @@ export function ConversationMessageList({
             </div>
           </ConversationTurnShell>
         ) : null}
+        <div aria-hidden className="h-px" ref={endRef} />
       </div>
     </ScrollArea>
   )
+}
+
+function getMessageContentRevision(message: WorkspaceChatMessage) {
+  return message.parts
+    .map((part) => {
+      if (part.type === "text") {
+        return part.text.length
+      }
+
+      if (part.type === "file" || part.type === "audio") {
+        return part.attachmentId
+      }
+
+      return part.type
+    })
+    .join(":")
+}
+
+function isGroupedWithPreviousMessage(input: {
+  currentMessage: WorkspaceChatMessage
+  currentUserId?: string
+  previousMessage: WorkspaceChatMessage | undefined
+}) {
+  const { currentMessage, currentUserId, previousMessage } = input
+
+  if (!previousMessage) {
+    return false
+  }
+
+  const currentKey = getWorkspaceConversationTurnGroupKey({
+    currentUserId,
+    message: currentMessage,
+  })
+  const previousKey = getWorkspaceConversationTurnGroupKey({
+    currentUserId,
+    message: previousMessage,
+  })
+
+  return currentKey === previousKey
 }

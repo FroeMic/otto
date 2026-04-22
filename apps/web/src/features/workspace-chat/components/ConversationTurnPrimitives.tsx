@@ -1,3 +1,4 @@
+import { OttoAvatar } from "@/components/OttoAvatar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
@@ -86,18 +87,20 @@ export function ConversationTurnAvatar({
 }: ConversationTurnAvatarProps) {
   const initial = name.charAt(0).toUpperCase() || "?"
 
+  if (kind === "assistant") {
+    return <OttoAvatar className="size-7 rounded-md border border-border" />
+  }
+
   return (
     <Avatar className="size-7" size="sm">
       <AvatarFallback
         className={cn(
           "text-xs font-medium text-white",
-          kind === "assistant"
-            ? "bg-primary"
-            : kind === "current_user"
-              ? "bg-secondary-foreground"
-              : kind === "system"
-                ? "bg-muted-foreground"
-                : getAvatarColor(name),
+          kind === "current_user"
+            ? "bg-secondary-foreground"
+            : kind === "system"
+              ? "bg-muted-foreground"
+              : getAvatarColor(name),
         )}
       >
         {initial}

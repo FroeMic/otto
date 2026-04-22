@@ -32,6 +32,14 @@ function createDependencies(): PlatformRouteDependencies {
       ok: true,
       status: "running",
     }),
+    cancelJob: async ({ jobId, orgSlug }) => ({
+      error: "Canceled manually by platform admin",
+      finishedAt: "2026-04-21T15:00:00.000Z",
+      jobId,
+      ok: false,
+      orgSlug,
+      status: "canceled",
+    }),
     getPlatformOrganizationDetail: async () => ({
       billing: {
         currentBalanceCreditsMilli: 100_000,
@@ -452,6 +460,26 @@ describe("platform routes", () => {
       finishedAt: null,
       ok: true,
       status: "running",
+    })
+  })
+
+  it("cancels a platform job", async () => {
+    const app = createPlatformTestApp()
+    const response = await app.request(
+      "http://api.local/api/platform/organizations/interaction42/jobs/job_apply_1/cancel",
+      {
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), {
+      error: "Canceled manually by platform admin",
+      finishedAt: "2026-04-21T15:00:00.000Z",
+      jobId: "job_apply_1",
+      ok: false,
+      orgSlug: "interaction42",
+      status: "canceled",
     })
   })
 

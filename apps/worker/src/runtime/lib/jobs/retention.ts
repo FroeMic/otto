@@ -193,7 +193,7 @@ async function pruneJobHistoryForType(input: {
 }) {
   const db = getDb()
   const statuses = input.policy.deleteFailed
-    ? [JOB_STATUSES.succeeded, JOB_STATUSES.failed]
+    ? [JOB_STATUSES.succeeded, JOB_STATUSES.failed, JOB_STATUSES.canceled]
     : [JOB_STATUSES.succeeded]
   const statusSql = statuses.map((status) => sql`${status}`)
 
