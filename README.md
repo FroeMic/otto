@@ -117,6 +117,12 @@ bun run db:migrate
 bun run dev:all
 ```
 
+Docker provider lab mode (optional):
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.docker-provider.yml up -d worker
+```
+
 Default local services:
 - `apps/web`: `http://localhost:3000`
 - `apps/api`: `http://localhost:3002`

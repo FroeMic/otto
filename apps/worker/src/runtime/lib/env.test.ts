@@ -13,6 +13,17 @@ describe("getEnv legacy provisioning env shape", () => {
       "HETZNER_API_TOKEN",
       "RUNTIME_DEPLOY_PRIVATE_KEY",
       "RUNTIME_DEPLOY_PRIVATE_KEY_PATH",
+      "TENANT_RUNTIME_DOCKER_CONTAINER_PREFIX",
+      "TENANT_RUNTIME_DOCKER_DOCKER_BIN",
+      "TENANT_RUNTIME_DOCKER_HOST_IMAGE",
+      "TENANT_RUNTIME_DOCKER_NETWORK",
+      "TENANT_RUNTIME_DOCKER_POLL_INTERVAL_MS",
+      "TENANT_RUNTIME_DOCKER_SSH_HOST",
+      "TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END",
+      "TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START",
+      "TENANT_RUNTIME_DOCKER_SSH_USERNAME",
+      "TENANT_RUNTIME_DOCKER_STARTUP_TIMEOUT_MS",
+      "TENANT_RUNTIME_DOCKER_ENDPOINT_MODE",
       "TENANT_RUNTIME_PROVIDER",
     ]) {
       delete process.env[key]
@@ -95,5 +106,38 @@ describe("getEnv legacy provisioning env shape", () => {
 
     getEnv()
     expect(getProvisioningProviderMode()).toBe("docker")
+  })
+
+  it("uses docker defaults for provider configuration", () => {
+    resetEnvForTest()
+    Object.assign(process.env, BASE_ENV)
+
+    const env = getEnv()
+
+    expect(env.TENANT_RUNTIME_DOCKER_DOCKER_BIN).toBe("docker")
+    expect(env.TENANT_RUNTIME_DOCKER_NETWORK).toBe("otto-tenant-lab")
+    expect(env.TENANT_RUNTIME_DOCKER_SSH_HOST).toBe("127.0.0.1")
+    expect(env.TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START).toBe(42000)
+    expect(env.TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END).toBe(42999)
+    expect(env.TENANT_RUNTIME_DOCKER_SSH_USERNAME).toBe("root")
+    expect(env.TENANT_RUNTIME_DOCKER_ENDPOINT_MODE).toBe("published_port")
+    expect(env.TENANT_RUNTIME_DOCKER_HOST_IMAGE).toBe(
+      "ghcr.io/froemic/otto-tenant-host:latest",
+    )
+    expect(env.TENANT_RUNTIME_DOCKER_CONTAINER_PREFIX).toBe(
+      "managed-tenant-host",
+    )
+  })
+
+  it("throws when docker ssh range start is greater than end", () => {
+    resetEnvForTest()
+    Object.assign(process.env, BASE_ENV, {
+      TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END: "42000",
+      TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START: "42001",
+    })
+
+    expect(() => getEnv()).toThrow(
+      "TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START must be less than or equal to TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END",
+    )
   })
 })

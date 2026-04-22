@@ -266,10 +266,10 @@ Purpose: add real Docker host lifecycle parity for short-lived tenant labs.
 
 - [x] Phase 0: explicit provider config + compatibility fallback + tests
 - [x] Phase 1: provider abstraction + provisioning refactor + shared delete routing
-- [ ] Phase 2: schema + connection metadata + second-provider setup
-- [ ] Phase 3: Docker provider create/get/wait/delete implementation
-- [ ] Phase 3: Docker provisioning parity through runtime bootstrap/start/verify
-- [ ] Phase 3: tenant-lab compose/profile wiring
+- [x] Phase 2: schema + connection metadata + second-provider setup
+- [x] Phase 3: Docker provider create/get/wait/delete implementation
+- [x] Phase 3: Docker provisioning parity through runtime bootstrap/start/verify
+- [x] Phase 3: tenant-lab compose/profile wiring
 - [ ] Phase 4: observability/event normalization updates
 - [ ] Phase 4: integration smoke tests for Hetzner and Docker paths
 

@@ -50,7 +50,7 @@ describe("deleteProviderHosts", () => {
           throw new Error("not implemented")
         }),
         deleteHost: vi.fn(async () => undefined),
-        deletesRemoteHosts: false,
+        deletesRemoteHosts: providerId === "docker",
         getHost: vi.fn(async () => {
           throw new Error("not implemented")
         }),

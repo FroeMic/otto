@@ -421,6 +421,13 @@
       "when": 1776754000000,
       "tag": "0060_agent_personalization_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1776792000000,
+      "tag": "0061_add_tenant_server_ssh_endpoints",
+      "breakpoints": true
     }
   ]
 }

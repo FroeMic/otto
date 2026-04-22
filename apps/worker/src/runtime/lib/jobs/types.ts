@@ -72,6 +72,9 @@ export type ProvisionTenantServerPayload = {
   providerServerId?: string
   actionId?: string
   ipv4?: string
+  sshHost?: string
+  sshPort?: number
+  sshUsername?: string
 }
 
 export type ProvisionTenantOpenAiKeyPayload = {
