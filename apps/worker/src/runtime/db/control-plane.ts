@@ -6,7 +6,7 @@ import type {
   Role,
   User,
 } from "@workos-inc/node"
-import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import {
   buildResolvedIntegrationAgentCapability,
   buildResolvedIntegrationCommandCapability,
@@ -11016,13 +11016,32 @@ export async function upsertTenantSessionBatch(
     const effectiveStartedAt =
       session.startedAt ??
       extractStartedAtFromTranscript(session.transcriptJsonl)
+    const externalSessionId = session.externalSessionId ?? "unknown"
+    const [existingSession] = session.transcriptHash
+      ? await db
+          .select({
+            transcriptHash: tenantSessions.transcriptHash,
+          })
+          .from(tenantSessions)
+          .where(
+            and(
+              eq(tenantSessions.tenantId, tenantId),
+              eq(tenantSessions.sessionKey, session.sessionKey),
+              eq(tenantSessions.externalSessionId, externalSessionId),
+            ),
+          )
+          .limit(1)
+      : []
+    const shouldWriteTranscript =
+      !session.transcriptHash ||
+      existingSession?.transcriptHash !== session.transcriptHash
 
     await db
       .insert(tenantSessions)
       .values({
         tenantId,
         sessionKey: session.sessionKey,
-        externalSessionId: session.externalSessionId ?? "unknown",
+        externalSessionId,
         displayName: session.displayName ?? null,
         label: session.label ?? null,
         subject: session.subject ?? null,
@@ -11088,7 +11107,9 @@ export async function upsertTenantSessionBatch(
           cacheWriteTokens: session.cacheWriteTokens ?? undefined,
           totalTokens: session.totalTokens ?? undefined,
           estimatedCostUsd: session.estimatedCostUsd ?? undefined,
-          transcriptJsonl: session.transcriptJsonl ?? undefined,
+          transcriptJsonl: shouldWriteTranscript
+            ? (session.transcriptJsonl ?? undefined)
+            : undefined,
           transcriptHash: session.transcriptHash ?? undefined,
           messageCount: session.messageCount ?? undefined,
           lastMessageAt: session.lastMessageAt ?? undefined,
@@ -11152,6 +11173,39 @@ export async function listTenantSessions(input: {
     .offset(offset)
 }
 
+export type TenantSessionSyncState = {
+  externalSessionId: string
+  lastSyncedAt: Date
+  sessionKey: string
+  sessionUpdatedAt: number | null
+  transcriptHash: string | null
+}
+
+export async function listTenantSessionSyncStates(input: {
+  sessionKeys: string[]
+  tenantId: string
+}): Promise<TenantSessionSyncState[]> {
+  if (input.sessionKeys.length === 0) return []
+
+  const db = getDb()
+
+  return db
+    .select({
+      externalSessionId: tenantSessions.externalSessionId,
+      lastSyncedAt: tenantSessions.lastSyncedAt,
+      sessionKey: tenantSessions.sessionKey,
+      sessionUpdatedAt: tenantSessions.sessionUpdatedAt,
+      transcriptHash: tenantSessions.transcriptHash,
+    })
+    .from(tenantSessions)
+    .where(
+      and(
+        eq(tenantSessions.tenantId, input.tenantId),
+        inArray(tenantSessions.sessionKey, input.sessionKeys),
+      ),
+    )
+}
+
 export async function getTenantSession(input: {
   tenantId: string
   sessionKey: string
@@ -11171,26 +11225,6 @@ export async function getTenantSession(input: {
     .limit(1)
 
   return session ?? null
-}
-
-export async function deleteStaleTenantSessions(
-  tenantId: string,
-  activeSessionKeys: string[],
-) {
-  if (activeSessionKeys.length === 0) return 0
-
-  const db = getDb()
-  const result = await db
-    .delete(tenantSessions)
-    .where(
-      and(
-        eq(tenantSessions.tenantId, tenantId),
-        notInArray(tenantSessions.sessionKey, activeSessionKeys),
-      ),
-    )
-    .returning({ id: tenantSessions.id })
-
-  return result.length
 }
 
 // ---------------------------------------------------------------------------

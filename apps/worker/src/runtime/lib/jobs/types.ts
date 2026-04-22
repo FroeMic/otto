@@ -170,6 +170,8 @@ export type ResyncSlackChannelsPayload = {
 }
 
 export type SyncTenantSessionsPayload = {
+  mode?: "new_or_changed"
+  reason?: "cron_run_pushed" | "manual" | "repair" | "scheduled_backfill"
   tenantId: string
 }
 

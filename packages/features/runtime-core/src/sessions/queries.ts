@@ -1,6 +1,6 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { tenantSessions } from "@otto/feature-integrations-runtime/db/schema"
-import { and, desc, eq, notInArray } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 export type TenantSessionUpsertInput = {
   cacheReadTokens?: number | null
@@ -96,6 +96,25 @@ export async function upsertTenantSessionBatch(
     const effectiveStartedAt =
       session.startedAt ??
       extractStartedAtFromTranscript(session.transcriptJsonl)
+    const externalSessionId = session.externalSessionId ?? "unknown"
+    const [existingSession] = session.transcriptHash
+      ? await db
+          .select({
+            transcriptHash: tenantSessions.transcriptHash,
+          })
+          .from(tenantSessions)
+          .where(
+            and(
+              eq(tenantSessions.tenantId, tenantId),
+              eq(tenantSessions.sessionKey, session.sessionKey),
+              eq(tenantSessions.externalSessionId, externalSessionId),
+            ),
+          )
+          .limit(1)
+      : []
+    const shouldWriteTranscript =
+      !session.transcriptHash ||
+      existingSession?.transcriptHash !== session.transcriptHash
 
     await db
       .insert(tenantSessions)
@@ -108,7 +127,7 @@ export async function upsertTenantSessionBatch(
         displayName: session.displayName ?? null,
         endedAt: session.endedAt ? new Date(session.endedAt) : null,
         estimatedCostUsd: session.estimatedCostUsd ?? null,
-        externalSessionId: session.externalSessionId ?? "unknown",
+        externalSessionId,
         inputTokens: session.inputTokens ?? null,
         label: session.label ?? null,
         lastMessageAt: session.lastMessageAt ?? null,
@@ -173,7 +192,9 @@ export async function upsertTenantSessionBatch(
           syncSource: session.syncSource,
           totalTokens: session.totalTokens ?? undefined,
           transcriptHash: session.transcriptHash ?? undefined,
-          transcriptJsonl: session.transcriptJsonl ?? undefined,
+          transcriptJsonl: shouldWriteTranscript
+            ? (session.transcriptJsonl ?? undefined)
+            : undefined,
           updatedAt: now,
         },
         target: [
@@ -270,36 +291,4 @@ export async function getTenantSession(input: {
     .limit(1)
 
   return session ?? null
-}
-
-export async function deleteStaleTenantSessions(
-  tenantId: string,
-  activeSessionKeys: string[],
-) {
-  const db = getDb()
-
-  if (activeSessionKeys.length === 0) {
-    const deletedRows = await db
-      .delete(tenantSessions)
-      .where(eq(tenantSessions.tenantId, tenantId))
-      .returning({
-        id: tenantSessions.id,
-      })
-
-    return deletedRows.length
-  }
-
-  const deletedRows = await db
-    .delete(tenantSessions)
-    .where(
-      and(
-        eq(tenantSessions.tenantId, tenantId),
-        notInArray(tenantSessions.sessionKey, activeSessionKeys),
-      ),
-    )
-    .returning({
-      id: tenantSessions.id,
-    })
-
-  return deletedRows.length
 }
