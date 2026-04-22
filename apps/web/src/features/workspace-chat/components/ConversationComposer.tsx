@@ -283,7 +283,7 @@ export function ConversationComposer({
     <fieldset
       aria-label="Message composer"
       className={cn(
-        "relative rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-colors",
+        "relative rounded-lg border border-border/70 bg-background/96 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-colors",
         dragDepth > 0 && "border-primary/55 bg-primary/[0.03]",
         className,
       )}
@@ -293,7 +293,7 @@ export function ConversationComposer({
       onDrop={handleDrop}
     >
       {dragDepth > 0 ? (
-        <div className="pointer-events-none absolute inset-3 z-10 rounded-[1.6rem] border border-dashed border-primary/50 bg-primary/[0.05]">
+        <div className="pointer-events-none absolute inset-2 z-10 rounded-md border border-dashed border-primary/50 bg-primary/[0.05]">
           <div className="flex h-full items-center justify-center text-sm font-medium text-primary/80">
             Drop files to attach them
           </div>
@@ -339,6 +339,7 @@ export function ConversationComposer({
                 </button>
               ) : null}
               <button
+                aria-label={`Remove ${attachment.kind === "audio" ? "voice note" : attachment.attachment.fileName}`}
                 className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground/80 transition hover:text-foreground"
                 disabled={disabled || isUploading}
                 onClick={() => {
@@ -354,7 +355,8 @@ export function ConversationComposer({
       ) : null}
 
       <Textarea
-        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
+        aria-label="Message"
+        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
         disabled={disabled || isUploading || isVoiceMode}
         onChange={(event) => {
           setDraft(event.target.value)
@@ -370,9 +372,7 @@ export function ConversationComposer({
         value={draft}
       />
 
-      <div
-        className={cn("mt-3 pt-3", !isVoiceMode && "border-t border-border/55")}
-      >
+      <div className="pt-2">
         {isVoiceMode ? (
           <ConversationVoiceNoteRecorder
             disabled={disabled || isUploading}
