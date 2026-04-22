@@ -10,6 +10,7 @@ import {
   execTenantRuntimeCommand,
   getTenantRuntimeConnection,
 } from "../tenant-runtime/ssh"
+import { runtimeDebugLog } from "./debug-logging"
 
 const OPENCLAW_GATEWAY_HOST_PORT = 18791
 const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events"
@@ -21,6 +22,18 @@ type ForwardedGatewayHttpResponse = {
   body: string
   headers: Record<string, string>
   status: number
+}
+
+type SlackForwardDiagnostics = {
+  requestBody?: string
+  requestBodyBytes: number
+  requestBodyPreview: string
+  responseBody?: string
+  responseBodyBytes: number
+  responseBodyPreview: string
+  responseHeaders: Record<string, string>
+  responseStatus: number
+  targetUrl: string
 }
 
 type ParsedSlackIngressRequest = {
@@ -156,6 +169,29 @@ export async function handleIntegrationWebhookRequest(input: {
   }
 }
 
+export function buildSlackForwardDiagnostics(input: {
+  includeExactBodies?: boolean
+  requestBody: string
+  response: ForwardedGatewayHttpResponse
+  targetUrl: string
+}): SlackForwardDiagnostics {
+  return {
+    requestBodyBytes: Buffer.byteLength(input.requestBody, "utf8"),
+    requestBodyPreview: previewResponseBody(input.requestBody),
+    responseBodyBytes: Buffer.byteLength(input.response.body, "utf8"),
+    responseBodyPreview: previewResponseBody(input.response.body),
+    responseHeaders: input.response.headers,
+    responseStatus: input.response.status,
+    targetUrl: input.targetUrl,
+    ...(input.includeExactBodies
+      ? {
+          requestBody: input.requestBody,
+          responseBody: input.response.body,
+        }
+      : {}),
+  }
+}
+
 function isSupportedSlackEndpointKey(
   endpointKey: string,
 ): endpointKey is SupportedSlackEndpointKey {
@@ -273,17 +309,37 @@ async function forwardSlackIngressForTeam(input: {
       target.tenantId,
       `Slack ${input.requestType} ingress`,
     )
+    const targetUrl = buildGatewayHttpTargetUrl(
+      TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+    )
     const response = await forwardGatewayHttpRequest(connection, {
       body: input.body,
       headers: input.headers,
       path: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
     })
+    const diagnostics = buildSlackForwardDiagnostics({
+      requestBody: input.body,
+      response,
+      targetUrl,
+    })
     const finishedAt = new Date()
 
     console.info("[integration-webhook] slack request forwarded", {
       endpointKey: input.requestType,
-      responseBodyPreview: previewResponseBody(response.body),
-      responseStatus: response.status,
+      ...diagnostics,
+      targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+      teamId: input.teamId,
+      tenantId: target.tenantId,
+      tenantIntegrationId: target.tenantIntegrationId,
+    })
+    runtimeDebugLog("[integration-webhook] slack request forwarded payload", {
+      endpointKey: input.requestType,
+      ...buildSlackForwardDiagnostics({
+        includeExactBodies: true,
+        requestBody: input.body,
+        response,
+        targetUrl,
+      }),
       targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
       teamId: input.teamId,
       tenantId: target.tenantId,
@@ -315,6 +371,35 @@ async function forwardSlackIngressForTeam(input: {
     const message =
       error instanceof Error ? error.message : "Slack ingress forwarding failed"
     const finishedAt = new Date()
+    const targetUrl = buildGatewayHttpTargetUrl(
+      TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+    )
+
+    console.warn("[integration-webhook] slack request forward failed", {
+      endpointKey: input.requestType,
+      message,
+      requestBodyBytes: Buffer.byteLength(input.body, "utf8"),
+      requestBodyPreview: previewResponseBody(input.body),
+      targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+      targetUrl,
+      teamId: input.teamId,
+      tenantId: target.tenantId,
+      tenantIntegrationId: target.tenantIntegrationId,
+    })
+    runtimeDebugLog(
+      "[integration-webhook] slack request forward failed payload",
+      {
+        endpointKey: input.requestType,
+        message,
+        requestBody: input.body,
+        requestBodyBytes: Buffer.byteLength(input.body, "utf8"),
+        targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+        targetUrl,
+        teamId: input.teamId,
+        tenantId: target.tenantId,
+        tenantIntegrationId: target.tenantIntegrationId,
+      },
+    )
 
     await db.transaction(async (tx) => {
       await tx
@@ -340,6 +425,10 @@ async function forwardSlackIngressForTeam(input: {
   }
 }
 
+function buildGatewayHttpTargetUrl(path: string) {
+  return `http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}${path}`
+}
+
 async function forwardGatewayHttpRequest(
   connection: Awaited<ReturnType<typeof getTenantRuntimeConnection>>,
   input: {
@@ -353,7 +442,7 @@ async function forwardGatewayHttpRequest(
     .filter(([, value]) => value.trim().length > 0)
     .map(([name, value]) => `-H ${shellQuote(`${name}: ${value}`)}`)
     .join(" ")
-  const targetUrl = `http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}${input.path}`
+  const targetUrl = buildGatewayHttpTargetUrl(input.path)
   const bodyBase64 = Buffer.from(input.body, "utf8").toString("base64")
   const script = [
     "set -euo pipefail",
