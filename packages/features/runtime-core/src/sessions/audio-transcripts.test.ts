@@ -152,4 +152,53 @@ Second voice note.`,
       },
     ])
   })
+
+  it("extracts numbered multi-audio transcript sections from one OpenClaw user turn", () => {
+    const transcriptJsonl = [
+      JSON.stringify({
+        message: {
+          content: [
+            {
+              text: `Conversation info (untrusted metadata):
+\`\`\`json
+{
+  "chat_id": "workspace:conversation_1",
+  "message_id": "message_1"
+}
+\`\`\`
+
+User text:
+[Workspace Chat Michael Froehlich Wed 2026-04-22 17:19 GMT+2] Repeat the numbers in the voice notes back to me
+
+[Audio 1/2]
+Transcript:
+two, three, four, five.
+
+[Audio 2/2]
+Transcript:
+seventeen fifteen`,
+              type: "text",
+            },
+          ],
+          role: "user",
+        },
+        type: "message",
+      }),
+    ].join("\n")
+
+    expect(
+      extractWorkspaceAudioTranscriptsFromSessionJsonl(transcriptJsonl),
+    ).toEqual([
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 0,
+        transcript: "two, three, four, five.",
+      },
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 1,
+        transcript: "seventeen fifteen",
+      },
+    ])
+  })
 })

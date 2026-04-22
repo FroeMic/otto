@@ -40,6 +40,8 @@ function extractConversationInfo(rawText: string): Record<string, unknown> {
   }
 }
 
+const AUDIO_SECTION_PATTERN = /(?:^|\n)\[Audio(?:\s+\d+\/\d+)?\]/g
+
 export function extractWorkspaceAudioTranscriptFromText(
   rawText: string,
 ): string | null {
@@ -49,7 +51,7 @@ export function extractWorkspaceAudioTranscriptFromText(
 export function extractWorkspaceAudioTranscriptsFromText(
   rawText: string,
 ): string[] {
-  if (!rawText.includes("[Audio]")) {
+  if (!hasAudioSection(rawText)) {
     return []
   }
 
@@ -63,7 +65,7 @@ export function extractWorkspaceAudioTranscriptsFromText(
     .map((match, index) => {
       const start = (match.index ?? 0) + match[0].length
       const nextMatch = matches[index + 1]
-      const nextAudioSectionIndex = rawText.indexOf("\n[Audio]", start)
+      const nextAudioSectionIndex = findNextAudioSectionIndex(rawText, start)
       const end = Math.min(
         nextMatch?.index ?? rawText.length,
         nextAudioSectionIndex >= 0 ? nextAudioSectionIndex : rawText.length,
@@ -76,7 +78,7 @@ export function extractWorkspaceAudioTranscriptsFromText(
 export function extractWorkspaceAudioUserTextFromText(
   rawText: string,
 ): string | null {
-  if (!rawText.includes("[Audio]")) {
+  if (!hasAudioSection(rawText)) {
     return null
   }
 
@@ -100,6 +102,17 @@ export function extractWorkspaceAudioUserTextFromText(
 
   const withoutWorkspacePrefix = rawUserText.replace(/^\[[^\]]+\]\s*/, "")
   return withoutWorkspacePrefix.trim() || rawUserText
+}
+
+function hasAudioSection(rawText: string) {
+  AUDIO_SECTION_PATTERN.lastIndex = 0
+  return AUDIO_SECTION_PATTERN.test(rawText)
+}
+
+function findNextAudioSectionIndex(rawText: string, start: number) {
+  AUDIO_SECTION_PATTERN.lastIndex = start
+  const match = AUDIO_SECTION_PATTERN.exec(rawText)
+  return match?.index ?? -1
 }
 
 export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
