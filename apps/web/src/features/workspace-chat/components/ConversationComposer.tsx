@@ -283,7 +283,7 @@ export function ConversationComposer({
     <fieldset
       aria-label="Message composer"
       className={cn(
-        "relative rounded-lg border border-border/70 bg-background/96 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-colors",
+        "relative rounded-lg border border-border/70 bg-background/96 px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.035)] backdrop-blur-xl transition-colors",
         dragDepth > 0 && "border-primary/55 bg-primary/[0.03]",
         className,
       )}
