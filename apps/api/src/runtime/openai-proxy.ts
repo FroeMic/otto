@@ -70,6 +70,10 @@ function truncateForLog(value: string, maxLength = AUDIO_PROXY_ERROR_BODY_LOG_LI
   return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
 }
 
+function bufferToBodyInit(buffer: Buffer): Blob {
+  return new Blob([new Uint8Array(buffer)])
+}
+
 function describeUnknownError(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
@@ -180,7 +184,7 @@ async function parseAudioTranscriptionFormData(input: {
   }
 
   const request = new Request("http://audio-proxy.local/transcriptions", {
-    body: input.bodyBuffer,
+    body: bufferToBodyInit(input.bodyBuffer),
     headers: {
       "Content-Type": input.contentType,
     },
@@ -215,7 +219,7 @@ export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
 
   if (!formData) {
     return {
-      body: input.bodyBuffer,
+      body: bufferToBodyInit(input.bodyBuffer),
       contentType: input.contentType || null,
       diagnostics,
       modelRepaired: false,
@@ -234,7 +238,7 @@ export async function prepareOpenAiAudioTranscriptionProxyRequest(input: {
 
   if (!modelRepaired) {
     return {
-      body: input.bodyBuffer,
+      body: bufferToBodyInit(input.bodyBuffer),
       contentType: input.contentType || null,
       diagnostics,
       modelRepaired,
