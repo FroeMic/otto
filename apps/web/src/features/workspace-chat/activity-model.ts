@@ -265,6 +265,12 @@ function getActivityPresentation(
     return explicitPresentation
   }
 
+  const toolPresentation = getToolActivityPresentation(messageEvent)
+
+  if (toolPresentation) {
+    return toolPresentation
+  }
+
   if (!messageEvent.title) {
     return undefined
   }
@@ -579,6 +585,33 @@ function deriveInternalPresentation(
   return undefined
 }
 
+function getToolActivityPresentation(
+  messageEvent: WorkspaceChatMessageEvent,
+): WorkspaceChatActivityPresentation | undefined {
+  if (!messageEvent.type.startsWith("tool.")) {
+    return undefined
+  }
+
+  const toolName =
+    getStringValue(messageEvent.payload.name) ??
+    getStringValue(messageEvent.payload.toolName)
+
+  if (toolName !== "read_managed_file" && toolName !== "read_file") {
+    return undefined
+  }
+
+  const filePath = getToolFilePath(messageEvent.payload)
+
+  if (!filePath) {
+    return undefined
+  }
+
+  return {
+    kind: "read",
+    title: `read ${sanitizeWorkspaceDisplayPath(filePath)}`,
+  }
+}
+
 function sanitizeWorkspaceDisplayPath(path: string) {
   return path.replace(
     /^(?:~|\/home\/node|\/opt\/openclaw\/home)\/\.openclaw\/workspace(?=\/|$)|^\/opt\/openclaw\/home\/workspace(?=\/|$)/u,
@@ -681,6 +714,33 @@ function getRecordValue(value: unknown): Record<string, unknown> | undefined {
   }
 
   return value as Record<string, unknown>
+}
+
+function getJsonRecordValue(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined
+  }
+
+  try {
+    return getRecordValue(JSON.parse(value))
+  } catch {
+    return undefined
+  }
+}
+
+function getToolFilePath(payload: Record<string, unknown>) {
+  return (
+    getStringValue(payload.filePath) ??
+    getStringValue(payload.path) ??
+    getStringValue(getRecordValue(payload.params)?.filePath) ??
+    getStringValue(getRecordValue(payload.params)?.path) ??
+    getStringValue(getRecordValue(payload.input)?.filePath) ??
+    getStringValue(getRecordValue(payload.input)?.path) ??
+    getStringValue(getRecordValue(payload.arguments)?.filePath) ??
+    getStringValue(getRecordValue(payload.arguments)?.path) ??
+    getStringValue(getJsonRecordValue(payload.arguments)?.filePath) ??
+    getStringValue(getJsonRecordValue(payload.arguments)?.path)
+  )
 }
 
 function getStringValue(value: unknown): string | undefined {
