@@ -204,10 +204,13 @@ test("openai-proxy audio ignores missing literal model values", () => {
   assert.equal(resolveOpenAiProxyAudioTranscriptionModel(""), undefined);
   assert.equal(resolveOpenAiProxyAudioTranscriptionModel("undefined"), undefined);
   assert.equal(resolveOpenAiProxyAudioTranscriptionModel(" null "), undefined);
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel("gpt-5.4"), undefined);
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel("openai-proxy/gpt-5.4"), undefined);
   assert.equal(
     resolveOpenAiProxyAudioTranscriptionModel(" gpt-4o-mini-transcribe "),
     "gpt-4o-mini-transcribe",
   );
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel("whisper-1"), "whisper-1");
 });
 
 test("openai-proxy model metadata mirrors native OpenAI gpt-5.4 family", () => {

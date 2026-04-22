@@ -122,6 +122,41 @@ describe("OpenAI audio transcription proxy diagnostics", () => {
     assert.equal(await (file as File).text(), "audio-bytes")
   })
 
+  it("repairs chat model values before forwarding audio transcription requests", async () => {
+    const form = new FormData()
+    form.append(
+      "file",
+      new Blob([Buffer.from("audio-bytes")], { type: "audio/x-m4a" }),
+      "voice-note.m4a",
+    )
+    form.append("model", "gpt-5.4")
+
+    const request = new Request(
+      "https://getyourotto.com/api/internal/runtime/ai/openai/v1/audio/transcriptions",
+      {
+        body: form,
+        headers: {
+          Authorization: "Bearer tenant-token",
+        },
+        method: "POST",
+      },
+    )
+    const incomingContentType = request.headers.get("content-type")
+    const prepared = await prepareOpenAiAudioTranscriptionProxyRequest({
+      bodyBuffer: Buffer.from(await request.arrayBuffer()),
+      contentType: incomingContentType ?? "",
+      headers: request.headers,
+      incomingContentType,
+    })
+
+    assert.equal(prepared.modelRepaired, true)
+    assert.equal(prepared.diagnostics.multipart?.model, "gpt-5.4")
+    assert.equal(prepared.diagnostics.multipart?.resolvedModel, "gpt-4o-mini-transcribe")
+
+    const rewritten = prepared.body as FormData
+    assert.equal(rewritten.get("model"), "gpt-4o-mini-transcribe")
+  })
+
   it("builds a full safe failure diagnostic without audio bytes or secrets", () => {
     const diagnostics = buildOpenAiAudioProxyFailureDiagnostics({
       controlPlaneRequest: {

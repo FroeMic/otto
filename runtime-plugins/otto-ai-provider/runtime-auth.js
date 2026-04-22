@@ -1,5 +1,11 @@
 export const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
 
+const OPENAI_AUDIO_TRANSCRIPTION_MODELS = new Set([
+  "gpt-4o-mini-transcribe",
+  "gpt-4o-transcribe",
+  "whisper-1",
+]);
+
 export function resolveOpenAiProxyAudioTranscriptionModel(value) {
   if (typeof value !== "string") {
     return undefined;
@@ -11,9 +17,9 @@ export function resolveOpenAiProxyAudioTranscriptionModel(value) {
   }
 
   const normalized = trimmed.toLowerCase();
-  return normalized === "undefined" || normalized === "null"
-    ? undefined
-    : trimmed;
+  return OPENAI_AUDIO_TRANSCRIPTION_MODELS.has(normalized)
+    ? normalized
+    : undefined;
 }
 
 export function resolveOpenAiProxyRuntimeAuth(ctx) {
