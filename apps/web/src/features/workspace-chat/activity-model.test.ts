@@ -321,6 +321,64 @@ describe("workspace chat activity model", () => {
     )
   })
 
+  it("renders managed file tool calls as read plus file name", () => {
+    const model = buildWorkspaceChatActivityModel([
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:00.000Z",
+        id: "evt_1",
+        itemId: "tool:call_1",
+        messageId: "msg_1",
+        payload: {
+          filePath: "USER.md",
+          toolName: "read_managed_file",
+        },
+        sequence: 1,
+        status: "completed",
+        title: "read_managed_file",
+        type: "tool.completed",
+      },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:01.000Z",
+        id: "evt_2",
+        itemId: "tool:call_2",
+        messageId: "msg_1",
+        payload: {
+          arguments: JSON.stringify({ filePath: "MEMORY.md" }),
+          name: "read_managed_file",
+        },
+        sequence: 2,
+        status: "completed",
+        title: "read_managed_file",
+        type: "tool.completed",
+      },
+    ])
+
+    assert.deepEqual(
+      model.sections[0]?.entries.map((entry) => ({
+        presentation: entry.presentation,
+        title: entry.title,
+      })),
+      [
+        {
+          presentation: {
+            kind: "read",
+            title: "read USER.md",
+          },
+          title: "read USER.md",
+        },
+        {
+          presentation: {
+            kind: "read",
+            title: "read MEMORY.md",
+          },
+          title: "read MEMORY.md",
+        },
+      ],
+    )
+  })
+
   it("hides workspace root prefixes in user-facing file paths", () => {
     const model = buildWorkspaceChatActivityModel([
       {
