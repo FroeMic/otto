@@ -10,7 +10,6 @@ import {
   execTenantRuntimeCommand,
   getTenantRuntimeConnection,
 } from "../tenant-runtime/ssh"
-import { runtimeDebugLog } from "./debug-logging"
 
 const OPENCLAW_GATEWAY_HOST_PORT = 18791
 const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events"
@@ -317,30 +316,19 @@ async function forwardSlackIngressForTeam(input: {
       headers: input.headers,
       path: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
     })
-    const diagnostics = buildSlackForwardDiagnostics({
-      requestBody: input.body,
-      response,
-      targetUrl,
-    })
     const finishedAt = new Date()
 
     console.info("[integration-webhook] slack request forwarded", {
       endpointKey: input.requestType,
-      ...diagnostics,
+      requestBody: input.body,
+      requestBodyBytes: Buffer.byteLength(input.body, "utf8"),
+      requestHeaders: input.headers,
+      responseBody: response.body,
+      responseBodyBytes: Buffer.byteLength(response.body, "utf8"),
+      responseHeaders: response.headers,
+      responseStatus: response.status,
       targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
-      teamId: input.teamId,
-      tenantId: target.tenantId,
-      tenantIntegrationId: target.tenantIntegrationId,
-    })
-    runtimeDebugLog("[integration-webhook] slack request forwarded payload", {
-      endpointKey: input.requestType,
-      ...buildSlackForwardDiagnostics({
-        includeExactBodies: true,
-        requestBody: input.body,
-        response,
-        targetUrl,
-      }),
-      targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+      targetUrl,
       teamId: input.teamId,
       tenantId: target.tenantId,
       tenantIntegrationId: target.tenantIntegrationId,
@@ -378,28 +366,15 @@ async function forwardSlackIngressForTeam(input: {
     console.warn("[integration-webhook] slack request forward failed", {
       endpointKey: input.requestType,
       message,
+      requestBody: input.body,
       requestBodyBytes: Buffer.byteLength(input.body, "utf8"),
-      requestBodyPreview: previewResponseBody(input.body),
+      requestHeaders: input.headers,
       targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
       targetUrl,
       teamId: input.teamId,
       tenantId: target.tenantId,
       tenantIntegrationId: target.tenantIntegrationId,
     })
-    runtimeDebugLog(
-      "[integration-webhook] slack request forward failed payload",
-      {
-        endpointKey: input.requestType,
-        message,
-        requestBody: input.body,
-        requestBodyBytes: Buffer.byteLength(input.body, "utf8"),
-        targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
-        targetUrl,
-        teamId: input.teamId,
-        tenantId: target.tenantId,
-        tenantIntegrationId: target.tenantIntegrationId,
-      },
-    )
 
     await db.transaction(async (tx) => {
       await tx
