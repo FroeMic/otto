@@ -834,7 +834,11 @@ export function registerRuntimeRoutes(app: Hono) {
 
         await enqueueJob({
           jobType: JOB_TYPES.syncTenantSessions,
-          payload: { tenantId },
+          payload: {
+            mode: "new_or_changed",
+            reason: "cron_run_pushed",
+            tenantId,
+          },
         }).catch(() => undefined)
       }
 

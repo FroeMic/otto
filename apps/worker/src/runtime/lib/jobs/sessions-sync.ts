@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto"
 
 import {
-  deleteStaleTenantSessions,
+  listTenantSessionSyncStates,
+  type TenantSessionSyncState,
   type TenantSessionUpsertInput,
   upsertTenantSessionBatch,
 } from "../../db/control-plane"
@@ -84,7 +85,7 @@ export async function processSyncTenantSessionsJob(
     await appendJobEvent(
       job.id,
       "reading_session_store",
-      "Reading sessions.json from runtime",
+      "Reading runtime session store for reconciliation",
     )
 
     const storeResult = await sshClient.exec(
@@ -104,31 +105,37 @@ export async function processSyncTenantSessionsJob(
       RuntimeSessionEntry
     >
 
-    // Build set of sessionIds that have a :run: key so we can skip
-    // base cron keys that point to the same session.
-    const runSessionIds = new Set<string>()
-    for (const [key, entry] of Object.entries(store)) {
-      if (key.includes(":run:") && entry?.sessionId) {
-        runSessionIds.add(entry.sessionId)
-      }
-    }
-
-    const sessionKeys = Object.keys(store)
+    const sessionKeys = selectCanonicalSessionKeys(store)
+    const existingStates = await listTenantSessionSyncStates({
+      sessionKeys,
+      tenantId: payload.tenantId,
+    })
+    const existingBySessionKey = new Map(
+      existingStates.map((state) => [state.sessionKey, state] as const),
+    )
 
     await appendJobEvent(
       job.id,
       "reading_transcripts",
-      `Reading transcripts for ${sessionKeys.length} sessions`,
+      `Reconciling ${sessionKeys.length} runtime sessions`,
     )
 
     const sessions: TenantSessionUpsertInput[] = []
+    let skippedUnchanged = 0
+    let missingTranscripts = 0
+    let transcriptsRead = 0
 
     for (const sessionKey of sessionKeys) {
       const entry = store[sessionKey]
       if (!entry?.sessionId) continue
 
-      // Skip base cron keys when a run-specific key exists for the same sessionId
-      if (!sessionKey.includes(":run:") && runSessionIds.has(entry.sessionId)) {
+      const decision = shouldReconcileSession({
+        existing: existingBySessionKey.get(sessionKey) ?? null,
+        runtimeSessionUpdatedAt: entry.updatedAt ?? null,
+      })
+
+      if (!decision.reconcile) {
+        skippedUnchanged += 1
         continue
       }
 
@@ -139,12 +146,17 @@ export async function processSyncTenantSessionsJob(
         messageCount: number
       } | null = null
 
-      if (filePath) {
+      if (filePath && decision.readTranscript) {
         transcript = await readTranscriptOverSsh(
           sshClient,
           connection,
           filePath,
         )
+        if (transcript) {
+          transcriptsRead += 1
+        } else {
+          missingTranscripts += 1
+        }
       }
 
       sessions.push({
@@ -189,23 +201,19 @@ export async function processSyncTenantSessionsJob(
 
     await upsertTenantSessionBatch(payload.tenantId, sessions)
 
-    // Clean up rows for sessions no longer in the runtime session store
-    const activeKeys = sessions.map((s) => s.sessionKey)
-    const deletedCount = await deleteStaleTenantSessions(
-      payload.tenantId,
-      activeKeys,
-    )
-
     const withTranscript = sessions.filter((s) => s.transcriptJsonl).length
     await appendJobEvent(
       job.id,
       "succeeded",
-      `Synced ${sessions.length} sessions (${withTranscript} with transcripts), cleaned up ${deletedCount} stale rows`,
+      `Reconciled ${sessions.length} sessions (${withTranscript} with transcripts), skipped ${skippedUnchanged} unchanged`,
     )
     await markJobSucceeded(job.id, {
+      discoveredSessions: sessionKeys.length,
+      missingTranscripts,
+      skippedUnchanged,
       syncedSessions: sessions.length,
       syncedTranscripts: withTranscript,
-      deletedStale: deletedCount,
+      transcriptsRead,
     })
   } catch (error) {
     const message = getErrorMessage(error)
@@ -213,6 +221,59 @@ export async function processSyncTenantSessionsJob(
     await markJobFailed(job.id, message)
     throw error
   }
+}
+
+type SessionReconciliationDecision = {
+  readTranscript: boolean
+  reason: "missing" | "newer" | "missing_transcript_hash" | "unchanged"
+  reconcile: boolean
+}
+
+function selectCanonicalSessionKeys(
+  store: Record<string, RuntimeSessionEntry>,
+): string[] {
+  const runSessionIds = new Set<string>()
+  for (const [key, entry] of Object.entries(store)) {
+    if (key.includes(":run:") && entry?.sessionId) {
+      runSessionIds.add(entry.sessionId)
+    }
+  }
+
+  return Object.keys(store).filter((sessionKey) => {
+    const entry = store[sessionKey]
+    if (!entry?.sessionId) return false
+
+    return sessionKey.includes(":run:") || !runSessionIds.has(entry.sessionId)
+  })
+}
+
+function shouldReconcileSession(input: {
+  existing: Pick<
+    TenantSessionSyncState,
+    "sessionUpdatedAt" | "transcriptHash"
+  > | null
+  runtimeSessionUpdatedAt: number | null
+}): SessionReconciliationDecision {
+  if (!input.existing) {
+    return { readTranscript: true, reconcile: true, reason: "missing" }
+  }
+
+  if (!input.existing.transcriptHash) {
+    return {
+      readTranscript: true,
+      reconcile: true,
+      reason: "missing_transcript_hash",
+    }
+  }
+
+  if (
+    typeof input.runtimeSessionUpdatedAt === "number" &&
+    input.runtimeSessionUpdatedAt > (input.existing.sessionUpdatedAt ?? 0)
+  ) {
+    return { readTranscript: true, reconcile: true, reason: "newer" }
+  }
+
+  return { readTranscript: false, reconcile: false, reason: "unchanged" }
 }
 
 type TranscriptResult = {
@@ -317,9 +378,33 @@ function parsePayload(
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("Session sync payload is missing tenantId")
   }
-  return { tenantId }
+  const mode = payload.mode
+  if (
+    mode !== undefined &&
+    mode !== "new_or_changed"
+  ) {
+    throw new Error(`Unsupported session sync mode: ${String(mode)}`)
+  }
+
+  const reason = payload.reason
+  if (
+    reason !== undefined &&
+    reason !== "cron_run_pushed" &&
+    reason !== "manual" &&
+    reason !== "repair" &&
+    reason !== "scheduled_backfill"
+  ) {
+    throw new Error(`Unsupported session sync reason: ${String(reason)}`)
+  }
+
+  return { mode, reason, tenantId }
 }
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+export const __testing = {
+  selectCanonicalSessionKeys,
+  shouldReconcileSession,
 }
