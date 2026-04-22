@@ -21,6 +21,8 @@ import {
 } from "./ConversationTurnPrimitives"
 import { WorkspaceChatPromptSuggestions } from "./WorkspaceChatPromptSuggestions"
 
+const MESSAGE_GROUPING_THRESHOLD_MS = 60_000
+
 export interface ConversationMessageListProps {
   bottomInset?: number
   currentUserId?: string
@@ -168,7 +170,7 @@ function getMessageContentRevision(message: WorkspaceChatMessage) {
     .join(":")
 }
 
-function isGroupedWithPreviousMessage(input: {
+export function isGroupedWithPreviousMessage(input: {
   currentMessage: WorkspaceChatMessage
   currentUserId?: string
   previousMessage: WorkspaceChatMessage | undefined
@@ -188,5 +190,14 @@ function isGroupedWithPreviousMessage(input: {
     message: previousMessage,
   })
 
-  return currentKey === previousKey
+  if (currentKey !== previousKey) {
+    return false
+  }
+
+  return (
+    Math.abs(
+      new Date(currentMessage.createdAt).getTime() -
+        new Date(previousMessage.createdAt).getTime(),
+    ) <= MESSAGE_GROUPING_THRESHOLD_MS
+  )
 }
