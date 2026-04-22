@@ -125,7 +125,8 @@ export function ConversationVoiceNoteRecorder({
   return (
     <div className="flex h-10 w-full items-center gap-2">
       <select
-        className="h-8 w-28 max-w-28 shrink-0 rounded-full border border-border/70 bg-muted/20 pl-3 pr-3 text-sm text-foreground"
+        aria-label="Microphone"
+        className="h-8 w-28 max-w-28 shrink-0 rounded-full border border-border/70 bg-muted/20 pl-3 pr-3 text-xs text-foreground"
         disabled={disabled || isUploading}
         onChange={(event) => {
           const nextDeviceId = event.target.value
@@ -148,12 +149,12 @@ export function ConversationVoiceNoteRecorder({
         ))}
       </select>
 
-      <div className="mr-1 flex h-8 min-w-0 flex-1 items-end gap-1 overflow-hidden rounded-full px-2 py-1">
+      <div className="mr-1 flex h-8 min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-full px-2 py-1">
         {recorder.levels.map((level, index) => (
           <span
             aria-hidden
             className={cn(
-              "block w-1 shrink-0 self-end rounded-full bg-foreground/80 transition-[height,opacity] duration-75",
+              "block w-1 shrink-0 rounded-full bg-foreground/80 transition-[height,opacity] duration-75",
               recorder.status === "recording" ? "opacity-100" : "opacity-35",
             )}
             key={VOICE_LEVEL_BAR_KEYS[index]}
@@ -169,6 +170,7 @@ export function ConversationVoiceNoteRecorder({
       </span>
 
       <Button
+        aria-label="Cancel voice note"
         disabled={isUploading}
         onClick={() => {
           shouldAttachOnStopRef.current = false
