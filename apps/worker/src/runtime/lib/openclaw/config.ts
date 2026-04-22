@@ -92,6 +92,7 @@ export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events"
 
 const OPENAI_PROXY_PROVIDER_ID = "openai-proxy"
 const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider"
+const SLACK_PLUGIN_ID = "slack"
 export const OTTO_WEB_SEARCH_PROVIDER_ID = "otto-web-search"
 export const OTTO_WEB_PROVIDER_PLUGIN_ID = "otto-web-provider"
 const OPTIONAL_OTTO_TOOL_PLUGIN_IDS = new Set([
@@ -242,10 +243,18 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   )
   const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch)
   const defaultDisabledPluginEntries = buildDefaultDisabledPluginEntries()
+  const slackPluginEntries = config.slack?.enabled
+    ? {
+        [SLACK_PLUGIN_ID]: {
+          enabled: true,
+        },
+      }
+    : {}
   const pluginIds = [
     ...new Set([
       ...ottoToolPluginIds,
       ...ottoProviderPluginIds,
+      ...Object.keys(slackPluginEntries),
       ...Object.keys(webSearchPluginEntries),
     ]),
   ]
@@ -253,6 +262,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ...defaultDisabledPluginEntries,
     ...ottoToolPluginEntries,
     ...ottoProviderPluginEntries,
+    ...slackPluginEntries,
     ...webSearchPluginEntries,
   }
   const slack = config.slack
