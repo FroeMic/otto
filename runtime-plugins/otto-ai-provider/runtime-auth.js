@@ -1,5 +1,21 @@
 export const DEFAULT_BASE_URL_PATH = "/api/internal/runtime/ai/openai/v1";
 
+export function resolveOpenAiProxyAudioTranscriptionModel(value) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const normalized = trimmed.toLowerCase();
+  return normalized === "undefined" || normalized === "null"
+    ? undefined
+    : trimmed;
+}
+
 export function resolveOpenAiProxyRuntimeAuth(ctx) {
   const proxyBaseUrl =
     normalizeControlPlaneBaseUrl(ctx?.env?.OTTO_OPENAI_PROXY_BASE_URL) ??

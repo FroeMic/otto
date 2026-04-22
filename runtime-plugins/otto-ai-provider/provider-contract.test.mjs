@@ -12,6 +12,7 @@ import {
 import { buildOpenAiProxyReplayPolicy } from "./replay-policy.js";
 import {
   normalizeControlPlaneBaseUrl,
+  resolveOpenAiProxyAudioTranscriptionModel,
   resolveOpenAiProxyApiBaseUrl,
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
@@ -195,6 +196,17 @@ test("openai-proxy audio resolves raw and fully-qualified proxy base URLs", () =
   assert.equal(
     resolveOpenAiProxyApiBaseUrl("https://otto.example/api/internal/runtime/ai/openai/v1"),
     "https://otto.example/api/internal/runtime/ai/openai/v1",
+  );
+});
+
+test("openai-proxy audio ignores missing literal model values", () => {
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel(undefined), undefined);
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel(""), undefined);
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel("undefined"), undefined);
+  assert.equal(resolveOpenAiProxyAudioTranscriptionModel(" null "), undefined);
+  assert.equal(
+    resolveOpenAiProxyAudioTranscriptionModel(" gpt-4o-mini-transcribe "),
+    "gpt-4o-mini-transcribe",
   );
 });
 

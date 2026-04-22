@@ -1,6 +1,6 @@
 {
   "name": "@otto/openclaw-otto-ai-provider",
-  "version": "2026.4.21.2",
+  "version": "2026.4.21.3",
   "private": true,
   "description": "Otto AI provider runtime plugin",
   "type": "module",
