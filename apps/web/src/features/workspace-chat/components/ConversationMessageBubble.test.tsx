@@ -71,6 +71,43 @@ describe("ConversationMessageBubble", () => {
     assert.equal(markup.includes('data-streamdown="strong"'), false)
   })
 
+  it("renders user bubbles with the original flat background styling", () => {
+    const markup = renderToStaticMarkup(
+      <ConversationMessageBubble
+        currentUserId="user_1"
+        events={[]}
+        message={buildUserMessage("Flat bubble please.")}
+        orgSlug="acme"
+      />,
+    )
+
+    const bubbleClass =
+      markup.match(/class="[^"]*bg-secondary[^"]*"/)?.[0] ?? ""
+
+    assert.notEqual(bubbleClass, "")
+    assert.equal(bubbleClass.includes("shadow-sm"), false)
+    assert.equal(bubbleClass.includes("border-primary"), false)
+    assert.equal(bubbleClass.includes("border-transparent"), false)
+  })
+
+  it("renders other-user bubbles without border or shadow", () => {
+    const markup = renderToStaticMarkup(
+      <ConversationMessageBubble
+        currentUserId="another_user"
+        events={[]}
+        message={buildUserMessage("Also flat.")}
+        orgSlug="acme"
+      />,
+    )
+
+    const bubbleClass =
+      markup.match(/class="[^"]*bg-muted\/65[^"]*"/)?.[0] ?? ""
+
+    assert.notEqual(bubbleClass, "")
+    assert.equal(bubbleClass.includes("shadow-sm"), false)
+    assert.equal(bubbleClass.includes("border-border"), false)
+  })
+
   it("does not render assistant markdown images or raw html", () => {
     const markup = renderToStaticMarkup(
       <ConversationMessageBubble

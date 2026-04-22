@@ -139,6 +139,7 @@ export function ConversationMessageBubble({
                   <ConversationMarkdown
                     key={`${message.id}:${index}`}
                     isStreaming={message.status === "streaming"}
+                    orgSlug={orgSlug}
                   >
                     {displayText}
                   </ConversationMarkdown>
@@ -180,14 +181,14 @@ export function ConversationMessageBubble({
         ) : (
           <div
             className={cn(
-              "max-w-[85%] border px-4 py-3 shadow-sm",
+              "max-w-[85%] px-4 py-3",
               turnKind === "current_user" ? "self-end" : "self-start",
               turnKind === "other_user"
-                ? "rounded-[1.15rem] border-border/70 bg-muted/65 text-foreground"
+                ? "rounded-[1.15rem] bg-muted/65 text-foreground"
                 : "rounded-[1.15rem]",
               turnKind === "current_user"
-                ? "border-primary/10 bg-primary/[0.08] text-foreground"
-                : "border-transparent text-foreground",
+                ? "bg-secondary text-foreground"
+                : "text-foreground",
             )}
           >
             {textParts.map((part, index) => (
