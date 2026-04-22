@@ -266,6 +266,46 @@ describe("renderOpenClawConfig", () => {
     ])
   })
 
+  it("enables the bundled Slack plugin when Slack HTTP ingress is configured", () => {
+    const rendered = JSON.parse(
+      renderOpenClawConfig({
+        ...buildConfig(),
+        slack: {
+          ackReactionEnabled: false,
+          allowedChannelIds: [],
+          allowedUserIds: [],
+          answerInThreads: true,
+          channelAccessMode: "member_of_channels",
+          enabled: true,
+          mode: "http",
+          requireMentionInChannels: true,
+          signingSecret: "signing-secret",
+          webhookPath: "/slack/events",
+        },
+      }),
+    ) as {
+      channels: {
+        slack?: {
+          enabled?: boolean
+          mode?: string
+          webhookPath?: string
+        }
+      }
+      plugins: {
+        allow?: string[]
+        entries: Record<string, { enabled: boolean }>
+      }
+    }
+
+    expect(rendered.channels.slack).toMatchObject({
+      enabled: true,
+      mode: "http",
+      webhookPath: "/slack/events",
+    })
+    expect(rendered.plugins.allow).toContain("slack")
+    expect(rendered.plugins.entries.slack).toEqual({ enabled: true })
+  })
+
   it("projects openai-proxy model provider against the dedicated proxy base URL placeholder", () => {
     const previousEnv = saveEnvVars([
       "DATABASE_URL",
