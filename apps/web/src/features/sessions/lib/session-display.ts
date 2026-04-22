@@ -137,7 +137,7 @@ export function formatSessionName(input: {
 
   switch (parsed.kind) {
     case "main":
-      return "Shared DMs (legacy)"
+      return "Heartbeat Session"
 
     case "dm": {
       if (input.subject) return `DM: ${input.subject}`
