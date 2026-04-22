@@ -279,7 +279,7 @@ export function createAgentRouter(
             orgSlug,
             title: "Personalize Otto",
             userExternalId: authResult.user.id,
-            visibility: "personal",
+            visibility: "open",
           })
 
         await dependencies.sendPersonalizationOnboardingMessage({

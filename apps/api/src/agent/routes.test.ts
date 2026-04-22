@@ -276,7 +276,7 @@ describe("agent routes", () => {
         latestMessagePreview: null,
         originKind: "manual",
         title: "Personalize Otto",
-        visibility: "personal",
+        visibility: "open",
       },
     })
     assert.deepEqual(createdConversations, [
@@ -284,7 +284,7 @@ describe("agent routes", () => {
         orgSlug: "otto",
         title: "Personalize Otto",
         userExternalId: "user_123",
-        visibility: "personal",
+        visibility: "open",
       },
     ])
     assert.equal(sentMessages.length, 1)
