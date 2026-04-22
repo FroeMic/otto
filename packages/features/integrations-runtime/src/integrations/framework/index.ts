@@ -36,19 +36,6 @@ export {
   resolvePlatformManagedIntegrationStatus,
   resolveRuntimeIntegrationStatus,
 } from "./status"
-export {
-  buildAndEvaluateIntegrationTestingReadiness,
-  buildIntegrationTestingChecklist,
-  evaluateIntegrationTestingReadiness,
-} from "./testing-harness"
-export type {
-  IntegrationTestCoverageRecord,
-  IntegrationTestType,
-  IntegrationTestingChecklist,
-  IntegrationTestingChecklistItem,
-  IntegrationTestingHarnessResult,
-  IntegrationTestingHarnessScore,
-} from "./testing-harness"
 export type {
   IntegrationAuthBinding,
   IntegrationCapabilityPolicy,
