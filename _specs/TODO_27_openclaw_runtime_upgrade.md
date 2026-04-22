@@ -82,6 +82,11 @@ documented here.
 - Session sync is now additive and audio transcript projection depends on
   OpenClaw session JSONL retaining the workspace chat metadata and transcript
   shape.
+- Live tenant testing found that OpenClaw `2026.4.21` creates workspace-local
+  runtime state under `/home/node/.openclaw/workspace/.openclaw`. Otto now
+  pre-creates only `/opt/openclaw/home/workspace/.openclaw` as
+  `openclaw:openclaw` mode `770` while keeping the managed workspace root
+  `root:openclaw` mode `755`, and the workspace files surface hides `.openclaw`.
 
 ## Risk Register
 
@@ -193,6 +198,31 @@ Mitigation:
   and scheduled-task sync.
 - Confirm websocket scope tightening does not break workspace-visible activity
   and session events.
+
+### Workspace-Local Runtime State
+
+Risk: high.
+
+Live tenant testing after the first `2026.4.21` rollout showed workspace-chat
+turns failing before model execution with:
+
+```text
+EACCES: permission denied, mkdir '/home/node/.openclaw/workspace/.openclaw'
+```
+
+Otto deliberately keeps `/opt/openclaw/home/workspace` non-writable by the
+runtime user so managed bootstrap files cannot be edited directly from the
+runtime. OpenClaw now needs a writable workspace-local state directory under
+that root.
+
+Mitigation:
+
+- Pre-create `/opt/openclaw/home/workspace/.openclaw` as `openclaw:openclaw`
+  mode `770` during tenant runtime permission normalization.
+- Keep `/opt/openclaw/home/workspace` owned by `root:openclaw` mode `755`.
+- Hide `.openclaw` and its children from the workspace settings/files surface.
+- Re-apply tenant config or run the permission normalization path on upgraded
+  tenants before re-testing workspace chat.
 
 ### Session Transcript Projection
 
@@ -359,6 +389,9 @@ Pending live canary.
 
 ### Phase 6: Workspace Chat And Session Projection Canary
 
+- [x] Patch live tenant permission regression where OpenClaw `2026.4.21` needs
+  workspace-local `.openclaw` state under the protected managed workspace root.
+- [x] Hide `.openclaw` from the workspace settings/files surface.
 - [ ] Workspace chat text turn succeeds.
 - [ ] Workspace chat attachment turn succeeds.
 - [ ] Workspace chat voice-note turn succeeds.
@@ -379,6 +412,15 @@ Owner-command decision:
 
 ```text
 Pending live canary.
+```
+
+Live canary finding:
+
+```text
+Workspace-chat turns initially failed before model execution because the
+runtime user could not create /home/node/.openclaw/workspace/.openclaw. The
+hotfix keeps the workspace root protected and creates only that state directory
+as writable.
 ```
 
 ### Phase 7: Scheduled Tasks Canary
@@ -494,6 +536,8 @@ Exit criteria:
 - [x] Runtime defaults bumped.
 - [x] Tests passed.
 - [x] Local image built.
+- [x] Workspace-local `.openclaw` state permission hotfix added after live
+  tenant failure.
 - [ ] Tenant-like local boot verified.
 - [ ] Custom image published.
 - [ ] Single-tenant canary passed.
