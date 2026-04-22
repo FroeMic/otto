@@ -38,7 +38,15 @@ export async function handleIntegrationWebhookRequest(input: {
   provider: string
   request: Request
 }) {
+  const requestPath = new URL(input.request.url).pathname
+
   if (input.provider !== SLACK_PROVIDER_KEY) {
+    console.warn("[integration-webhook] unsupported provider", {
+      endpointKey: input.endpointKey,
+      path: requestPath,
+      provider: input.provider,
+    })
+
     return Response.json(
       {
         error: `Unsupported integration ingress provider: ${input.provider}`,
@@ -48,6 +56,12 @@ export async function handleIntegrationWebhookRequest(input: {
   }
 
   if (!isSupportedSlackEndpointKey(input.endpointKey)) {
+    console.warn("[integration-webhook] unsupported endpoint", {
+      endpointKey: input.endpointKey,
+      path: requestPath,
+      provider: input.provider,
+    })
+
     return Response.json(
       {
         error: `Unsupported ${input.provider} ingress endpoint: ${input.endpointKey}`,
@@ -63,6 +77,14 @@ export async function handleIntegrationWebhookRequest(input: {
       requestType: input.endpointKey,
     })
 
+    console.info("[integration-webhook] slack request parsed", {
+      directResponse: Boolean(parsed.directResponse),
+      endpointKey: input.endpointKey,
+      enterpriseId: parsed.enterpriseId,
+      path: requestPath,
+      teamId: parsed.teamId,
+    })
+
     if (parsed.directResponse) {
       return new Response(parsed.directResponse.body, {
         headers: {
@@ -73,6 +95,11 @@ export async function handleIntegrationWebhookRequest(input: {
     }
 
     if (!parsed.teamId) {
+      console.warn("[integration-webhook] slack request missing team_id", {
+        endpointKey: input.endpointKey,
+        path: requestPath,
+      })
+
       return Response.json(
         {
           error: "Unable to determine Slack team_id for ingress routing.",
@@ -85,7 +112,7 @@ export async function handleIntegrationWebhookRequest(input: {
       body,
       enterpriseId: parsed.enterpriseId,
       headers: buildForwardedSlackHeaders(input.request),
-      requestPath: new URL(input.request.url).pathname,
+      requestPath,
       requestType: input.endpointKey,
       teamId: parsed.teamId,
     })
@@ -111,6 +138,14 @@ export async function handleIntegrationWebhookRequest(input: {
     const message =
       error instanceof Error ? error.message : "Slack ingress handling failed"
     const status = resolveSlackIngressErrorStatus(message)
+
+    console.warn("[integration-webhook] slack request failed", {
+      endpointKey: input.endpointKey,
+      message,
+      path: requestPath,
+      provider: input.provider,
+      status,
+    })
 
     return Response.json(
       {

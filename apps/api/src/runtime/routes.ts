@@ -124,6 +124,11 @@ export function registerRuntimeRoutes(app: Hono) {
   registerTenantRuntimeBridgeStatusRoutes(app)
 
   app.post("/api/webhooks/integrations/:provider/:endpointKey", (context) => {
+    logIntegrationWebhookRouteHit(context.req.raw, {
+      endpointKey: context.req.param("endpointKey") ?? "",
+      provider: context.req.param("provider") ?? "",
+    })
+
     return handleIntegrationWebhookRequest({
       endpointKey: context.req.param("endpointKey") ?? "",
       provider: context.req.param("provider") ?? "",
@@ -967,6 +972,31 @@ function validateSessionSyncPayload(body: unknown): TenantSessionUpsertInput[] {
       transcriptHash: optString(record.transcriptHash),
       transcriptJsonl: optString(record.transcriptJsonl),
     } satisfies TenantSessionUpsertInput
+  })
+}
+
+function logIntegrationWebhookRouteHit(
+  request: Request,
+  input: {
+    endpointKey: string
+    provider: string
+  },
+) {
+  const url = new URL(request.url)
+
+  console.info("[integration-webhook] route received", {
+    contentType: request.headers.get("content-type"),
+    endpointKey: input.endpointKey,
+    method: request.method,
+    path: url.pathname,
+    provider: input.provider,
+    slackRetryNum: request.headers.get("x-slack-retry-num"),
+    slackRetryReason: request.headers.get("x-slack-retry-reason"),
+    slackSignaturePresent: Boolean(request.headers.get("x-slack-signature")),
+    slackTimestampPresent: Boolean(
+      request.headers.get("x-slack-request-timestamp"),
+    ),
+    userAgent: request.headers.get("user-agent"),
   })
 }
 
