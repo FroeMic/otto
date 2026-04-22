@@ -264,8 +264,8 @@ Purpose: add real Docker host lifecycle parity for short-lived tenant labs.
 
 ## Status checklist
 
-- [ ] Phase 0: explicit provider config + compatibility fallback + tests
-- [ ] Phase 1: provider abstraction + provisioning refactor + shared delete routing
+- [x] Phase 0: explicit provider config + compatibility fallback + tests
+- [x] Phase 1: provider abstraction + provisioning refactor + shared delete routing
 - [ ] Phase 2: schema + connection metadata + second-provider setup
 - [ ] Phase 3: Docker provider create/get/wait/delete implementation
 - [ ] Phase 3: Docker provisioning parity through runtime bootstrap/start/verify
