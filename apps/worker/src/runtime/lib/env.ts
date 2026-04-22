@@ -135,9 +135,7 @@ const envSchema = z.object({
     .positive()
     .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
-  TENANT_RUNTIME_PROVIDER: z
-    .enum(PROVISIONING_PROVIDER_ENV_VALUES)
-    .optional(),
+  TENANT_RUNTIME_PROVIDER: z.enum(PROVISIONING_PROVIDER_ENV_VALUES).optional(),
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -484,5 +482,7 @@ function resolveProvisioningProviderMode(input: {
 function isProvisioningProviderMode(
   value: string,
 ): value is ProvisioningProviderMode {
-  return PROVISIONING_PROVIDER_VALUES.includes(value as ProvisioningProviderMode)
+  return PROVISIONING_PROVIDER_VALUES.includes(
+    value as ProvisioningProviderMode,
+  )
 }
