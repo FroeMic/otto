@@ -48,14 +48,14 @@ function createDependencies(): PlatformRouteDependencies {
         totalDebitedCreditsMilli: 50_000,
         totalGrantedCreditsMilli: 150_000,
       },
-      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-      configuredRuntimeImageVersion: "2026.4.15",
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+      configuredRuntimeImageVersion: "2026.4.21",
       id: "org_1",
       isReady: true,
       locale: "en-US",
       name: "Interaction42",
-      observedRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-      observedRuntimeImageVersion: "2026.4.15",
+      observedRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+      observedRuntimeImageVersion: "2026.4.21",
       slackIntegration: null,
       slug: "interaction42",
       tenant: {
@@ -78,8 +78,8 @@ function createDependencies(): PlatformRouteDependencies {
       timezone: "UTC",
     }),
     createPlatformOrganization: async ({ name, slug }) => ({
-      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-      configuredRuntimeImageVersion: "2026.4.15",
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+      configuredRuntimeImageVersion: "2026.4.21",
       id: "org_new",
       isReady: false,
       locale: "en-US",
@@ -103,14 +103,14 @@ function createDependencies(): PlatformRouteDependencies {
     }),
     getPlatformOrganizations: async () => [
       {
-        configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-        configuredRuntimeImageVersion: "2026.4.15",
+        configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+        configuredRuntimeImageVersion: "2026.4.21",
         id: "org_1",
         isReady: true,
         locale: "en-US",
         name: "Interaction42",
-        observedRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-        observedRuntimeImageVersion: "2026.4.15",
+        observedRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+        observedRuntimeImageVersion: "2026.4.21",
         slackIntegration: null,
         slug: "interaction42",
         tenant: {
@@ -281,8 +281,8 @@ describe("platform routes", () => {
 
     assert.equal(response.status, 200)
     assert.deepEqual(data.organization, {
-      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.15",
-      configuredRuntimeImageVersion: "2026.4.15",
+      configuredRuntimeImage: "ghcr.io/froemic/openclaw:2026.4.21",
+      configuredRuntimeImageVersion: "2026.4.21",
       id: "org_new",
       isReady: false,
       locale: "en-US",
