@@ -159,20 +159,18 @@ export function ConversationMessageBubble({
                     </AttachmentChip>
                   ))}
                   {audioParts.map((part, index) => (
-                    <AudioAttachmentChip
+                    <AudioAttachmentBlock
                       key={`${message.id}:audio:${index}`}
                       attachmentId={part.attachmentId}
                       className="bg-muted/40"
-                      label={
-                        part.transcript?.trim() ||
-                        formatAudioPartLabel(part.durationMs)
-                      }
+                      label={formatAudioPartLabel(part.durationMs)}
                       isPlaying={playingAudioAttachmentId === part.attachmentId}
                       orgSlug={orgSlug}
+                      transcript={part.transcript}
                       onTogglePlayback={toggleAudioAttachmentPlayback}
                     >
                       <WaveformIcon className="size-3.5 shrink-0" />
-                    </AudioAttachmentChip>
+                    </AudioAttachmentBlock>
                   ))}
                 </div>
               ) : null}
@@ -214,20 +212,18 @@ export function ConversationMessageBubble({
                   </AttachmentChip>
                 ))}
                 {audioParts.map((part, index) => (
-                  <AudioAttachmentChip
+                  <AudioAttachmentBlock
                     key={`${message.id}:audio:${index}`}
                     attachmentId={part.attachmentId}
                     className="bg-background/70"
-                    label={
-                      part.transcript?.trim() ||
-                      formatAudioPartLabel(part.durationMs)
-                    }
+                    label={formatAudioPartLabel(part.durationMs)}
                     isPlaying={playingAudioAttachmentId === part.attachmentId}
                     orgSlug={orgSlug}
+                    transcript={part.transcript}
                     onTogglePlayback={toggleAudioAttachmentPlayback}
                   >
                     <WaveformIcon className="size-3.5 shrink-0" />
-                  </AudioAttachmentChip>
+                  </AudioAttachmentBlock>
                 ))}
               </div>
             ) : null}
@@ -297,66 +293,77 @@ function AttachmentChip({
   )
 }
 
-interface AudioAttachmentChipProps extends AttachmentChipProps {
+interface AudioAttachmentBlockProps extends AttachmentChipProps {
   isPlaying: boolean
   onTogglePlayback: (attachmentId: string) => Promise<void>
+  transcript?: string
 }
 
-function AudioAttachmentChip({
+function AudioAttachmentBlock({
   attachmentId,
   children,
   className,
   isPlaying,
   label,
   orgSlug,
+  transcript,
   onTogglePlayback,
-}: AudioAttachmentChipProps) {
+}: AudioAttachmentBlockProps) {
+  const normalizedTranscript = transcript?.trim()
+
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-      <span>{label}</span>
-      <button
-        aria-label={isPlaying ? `Pause ${label}` : `Play ${label}`}
-        className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
-        onClick={() => {
-          void onTogglePlayback(attachmentId)
-        }}
-        type="button"
-      >
-        {isPlaying ? (
-          <PauseIcon className="size-3.5" weight="fill" />
-        ) : (
-          <PlayIcon className="size-3.5" weight="fill" />
+    <span className="flex max-w-full flex-col gap-1.5">
+      <span
+        className={cn(
+          "inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
+          className,
         )}
-      </button>
-      <button
-        aria-label={`Download ${label}`}
-        className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
-        onClick={() => {
-          void (async () => {
-            try {
-              await downloadWorkspaceAttachment({
-                attachmentId,
-                orgSlug,
-              })
-            } catch (error) {
-              toast.error(
-                error instanceof Error
-                  ? error.message
-                  : "Attachment download failed.",
-              )
-            }
-          })()
-        }}
-        type="button"
       >
-        <DownloadSimpleIcon className="size-3.5" />
-      </button>
+        {children}
+        <span>{label}</span>
+        <button
+          aria-label={isPlaying ? `Pause ${label}` : `Play ${label}`}
+          className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
+          onClick={() => {
+            void onTogglePlayback(attachmentId)
+          }}
+          type="button"
+        >
+          {isPlaying ? (
+            <PauseIcon className="size-3.5" weight="fill" />
+          ) : (
+            <PlayIcon className="size-3.5" weight="fill" />
+          )}
+        </button>
+        <button
+          aria-label={`Download ${label}`}
+          className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
+          onClick={() => {
+            void (async () => {
+              try {
+                await downloadWorkspaceAttachment({
+                  attachmentId,
+                  orgSlug,
+                })
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Attachment download failed.",
+                )
+              }
+            })()
+          }}
+          type="button"
+        >
+          <DownloadSimpleIcon className="size-3.5" />
+        </button>
+      </span>
+      {normalizedTranscript ? (
+        <span className="max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
+          {normalizedTranscript}
+        </span>
+      ) : null}
     </span>
   )
 }

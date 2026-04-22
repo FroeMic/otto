@@ -9,6 +9,7 @@ import {
   workspaceChatMessages,
   workspaceChatRuntimeSegments,
 } from "@otto/feature-integrations-runtime/db/schema"
+import { extractWorkspaceAudioTranscriptsFromSessionJsonl } from "@otto/feature-runtime-core/sessions/audio-transcripts"
 import type {
   WorkspaceChatConversationDetailResponse,
   WorkspaceChatConversationListResponse,
@@ -238,6 +239,94 @@ export function mapWorkspaceChatMessageEventRecord(
     summary: record.summary ?? undefined,
     title: record.title ?? undefined,
     type: record.eventType as WorkspaceChatMessageEvent["type"],
+  }
+}
+
+export async function projectWorkspaceChatAudioTranscriptsFromSessionTranscript(input: {
+  publishRealtime?: boolean
+  tenantId: string
+  transcriptJsonl: string | null | undefined
+}) {
+  const observations = extractWorkspaceAudioTranscriptsFromSessionJsonl(
+    input.transcriptJsonl,
+  )
+  if (observations.length === 0) {
+    return { updatedMessages: 0, updatedParts: 0 }
+  }
+
+  const transcriptByMessageId = new Map(
+    observations.map((observation) => [
+      observation.messageId,
+      observation.transcript,
+    ]),
+  )
+  const messageIds = [...transcriptByMessageId.keys()]
+  const db = getDb()
+  const audioPartRows = await db
+    .select({
+      conversationId: workspaceChatMessages.conversationId,
+      id: workspaceChatMessageParts.id,
+      messageId: workspaceChatMessageParts.messageId,
+      textValue: workspaceChatMessageParts.textValue,
+    })
+    .from(workspaceChatMessageParts)
+    .innerJoin(
+      workspaceChatMessages,
+      eq(workspaceChatMessageParts.messageId, workspaceChatMessages.id),
+    )
+    .innerJoin(
+      workspaceChatConversations,
+      eq(workspaceChatMessages.conversationId, workspaceChatConversations.id),
+    )
+    .where(
+      and(
+        eq(workspaceChatConversations.tenantId, input.tenantId),
+        eq(workspaceChatMessageParts.partKind, "audio"),
+        inArray(workspaceChatMessageParts.messageId, messageIds),
+      ),
+    )
+
+  const updatedConversationByMessageId = new Map<string, string>()
+  let updatedParts = 0
+
+  for (const partRow of audioPartRows) {
+    const transcript = transcriptByMessageId.get(partRow.messageId)
+    if (!transcript || partRow.textValue === transcript) {
+      continue
+    }
+
+    await db
+      .update(workspaceChatMessageParts)
+      .set({
+        textValue: transcript,
+      })
+      .where(eq(workspaceChatMessageParts.id, partRow.id))
+
+    updatedParts += 1
+    updatedConversationByMessageId.set(
+      partRow.messageId,
+      partRow.conversationId,
+    )
+  }
+
+  if (input.publishRealtime) {
+    for (const [messageId, conversationId] of updatedConversationByMessageId) {
+      const message = await getWorkspaceChatMessageById(messageId)
+      if (!message) {
+        continue
+      }
+
+      await publishWorkspaceChatRealtimeEvent({
+        conversationId,
+        message,
+        type: "conversation.message_upserted",
+      })
+    }
+  }
+
+  return {
+    updatedMessages: updatedConversationByMessageId.size,
+    updatedParts,
   }
 }
 

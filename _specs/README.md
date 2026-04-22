@@ -90,6 +90,7 @@ This folder is the source of truth for implementation planning and session-to-se
 34. `TODO_33_skill_library_and_installed_skills_ux.md`
 35. `TODO_35_posthog_integration.md`
 36. `TODO_36_openai_proxy_native_quality_rewrite.md`
+37. `DONE_37_audio_transcript_projection.md`
 
 ## Trigger.dev decision
 

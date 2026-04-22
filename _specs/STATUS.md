@@ -872,6 +872,11 @@
   - shipping an `otto-session-reporter` runtime plugin that pushes lifecycle and transcript updates to the workspace app
   - adding a reconciliation worker job that repairs missed transcript or terminal-state updates
   - replacing the sessions placeholder route with real history and detail views
+- A completed follow-up spec now captures audio transcript projection:
+  - `_specs/DONE_37_audio_transcript_projection.md`
+  - OpenClaw remains responsible for native audio transcription
+  - session sync projects workspace voice-note transcripts back into existing workspace chat audio message parts
+  - the Sessions UI renders cleaned transcript text instead of the raw `[Audio]` envelope
 - When workspace chat becomes active work, implement `TODO_21_workspace_multiplayer_chat_and_web_channel.md` by:
   - treat the first backend half of Increment 1 as now in place:
     - conversation, message, message-part, and runtime-segment tables now exist in the shared schema
