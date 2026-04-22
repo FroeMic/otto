@@ -41,6 +41,10 @@ This is the voice note transcript.`,
         text: "Voice note attached.",
         type: "text",
       },
+      {
+        text: "This is the voice note transcript.",
+        type: "audio_transcript",
+      },
     ])
   })
 })

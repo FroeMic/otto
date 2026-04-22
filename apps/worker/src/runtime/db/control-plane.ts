@@ -9396,7 +9396,7 @@ async function compileTenantDesiredStateConfig(
 
     config.media = {
       audio: {
-        attachmentsMode: "first",
+        attachmentsMode: "all",
         echoTranscript: false,
         enabled: true,
         maxBytes: 20 * 1024 * 1024,

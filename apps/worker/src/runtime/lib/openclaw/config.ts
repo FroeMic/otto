@@ -19,6 +19,7 @@ export type OpenClawAudioModelConfig = {
 }
 
 export type OpenClawTenantAudioConfig = {
+  attachmentsMode?: "all" | "first"
   echoTranscript?: boolean
   enabled: boolean
   maxBytes?: number
@@ -363,6 +364,11 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     ? {
         media: {
           audio: {
+            ...(config.audio.attachmentsMode
+              ? {
+                  attachmentsMode: config.audio.attachmentsMode,
+                }
+              : {}),
             ...(typeof config.audio.echoTranscript === "boolean"
               ? {
                   echoTranscript: config.audio.echoTranscript,
@@ -859,6 +865,12 @@ function parseAudioConfig(
   }
 
   return {
+    ...(audioConfig.attachmentsMode === "all" ||
+    audioConfig.attachmentsMode === "first"
+      ? {
+          attachmentsMode: audioConfig.attachmentsMode,
+        }
+      : {}),
     ...(typeof audioConfig.echoTranscript === "boolean"
       ? {
           echoTranscript: audioConfig.echoTranscript,
