@@ -2,8 +2,8 @@ import { and, eq } from "drizzle-orm"
 
 import { getDb } from "../../db/client"
 import {
-  ensureTenantRuntimeTenantToken,
   ensureCurrentTenantDesiredStateVersion,
+  ensureTenantRuntimeTenantToken,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
   getManagedSkillVersionMapFromConfigJson,
@@ -16,10 +16,7 @@ import {
   listLatestTenantManagedSkillVersionMapForTenant,
   listProjectedManagedSkillFilesForTenant,
 } from "../../db/managed-skills"
-import {
-  tenantApplyRuns,
-  tenantIntegrations,
-} from "../../db/schema"
+import { tenantApplyRuns, tenantIntegrations } from "../../db/schema"
 import { buildOpenClawTenantConfig } from "../openclaw/config"
 import { getTenantRuntimeConnection } from "../runtime/connection"
 import { RuntimeManager } from "../runtime/manager"
@@ -447,11 +444,10 @@ async function reconcileDesiredStateForApply(input: {
   payloadDesiredStateVersion: number
   tenantId: string
 }) {
-  const currentDesiredState = await input.ensureCurrentTenantDesiredStateVersion(
-    {
+  const currentDesiredState =
+    await input.ensureCurrentTenantDesiredStateVersion({
       tenantId: input.tenantId,
-    },
-  )
+    })
 
   if (currentDesiredState.version !== input.payloadDesiredStateVersion) {
     return {
