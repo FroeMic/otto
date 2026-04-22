@@ -6,5 +6,7 @@ export interface ShimmerTextProps {
 }
 
 export function ShimmerText({ children, className }: ShimmerTextProps) {
-  return <span className={cn("workspace-trace-shimmer", className)}>{children}</span>
+  return (
+    <span className={cn("workspace-trace-shimmer", className)}>{children}</span>
+  )
 }

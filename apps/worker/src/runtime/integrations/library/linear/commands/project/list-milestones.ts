@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearProjectChildCollectionCommandResult,
@@ -9,7 +9,7 @@ import {
   type LinearProjectNode,
   mapLinearProjectMilestone,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_PROJECT_MILESTONES_QUERY = `
   query OttoLinearProjectListMilestones($id: String!, $limit: Int!) {
@@ -22,34 +22,34 @@ const LIST_PROJECT_MILESTONES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearProjectListMilestones: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const projectId =
-      typeof args.projectId === "string" ? args.projectId.trim() : "";
+      typeof args.projectId === "string" ? args.projectId.trim() : ""
 
     if (!projectId) {
-      throw new Error("linear project.list_milestones requires projectId.");
+      throw new Error("linear project.list_milestones requires projectId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       project?:
         | (LinearProjectNode & {
             projectMilestones?: {
-              nodes?: LinearProjectMilestoneNode[] | null;
-            } | null;
+              nodes?: LinearProjectMilestoneNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_PROJECT_MILESTONES_QUERY,
@@ -57,10 +57,10 @@ export const executeLinearProjectListMilestones: IntegrationCommandExecute =
         id: projectId,
         limit,
       },
-    });
+    })
 
     if (!data.project) {
-      throw new Error(`Linear could not find project ${projectId}.`);
+      throw new Error(`Linear could not find project ${projectId}.`)
     }
 
     return buildLinearProjectChildCollectionCommandResult({
@@ -70,5 +70,5 @@ export const executeLinearProjectListMilestones: IntegrationCommandExecute =
       ),
       limit,
       project: data.project,
-    });
-  };
+    })
+  }

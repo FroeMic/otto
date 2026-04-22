@@ -1,13 +1,5 @@
-import { useEffect, useState } from "react"
 import { useTheme } from "next-themes"
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { useEffect, useState } from "react"
 import {
   SettingsCard,
   SettingsRow,
@@ -15,6 +7,13 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const themeOptions = [
   { label: "System preference", value: "system" },

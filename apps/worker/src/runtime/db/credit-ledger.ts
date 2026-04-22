@@ -1,50 +1,49 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto"
 
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-
-import { getDb } from "./client";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
+import type { OpenAiUsageBucketPricingDecision } from "../lib/billing/openai-credit-pricing"
+import { CREDIT_LEDGER_ENTRY_TYPES } from "../lib/billing/openai-credit-pricing"
+import { getDb } from "./client"
 import {
   creditLedgerEntries,
   providerUsageBuckets,
   providerUsageSettlements,
-} from "./schema";
-import type { OpenAiUsageBucketPricingDecision } from "../lib/billing/openai-credit-pricing";
-import { CREDIT_LEDGER_ENTRY_TYPES } from "../lib/billing/openai-credit-pricing";
+} from "./schema"
 
-const PROVIDER_USAGE_BUCKET_SOURCE_TYPE = "provider_usage_bucket";
-const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant";
+const PROVIDER_USAGE_BUCKET_SOURCE_TYPE = "provider_usage_bucket"
+const PLATFORM_MANUAL_GRANT_SOURCE_TYPE = "platform_manual_grant"
 
 function numberFromValue(value: unknown) {
   if (typeof value === "number") {
-    return value;
+    return value
   }
 
   if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
   }
 
-  return 0;
+  return 0
 }
 
 function dateFromValue(value: unknown) {
   if (value instanceof Date) {
-    return value;
+    return value
   }
 
   if (typeof value === "string" || typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 
-  return null;
+  return null
 }
 
 export async function listUnsettledProviderUsageBuckets(input?: {
-  limit?: number;
+  limit?: number
 }) {
-  const db = getDb();
-  const limit = input?.limit ?? 200;
+  const db = getDb()
+  const limit = input?.limit ?? 200
 
   return db
     .select({
@@ -83,17 +82,17 @@ export async function listUnsettledProviderUsageBuckets(input?: {
       asc(providerUsageBuckets.bucketStartAt),
       asc(providerUsageBuckets.createdAt),
     )
-    .limit(limit);
+    .limit(limit)
 }
 
 export async function listUnsettledProviderUsageBucketsByIds(input: {
-  bucketIds: string[];
+  bucketIds: string[]
 }) {
   if (input.bucketIds.length === 0) {
-    return [];
+    return []
   }
 
-  const db = getDb();
+  const db = getDb()
 
   return db
     .select({
@@ -136,11 +135,11 @@ export async function listUnsettledProviderUsageBucketsByIds(input: {
     .orderBy(
       asc(providerUsageBuckets.bucketStartAt),
       asc(providerUsageBuckets.createdAt),
-    );
+    )
 }
 
 async function getCreditLedgerEntryIdBySource(input: { sourceId: string }) {
-  const db = getDb();
+  const db = getDb()
   const [entry] = await db
     .select({
       id: creditLedgerEntries.id,
@@ -157,22 +156,22 @@ async function getCreditLedgerEntryIdBySource(input: { sourceId: string }) {
       ),
     )
     .orderBy(desc(creditLedgerEntries.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return entry?.id ?? null;
+  return entry?.id ?? null
 }
 
 export async function recordProviderUsageSettlement(input: {
-  bucketId: string;
-  decision: OpenAiUsageBucketPricingDecision;
-  providerAccountId: string;
-  tenantId: string;
+  bucketId: string
+  decision: OpenAiUsageBucketPricingDecision
+  providerAccountId: string
+  tenantId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   return db.transaction(async (tx) => {
-    let ledgerEntryId: string | null = null;
+    let ledgerEntryId: string | null = null
 
     if (input.decision.creditsBurnedMilli > 0) {
       const [insertedLedgerEntry] = await tx
@@ -195,11 +194,11 @@ export async function recordProviderUsageSettlement(input: {
         })
         .returning({
           id: creditLedgerEntries.id,
-        });
+        })
 
       ledgerEntryId =
         insertedLedgerEntry?.id ??
-        (await getCreditLedgerEntryIdBySource({ sourceId: input.bucketId }));
+        (await getCreditLedgerEntryIdBySource({ sourceId: input.bucketId }))
     }
 
     const [insertedSettlement] = await tx
@@ -223,22 +222,22 @@ export async function recordProviderUsageSettlement(input: {
       })
       .returning({
         id: providerUsageSettlements.id,
-      });
+      })
 
-    return insertedSettlement?.id ?? null;
-  });
+    return insertedSettlement?.id ?? null
+  })
 }
 
 export async function createManualCreditGrant(input: {
-  creditsDeltaMilli: number;
-  description: string;
-  tenantId: string;
+  creditsDeltaMilli: number
+  description: string
+  tenantId: string
 }) {
   if (input.creditsDeltaMilli <= 0) {
-    throw new Error("Manual credit grants must be positive.");
+    throw new Error("Manual credit grants must be positive.")
   }
 
-  const db = getDb();
+  const db = getDb()
   const [entry] = await db
     .insert(creditLedgerEntries)
     .values({
@@ -254,23 +253,23 @@ export async function createManualCreditGrant(input: {
       createdAt: creditLedgerEntries.createdAt,
       creditsDeltaMilli: creditLedgerEntries.creditsDeltaMilli,
       id: creditLedgerEntries.id,
-    });
+    })
 
   if (!entry) {
-    throw new Error("Failed to create manual credit grant.");
+    throw new Error("Failed to create manual credit grant.")
   }
 
   return {
     createdAt: entry.createdAt,
     creditsDeltaMilli: entry.creditsDeltaMilli,
     id: entry.id,
-  };
+  }
 }
 
 export async function getTenantCreditBalanceSummary(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [summary] = await db
     .select({
       currentBalanceCreditsMilli: sql`coalesce(sum(${creditLedgerEntries.creditsDeltaMilli}), 0)`,
@@ -279,7 +278,7 @@ export async function getTenantCreditBalanceSummary(input: {
       totalGrantedCreditsMilli: sql`coalesce(sum(case when ${creditLedgerEntries.creditsDeltaMilli} > 0 then ${creditLedgerEntries.creditsDeltaMilli} else 0 end), 0)`,
     })
     .from(creditLedgerEntries)
-    .where(eq(creditLedgerEntries.tenantId, input.tenantId));
+    .where(eq(creditLedgerEntries.tenantId, input.tenantId))
 
   return {
     currentBalanceCreditsMilli: numberFromValue(
@@ -292,10 +291,10 @@ export async function getTenantCreditBalanceSummary(input: {
     totalGrantedCreditsMilli: numberFromValue(
       summary?.totalGrantedCreditsMilli,
     ),
-  };
+  }
 }
 
 export async function getTenantCreditBalanceMilli(tenantId: string) {
-  const summary = await getTenantCreditBalanceSummary({ tenantId });
-  return summary.currentBalanceCreditsMilli;
+  const summary = await getTenantCreditBalanceSummary({ tenantId })
+  return summary.currentBalanceCreditsMilli
 }

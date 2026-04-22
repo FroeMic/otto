@@ -1,6 +1,6 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
-import { executeLinearGraphql, normalizeLimit } from "../../client";
+import { executeLinearGraphql, normalizeLimit } from "../../client"
 
 const LIST_USERS_QUERY = `
   query OttoLinearListUsers($limit: Int!) {
@@ -15,37 +15,37 @@ const LIST_USERS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceListUsers: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       users?: {
         nodes?: Array<{
-          active?: boolean | null;
-          admin?: boolean | null;
-          displayName?: string | null;
-          email?: string | null;
-          id: string;
-          name?: string | null;
-        }> | null;
-      } | null;
+          active?: boolean | null
+          admin?: boolean | null
+          displayName?: string | null
+          email?: string | null
+          id: string
+          name?: string | null
+        }> | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_USERS_QUERY,
       variables: {
         limit,
       },
-    });
+    })
 
     return {
       commandKey: "workspace.list_users",
@@ -64,5 +64,5 @@ export const executeLinearWorkspaceListUsers: IntegrationCommandExecute =
       })),
       limit,
       source: "linear",
-    };
-  };
+    }
+  }

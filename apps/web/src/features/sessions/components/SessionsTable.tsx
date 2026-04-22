@@ -1,12 +1,12 @@
 import { CalendarBlankIcon } from "@phosphor-icons/react"
+import { Link } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import { Link } from "@tanstack/react-router"
 
 import { DataTable } from "@/components/data-table"
+import { ToolbarSearchInput } from "@/components/toolbar-search-input"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { ToolbarSearchInput } from "@/components/toolbar-search-input"
 import type { WorkspaceDateTimePreferences } from "@/features/workspace/date-time"
 import { cn } from "@/lib/utils"
 
@@ -267,7 +267,9 @@ function createColumns(input: {
                   input.dateTimePreferences,
                 )
               : formatShortDateTime(
-                  row.original.startedAt ? new Date(row.original.startedAt) : null,
+                  row.original.startedAt
+                    ? new Date(row.original.startedAt)
+                    : null,
                   input.dateTimePreferences,
                 )}
           </span>
@@ -335,8 +337,9 @@ export function SessionsTable({
         subject: session.subject,
       }).toLowerCase()
       const status = session.status.toLowerCase()
-      const provider = getProviderLabel(parseSessionKey(session.sessionKey).provider)
-        .toLowerCase()
+      const provider = getProviderLabel(
+        parseSessionKey(session.sessionKey).provider,
+      ).toLowerCase()
 
       return (
         name.includes(query) ||

@@ -1,4 +1,4 @@
-import type { AgentCapability } from "../../../lib/agent-capabilities";
+import type { AgentCapability } from "../../../lib/agent-capabilities"
 
 export const braveAgentCapabilities: AgentCapability[] = [
   {
@@ -19,7 +19,7 @@ export const braveAgentCapabilities: AgentCapability[] = [
     openclawTool: "web_search",
     source: "conditional",
   },
-];
+]
 
 export const braveFieldMeanings = [
   {
@@ -59,7 +59,7 @@ export const braveFieldMeanings = [
     key: "managedBy",
     label: "Managed by",
   },
-] as const;
+] as const
 
 export const braveSettingsExamples = [
   {
@@ -67,4 +67,4 @@ export const braveSettingsExamples = [
     description:
       "Inspect the current Brave provider defaults and status. Brave is platform-managed and read-only in the workspace.",
   },
-];
+]

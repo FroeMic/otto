@@ -1,12 +1,12 @@
 import {
-  billingCheckoutSchema,
-  billingOverviewSchema,
-  billingPreferencesResponseSchema,
-  billingUrlResponseSchema,
   type BillingOverview,
   type BillingPreferences,
   type BillingPreferencesResponse,
   type BillingUrlResponse,
+  billingCheckoutSchema,
+  billingOverviewSchema,
+  billingPreferencesResponseSchema,
+  billingUrlResponseSchema,
 } from "@otto/feature-billing"
 import { queryOptions } from "@tanstack/react-query"
 
@@ -31,12 +31,13 @@ export function parseBillingUrlResponse(data: unknown): BillingUrlResponse {
 export function billingOverviewQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].billing.overview.$get({
-          param: {
-            orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[
+        ":orgSlug"
+      ].billing.overview.$get({
+        param: {
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, parseBillingOverview)
     },
@@ -49,13 +50,14 @@ export async function updateBillingPreferences(input: {
   orgSlug: string
   preferences: BillingPreferences
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].billing.preferences.$post({
-      json: input.preferences,
-      param: {
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].billing.preferences.$post({
+    json: input.preferences,
+    param: {
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, parseBillingPreferencesResponse).then(
     (data) => data.preferences,
@@ -66,15 +68,16 @@ export async function startBillingCheckout(input: {
   orgSlug: string
   planKey: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].billing.checkout.$post({
-      json: billingCheckoutSchema.parse({
-        planKey: input.planKey,
-      }),
-      param: {
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].billing.checkout.$post({
+    json: billingCheckoutSchema.parse({
+      planKey: input.planKey,
+    }),
+    param: {
+      orgSlug: input.orgSlug,
+    },
+  })
   const data = await fetchApiResponse(response, parseBillingUrlResponse)
 
   if (!data.url) {
@@ -85,13 +88,13 @@ export async function startBillingCheckout(input: {
 }
 
 export async function openBillingPortal(orgSlug: string) {
-  const response = await apiClient.api.workspace[":orgSlug"].billing.portal.$post(
-    {
-      param: {
-        orgSlug,
-      },
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].billing.portal.$post({
+    param: {
+      orgSlug,
     },
-  )
+  })
   const data = await fetchApiResponse(response, parseBillingUrlResponse)
 
   if (!data.url) {

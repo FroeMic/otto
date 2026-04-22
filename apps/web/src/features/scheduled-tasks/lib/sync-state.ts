@@ -16,7 +16,8 @@ type ScheduledTaskSyncRow = Pick<
   "lastSyncError" | "status"
 >
 
-type ScheduledTaskSyncJob = WorkspaceScheduledTasksListResponse["latestRefreshJob"]
+type ScheduledTaskSyncJob =
+  WorkspaceScheduledTasksListResponse["latestRefreshJob"]
 
 export function getScheduledTasksSyncState(input: {
   latestRefreshJob: ScheduledTaskSyncJob

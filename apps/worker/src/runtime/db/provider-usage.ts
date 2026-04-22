@@ -10,28 +10,27 @@ import {
   ne,
   or,
   sql,
-} from "drizzle-orm";
-
-import { getDb } from "./client";
+} from "drizzle-orm"
+import type {
+  ProviderUsageBucketResult,
+  ProviderUsageType,
+} from "../lib/providers/types"
+import { getDb } from "./client"
 import {
   providerAccounts,
   providerUsageBuckets,
   providerUsageSettlements,
   providerUsageSyncStates,
-} from "./schema";
-import type {
-  ProviderUsageBucketResult,
-  ProviderUsageType,
-} from "../lib/providers/types";
+} from "./schema"
 
-const OPENAI_PROVIDER_KEY = "openai";
+const OPENAI_PROVIDER_KEY = "openai"
 
 export async function listDueOpenAiUsageSyncTargets(input: {
-  pollIntervalMs: number;
-  usageType: ProviderUsageType;
+  pollIntervalMs: number
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
-  const notBefore = new Date(Date.now() - input.pollIntervalMs);
+  const db = getDb()
+  const notBefore = new Date(Date.now() - input.pollIntervalMs)
 
   return db
     .select({
@@ -60,14 +59,14 @@ export async function listDueOpenAiUsageSyncTargets(input: {
           lte(providerUsageSyncStates.lastAttemptedAt, notBefore),
         ),
       ),
-    );
+    )
 }
 
 export async function getProviderUsageSyncState(input: {
-  providerAccountId: string;
-  usageType: ProviderUsageType;
+  providerAccountId: string
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
+  const db = getDb()
   const [syncState] = await db
     .select()
     .from(providerUsageSyncStates)
@@ -77,16 +76,16 @@ export async function getProviderUsageSyncState(input: {
         eq(providerUsageSyncStates.usageType, input.usageType),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return syncState ?? null;
+  return syncState ?? null
 }
 
 export async function getOpenAiUsageSyncTargetByProviderAccountId(input: {
-  providerAccountId: string;
-  usageType: ProviderUsageType;
+  providerAccountId: string
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
+  const db = getDb()
   const [target] = await db
     .select({
       externalProjectId: providerAccounts.externalProjectId,
@@ -111,19 +110,19 @@ export async function getOpenAiUsageSyncTargetByProviderAccountId(input: {
         isNull(providerAccounts.revokedAt),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return target ?? null;
+  return target ?? null
 }
 
 export async function beginProviderUsageSyncAttempt(input: {
-  pollIntervalSeconds: number;
-  providerAccountId: string;
-  tenantId: string;
-  usageType: ProviderUsageType;
+  pollIntervalSeconds: number
+  providerAccountId: string
+  tenantId: string
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .insert(providerUsageSyncStates)
@@ -144,17 +143,17 @@ export async function beginProviderUsageSyncAttempt(input: {
         providerUsageSyncStates.providerAccountId,
         providerUsageSyncStates.usageType,
       ],
-    });
+    })
 }
 
 export async function markProviderUsageSyncSucceeded(input: {
-  lastSuccessfulEndAt: Date;
-  providerAccountId: string;
-  rowCount: number;
-  usageType: ProviderUsageType;
+  lastSuccessfulEndAt: Date
+  providerAccountId: string
+  rowCount: number
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(providerUsageSyncStates)
@@ -171,16 +170,16 @@ export async function markProviderUsageSyncSucceeded(input: {
         eq(providerUsageSyncStates.providerAccountId, input.providerAccountId),
         eq(providerUsageSyncStates.usageType, input.usageType),
       ),
-    );
+    )
 }
 
 export async function markProviderUsageSyncFailed(input: {
-  error: string;
-  providerAccountId: string;
-  usageType: ProviderUsageType;
+  error: string
+  providerAccountId: string
+  usageType: ProviderUsageType
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(providerUsageSyncStates)
@@ -195,21 +194,21 @@ export async function markProviderUsageSyncFailed(input: {
         eq(providerUsageSyncStates.providerAccountId, input.providerAccountId),
         eq(providerUsageSyncStates.usageType, input.usageType),
       ),
-    );
+    )
 }
 
 export async function upsertProviderUsageBuckets(input: {
-  buckets: ProviderUsageBucketResult[];
-  providerAccountId: string;
-  tenantId: string;
-  usageType: ProviderUsageType;
+  buckets: ProviderUsageBucketResult[]
+  providerAccountId: string
+  tenantId: string
+  usageType: ProviderUsageType
 }) {
   if (input.buckets.length === 0) {
-    return 0;
+    return 0
   }
 
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .insert(providerUsageBuckets)
@@ -263,63 +262,63 @@ export async function upsertProviderUsageBuckets(input: {
         providerUsageBuckets.externalApiKeyId,
         providerUsageBuckets.model,
       ],
-    });
+    })
 
-  return input.buckets.length;
+  return input.buckets.length
 }
 
 function numberFromValue(value: unknown) {
   if (typeof value === "number") {
-    return value;
+    return value
   }
 
   if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
   }
 
-  return 0;
+  return 0
 }
 
 function dateFromValue(value: unknown) {
   if (value instanceof Date) {
-    return value;
+    return value
   }
 
   if (typeof value === "string" || typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 
-  return null;
+  return null
 }
 
 export async function getTenantProviderUsageOverview(input: {
-  from: Date;
-  tenantId: string;
-  to: Date;
+  from: Date
+  tenantId: string
+  to: Date
 }) {
-  const db = getDb();
-  const rangeMs = input.to.getTime() - input.from.getTime();
-  const useHourlyGranularity = rangeMs <= 48 * 60 * 60 * 1000;
+  const db = getDb()
+  const rangeMs = input.to.getTime() - input.from.getTime()
+  const useHourlyGranularity = rangeMs <= 48 * 60 * 60 * 1000
   const bucketTruncExpression = useHourlyGranularity
     ? sql<Date>`date_trunc('hour', ${providerUsageBuckets.bucketStartAt})`
-    : sql<Date>`date_trunc('day', ${providerUsageBuckets.bucketStartAt})`;
-  const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`;
-  const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`;
-  const creditsBurnedMilliExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.creditsBurnedMilli}, 0)), 0)`;
-  const providerCostMicrosExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.providerCostMicros}, 0)), 0)`;
+    : sql<Date>`date_trunc('day', ${providerUsageBuckets.bucketStartAt})`
+  const totalTokensExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.inputTokens}, 0) + coalesce(${providerUsageBuckets.outputTokens}, 0)), 0)`
+  const requestCountExpression = sql`coalesce(sum(coalesce(${providerUsageBuckets.itemCount}, 0)), 0)`
+  const creditsBurnedMilliExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.creditsBurnedMilli}, 0)), 0)`
+  const providerCostMicrosExpression = sql`coalesce(sum(coalesce(${providerUsageSettlements.providerCostMicros}, 0)), 0)`
 
   const rangeFilter = and(
     eq(providerUsageBuckets.tenantId, input.tenantId),
     gte(providerUsageBuckets.bucketStartAt, input.from),
     lte(providerUsageBuckets.bucketStartAt, input.to),
-  );
+  )
 
   const settlementJoin = eq(
     providerUsageSettlements.providerUsageBucketId,
     providerUsageBuckets.id,
-  );
+  )
 
   const [summaryRows, timeSeriesRows, usageTypeRows, modelRows] =
     await Promise.all([
@@ -389,7 +388,7 @@ export async function getTenantProviderUsageOverview(input: {
         .groupBy(providerUsageBuckets.usageType, providerUsageBuckets.model)
         .orderBy(desc(totalTokensExpression), desc(requestCountExpression))
         .limit(8),
-    ]);
+    ])
 
   const summary = summaryRows[0] ?? {
     activeApiKeys: 0,
@@ -399,7 +398,7 @@ export async function getTenantProviderUsageOverview(input: {
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalRequests: 0,
-  };
+  }
 
   return {
     summary: {
@@ -442,5 +441,5 @@ export async function getTenantProviderUsageOverview(input: {
       totalTokens: numberFromValue(row.totalTokens),
       usageType: row.usageType,
     })),
-  };
+  }
 }

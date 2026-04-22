@@ -63,8 +63,8 @@ describe("web app", () => {
 
     expect(response.status).toBe(200)
     expect(text).toContain("__OTTO_POSTHOG__")
-    expect(text).toContain("\"apiHost\":\"/ingest\"")
-    expect(text).toContain("\"token\":\"phc_test_token\"")
+    expect(text).toContain('"apiHost":"/ingest"')
+    expect(text).toContain('"token":"phc_test_token"')
   })
 
   it("proxies posthog ingest requests without forwarding browser cookies", async () => {
@@ -99,13 +99,13 @@ describe("web app", () => {
     )
 
     expect(response.status).toBe(202)
-    expect(fetchSpy).toHaveBeenCalledWith(
-      expect.any(Request),
-    )
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(Request))
 
     const forwardedRequest = fetchSpy.mock.calls[0]?.[0]
     expect(forwardedRequest).toBeInstanceOf(Request)
-    expect((forwardedRequest as Request).url).toBe("https://eu.i.posthog.com/e/?ip=1")
+    expect((forwardedRequest as Request).url).toBe(
+      "https://eu.i.posthog.com/e/?ip=1",
+    )
     expect((forwardedRequest as Request).headers.get("cookie")).toBeNull()
   })
 

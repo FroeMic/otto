@@ -1,21 +1,21 @@
+import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
 import {
   FileIcon,
   MicrophoneIcon,
-  PauseIcon,
-  PaperPlaneTiltIcon,
   PaperclipIcon,
+  PaperPlaneTiltIcon,
+  PauseIcon,
   PlayIcon,
   StopIcon,
   WaveformIcon,
   XIcon,
 } from "@phosphor-icons/react"
-import type { WorkspaceChatAttachment } from "@otto/feature-workspace-chat"
 import {
+  type DragEvent,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type DragEvent,
 } from "react"
 import { toast } from "sonner"
 
@@ -81,7 +81,7 @@ export function ConversationComposer({
 
     textarea.style.height = "0px"
     textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`
-  }, [draft])
+  }, [])
 
   useEffect(() => {
     setDraft((current) => {
@@ -110,10 +110,7 @@ export function ConversationComposer({
     setPlayingAttachmentId(null)
   }
 
-  async function attachVoiceNote(input: {
-    durationMs: number
-    file: File
-  }) {
+  async function attachVoiceNote(input: { durationMs: number; file: File }) {
     if (!onUploadAttachment) {
       return
     }
@@ -161,9 +158,7 @@ export function ConversationComposer({
       ])
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to upload attachment.",
+        error instanceof Error ? error.message : "Failed to upload attachment.",
       )
     } finally {
       setIsUploading(false)
@@ -203,12 +198,17 @@ export function ConversationComposer({
     }
   }
 
-  async function toggleAudioPreview(entry: WorkspaceChatComposerAttachmentDraft) {
+  async function toggleAudioPreview(
+    entry: WorkspaceChatComposerAttachmentDraft,
+  ) {
     if (entry.kind !== "audio" || !entry.previewUrl) {
       return
     }
 
-    if (playingAttachmentId === entry.attachment.id && previewAudioRef.current) {
+    if (
+      playingAttachmentId === entry.attachment.id &&
+      previewAudioRef.current
+    ) {
       previewAudioRef.current.pause()
       previewAudioRef.current = null
       setPlayingAttachmentId(null)
@@ -233,7 +233,7 @@ export function ConversationComposer({
     }
   }
 
-  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+  function handleDragEnter(event: DragEvent<HTMLElement>) {
     if (!onUploadAttachment || isVoiceMode) {
       return
     }
@@ -246,7 +246,7 @@ export function ConversationComposer({
     setDragDepth((current) => current + 1)
   }
 
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+  function handleDragOver(event: DragEvent<HTMLElement>) {
     if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
       return
     }
@@ -255,7 +255,7 @@ export function ConversationComposer({
     event.dataTransfer.dropEffect = "copy"
   }
 
-  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+  function handleDragLeave(event: DragEvent<HTMLElement>) {
     if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
       return
     }
@@ -264,7 +264,7 @@ export function ConversationComposer({
     setDragDepth((current) => Math.max(0, current - 1))
   }
 
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
+  function handleDrop(event: DragEvent<HTMLElement>) {
     if (!onUploadAttachment || isVoiceMode || !hasDraggedFiles(event)) {
       return
     }
@@ -275,7 +275,8 @@ export function ConversationComposer({
   }
 
   return (
-    <div
+    <fieldset
+      aria-label="Message composer"
       className={cn(
         "relative rounded-[2rem] border border-border/70 bg-background/96 px-5 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-colors",
         dragDepth > 0 && "border-primary/55 bg-primary/[0.03]",
@@ -364,7 +365,9 @@ export function ConversationComposer({
         value={draft}
       />
 
-      <div className={cn("mt-3 pt-3", !isVoiceMode && "border-t border-border/55")}>
+      <div
+        className={cn("mt-3 pt-3", !isVoiceMode && "border-t border-border/55")}
+      >
         {isVoiceMode ? (
           <ConversationVoiceNoteRecorder
             disabled={disabled || isUploading}
@@ -389,7 +392,9 @@ export function ConversationComposer({
               <div className="flex items-center gap-2">
                 <Button
                   className="size-10 rounded-full text-muted-foreground"
-                  disabled={disabled || isRunning || isUploading || !onUploadAttachment}
+                  disabled={
+                    disabled || isRunning || isUploading || !onUploadAttachment
+                  }
                   onClick={() => {
                     fileInputRef.current?.click()
                   }}
@@ -401,7 +406,9 @@ export function ConversationComposer({
                 </Button>
                 <Button
                   className="size-10 rounded-full text-muted-foreground"
-                  disabled={disabled || isRunning || isUploading || !onUploadAttachment}
+                  disabled={
+                    disabled || isRunning || isUploading || !onUploadAttachment
+                  }
                   onClick={() => {
                     setIsVoiceMode(true)
                   }}
@@ -442,11 +449,13 @@ export function ConversationComposer({
           </>
         )}
       </div>
-    </div>
+    </fieldset>
   )
 }
 
-function releaseAllAudioPreviews(attachments: WorkspaceChatComposerAttachmentDraft[]) {
+function releaseAllAudioPreviews(
+  attachments: WorkspaceChatComposerAttachmentDraft[],
+) {
   for (const entry of attachments) {
     if (entry.kind === "audio" && entry.previewUrl) {
       URL.revokeObjectURL(entry.previewUrl)
@@ -454,6 +463,6 @@ function releaseAllAudioPreviews(attachments: WorkspaceChatComposerAttachmentDra
   }
 }
 
-function hasDraggedFiles(event: DragEvent<HTMLDivElement>) {
+function hasDraggedFiles(event: DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer.types).includes("Files")
 }

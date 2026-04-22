@@ -80,4 +80,3 @@ export async function getConnectedAccounts(input: {
     )
     .orderBy(asc(userChannelIdentities.provider))
 }
-

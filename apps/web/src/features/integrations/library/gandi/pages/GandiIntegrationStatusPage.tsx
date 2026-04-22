@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useState, useTransition } from "react";
+import { useQueryClient } from "@tanstack/react-query"
+import { useState, useTransition } from "react"
 
 import {
   SettingsCard,
@@ -11,47 +11,47 @@ import {
   SettingsSection,
   SettingsSectionDescription,
   SettingsSectionTitle,
-} from "@/client/app/app-shell/SettingsLayout";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+} from "@/client/app/app-shell/SettingsLayout"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   disconnectWorkspaceIntegration,
   enableWorkspaceIntegration,
-} from "@/features/integrations/api/integrations";
-import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable";
-import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell";
-import type { WorkspaceIntegrationDetail } from "@/features/integrations/types";
+} from "@/features/integrations/api/integrations"
+import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
+import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
+import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
 
 export interface GandiIntegrationStatusPageProps {
-  currentSection: string;
-  detail: WorkspaceIntegrationDetail;
-  onSectionChange: (section: string) => void;
-  orgSlug: string;
+  currentSection: string
+  detail: WorkspaceIntegrationDetail
+  onSectionChange: (section: string) => void
+  orgSlug: string
 }
 
 function getStatusLabel(detail: WorkspaceIntegrationDetail) {
   if (detail.connection.status.needsAttention) {
-    return "Needs attention";
+    return "Needs attention"
   }
 
   if (detail.connection.status.connected) {
-    return "Enabled";
+    return "Enabled"
   }
 
-  return "Not enabled";
+  return "Not enabled"
 }
 
 function getStatusVariant(detail: WorkspaceIntegrationDetail) {
   if (detail.connection.status.needsAttention) {
-    return "destructive" as const;
+    return "destructive" as const
   }
 
   if (detail.connection.status.connected) {
-    return "outline" as const;
+    return "outline" as const
   }
 
-  return "secondary" as const;
+  return "secondary" as const
 }
 
 export function GandiIntegrationStatusPage({
@@ -60,18 +60,22 @@ export function GandiIntegrationStatusPage({
   onSectionChange,
   orgSlug,
 }: GandiIntegrationStatusPageProps) {
-  const queryClient = useQueryClient();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient()
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   function invalidate() {
     void queryClient.invalidateQueries({
       queryKey: ["workspace-integrations", orgSlug],
-    });
+    })
     void queryClient.invalidateQueries({
-      queryKey: ["workspace-integration-detail", orgSlug, detail.integration.key],
-    });
+      queryKey: [
+        "workspace-integration-detail",
+        orgSlug,
+        detail.integration.key,
+      ],
+    })
   }
 
   function handleEnable() {
@@ -81,16 +85,16 @@ export function GandiIntegrationStatusPage({
         orgSlug,
       })
         .then(() => {
-          setErrorMessage(null);
-          setSuccessMessage("Gandi has been enabled for this workspace.");
-          invalidate();
+          setErrorMessage(null)
+          setSuccessMessage("Gandi has been enabled for this workspace.")
+          invalidate()
         })
         .catch((error) => {
           setErrorMessage(
             error instanceof Error ? error.message : "Gandi request failed",
-          );
-        });
-    });
+          )
+        })
+    })
   }
 
   function handleDisable() {
@@ -99,7 +103,7 @@ export function GandiIntegrationStatusPage({
         "Disable Gandi for this workspace? Otto will stop using it for company naming and domain research until you enable it again.",
       )
     ) {
-      return;
+      return
     }
 
     startTransition(() => {
@@ -108,16 +112,16 @@ export function GandiIntegrationStatusPage({
         orgSlug,
       })
         .then(() => {
-          setErrorMessage(null);
-          setSuccessMessage("Gandi has been disabled for this workspace.");
-          invalidate();
+          setErrorMessage(null)
+          setSuccessMessage("Gandi has been disabled for this workspace.")
+          invalidate()
         })
         .catch((error) => {
           setErrorMessage(
             error instanceof Error ? error.message : "Gandi request failed",
-          );
-        });
-    });
+          )
+        })
+    })
   }
 
   return (
@@ -125,7 +129,11 @@ export function GandiIntegrationStatusPage({
       <section className="flex max-w-3xl flex-col gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <img alt="" className="size-8" src={detail.integration.iconSrc ?? ""} />
+            <img
+              alt=""
+              className="size-8"
+              src={detail.integration.iconSrc ?? ""}
+            />
             <h1 className="text-3xl font-semibold tracking-tight">
               {detail.integration.label}
             </h1>
@@ -208,8 +216,8 @@ export function GandiIntegrationStatusPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Enablement</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Otto uses the platform-managed Gandi connection when this
-                        workspace turns the integration on.
+                        Otto uses the platform-managed Gandi connection when
+                        this workspace turns the integration on.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Button
@@ -220,7 +228,9 @@ export function GandiIntegrationStatusPage({
                           : handleEnable
                       }
                       variant={
-                        detail.connection.status.connected ? "outline" : "default"
+                        detail.connection.status.connected
+                          ? "outline"
+                          : "default"
                       }
                     >
                       {detail.connection.status.connected
@@ -239,5 +249,5 @@ export function GandiIntegrationStatusPage({
         }
       />
     </div>
-  );
+  )
 }

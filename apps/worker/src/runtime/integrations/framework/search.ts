@@ -1,41 +1,41 @@
-import { buildRuntimeIntegrationCommandMatch } from "./runtime-response";
+import { buildRuntimeIntegrationCommandMatch } from "./runtime-response"
 import type {
   IntegrationDefinition,
   IntegrationRuntimeCommandDefinition,
   IntegrationRuntimeCommandGroupDefinition,
   RuntimeIntegrationCommandMatch,
-} from "./types";
+} from "./types"
 
 type RuntimeDefinitionWithStatus = IntegrationDefinition & {
-  runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
+  runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
   status: {
-    connected: boolean;
-    connectionStatus: string | null;
-    enabled: boolean;
-    integrationStatus: string | null;
-    needsAttention: boolean;
-  };
-};
+    connected: boolean
+    connectionStatus: string | null
+    enabled: boolean
+    integrationStatus: string | null
+    needsAttention: boolean
+  }
+}
 
 type ScoredCommandMatch = {
-  command: IntegrationRuntimeCommandDefinition;
-  definition: RuntimeDefinitionWithStatus;
-  reason: string;
-  score: number;
-};
+  command: IntegrationRuntimeCommandDefinition
+  definition: RuntimeDefinitionWithStatus
+  reason: string
+  score: number
+}
 
 export function findIntegrationCommandMatches(input: {
-  definitions: RuntimeDefinitionWithStatus[];
-  query: string;
+  definitions: RuntimeDefinitionWithStatus[]
+  query: string
 }): RuntimeIntegrationCommandMatch[] {
-  const normalizedQuery = input.query.trim().toLowerCase();
+  const normalizedQuery = input.query.trim().toLowerCase()
 
   if (!normalizedQuery) {
-    return [];
+    return []
   }
 
-  const queryTokens = tokenize(normalizedQuery);
-  const matches: ScoredCommandMatch[] = [];
+  const queryTokens = tokenize(normalizedQuery)
+  const matches: ScoredCommandMatch[] = []
 
   for (const definition of input.definitions) {
     for (const command of collectCommands(definition.runtimeSurface)) {
@@ -44,27 +44,27 @@ export function findIntegrationCommandMatches(input: {
         definition,
         query: normalizedQuery,
         tokens: queryTokens,
-      });
+      })
 
       if (scored.score <= 0) {
-        continue;
+        continue
       }
 
-      matches.push(scored);
+      matches.push(scored)
     }
   }
 
   return matches
     .sort((left, right) => {
       if (right.score !== left.score) {
-        return right.score - left.score;
+        return right.score - left.score
       }
 
       if (left.definition.key !== right.definition.key) {
-        return left.definition.key.localeCompare(right.definition.key);
+        return left.definition.key.localeCompare(right.definition.key)
       }
 
-      return left.command.commandKey.localeCompare(right.command.commandKey);
+      return left.command.commandKey.localeCompare(right.command.commandKey)
     })
     .map((match) =>
       buildRuntimeIntegrationCommandMatch({
@@ -73,17 +73,17 @@ export function findIntegrationCommandMatches(input: {
         reason: match.reason,
         status: match.definition.status,
       }),
-    );
+    )
 }
 
 export function collectCommands(surface: {
-  commandGroups: IntegrationRuntimeCommandGroupDefinition[];
-  rootCommands: IntegrationRuntimeCommandDefinition[];
+  commandGroups: IntegrationRuntimeCommandGroupDefinition[]
+  rootCommands: IntegrationRuntimeCommandDefinition[]
 }): IntegrationRuntimeCommandDefinition[] {
   return [
     ...surface.rootCommands,
     ...surface.commandGroups.flatMap(collectCommandsFromGroup),
-  ];
+  ]
 }
 
 function collectCommandsFromGroup(
@@ -92,16 +92,16 @@ function collectCommandsFromGroup(
   return [
     ...(group.commands ?? []),
     ...((group.childGroups ?? []).flatMap(collectCommandsFromGroup) ?? []),
-  ];
+  ]
 }
 
 function scoreCommandMatch(input: {
-  command: IntegrationRuntimeCommandDefinition;
-  definition: RuntimeDefinitionWithStatus;
-  query: string;
-  tokens: string[];
+  command: IntegrationRuntimeCommandDefinition
+  definition: RuntimeDefinitionWithStatus
+  query: string
+  tokens: string[]
 }): ScoredCommandMatch {
-  const groupPathText = input.command.commandPath.slice(0, -1).join(" ");
+  const groupPathText = input.command.commandPath.slice(0, -1).join(" ")
   const searchableFields = [
     {
       text: input.definition.key,
@@ -143,60 +143,60 @@ function scoreCommandMatch(input: {
       weight: 14,
       reason: input.command.description,
     },
-  ];
+  ]
 
   const keywordTexts = [
     ...(input.command.intentKeywords ?? []),
     ...(input.command.usageNotes ?? []),
     ...input.command.commandPath,
-  ];
+  ]
 
-  let score = 0;
-  let bestReason = `${input.definition.label} ${input.command.label} matches the request.`;
+  let score = 0
+  let bestReason = `${input.definition.label} ${input.command.label} matches the request.`
 
   for (const field of searchableFields) {
-    const normalizedField = field.text.trim().toLowerCase();
+    const normalizedField = field.text.trim().toLowerCase()
 
     if (!normalizedField) {
-      continue;
+      continue
     }
 
     if (normalizedField === input.query) {
-      score += field.weight * 3;
-      bestReason = field.reason;
-      continue;
+      score += field.weight * 3
+      bestReason = field.reason
+      continue
     }
 
     if (
       normalizedField.includes(input.query) ||
       input.query.includes(normalizedField)
     ) {
-      score += field.weight * 2;
-      bestReason = field.reason;
-      continue;
+      score += field.weight * 2
+      bestReason = field.reason
+      continue
     }
 
     const tokenHits = input.tokens.filter((token) =>
       normalizedField.includes(token),
-    ).length;
+    ).length
 
     if (tokenHits > 0) {
-      score += tokenHits * field.weight;
-      bestReason = field.reason;
+      score += tokenHits * field.weight
+      bestReason = field.reason
     }
   }
 
   for (const keyword of keywordTexts) {
-    const normalizedKeyword = keyword.trim().toLowerCase();
+    const normalizedKeyword = keyword.trim().toLowerCase()
 
     if (!normalizedKeyword) {
-      continue;
+      continue
     }
 
     if (normalizedKeyword === input.query) {
-      score += 18;
-      bestReason = `${input.command.label} is tagged for this kind of request.`;
-      continue;
+      score += 18
+      bestReason = `${input.command.label} is tagged for this kind of request.`
+      continue
     }
 
     if (
@@ -206,8 +206,8 @@ function scoreCommandMatch(input: {
           token.includes(normalizedKeyword),
       )
     ) {
-      score += 10;
-      bestReason = `${input.command.label} is tagged for this kind of request.`;
+      score += 10
+      bestReason = `${input.command.label} is tagged for this kind of request.`
     }
   }
 
@@ -216,12 +216,12 @@ function scoreCommandMatch(input: {
     definition: input.definition,
     reason: bestReason,
     score,
-  };
+  }
 }
 
 function tokenize(value: string) {
   return value
     .split(/[^a-z0-9]+/i)
     .map((token) => token.trim().toLowerCase())
-    .filter((token) => token.length >= 2);
+    .filter((token) => token.length >= 2)
 }

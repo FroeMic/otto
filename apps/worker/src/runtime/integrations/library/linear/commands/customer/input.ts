@@ -3,7 +3,7 @@ import {
   normalizeOptionalString,
   normalizeOptionalStringArray,
   pruneGraphqlInput,
-} from "../../client";
+} from "../../client"
 
 export function buildLinearCustomerCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -24,7 +24,7 @@ export function buildLinearCustomerCreateInput(
     slackChannelId: normalizeOptionalString(argumentsObject.slackChannelId),
     statusId: normalizeOptionalString(argumentsObject.statusId),
     tierId: normalizeOptionalString(argumentsObject.tierId),
-  });
+  })
 }
 
 export function buildLinearCustomerUpdateInput(
@@ -42,5 +42,5 @@ export function buildLinearCustomerUpdateInput(
     slackChannelId: normalizeOptionalString(argumentsObject.slackChannelId),
     statusId: normalizeOptionalString(argumentsObject.statusId),
     tierId: normalizeOptionalString(argumentsObject.tierId),
-  });
+  })
 }

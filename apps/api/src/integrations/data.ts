@@ -13,9 +13,9 @@ import {
   isPlatformManagedIntegration,
   listIntegrationCommands,
   listWorkspaceIntegrationDefinitions,
-  resolvePlatformManagedIntegrationStatus,
   type ResolvedIntegrationAgentCapability,
   type ResolvedIntegrationCommandCapability,
+  resolvePlatformManagedIntegrationStatus,
 } from "@otto/feature-integrations-runtime/integrations/framework"
 import { and, eq } from "drizzle-orm"
 
@@ -214,7 +214,10 @@ export async function listManagedIntegrationCapabilities(input: {
       )
 
     for (const row of rows) {
-      if (row.policyJson?.policy === "allow" || row.policyJson?.policy === "block") {
+      if (
+        row.policyJson?.policy === "allow" ||
+        row.policyJson?.policy === "block"
+      ) {
         policies.set(row.capabilityKey, row.policyJson)
       }
     }
@@ -303,7 +306,10 @@ export async function listWorkspaceIntegrations(input: {
       const platformStatus = isPlatformManagedIntegration(definition)
         ? resolvePlatformManagedIntegrationStatus(definition)
         : null
-      const connected = runtimeIntegration?.status.connected ?? platformStatus?.connected ?? false
+      const connected =
+        runtimeIntegration?.status.connected ??
+        platformStatus?.connected ??
+        false
       const needsAttention =
         runtimeIntegration?.status.needsAttention ??
         platformStatus?.needsAttention ??
@@ -362,29 +368,30 @@ export async function getWorkspaceIntegrationDetail(input: {
     return null
   }
 
-  const [summary, capabilities, settings, connection, setupState] = await Promise.all([
-    getManagedIntegrationSummary({
-      providerKey: definition.key,
-      tenantId,
-    }),
-    listManagedIntegrationCapabilities({
-      integrationKey: definition.key,
-      orgSlug: input.orgSlug,
-      tenantId,
-    }),
-    getRuntimeIntegrationSettingsForTenant({
-      integrationKey: definition.key,
-      tenantId,
-    }),
-    getRuntimeIntegrationConnectionActionForTenant({
-      integrationKey: definition.key,
-      tenantId,
-    }),
-    getManagedIntegrationSetupState({
-      providerKey: definition.key,
-      tenantId,
-    }),
-  ])
+  const [summary, capabilities, settings, connection, setupState] =
+    await Promise.all([
+      getManagedIntegrationSummary({
+        providerKey: definition.key,
+        tenantId,
+      }),
+      listManagedIntegrationCapabilities({
+        integrationKey: definition.key,
+        orgSlug: input.orgSlug,
+        tenantId,
+      }),
+      getRuntimeIntegrationSettingsForTenant({
+        integrationKey: definition.key,
+        tenantId,
+      }),
+      getRuntimeIntegrationConnectionActionForTenant({
+        integrationKey: definition.key,
+        tenantId,
+      }),
+      getManagedIntegrationSetupState({
+        providerKey: definition.key,
+        tenantId,
+      }),
+    ])
 
   const availableSections = ["status"]
 

@@ -1,42 +1,42 @@
-import { z } from "zod";
+import { z } from "zod"
 
-export const WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND = "channel";
-export const WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY = "whatsapp";
-export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE = "otto_builtin";
-export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION = "1";
-export const WHATSAPP_RUNTIME_CONFIG_LABEL = "WhatsApp";
+export const WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND = "channel"
+export const WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY = "whatsapp"
+export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE = "otto_builtin"
+export const WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION = "1"
+export const WHATSAPP_RUNTIME_CONFIG_LABEL = "WhatsApp"
 export const WHATSAPP_RUNTIME_CONFIG_DESCRIPTION =
-  "Connect a WhatsApp Business number and manage DM access, groups, and reply behavior.";
+  "Connect a WhatsApp Business number and manage DM access, groups, and reply behavior."
 
-const whatsappDmPolicySchema = z.enum(["pairing", "allowlist", "disabled"]);
-const whatsappGroupPolicySchema = z.enum(["disabled", "allowlist"]);
+const whatsappDmPolicySchema = z.enum(["pairing", "allowlist", "disabled"])
+const whatsappGroupPolicySchema = z.enum(["disabled", "allowlist"])
 
 function normalizeWhatsAppPhone(value: string) {
-  const digits = value.replaceAll(/[^\d]/g, "");
+  const digits = value.replaceAll(/[^\d]/g, "")
 
   if (digits.length < 7 || digits.length > 15) {
     throw new Error(
       `WhatsApp numbers must be valid E.164 values with 7-15 digits: ${value}`,
-    );
+    )
   }
 
-  return `+${digits}`;
+  return `+${digits}`
 }
 
 function normalizeWhatsAppGroupId(value: string) {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   const withSuffix =
     trimmed.endsWith("@g.us") || trimmed.endsWith("@G.US")
       ? trimmed.replace(/@g\.us$/i, "@g.us")
       : /^[\d:-]+$/.test(trimmed)
         ? `${trimmed}@g.us`
-        : trimmed;
+        : trimmed
 
   if (!/^[\d:-]+@g\.us$/.test(withSuffix)) {
-    throw new Error(`WhatsApp group IDs must end in @g.us: ${value}`);
+    throw new Error(`WhatsApp group IDs must end in @g.us: ${value}`)
   }
 
-  return withSuffix;
+  return withSuffix
 }
 
 function normalizeUniqueStringList(
@@ -45,7 +45,7 @@ function normalizeUniqueStringList(
 ) {
   return [
     ...new Set(values.map((value) => normalize(value.trim())).filter(Boolean)),
-  ];
+  ]
 }
 
 const phoneListSchema = z
@@ -53,14 +53,14 @@ const phoneListSchema = z
   .default([])
   .transform((values) =>
     normalizeUniqueStringList(values, normalizeWhatsAppPhone),
-  );
+  )
 
 const groupIdListSchema = z
   .array(z.string().trim().min(1))
   .default([])
   .transform((values) =>
     normalizeUniqueStringList(values, normalizeWhatsAppGroupId),
-  );
+  )
 
 const whatsappRuntimeConfigObjectSchema = z.object({
   ackReactionEnabled: z.boolean().default(false),
@@ -70,7 +70,7 @@ const whatsappRuntimeConfigObjectSchema = z.object({
   groupAllowedNumbers: phoneListSchema,
   groupPolicy: whatsappGroupPolicySchema.default("disabled"),
   requireMentionInGroups: z.boolean().default(true),
-});
+})
 
 export const whatsappRuntimeConfigSchema = whatsappRuntimeConfigObjectSchema
   .strict()
@@ -80,7 +80,7 @@ export const whatsappRuntimeConfigSchema = whatsappRuntimeConfigObjectSchema
         code: z.ZodIssueCode.custom,
         message: "Allowlist DMs require at least one allowed WhatsApp number.",
         path: ["allowedNumbers"],
-      });
+      })
     }
 
     if (
@@ -92,7 +92,7 @@ export const whatsappRuntimeConfigSchema = whatsappRuntimeConfigObjectSchema
         message:
           "Allowlisted groups require at least one WhatsApp group ID ending in @g.us.",
         path: ["allowedGroupIds"],
-      });
+      })
     }
 
     if (
@@ -105,11 +105,11 @@ export const whatsappRuntimeConfigSchema = whatsappRuntimeConfigObjectSchema
         message:
           "Allowlisted groups require at least one allowed sender number, either in group senders or DM allowlist.",
         path: ["groupAllowedNumbers"],
-      });
+      })
     }
-  });
+  })
 
-export type WhatsAppRuntimeConfig = z.infer<typeof whatsappRuntimeConfigSchema>;
+export type WhatsAppRuntimeConfig = z.infer<typeof whatsappRuntimeConfigSchema>
 
 export const whatsappRuntimeConfigPatchSchema = z
   .object({
@@ -121,7 +121,7 @@ export const whatsappRuntimeConfigPatchSchema = z
     groupPolicy: whatsappGroupPolicySchema.optional(),
     requireMentionInGroups: z.boolean().optional(),
   })
-  .strict();
+  .strict()
 
 export const whatsappRuntimeConfigJsonSchema = {
   additionalProperties: false,
@@ -170,7 +170,7 @@ export const whatsappRuntimeConfigJsonSchema = {
     },
   },
   type: "object",
-} as const;
+} as const
 
 export const whatsappRuntimeConfigUiHints = {
   description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
@@ -229,14 +229,14 @@ export const whatsappRuntimeConfigUiHints = {
     },
   },
   label: WHATSAPP_RUNTIME_CONFIG_LABEL,
-} as const;
+} as const
 
 export function getDefaultWhatsAppRuntimeConfig(): WhatsAppRuntimeConfig {
-  return whatsappRuntimeConfigSchema.parse({});
+  return whatsappRuntimeConfigSchema.parse({})
 }
 
 export function parseWhatsAppRuntimeConfig(
   value: unknown,
 ): WhatsAppRuntimeConfig {
-  return whatsappRuntimeConfigSchema.parse(value);
+  return whatsappRuntimeConfigSchema.parse(value)
 }

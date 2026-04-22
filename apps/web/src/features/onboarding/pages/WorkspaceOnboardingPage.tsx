@@ -6,7 +6,11 @@ import type {
   WorkspaceOnboardingStepKey,
   WorkspaceOnboardingTeamSize,
 } from "@otto/feature-workspace-onboarding"
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -32,7 +36,9 @@ export function WorkspaceOnboardingPage({
 }: WorkspaceOnboardingPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: summary } = useSuspenseQuery(workspaceOnboardingQueryOptions(orgSlug))
+  const { data: summary } = useSuspenseQuery(
+    workspaceOnboardingQueryOptions(orgSlug),
+  )
   const normalizedCurrentStep: Exclude<
     WorkspaceOnboardingStepKey,
     "workspace_identity"
@@ -44,7 +50,7 @@ export function WorkspaceOnboardingPage({
 
   useEffect(() => {
     setVisibleStep(normalizedCurrentStep)
-  }, [normalizedCurrentStep, orgSlug])
+  }, [normalizedCurrentStep])
 
   const saveMutation = useMutation({
     mutationFn: async (body: Parameters<typeof saveWorkspaceOnboarding>[1]) =>
@@ -59,10 +65,7 @@ export function WorkspaceOnboardingPage({
       )
     },
     onSuccess: async (nextSummary) => {
-      queryClient.setQueryData(
-        ["workspace-onboarding", orgSlug],
-        nextSummary,
-      )
+      queryClient.setQueryData(["workspace-onboarding", orgSlug], nextSummary)
       queryClient.setQueryData(
         ["workspace-onboarding", nextSummary.organizationSlug],
         nextSummary,
@@ -109,7 +112,11 @@ export function WorkspaceOnboardingPage({
             action: "save-business-type",
             businessType,
           })
-          setVisibleStep(normalizedCurrentStep === "team_setup" ? "team_setup" : "business_type")
+          setVisibleStep(
+            normalizedCurrentStep === "team_setup"
+              ? "team_setup"
+              : "business_type",
+          )
         }}
         selectedBusinessType={summary.answers.business_type}
       />

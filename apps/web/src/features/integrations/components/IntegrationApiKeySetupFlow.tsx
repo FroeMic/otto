@@ -24,10 +24,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
   Popover,
   PopoverContent,
@@ -82,9 +79,7 @@ function buildCredentialHelpUrl(template: string | undefined, host: string) {
   }
 }
 
-function getCapabilityBadgeVariant(
-  status: CapabilityRecommendation["status"],
-) {
+function getCapabilityBadgeVariant(status: CapabilityRecommendation["status"]) {
   if (status === "unavailable") {
     return "secondary" as const
   }
@@ -129,7 +124,9 @@ function getGroupedCapabilities(capabilities: CapabilityRecommendation[]) {
 
   return [...groups.entries()]
     .map(([groupKey, entries]) => ({
-      entries: entries.sort((left, right) => left.label.localeCompare(right.label)),
+      entries: entries.sort((left, right) =>
+        left.label.localeCompare(right.label),
+      ),
       groupKey,
       label: getCapabilityGroupLabel(groupKey),
     }))
@@ -291,7 +288,9 @@ export function IntegrationApiKeySetupFlow({
     useState<WorkspaceIntegrationSetupDiscoverResponse | null>(null)
   const [selectedResourceKeys, setSelectedResourceKeys] = useState<string[]>([])
   const [defaultResourceKey, setDefaultResourceKey] = useState("")
-  const [enabledCapabilityKeys, setEnabledCapabilityKeys] = useState<string[]>([])
+  const [enabledCapabilityKeys, setEnabledCapabilityKeys] = useState<string[]>(
+    [],
+  )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const credentialHelpUrl = buildCredentialHelpUrl(
@@ -355,7 +354,8 @@ export function IntegrationApiKeySetupFlow({
           const selected =
             setupDefinition.discovery.defaultResourceSelectionMode === "all"
               ? result.resources.map((resource) => resource.key)
-              : setupDefinition.discovery.defaultResourceSelectionMode === "first"
+              : setupDefinition.discovery.defaultResourceSelectionMode ===
+                  "first"
                 ? [defaultResources[0]?.key ?? result.resources[0]?.key].filter(
                     Boolean,
                   )
@@ -428,7 +428,9 @@ export function IntegrationApiKeySetupFlow({
             <SettingsRow>
               <SettingsRowLabel>
                 <SettingsRowTitle>{setup.host.label}</SettingsRowTitle>
-                <SettingsRowDescription>{setup.host.helpText}</SettingsRowDescription>
+                <SettingsRowDescription>
+                  {setup.host.helpText}
+                </SettingsRowDescription>
               </SettingsRowLabel>
               <Input
                 className="max-w-sm"
@@ -482,11 +484,17 @@ export function IntegrationApiKeySetupFlow({
             <SettingsRowLabel>
               <SettingsRowTitle>Discover workspace</SettingsRowTitle>
               <SettingsRowDescription>
-                Otto validates the key and detects available resources and access.
+                Otto validates the key and detects available resources and
+                access.
               </SettingsRowDescription>
             </SettingsRowLabel>
-            <Button disabled={isPending || !apiKey.trim()} onClick={handleDiscover}>
-              {isPending && !discovery ? "Testing..." : setup.discovery.actionLabel}
+            <Button
+              disabled={isPending || !apiKey.trim()}
+              onClick={handleDiscover}
+            >
+              {isPending && !discovery
+                ? "Testing..."
+                : setup.discovery.actionLabel}
             </Button>
           </SettingsRow>
         </SettingsCard>
@@ -549,11 +557,16 @@ export function IntegrationApiKeySetupFlow({
                   </SettingsRowLabel>
                   <NativeSelect
                     className="w-full max-w-sm"
-                    onChange={(event) => setDefaultResourceKey(event.target.value)}
+                    onChange={(event) =>
+                      setDefaultResourceKey(event.target.value)
+                    }
                     value={defaultResourceKey}
                   >
                     {selectedResources.map((resource) => (
-                      <NativeSelectOption key={resource.key} value={resource.key}>
+                      <NativeSelectOption
+                        key={resource.key}
+                        value={resource.key}
+                      >
                         {resource.label}
                       </NativeSelectOption>
                     ))}
@@ -578,7 +591,7 @@ export function IntegrationApiKeySetupFlow({
                     </h3>
                     <div className="flex flex-col gap-2">
                       {group.entries.map((capability) => (
-                        <label
+                        <div
                           className="flex min-w-0 items-start gap-3 rounded-md border bg-background px-3 py-2"
                           key={capability.capabilityKey}
                         >
@@ -609,7 +622,7 @@ export function IntegrationApiKeySetupFlow({
                               </span>
                             ) : null}
                           </span>
-                        </label>
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -1,7 +1,4 @@
-import {
-  normalizeOptionalBoolean,
-  normalizeOptionalString,
-} from "../../client";
+import { normalizeOptionalBoolean, normalizeOptionalString } from "../../client"
 
 export function buildLinearProjectStatusCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -26,7 +23,7 @@ export function buildLinearProjectStatusCreateInput(
       typeof argumentsObject.type === "string"
         ? argumentsObject.type.trim()
         : "",
-  };
+  }
 }
 
 export function buildLinearProjectStatusUpdateInput(
@@ -43,5 +40,5 @@ export function buildLinearProjectStatusUpdateInput(
         ? argumentsObject.position
         : null,
     type: normalizeOptionalString(argumentsObject.type),
-  };
+  }
 }

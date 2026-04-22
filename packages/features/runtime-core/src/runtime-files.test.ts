@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 
 import { describe, it } from "vitest"
 
-import { downloadRuntimePath, RuntimePathValidationError } from "./runtime-files/download"
+import {
+  downloadRuntimePath,
+  RuntimePathValidationError,
+} from "./runtime-files/download"
 import { getRuntimeDirectorySnapshot } from "./runtime-files/snapshot"
 
 describe("runtime files snapshot", () => {

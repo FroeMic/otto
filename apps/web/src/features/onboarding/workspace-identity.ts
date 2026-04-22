@@ -1,5 +1,5 @@
-import { normalizeWorkspaceSlug } from "@otto/feature-workspace-slugs"
 import type { WorkspaceOnboardingHoldingState } from "@otto/feature-workspace-onboarding"
+import { normalizeWorkspaceSlug } from "@otto/feature-workspace-slugs"
 
 export function getSuggestedWorkspaceSlug(workspaceName: string) {
   return normalizeWorkspaceSlug(workspaceName)
@@ -32,7 +32,6 @@ export function getOnboardingRouteAfterSave(input: {
       return `/${input.nextOrganizationSlug}/waitlist`
     case "waiting":
       return `/${input.nextOrganizationSlug}/waiting`
-    case "onboarding":
     default:
       return input.nextOrganizationSlug !== input.currentOrgSlug
         ? `/${input.nextOrganizationSlug}/onboarding`

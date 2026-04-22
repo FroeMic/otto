@@ -15,9 +15,7 @@ import { PlatformOrganizationUsagePage } from "@/features/platform/pages/Platfor
 const platformOrganizationRouteId =
   "/platform/platform-shell/organizations/$platformOrgSlug"
 
-export interface PlatformShellRouteProps {}
-
-export function PlatformShellRoute(_props: PlatformShellRouteProps) {
+export function PlatformShellRoute() {
   return (
     <PlatformShell>
       <Outlet />
@@ -25,19 +23,11 @@ export function PlatformShellRoute(_props: PlatformShellRouteProps) {
   )
 }
 
-export interface PlatformOrganizationsRoutePageProps {}
-
-export function PlatformOrganizationsRoutePage(
-  _props: PlatformOrganizationsRoutePageProps,
-) {
+export function PlatformOrganizationsRoutePage() {
   return <PlatformOrganizationsPage />
 }
 
-export interface PlatformOrganizationLayoutRoutePageProps {}
-
-export function PlatformOrganizationLayoutRoutePage(
-  _props: PlatformOrganizationLayoutRoutePageProps,
-) {
+export function PlatformOrganizationLayoutRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -45,11 +35,7 @@ export function PlatformOrganizationLayoutRoutePage(
   return <PlatformOrganizationLayoutPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationOverviewRoutePageProps {}
-
-export function PlatformOrganizationOverviewRoutePage(
-  _props: PlatformOrganizationOverviewRoutePageProps,
-) {
+export function PlatformOrganizationOverviewRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -57,11 +43,7 @@ export function PlatformOrganizationOverviewRoutePage(
   return <PlatformOrganizationOverviewPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationUsageRoutePageProps {}
-
-export function PlatformOrganizationUsageRoutePage(
-  _props: PlatformOrganizationUsageRoutePageProps,
-) {
+export function PlatformOrganizationUsageRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -69,11 +51,7 @@ export function PlatformOrganizationUsageRoutePage(
   return <PlatformOrganizationUsagePage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationAccessRoutePageProps {}
-
-export function PlatformOrganizationAccessRoutePage(
-  _props: PlatformOrganizationAccessRoutePageProps,
-) {
+export function PlatformOrganizationAccessRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -81,11 +59,7 @@ export function PlatformOrganizationAccessRoutePage(
   return <PlatformOrganizationAccessPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationJobsRoutePageProps {}
-
-export function PlatformOrganizationJobsRoutePage(
-  _props: PlatformOrganizationJobsRoutePageProps,
-) {
+export function PlatformOrganizationJobsRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -93,11 +67,7 @@ export function PlatformOrganizationJobsRoutePage(
   return <PlatformOrganizationJobsPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationEventsRoutePageProps {}
-
-export function PlatformOrganizationEventsRoutePage(
-  _props: PlatformOrganizationEventsRoutePageProps,
-) {
+export function PlatformOrganizationEventsRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -105,11 +75,7 @@ export function PlatformOrganizationEventsRoutePage(
   return <PlatformOrganizationEventsPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformOrganizationLogsRoutePageProps {}
-
-export function PlatformOrganizationLogsRoutePage(
-  _props: PlatformOrganizationLogsRoutePageProps,
-) {
+export function PlatformOrganizationLogsRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })
@@ -117,17 +83,11 @@ export function PlatformOrganizationLogsRoutePage(
   return <PlatformOrganizationLogsPage orgSlug={platformOrgSlug} />
 }
 
-export interface PlatformRedirectRoutePageProps {}
-
-export function PlatformRedirectRoutePage(_props: PlatformRedirectRoutePageProps) {
+export function PlatformRedirectRoutePage() {
   return <PlatformRedirectPage />
 }
 
-export interface PlatformOrganizationRedirectRoutePageProps {}
-
-export function PlatformOrganizationRedirectRoutePage(
-  _props: PlatformOrganizationRedirectRoutePageProps,
-) {
+export function PlatformOrganizationRedirectRoutePage() {
   const { platformOrgSlug } = useParams({
     from: platformOrganizationRouteId,
   })

@@ -1,89 +1,89 @@
-import { getSlackOAuthConfig } from "./env";
+import { getSlackOAuthConfig } from "./env"
 
-const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
-const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access";
-const SLACK_USERS_LIST_URL = "https://slack.com/api/users.list";
-const SLACK_CONVERSATIONS_LIST_URL = "https://slack.com/api/conversations.list";
-const SLACK_CONVERSATIONS_JOIN_URL = "https://slack.com/api/conversations.join";
+const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
+const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
+const SLACK_USERS_LIST_URL = "https://slack.com/api/users.list"
+const SLACK_CONVERSATIONS_LIST_URL = "https://slack.com/api/conversations.list"
+const SLACK_CONVERSATIONS_JOIN_URL = "https://slack.com/api/conversations.join"
 const SLACK_CONVERSATIONS_LEAVE_URL =
-  "https://slack.com/api/conversations.leave";
+  "https://slack.com/api/conversations.leave"
 
 type SlackOAuthResponse = {
-  access_token?: string;
-  app_id?: string;
+  access_token?: string
+  app_id?: string
   authed_user?: {
-    id?: string;
-  };
-  bot_user_id?: string;
-  error?: string;
-  ok: boolean;
-  scope?: string;
+    id?: string
+  }
+  bot_user_id?: string
+  error?: string
+  ok: boolean
+  scope?: string
   team?: {
-    id?: string;
-    name?: string;
-  };
-};
+    id?: string
+    name?: string
+  }
+}
 
 type SlackPaginatedResponse = {
-  error?: string;
-  ok: boolean;
+  error?: string
+  ok: boolean
   response_metadata?: {
-    next_cursor?: string;
-  };
-};
+    next_cursor?: string
+  }
+}
 
 type SlackUser = {
-  deleted?: boolean;
-  id?: string;
-  is_bot?: boolean;
-  name?: string;
+  deleted?: boolean
+  id?: string
+  is_bot?: boolean
+  name?: string
   profile?: {
-    display_name?: string;
-    email?: string;
-    image_192?: string;
-    real_name?: string;
-  };
-  real_name?: string;
-};
+    display_name?: string
+    email?: string
+    image_192?: string
+    real_name?: string
+  }
+  real_name?: string
+}
 
 type SlackUsersListResponse = SlackPaginatedResponse & {
-  members?: SlackUser[];
-};
+  members?: SlackUser[]
+}
 
 type SlackConversation = {
-  id?: string;
-  is_archived?: boolean;
-  is_channel?: boolean;
-  is_group?: boolean;
-  is_member?: boolean;
-  name?: string;
-  num_members?: number;
+  id?: string
+  is_archived?: boolean
+  is_channel?: boolean
+  is_group?: boolean
+  is_member?: boolean
+  name?: string
+  num_members?: number
   purpose?: {
-    value?: string;
-  };
+    value?: string
+  }
   topic?: {
-    value?: string;
-  };
-};
+    value?: string
+  }
+}
 
 type SlackConversationsListResponse = SlackPaginatedResponse & {
-  channels?: SlackConversation[];
-};
+  channels?: SlackConversation[]
+}
 
 export function buildSlackInstallUrl(state: string) {
-  const config = getSlackOAuthConfig();
+  const config = getSlackOAuthConfig()
   const searchParams = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     scope: config.botScopes.join(","),
     state,
-  });
+  })
 
-  return `${SLACK_AUTHORIZE_URL}?${searchParams.toString()}`;
+  return `${SLACK_AUTHORIZE_URL}?${searchParams.toString()}`
 }
 
 export async function exchangeSlackCodeForBotToken(code: string) {
-  const config = getSlackOAuthConfig();
+  const config = getSlackOAuthConfig()
   const response = await fetch(SLACK_TOKEN_URL, {
     body: new URLSearchParams({
       client_id: config.clientId,
@@ -95,14 +95,14 @@ export async function exchangeSlackCodeForBotToken(code: string) {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     method: "POST",
-  });
+  })
 
-  const body = (await response.json()) as SlackOAuthResponse;
+  const body = (await response.json()) as SlackOAuthResponse
 
   if (!response.ok || !body.ok || !body.access_token || !body.team?.id) {
     throw new Error(
       `Slack OAuth exchange failed${body.error ? `: ${body.error}` : ""}`,
-    );
+    )
   }
 
   return {
@@ -112,14 +112,14 @@ export async function exchangeSlackCodeForBotToken(code: string) {
     slackBotUserId: body.bot_user_id ?? null,
     teamId: body.team.id,
     teamName: body.team.name ?? null,
-  };
+  }
 }
 
 export async function fetchSlackMessagingDirectory(botToken: string) {
   const [users, conversations] = await Promise.all([
     fetchAllSlackUsers(botToken),
     fetchAllSlackConversations(botToken),
-  ]);
+  ])
 
   return {
     conversations: conversations.map((conversation) => ({
@@ -142,11 +142,11 @@ export async function fetchSlackMessagingDirectory(botToken: string) {
       profileJson: user,
       username: user.name ?? null,
     })),
-  };
+  }
 }
 
 export async function fetchSlackUsers(botToken: string) {
-  const users = await fetchAllSlackUsers(botToken);
+  const users = await fetchAllSlackUsers(botToken)
   return users.map((user) => ({
     avatarUrl: user.profile?.image_192 ?? null,
     displayName: user.profile?.display_name || user.name || null,
@@ -157,11 +157,11 @@ export async function fetchSlackUsers(botToken: string) {
     memberType: user.is_bot ? ("bot" as const) : ("user" as const),
     profileJson: user,
     username: user.name ?? null,
-  }));
+  }))
 }
 
 export async function fetchSlackConversations(botToken: string) {
-  const conversations = await fetchAllSlackConversations(botToken);
+  const conversations = await fetchAllSlackConversations(botToken)
   return conversations.map((conversation) => ({
     conversationType: getSlackConversationType(conversation),
     externalConversationId: conversation.id ?? "",
@@ -170,31 +170,31 @@ export async function fetchSlackConversations(botToken: string) {
     name: conversation.name ?? null,
     purpose: conversation.purpose?.value ?? null,
     topic: conversation.topic?.value ?? null,
-  }));
+  }))
 }
 
 export async function joinSlackChannel(input: {
-  botToken: string;
-  channelId: string;
+  botToken: string
+  channelId: string
 }) {
   return postSlackConversationMutation({
     botToken: input.botToken,
     channelId: input.channelId,
     endpoint: SLACK_CONVERSATIONS_JOIN_URL,
     ignoreErrors: new Set(["already_in_channel"]),
-  });
+  })
 }
 
 export async function leaveSlackChannel(input: {
-  botToken: string;
-  channelId: string;
+  botToken: string
+  channelId: string
 }) {
   return postSlackConversationMutation({
     botToken: input.botToken,
     channelId: input.channelId,
     endpoint: SLACK_CONVERSATIONS_LEAVE_URL,
     ignoreErrors: new Set(["not_in_channel"]),
-  });
+  })
 }
 
 async function fetchAllSlackUsers(botToken: string) {
@@ -203,7 +203,7 @@ async function fetchAllSlackUsers(botToken: string) {
     endpoint: SLACK_USERS_LIST_URL,
     getItems: (body) => body.members ?? [],
     responseParser: (body) => body as SlackUsersListResponse,
-  });
+  })
 }
 
 async function fetchAllSlackConversations(botToken: string) {
@@ -217,59 +217,59 @@ async function fetchAllSlackConversations(botToken: string) {
       types: "public_channel,private_channel",
     },
     responseParser: (body) => body as SlackConversationsListResponse,
-  });
+  })
 }
 
 async function fetchSlackPages<
   Item,
   ResponseType extends SlackPaginatedResponse,
 >(input: {
-  botToken: string;
-  endpoint: string;
-  getItems: (body: ResponseType) => Item[];
-  query?: Record<string, string>;
-  responseParser: (body: unknown) => ResponseType;
+  botToken: string
+  endpoint: string
+  getItems: (body: ResponseType) => Item[]
+  query?: Record<string, string>
+  responseParser: (body: unknown) => ResponseType
 }) {
-  const items: Item[] = [];
-  let cursor = "";
+  const items: Item[] = []
+  let cursor = ""
 
   do {
-    const url = new URL(input.endpoint);
+    const url = new URL(input.endpoint)
 
     for (const [key, value] of Object.entries(input.query ?? {})) {
-      url.searchParams.set(key, value);
+      url.searchParams.set(key, value)
     }
 
     if (cursor) {
-      url.searchParams.set("cursor", cursor);
+      url.searchParams.set("cursor", cursor)
     }
 
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${input.botToken}`,
       },
-    });
-    const body = input.responseParser(await response.json());
+    })
+    const body = input.responseParser(await response.json())
 
     if (!response.ok || !body.ok) {
       throw new Error(
         `Slack API request failed${body.error ? `: ${body.error}` : ""}`,
-      );
+      )
     }
 
-    items.push(...input.getItems(body));
+    items.push(...input.getItems(body))
 
-    cursor = body.response_metadata?.next_cursor?.trim() ?? "";
-  } while (cursor);
+    cursor = body.response_metadata?.next_cursor?.trim() ?? ""
+  } while (cursor)
 
-  return items;
+  return items
 }
 
 async function postSlackConversationMutation(input: {
-  botToken: string;
-  channelId: string;
-  endpoint: string;
-  ignoreErrors?: Set<string>;
+  botToken: string
+  channelId: string
+  endpoint: string
+  ignoreErrors?: Set<string>
 }) {
   const response = await fetch(input.endpoint, {
     body: new URLSearchParams({
@@ -280,8 +280,8 @@ async function postSlackConversationMutation(input: {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     method: "POST",
-  });
-  const body = (await response.json()) as SlackPaginatedResponse;
+  })
+  const body = (await response.json()) as SlackPaginatedResponse
 
   if (
     (!response.ok || !body.ok) &&
@@ -289,18 +289,18 @@ async function postSlackConversationMutation(input: {
   ) {
     throw new Error(
       `Slack API request failed${body.error ? `: ${body.error}` : ""}`,
-    );
+    )
   }
 }
 
 function getSlackConversationType(conversation: SlackConversation) {
   if (conversation.is_group) {
-    return "private_channel";
+    return "private_channel"
   }
 
   if (conversation.is_channel) {
-    return "channel";
+    return "channel"
   }
 
-  return "conversation";
+  return "conversation"
 }

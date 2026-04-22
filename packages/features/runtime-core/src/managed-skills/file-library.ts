@@ -1,8 +1,4 @@
-import {
-  readdirSync,
-  readFileSync,
-  statSync,
-} from "node:fs"
+import { readdirSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
 import { z } from "zod"
 
@@ -45,9 +41,7 @@ export function loadSystemManagedSkillDefinitionsFromDirectory(
     .map((loadedDefinition) => loadedDefinition.definition)
 }
 
-function loadSystemManagedSkillDefinition(
-  skillRoot: string,
-): {
+function loadSystemManagedSkillDefinition(skillRoot: string): {
   definition: SystemManagedSkillDefinition
   sortOrder: number
 } {

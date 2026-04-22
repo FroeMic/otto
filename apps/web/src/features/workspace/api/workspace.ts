@@ -1,14 +1,14 @@
 import {
+  connectedAccountsResponseSchema,
+  updateUserProfileSchema,
+  userProfileSchema,
+} from "@otto/feature-user-profile"
+import {
   shellBootstrapSchema,
   type WorkspaceSettingsSuccess,
   workspaceSettingsSuccessSchema,
 } from "@otto/feature-workspace-core"
 import { queryOptions } from "@tanstack/react-query"
-import {
-  connectedAccountsResponseSchema,
-  updateUserProfileSchema,
-  userProfileSchema,
-} from "@otto/feature-user-profile"
 
 import { apiClient } from "@/client/app/rpc"
 
@@ -160,12 +160,13 @@ export async function updateUserProfile(body: {
 export function connectedAccountsQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"]["connected-accounts"].$get({
-          param: {
-            orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[":orgSlug"][
+        "connected-accounts"
+      ].$get({
+        param: {
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, parseConnectedAccountsResponse)
     },

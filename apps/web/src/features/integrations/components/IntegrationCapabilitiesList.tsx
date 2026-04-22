@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import type { WorkspaceIntegrationCapabilityRow } from "@otto/feature-integrations-runtime/workspace"
 import {
   SettingsCard,
   SettingsRow,
@@ -6,17 +6,21 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
-import type { WorkspaceIntegrationCapabilityRow } from "@otto/feature-integrations-runtime/workspace"
+import { Badge } from "@/components/ui/badge"
 
 export interface IntegrationCapabilitiesListProps {
   rows: WorkspaceIntegrationCapabilityRow[]
 }
 
-function formatCapabilityType(type: WorkspaceIntegrationCapabilityRow["capabilityType"]) {
+function formatCapabilityType(
+  type: WorkspaceIntegrationCapabilityRow["capabilityType"],
+) {
   return type === "trigger" ? "Trigger" : "Command"
 }
 
-function formatCapabilityEffect(effect: WorkspaceIntegrationCapabilityRow["effect"]) {
+function formatCapabilityEffect(
+  effect: WorkspaceIntegrationCapabilityRow["effect"],
+) {
   if (effect === "read") {
     return "Read"
   }
@@ -28,7 +32,9 @@ function formatCapabilityEffect(effect: WorkspaceIntegrationCapabilityRow["effec
   return "—"
 }
 
-function formatCapabilityStatus(status: WorkspaceIntegrationCapabilityRow["status"]) {
+function formatCapabilityStatus(
+  status: WorkspaceIntegrationCapabilityRow["status"],
+) {
   if (status === "needs_attention") {
     return "Needs attention"
   }
@@ -46,8 +52,14 @@ export function IntegrationCapabilitiesList({
           <SettingsRowLabel>
             <div className="flex flex-wrap items-center gap-2">
               <SettingsRowTitle>{row.label}</SettingsRowTitle>
-              <Badge variant="outline">{formatCapabilityType(row.capabilityType)}</Badge>
-              <Badge variant={row.status === "needs_attention" ? "destructive" : "secondary"}>
+              <Badge variant="outline">
+                {formatCapabilityType(row.capabilityType)}
+              </Badge>
+              <Badge
+                variant={
+                  row.status === "needs_attention" ? "destructive" : "secondary"
+                }
+              >
                 {formatCapabilityStatus(row.status)}
               </Badge>
             </div>

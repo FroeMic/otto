@@ -1,4 +1,4 @@
-import { normalizeOptionalString, pruneGraphqlInput } from "../../client";
+import { normalizeOptionalString, pruneGraphqlInput } from "../../client"
 
 export function buildLinearInitiativeCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -23,7 +23,7 @@ export function buildLinearInitiativeCreateInput(
     targetDateResolution: normalizeOptionalString(
       argumentsObject.targetDateResolution,
     ),
-  });
+  })
 }
 
 export function buildLinearInitiativeUpdateInput(
@@ -50,5 +50,5 @@ export function buildLinearInitiativeUpdateInput(
       typeof argumentsObject.trashed === "boolean"
         ? argumentsObject.trashed
         : null,
-  });
+  })
 }

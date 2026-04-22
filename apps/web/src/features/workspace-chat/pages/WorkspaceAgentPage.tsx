@@ -27,9 +27,7 @@ export interface WorkspaceAgentPageProps {
   orgSlug: string
 }
 
-export function WorkspaceAgentPage({
-  orgSlug,
-}: WorkspaceAgentPageProps) {
+export function WorkspaceAgentPage({ orgSlug }: WorkspaceAgentPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { boundsRef, dockStyle } = useViewportDockBounds()
@@ -42,7 +40,7 @@ export function WorkspaceAgentPage({
       ? new Date(onboarding.starterPromptConsumedAt)
       : null,
   })
-    ? onboarding.starterPrompt ?? ""
+    ? (onboarding.starterPrompt ?? "")
     : ""
   const startConversationMutation = useMutation({
     mutationFn: async (input: {

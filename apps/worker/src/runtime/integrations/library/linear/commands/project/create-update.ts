@@ -1,12 +1,12 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   executeLinearGraphql,
   getLinearProjectUpdateFields,
   type LinearProjectUpdateNode,
   mapLinearProjectUpdate,
-} from "../../client";
-import { buildLinearProjectUpdateCreateInput } from "./input";
+} from "../../client"
+import { buildLinearProjectUpdateCreateInput } from "./input"
 
 const CREATE_PROJECT_UPDATE_MUTATION = `
   mutation OttoLinearProjectCreateUpdate($input: ProjectUpdateCreateInput!) {
@@ -18,28 +18,28 @@ const CREATE_PROJECT_UPDATE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearProjectCreateUpdate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const input = buildLinearProjectUpdateCreateInput(args);
+    const input = buildLinearProjectUpdateCreateInput(args)
     const data = await executeLinearGraphql<{
       projectUpdateCreate?: {
-        lastSyncId?: number | null;
-        projectUpdate?: LinearProjectUpdateNode | null;
-        success?: boolean | null;
-      } | null;
+        lastSyncId?: number | null
+        projectUpdate?: LinearProjectUpdateNode | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: CREATE_PROJECT_UPDATE_MUTATION,
       variables: {
         input,
       },
-    });
+    })
 
     return {
       commandKey: "project.create_update",
@@ -53,5 +53,5 @@ export const executeLinearProjectCreateUpdate: IntegrationCommandExecute =
         : null,
       source: "linear",
       success: data.projectUpdateCreate?.success ?? true,
-    };
-  };
+    }
+  }

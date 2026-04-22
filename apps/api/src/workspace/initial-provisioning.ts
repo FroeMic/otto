@@ -11,9 +11,8 @@ import {
   workspaceOnboardingRuns,
 } from "@otto/feature-integrations-runtime/db/schema"
 import { desc, eq } from "drizzle-orm"
-
-import { buildInitialWorkspaceCreditGrantInput } from "../billing/data"
 import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
+import { buildInitialWorkspaceCreditGrantInput } from "../billing/data"
 import { JOB_TYPES } from "../jobs/types"
 import { ensureTenantManagedConfigDesiredState } from "../runtime/managed-config/data"
 import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
@@ -54,7 +53,8 @@ function parseInitialWorkspaceOttoPlugins(
       {
         ...(isRecord(entry.config) ? { config: entry.config } : {}),
         id: entry.id,
-        ...(typeof entry.timeoutMs === "number" && Number.isFinite(entry.timeoutMs)
+        ...(typeof entry.timeoutMs === "number" &&
+        Number.isFinite(entry.timeoutMs)
           ? { timeoutMs: entry.timeoutMs }
           : {}),
       },
@@ -232,8 +232,7 @@ export async function ensureInitialWorkspaceRuntimeProvisioning(input: {
   starterPrompt?: string | null
 }) {
   const db = getDb()
-  const provisioningStrategy =
-    input.provisioningStrategy ?? "legacy_base_image"
+  const provisioningStrategy = input.provisioningStrategy ?? "legacy_base_image"
 
   const tenantContext = await db.transaction(async (tx) => {
     const [organization] = await tx
@@ -249,26 +248,22 @@ export async function ensureInitialWorkspaceRuntimeProvisioning(input: {
       throw new Error("Organization not found")
     }
 
-    const [onboardingUser] =
-      input.createOrUpdateOnboardingRunForUserExternalId
-        ? await tx
-            .select({
-              id: users.id,
-            })
-            .from(users)
-            .where(
-              eq(
-                users.externalId,
-                input.createOrUpdateOnboardingRunForUserExternalId,
-              ),
-            )
-            .limit(1)
-        : [null]
+    const [onboardingUser] = input.createOrUpdateOnboardingRunForUserExternalId
+      ? await tx
+          .select({
+            id: users.id,
+          })
+          .from(users)
+          .where(
+            eq(
+              users.externalId,
+              input.createOrUpdateOnboardingRunForUserExternalId,
+            ),
+          )
+          .limit(1)
+      : [null]
 
-    if (
-      input.createOrUpdateOnboardingRunForUserExternalId &&
-      !onboardingUser
-    ) {
+    if (input.createOrUpdateOnboardingRunForUserExternalId && !onboardingUser) {
       throw new Error("Platform user not found")
     }
 

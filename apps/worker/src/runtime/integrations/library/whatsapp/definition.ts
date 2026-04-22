@@ -1,8 +1,8 @@
-import type { IntegrationDefinition } from "../../framework";
-import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "../../../lib/whatsapp-config";
-import { getToolDefinition } from "../../../tools";
+import { WHATSAPP_RUNTIME_CONFIG_DESCRIPTION } from "../../../lib/whatsapp-config"
+import { getToolDefinition } from "../../../tools"
+import type { IntegrationDefinition } from "../../framework"
 
-const whatsappToolDefinition = getToolDefinition("channel", "whatsapp");
+const whatsappToolDefinition = getToolDefinition("channel", "whatsapp")
 
 const whatsappSettingsExamples = [
   {
@@ -30,7 +30,7 @@ const whatsappSettingsExamples = [
     },
     summary: "Updated WhatsApp settings",
   },
-];
+]
 
 export const whatsappIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: whatsappToolDefinition?.agentCapabilities ?? [],
@@ -65,4 +65,4 @@ export const whatsappIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/whatsapp/status`,
   showInWorkspaceCatalog: true,
-};
+}

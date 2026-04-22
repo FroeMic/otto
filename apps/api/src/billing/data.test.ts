@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest"
-
-import { BILLING_PLAN_KEYS } from "./plans"
 import {
   buildInitialWorkspaceCreditGrantInput,
   buildSubscriptionRecordFromStripe,
   INITIAL_WORKSPACE_CREDITS,
 } from "./data"
+import { BILLING_PLAN_KEYS } from "./plans"
 
 describe("buildSubscriptionRecordFromStripe", () => {
   it("maps known Stripe lookup keys to billing plan keys", () => {

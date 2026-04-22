@@ -1,11 +1,8 @@
 "use client"
 
 import { CaretDownIcon } from "@phosphor-icons/react"
-
-import {
-  type ConversationHistoryFilter,
-} from "./conversation-history-filters"
 import { ConversationHistoryFilter as ConversationHistoryFilterControl } from "./ConversationHistoryFilter"
+import type { ConversationHistoryFilter } from "./conversation-history-filters"
 
 export interface ConversationHistoryHeaderProps {
   collapsed: boolean
@@ -30,9 +27,7 @@ export function ConversationHistoryHeader({
         <CaretDownIcon
           className={`size-3 transition-transform ${collapsed ? "-rotate-90" : "rotate-0"}`}
         />
-        <span className="truncate">
-          Conversations
-        </span>
+        <span className="truncate">Conversations</span>
       </button>
       <div className="flex min-w-0 items-center gap-2">
         <ConversationHistoryFilterControl

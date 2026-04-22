@@ -12,4 +12,3 @@ export const HIDDEN_WORKSPACE_FILE_PATHS = [
 export const HIDDEN_WORKSPACE_FILE_PREFIXES = [".openclaw/"]
 
 export const WORKSPACE_FILES_ROOT_PATH = "/opt/openclaw/home/workspace"
-

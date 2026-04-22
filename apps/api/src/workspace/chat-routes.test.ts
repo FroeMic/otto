@@ -150,10 +150,10 @@ describe("workspace chat routes", () => {
     assert.deepEqual(
       ((listConversations.mock.calls[0] as unknown as [unknown]) ?? [])[0],
       {
-      cursor: "cursor_123",
-      limit: 20,
-      orgSlug: "otto",
-      userExternalId: "user_123",
+        cursor: "cursor_123",
+        limit: 20,
+        orgSlug: "otto",
+        userExternalId: "user_123",
       },
     )
   })

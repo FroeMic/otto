@@ -5,33 +5,33 @@ import {
   jsonNoStore,
 } from "@otto/auth"
 import {
+  type BillingPreferences,
   billingCheckoutSchema,
   billingOverviewSchema,
   billingPreferencesResponseSchema,
   billingPreferencesSchema,
   billingUrlResponseSchema,
-  type BillingPreferences,
 } from "@otto/feature-billing"
 import type { WorkspaceShellUser } from "@otto/feature-workspace-core"
 import { Hono } from "hono"
 import { z } from "zod"
 
 import { getApiEnv } from "../env"
-import { getOrganizationWorkspaceBySlug, syncUserFromSession } from "../workspace/data"
 import {
-  DEFAULT_BILLING_PREFERENCES,
+  getOrganizationWorkspaceBySlug,
+  syncUserFromSession,
+} from "../workspace/data"
+import {
   findBillingCustomerByOrganizationId,
   getBillingCycleWindow,
   getWorkspaceBillingOverview,
   recordBillingCheckoutSession,
   upsertBillingCustomerRecord,
   upsertBillingPreferences,
-  type BillingPreferencesRecord,
 } from "./data"
 import { getAutoTopOffPacks, getBillingPlanByKey } from "./plans"
 import {
   getStripe,
-  getStripeAutoTopOffPaymentMethodStatus,
   getStripeBillingCycleSpendCents,
   getStripeRecurringPriceIdForPlanKey,
   hasStripeBillingConfig,
@@ -376,8 +376,9 @@ export function createBillingRouter(
           return authResult.response
         }
 
-        const preferences = await (dependencies.updateBillingPreferences ??
-          saveBillingPreferences)({
+        const preferences = await (
+          dependencies.updateBillingPreferences ?? saveBillingPreferences
+        )({
           orgSlug: context.req.valid("param").orgSlug,
           preferences: context.req.valid("json"),
           user: authResult.user,

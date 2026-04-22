@@ -47,4 +47,3 @@ export type RuntimeCommandResult = {
   stderr: string
   stdout: string
 }
-

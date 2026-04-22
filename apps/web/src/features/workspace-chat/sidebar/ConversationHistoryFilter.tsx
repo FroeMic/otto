@@ -11,13 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 import {
+  type ConversationHistoryFilter as ConversationHistoryFilterValue,
   conversationHistoryFilterOptions,
-  type ConversationHistoryFilter,
 } from "./conversation-history-filters"
 
 export interface ConversationHistoryFilterProps {
-  onValueChange: (value: ConversationHistoryFilter) => void
-  value: ConversationHistoryFilter
+  onValueChange: (value: ConversationHistoryFilterValue) => void
+  value: ConversationHistoryFilterValue
 }
 
 export function ConversationHistoryFilter({
@@ -57,4 +57,3 @@ export function ConversationHistoryFilter({
     </DropdownMenu>
   )
 }
-

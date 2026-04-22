@@ -1,6 +1,6 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
-import { executeLinearGraphql } from "../../client";
+import { executeLinearGraphql } from "../../client"
 
 const RESEND_WORKSPACE_MEMBER_INVITE_BY_ID_MUTATION = `
   mutation OttoLinearResendOrganizationInvite($id: String!) {
@@ -10,7 +10,7 @@ const RESEND_WORKSPACE_MEMBER_INVITE_BY_ID_MUTATION = `
       success
     }
   }
-`;
+`
 
 const RESEND_WORKSPACE_MEMBER_INVITE_BY_EMAIL_MUTATION = `
   mutation OttoLinearResendOrganizationInviteByEmail($email: String!) {
@@ -20,38 +20,38 @@ const RESEND_WORKSPACE_MEMBER_INVITE_BY_EMAIL_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceMemberInviteResend: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const inviteId =
-      typeof args.inviteId === "string" ? args.inviteId.trim() : "";
-    const email = typeof args.email === "string" ? args.email.trim() : "";
+      typeof args.inviteId === "string" ? args.inviteId.trim() : ""
+    const email = typeof args.email === "string" ? args.email.trim() : ""
 
     if (!inviteId && !email) {
       throw new Error(
         "linear workspace_member.invite_resend requires inviteId or email.",
-      );
+      )
     }
 
     if (inviteId) {
       const data = await executeLinearGraphql<{
         resendOrganizationInvite?: {
-          entityId?: string | null;
-          lastSyncId?: number | null;
-          success?: boolean | null;
-        } | null;
+          entityId?: string | null
+          lastSyncId?: number | null
+          success?: boolean | null
+        } | null
       }>({
         accessToken: context.auth.accessToken,
         query: RESEND_WORKSPACE_MEMBER_INVITE_BY_ID_MUTATION,
         variables: {
           id: inviteId,
         },
-      });
+      })
 
       return {
         commandKey: "workspace_member.invite_resend",
@@ -64,22 +64,22 @@ export const executeLinearWorkspaceMemberInviteResend: IntegrationCommandExecute
         resentInviteId: data.resendOrganizationInvite?.entityId?.trim() || null,
         source: "linear",
         success: data.resendOrganizationInvite?.success ?? true,
-      };
+      }
     }
 
     const data = await executeLinearGraphql<{
       resendOrganizationInviteByEmail?: {
-        entityId?: string | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entityId?: string | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: RESEND_WORKSPACE_MEMBER_INVITE_BY_EMAIL_MUTATION,
       variables: {
         email,
       },
-    });
+    })
 
     return {
       commandKey: "workspace_member.invite_resend",
@@ -93,5 +93,5 @@ export const executeLinearWorkspaceMemberInviteResend: IntegrationCommandExecute
         data.resendOrganizationInviteByEmail?.entityId?.trim() || null,
       source: "linear",
       success: data.resendOrganizationInviteByEmail?.success ?? true,
-    };
-  };
+    }
+  }

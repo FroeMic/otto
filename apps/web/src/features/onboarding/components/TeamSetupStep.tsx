@@ -5,7 +5,10 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
-import { OnboardingOptionButton, OnboardingStepLayout } from "./OnboardingStepLayout"
+import {
+  OnboardingOptionButton,
+  OnboardingStepLayout,
+} from "./OnboardingStepLayout"
 
 const teamSizeOptions: Array<{
   description: string
@@ -39,7 +42,9 @@ export interface TeamSetupStepProps {
   isPending?: boolean
   onBack?: () => void
   onSubmit: (
-    teamSize: NonNullable<WorkspaceOnboardingRunSummary["answers"]["team_size"]>,
+    teamSize: NonNullable<
+      WorkspaceOnboardingRunSummary["answers"]["team_size"]
+    >,
   ) => Promise<void> | void
 }
 

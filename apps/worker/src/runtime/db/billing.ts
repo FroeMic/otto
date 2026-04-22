@@ -1,7 +1,15 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
-
-import { getDb } from "./client";
-import { getTenantCreditBalanceSummary } from "./credit-ledger";
+import { and, desc, eq, inArray } from "drizzle-orm"
+import {
+  CREDIT_LEDGER_ENTRY_TYPES,
+  formatCreditsFromMilli,
+} from "../lib/billing/openai-credit-pricing"
+import {
+  type BillingPlanKey,
+  getAutoTopOffPackByLookupKey,
+  getBillingPlanByKey,
+} from "../lib/billing/plans"
+import { getDb } from "./client"
+import { getTenantCreditBalanceSummary } from "./credit-ledger"
 import {
   billingAutoTopOffRuns,
   billingCheckoutSessions,
@@ -13,163 +21,154 @@ import {
   creditLedgerEntries,
   organizations,
   tenants,
-} from "./schema";
-import {
-  CREDIT_LEDGER_ENTRY_TYPES,
-  formatCreditsFromMilli,
-} from "../lib/billing/openai-credit-pricing";
-import {
-  type BillingPlanKey,
-  getAutoTopOffPackByLookupKey,
-  getBillingPlanByKey,
-} from "../lib/billing/plans";
+} from "./schema"
 
 type StripeCustomerRecordInput = {
-  defaultCurrency?: string | null;
-  organizationId: string;
-  stripeCustomerId: string;
-};
+  defaultCurrency?: string | null
+  organizationId: string
+  stripeCustomerId: string
+}
 
 type StripeSubscriptionRecordInput = {
-  cancelAtPeriodEnd: boolean;
-  currentPeriodEnd: Date | null;
-  currentPeriodStart: Date | null;
-  organizationId: string;
-  planKey: BillingPlanKey | null;
-  status: string;
-  stripeCustomerId: string;
-  stripePriceId: string | null;
-  stripeSubscriptionId: string;
-  trialEnd: Date | null;
-};
+  cancelAtPeriodEnd: boolean
+  currentPeriodEnd: Date | null
+  currentPeriodStart: Date | null
+  organizationId: string
+  planKey: BillingPlanKey | null
+  status: string
+  stripeCustomerId: string
+  stripePriceId: string | null
+  stripeSubscriptionId: string
+  trialEnd: Date | null
+}
 
 export type BillingPreferencesRecord = {
-  autoTopOffEnabled: boolean;
-  minimumBalanceCredits: number;
-  monthlySpendLimitCents: number;
-  topOffAmountCents: number;
-};
+  autoTopOffEnabled: boolean
+  minimumBalanceCredits: number
+  monthlySpendLimitCents: number
+  topOffAmountCents: number
+}
 
 export const DEFAULT_BILLING_PREFERENCES: BillingPreferencesRecord = {
   autoTopOffEnabled: false,
   minimumBalanceCredits: 2_000,
   monthlySpendLimitCents: 20_000,
   topOffAmountCents: 2_000,
-};
+}
 
 export const AUTO_TOP_OFF_RUN_STATUSES = {
   awaitingWebhook: "awaiting_webhook",
   failed: "failed",
   processing: "processing",
   succeeded: "succeeded",
-} as const;
+} as const
 
 const AUTO_TOP_OFF_ACTIVE_RUN_STATUSES = [
   AUTO_TOP_OFF_RUN_STATUSES.processing,
   AUTO_TOP_OFF_RUN_STATUSES.awaitingWebhook,
-] as const;
+] as const
 
 const AUTO_TOP_OFF_ELIGIBLE_SUBSCRIPTION_STATUSES = [
   "active",
   "past_due",
   "trialing",
-] as const;
+] as const
 
 export type AutoTopOffRunStatus =
-  (typeof AUTO_TOP_OFF_RUN_STATUSES)[keyof typeof AUTO_TOP_OFF_RUN_STATUSES];
+  (typeof AUTO_TOP_OFF_RUN_STATUSES)[keyof typeof AUTO_TOP_OFF_RUN_STATUSES]
 
 export type BillingAutoTopOffExecutionTarget = {
-  currentBalanceCreditsMilli: number;
-  currentPeriodEnd: Date | null;
-  currentPeriodStart: Date | null;
-  minimumBalanceCredits: number;
-  monthlySpendLimitCents: number;
-  organizationId: string;
-  stripeCustomerId: string;
-  stripeSubscriptionId: string | null;
-  tenantId: string;
-  topOffAmountCents: number;
-};
+  currentBalanceCreditsMilli: number
+  currentPeriodEnd: Date | null
+  currentPeriodStart: Date | null
+  minimumBalanceCredits: number
+  monthlySpendLimitCents: number
+  organizationId: string
+  stripeCustomerId: string
+  stripeSubscriptionId: string | null
+  tenantId: string
+  topOffAmountCents: number
+}
 
 export type BillingCycleWindow = {
-  end: Date | null;
-  start: Date;
-};
+  end: Date | null
+  start: Date
+}
 
 export type BillingAutoTopOffRunSummary = {
-  completedAt: Date | null;
-  createdAt: Date;
-  creditsGrantedMilli: number;
-  failureReason: string | null;
-  status: AutoTopOffRunStatus;
-  stripeInvoiceId: string | null;
-  topOffAmountCents: number;
-};
+  completedAt: Date | null
+  createdAt: Date
+  creditsGrantedMilli: number
+  failureReason: string | null
+  status: AutoTopOffRunStatus
+  stripeInvoiceId: string | null
+  topOffAmountCents: number
+}
 
 function normalizeDate(value: Date | null | undefined) {
-  return value ?? null;
+  return value ?? null
 }
 
 function startOfMonth(date: Date) {
-  const next = new Date(date);
-  next.setDate(1);
-  next.setHours(0, 0, 0, 0);
-  return next;
+  const next = new Date(date)
+  next.setDate(1)
+  next.setHours(0, 0, 0, 0)
+  return next
 }
 
 export function getBillingCycleWindow(input: {
-  currentPeriodEnd?: Date | null;
-  currentPeriodStart?: Date | null;
-  now?: Date;
+  currentPeriodEnd?: Date | null
+  currentPeriodStart?: Date | null
+  now?: Date
 }): BillingCycleWindow {
-  const now = input.now ?? new Date();
+  const now = input.now ?? new Date()
 
   if (input.currentPeriodStart) {
     return {
       end: input.currentPeriodEnd ?? null,
       start: input.currentPeriodStart,
-    };
+    }
   }
 
   return {
     end: null,
     start: startOfMonth(now),
-  };
+  }
 }
 
 export async function findBillingCustomerByOrganizationId(
   organizationId: string,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [customer] = await db
     .select()
     .from(billingCustomers)
     .where(eq(billingCustomers.organizationId, organizationId))
-    .limit(1);
+    .limit(1)
 
-  return customer ?? null;
+  return customer ?? null
 }
 
 export async function findOrganizationIdByStripeCustomerId(
   stripeCustomerId: string,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [customer] = await db
     .select({
       organizationId: billingCustomers.organizationId,
     })
     .from(billingCustomers)
     .where(eq(billingCustomers.stripeCustomerId, stripeCustomerId))
-    .limit(1);
+    .limit(1)
 
-  return customer?.organizationId ?? null;
+  return customer?.organizationId ?? null
 }
 
 export async function upsertBillingCustomerRecord(
   input: StripeCustomerRecordInput,
 ) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const [record] = await db
     .insert(billingCustomers)
@@ -186,43 +185,43 @@ export async function upsertBillingCustomerRecord(
       },
       target: billingCustomers.organizationId,
     })
-    .returning();
+    .returning()
 
-  return record ?? null;
+  return record ?? null
 }
 
 export async function findBillingSubscriptionByOrganizationId(
   organizationId: string,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [subscription] = await db
     .select()
     .from(billingSubscriptions)
     .where(eq(billingSubscriptions.organizationId, organizationId))
-    .limit(1);
+    .limit(1)
 
-  return subscription ?? null;
+  return subscription ?? null
 }
 
 export async function getBillingPreferencesByOrganizationId(
   organizationId: string,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [preferences] = await db
     .select()
     .from(billingPreferences)
     .where(eq(billingPreferences.organizationId, organizationId))
-    .limit(1);
+    .limit(1)
 
-  return preferences ?? null;
+  return preferences ?? null
 }
 
 export async function upsertBillingPreferences(input: {
-  organizationId: string;
-  preferences: BillingPreferencesRecord;
+  organizationId: string
+  preferences: BillingPreferencesRecord
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const [record] = await db
     .insert(billingPreferences)
@@ -244,16 +243,16 @@ export async function upsertBillingPreferences(input: {
       },
       target: billingPreferences.organizationId,
     })
-    .returning();
+    .returning()
 
-  return record ?? null;
+  return record ?? null
 }
 
 export async function upsertBillingSubscriptionRecord(
   input: StripeSubscriptionRecordInput,
 ) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const [record] = await db
     .insert(billingSubscriptions)
@@ -285,23 +284,23 @@ export async function upsertBillingSubscriptionRecord(
       },
       target: billingSubscriptions.organizationId,
     })
-    .returning();
+    .returning()
 
-  return record ?? null;
+  return record ?? null
 }
 
 export async function recordBillingCheckoutSession(input: {
-  checkoutUrl: string | null;
-  mode: string;
-  organizationId: string;
-  planKey: BillingPlanKey | null;
-  status: string;
-  stripeCheckoutSessionId: string;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
+  checkoutUrl: string | null
+  mode: string
+  organizationId: string
+  planKey: BillingPlanKey | null
+  status: string
+  stripeCheckoutSessionId: string
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const [record] = await db
     .insert(billingCheckoutSessions)
@@ -327,17 +326,17 @@ export async function recordBillingCheckoutSession(input: {
       },
       target: billingCheckoutSessions.stripeCheckoutSessionId,
     })
-    .returning();
+    .returning()
 
-  return record ?? null;
+  return record ?? null
 }
 
 export async function markStripeWebhookEventProcessed(input: {
-  eventType: string;
-  stripeEventId: string;
+  eventType: string
+  stripeEventId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const [record] = await db
     .insert(billingWebhookEvents)
@@ -351,26 +350,26 @@ export async function markStripeWebhookEventProcessed(input: {
     })
     .returning({
       id: billingWebhookEvents.id,
-    });
+    })
 
-  return Boolean(record);
+  return Boolean(record)
 }
 
 export async function hasProcessedStripeWebhookEvent(stripeEventId: string) {
-  const db = getDb();
+  const db = getDb()
   const [event] = await db
     .select({
       id: billingWebhookEvents.id,
     })
     .from(billingWebhookEvents)
     .where(eq(billingWebhookEvents.stripeEventId, stripeEventId))
-    .limit(1);
+    .limit(1)
 
-  return Boolean(event);
+  return Boolean(event)
 }
 
 export async function getOrganizationTenantForBilling(organizationId: string) {
-  const db = getDb();
+  const db = getDb()
   const [tenant] = await db
     .select({
       id: tenants.id,
@@ -379,13 +378,13 @@ export async function getOrganizationTenantForBilling(organizationId: string) {
     .from(tenants)
     .where(eq(tenants.organizationId, organizationId))
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return tenant ?? null;
+  return tenant ?? null
 }
 
 export async function listBillingAutoTopOffExecutionTargets() {
-  const db = getDb();
+  const db = getDb()
   const rows = await db
     .select({
       currentPeriodEnd: billingSubscriptions.currentPeriodEnd,
@@ -417,20 +416,20 @@ export async function listBillingAutoTopOffExecutionTargets() {
           AUTO_TOP_OFF_ELIGIBLE_SUBSCRIPTION_STATUSES,
         ),
       ),
-    );
+    )
 
-  const targets: BillingAutoTopOffExecutionTarget[] = [];
+  const targets: BillingAutoTopOffExecutionTarget[] = []
 
   for (const row of rows) {
-    const tenant = await getOrganizationTenantForBilling(row.organizationId);
+    const tenant = await getOrganizationTenantForBilling(row.organizationId)
 
     if (!tenant) {
-      continue;
+      continue
     }
 
     const balance = await getTenantCreditBalanceSummary({
       tenantId: tenant.id,
-    });
+    })
 
     targets.push({
       currentBalanceCreditsMilli: balance.currentBalanceCreditsMilli,
@@ -443,25 +442,25 @@ export async function listBillingAutoTopOffExecutionTargets() {
       stripeSubscriptionId: row.stripeSubscriptionId,
       tenantId: tenant.id,
       topOffAmountCents: row.topOffAmountCents,
-    });
+    })
   }
 
-  return targets;
+  return targets
 }
 
 export async function getBillingAutoTopOffExecutionTargetByOrganizationId(
   organizationId: string,
 ) {
-  const targets = await listBillingAutoTopOffExecutionTargets();
+  const targets = await listBillingAutoTopOffExecutionTargets()
   return (
     targets.find((target) => target.organizationId === organizationId) ?? null
-  );
+  )
 }
 
 export async function findLatestBillingAutoTopOffRunByOrganizationId(
   organizationId: string,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .select({
       completedAt: billingAutoTopOffRuns.completedAt,
@@ -475,13 +474,13 @@ export async function findLatestBillingAutoTopOffRunByOrganizationId(
     .from(billingAutoTopOffRuns)
     .where(eq(billingAutoTopOffRuns.organizationId, organizationId))
     .orderBy(desc(billingAutoTopOffRuns.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return (run ?? null) as BillingAutoTopOffRunSummary | null;
+  return (run ?? null) as BillingAutoTopOffRunSummary | null
 }
 
 export async function hasActiveBillingAutoTopOffRun(organizationId: string) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .select({
       id: billingAutoTopOffRuns.id,
@@ -494,24 +493,24 @@ export async function hasActiveBillingAutoTopOffRun(organizationId: string) {
       ),
     )
     .orderBy(desc(billingAutoTopOffRuns.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return Boolean(run);
+  return Boolean(run)
 }
 
 export async function createBillingAutoTopOffRun(input: {
-  creditsGrantedMilli: number;
-  monthlySpendLimitCents: number;
-  organizationId: string;
-  status: AutoTopOffRunStatus;
-  stripeCustomerId: string;
-  stripeIdempotencyKey: string;
-  tenantId: string;
-  topOffAmountCents: number;
-  triggerBalanceCreditsMilli: number;
+  creditsGrantedMilli: number
+  monthlySpendLimitCents: number
+  organizationId: string
+  status: AutoTopOffRunStatus
+  stripeCustomerId: string
+  stripeIdempotencyKey: string
+  tenantId: string
+  topOffAmountCents: number
+  triggerBalanceCreditsMilli: number
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
   const [run] = await db
     .insert(billingAutoTopOffRuns)
     .values({
@@ -533,19 +532,19 @@ export async function createBillingAutoTopOffRun(input: {
       triggerBalanceCreditsMilli: input.triggerBalanceCreditsMilli,
       updatedAt: now,
     })
-    .returning();
+    .returning()
 
-  return run ?? null;
+  return run ?? null
 }
 
 export async function updateBillingAutoTopOffRunToAwaitingWebhook(input: {
-  runId: string;
-  stripeInvoiceId: string;
-  stripeInvoiceItemId: string | null;
-  stripePriceId: string;
-  stripePriceLookupKey: string;
+  runId: string
+  stripeInvoiceId: string
+  stripeInvoiceItemId: string | null
+  stripePriceId: string
+  stripePriceLookupKey: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .update(billingAutoTopOffRuns)
     .set({
@@ -560,17 +559,17 @@ export async function updateBillingAutoTopOffRunToAwaitingWebhook(input: {
     .where(eq(billingAutoTopOffRuns.id, input.runId))
     .returning({
       id: billingAutoTopOffRuns.id,
-    });
+    })
 
-  return run ?? null;
+  return run ?? null
 }
 
 export async function markBillingAutoTopOffRunFailed(input: {
-  reason: string;
-  runId: string;
-  stripeInvoiceId?: string | null;
+  reason: string
+  runId: string
+  stripeInvoiceId?: string | null
 }) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .update(billingAutoTopOffRuns)
     .set({
@@ -583,16 +582,16 @@ export async function markBillingAutoTopOffRunFailed(input: {
     .where(eq(billingAutoTopOffRuns.id, input.runId))
     .returning({
       id: billingAutoTopOffRuns.id,
-    });
+    })
 
-  return run ?? null;
+  return run ?? null
 }
 
 export async function markBillingAutoTopOffRunFailedByInvoiceId(input: {
-  reason: string;
-  stripeInvoiceId: string;
+  reason: string
+  stripeInvoiceId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .update(billingAutoTopOffRuns)
     .set({
@@ -604,15 +603,15 @@ export async function markBillingAutoTopOffRunFailedByInvoiceId(input: {
     .where(eq(billingAutoTopOffRuns.stripeInvoiceId, input.stripeInvoiceId))
     .returning({
       id: billingAutoTopOffRuns.id,
-    });
+    })
 
-  return run ?? null;
+  return run ?? null
 }
 
 export async function markBillingAutoTopOffRunSucceededByInvoiceId(input: {
-  stripeInvoiceId: string;
+  stripeInvoiceId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [run] = await db
     .update(billingAutoTopOffRuns)
     .set({
@@ -624,31 +623,31 @@ export async function markBillingAutoTopOffRunSucceededByInvoiceId(input: {
     .where(eq(billingAutoTopOffRuns.stripeInvoiceId, input.stripeInvoiceId))
     .returning({
       id: billingAutoTopOffRuns.id,
-    });
+    })
 
-  return run ?? null;
+  return run ?? null
 }
 
 export async function createSubscriptionCreditGrant(input: {
-  creditsGrantedMilli: number;
-  expiresAt: Date | null;
-  organizationId: string;
-  planKey: BillingPlanKey;
-  stripeInvoiceId: string;
+  creditsGrantedMilli: number
+  expiresAt: Date | null
+  organizationId: string
+  planKey: BillingPlanKey
+  stripeInvoiceId: string
 }) {
-  const db = getDb();
-  const tenant = await getOrganizationTenantForBilling(input.organizationId);
+  const db = getDb()
+  const tenant = await getOrganizationTenantForBilling(input.organizationId)
 
   if (!tenant) {
     throw new Error(
       "Cannot grant subscription credits because the workspace has no tenant.",
-    );
+    )
   }
 
-  const plan = getBillingPlanByKey(input.planKey);
+  const plan = getBillingPlanByKey(input.planKey)
 
   if (!plan) {
-    throw new Error(`Unknown billing plan key: ${input.planKey}`);
+    throw new Error(`Unknown billing plan key: ${input.planKey}`)
   }
 
   return db.transaction(async (tx) => {
@@ -670,14 +669,14 @@ export async function createSubscriptionCreditGrant(input: {
         creditsGrantedMilli: creditGrants.creditsGrantedMilli,
         id: creditGrants.id,
         tenantId: creditGrants.tenantId,
-      });
+      })
 
     if (!grant) {
       return {
         created: false,
         creditGrantId: null,
         tenantId: tenant.id,
-      };
+      }
     }
 
     const [ledgerEntry] = await tx
@@ -693,7 +692,7 @@ export async function createSubscriptionCreditGrant(input: {
       })
       .returning({
         id: creditLedgerEntries.id,
-      });
+      })
 
     await tx
       .update(creditGrants)
@@ -701,39 +700,39 @@ export async function createSubscriptionCreditGrant(input: {
         ledgerEntryId: ledgerEntry?.id ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(creditGrants.id, grant.id));
+      .where(eq(creditGrants.id, grant.id))
 
     return {
       created: true,
       creditGrantId: grant.id,
       tenantId: tenant.id,
-    };
-  });
+    }
+  })
 }
 
 export async function createTopUpCreditGrant(input: {
-  creditsGrantedMilli: number;
-  lookupKey: string;
-  organizationId: string;
-  stripeInvoiceId: string;
+  creditsGrantedMilli: number
+  lookupKey: string
+  organizationId: string
+  stripeInvoiceId: string
 }) {
-  const db = getDb();
-  const tenant = await getOrganizationTenantForBilling(input.organizationId);
+  const db = getDb()
+  const tenant = await getOrganizationTenantForBilling(input.organizationId)
 
   if (!tenant) {
     throw new Error(
       "Cannot grant top-up credits because the workspace has no tenant.",
-    );
+    )
   }
 
-  const pack = getAutoTopOffPackByLookupKey(input.lookupKey);
+  const pack = getAutoTopOffPackByLookupKey(input.lookupKey)
 
   if (!pack) {
-    throw new Error(`Unknown top-up lookup key: ${input.lookupKey}`);
+    throw new Error(`Unknown top-up lookup key: ${input.lookupKey}`)
   }
 
-  const expiresAt = new Date();
-  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  const expiresAt = new Date()
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1)
 
   return db.transaction(async (tx) => {
     const [grant] = await tx
@@ -754,14 +753,14 @@ export async function createTopUpCreditGrant(input: {
         creditsGrantedMilli: creditGrants.creditsGrantedMilli,
         id: creditGrants.id,
         tenantId: creditGrants.tenantId,
-      });
+      })
 
     if (!grant) {
       return {
         created: false,
         creditGrantId: null,
         tenantId: tenant.id,
-      };
+      }
     }
 
     const [ledgerEntry] = await tx
@@ -777,7 +776,7 @@ export async function createTopUpCreditGrant(input: {
       })
       .returning({
         id: creditLedgerEntries.id,
-      });
+      })
 
     await tx
       .update(creditGrants)
@@ -785,20 +784,20 @@ export async function createTopUpCreditGrant(input: {
         ledgerEntryId: ledgerEntry?.id ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(creditGrants.id, grant.id));
+      .where(eq(creditGrants.id, grant.id))
 
     return {
       created: true,
       creditGrantId: grant.id,
       tenantId: tenant.id,
-    };
-  });
+    }
+  })
 }
 
 export async function getWorkspaceBillingOverview(input: {
-  organizationId: string;
+  organizationId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   const [organization, subscription, customer, preferences, tenant] =
     await Promise.all([
@@ -816,7 +815,7 @@ export async function getWorkspaceBillingOverview(input: {
       findBillingCustomerByOrganizationId(input.organizationId),
       getBillingPreferencesByOrganizationId(input.organizationId),
       getOrganizationTenantForBilling(input.organizationId),
-    ]);
+    ])
 
   const balance = tenant
     ? await getTenantCreditBalanceSummary({ tenantId: tenant.id })
@@ -825,7 +824,7 @@ export async function getWorkspaceBillingOverview(input: {
         latestEntryCreatedAt: null,
         totalDebitedCreditsMilli: 0,
         totalGrantedCreditsMilli: 0,
-      };
+      }
 
   const recentGrants = await db
     .select({
@@ -839,7 +838,7 @@ export async function getWorkspaceBillingOverview(input: {
     .from(creditGrants)
     .where(eq(creditGrants.organizationId, input.organizationId))
     .orderBy(desc(creditGrants.grantedAt))
-    .limit(10);
+    .limit(10)
 
   const recentLedgerEntries = tenant
     ? await db
@@ -854,10 +853,10 @@ export async function getWorkspaceBillingOverview(input: {
         .where(eq(creditLedgerEntries.tenantId, tenant.id))
         .orderBy(desc(creditLedgerEntries.createdAt))
         .limit(12)
-    : [];
+    : []
 
   const latestAutoTopOffRun =
-    await findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId);
+    await findLatestBillingAutoTopOffRunByOrganizationId(input.organizationId)
 
   return {
     autoTopOff: {
@@ -871,32 +870,32 @@ export async function getWorkspaceBillingOverview(input: {
     recentLedgerEntries,
     subscription,
     tenant,
-  };
+  }
 }
 
 export function buildSubscriptionRecordFromStripe(input: {
-  organizationId: string;
+  organizationId: string
   subscription: {
-    cancel_at_period_end: boolean;
-    current_period_end: number | null;
-    current_period_start: number | null;
-    customer: string;
+    cancel_at_period_end: boolean
+    current_period_end: number | null
+    current_period_start: number | null
+    customer: string
     items: Array<{
       price: {
-        id: string;
-        lookupKey: string | null;
-      } | null;
-    }>;
-    status: string;
-    trial_end: number | null;
-    id: string;
-  };
+        id: string
+        lookupKey: string | null
+      } | null
+    }>
+    status: string
+    trial_end: number | null
+    id: string
+  }
 }) {
-  const stripePrice = input.subscription.items[0]?.price ?? null;
-  const stripePriceId = stripePrice?.id ?? null;
+  const stripePrice = input.subscription.items[0]?.price ?? null
+  const stripePriceId = stripePrice?.id ?? null
   const plan = stripePrice?.lookupKey
     ? getBillingPlanByKey(stripePrice.lookupKey)
-    : null;
+    : null
 
   return {
     cancelAtPeriodEnd: input.subscription.cancel_at_period_end,
@@ -915,5 +914,5 @@ export function buildSubscriptionRecordFromStripe(input: {
     trialEnd: input.subscription.trial_end
       ? new Date(input.subscription.trial_end * 1000)
       : null,
-  } satisfies StripeSubscriptionRecordInput;
+  } satisfies StripeSubscriptionRecordInput
 }

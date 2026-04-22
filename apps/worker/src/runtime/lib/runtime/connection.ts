@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm";
+import { eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
-import { tenantServers, tenants } from "../../db/schema";
-import { getEnv } from "../env";
-import type { SshConnection } from "../ssh/client";
+import { getDb } from "../../db/client"
+import { tenantServers, tenants } from "../../db/schema"
+import { getEnv } from "../env"
+import type { SshConnection } from "../ssh/client"
 
 export async function getTenantRuntimeConnection(
   tenantId: string,
   context: string,
 ): Promise<SshConnection> {
-  const db = getDb();
+  const db = getDb()
   const [tenantServer] = await db
     .select({
       ipv4: tenantServers.ipv4,
@@ -20,22 +20,22 @@ export async function getTenantRuntimeConnection(
     .from(tenantServers)
     .innerJoin(tenants, eq(tenantServers.tenantId, tenants.id))
     .where(eq(tenantServers.tenantId, tenantId))
-    .limit(1);
+    .limit(1)
 
   if (!tenantServer?.ipv4) {
-    throw new Error(`Tenant server IP is missing for ${context}`);
+    throw new Error(`Tenant server IP is missing for ${context}`)
   }
 
   if (
     tenantServer.serverStatus !== "ready" ||
     tenantServer.tenantStatus !== "ready"
   ) {
-    throw new Error(`${context} requires a ready tenant runtime`);
+    throw new Error(`${context} requires a ready tenant runtime`)
   }
 
   return {
     host: tenantServer.ipv4,
     port: getEnv().RUNTIME_SSH_PORT,
     username: tenantServer.sshUsername ?? getEnv().RUNTIME_SSH_USERNAME,
-  };
+  }
 }

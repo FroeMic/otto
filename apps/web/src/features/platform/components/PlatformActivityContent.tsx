@@ -1,8 +1,13 @@
-import type { ColumnDef } from "@tanstack/react-table"
 import { useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
+import type { ColumnDef } from "@tanstack/react-table"
 import { useEffect, useMemo, useState } from "react"
-
+import { DataTable } from "@/components/data-table"
+import { DataTableColumnHeader } from "@/components/data-table-column-header"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { Switch } from "@/components/ui/switch"
 import type {
   PlatformActivityEventRow,
   PlatformActivityJobRow,
@@ -11,17 +16,6 @@ import {
   formatPreciseDateTime,
   type PlatformDateTimePreferences,
 } from "@/features/platform/date-time"
-import {
-  DataTable,
-} from "@/components/data-table"
-import { DataTableColumnHeader } from "@/components/data-table-column-header"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
-import { Switch } from "@/components/ui/switch"
 
 type JobFilter = "all" | "apply"
 
@@ -121,7 +115,9 @@ export function PlatformActivityContent({
     }
 
     if (eventJobFilter) {
-      nextEvents = nextEvents.filter((event) => event.jobRunId === eventJobFilter)
+      nextEvents = nextEvents.filter(
+        (event) => event.jobRunId === eventJobFilter,
+      )
     }
 
     return nextEvents
@@ -326,7 +322,14 @@ export function PlatformActivityContent({
       headClassName="h-11 px-4 text-sm font-medium text-foreground md:px-6"
       headerClassName="[&_tr]:sticky [&_tr]:top-0 [&_tr]:z-10 [&_tr]:bg-background"
       rowClassName="hover:bg-transparent"
-      searchKeys={["id", "jobRunId", "jobType", "eventType", "message", "searchText"]}
+      searchKeys={[
+        "id",
+        "jobRunId",
+        "jobType",
+        "eventType",
+        "message",
+        "searchText",
+      ]}
       searchPlaceholder="Search events"
       tableClassName="min-w-[1420px] table-fixed"
       toolbar={

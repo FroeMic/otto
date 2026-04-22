@@ -47,7 +47,10 @@ const capabilityTypeBadgeVariant: Record<
   trigger: "default",
 }
 
-const effectSortOrder: Record<NonNullable<WorkspaceIntegrationCapabilityRow["effect"]>, number> = {
+const effectSortOrder: Record<
+  NonNullable<WorkspaceIntegrationCapabilityRow["effect"]>,
+  number
+> = {
   read: 0,
   write: 1,
 }
@@ -67,7 +70,9 @@ interface CapabilityActionsCellProps {
   row: WorkspaceIntegrationCapabilityRow
 }
 
-function formatCapabilityStatus(status: WorkspaceIntegrationCapabilityRow["status"]) {
+function formatCapabilityStatus(
+  status: WorkspaceIntegrationCapabilityRow["status"],
+) {
   if (status === "needs_attention") {
     return "Needs attention"
   }
@@ -75,11 +80,15 @@ function formatCapabilityStatus(status: WorkspaceIntegrationCapabilityRow["statu
   return status === "enabled" ? "Enabled" : "Disabled"
 }
 
-function formatCapabilityType(type: WorkspaceIntegrationCapabilityRow["capabilityType"]) {
+function formatCapabilityType(
+  type: WorkspaceIntegrationCapabilityRow["capabilityType"],
+) {
   return type === "trigger" ? "Trigger" : "Command"
 }
 
-function formatCapabilityEffect(effect: WorkspaceIntegrationCapabilityRow["effect"]) {
+function formatCapabilityEffect(
+  effect: WorkspaceIntegrationCapabilityRow["effect"],
+) {
   if (effect === "read") {
     return "Read"
   }
@@ -112,7 +121,9 @@ function CapabilityActionsCell({
 
   if (!row.userControllable) {
     return (
-      <span className="text-sm text-muted-foreground">Not configurable here</span>
+      <span className="text-sm text-muted-foreground">
+        Not configurable here
+      </span>
     )
   }
 
@@ -190,7 +201,9 @@ function createColumns(input: {
     {
       accessorKey: "capabilityType",
       cell: ({ row }) => (
-        <Badge variant={capabilityTypeBadgeVariant[row.original.capabilityType]}>
+        <Badge
+          variant={capabilityTypeBadgeVariant[row.original.capabilityType]}
+        >
           {formatCapabilityType(row.original.capabilityType)}
         </Badge>
       ),

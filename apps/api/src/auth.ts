@@ -192,7 +192,9 @@ function getIntakeSessionIdFromReturnTo(
     const url = new URL(returnTo, baseUrl)
     const intakeSessionId = url.searchParams.get("intake")?.trim()
 
-    return intakeSessionId && intakeSessionId.length > 0 ? intakeSessionId : null
+    return intakeSessionId && intakeSessionId.length > 0
+      ? intakeSessionId
+      : null
   } catch {
     return null
   }

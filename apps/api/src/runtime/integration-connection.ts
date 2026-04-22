@@ -1,47 +1,47 @@
-import type { RuntimeIntegrationSummaryResponse } from "@otto/feature-integrations-runtime/integrations/framework";
+import type { RuntimeIntegrationSummaryResponse } from "@otto/feature-integrations-runtime/integrations/framework"
 
 export function buildRuntimeIntegrationConnectionAction(input: {
-  connectUrl: string | null;
+  connectUrl: string | null
   integration: Pick<
     RuntimeIntegrationSummaryResponse,
     "key" | "label" | "status"
-  >;
-  requestedAction: string;
-  workspaceUrl: string | null;
+  >
+  requestedAction: string
+  workspaceUrl: string | null
 }) {
-  let recommendedAction = "none";
-  let message = `${input.integration.label} is available.`;
+  let recommendedAction = "none"
+  let message = `${input.integration.label} is available.`
 
   switch (input.integration.key) {
     case "brave":
-      recommendedAction = "open_workspace";
+      recommendedAction = "open_workspace"
       message =
-        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults.";
-      break;
+        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults."
+      break
     case "gandi":
       recommendedAction = input.integration.status.connected
         ? "open_workspace"
-        : "enable";
+        : "enable"
       message = input.integration.status.connected
         ? "Gandi is enabled for this workspace. Open the workspace integration page to review company naming and domain research availability."
-        : "Gandi is not enabled yet. Otto can enable it now for company naming and domain research, or you can open the workspace integration page.";
-      break;
+        : "Gandi is not enabled yet. Otto can enable it now for company naming and domain research, or you can open the workspace integration page."
+      break
     case "linear":
       recommendedAction = input.integration.status.connected
         ? "open_workspace"
-        : "connect";
+        : "connect"
       message = input.integration.status.connected
         ? "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it."
-        : "Linear is not connected yet. Ask the user to connect it in the workspace.";
-      break;
+        : "Linear is not connected yet. Ask the user to connect it in the workspace."
+      break
     case "slack":
       recommendedAction = input.integration.status.connected
         ? "open_workspace"
-        : "connect";
+        : "connect"
       message = input.integration.status.connected
         ? "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it."
-        : "Slack is not connected yet. Ask the user to connect it in the workspace.";
-      break;
+        : "Slack is not connected yet. Ask the user to connect it in the workspace."
+      break
   }
 
   const availableActions = [
@@ -51,11 +51,11 @@ export function buildRuntimeIntegrationConnectionAction(input: {
       : null,
     input.connectUrl ? "connect" : null,
     input.connectUrl ? "reconnect" : null,
-  ].filter((entry): entry is string => Boolean(entry));
+  ].filter((entry): entry is string => Boolean(entry))
   const selectedAction =
     input.requestedAction && availableActions.includes(input.requestedAction)
       ? input.requestedAction
-      : recommendedAction;
+      : recommendedAction
 
   return {
     availableActions,
@@ -65,10 +65,9 @@ export function buildRuntimeIntegrationConnectionAction(input: {
     message,
     recommendedAction,
     requiresUserAction:
-      selectedAction === "connect" ||
-      selectedAction === "reconnect",
+      selectedAction === "connect" || selectedAction === "reconnect",
     selectedAction,
     status: input.integration.status,
     workspaceUrl: input.workspaceUrl,
-  };
+  }
 }

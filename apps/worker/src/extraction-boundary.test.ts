@@ -6,7 +6,10 @@ import { describe, it } from "vitest"
 
 const appSourcePath = path.resolve(import.meta.dirname, "app.ts")
 const dockerfilePath = path.resolve(import.meta.dirname, "../Dockerfile")
-const workerRuntimeSourceRoot = path.resolve(import.meta.dirname, "../src/runtime")
+const workerRuntimeSourceRoot = path.resolve(
+  import.meta.dirname,
+  "../src/runtime",
+)
 const workerRuntimePackagePath = path.resolve(
   import.meta.dirname,
   "../../../packages/features/worker-runtime",

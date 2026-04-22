@@ -1,6 +1,6 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
-import { executeLinearGraphql, normalizeLimit } from "../../client";
+import { executeLinearGraphql, normalizeLimit } from "../../client"
 
 const LIST_WORKFLOW_STATES_QUERY = `
   query OttoLinearListWorkflowStates($limit: Int!) {
@@ -18,40 +18,40 @@ const LIST_WORKFLOW_STATES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceListWorkflowStates: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 50,
       max: 200,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       workflowStates?: {
         nodes?: Array<{
-          id: string;
-          name?: string | null;
-          position?: number | null;
+          id: string
+          name?: string | null
+          position?: number | null
           team?: {
-            id?: string | null;
-            key?: string | null;
-            name?: string | null;
-          } | null;
-          type?: string | null;
-        }> | null;
-      } | null;
+            id?: string | null
+            key?: string | null
+            name?: string | null
+          } | null
+          type?: string | null
+        }> | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_WORKFLOW_STATES_QUERY,
       variables: {
         limit,
       },
-    });
+    })
 
     return {
       commandKey: "workspace.list_workflow_states",
@@ -66,5 +66,5 @@ export const executeLinearWorkspaceListWorkflowStates: IntegrationCommandExecute
       })),
       limit,
       source: "linear",
-    };
-  };
+    }
+  }

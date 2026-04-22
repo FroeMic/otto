@@ -10,10 +10,7 @@ import {
 
 describe("workspace chat data helpers", () => {
   it("derives sidebar origin filters from the stored conversation kind", () => {
-    assert.equal(
-      deriveWorkspaceChatConversationOriginKind("ad_hoc"),
-      "manual",
-    )
+    assert.equal(deriveWorkspaceChatConversationOriginKind("ad_hoc"), "manual")
     assert.equal(
       deriveWorkspaceChatConversationOriginKind("durable_named"),
       "scheduled",
@@ -25,8 +22,14 @@ describe("workspace chat data helpers", () => {
   })
 
   it("marks the placeholder title for auto-generation", () => {
-    assert.equal(shouldAutoGenerateWorkspaceConversationTitle("New conversation"), true)
-    assert.equal(shouldAutoGenerateWorkspaceConversationTitle("Portfolio review"), false)
+    assert.equal(
+      shouldAutoGenerateWorkspaceConversationTitle("New conversation"),
+      true,
+    )
+    assert.equal(
+      shouldAutoGenerateWorkspaceConversationTitle("Portfolio review"),
+      false,
+    )
   })
 
   it("generates a compact title from the first text message", () => {
@@ -37,7 +40,7 @@ describe("workspace chat data helpers", () => {
           type: "text",
         },
       ]),
-      "Please review the API key segmentation plan..."
+      "Please review the API key segmentation plan...",
     )
   })
 })

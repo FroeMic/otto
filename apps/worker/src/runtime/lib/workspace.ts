@@ -1,16 +1,16 @@
-import type { DashboardOrganization } from "../db/control-plane";
-import { buildIntegrationSectionPath } from "../integrations/framework/routing";
+import type { DashboardOrganization } from "../db/control-plane"
+import { buildIntegrationSectionPath } from "../integrations/framework/routing"
 
 export type WhatsAppUiPhase =
   | "prepare"
   | "pairing"
   | "activating"
   | "connected"
-  | "attention";
+  | "attention"
 
 export function getWhatsAppUiPhase(input: {
-  integrationStatus?: string | null;
-  linkSessionStatus?: string | null;
+  integrationStatus?: string | null
+  linkSessionStatus?: string | null
 }): WhatsAppUiPhase {
   if (
     input.linkSessionStatus === "queued" ||
@@ -18,11 +18,11 @@ export function getWhatsAppUiPhase(input: {
     input.linkSessionStatus === "qr_ready" ||
     input.integrationStatus === "linking"
   ) {
-    return "pairing";
+    return "pairing"
   }
 
   if (input.integrationStatus === "connected") {
-    return "connected";
+    return "connected"
   }
 
   if (
@@ -30,7 +30,7 @@ export function getWhatsAppUiPhase(input: {
     input.integrationStatus === "pending_apply" ||
     input.integrationStatus === "applying"
   ) {
-    return "activating";
+    return "activating"
   }
 
   if (
@@ -38,64 +38,64 @@ export function getWhatsAppUiPhase(input: {
     input.integrationStatus === "link_failed" ||
     input.linkSessionStatus === "failed"
   ) {
-    return "attention";
+    return "attention"
   }
 
-  return "prepare";
+  return "prepare"
 }
 
 export function getWhatsAppUiPhaseLabel(phase: WhatsAppUiPhase) {
   switch (phase) {
     case "prepare":
-      return "Ready to connect";
+      return "Ready to connect"
     case "pairing":
-      return "Waiting for scan";
+      return "Waiting for scan"
     case "activating":
-      return "Activating";
+      return "Activating"
     case "connected":
-      return "Connected";
+      return "Connected"
     case "attention":
-      return "Needs attention";
+      return "Needs attention"
   }
 }
 
 export function getPendingAccessPath(orgSlug?: string) {
   if (!orgSlug) {
-    return "/onboarding/wait-for-access";
+    return "/onboarding/wait-for-access"
   }
 
-  return `/${encodeURIComponent(orgSlug)}/waiting`;
+  return `/${encodeURIComponent(orgSlug)}/waiting`
 }
 
 export function getPrimaryAgent(organization: DashboardOrganization) {
-  return organization.tenants[0] ?? null;
+  return organization.tenants[0] ?? null
 }
 
 export function isOrganizationReady(organization: DashboardOrganization) {
-  return organization.isReady;
+  return organization.isReady
 }
 
 export function isSlackConnected(organization: DashboardOrganization) {
-  return Boolean(organization.slackIntegration?.connectedAt);
+  return Boolean(organization.slackIntegration?.connectedAt)
 }
 
 export function getSlackErrorMessage(organization: DashboardOrganization) {
-  return organization.slackIntegration?.lastError ?? null;
+  return organization.slackIntegration?.lastError ?? null
 }
 
 export type ConnectedMessagingSurface = {
-  external?: boolean;
-  href: string;
-  iconSrc: string;
-  key: "slack" | "whatsapp";
-  label: string;
-};
+  external?: boolean
+  href: string
+  iconSrc: string
+  key: "slack" | "whatsapp"
+  label: string
+}
 
 export function getConnectedMessagingSurfaces(
   organization: DashboardOrganization,
 ): ConnectedMessagingSurface[] {
-  const surfaces: ConnectedMessagingSurface[] = [];
-  const slackTeamId = organization.slackIntegration?.teamId;
+  const surfaces: ConnectedMessagingSurface[] = []
+  const slackTeamId = organization.slackIntegration?.teamId
 
   if (organization.slackIntegration?.connectedAt) {
     surfaces.push({
@@ -110,7 +110,7 @@ export function getConnectedMessagingSurfaces(
       iconSrc: "/integrations/slack.svg",
       key: "slack",
       label: "Slack",
-    });
+    })
   }
 
   if (organization.whatsappIntegration?.status === "connected") {
@@ -123,58 +123,58 @@ export function getConnectedMessagingSurfaces(
       iconSrc: "/integrations/whatsapp.png",
       key: "whatsapp",
       label: "WhatsApp",
-    });
+    })
   }
 
-  return surfaces;
+  return surfaces
 }
 
 export function getPrimaryAgentLatestApplyRun(
   organization: DashboardOrganization,
 ) {
-  return getPrimaryAgent(organization)?.latestApplyRun ?? null;
+  return getPrimaryAgent(organization)?.latestApplyRun ?? null
 }
 
 export function getRuntimeApplyStatusLabel(
   organization: DashboardOrganization,
 ) {
-  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
+  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization)
 
   if (!latestApplyRun) {
-    return null;
+    return null
   }
 
   switch (latestApplyRun.status) {
     case "queued":
     case "pending_apply":
-      return "Queued";
+      return "Queued"
     case "loading_desired_state":
     case "rendering_files":
     case "writing_files":
     case "restarting_runtime":
     case "verifying_runtime":
     case "applying":
-      return "Applying";
+      return "Applying"
     case "succeeded":
-      return "Applied";
+      return "Applied"
     case "failed":
     case "apply_failed":
-      return "Failed";
+      return "Failed"
     default:
-      return latestApplyRun.status;
+      return latestApplyRun.status
   }
 }
 
 export function getAgentReadinessSummary(organization: DashboardOrganization) {
-  const agent = getPrimaryAgent(organization);
-  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization);
-  const slackStatus = getSlackStatusLabel(organization);
-  const runtimeStatus = getRuntimeStatusLabel(organization);
-  const applyStatus = getRuntimeApplyStatusLabel(organization);
-  const slackError = getSlackErrorMessage(organization);
+  const agent = getPrimaryAgent(organization)
+  const latestApplyRun = getPrimaryAgentLatestApplyRun(organization)
+  const slackStatus = getSlackStatusLabel(organization)
+  const runtimeStatus = getRuntimeStatusLabel(organization)
+  const applyStatus = getRuntimeApplyStatusLabel(organization)
+  const slackError = getSlackErrorMessage(organization)
   const latestApplyFailed =
     latestApplyRun?.status === "failed" ||
-    latestApplyRun?.status === "apply_failed";
+    latestApplyRun?.status === "apply_failed"
   const latestApplyUpdating =
     latestApplyRun?.status === "queued" ||
     latestApplyRun?.status === "pending_apply" ||
@@ -183,7 +183,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
     latestApplyRun?.status === "writing_files" ||
     latestApplyRun?.status === "restarting_runtime" ||
     latestApplyRun?.status === "verifying_runtime" ||
-    latestApplyRun?.status === "applying";
+    latestApplyRun?.status === "applying"
 
   if (!agent) {
     return {
@@ -194,7 +194,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
       title: "Otto is not ready",
       variant: "outline" as const,
       runtimeStatus,
-    };
+    }
   }
 
   if (slackError || latestApplyFailed) {
@@ -209,7 +209,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
       title: "Otto needs attention",
       variant: "destructive" as const,
       runtimeStatus,
-    };
+    }
   }
 
   if (latestApplyUpdating) {
@@ -221,7 +221,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
       title: "Otto is updating",
       variant: "outline" as const,
       runtimeStatus,
-    };
+    }
   }
 
   if (!isOrganizationUnlocked(organization)) {
@@ -233,7 +233,7 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
       title: "Otto is still getting ready",
       variant: "outline" as const,
       runtimeStatus,
-    };
+    }
   }
 
   return {
@@ -244,83 +244,83 @@ export function getAgentReadinessSummary(organization: DashboardOrganization) {
     title: "Otto is ready",
     variant: "secondary" as const,
     runtimeStatus,
-  };
+  }
 }
 
 export function isRuntimeReady(organization: DashboardOrganization) {
-  const agent = getPrimaryAgent(organization);
+  const agent = getPrimaryAgent(organization)
 
   if (!agent) {
-    return false;
+    return false
   }
 
-  return agent.status === "ready" && agent.serverStatus === "ready";
+  return agent.status === "ready" && agent.serverStatus === "ready"
 }
 
 export function isOrganizationUnlocked(organization: DashboardOrganization) {
-  return isOrganizationReady(organization) && isRuntimeReady(organization);
+  return isOrganizationReady(organization) && isRuntimeReady(organization)
 }
 
 export function getOrganizationHomePath(organization: DashboardOrganization) {
   if (!isOrganizationReady(organization)) {
-    return getPendingAccessPath(organization.slug);
+    return getPendingAccessPath(organization.slug)
   }
 
   if (isOrganizationUnlocked(organization)) {
-    return `/${organization.slug}/agent/status`;
+    return `/${organization.slug}/agent/status`
   }
 
-  return `/${organization.slug}/onboarding`;
+  return `/${organization.slug}/onboarding`
 }
 
 export function getSlackStatusLabel(organization: DashboardOrganization) {
   if (isSlackConnected(organization)) {
-    return "Connected";
+    return "Connected"
   }
 
   if (getSlackErrorMessage(organization)) {
-    return "Needs attention";
+    return "Needs attention"
   }
 
-  return "Not connected";
+  return "Not connected"
 }
 
 export function getWhatsAppStatusLabel(organization: DashboardOrganization) {
-  const status = organization.whatsappIntegration?.status;
+  const status = organization.whatsappIntegration?.status
 
   switch (status) {
     case "pending_apply":
-      return "Preparing";
+      return "Preparing"
     case "applying":
-      return "Applying";
+      return "Applying"
     case "activating":
-      return "Activating";
+      return "Activating"
     case "ready_to_link":
-      return "Ready to connect";
+      return "Ready to connect"
     case "linking":
-      return "Waiting for scan";
+      return "Waiting for scan"
     case "connected":
-      return "Connected";
+      return "Connected"
     case "apply_failed":
     case "link_failed":
-      return "Needs attention";
+      return "Needs attention"
     case "disconnected":
-      return "Disconnected";
+      return "Disconnected"
     default:
-      return organization.whatsappIntegration ? "Pending" : "Not connected";
+      return organization.whatsappIntegration ? "Pending" : "Not connected"
   }
 }
 
 export function getRuntimeStatusLabel(organization: DashboardOrganization) {
-  const agent = getPrimaryAgent(organization);
+  const agent = getPrimaryAgent(organization)
 
   if (!agent) {
-    return "Not ready";
+    return "Not ready"
   }
 
   if (agent.serverStatus === "ready" && agent.status === "ready") {
-    return "Ready";
+    return "Ready"
   }
 
-  return "Setting up";
+  return "Setting up"
 }

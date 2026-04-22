@@ -92,8 +92,9 @@ function groupMessagesIntoTurns(
   messages: ParsedMessage[],
   currentUserIdSet: Set<string>,
 ): Array<MessageGroup | { kind: "compaction"; msg: ParsedMessage }> {
-  const groups: Array<MessageGroup | { kind: "compaction"; msg: ParsedMessage }> =
-    []
+  const groups: Array<
+    MessageGroup | { kind: "compaction"; msg: ParsedMessage }
+  > = []
   let currentGroup: MessageGroup | null = null
 
   for (const msg of messages) {
@@ -330,7 +331,9 @@ function TurnHeader({
           <span className="text-xs font-medium text-foreground/70">{name}</span>
         </div>
         {timestamp ? (
-          <span className="pl-9 text-xs text-muted-foreground">{timestamp}</span>
+          <span className="pl-9 text-xs text-muted-foreground">
+            {timestamp}
+          </span>
         ) : null}
       </div>
     )
@@ -344,7 +347,9 @@ function TurnHeader({
           <SenderAvatar name={name} />
         </div>
         {timestamp ? (
-          <span className="pr-9 text-xs text-muted-foreground">{timestamp}</span>
+          <span className="pr-9 text-xs text-muted-foreground">
+            {timestamp}
+          </span>
         ) : null}
       </div>
     )
@@ -399,7 +404,7 @@ export function TranscriptViewer({
   currentUserExternalIds = [],
   dateTimePreferences,
   memberNames = {},
-  orgSlug,
+  orgSlug: _orgSlug,
   session,
 }: TranscriptViewerProps) {
   const messages = useMemo(
@@ -431,7 +436,15 @@ export function TranscriptViewer({
         sessionKey: session.sessionKey,
         subject: session.subject,
       }),
-    [channelNames, memberNames, session.displayName, session.label, session.originFrom, session.sessionKey, session.subject],
+    [
+      channelNames,
+      memberNames,
+      session.displayName,
+      session.label,
+      session.originFrom,
+      session.sessionKey,
+      session.subject,
+    ],
   )
   const providerIcon = getProviderIcon(session.channel)
 
@@ -450,7 +463,10 @@ export function TranscriptViewer({
           ) : null}
           <div className="flex flex-col gap-0.5">
             {cronTaskHref ? (
-              <a className="text-xl font-semibold tracking-tight" href={cronTaskHref}>
+              <a
+                className="text-xl font-semibold tracking-tight"
+                href={cronTaskHref}
+              >
                 {resolveText(sessionName)}
               </a>
             ) : (
@@ -479,9 +495,14 @@ export function TranscriptViewer({
                     : "Context compacted"
 
                 return (
-                  <div className="flex items-center gap-3 py-2" key={turn.msg.id}>
+                  <div
+                    className="flex items-center gap-3 py-2"
+                    key={turn.msg.id}
+                  >
                     <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs text-muted-foreground">{text}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {text}
+                    </span>
                     <div className="h-px flex-1 bg-border" />
                   </div>
                 )
@@ -501,7 +522,10 @@ export function TranscriptViewer({
                           {message.blocks.map((block, blockIndex) => {
                             if (block.type === "thinking") {
                               return (
-                                <Collapsible className="rounded-md border" key={`${message.id}:thinking:${blockIndex}`}>
+                                <Collapsible
+                                  className="rounded-md border"
+                                  key={`${message.id}:thinking:${blockIndex}`}
+                                >
                                   <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
                                     <span className="text-xs font-medium text-muted-foreground">
                                       Otto reasoning

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
-
-import type { WorkspaceIntegrationCatalogEntry } from "./types"
 import { filterIntegrationCatalogEntries } from "./integrations-filter"
+import type { WorkspaceIntegrationCatalogEntry } from "./types"
 
 function buildIntegration(
-  input: Pick<WorkspaceIntegrationCatalogEntry, "connected" | "description" | "key" | "label">,
+  input: Pick<
+    WorkspaceIntegrationCatalogEntry,
+    "connected" | "description" | "key" | "label"
+  >,
 ): WorkspaceIntegrationCatalogEntry {
   return {
     categoryLabel: "Product",

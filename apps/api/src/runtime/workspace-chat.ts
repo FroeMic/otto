@@ -15,13 +15,13 @@ import {
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import * as z from "zod"
+import { getWorkspaceChatAttachmentContentForTenant } from "../workspace/chat-attachments-service"
 import {
   applyWorkspaceChatAssistantDelta,
   completeWorkspaceChatAssistantMessage,
   markWorkspaceChatAssistantMessageFailed,
   upsertWorkspaceChatAssistantEvent,
 } from "../workspace/chat-data"
-import { getWorkspaceChatAttachmentContentForTenant } from "../workspace/chat-attachments-service"
 
 import { authenticateTenantRuntimeRequest } from "./auth"
 import { runtimeDebugLog } from "./debug-logging"
@@ -183,7 +183,8 @@ export function createWorkspaceChatRuntimeRouter(
         if (!result) {
           return jsonNoStore(
             {
-              error: "Workspace chat attachment not found for this tenant runtime.",
+              error:
+                "Workspace chat attachment not found for this tenant runtime.",
             },
             404,
           )
@@ -288,12 +289,15 @@ export function createWorkspaceChatRuntimeRouter(
           await context.req.json(),
         )
 
-        runtimeDebugLog("[workspace-chat] runtime completion callback received", {
-          assistantMessageId: payload.assistantMessageId ?? null,
-          conversationId: payload.conversationId,
-          partsCount: payload.message.parts.length,
-          tenantId,
-        })
+        runtimeDebugLog(
+          "[workspace-chat] runtime completion callback received",
+          {
+            assistantMessageId: payload.assistantMessageId ?? null,
+            conversationId: payload.conversationId,
+            partsCount: payload.message.parts.length,
+            tenantId,
+          },
+        )
 
         const result = await dependencies.completeAssistantMessage({
           assistantMessageId: payload.assistantMessageId,
@@ -322,12 +326,15 @@ export function createWorkspaceChatRuntimeRouter(
           )
         }
 
-        runtimeDebugLog("[workspace-chat] runtime completion callback applied", {
-          conversationId: result.conversationId,
-          messageId: result.messageId,
-          runtimeSegmentId: result.runtimeSegmentId,
-          tenantId: result.tenantId,
-        })
+        runtimeDebugLog(
+          "[workspace-chat] runtime completion callback applied",
+          {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            runtimeSegmentId: result.runtimeSegmentId,
+            tenantId: result.tenantId,
+          },
+        )
 
         return jsonNoStore(
           workspaceChatRuntimeMessageCompleteResponseSchema.parse({

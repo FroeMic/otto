@@ -120,9 +120,7 @@ export function ConversationMessageList({
               />
               <div className="pl-10">
                 <ConversationPendingState
-                  startedAt={
-                    lastMessage?.createdAt ?? new Date().toISOString()
-                  }
+                  startedAt={lastMessage?.createdAt ?? new Date().toISOString()}
                   status="pending"
                 />
               </div>

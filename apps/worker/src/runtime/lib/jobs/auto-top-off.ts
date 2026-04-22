@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto"
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm"
 import {
   AUTO_TOP_OFF_RUN_STATUSES,
   createBillingAutoTopOffRun,
@@ -11,10 +11,10 @@ import {
   listBillingAutoTopOffExecutionTargets,
   markBillingAutoTopOffRunFailed,
   updateBillingAutoTopOffRunToAwaitingWebhook,
-} from "../../db/billing";
-import { getDb } from "../../db/client";
-import { jobRuns } from "../../db/schema";
-import { getAutoTopOffPackByAmountCents } from "../billing/plans";
+} from "../../db/billing"
+import { getDb } from "../../db/client"
+import { jobRuns } from "../../db/schema"
+import { getAutoTopOffPackByAmountCents } from "../billing/plans"
 import {
   AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE,
   getStripe,
@@ -24,7 +24,7 @@ import {
   getStripeOneTimePriceIdForTopUpLookupKey,
   previewStripeTopUpInvoiceCharge,
   syncStripeAutoTopOffPaymentMethodDefaults,
-} from "../billing/stripe";
+} from "../billing/stripe"
 
 import {
   appendJobEvent,
@@ -32,17 +32,17 @@ import {
   markJobFailed,
   markJobSucceeded,
   requeueJob,
-} from "./queue";
+} from "./queue"
 import {
   type ClaimedJob,
   type ExecuteBillingAutoTopOffPayload,
   JOB_STATUSES,
   JOB_TYPES,
   type ScheduleBillingAutoTopOffEnqueuePayload,
-} from "./types";
+} from "./types"
 
-const AUTO_TOP_OFF_SCAN_INTERVAL_MS = 30_000;
-const AUTO_TOP_OFF_FAILURE_COOLDOWN_MS = 60 * 60 * 1000;
+const AUTO_TOP_OFF_SCAN_INTERVAL_MS = 30_000
+const AUTO_TOP_OFF_FAILURE_COOLDOWN_MS = 60 * 60 * 1000
 
 const AUTO_TOP_OFF_EVENTS = {
   awaitingWebhook: "awaiting_webhook",
@@ -52,19 +52,19 @@ const AUTO_TOP_OFF_EVENTS = {
   failed: "auto_top_off_failed",
   skipped: "auto_top_off_skipped",
   succeeded: "auto_top_off_succeeded",
-} as const;
+} as const
 
 async function getBillingCycleSpendGuard(input: {
-  currentPeriodEnd: Date | null;
-  currentPeriodStart: Date | null;
-  monthlySpendLimitCents: number;
-  stripeCustomerId: string;
-  topUpLookupKey: string;
+  currentPeriodEnd: Date | null
+  currentPeriodStart: Date | null
+  monthlySpendLimitCents: number
+  stripeCustomerId: string
+  topUpLookupKey: string
 }) {
   const billingCycleWindow = getBillingCycleWindow({
     currentPeriodEnd: input.currentPeriodEnd,
     currentPeriodStart: input.currentPeriodStart,
-  });
+  })
 
   const [currentCycleSpendCents, preview] = await Promise.all([
     getStripeBillingCycleSpendCents({
@@ -76,19 +76,19 @@ async function getBillingCycleSpendGuard(input: {
       stripeCustomerId: input.stripeCustomerId,
       topUpLookupKey: input.topUpLookupKey,
     }),
-  ]);
+  ])
 
-  const previewChargeCents = preview.amountDueCents;
+  const previewChargeCents = preview.amountDueCents
   const wouldExceedLimit =
     input.monthlySpendLimitCents > 0 &&
-    currentCycleSpendCents + previewChargeCents > input.monthlySpendLimitCents;
+    currentCycleSpendCents + previewChargeCents > input.monthlySpendLimitCents
 
   return {
     billingCycleWindow,
     currentCycleSpendCents,
     previewChargeCents,
     wouldExceedLimit,
-  };
+  }
 }
 
 export async function processScheduleBillingAutoTopOffEnqueueJob(
@@ -97,13 +97,13 @@ export async function processScheduleBillingAutoTopOffEnqueueJob(
   if (job.jobType !== JOB_TYPES.scheduleBillingAutoTopOffEnqueue) {
     throw new Error(
       `Unsupported job type for auto-top-off scheduler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseScheduleBillingAutoTopOffEnqueuePayload(job.payload);
+  const payload = parseScheduleBillingAutoTopOffEnqueuePayload(job.payload)
 
   try {
-    const queuedCount = await enqueueEligibleAutoTopOffJobs();
+    const queuedCount = await enqueueEligibleAutoTopOffJobs()
 
     await appendJobEvent(
       job.id,
@@ -112,64 +112,64 @@ export async function processScheduleBillingAutoTopOffEnqueueJob(
       {
         queuedCount,
       },
-    );
+    )
     await requeueJob(
       job.id,
       payload,
       new Date(Date.now() + AUTO_TOP_OFF_SCAN_INTERVAL_MS),
-    );
+    )
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Auto-top-off scheduler failed.";
+      error instanceof Error ? error.message : "Auto-top-off scheduler failed."
 
     await appendJobEvent(
       job.id,
       "auto_top_off_scheduler_failed",
       `Auto-top-off scheduler failed: ${message}`,
-    );
+    )
     await markJobFailed(
       job.id,
       message,
       new Date(Date.now() + AUTO_TOP_OFF_SCAN_INTERVAL_MS),
-    );
+    )
   }
 }
 
 async function enqueueEligibleAutoTopOffJobs() {
-  const now = Date.now();
-  const targets = await listBillingAutoTopOffExecutionTargets();
-  let queuedCount = 0;
+  const now = Date.now()
+  const targets = await listBillingAutoTopOffExecutionTargets()
+  let queuedCount = 0
 
   for (const target of targets) {
-    const thresholdCreditsMilli = target.minimumBalanceCredits * 1_000;
+    const thresholdCreditsMilli = target.minimumBalanceCredits * 1_000
 
     if (target.currentBalanceCreditsMilli > thresholdCreditsMilli) {
-      continue;
+      continue
     }
 
     if (
       (await hasActiveBillingAutoTopOffRun(target.organizationId)) ||
       (await hasQueuedOrRunningAutoTopOffJob(target.tenantId))
     ) {
-      continue;
+      continue
     }
 
     const latestRun = await findLatestBillingAutoTopOffRunByOrganizationId(
       target.organizationId,
-    );
+    )
 
     if (
       latestRun?.status === AUTO_TOP_OFF_RUN_STATUSES.failed &&
       latestRun.completedAt &&
       latestRun.completedAt.getTime() > now - AUTO_TOP_OFF_FAILURE_COOLDOWN_MS
     ) {
-      continue;
+      continue
     }
 
-    const pack = getAutoTopOffPackByAmountCents(target.topOffAmountCents);
+    const pack = getAutoTopOffPackByAmountCents(target.topOffAmountCents)
 
     if (!pack) {
-      continue;
+      continue
     }
 
     const spendGuard = await getBillingCycleSpendGuard({
@@ -178,10 +178,10 @@ async function enqueueEligibleAutoTopOffJobs() {
       monthlySpendLimitCents: target.monthlySpendLimitCents,
       stripeCustomerId: target.stripeCustomerId,
       topUpLookupKey: pack.lookupKey,
-    });
+    })
 
     if (spendGuard.wouldExceedLimit) {
-      continue;
+      continue
     }
 
     await enqueueJob({
@@ -190,28 +190,28 @@ async function enqueueEligibleAutoTopOffJobs() {
         organizationId: target.organizationId,
         tenantId: target.tenantId,
       },
-    });
-    queuedCount += 1;
+    })
+    queuedCount += 1
   }
 
-  return queuedCount;
+  return queuedCount
 }
 
 export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
   if (job.jobType !== JOB_TYPES.executeBillingAutoTopOff) {
     throw new Error(
       `Unsupported job type for auto-top-off handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseExecuteBillingAutoTopOffPayload(job.payload);
-  let runId: string | null = null;
-  let stripeInvoiceId: string | null = null;
+  const payload = parseExecuteBillingAutoTopOffPayload(job.payload)
+  let runId: string | null = null
+  let stripeInvoiceId: string | null = null
 
   try {
     const target = await getBillingAutoTopOffExecutionTargetByOrganizationId(
       payload.organizationId,
-    );
+    )
 
     if (!target || target.tenantId !== payload.tenantId) {
       await appendJobEvent(
@@ -222,22 +222,22 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           organizationId: payload.organizationId,
           tenantId: payload.tenantId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         skipped: true,
-      });
-      return;
+      })
+      return
     }
 
-    const pack = getAutoTopOffPackByAmountCents(target.topOffAmountCents);
+    const pack = getAutoTopOffPackByAmountCents(target.topOffAmountCents)
 
     if (!pack) {
       throw new Error(
         `Unsupported auto-top-off pack amount: ${target.topOffAmountCents}`,
-      );
+      )
     }
 
-    const thresholdCreditsMilli = target.minimumBalanceCredits * 1_000;
+    const thresholdCreditsMilli = target.minimumBalanceCredits * 1_000
 
     if (target.currentBalanceCreditsMilli > thresholdCreditsMilli) {
       await appendJobEvent(
@@ -249,12 +249,12 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           minimumBalanceCredits: target.minimumBalanceCredits,
           organizationId: target.organizationId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         currentBalanceCreditsMilli: target.currentBalanceCreditsMilli,
         skipped: true,
-      });
-      return;
+      })
+      return
     }
 
     if (await hasActiveBillingAutoTopOffRun(target.organizationId)) {
@@ -265,17 +265,17 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         {
           organizationId: target.organizationId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         skipped: true,
-      });
-      return;
+      })
+      return
     }
 
     let paymentMethodStatus = await getStripeAutoTopOffPaymentMethodStatus({
       stripeCustomerId: target.stripeCustomerId,
       stripeSubscriptionId: target.stripeSubscriptionId,
-    });
+    })
 
     if (
       !paymentMethodStatus.hasReusablePaymentMethod &&
@@ -284,11 +284,11 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       paymentMethodStatus = await syncStripeAutoTopOffPaymentMethodDefaults({
         stripeCustomerId: target.stripeCustomerId,
         stripeSubscriptionId: target.stripeSubscriptionId,
-      });
+      })
     }
 
     if (!paymentMethodStatus.hasReusablePaymentMethod) {
-      const stripeIdempotencyKey = `auto-top-off:${randomUUID()}`;
+      const stripeIdempotencyKey = `auto-top-off:${randomUUID()}`
       const run = await createBillingAutoTopOffRun({
         creditsGrantedMilli: pack.creditsGranted * 1_000,
         monthlySpendLimitCents: target.monthlySpendLimitCents,
@@ -299,17 +299,17 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         tenantId: target.tenantId,
         topOffAmountCents: pack.amountCents,
         triggerBalanceCreditsMilli: target.currentBalanceCreditsMilli,
-      });
+      })
 
       if (!run) {
-        throw new Error("Failed to create the auto-top-off run.");
+        throw new Error("Failed to create the auto-top-off run.")
       }
 
-      const reason = AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE;
+      const reason = AUTO_TOP_OFF_PAYMENT_METHOD_MESSAGE
       await markBillingAutoTopOffRunFailed({
         reason,
         runId: run.id,
-      });
+      })
       await appendJobEvent(
         job.id,
         AUTO_TOP_OFF_EVENTS.failed,
@@ -320,13 +320,13 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           stripeCustomerId: target.stripeCustomerId,
           stripeSubscriptionId: target.stripeSubscriptionId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         autoTopOffRunId: run.id,
         reason,
         skipped: true,
-      });
-      return;
+      })
+      return
     }
 
     const spendGuard = await getBillingCycleSpendGuard({
@@ -335,7 +335,7 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       monthlySpendLimitCents: target.monthlySpendLimitCents,
       stripeCustomerId: target.stripeCustomerId,
       topUpLookupKey: pack.lookupKey,
-    });
+    })
 
     if (spendGuard.wouldExceedLimit) {
       await appendJobEvent(
@@ -351,13 +351,13 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           previewChargeCents: spendGuard.previewChargeCents,
           organizationId: target.organizationId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         currentCycleSpendCents: spendGuard.currentCycleSpendCents,
         previewChargeCents: spendGuard.previewChargeCents,
         skipped: true,
-      });
-      return;
+      })
+      return
     }
 
     await appendJobEvent(
@@ -375,9 +375,9 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         previewChargeCents: spendGuard.previewChargeCents,
         topOffAmountCents: pack.amountCents,
       },
-    );
+    )
 
-    const stripeIdempotencyKey = `auto-top-off:${randomUUID()}`;
+    const stripeIdempotencyKey = `auto-top-off:${randomUUID()}`
     const run = await createBillingAutoTopOffRun({
       creditsGrantedMilli: pack.creditsGranted * 1_000,
       monthlySpendLimitCents: target.monthlySpendLimitCents,
@@ -388,13 +388,13 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       tenantId: target.tenantId,
       topOffAmountCents: pack.amountCents,
       triggerBalanceCreditsMilli: target.currentBalanceCreditsMilli,
-    });
+    })
 
     if (!run) {
-      throw new Error("Failed to create the auto-top-off run.");
+      throw new Error("Failed to create the auto-top-off run.")
     }
 
-    runId = run.id;
+    runId = run.id
 
     await appendJobEvent(
       job.id,
@@ -404,12 +404,12 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         autoTopOffRunId: run.id,
         lookupKey: pack.lookupKey,
       },
-    );
+    )
 
-    const stripe = getStripe();
+    const stripe = getStripe()
     const stripePriceId = await getStripeOneTimePriceIdForTopUpLookupKey(
       pack.lookupKey,
-    );
+    )
     const invoice = await stripe.invoices.create(
       {
         auto_advance: false,
@@ -427,9 +427,9 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       {
         idempotencyKey: `${stripeIdempotencyKey}:invoice`,
       },
-    );
+    )
 
-    stripeInvoiceId = invoice.id;
+    stripeInvoiceId = invoice.id
 
     const invoiceItem = await stripe.invoiceItems.create(
       {
@@ -451,7 +451,7 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       {
         idempotencyKey: `${stripeIdempotencyKey}:invoice-item`,
       },
-    );
+    )
 
     await updateBillingAutoTopOffRunToAwaitingWebhook({
       runId: run.id,
@@ -459,11 +459,11 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       stripeInvoiceItemId: invoiceItem.id,
       stripePriceId,
       stripePriceLookupKey: pack.lookupKey,
-    });
+    })
 
     await stripe.invoices.finalizeInvoice(invoice.id, undefined, {
       idempotencyKey: `${stripeIdempotencyKey}:finalize`,
-    });
+    })
 
     const paidInvoice = await stripe.invoices.pay(
       invoice.id,
@@ -475,7 +475,7 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
       {
         idempotencyKey: `${stripeIdempotencyKey}:pay`,
       },
-    );
+    )
 
     if (paidInvoice.status !== "paid") {
       const reason = await getStripeInvoiceFailureReason({
@@ -483,12 +483,12 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           paidInvoice.last_finalization_error?.message ??
           `Stripe invoice payment returned status ${paidInvoice.status ?? "unknown"}.`,
         stripeInvoiceId: invoice.id,
-      });
+      })
       await markBillingAutoTopOffRunFailed({
         reason,
         runId: run.id,
         stripeInvoiceId: invoice.id,
-      });
+      })
       await appendJobEvent(
         job.id,
         AUTO_TOP_OFF_EVENTS.failed,
@@ -498,13 +498,13 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
           invoiceStatus: paidInvoice.status,
           stripeInvoiceId: invoice.id,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         autoTopOffRunId: run.id,
         skipped: false,
         status: paidInvoice.status,
-      });
-      return;
+      })
+      return
     }
 
     await appendJobEvent(
@@ -515,24 +515,24 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         autoTopOffRunId: run.id,
         stripeInvoiceId: invoice.id,
       },
-    );
+    )
 
     await markJobSucceeded(job.id, {
       autoTopOffRunId: run.id,
       creditsGrantedMilli: pack.creditsGranted * 1_000,
       stripeInvoiceId: invoice.id,
       topOffAmountCents: pack.amountCents,
-    });
+    })
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Auto-top-off execution failed.";
+      error instanceof Error ? error.message : "Auto-top-off execution failed."
 
     if (runId) {
       await markBillingAutoTopOffRunFailed({
         reason: message,
         runId,
         stripeInvoiceId,
-      });
+      })
     }
 
     await appendJobEvent(
@@ -543,14 +543,14 @@ export async function processExecuteBillingAutoTopOffJob(job: ClaimedJob) {
         error: message,
         stripeInvoiceId,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 async function hasQueuedOrRunningAutoTopOffJob(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [job] = await db
     .select({
       id: jobRuns.id,
@@ -563,35 +563,35 @@ async function hasQueuedOrRunningAutoTopOffJob(tenantId: string) {
         inArray(jobRuns.status, [JOB_STATUSES.queued, JOB_STATUSES.running]),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return Boolean(job);
+  return Boolean(job)
 }
 
 function parseExecuteBillingAutoTopOffPayload(
   payload: Record<string, unknown>,
 ): ExecuteBillingAutoTopOffPayload {
-  const organizationId = payload.organizationId;
-  const tenantId = payload.tenantId;
+  const organizationId = payload.organizationId
+  const tenantId = payload.tenantId
 
   if (typeof organizationId !== "string" || organizationId.length === 0) {
     throw new Error(
       "Execute auto-top-off job payload is missing organizationId",
-    );
+    )
   }
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Execute auto-top-off job payload is missing tenantId");
+    throw new Error("Execute auto-top-off job payload is missing tenantId")
   }
 
   return {
     organizationId,
     tenantId,
-  };
+  }
 }
 
 function parseScheduleBillingAutoTopOffEnqueuePayload(
   payload: Record<string, unknown>,
 ): ScheduleBillingAutoTopOffEnqueuePayload {
-  return payload as ScheduleBillingAutoTopOffEnqueuePayload;
+  return payload as ScheduleBillingAutoTopOffEnqueuePayload
 }

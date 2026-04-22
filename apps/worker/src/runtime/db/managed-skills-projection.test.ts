@@ -1,20 +1,25 @@
-import assert from "node:assert/strict";
+import assert from "node:assert/strict"
 
-import { describe, it, vi } from "vitest";
+import { describe, it, vi } from "vitest"
 
-import { listProjectedManagedSkillFilesTx } from "./managed-skills";
+import { listProjectedManagedSkillFilesTx } from "./managed-skills"
 
 function createSelectChain(result: unknown[]) {
+  const resolvedResult = Promise.resolve(result)
   const chain = {
     from: vi.fn(() => chain),
     innerJoin: vi.fn(() => chain),
     limit: vi.fn().mockResolvedValue(result),
     orderBy: vi.fn(() => chain),
-    then: Promise.resolve(result).then.bind(Promise.resolve(result)),
     where: vi.fn(() => chain),
-  };
+  }
 
-  return chain;
+  // biome-ignore lint/suspicious/noThenProperty: Drizzle query-builder mocks need to be awaitable in these tests.
+  Object.defineProperty(chain, "then", {
+    value: resolvedResult.then.bind(resolvedResult),
+  })
+
+  return chain
 }
 
 describe("managed skill projection", () => {
@@ -44,10 +49,10 @@ describe("managed skill projection", () => {
         },
       ],
       [],
-    ];
+    ]
     const tx = {
       select: vi.fn(() => createSelectChain(selectResults.shift() ?? [])),
-    };
+    }
 
     const result = await listProjectedManagedSkillFilesTx(tx as never, {
       tenantId: "tenant_123",
@@ -55,7 +60,7 @@ describe("managed skill projection", () => {
         "name-and-domain-research": 1,
         "random-color": 7,
       },
-    });
+    })
 
     assert.deepEqual(result, [
       {
@@ -70,6 +75,6 @@ describe("managed skill projection", () => {
         relativePath: "skills/name-and-domain-research/references/setup.md",
         skillKey: "name-and-domain-research",
       },
-    ]);
-  });
-});
+    ])
+  })
+})

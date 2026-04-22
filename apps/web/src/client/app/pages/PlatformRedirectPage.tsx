@@ -1,7 +1,5 @@
 import { Navigate } from "@tanstack/react-router"
 
-export interface PlatformRedirectPageProps {}
-
-export function PlatformRedirectPage(_props: PlatformRedirectPageProps) {
+export function PlatformRedirectPage() {
   return <Navigate to="/platform/organizations" />
 }

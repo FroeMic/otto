@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 
-import { buildVoiceNoteFileName, normalizeVoiceNoteMimeType } from "../voice-note"
+import {
+  buildVoiceNoteFileName,
+  normalizeVoiceNoteMimeType,
+} from "../voice-note"
 
 const DEFAULT_BAR_COUNT = 40
 const PREFERRED_AUDIO_MIME_TYPES = [
@@ -71,6 +74,8 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
     selectedDeviceIdRef.current = selectedDeviceId
   }, [selectedDeviceId])
 
+  // Device discovery and recorder teardown are mount-scoped; helper functions mutate refs rather than React state contracts.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: adding helper identities would rerun setup and teardown on every render.
   useEffect(() => {
     void loadDevices()
 
@@ -102,8 +107,7 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       audioInputs.some((device) => device.deviceId === remembered)
         ? remembered
         : null) ??
-      (current &&
-      audioInputs.some((device) => device.deviceId === current)
+      (current && audioInputs.some((device) => device.deviceId === current)
         ? current
         : null) ??
       ""
@@ -221,7 +225,10 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   }
 
   function stopRecording() {
-    if (!mediaRecorderRef.current || (status !== "recording" && status !== "paused")) {
+    if (
+      !mediaRecorderRef.current ||
+      (status !== "recording" && status !== "paused")
+    ) {
       return
     }
 
@@ -246,7 +253,9 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
   }
 
   function stopMediaStream() {
-    streamRef.current?.getTracks().forEach((track) => track.stop())
+    for (const track of streamRef.current?.getTracks() ?? []) {
+      track.stop()
+    }
     streamRef.current = null
     mediaRecorderRef.current = null
   }
@@ -286,21 +295,24 @@ export function useVoiceNoteRecorder(): UseVoiceNoteRecorderResult {
       }
 
       analyserRef.current.getByteFrequencyData(data)
-      const nextLevels = Array.from({ length: DEFAULT_BAR_COUNT }, (_, index) => {
-        const start = Math.floor((index * data.length) / DEFAULT_BAR_COUNT)
-        const end = Math.max(
-          start + 1,
-          Math.floor(((index + 1) * data.length) / DEFAULT_BAR_COUNT),
-        )
+      const nextLevels = Array.from(
+        { length: DEFAULT_BAR_COUNT },
+        (_, index) => {
+          const start = Math.floor((index * data.length) / DEFAULT_BAR_COUNT)
+          const end = Math.max(
+            start + 1,
+            Math.floor(((index + 1) * data.length) / DEFAULT_BAR_COUNT),
+          )
 
-        let sum = 0
-        for (let cursor = start; cursor < end; cursor += 1) {
-          sum += data[cursor]
-        }
+          let sum = 0
+          for (let cursor = start; cursor < end; cursor += 1) {
+            sum += data[cursor]
+          }
 
-        const avg = sum / Math.max(1, end - start)
-        return Math.min(1, Math.max(0.08, (avg / 255) * 2.6))
-      })
+          const avg = sum / Math.max(1, end - start)
+          return Math.min(1, Math.max(0.08, (avg / 255) * 2.6))
+        },
+      )
 
       setLevels(nextLevels)
       animationFrameRef.current = window.requestAnimationFrame(updateLevels)

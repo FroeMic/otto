@@ -15,7 +15,9 @@ export const skillStatusBadgeVariant: Record<
 }
 
 export function formatSkillStatusLabel(
-  status: WorkspaceInstalledSkillListEntry["status"] | WorkspaceSkillDetail["status"],
+  status:
+    | WorkspaceInstalledSkillListEntry["status"]
+    | WorkspaceSkillDetail["status"],
 ) {
   return status
     .split("_")
@@ -24,7 +26,9 @@ export function formatSkillStatusLabel(
 }
 
 export function formatSkillOriginLabel(
-  origin: WorkspaceInstalledSkillListEntry["origin"] | WorkspaceSkillDetail["origin"],
+  origin:
+    | WorkspaceInstalledSkillListEntry["origin"]
+    | WorkspaceSkillDetail["origin"],
 ) {
   return origin === "custom" ? "Custom" : "From library"
 }
@@ -45,7 +49,9 @@ function formatDependencyName(value: string) {
     .join(" ")
 }
 
-export function getSkillStatusDescription(status: WorkspaceSkillDetail["status"]) {
+export function getSkillStatusDescription(
+  status: WorkspaceSkillDetail["status"],
+) {
   switch (status) {
     case "ready":
       return "This skill is available to the agent in this workspace."

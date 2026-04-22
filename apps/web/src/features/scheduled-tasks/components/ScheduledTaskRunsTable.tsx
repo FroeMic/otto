@@ -1,6 +1,6 @@
+import { Link } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import { Link } from "@tanstack/react-router"
 
 import { DataTable } from "@/components/data-table"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
@@ -164,7 +164,10 @@ function createColumns(input: {
       accessorFn: (row) => row.startedAt?.getTime() ?? 0,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatShortDateTime(row.original.startedAt, input.dateTimePreferences)}
+          {formatShortDateTime(
+            row.original.startedAt,
+            input.dateTimePreferences,
+          )}
         </span>
       ),
       header: ({ column }) => (
@@ -283,4 +286,3 @@ function formatStatusLabel(status: string) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ")
 }
-

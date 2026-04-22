@@ -1,6 +1,5 @@
-import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat"
-
 import assert from "node:assert/strict"
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat"
 
 import { describe, it } from "vitest"
 
@@ -8,20 +7,18 @@ import { dispatchWorkspaceChatMessage } from "./chat-dispatch"
 
 describe("workspace chat dispatch", () => {
   it("enqueues a workspace chat worker job for the tenant runtime", async () => {
-    let queuedPayload:
-      | {
-          assistantMessageId?: string
-          conversationKind: "ad_hoc" | "durable_named" | "external_surface"
-          conversationId: string
-          conversationTitle: string
-          conversationVisibility: "open" | "personal"
-          parts: WorkspaceChatMessagePart[]
-          senderDisplayName: string
-          senderExternalId: string
-          tenantId: string
-          userMessageId: string
-        }
-      | null = null
+    let queuedPayload: {
+      assistantMessageId?: string
+      conversationKind: "ad_hoc" | "durable_named" | "external_surface"
+      conversationId: string
+      conversationTitle: string
+      conversationVisibility: "open" | "personal"
+      parts: WorkspaceChatMessagePart[]
+      senderDisplayName: string
+      senderExternalId: string
+      tenantId: string
+      userMessageId: string
+    } | null = null
 
     const result = await dispatchWorkspaceChatMessage(
       {

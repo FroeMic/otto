@@ -1,9 +1,9 @@
-import type { FrontendEnv } from "./env"
 import {
+  type BrowserPostHogConfig,
   DEFAULT_POSTHOG_BROWSER_API_HOST,
   DEFAULT_POSTHOG_UI_HOST,
-  type BrowserPostHogConfig,
 } from "../shared/posthog"
+import type { FrontendEnv } from "./env"
 
 export function getBrowserPostHogConfig(
   env: FrontendEnv,

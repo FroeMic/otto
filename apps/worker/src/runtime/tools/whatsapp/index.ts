@@ -1,4 +1,4 @@
-import type { AgentCapability } from "../../lib/agent-capabilities";
+import type { AgentCapability } from "../../lib/agent-capabilities"
 import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
@@ -12,14 +12,14 @@ import {
   whatsappRuntimeConfigJsonSchema,
   whatsappRuntimeConfigPatchSchema,
   whatsappRuntimeConfigUiHints,
-} from "../../lib/whatsapp-config";
+} from "../../lib/whatsapp-config"
 import type {
   ToolActionMeaning,
   ToolAgentOperation,
   ToolFieldMeaning,
   ToolSurfaceDefinition,
-} from "../types";
-import { deriveWhatsAppPolicyEffects } from "./policy";
+} from "../types"
+import { deriveWhatsAppPolicyEffects } from "./policy"
 
 const fieldMeanings: ToolFieldMeaning[] = [
   {
@@ -64,7 +64,7 @@ const fieldMeanings: ToolFieldMeaning[] = [
     key: "ackReactionEnabled",
     label: "Ack reaction",
   },
-];
+]
 
 const agentOperations: ToolAgentOperation[] = [
   {
@@ -73,7 +73,7 @@ const agentOperations: ToolAgentOperation[] = [
     key: "manage_whatsapp_policy",
     label: "Manage WhatsApp policy",
   },
-];
+]
 
 const agentCapabilities: AgentCapability[] = [
   {
@@ -107,7 +107,7 @@ const agentCapabilities: AgentCapability[] = [
     openclawTool: "message",
     source: "integration",
   },
-];
+]
 
 const actionMeanings: ToolActionMeaning[] = [
   {
@@ -122,7 +122,7 @@ const actionMeanings: ToolActionMeaning[] = [
       "Re-run desired-state compilation and queue a tenant apply without changing the saved WhatsApp policy.",
     label: "Reapply",
   },
-];
+]
 
 export const whatsappToolSurfaceDefinition: ToolSurfaceDefinition<
   WhatsAppRuntimeConfig,
@@ -132,7 +132,7 @@ export const whatsappToolSurfaceDefinition: ToolSurfaceDefinition<
   agentCapabilities,
   agentOperations,
   async buildOptions() {
-    return {};
+    return {}
   },
   description: WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
   fieldMeanings,
@@ -158,6 +158,6 @@ export const whatsappToolSurfaceDefinition: ToolSurfaceDefinition<
   async validateSemantic(context) {
     deriveWhatsAppPolicyEffects({
       config: context.config,
-    });
+    })
   },
-};
+}

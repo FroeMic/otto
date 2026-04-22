@@ -1,11 +1,22 @@
 "use client"
 
+import type {
+  InviteWorkspaceMembersInput,
+  WorkspaceMemberDirectoryEntry,
+  WorkspaceMemberRoleOption,
+} from "@otto/feature-workspace-members"
 import { ArrowsClockwise, DotsThree } from "@phosphor-icons/react/ssr"
 import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react"
+import {
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
-
 import { DataTable } from "@/components/data-table"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { ToolbarSearchInput } from "@/components/toolbar-search-input"
@@ -48,10 +59,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -63,13 +71,10 @@ import {
   updateWorkspaceMemberRole,
   workspaceMembersQueryOptions,
 } from "@/features/workspace/api/members"
-import { formatShortDate, type WorkspaceDateTimePreferences } from "@/features/workspace/date-time"
-
-import type {
-  InviteWorkspaceMembersInput,
-  WorkspaceMemberDirectoryEntry,
-  WorkspaceMemberRoleOption,
-} from "@otto/feature-workspace-members"
+import {
+  formatShortDate,
+  type WorkspaceDateTimePreferences,
+} from "@/features/workspace/date-time"
 
 export interface WorkspaceMembersTableProps {
   availableRoles: WorkspaceMemberRoleOption[]
@@ -284,6 +289,8 @@ export function InviteMembersDialog({
 }: InviteMembersDialogProps) {
   const [emailsValue, setEmailsValue] = useState("")
   const [roleSlug, setRoleSlug] = useState(availableRoles[0]?.slug ?? "")
+  const emailsFieldId = useId()
+  const roleFieldId = useId()
 
   useEffect(() => {
     if (!availableRoles.find((role) => role.slug === roleSlug)) {
@@ -326,11 +333,11 @@ export function InviteMembersDialog({
         >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="workspace-member-emails">Email</FieldLabel>
+              <FieldLabel htmlFor={emailsFieldId}>Email</FieldLabel>
               <Textarea
                 autoComplete="off"
                 className="min-h-28"
-                id="workspace-member-emails"
+                id={emailsFieldId}
                 onChange={(event) => setEmailsValue(event.target.value)}
                 placeholder="email@example.com, email2@example.com"
                 value={emailsValue}
@@ -341,10 +348,10 @@ export function InviteMembersDialog({
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="workspace-member-role">Role</FieldLabel>
+              <FieldLabel htmlFor={roleFieldId}>Role</FieldLabel>
               <NativeSelect
                 className="w-full"
-                id="workspace-member-role"
+                id={roleFieldId}
                 onChange={(event) => setRoleSlug(event.target.value)}
                 size="lg"
                 value={roleSlug}
@@ -400,7 +407,9 @@ export function WorkspaceMemberActionsCell({
         const nextEntry = await action()
 
         onEntryUpsert(nextEntry)
-        await queryClient.invalidateQueries(workspaceMembersQueryOptions(orgSlug))
+        await queryClient.invalidateQueries(
+          workspaceMembersQueryOptions(orgSlug),
+        )
         toast.success(successMessage)
       } catch (error) {
         toast.error(
@@ -423,6 +432,9 @@ export function WorkspaceMemberActionsCell({
     return null
   }
 
+  const membershipId = entry.membershipId
+  const invitationId = entry.invitationId
+
   return (
     <>
       <DropdownMenu>
@@ -444,7 +456,7 @@ export function WorkspaceMemberActionsCell({
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {entry.canManageRole && entry.membershipId ? (
+          {entry.canManageRole && membershipId ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>Change role</DropdownMenuSubTrigger>
               <DropdownMenuSubContent align="end">
@@ -457,7 +469,7 @@ export function WorkspaceMemberActionsCell({
                         runMutation(
                           () =>
                             updateWorkspaceMemberRole({
-                              membershipId: entry.membershipId!,
+                              membershipId,
                               orgSlug,
                               roleSlug: role.slug,
                             }),
@@ -473,18 +485,18 @@ export function WorkspaceMemberActionsCell({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           ) : null}
-          {entry.canSuspend && entry.membershipId ? (
+          {entry.canSuspend && membershipId ? (
             <DropdownMenuItem onClick={() => setConfirmationAction("suspend")}>
               Suspend member
             </DropdownMenuItem>
           ) : null}
-          {entry.canReactivate && entry.membershipId ? (
+          {entry.canReactivate && membershipId ? (
             <DropdownMenuItem
               onClick={() =>
                 runMutation(
                   () =>
                     reactivateWorkspaceMember({
-                      membershipId: entry.membershipId!,
+                      membershipId,
                       orgSlug,
                     }),
                   `Reactivated ${entry.email}.`,
@@ -494,7 +506,7 @@ export function WorkspaceMemberActionsCell({
               Reactivate member
             </DropdownMenuItem>
           ) : null}
-          {entry.canResendInvitation && entry.invitationId ? (
+          {entry.canResendInvitation && invitationId ? (
             <>
               {(entry.canManageRole ||
                 entry.canSuspend ||
@@ -507,7 +519,7 @@ export function WorkspaceMemberActionsCell({
                   runMutation(
                     () =>
                       resendWorkspaceInvitation({
-                        invitationId: entry.invitationId!,
+                        invitationId,
                         orgSlug,
                       }),
                     `Resent the invitation for ${entry.email}.`,
@@ -518,7 +530,7 @@ export function WorkspaceMemberActionsCell({
               </DropdownMenuItem>
             </>
           ) : null}
-          {entry.canRevokeInvitation && entry.invitationId ? (
+          {entry.canRevokeInvitation && invitationId ? (
             <DropdownMenuItem onClick={() => setConfirmationAction("revoke")}>
               Revoke invite
             </DropdownMenuItem>
@@ -554,22 +566,22 @@ export function WorkspaceMemberActionsCell({
             <AlertDialogAction
               disabled={pendingAction}
               onClick={() => {
-                if (confirmationAction === "suspend" && entry.membershipId) {
+                if (confirmationAction === "suspend" && membershipId) {
                   runMutation(
                     () =>
                       suspendWorkspaceMember({
-                        membershipId: entry.membershipId!,
+                        membershipId,
                         orgSlug,
                       }),
                     `Suspended ${entry.email}.`,
                   )
                 }
 
-                if (confirmationAction === "revoke" && entry.invitationId) {
+                if (confirmationAction === "revoke" && invitationId) {
                   runMutation(
                     () =>
                       revokeWorkspaceInvitation({
-                        invitationId: entry.invitationId!,
+                        invitationId,
                         orgSlug,
                       }),
                     `Revoked the invitation for ${entry.email}.`,
@@ -712,8 +724,7 @@ export function WorkspaceMembersTable({
         id: "access",
       },
       {
-        accessorFn: (row) =>
-          parseEntryDate(row.joinedAt)?.getTime() ?? 0,
+        accessorFn: (row) => parseEntryDate(row.joinedAt)?.getTime() ?? 0,
         cell: ({ row }) => (
           <span className="text-sm text-foreground">
             {formatDate(row.original.joinedAt, dateTimePreferences)}
@@ -725,8 +736,7 @@ export function WorkspaceMembersTable({
         id: "joinedAt",
       },
       {
-        accessorFn: (row) =>
-          parseEntryDate(row.lastSeenAt)?.getTime() ?? 0,
+        accessorFn: (row) => parseEntryDate(row.lastSeenAt)?.getTime() ?? 0,
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.lastSeenAt
@@ -827,7 +837,9 @@ export function WorkspaceMembersTable({
         }
 
         setIsInviteOpen(false)
-        await queryClient.invalidateQueries(workspaceMembersQueryOptions(orgSlug))
+        await queryClient.invalidateQueries(
+          workspaceMembersQueryOptions(orgSlug),
+        )
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Workspace invite failed.",

@@ -29,11 +29,16 @@ import { workspaceFilesQueryOptions } from "@/features/files/api/files"
 import { LegacyFilesRedirectPage } from "@/features/files/pages/LegacyFilesRedirectPage"
 import { WorkspaceFilesPage } from "@/features/files/pages/WorkspaceFilesPage"
 import {
-  workspaceSessionDetailQueryOptions,
-  workspaceSessionsQueryOptions,
-} from "@/features/sessions/api/sessions"
-import { SessionDetailPage } from "@/features/sessions/pages/SessionDetailPage"
-import { SessionsPage } from "@/features/sessions/pages/SessionsPage"
+  workspaceIntegrationDetailQueryOptions,
+  workspaceIntegrationsQueryOptions,
+} from "@/features/integrations/api/integrations"
+import { IntegrationDetailLayoutPage } from "@/features/integrations/pages/IntegrationDetailLayoutPage"
+import { IntegrationDetailRedirectPage } from "@/features/integrations/pages/IntegrationDetailRedirectPage"
+import { IntegrationsPage } from "@/features/integrations/pages/IntegrationsPage"
+import { workspaceOnboardingQueryOptions } from "@/features/onboarding/api/onboarding"
+import { WorkspaceOnboardingPage } from "@/features/onboarding/pages/WorkspaceOnboardingPage"
+import { WorkspaceWaitingPage } from "@/features/onboarding/pages/WorkspaceWaitingPage"
+import { WorkspaceWaitlistPage } from "@/features/onboarding/pages/WorkspaceWaitlistPage"
 import {
   workspaceScheduledTaskDetailQueryOptions,
   workspaceScheduledTaskRunsQueryOptions,
@@ -46,6 +51,12 @@ import { ScheduledTaskOverviewPage } from "@/features/scheduled-tasks/pages/Sche
 import { ScheduledTaskRunsPage } from "@/features/scheduled-tasks/pages/ScheduledTaskRunsPage"
 import { ScheduledTasksPage } from "@/features/scheduled-tasks/pages/ScheduledTasksPage"
 import { ScheduledTasksRedirectPage } from "@/features/scheduled-tasks/pages/ScheduledTasksRedirectPage"
+import {
+  workspaceSessionDetailQueryOptions,
+  workspaceSessionsQueryOptions,
+} from "@/features/sessions/api/sessions"
+import { SessionDetailPage } from "@/features/sessions/pages/SessionDetailPage"
+import { SessionsPage } from "@/features/sessions/pages/SessionsPage"
 import { workspaceSkillFilesQueryOptions } from "@/features/skills/api/skill-files"
 import {
   workspaceSkillDetailQueryOptions,
@@ -60,17 +71,6 @@ import { SkillOverviewPage } from "@/features/skills/pages/SkillOverviewPage"
 import { SkillsInstalledPage } from "@/features/skills/pages/SkillsInstalledPage"
 import { SkillsLibraryPage } from "@/features/skills/pages/SkillsLibraryPage"
 import { SkillsRedirectPage } from "@/features/skills/pages/SkillsRedirectPage"
-import {
-  workspaceIntegrationDetailQueryOptions,
-  workspaceIntegrationsQueryOptions,
-} from "@/features/integrations/api/integrations"
-import { IntegrationDetailLayoutPage } from "@/features/integrations/pages/IntegrationDetailLayoutPage"
-import { IntegrationDetailRedirectPage } from "@/features/integrations/pages/IntegrationDetailRedirectPage"
-import { IntegrationsPage } from "@/features/integrations/pages/IntegrationsPage"
-import { workspaceOnboardingQueryOptions } from "@/features/onboarding/api/onboarding"
-import { WorkspaceOnboardingPage } from "@/features/onboarding/pages/WorkspaceOnboardingPage"
-import { WorkspaceWaitingPage } from "@/features/onboarding/pages/WorkspaceWaitingPage"
-import { WorkspaceWaitlistPage } from "@/features/onboarding/pages/WorkspaceWaitlistPage"
 import { UsagePage } from "@/features/usage/pages/UsagePage"
 import { workspaceMembersQueryOptions } from "@/features/workspace/api/members"
 import {
@@ -257,14 +257,11 @@ function WorkspaceScheduledTaskConfigurationRoutePage() {
   const { orgSlug, taskKey } =
     workspaceScheduledTaskConfigurationRoute.useParams()
 
-  return (
-    <ScheduledTaskConfigurationPage orgSlug={orgSlug} taskKey={taskKey} />
-  )
+  return <ScheduledTaskConfigurationPage orgSlug={orgSlug} taskKey={taskKey} />
 }
 
 function WorkspaceScheduledTaskRunsDetailRoutePage() {
-  const { orgSlug, taskKey } =
-    workspaceScheduledTaskDetailRunsRoute.useParams()
+  const { orgSlug, taskKey } = workspaceScheduledTaskDetailRunsRoute.useParams()
 
   return <ScheduledTaskDetailRunsPage orgSlug={orgSlug} taskKey={taskKey} />
 }
@@ -466,9 +463,7 @@ function PlatformRouteErrorPage(props: { error: unknown }) {
   if (reloadForStaleAssetError(props.error)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center px-6 py-16">
-        <div className="text-sm text-muted-foreground">
-          Updating Otto…
-        </div>
+        <div className="text-sm text-muted-foreground">Updating Otto…</div>
       </div>
     )
   }
@@ -547,7 +542,6 @@ const workspaceShellRoute = createRoute({
           params,
           to: "/$orgSlug/waitlist",
         })
-      case "ready":
       default:
         return
     }
@@ -580,7 +574,6 @@ const workspaceOnboardingRoute = createRoute({
           params,
           to: "/$orgSlug/waitlist",
         })
-      case "onboarding":
       default:
         return onboarding
     }
@@ -612,7 +605,6 @@ const workspaceWaitingRoute = createRoute({
           params,
           to: "/$orgSlug/waitlist",
         })
-      case "waiting":
       default:
         return onboarding
     }
@@ -644,7 +636,6 @@ const workspaceWaitlistRoute = createRoute({
           params,
           to: "/$orgSlug/waiting",
         })
-      case "waitlist":
       default:
         return onboarding
     }
@@ -975,7 +966,7 @@ const workspaceSettingsIntegrationsRoute = createRoute({
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(
       workspaceIntegrationsQueryOptions(params.orgSlug),
-  ),
+    ),
   path: "/agent/integrations",
 })
 

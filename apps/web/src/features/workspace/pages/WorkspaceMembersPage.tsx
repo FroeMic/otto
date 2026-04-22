@@ -1,6 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
-import { SettingsPage, SettingsPageTitle } from "@/client/app/app-shell/SettingsLayout"
+import {
+  SettingsPage,
+  SettingsPageTitle,
+} from "@/client/app/app-shell/SettingsLayout"
 
 import { workspaceMembersQueryOptions } from "../api/members"
 import { shellBootstrapQueryOptions } from "../api/workspace"
@@ -10,10 +13,10 @@ export interface WorkspaceMembersPageProps {
   orgSlug: string
 }
 
-export function WorkspaceMembersPage({
-  orgSlug,
-}: WorkspaceMembersPageProps) {
-  const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+export function WorkspaceMembersPage({ orgSlug }: WorkspaceMembersPageProps) {
+  const { data: shellData } = useSuspenseQuery(
+    shellBootstrapQueryOptions(orgSlug),
+  )
   const { data: memberDirectory } = useSuspenseQuery(
     workspaceMembersQueryOptions(orgSlug),
   )

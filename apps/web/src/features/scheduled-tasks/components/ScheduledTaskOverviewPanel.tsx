@@ -83,4 +83,3 @@ function readTaskPrompt(payload: Record<string, unknown> | null) {
 
   return null
 }
-

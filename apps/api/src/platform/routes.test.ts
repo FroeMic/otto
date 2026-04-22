@@ -3,10 +3,7 @@ import assert from "node:assert/strict"
 import { Hono } from "hono"
 import { describe, it } from "vitest"
 
-import {
-  createPlatformRouter,
-  type PlatformRouteDependencies,
-} from "./routes"
+import { createPlatformRouter, type PlatformRouteDependencies } from "./routes"
 
 const user = {
   email: "operator@getyourotto.com",
@@ -221,7 +218,9 @@ function createPlatformTestApp(
 describe("platform routes", () => {
   it("returns platform bootstrap data for platform admins", async () => {
     const app = createPlatformTestApp()
-    const response = await app.request("http://api.local/api/platform/bootstrap")
+    const response = await app.request(
+      "http://api.local/api/platform/bootstrap",
+    )
 
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
@@ -461,7 +460,9 @@ describe("platform routes", () => {
       ...createDependencies(),
       hasPlatformAdminRole: async () => false,
     })
-    const response = await app.request("http://api.local/api/platform/bootstrap")
+    const response = await app.request(
+      "http://api.local/api/platform/bootstrap",
+    )
 
     assert.equal(response.status, 403)
     assert.deepEqual(await response.json(), {

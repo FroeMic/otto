@@ -67,7 +67,4 @@ export async function loadUsageOverview(input: {
   return usageOverviewSchema.parse(data) as UsageOverview
 }
 
-export {
-  usageOverviewSchema,
-  usageSearchSchema,
-}
+export { usageOverviewSchema, usageSearchSchema }

@@ -2,11 +2,6 @@ import { ArrowLeftIcon, BuildingsIcon } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import type { ComponentProps } from "react"
-
-import { platformBootstrapQueryOptions } from "@/features/platform/api/platform"
-import {
-  usePlatformSourceWorkspaceSlug,
-} from "@/features/platform/source-workspace"
 import { PlatformUserMenu } from "@/client/app/app-shell/PlatformUserMenu"
 import {
   Sidebar,
@@ -20,9 +15,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { platformBootstrapQueryOptions } from "@/features/platform/api/platform"
+import { usePlatformSourceWorkspaceSlug } from "@/features/platform/source-workspace"
 
-export interface PlatformSidebarProps
-  extends ComponentProps<typeof Sidebar> {}
+export interface PlatformSidebarProps extends ComponentProps<typeof Sidebar> {}
 
 export function PlatformSidebar(props: PlatformSidebarProps) {
   const { data } = useSuspenseQuery(platformBootstrapQueryOptions())
@@ -44,7 +40,10 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 render={
-                  <Link params={{ orgSlug: sourceWorkspaceSlug }} to="/$orgSlug" />
+                  <Link
+                    params={{ orgSlug: sourceWorkspaceSlug }}
+                    to="/$orgSlug"
+                  />
                 }
                 size="default"
                 className="h-10 rounded-full px-4"
@@ -67,7 +66,9 @@ export function PlatformSidebar(props: PlatformSidebarProps) {
                   render={
                     <Link
                       search={() => {
-                        const searchParams = new URLSearchParams(location.search)
+                        const searchParams = new URLSearchParams(
+                          location.search,
+                        )
                         const workspace = searchParams.get("workspace")
 
                         return workspace ? { workspace } : {}

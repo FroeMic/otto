@@ -3,14 +3,10 @@
 import { useInfiniteQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 
-import {
-  workspaceChatConversationListQueryOptions,
-} from "../api/chat"
-import {
-  type ConversationHistoryFilter,
-} from "./conversation-history-filters"
+import { workspaceChatConversationListQueryOptions } from "../api/chat"
 import { ConversationHistoryHeader } from "./ConversationHistoryHeader"
 import { ConversationHistoryList } from "./ConversationHistoryList"
+import type { ConversationHistoryFilter } from "./conversation-history-filters"
 
 export interface ConversationHistorySectionProps {
   orgSlug: string
@@ -26,7 +22,8 @@ export function ConversationHistorySection({
   )
   const conversations = useMemo(
     () =>
-      conversationsQuery.data?.pages.flatMap((page) => page.conversations) ?? [],
+      conversationsQuery.data?.pages.flatMap((page) => page.conversations) ??
+      [],
     [conversationsQuery.data],
   )
 

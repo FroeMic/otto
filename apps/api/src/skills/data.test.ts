@@ -201,15 +201,16 @@ describe("workspace skills visibility", () => {
   it("rejects library skill installs when required integrations are missing", async () => {
     listTenantManagedSkillsForTenant.mockResolvedValue([])
     getLatestTenantManagedSkillDetailForTenant.mockResolvedValue(null)
-    getRuntimeIntegrationForTenant.mockImplementation(async ({ integrationKey }) =>
-      integrationKey === "brave"
-        ? {
-            status: {
-              connected: true,
-              needsAttention: false,
-            },
-          }
-        : null,
+    getRuntimeIntegrationForTenant.mockImplementation(
+      async ({ integrationKey }) =>
+        integrationKey === "brave"
+          ? {
+              status: {
+                connected: true,
+                needsAttention: false,
+              },
+            }
+          : null,
     )
 
     await expect(
@@ -218,9 +219,7 @@ describe("workspace skills visibility", () => {
         skillKey: "name-and-domain-research",
         userExternalId: "user_123",
       }),
-    ).rejects.toThrow(
-      "Install blocked. Missing required integrations: gandi.",
-    )
+    ).rejects.toThrow("Install blocked. Missing required integrations: gandi.")
     expect(createTenantSystemManagedSkillForTenant).not.toHaveBeenCalled()
   })
 })

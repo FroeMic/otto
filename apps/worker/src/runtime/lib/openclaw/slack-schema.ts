@@ -1,25 +1,25 @@
-import { z } from "zod";
+import { z } from "zod"
 
 // Pinned to the OpenClaw Slack config schema shape used by the current
 // runtime image line. Otto keeps its own higher-level Slack policy surface,
 // then validates the rendered OpenClaw Slack projection against this schema.
 
-const stringOrNumberSchema = z.union([z.string(), z.number()]);
+const stringOrNumberSchema = z.union([z.string(), z.number()])
 
-const dmPolicySchema = z.enum(["pairing", "allowlist", "open", "disabled"]);
+const dmPolicySchema = z.enum(["pairing", "allowlist", "open", "disabled"])
 
-const groupPolicySchema = z.enum(["open", "disabled", "allowlist"]);
+const groupPolicySchema = z.enum(["open", "disabled", "allowlist"])
 
 const replyToModeSchema = z.union([
   z.literal("off"),
   z.literal("first"),
   z.literal("all"),
-]);
+])
 
 const secretInputSchema = z.union([
   z.string(),
   z.object({ ref: z.string() }).strict(),
-]);
+])
 
 const toolPolicySchema = z
   .object({
@@ -34,21 +34,21 @@ const toolPolicySchema = z
         code: z.ZodIssueCode.custom,
         message:
           "tools policy cannot set both allow and alsoAllow in the same scope",
-      });
+      })
     }
   })
-  .optional();
+  .optional()
 
 const toolPolicyBySenderSchema = z
   .record(z.string(), toolPolicySchema)
-  .optional();
+  .optional()
 
 const markdownConfigSchema = z
   .object({
     tables: z.enum(["native", "codeblock", "off"]).optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const providerCommandsSchema = z
   .object({
@@ -56,7 +56,7 @@ const providerCommandsSchema = z
     nativeSkills: z.union([z.boolean(), z.literal("auto")]).optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const blockStreamingCoalesceSchema = z
   .object({
@@ -64,13 +64,13 @@ const blockStreamingCoalesceSchema = z
     maxChars: z.number().int().positive().optional(),
     minChars: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
 
 const dmConfigSchema = z
   .object({
     historyLimit: z.number().int().min(0).optional(),
   })
-  .strict();
+  .strict()
 
 const channelHeartbeatVisibilitySchema = z
   .object({
@@ -79,12 +79,12 @@ const channelHeartbeatVisibilitySchema = z
     useIndicator: z.boolean().optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const slackCapabilitiesSchema = z.union([
   z.array(z.string()),
   z.object({ interactiveReplies: z.boolean().optional() }).strict(),
-]);
+])
 
 const slackExecApprovalsSchema = z
   .object({
@@ -95,7 +95,7 @@ const slackExecApprovalsSchema = z
     target: z.enum(["dm", "channel", "both"]).optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const slackDmSchema = z
   .object({
@@ -106,7 +106,7 @@ const slackDmSchema = z
     policy: dmPolicySchema.optional(),
     replyToMode: replyToModeSchema.optional(),
   })
-  .strict();
+  .strict()
 
 const slackChannelSchema = z
   .object({
@@ -119,7 +119,7 @@ const slackChannelSchema = z
     toolsBySender: toolPolicyBySenderSchema,
     users: z.array(stringOrNumberSchema).optional(),
   })
-  .strict();
+  .strict()
 
 const slackThreadSchema = z
   .object({
@@ -127,7 +127,7 @@ const slackThreadSchema = z
     inheritParent: z.boolean().optional(),
     initialHistoryLimit: z.number().int().min(0).optional(),
   })
-  .strict();
+  .strict()
 
 const slackReplyToModeByChatTypeSchema = z
   .object({
@@ -135,7 +135,7 @@ const slackReplyToModeByChatTypeSchema = z
     direct: replyToModeSchema.optional(),
     group: replyToModeSchema.optional(),
   })
-  .strict();
+  .strict()
 
 const slackActionSchema = z
   .object({
@@ -149,7 +149,7 @@ const slackActionSchema = z
     search: z.boolean().optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const slackSlashCommandSchema = z
   .object({
@@ -159,7 +159,7 @@ const slackSlashCommandSchema = z
     sessionPrefix: z.string().optional(),
   })
   .strict()
-  .optional();
+  .optional()
 
 const slackAccountSchema = z
   .object({
@@ -213,7 +213,7 @@ const slackAccountSchema = z
     userTokenReadOnly: z.boolean().optional().default(true),
     webhookPath: z.string().optional(),
   })
-  .strict();
+  .strict()
 
 export const openClawSlackConfigSchema = slackAccountSchema
   .extend({
@@ -224,17 +224,17 @@ export const openClawSlackConfigSchema = slackAccountSchema
     webhookPath: z.string().optional().default("/slack/events"),
   })
   .superRefine((value, ctx) => {
-    const dmPolicy = value.dmPolicy ?? value.dm?.policy ?? "pairing";
-    const allowFrom = value.allowFrom ?? value.dm?.allowFrom;
+    const dmPolicy = value.dmPolicy ?? value.dm?.policy ?? "pairing"
+    const allowFrom = value.allowFrom ?? value.dm?.allowFrom
     const allowFromPath =
-      value.allowFrom !== undefined ? ["allowFrom"] : ["dm", "allowFrom"];
+      value.allowFrom !== undefined ? ["allowFrom"] : ["dm", "allowFrom"]
 
     if (dmPolicy === "open" && !allowFrom?.includes("*")) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'dmPolicy="open" requires allowFrom to include "*"',
         path: allowFromPath,
-      });
+      })
     }
 
     if (dmPolicy === "allowlist" && (!allowFrom || allowFrom.length === 0)) {
@@ -243,13 +243,13 @@ export const openClawSlackConfigSchema = slackAccountSchema
         message:
           'dmPolicy="allowlist" requires allowFrom to contain at least one sender ID',
         path: allowFromPath,
-      });
+      })
     }
 
     if (value.accounts) {
       for (const [accountId, account] of Object.entries(value.accounts)) {
         if (!account || account.enabled === false) {
-          continue;
+          continue
         }
 
         const effectivePolicy =
@@ -257,12 +257,12 @@ export const openClawSlackConfigSchema = slackAccountSchema
           account.dm?.policy ??
           value.dmPolicy ??
           value.dm?.policy ??
-          "pairing";
+          "pairing"
         const effectiveAllowFrom =
           account.allowFrom ??
           account.dm?.allowFrom ??
           value.allowFrom ??
-          value.dm?.allowFrom;
+          value.dm?.allowFrom
 
         if (effectivePolicy === "open" && !effectiveAllowFrom?.includes("*")) {
           ctx.addIssue({
@@ -270,7 +270,7 @@ export const openClawSlackConfigSchema = slackAccountSchema
             message:
               'account dmPolicy="open" requires allowFrom to include "*"',
             path: ["accounts", accountId, "allowFrom"],
-          });
+          })
         }
 
         if (
@@ -282,7 +282,7 @@ export const openClawSlackConfigSchema = slackAccountSchema
             message:
               'account dmPolicy="allowlist" requires allowFrom to contain at least one sender ID',
             path: ["accounts", accountId, "allowFrom"],
-          });
+          })
         }
       }
     }
@@ -292,14 +292,14 @@ export const openClawSlackConfigSchema = slackAccountSchema
         code: z.ZodIssueCode.custom,
         message: 'mode="http" requires signingSecret',
         path: ["signingSecret"],
-      });
+      })
     }
-  });
+  })
 
-export type OpenClawSlackConfig = z.infer<typeof openClawSlackConfigSchema>;
+export type OpenClawSlackConfig = z.infer<typeof openClawSlackConfigSchema>
 
 export function validateOpenClawSlackConfig(
   value: unknown,
 ): OpenClawSlackConfig {
-  return openClawSlackConfigSchema.parse(value);
+  return openClawSlackConfigSchema.parse(value)
 }

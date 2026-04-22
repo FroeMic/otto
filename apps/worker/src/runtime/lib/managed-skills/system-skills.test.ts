@@ -65,7 +65,10 @@ describe("system managed skill definitions", () => {
     assert.match(allContent, /context\/onboarding\.md/)
     assert.match(allContent, /context\/roadmap\.md/)
     assert.match(allContent, /context\//)
-    assert.match(allContent, /create `context\/` only when writing the first supporting file/i)
+    assert.match(
+      allContent,
+      /create `context\/` only when writing the first supporting file/i,
+    )
     assert.match(allContent, /Do not create empty supporting files/i)
     assert.doesNotMatch(allContent, /projects\/<project-key>\/project\.md/)
     assert.doesNotMatch(allContent, /projects\/<project-key>\/onboarding\.md/)

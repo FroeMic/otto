@@ -98,7 +98,8 @@ function createDependencies(): IntegrationsRouteDependencies {
       {
         categoryLabel: "Messaging",
         connected: false,
-        description: "Choose who can use Otto in Slack and where Otto can reply.",
+        description:
+          "Choose who can use Otto in Slack and where Otto can reply.",
         iconSrc: "/integrations/slack.svg",
         key: "slack",
         label: "Slack",
@@ -122,19 +123,19 @@ function createDependencies(): IntegrationsRouteDependencies {
       status: "enabled",
       userControllable: false,
     }),
-    updateWorkspaceSlackChannelMembership: ((async () => ({
+    updateWorkspaceSlackChannelMembership: (async () => ({
       applyQueued: false,
       surface: {
         availableChannels: [],
       },
-    })) as unknown) as IntegrationsRouteDependencies["updateWorkspaceSlackChannelMembership"],
-    updateWorkspaceSlackSettings: ((async () => ({
+    })) as unknown as IntegrationsRouteDependencies["updateWorkspaceSlackChannelMembership"],
+    updateWorkspaceSlackSettings: (async () => ({
       surface: {},
       validation: {
         ok: true,
         warnings: [],
       },
-    })) as unknown) as IntegrationsRouteDependencies["updateWorkspaceSlackSettings"],
+    })) as unknown as IntegrationsRouteDependencies["updateWorkspaceSlackSettings"],
     connectWorkspaceApiKeyIntegration: async () => ({
       applyQueued: false,
       status: "connected",
@@ -195,7 +196,8 @@ describe("integrations routes", () => {
         },
         integration: {
           categoryLabel: "Domains",
-          description: "Founder naming, domain checks, and registration research.",
+          description:
+            "Founder naming, domain checks, and registration research.",
           iconSrc: "/integrations/gandi.svg",
           key: "gandi",
           label: "Gandi",

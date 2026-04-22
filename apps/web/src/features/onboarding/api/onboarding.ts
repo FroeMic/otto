@@ -46,14 +46,13 @@ export async function saveWorkspaceOnboarding(
 }
 
 export async function consumeWorkspaceOnboardingStarterPrompt(orgSlug: string) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].onboarding["starter-prompt"][
-      "consume"
-    ].$post({
-      param: {
-        orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].onboarding[
+    "starter-prompt"
+  ].consume.$post({
+    param: {
+      orgSlug,
+    },
+  })
 
   await fetchApiResponse(response, (data) => {
     if (

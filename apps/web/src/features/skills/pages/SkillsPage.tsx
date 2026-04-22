@@ -13,8 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { workspaceSkillsQueryOptions } from "../api/skills"
 import { CreateSkillDialog } from "../components/CreateSkillDialog"
 import { SkillLibraryList } from "../components/SkillLibraryList"
-import { SkillsNavigation } from "../components/SkillsNavigation"
 import { SkillsList } from "../components/SkillsList"
+import { SkillsNavigation } from "../components/SkillsNavigation"
 
 export interface SkillsPageProps {
   currentSection: "installed" | "library"

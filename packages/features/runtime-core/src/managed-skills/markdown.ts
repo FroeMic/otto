@@ -58,7 +58,9 @@ export function parseManagedSkillMarkdown(
   contentText: string,
 ): ManagedSkillMarkdownDocument {
   const normalized = contentText.replace(/\r\n/g, "\n")
-  const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
+  const frontmatterMatch = normalized.match(
+    /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/,
+  )
 
   if (!frontmatterMatch) {
     throw new Error("SKILL.md must include YAML frontmatter.")

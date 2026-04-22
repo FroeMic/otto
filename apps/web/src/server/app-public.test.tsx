@@ -31,7 +31,7 @@ describe("web public assets", () => {
 
     expect(response.status).toBe(200)
     expect(text).toContain("<svg")
-    expect(text).toContain("shape-rendering=\"crispEdges\"")
+    expect(text).toContain('shape-rendering="crispEdges"')
   })
 
   it("serves integration icons from the built public asset root", async () => {
@@ -43,7 +43,9 @@ describe("web public assets", () => {
       "utf8",
     )
 
-    const response = await app.request(`http://localhost/integrations/${fileName}`)
+    const response = await app.request(
+      `http://localhost/integrations/${fileName}`,
+    )
     const text = await response.text()
 
     expect(response.status).toBe(200)

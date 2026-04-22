@@ -11,7 +11,10 @@ export class WorkspaceChatRealtimeHub {
     WorkspaceChatRealtimeConnection
   >()
 
-  private readonly connectionIdsByConversationId = new Map<string, Set<string>>()
+  private readonly connectionIdsByConversationId = new Map<
+    string,
+    Set<string>
+  >()
 
   registerConnection(input: {
     connectionId: string

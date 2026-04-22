@@ -16,10 +16,12 @@ import { ShellViewport } from "./ShellViewport"
 
 export interface PlatformShellProps extends PropsWithChildren {}
 
-function usePlatformPageLabel(platformOrganizations: Array<{
-  name: string
-  slug: string
-}>) {
+function usePlatformPageLabel(
+  platformOrganizations: Array<{
+    name: string
+    slug: string
+  }>,
+) {
   const location = useLocation()
   const pathname = location.pathname
 

@@ -1,16 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-import { OnboardingStepLayout } from "./OnboardingStepLayout"
 import {
   getSuggestedWorkspaceSlug,
   shouldReplaceWorkspaceSlugWithSuggestion,
 } from "../workspace-identity"
+import { OnboardingStepLayout } from "./OnboardingStepLayout"
 
 export interface WorkspaceIdentityStepProps {
   defaultWorkspaceName: string
@@ -32,6 +31,8 @@ export function WorkspaceIdentityStep({
   const [workspaceSlug, setWorkspaceSlug] = useState(defaultWorkspaceSlug)
   const [previousSuggestedSlug, setPreviousSuggestedSlug] =
     useState(defaultWorkspaceSlug)
+  const workspaceNameId = useId()
+  const workspaceSlugId = useId()
 
   useEffect(() => {
     setWorkspaceName(defaultWorkspaceName)
@@ -83,9 +84,9 @@ export function WorkspaceIdentityStep({
         }}
       >
         <div className="space-y-3">
-          <Label htmlFor="workspace-name">Workspace name</Label>
+          <Label htmlFor={workspaceNameId}>Workspace name</Label>
           <Input
-            id="workspace-name"
+            id={workspaceNameId}
             onChange={(event) => {
               setWorkspaceName(event.target.value)
             }}
@@ -95,18 +96,16 @@ export function WorkspaceIdentityStep({
         </div>
 
         <div className="space-y-3">
-          <Label htmlFor="workspace-slug">Workspace URL</Label>
+          <Label htmlFor={workspaceSlugId}>Workspace URL</Label>
           <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/25 px-4 py-2 focus-within:border-foreground/20">
             <span className="shrink-0 text-sm text-muted-foreground">
               getyourotto.com/
             </span>
             <Input
               className="h-10 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
-              id="workspace-slug"
+              id={workspaceSlugId}
               onChange={(event) => {
-                setWorkspaceSlug(
-                  getSuggestedWorkspaceSlug(event.target.value),
-                )
+                setWorkspaceSlug(getSuggestedWorkspaceSlug(event.target.value))
               }}
               placeholder="acme"
               value={workspaceSlug}

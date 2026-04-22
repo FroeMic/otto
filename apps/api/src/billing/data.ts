@@ -140,7 +140,9 @@ async function getTenantCreditBalanceSummary(input: { tenantId: string }) {
       summary?.currentBalanceCreditsMilli,
     ),
     latestEntryCreatedAt: dateFromValue(summary?.latestEntryCreatedAt),
-    totalDebitedCreditsMilli: numberFromValue(summary?.totalDebitedCreditsMilli),
+    totalDebitedCreditsMilli: numberFromValue(
+      summary?.totalDebitedCreditsMilli,
+    ),
     totalGrantedCreditsMilli: numberFromValue(
       summary?.totalGrantedCreditsMilli,
     ),
@@ -251,7 +253,9 @@ export async function upsertBillingPreferences(input: {
   return record ?? null
 }
 
-export async function ensureInitialWorkspaceCredits(input: { tenantId: string }) {
+export async function ensureInitialWorkspaceCredits(input: {
+  tenantId: string
+}) {
   const db = getDb()
   const grantInput = buildInitialWorkspaceCreditGrantInput(input)
   const [ledgerEntry] = await db

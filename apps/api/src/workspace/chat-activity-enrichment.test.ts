@@ -55,7 +55,10 @@ describe("enrichWorkspaceChatMessageEventsWithTranscripts", () => {
       ]),
     })
 
-    assert.equal(events[0]?.title, 'Search Linear issues for "issues related to integrations"')
+    assert.equal(
+      events[0]?.title,
+      'Search Linear issues for "issues related to integrations"',
+    )
     assert.equal(events[0]?.summary, "Query: issues related to integrations")
     assert.deepEqual(events[0]?.payload.activityPresentation, {
       iconKey: "linear",

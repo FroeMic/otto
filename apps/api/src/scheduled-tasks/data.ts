@@ -43,10 +43,7 @@ export function getLatestScheduledTasksSyncedAt(
     return latestTaskSyncedAt
   }
 
-  if (
-    latestRefreshJob?.status === "succeeded" &&
-    latestRefreshJob.finishedAt
-  ) {
+  if (latestRefreshJob?.status === "succeeded" && latestRefreshJob.finishedAt) {
     return latestRefreshJob.finishedAt
   }
 
@@ -88,7 +85,9 @@ function mapRefreshJob(
   } as const
 }
 
-function mapTask(task: Awaited<ReturnType<typeof listTenantScheduledTasks>>[number]) {
+function mapTask(
+  task: Awaited<ReturnType<typeof listTenantScheduledTasks>>[number],
+) {
   return {
     agentId: task.agentId,
     deleteAfterRun: task.deleteAfterRun,

@@ -2,9 +2,7 @@ import { Button } from "@/components/ui/button"
 
 import { PlatformShell } from "../app-shell/PlatformShell"
 
-export interface PlatformPageProps {}
-
-export function PlatformPage(_props: PlatformPageProps) {
+export function PlatformPage() {
   return (
     <PlatformShell>
       <div className="flex flex-col gap-2">

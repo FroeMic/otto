@@ -12,7 +12,9 @@ export interface PlatformOrganizationLayoutPageProps {
 export function PlatformOrganizationLayoutPage({
   orgSlug,
 }: PlatformOrganizationLayoutPageProps) {
-  const { data } = useSuspenseQuery(platformOrganizationDetailQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    platformOrganizationDetailQueryOptions(orgSlug),
+  )
   const organization = data.organization
   const runtimeReady =
     organization.tenant?.status === "ready" &&
@@ -29,7 +31,9 @@ export function PlatformOrganizationLayoutPage({
           </div>
           <PlatformOrganizationActions
             hasTenant={Boolean(organization.tenant)}
-            hasTenantOpenAiProvider={Boolean(organization.tenant?.openAiProvider)}
+            hasTenantOpenAiProvider={Boolean(
+              organization.tenant?.openAiProvider,
+            )}
             hasTenantServer={Boolean(organization.tenant?.serverStatus)}
             orgSlug={organization.slug}
             runtimeReady={Boolean(runtimeReady)}

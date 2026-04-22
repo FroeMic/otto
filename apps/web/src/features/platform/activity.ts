@@ -76,7 +76,10 @@ export function buildPlatformActivityData(
         job.status,
         job.step ?? "",
         job.error ?? "",
-        formatSearchDateTime(job.startedAt ?? job.createdAt, dateTimePreferences),
+        formatSearchDateTime(
+          job.startedAt ?? job.createdAt,
+          dateTimePreferences,
+        ),
         formatSearchDateTime(job.finishedAt, dateTimePreferences),
       ]
         .join(" ")

@@ -1,9 +1,9 @@
 import { CalendarBlank } from "@phosphor-icons/react/ssr"
-import { Link } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { DateRange } from "react-day-picker"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   SettingsCard,
@@ -14,10 +14,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Calendar } from "@/components/ui/calendar"
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart"
 import {
   Popover,
@@ -25,10 +25,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
-
 import { billingOverviewQueryOptions } from "@/features/billing/api/billing"
-
 import {
   getPreviousBillingCycleRange,
   getUsagePresetDefinitions,
@@ -36,10 +33,8 @@ import {
   type UsageDatePresetDefinition,
   type UsageRangePresetKey,
 } from "@/features/usage/date-ranges"
-import {
-  getDefaultUsageSearch,
-  loadUsageOverview,
-} from "../api/usage"
+import { cn } from "@/lib/utils"
+import { getDefaultUsageSearch, loadUsageOverview } from "../api/usage"
 import type { UsageOverview } from "../types"
 
 export interface WorkspaceUsageContentProps {
@@ -94,7 +89,10 @@ function bucketKey(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
-function buildChartData(timeSeries: UsageOverview["timeSeries"], range: DateRange) {
+function buildChartData(
+  timeSeries: UsageOverview["timeSeries"],
+  range: DateRange,
+) {
   if (!range.from || !range.to) {
     return []
   }
@@ -225,7 +223,9 @@ export function WorkspaceUsageContent({
       } catch (nextError) {
         if (!cancelled) {
           setError(
-            nextError instanceof Error ? nextError.message : "Failed to load usage.",
+            nextError instanceof Error
+              ? nextError.message
+              : "Failed to load usage.",
           )
         }
       } finally {
@@ -401,7 +401,9 @@ export function WorkspaceUsageContent({
             params={{ orgSlug }}
             to="/$orgSlug/settings/workspace/billing"
           >
-            {billingOverview.preferences.autoTopOffEnabled ? "Manage" : "Configure"}
+            {billingOverview.preferences.autoTopOffEnabled
+              ? "Manage"
+              : "Configure"}
           </Link>
         </SettingsRow>
       </SettingsCard>

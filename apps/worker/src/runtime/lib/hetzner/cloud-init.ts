@@ -17,5 +17,5 @@ runcmd:
   - usermod -aG docker openclaw
   - mkdir -p /opt/openclaw
   - chown -R openclaw:openclaw /opt/openclaw
-`;
+`
 }

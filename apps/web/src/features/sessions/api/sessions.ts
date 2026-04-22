@@ -32,13 +32,14 @@ export function workspaceSessionDetailQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].sessions[":sessionKey"].$get({
-          param: {
-            orgSlug: input.orgSlug,
-            sessionKey: input.sessionKey,
-          },
-        })
+      const response = await apiClient.api.workspace[":orgSlug"].sessions[
+        ":sessionKey"
+      ].$get({
+        param: {
+          orgSlug: input.orgSlug,
+          sessionKey: input.sessionKey,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceSessionDetailResponseSchema.parse(data),
@@ -50,7 +51,9 @@ export function workspaceSessionDetailQueryOptions(input: {
 }
 
 export async function refreshWorkspaceSessions(orgSlug: string) {
-  const response = await apiClient.api.workspace[":orgSlug"].sessions.refresh.$post({
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].sessions.refresh.$post({
     param: {
       orgSlug,
     },

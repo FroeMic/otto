@@ -5,30 +5,31 @@ import {
   jsonNoStore,
 } from "@otto/auth"
 import {
-  workspaceSessionDetailResponseSchema,
-  workspaceSessionsListResponseSchema,
-  workspaceSessionsRefreshResponseSchema,
   type WorkspaceSessionDetailResponse,
   type WorkspaceSessionsListResponse,
   type WorkspaceSessionsRefreshResponse,
+  workspaceSessionDetailResponseSchema,
+  workspaceSessionsListResponseSchema,
+  workspaceSessionsRefreshResponseSchema,
 } from "@otto/feature-runtime-core/sessions/workspace-contracts"
 import { Hono } from "hono"
 import { z } from "zod"
-
+import { hasPlatformAdminRole } from "../workspace/data"
 import {
   getWorkspaceSessionDetail,
   listWorkspaceSessions,
   refreshWorkspaceSessions,
 } from "./data"
-import { hasPlatformAdminRole } from "../workspace/data"
 
 const workspaceSessionsParamsSchema = z.object({
   orgSlug: z.string().min(1),
 })
 
-const workspaceSessionDetailParamsSchema = workspaceSessionsParamsSchema.extend({
-  sessionKey: z.string().min(1),
-})
+const workspaceSessionDetailParamsSchema = workspaceSessionsParamsSchema.extend(
+  {
+    sessionKey: z.string().min(1),
+  },
+)
 
 export interface SessionsRouteUser {
   email: string

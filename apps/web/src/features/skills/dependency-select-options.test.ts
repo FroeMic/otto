@@ -84,7 +84,9 @@ describe("dependency select options", () => {
     ]
 
     expect(filterDependencySelectOptions(options, "lin")).toEqual([options[1]])
-    expect(filterDependencySelectOptions(options, "SLACK")).toEqual([options[0]])
+    expect(filterDependencySelectOptions(options, "SLACK")).toEqual([
+      options[0],
+    ])
   })
 
   it("toggles selected values without duplicates and keeps them sorted", () => {

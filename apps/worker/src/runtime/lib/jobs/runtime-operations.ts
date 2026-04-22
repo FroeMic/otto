@@ -1,22 +1,22 @@
-import { getEnv } from "../env";
-import { getTenantRuntimeConnection } from "../runtime/connection";
-import { RuntimeManager } from "../runtime/manager";
+import { getEnv } from "../env"
+import { getTenantRuntimeConnection } from "../runtime/connection"
+import { RuntimeManager } from "../runtime/manager"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   type ClaimedJob,
   JOB_TYPES,
   type RefreshRuntimeImagePayload,
-} from "./types";
+} from "./types"
 
-const runtimeManager = new RuntimeManager();
+const runtimeManager = new RuntimeManager()
 
 const REFRESH_RUNTIME_IMAGE_EVENTS = {
   restartingRuntime: "restarting_runtime_image",
   verifyingRuntime: "verifying_runtime_image",
   succeeded: "refresh_runtime_image_succeeded",
   failed: "refresh_runtime_image_failed",
-} as const;
+} as const
 
 export async function processRefreshRuntimeImageJob(
   job: ClaimedJob,
@@ -24,17 +24,17 @@ export async function processRefreshRuntimeImageJob(
   if (job.jobType !== JOB_TYPES.refreshRuntimeImage) {
     throw new Error(
       `Unsupported job type for runtime refresh handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseRefreshRuntimeImagePayload(job.payload);
+  const payload = parseRefreshRuntimeImagePayload(job.payload)
 
   try {
     const runtimeConnection = await getTenantRuntimeConnection(
       payload.tenantId,
       "platform admin image refresh",
-    );
-    const image = getEnv().RUNTIME_OPENCLAW_IMAGE;
+    )
+    const image = getEnv().RUNTIME_OPENCLAW_IMAGE
 
     await appendJobEvent(
       job.id,
@@ -44,10 +44,10 @@ export async function processRefreshRuntimeImageJob(
         host: runtimeConnection.host,
         image,
       },
-    );
+    )
 
     const restart =
-      await runtimeManager.restartGatewayWithResult(runtimeConnection);
+      await runtimeManager.restartGatewayWithResult(runtimeConnection)
 
     await appendJobEvent(
       job.id,
@@ -57,10 +57,10 @@ export async function processRefreshRuntimeImageJob(
         host: runtimeConnection.host,
         image,
       },
-    );
+    )
 
     const verify =
-      await runtimeManager.checkGatewayHealthWithResult(runtimeConnection);
+      await runtimeManager.checkGatewayHealthWithResult(runtimeConnection)
 
     const result = {
       host: runtimeConnection.host,
@@ -71,7 +71,7 @@ export async function processRefreshRuntimeImageJob(
       tenantId: payload.tenantId,
       verifyStderr: verify.stderr,
       verifyStdout: verify.stdout,
-    };
+    }
 
     await appendJobEvent(
       job.id,
@@ -81,10 +81,10 @@ export async function processRefreshRuntimeImageJob(
         host: runtimeConnection.host,
         image,
       },
-    );
-    await markJobSucceeded(job.id, result);
+    )
+    await markJobSucceeded(job.id, result)
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
@@ -93,30 +93,30 @@ export async function processRefreshRuntimeImageJob(
       {
         error: message,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 function parseRefreshRuntimeImagePayload(
   payload: Record<string, unknown>,
 ): RefreshRuntimeImagePayload {
-  const tenantId = payload.tenantId;
+  const tenantId = payload.tenantId
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Refresh runtime image job payload is missing tenantId");
+    throw new Error("Refresh runtime image job payload is missing tenantId")
   }
 
   return {
     tenantId,
-  };
+  }
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown error";
+  return "Unknown error"
 }

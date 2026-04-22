@@ -1,13 +1,12 @@
-import type { ColumnDef } from "@tanstack/react-table"
-import { useQueryClient } from "@tanstack/react-query"
-import type { ReactNode } from "react"
-import { useEffect, useMemo, useState, useTransition } from "react"
-
 import {
   deriveSlackPolicyEffects,
   isSlackPolicyDestructive,
   type SlackPolicyDerivedEffects,
 } from "@otto/feature-integrations-runtime/integrations/library/slack/policy"
+import { useQueryClient } from "@tanstack/react-query"
+import type { ColumnDef } from "@tanstack/react-table"
+import type { ReactNode } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 
 import {
   SettingsCard,
@@ -295,9 +294,13 @@ function DirectoryIdentity(props: {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-medium text-foreground">
-            {kind === "channel" ? formatChannelLabel(option.label) : option.label}
+            {kind === "channel"
+              ? formatChannelLabel(option.label)
+              : option.label}
           </p>
-          {option.isMissing ? <Badge variant="outline">Unavailable</Badge> : null}
+          {option.isMissing ? (
+            <Badge variant="outline">Unavailable</Badge>
+          ) : null}
         </div>
         {secondaryText ? (
           <p className="truncate text-xs text-muted-foreground">
@@ -309,10 +312,7 @@ function DirectoryIdentity(props: {
   )
 }
 
-function SummaryValue(props: {
-  action?: ReactNode
-  text: string
-}) {
+function SummaryValue(props: { action?: ReactNode; text: string }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       <span className="text-sm text-muted-foreground">{props.text}</span>
@@ -407,7 +407,8 @@ export function SlackIntegrationStatusPage({
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isPending, startTransition] = useTransition()
   const isApplyActive =
-    detail.summary?.status === "applying" || detail.summary?.status === "pending_apply"
+    detail.summary?.status === "applying" ||
+    detail.summary?.status === "pending_apply"
 
   const hasChanges =
     surface && draft ? !areConfigsEqual(draft, surface.config) : false
@@ -432,7 +433,10 @@ export function SlackIntegrationStatusPage({
   const selectedUsers = useMemo(
     () =>
       surface && draft
-        ? getSelectedDirectoryEntries(surface.availableUsers, draft.allowedUserIds)
+        ? getSelectedDirectoryEntries(
+            surface.availableUsers,
+            draft.allowedUserIds,
+          )
         : [],
     [draft, surface],
   )
@@ -451,7 +455,9 @@ export function SlackIntegrationStatusPage({
     )
   }, [draft, surface])
   const missingSelectedUsers = selectedUsers.filter((entry) => entry.isMissing)
-  const missingSelectedChannels = selectedChannels.filter((entry) => entry.isMissing)
+  const missingSelectedChannels = selectedChannels.filter(
+    (entry) => entry.isMissing,
+  )
   const selectedPeopleCount = draft?.allowedUserIds.length ?? 0
   const selectedChannelCount =
     draft?.channelAccessMode === "member_of_channels"
@@ -509,7 +515,11 @@ export function SlackIntegrationStatusPage({
       queryKey: ["workspace-integrations", orgSlug],
     })
     void queryClient.invalidateQueries({
-      queryKey: ["workspace-integration-detail", orgSlug, detail.integration.key],
+      queryKey: [
+        "workspace-integration-detail",
+        orgSlug,
+        detail.integration.key,
+      ],
     })
   }
 
@@ -538,7 +548,9 @@ export function SlackIntegrationStatusPage({
     )
   }
 
-  function updateChannelAccessMode(value: "manual_allowlist" | "member_of_channels") {
+  function updateChannelAccessMode(
+    value: "manual_allowlist" | "member_of_channels",
+  ) {
     setDraft((current) =>
       current
         ? {
@@ -668,7 +680,10 @@ export function SlackIntegrationStatusPage({
     setIsSavingSettings(true)
   }
 
-  function changeChannelMembership(channelId: string, action: "join" | "leave") {
+  function changeChannelMembership(
+    channelId: string,
+    action: "join" | "leave",
+  ) {
     setMembershipError(null)
     setPendingMembershipAction({
       action,
@@ -687,7 +702,8 @@ export function SlackIntegrationStatusPage({
           }
 
           const nextSurface = {
-            availableChannels: result.surface.availableChannels as SlackDirectoryOption[],
+            availableChannels: result.surface
+              .availableChannels as SlackDirectoryOption[],
             availableUsers: surface.availableUsers,
             config: surface.config,
           }
@@ -718,7 +734,9 @@ export function SlackIntegrationStatusPage({
   const peopleColumns: Array<ColumnDef<SlackPersonRow>> = [
     {
       accessorKey: "label",
-      cell: ({ row }) => <DirectoryIdentity kind="user" option={row.original} />,
+      cell: ({ row }) => (
+        <DirectoryIdentity kind="user" option={row.original} />
+      ),
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Person" />
       ),
@@ -868,13 +886,18 @@ export function SlackIntegrationStatusPage({
               </Button>
             ) : null}
             <Button
-              disabled={membershipAction.disabled || pendingMembershipAction !== null}
+              disabled={
+                membershipAction.disabled || pendingMembershipAction !== null
+              }
               onClick={() => {
                 if (!membershipAction.action) {
                   return
                 }
 
-                changeChannelMembership(row.original.id, membershipAction.action)
+                changeChannelMembership(
+                  row.original.id,
+                  membershipAction.action,
+                )
               }}
               size="sm"
               type="button"
@@ -931,7 +954,11 @@ export function SlackIntegrationStatusPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex max-w-3xl flex-col gap-2">
             <div className="flex items-center gap-3">
-              <img alt="" className="size-8" src={detail.integration.iconSrc ?? ""} />
+              <img
+                alt=""
+                className="size-8"
+                src={detail.integration.iconSrc ?? ""}
+              />
               <h1 className="text-3xl font-semibold tracking-tight">
                 {detail.integration.label}
               </h1>
@@ -941,7 +968,8 @@ export function SlackIntegrationStatusPage({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {!detail.connection.status.connected && detail.connection.connectUrl ? (
+            {!detail.connection.status.connected &&
+            detail.connection.connectUrl ? (
               <a
                 className={buttonVariants()}
                 href={detail.connection.connectUrl}
@@ -961,7 +989,11 @@ export function SlackIntegrationStatusPage({
       </section>
 
       {draftEffects.warnings.length > 0 && currentSection !== "capabilities" ? (
-        <Alert variant={draftEffects.wouldFullyLockOutSlack ? "destructive" : "default"}>
+        <Alert
+          variant={
+            draftEffects.wouldFullyLockOutSlack ? "destructive" : "default"
+          }
+        >
           <AlertTitle>These changes will limit who can contact Otto</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-2">
@@ -994,7 +1026,9 @@ export function SlackIntegrationStatusPage({
             ) : null}
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Channel policy:</span>{" "}
+                <span className="font-medium text-foreground">
+                  Channel policy:
+                </span>{" "}
                 {draft?.channelAccessMode === "member_of_channels"
                   ? "Otto can be added to any channel. Only authorized users can chat with Otto."
                   : "Otto will reply only in selected channels where Otto has been added."}
@@ -1022,14 +1056,18 @@ export function SlackIntegrationStatusPage({
               <SettingsSection>
                 <SettingsSectionTitle>Replies</SettingsSectionTitle>
                 <SettingsSectionDescription>
-                  Choose how Otto behaves once a Slack message is allowed through.
+                  Choose how Otto behaves once a Slack message is allowed
+                  through.
                 </SettingsSectionDescription>
                 <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
-                      <SettingsRowTitle>Acknowledgement reaction</SettingsRowTitle>
+                      <SettingsRowTitle>
+                        Acknowledgement reaction
+                      </SettingsRowTitle>
                       <SettingsRowDescription>
-                        Add Otto&apos;s standard reaction while it is preparing a reply.
+                        Add Otto&apos;s standard reaction while it is preparing
+                        a reply.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Switch
@@ -1055,15 +1093,21 @@ export function SlackIntegrationStatusPage({
                   </SettingsRow>
                   <SettingsRow>
                     <SettingsRowLabel>
-                      <SettingsRowTitle>Require @mention in channels</SettingsRowTitle>
+                      <SettingsRowTitle>
+                        Require @mention in channels
+                      </SettingsRowTitle>
                       <SettingsRowDescription>
-                        When this is on, Otto only replies in channels after an explicit mention.
+                        When this is on, Otto only replies in channels after an
+                        explicit mention.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Switch
                       checked={draft?.requireMentionInChannels ?? false}
                       onCheckedChange={(checked) =>
-                        updateBooleanSetting("requireMentionInChannels", checked)
+                        updateBooleanSetting(
+                          "requireMentionInChannels",
+                          checked,
+                        )
                       }
                     />
                   </SettingsRow>
@@ -1078,7 +1122,9 @@ export function SlackIntegrationStatusPage({
                 <SettingsCard>
                   <SettingsRow>
                     <SettingsRowLabel>
-                      <SettingsRowTitle>People who can message Otto</SettingsRowTitle>
+                      <SettingsRowTitle>
+                        People who can message Otto
+                      </SettingsRowTitle>
                       <SettingsRowDescription>
                         {missingSelectedUsers.length > 0
                           ? `${missingSelectedUsers.length} saved selection${missingSelectedUsers.length === 1 ? "" : "s"} are missing from the latest Slack sync.`
@@ -1190,7 +1236,9 @@ export function SlackIntegrationStatusPage({
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Access policy:</span>{" "}
+                <span className="font-medium text-foreground">
+                  Access policy:
+                </span>{" "}
                 Otto will reply only to selected users.
               </p>
               <DataTable
@@ -1230,7 +1278,8 @@ export function SlackIntegrationStatusPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Status</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Otto can only reply in Slack after the connection is healthy.
+                        Otto can only reply in Slack after the connection is
+                        healthy.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Badge variant={getStatusBadgeVariant(detail)}>
@@ -1244,7 +1293,9 @@ export function SlackIntegrationStatusPage({
                         The current workspace where this integration belongs.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
-                    <span className="text-sm text-muted-foreground">{orgSlug}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {orgSlug}
+                    </span>
                   </SettingsRow>
                   <SettingsRow>
                     <SettingsRowLabel>
@@ -1280,9 +1331,12 @@ export function SlackIntegrationStatusPage({
                   {detail.connection.connectUrl ? (
                     <SettingsRow>
                       <SettingsRowLabel>
-                        <SettingsRowTitle>{connectActionLabel}</SettingsRowTitle>
+                        <SettingsRowTitle>
+                          {connectActionLabel}
+                        </SettingsRowTitle>
                         <SettingsRowDescription>
-                          Use the workspace-owned Slack flow when the connection needs setup or attention.
+                          Use the workspace-owned Slack flow when the connection
+                          needs setup or attention.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <a
@@ -1298,7 +1352,8 @@ export function SlackIntegrationStatusPage({
                       <SettingsRowLabel>
                         <SettingsRowTitle>Disconnect Slack</SettingsRowTitle>
                         <SettingsRowDescription>
-                          Remove the current Slack connection from this workspace.
+                          Remove the current Slack connection from this
+                          workspace.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <Button
@@ -1332,7 +1387,8 @@ export function SlackIntegrationStatusPage({
           <DialogHeader>
             <DialogTitle>Confirm a narrower Slack setup</DialogTitle>
             <DialogDescription>
-              These changes would limit who can reach Otto in Slack. Review them before you save.
+              These changes would limit who can reach Otto in Slack. Review them
+              before you save.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 px-5 pb-5">

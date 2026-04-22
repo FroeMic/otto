@@ -1,20 +1,19 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import type { WorkspaceChatConversationSummary } from "@otto/feature-workspace-chat"
+import { useEffect, useRef } from "react"
 
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-
-import {
-  filterConversationHistory,
-  type ConversationHistoryFilter,
-} from "./conversation-history-filters"
 import { ConversationHistoryListItem } from "./ConversationHistoryListItem"
 import { ConversationHistorySkeleton } from "./ConversationHistorySkeleton"
+import {
+  type ConversationHistoryFilter,
+  filterConversationHistory,
+} from "./conversation-history-filters"
 
 export interface ConversationHistoryListProps {
   conversations: WorkspaceChatConversationSummary[] | undefined

@@ -1,20 +1,7 @@
 import { DotsThreeIcon } from "@phosphor-icons/react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { toast } from "sonner"
-
-import {
-  applyPlatformOrganization,
-  deletePlatformTenantServer,
-  deletePlatformWorkspace,
-  deployPlatformRuntime,
-  grantPlatformCredits,
-  platformOrganizationDetailQueryOptions,
-  platformOrganizationsQueryOptions,
-  provisionPlatformOpenAiKey,
-  refreshPlatformRuntimeImage,
-  syncPlatformOrganizationSkills,
-} from "@/features/platform/api/platform"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,6 +25,18 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  applyPlatformOrganization,
+  deletePlatformTenantServer,
+  deletePlatformWorkspace,
+  deployPlatformRuntime,
+  grantPlatformCredits,
+  platformOrganizationDetailQueryOptions,
+  platformOrganizationsQueryOptions,
+  provisionPlatformOpenAiKey,
+  refreshPlatformRuntimeImage,
+  syncPlatformOrganizationSkills,
+} from "@/features/platform/api/platform"
 
 import { PlatformSyncNotification } from "./PlatformSyncNotification"
 
@@ -81,6 +80,8 @@ export function PlatformOrganizationActions({
   const [isPending, setIsPending] = useState(false)
   const [syncJobId, setSyncJobId] = useState<string | null>(null)
   const [syncMessage, setSyncMessage] = useState("")
+  const grantCreditsFieldId = useId()
+  const grantNoteFieldId = useId()
 
   async function invalidate() {
     await Promise.all([
@@ -102,11 +103,11 @@ export function PlatformOrganizationActions({
           ? await applyPlatformOrganization(orgSlug)
           : action === "sync-skills"
             ? await syncPlatformOrganizationSkills(orgSlug)
-          : action === "deploy-runtime"
-            ? await deployPlatformRuntime(orgSlug)
-            : action === "provision-openai-key"
-              ? await provisionPlatformOpenAiKey(orgSlug)
-              : await refreshPlatformRuntimeImage(orgSlug)
+            : action === "deploy-runtime"
+              ? await deployPlatformRuntime(orgSlug)
+              : action === "provision-openai-key"
+                ? await provisionPlatformOpenAiKey(orgSlug)
+                : await refreshPlatformRuntimeImage(orgSlug)
 
       setSyncJobId(result.jobId)
       setSyncMessage(
@@ -120,13 +121,13 @@ export function PlatformOrganizationActions({
           ? "Queued runtime apply."
           : action === "sync-skills"
             ? "Queued managed skills sync."
-          : action === "deploy-runtime"
-            ? "Queued runtime deploy."
-            : action === "provision-openai-key"
-              ? hasTenantOpenAiProvider
-                ? "Queued OpenAI key rotation."
-                : "Queued OpenAI key provisioning."
-              : "Queued runtime image refresh.",
+            : action === "deploy-runtime"
+              ? "Queued runtime deploy."
+              : action === "provision-openai-key"
+                ? hasTenantOpenAiProvider
+                  ? "Queued OpenAI key rotation."
+                  : "Queued OpenAI key provisioning."
+                : "Queued runtime image refresh.",
       )
 
       await invalidate()
@@ -295,11 +296,11 @@ export function PlatformOrganizationActions({
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="platform-grant-credits">
+              <FieldLabel htmlFor={grantCreditsFieldId}>
                 Credit amount
               </FieldLabel>
               <Input
-                id="platform-grant-credits"
+                id={grantCreditsFieldId}
                 inputMode="decimal"
                 min="0"
                 onChange={(event) => setGrantCreditsValue(event.target.value)}
@@ -311,9 +312,9 @@ export function PlatformOrganizationActions({
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="platform-grant-note">Reason</FieldLabel>
+              <FieldLabel htmlFor={grantNoteFieldId}>Reason</FieldLabel>
               <Textarea
-                id="platform-grant-note"
+                id={grantNoteFieldId}
                 onChange={(event) => setGrantNote(event.target.value)}
                 placeholder="Initial funding for launch tenant, test balance top-up, customer support adjustment..."
                 rows={4}
@@ -373,21 +374,27 @@ export function PlatformOrganizationActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
+            disabled={
+              !hasTenant || !runtimeReady || isPending || syncJobId !== null
+            }
             onClick={() => runAction("sync-skills")}
           >
             Sync skills
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
+            disabled={
+              !hasTenant || !runtimeReady || isPending || syncJobId !== null
+            }
             onClick={() => runAction("deploy-runtime")}
           >
             Pull new image and apply config
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
+            disabled={
+              !hasTenant || !runtimeReady || isPending || syncJobId !== null
+            }
             onClick={() => runAction("apply")}
           >
             Apply tenant config
@@ -403,7 +410,9 @@ export function PlatformOrganizationActions({
           </DropdownMenuItem>
           <DropdownMenuItem
             className="whitespace-nowrap"
-            disabled={!hasTenant || !runtimeReady || isPending || syncJobId !== null}
+            disabled={
+              !hasTenant || !runtimeReady || isPending || syncJobId !== null
+            }
             onClick={() => runAction("refresh-image")}
           >
             Pull and restart image

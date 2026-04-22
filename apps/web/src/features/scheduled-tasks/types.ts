@@ -26,4 +26,3 @@ export interface ScheduledTasksSyncState {
   message: string | null
   variant: "default" | "secondary" | "outline" | "destructive"
 }
-

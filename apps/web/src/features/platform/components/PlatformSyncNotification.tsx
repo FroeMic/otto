@@ -57,7 +57,8 @@ export function PlatformSyncNotification({
 
             await Promise.all([
               queryClient.invalidateQueries({
-                queryKey: platformOrganizationDetailQueryOptions(orgSlug).queryKey,
+                queryKey:
+                  platformOrganizationDetailQueryOptions(orgSlug).queryKey,
               }),
               queryClient.invalidateQueries({
                 queryKey: platformOrganizationsQueryOptions().queryKey,

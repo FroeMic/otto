@@ -1,7 +1,10 @@
 import fs from "node:fs/promises"
 
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { tenantServers, tenants } from "@otto/feature-integrations-runtime/db/schema"
+import {
+  tenantServers,
+  tenants,
+} from "@otto/feature-integrations-runtime/db/schema"
 import { eq } from "drizzle-orm"
 import { Client, type ConnectConfig } from "ssh2"
 
@@ -154,7 +157,8 @@ async function buildConnectConfig(
   connection: SshConnection,
 ): Promise<ConnectConfig> {
   const env = getApiEnv()
-  const privateKey = connection.privateKey ?? (await resolveRuntimeSshPrivateKey())
+  const privateKey =
+    connection.privateKey ?? (await resolveRuntimeSshPrivateKey())
   const agent = !privateKey ? process.env.SSH_AUTH_SOCK : undefined
 
   if (!privateKey && !agent) {
@@ -186,4 +190,3 @@ async function resolveRuntimeSshPrivateKey() {
 
   return undefined
 }
-

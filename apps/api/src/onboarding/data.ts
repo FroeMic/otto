@@ -6,31 +6,24 @@ import {
   users,
   workspaceOnboardingRuns,
 } from "@otto/feature-integrations-runtime/db/schema"
+import type { WorkspaceSummary } from "@otto/feature-workspace-core"
+import { WorkOS } from "@workos-inc/node"
+import { and, eq } from "drizzle-orm"
 import {
   getWorkspaceOnboardingHoldingState,
   isWorkspaceOnboardingReadyForProvisioning,
-  workspaceOnboardingAnswerSchema,
-  workspaceOnboardingRunSummarySchema,
-  workspaceOnboardingRunStatusSchema,
   type WorkspaceOnboardingAnswers,
   type WorkspaceOnboardingRunSummary,
   type WorkspaceOnboardingSaveRequest,
+  workspaceOnboardingAnswerSchema,
+  workspaceOnboardingRunStatusSchema,
+  workspaceOnboardingRunSummarySchema,
   workspaceOnboardingSaveRequestSchema,
   workspaceOnboardingStepKeySchema,
   workspaceOnboardingWaitlistDecisionSchema,
 } from "../../../../packages/features/workspace-onboarding/src/index"
-import type { WorkspaceSummary } from "@otto/feature-workspace-core"
-import { WorkOS } from "@workos-inc/node"
-import { and, desc, eq } from "drizzle-orm"
 
-import {
-  getApiEnv,
-  hasWorkOsConfig,
-} from "../env"
-import {
-  buildInitialWorkspaceRuntimeProvisioningJobInput,
-  ensureInitialWorkspaceRuntimeProvisioning,
-} from "../workspace/initial-provisioning"
+import { getApiEnv, hasWorkOsConfig } from "../env"
 import {
   generateUniqueWorkspaceSlug,
   getDashboardOrganizations,
@@ -39,6 +32,10 @@ import {
   syncUserFromSession,
   updateOrganizationSlug,
 } from "../workspace/data"
+import {
+  buildInitialWorkspaceRuntimeProvisioningJobInput,
+  ensureInitialWorkspaceRuntimeProvisioning,
+} from "../workspace/initial-provisioning"
 
 type PostAuthUser = {
   email: string
@@ -119,9 +116,7 @@ function deriveWorkspaceNameFromUser(user: PostAuthUser) {
     .split(" ")
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
 
-  return firstPart?.trim()
-    ? `${firstPart}'s Workspace`
-    : "Workspace"
+  return firstPart?.trim() ? `${firstPart}'s Workspace` : "Workspace"
 }
 
 function generateWorkspaceSlugSeed() {
@@ -191,7 +186,9 @@ export async function getPostAuthRedirectPathForWorkspaceOnboarding(
   return `/${createdWorkspace.organizationSlug}/onboarding`
 }
 
-export async function getPublicIntakeSessionById(publicIntakeSessionId: string) {
+export async function getPublicIntakeSessionById(
+  publicIntakeSessionId: string,
+) {
   const db = getDb()
   const [session] = await db
     .select({
@@ -386,7 +383,8 @@ async function getOrCreateWorkspaceOnboardingRunForAccess(
       completedAt: workspaceOnboardingRuns.completedAt,
       currentStepKey: workspaceOnboardingRuns.currentStepKey,
       id: workspaceOnboardingRuns.id,
-      initialProvisioningJobId: workspaceOnboardingRuns.initialProvisioningJobId,
+      initialProvisioningJobId:
+        workspaceOnboardingRuns.initialProvisioningJobId,
       initialTenantId: workspaceOnboardingRuns.initialTenantId,
       provisioningStartedAt: workspaceOnboardingRuns.provisioningStartedAt,
       starterPrompt: workspaceOnboardingRuns.starterPrompt,
@@ -420,7 +418,8 @@ async function getOrCreateWorkspaceOnboardingRunForAccess(
       completedAt: workspaceOnboardingRuns.completedAt,
       currentStepKey: workspaceOnboardingRuns.currentStepKey,
       id: workspaceOnboardingRuns.id,
-      initialProvisioningJobId: workspaceOnboardingRuns.initialProvisioningJobId,
+      initialProvisioningJobId:
+        workspaceOnboardingRuns.initialProvisioningJobId,
       initialTenantId: workspaceOnboardingRuns.initialTenantId,
       provisioningStartedAt: workspaceOnboardingRuns.provisioningStartedAt,
       starterPrompt: workspaceOnboardingRuns.starterPrompt,
@@ -489,7 +488,8 @@ function buildWorkspaceOnboardingRunSummary(input: {
     isOrganizationReady: input.access.isOrganizationReady,
     organizationId: input.access.organizationId,
     organizationSlug: input.access.organizationSlug,
-    provisioningStartedAt: input.run.provisioningStartedAt?.toISOString() ?? null,
+    provisioningStartedAt:
+      input.run.provisioningStartedAt?.toISOString() ?? null,
     starterPrompt: input.run.starterPrompt,
     starterPromptConsumedAt:
       input.run.starterPromptConsumedAt?.toISOString() ?? null,

@@ -14,8 +14,7 @@ export type StoredWorkspaceChatAttachment = {
 
 export function getWorkspaceChatAttachmentStorageRoot() {
   return (
-    getApiEnv().WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT ??
-    DEFAULT_STORAGE_ROOT
+    getApiEnv().WORKSPACE_CHAT_ATTACHMENT_STORAGE_ROOT ?? DEFAULT_STORAGE_ROOT
   )
 }
 
@@ -38,7 +37,10 @@ export async function storeWorkspaceChatAttachmentFile(input: {
 
 export async function readWorkspaceChatAttachmentFile(storageKey: string) {
   const filePath = resolveWorkspaceChatAttachmentPath(storageKey)
-  const [bytes, metadata] = await Promise.all([readFile(filePath), stat(filePath)])
+  const [bytes, metadata] = await Promise.all([
+    readFile(filePath),
+    stat(filePath),
+  ])
 
   return {
     bytes,

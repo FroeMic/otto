@@ -380,14 +380,17 @@ export async function handleManagedSkillsGetRequest(input: {
     }
 
     const entryFile =
-      detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-      null
+      detail.files.find(
+        (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+      ) ?? null
 
     return jsonNoStore({
       skill: {
         ...detail,
         contentText:
-          entryFile?.storageEncoding === "utf8_text" ? entryFile.contentText : null,
+          entryFile?.storageEncoding === "utf8_text"
+            ? entryFile.contentText
+            : null,
         files: detail.files.map((file) => ({
           contentType: file.contentType,
           editability: file.editability,
@@ -500,7 +503,9 @@ export async function handleManagedSkillsInstallFromLibraryRequest(input: {
     const { tenantId } = await input.authenticateTenantRuntimeRequest(
       input.request,
     )
-    const body = managedSkillLibraryInstallSchema.parse(await input.request.json())
+    const body = managedSkillLibraryInstallSchema.parse(
+      await input.request.json(),
+    )
     const result = await input.installTenantManagedSkillFromLibraryForTenant({
       createdByExternalId: null,
       createdByType: "runtime",
@@ -701,8 +706,7 @@ export async function handleManagedSkillsResetRequest(input: {
       scope: body.scope,
       skillKey: body.skillKey,
       summary:
-        body.summary ??
-        `Runtime reset managed skill package ${body.skillKey}`,
+        body.summary ?? `Runtime reset managed skill package ${body.skillKey}`,
       tenantId,
     })
 

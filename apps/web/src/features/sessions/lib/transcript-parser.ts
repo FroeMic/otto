@@ -92,7 +92,9 @@ function extractSenderInfo(
   }
 }
 
-function extractConversationInfo(rawText: string): Record<string, string> | null {
+function extractConversationInfo(
+  rawText: string,
+): Record<string, string> | null {
   const match = rawText.match(
     /Conversation info \(untrusted metadata\):\n```json\n([\s\S]*?)\n```/,
   )

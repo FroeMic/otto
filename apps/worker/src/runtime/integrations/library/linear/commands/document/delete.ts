@@ -1,9 +1,9 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDeleteCommandResult,
   executeLinearGraphql,
-} from "../../client";
+} from "../../client"
 
 const DELETE_DOCUMENT_MUTATION = `
   mutation OttoLinearDocumentDelete($id: String!) {
@@ -15,38 +15,38 @@ const DELETE_DOCUMENT_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearDocumentDelete: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const documentId =
-    typeof args.documentId === "string" ? args.documentId.trim() : "";
+    typeof args.documentId === "string" ? args.documentId.trim() : ""
 
   if (!documentId) {
-    throw new Error("linear document.delete requires documentId.");
+    throw new Error("linear document.delete requires documentId.")
   }
 
   const data = await executeLinearGraphql<{
     documentDelete?: {
       entity?: {
-        id?: string | null;
-      } | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+        id?: string | null
+      } | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: DELETE_DOCUMENT_MUTATION,
     variables: {
       id: documentId,
     },
-  });
+  })
 
   return {
     ...buildLinearDeleteCommandResult({
@@ -57,5 +57,5 @@ export const executeLinearDocumentDelete: IntegrationCommandExecute = async ({
       success: data.documentDelete?.success,
     }),
     lookup: documentId,
-  };
-};
+  }
+}

@@ -165,10 +165,7 @@ export function getGroupedTimeZoneOptions(
     return group.items.some((item) => item.value === normalizedCurrentTimeZone)
   })
 
-  if (
-    normalizedCurrentTimeZone !== defaultTimeZone &&
-    !isCurrentIncluded
-  ) {
+  if (normalizedCurrentTimeZone !== defaultTimeZone && !isCurrentIncluded) {
     groups.splice(1, 0, {
       items: [
         {

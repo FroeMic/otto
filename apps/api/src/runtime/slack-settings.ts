@@ -1,9 +1,9 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
-  integrationOauthConnections,
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
+  integrationOauthConnections,
   organizations,
   tenantApplyRuns,
   tenantDesiredStates,
@@ -39,10 +39,10 @@ import {
   SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
   SLACK_RUNTIME_CONFIG_SURFACE_KEY,
   SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+  type SlackRuntimeConfig,
   slackRuntimeConfigJsonSchema,
   slackRuntimeConfigPatchSchema,
   slackRuntimeConfigUiHints,
-  type SlackRuntimeConfig,
 } from "@otto/feature-integrations-runtime/lib/slack-config"
 import { and, desc, eq } from "drizzle-orm"
 
@@ -93,7 +93,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function normalizeInstallState(value: string | null | undefined): ToolInstallState {
+function normalizeInstallState(
+  value: string | null | undefined,
+): ToolInstallState {
   return value === "uninstalled" ? "uninstalled" : "installed"
 }
 
@@ -289,7 +291,10 @@ async function getConnectedSlackIntegrationForTenant(tenantId: string) {
     .from(tenantIntegrations)
     .leftJoin(
       integrationOauthConnections,
-      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -330,7 +335,10 @@ async function getSlackDirectoryOptionsForTenant(tenantId: string) {
     .from(integrationMessagingWorkspaces)
     .innerJoin(
       tenantIntegrations,
-      eq(integrationMessagingWorkspaces.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationMessagingWorkspaces.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -359,7 +367,12 @@ async function getSlackDirectoryOptionsForTenant(tenantId: string) {
         type: integrationMessagingConversations.conversationType,
       })
       .from(integrationMessagingConversations)
-      .where(eq(integrationMessagingConversations.messagingWorkspaceId, workspace.id)),
+      .where(
+        eq(
+          integrationMessagingConversations.messagingWorkspaceId,
+          workspace.id,
+        ),
+      ),
     db
       .select({
         description: integrationMessagingWorkspaceMembers.fullName,
@@ -482,7 +495,8 @@ async function evaluateSlackPolicyForTenant(input: {
 }
 
 async function getSlackMemberChannelIds(tenantId: string) {
-  const { availableChannels } = await getSlackDirectoryOptionsForTenant(tenantId)
+  const { availableChannels } =
+    await getSlackDirectoryOptionsForTenant(tenantId)
 
   return availableChannels
     .filter((channel) => channel.isMember && !channel.isArchived)
@@ -555,7 +569,8 @@ async function createNextDesiredStateVersionForSlack(input: {
     : {}
   const integrations = Array.isArray(currentConfig.integrations)
     ? currentConfig.integrations.filter(
-        (entry): entry is string => typeof entry === "string" && entry !== "slack",
+        (entry): entry is string =>
+          typeof entry === "string" && entry !== "slack",
       )
     : []
   const effectiveAllowedChannelIds =
@@ -647,13 +662,17 @@ export async function createDesiredStateVersionForConnectedSlackIntegration(
   const slackIntegration = await getConnectedSlackIntegrationForTenant(tenantId)
 
   if (!slackIntegration) {
-    throw new Error("Slack must be connected before its desired state can be created")
+    throw new Error(
+      "Slack must be connected before its desired state can be created",
+    )
   }
 
   const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(tenantId)
 
   if (currentEntry.installState !== "installed") {
-    throw new Error("Slack config must be installed before its desired state can be created")
+    throw new Error(
+      "Slack config must be installed before its desired state can be created",
+    )
   }
 
   return createNextDesiredStateVersionForSlack({
@@ -667,7 +686,9 @@ export async function getSlackRuntimeIntegrationSettingsForTenant(input: {
   integration: RuntimeIntegrationSummaryResponse
   tenantId: string
 }) {
-  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant(input.tenantId)
+  const surface = await getTenantSlackRuntimeConfigSurfaceForTenant(
+    input.tenantId,
+  )
 
   return {
     contract: buildRuntimeIntegrationSettingsContract({
@@ -680,7 +701,8 @@ export async function getSlackRuntimeIntegrationSettingsForTenant(input: {
         typeof surface.uiHints === "object" &&
         surface.uiHints &&
         "fields" in surface.uiHints
-          ? ((surface.uiHints as { fields?: Record<string, unknown> }).fields ?? {})
+          ? ((surface.uiHints as { fields?: Record<string, unknown> }).fields ??
+            {})
           : {},
       workflow: input.integration.settings?.recommendedWorkflow ?? [],
     }),
@@ -701,7 +723,9 @@ export async function validateSlackRuntimeIntegrationSettingsForTenant(input: {
   tenantId: string
 }) {
   const parsedPatch = slackRuntimeConfigPatchSchema.parse(input.patch)
-  const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(input.tenantId)
+  const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(
+    input.tenantId,
+  )
 
   if (currentEntry.installState !== "installed") {
     throw new Error("Slack config must be installed before it can be updated")
@@ -757,13 +781,19 @@ export async function applySlackRuntimeIntegrationSettingsForTenant(input: {
   tenantId: string
 }) {
   const parsedPatch = slackRuntimeConfigPatchSchema.parse(input.patch)
-  const slackIntegration = await getConnectedSlackIntegrationForTenant(input.tenantId)
+  const slackIntegration = await getConnectedSlackIntegrationForTenant(
+    input.tenantId,
+  )
 
   if (!slackIntegration) {
-    throw new Error("Slack must be connected before its runtime config can be updated")
+    throw new Error(
+      "Slack must be connected before its runtime config can be updated",
+    )
   }
 
-  const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(input.tenantId)
+  const currentEntry = await getOrCreateTenantSlackRuntimeConfigEntry(
+    input.tenantId,
+  )
 
   if (currentEntry.installState !== "installed") {
     throw new Error("Slack config must be installed before it can be updated")

@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
 
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "@otto/feature-runtime-core"
 import {
   tenantDesiredStates,
   tenantServers,
@@ -11,6 +10,7 @@ import {
   tenantSkillVersions,
   tenants,
 } from "@otto/feature-integrations-runtime/db/schema"
+import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "@otto/feature-runtime-core"
 import { and, desc, eq } from "drizzle-orm"
 
 import { enqueueJob } from "../jobs/queue"
@@ -261,7 +261,9 @@ export async function listTenantManagedSkillLibraryEntriesForTenant(input: {
   tenantId: string
 }) {
   const installedSkills = await listTenantManagedSkillsForTenant(input)
-  const installedSkillKeys = new Set(installedSkills.map((skill) => skill.skillKey))
+  const installedSkillKeys = new Set(
+    installedSkills.map((skill) => skill.skillKey),
+  )
 
   return SYSTEM_MANAGED_SKILL_DEFINITIONS.flatMap((definition) => {
     if (!definition.visibleInLibrary) {
@@ -269,8 +271,9 @@ export async function listTenantManagedSkillLibraryEntriesForTenant(input: {
     }
 
     const entryFile =
-      definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-      null
+      definition.files.find(
+        (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+      ) ?? null
 
     if (typeof entryFile?.contentText !== "string") {
       return []
@@ -431,7 +434,6 @@ async function ensureTenantSystemManagedSkillsForTenant(input: {
     }
 
     if (skill.sourceType !== "system") {
-      continue
     }
   }
 }
@@ -446,7 +448,9 @@ async function createSystemManagedSkillForTenant(input: {
   tenantId: string
 }) {
   const db = getDb()
-  const entryFile = input.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH)
+  const entryFile = input.files.find(
+    (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+  )
 
   if (typeof entryFile?.contentText !== "string") {
     throw new Error(
@@ -495,14 +499,19 @@ async function createSystemManagedSkillForTenant(input: {
     })
 
   const managedFiles = input.files
-    .filter((file): file is { contentText: string; path: string } => typeof file.contentText === "string")
+    .filter(
+      (file): file is { contentText: string; path: string } =>
+        typeof file.contentText === "string",
+    )
     .map((file) => ({
       contentEncoding: "utf8_text" as const,
       contentSha256: createTextChecksum(file.contentText),
       contentText: file.contentText,
       contentType: "text/plain; charset=utf-8",
       fileKind:
-        file.path === MANAGED_SKILL_ENTRY_FILE_PATH ? "managed_entry" : "managed_seeded",
+        file.path === MANAGED_SKILL_ENTRY_FILE_PATH
+          ? "managed_entry"
+          : "managed_seeded",
       path: file.path,
     }))
 
@@ -614,8 +623,8 @@ export async function syncDefaultTenantManagedSkillsForTenant(input: {
 
     const latestDesiredState = await getLatestDesiredState(input.tenantId)
     const desiredVersions =
-      parseManagedSkillsDesiredState(latestDesiredState?.configJson).managedSkills
-        ?.versions ?? {}
+      parseManagedSkillsDesiredState(latestDesiredState?.configJson)
+        .managedSkills?.versions ?? {}
 
     if (desiredVersions[definition.skillKey] === targetVersion) {
       continue
@@ -803,13 +812,12 @@ export async function createTenantManagedSkillForTenant(input: {
     version: createdVersion.version,
   })
 
-  const desiredStateVersion = await createNextDesiredStateVersionForManagedSkills(
-    {
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
       skillKey: createdSkill.skillKey,
       tenantId: input.tenantId,
       version: createdVersion.version,
-    },
-  )
+    })
   const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
     desiredStateVersion: desiredStateVersion.version,
     tenantId: input.tenantId,
@@ -949,7 +957,8 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
       tenantId: input.tenantId,
       version: createdVersion.version,
     })
-  const applyQueued = (input.queueApply ?? true)
+  const applyQueued =
+    (input.queueApply ?? true)
       ? await enqueueManagedSkillApplyIfRuntimeReady({
           desiredStateVersion: desiredStateVersion.version,
           tenantId: input.tenantId,
@@ -1049,13 +1058,12 @@ export async function updateTenantManagedSkillForTenant(input: {
     }
   }
 
-  const desiredStateVersion = await createNextDesiredStateVersionForManagedSkills(
-    {
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
       skillKey: detail.skillKey,
       tenantId: input.tenantId,
       version: currentVersion,
-    },
-  )
+    })
   const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
     desiredStateVersion: desiredStateVersion.version,
     tenantId: input.tenantId,
@@ -1099,13 +1107,12 @@ export async function deleteTenantManagedSkillForTenant(input: {
   const db = getDb()
   await db.delete(tenantSkills).where(eq(tenantSkills.id, detail.skillId))
 
-  const desiredStateVersion = await createNextDesiredStateVersionForManagedSkills(
-    {
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
       remove: true,
       skillKey: detail.skillKey,
       tenantId: input.tenantId,
-    },
-  )
+    })
   const applyQueued = await enqueueManagedSkillApplyIfRuntimeReady({
     desiredStateVersion: desiredStateVersion.version,
     tenantId: input.tenantId,
@@ -1149,13 +1156,12 @@ export async function resetTenantManagedSkillPackageForTenant(input: {
     )
   }
 
-  const desiredStateVersion = await createNextDesiredStateVersionForManagedSkills(
-    {
+  const desiredStateVersion =
+    await createNextDesiredStateVersionForManagedSkills({
       skillKey: detail.skillKey,
       tenantId: input.tenantId,
       version: detail.version,
-    },
-  )
+    })
   const tenantRuntime = await getTenantRuntimeState(input.tenantId)
 
   if (tenantRuntime.isRuntimeReady) {
@@ -1266,9 +1272,13 @@ function buildNextManagedSkillContent(input: {
   })
 }
 
-function parseManagedSkillDocument(contentText: string): ParsedManagedSkillDocument {
+function parseManagedSkillDocument(
+  contentText: string,
+): ParsedManagedSkillDocument {
   const normalized = contentText.replace(/\r\n/g, "\n")
-  const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
+  const frontmatterMatch = normalized.match(
+    /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/,
+  )
 
   if (!frontmatterMatch) {
     throw new Error("SKILL.md must include YAML frontmatter.")

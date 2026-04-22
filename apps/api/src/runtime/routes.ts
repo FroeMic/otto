@@ -32,10 +32,15 @@ import { z } from "zod"
 
 import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
+import { handleStripeWebhookRequest } from "../webhooks/stripe"
+import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 import { authenticateTenantRuntimeRequest } from "./auth"
+import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
+import { manageRuntimeIntegrationConnection } from "./integration-management"
+import { handleIntegrationWebhookRequest } from "./integration-webhooks"
 import {
-  enableRuntimeIntegrationForTenant,
   applyRuntimeIntegrationSettingsForTenant,
+  enableRuntimeIntegrationForTenant,
   findRuntimeIntegrationCommandsForTenant,
   getRuntimeIntegrationConnectionActionForTenant,
   getRuntimeIntegrationDetailsForTenant,
@@ -44,7 +49,6 @@ import {
   listRuntimeIntegrationsForTenant,
   validateRuntimeIntegrationSettingsForTenant,
 } from "./integrations"
-import { manageRuntimeIntegrationConnection } from "./integration-management"
 import {
   getLatestTenantManagedConfig,
   ManagedConfigVersionConflictError,
@@ -63,22 +67,18 @@ import {
   updateTenantManagedSkillForTenant,
 } from "./managed-skills-data"
 import {
-  OpenAiProxyError,
   createOpenAiResponsesWebSocketBridge,
+  OpenAiProxyError,
   prepareOpenAiResponsesWebSocketProxy,
   proxyOpenAiAudioTranscriptionsRequest,
   proxyOpenAiResponsesRequest,
 } from "./openai-proxy"
+import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
 import {
   proxyRuntimeWebSearchRequest,
   RuntimeWebSearchProxyError,
 } from "./web-search"
-import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
-import { handleIntegrationWebhookRequest } from "./integration-webhooks"
 import { registerWorkspaceChatRuntimeRoutes } from "./workspace-chat"
-import { TenantRuntimeConfigVersionConflictError } from "./slack-settings"
-import { handleStripeWebhookRequest } from "../webhooks/stripe"
-import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 
 const OPENAI_RESPONSES_PROXY_PATH =
   "/api/internal/runtime/ai/openai/v1/responses"
@@ -105,17 +105,12 @@ function setOpenAiResponsesWebSocketPreparedProxy(
   value: OpenAiResponsesWebSocketPreparedProxy,
 ) {
   const typedContext = context as OpenAiResponsesWebSocketContext
-  typedContext.set(
-    OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
-    value,
-  )
+  typedContext.set(OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY, value)
 }
 
 function getOpenAiResponsesWebSocketPreparedProxy(context: unknown) {
   const typedContext = context as OpenAiResponsesWebSocketContext
-  return typedContext.get(
-    OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY,
-  )
+  return typedContext.get(OPENAI_RESPONSES_WEBSOCKET_PROXY_CONTEXT_KEY)
 }
 
 export function registerRuntimeRoutes(app: Hono) {
@@ -546,59 +541,56 @@ export function registerRuntimeRoutes(app: Hono) {
     }
   })
 
-  app.get(
-    OPENAI_RESPONSES_PROXY_PATH,
-    async (context, next) => {
-      const { upgradeWebSocket } = await import("hono/bun")
+  app.get(OPENAI_RESPONSES_PROXY_PATH, async (context, next) => {
+    const { upgradeWebSocket } = await import("hono/bun")
 
-      return upgradeWebSocket((webSocketContext) => {
-        const prepared =
-          getOpenAiResponsesWebSocketPreparedProxy(webSocketContext)
+    return upgradeWebSocket((webSocketContext) => {
+      const prepared =
+        getOpenAiResponsesWebSocketPreparedProxy(webSocketContext)
 
-        if (!prepared) {
-          throw new OpenAiProxyError(
-            "OpenAI Responses WebSocket proxy was not prepared.",
-            500,
-          )
-        }
+      if (!prepared) {
+        throw new OpenAiProxyError(
+          "OpenAI Responses WebSocket proxy was not prepared.",
+          500,
+        )
+      }
 
-        const { proxy, tenantId } = prepared
-        let bridge:
-          | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
-          | undefined
+      const { proxy, tenantId } = prepared
+      let bridge:
+        | ReturnType<typeof createOpenAiResponsesWebSocketBridge>
+        | undefined
 
-        return {
-          onClose(event) {
-            bridge?.handleDownstreamClose({
-              code: event.code,
-              reason: event.reason,
-            })
-          },
-          onMessage(event) {
-            bridge?.handleDownstreamMessage(event.data)
-          },
-          onOpen(_, ws) {
-            bridge = createOpenAiResponsesWebSocketBridge({
-              apiKey: proxy.apiKey,
-              downstream: {
-                close(code, reason) {
-                  ws.close(code, reason)
-                },
-                send(data) {
-                  ws.send(data as string)
-                },
+      return {
+        onClose(event) {
+          bridge?.handleDownstreamClose({
+            code: event.code,
+            reason: event.reason,
+          })
+        },
+        onMessage(event) {
+          bridge?.handleDownstreamMessage(event.data)
+        },
+        onOpen(_, ws) {
+          bridge = createOpenAiResponsesWebSocketBridge({
+            apiKey: proxy.apiKey,
+            downstream: {
+              close(code, reason) {
+                ws.close(code, reason)
               },
-              openclawSessionId: proxy.openclawSessionId,
-              openclawTurnAttempt: proxy.openclawTurnAttempt,
-              openclawTurnId: proxy.openclawTurnId,
-              requestId: proxy.requestId,
-              tenantId,
-            })
-          },
-        }
-      })(context, next)
-    },
-  )
+              send(data) {
+                ws.send(data as string)
+              },
+            },
+            openclawSessionId: proxy.openclawSessionId,
+            openclawTurnAttempt: proxy.openclawTurnAttempt,
+            openclawTurnId: proxy.openclawTurnId,
+            requestId: proxy.requestId,
+            tenantId,
+          })
+        },
+      }
+    })(context, next)
+  })
 
   app.post(
     "/api/internal/runtime/ai/openai/v1/audio/transcriptions",

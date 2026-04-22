@@ -433,7 +433,8 @@ describe("api app", () => {
               role: "owner",
               roleName: "Owner",
               rowType: "member",
-              searchText: "michael frohlich michael@getyourotto.com owner active",
+              searchText:
+                "michael frohlich michael@getyourotto.com owner active",
               status: "active",
               subtitle: "michael",
             },

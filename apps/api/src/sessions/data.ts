@@ -1,13 +1,3 @@
-import {
-  getTenantSession,
-  listTenantSessions,
-} from "@otto/feature-runtime-core/sessions/queries"
-import { getCronSessionTaskKeyMap } from "@otto/feature-runtime-core/scheduled-tasks/queries"
-import type {
-  WorkspaceSessionDetailResponse,
-  WorkspaceSessionsListResponse,
-  WorkspaceSessionsRefreshResponse,
-} from "@otto/feature-runtime-core/sessions/workspace-contracts"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   integrationMessagingConversations,
@@ -18,7 +8,17 @@ import {
   userChannelIdentities,
   users,
 } from "@otto/feature-integrations-runtime/db/schema"
-import { and, desc, eq } from "drizzle-orm"
+import { getCronSessionTaskKeyMap } from "@otto/feature-runtime-core/scheduled-tasks/queries"
+import {
+  getTenantSession,
+  listTenantSessions,
+} from "@otto/feature-runtime-core/sessions/queries"
+import type {
+  WorkspaceSessionDetailResponse,
+  WorkspaceSessionsListResponse,
+  WorkspaceSessionsRefreshResponse,
+} from "@otto/feature-runtime-core/sessions/workspace-contracts"
+import { and, eq } from "drizzle-orm"
 
 import { enqueueJob } from "../jobs/queue"
 import { JOB_TYPES } from "../jobs/types"
@@ -38,11 +38,7 @@ function parseSessionKey(sessionKey: string) {
   const idEnd = threadIdx !== -1 ? threadIdx : parts.length
   const id = parts.slice(4, idEnd).join(":") || null
   const kind =
-    threadId !== null
-      ? "thread"
-      : kindRaw === "direct"
-        ? "dm"
-        : kindRaw
+    threadId !== null ? "thread" : kindRaw === "direct" ? "dm" : kindRaw
 
   return {
     id,
@@ -238,7 +234,9 @@ function mapSessionListEntry(
   } as const
 }
 
-function mapSessionDetail(session: NonNullable<Awaited<ReturnType<typeof getTenantSession>>>) {
+function mapSessionDetail(
+  session: NonNullable<Awaited<ReturnType<typeof getTenantSession>>>,
+) {
   return {
     channel: session.channel,
     channelProvider: session.channelProvider,

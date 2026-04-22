@@ -1,7 +1,7 @@
-import crypto from "node:crypto";
-import fs from "node:fs";
+import crypto from "node:crypto"
+import fs from "node:fs"
 
-import { z } from "zod";
+import { z } from "zod"
 
 const envSchema = z.object({
   DATABASE_URL: z.url(),
@@ -125,89 +125,89 @@ const envSchema = z.object({
     .positive()
     .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
-});
+})
 
-export type AppEnv = z.infer<typeof envSchema>;
+export type AppEnv = z.infer<typeof envSchema>
 
-let cachedEnv: AppEnv | null = null;
+let cachedEnv: AppEnv | null = null
 
 export function getEnv(): AppEnv {
   if (cachedEnv) {
-    return cachedEnv;
+    return cachedEnv
   }
 
-  cachedEnv = envSchema.parse(process.env);
-  validateRuntimeSshEnv(cachedEnv);
-  return cachedEnv;
+  cachedEnv = envSchema.parse(process.env)
+  validateRuntimeSshEnv(cachedEnv)
+  return cachedEnv
 }
 
 export const __testing = {
   resetEnvCacheForTests() {
-    cachedEnv = null;
+    cachedEnv = null
   },
-} as const;
+} as const
 
 export function getRuntimeSshAuthSource() {
-  const env = getEnv();
+  const env = getEnv()
 
-  return resolveRuntimeSshAuthSource(env);
+  return resolveRuntimeSshAuthSource(env)
 }
 
 export function getControlPlaneEncryptionSecret() {
   return resolveControlPlaneSecret(
     getEnv().CONTROL_PLANE_ENCRYPTION_SECRET,
     "CONTROL_PLANE_ENCRYPTION_SECRET",
-  );
+  )
 }
 
 export function getControlPlaneOAuthStateSecret() {
   return resolveControlPlaneSecret(
     getEnv().CONTROL_PLANE_OAUTH_STATE_SECRET,
     "CONTROL_PLANE_OAUTH_STATE_SECRET",
-  );
+  )
 }
 
 export function getControlPlaneOpenAiAdminApiKey() {
-  const value = getEnv().CONTROL_PLANE_OPENAI_ADMIN_API_KEY;
+  const value = getEnv().CONTROL_PLANE_OPENAI_ADMIN_API_KEY
 
   if (!value) {
-    throw new Error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is required");
+    throw new Error("CONTROL_PLANE_OPENAI_ADMIN_API_KEY is required")
   }
 
-  return value;
+  return value
 }
 
 export function getStripeSecretKey() {
-  const value = getEnv().STRIPE_SECRET_KEY;
+  const value = getEnv().STRIPE_SECRET_KEY
 
   if (!value) {
-    throw new Error("STRIPE_SECRET_KEY is required");
+    throw new Error("STRIPE_SECRET_KEY is required")
   }
 
-  return value;
+  return value
 }
 
 export function getStripeWebhookSecret() {
-  const value = getEnv().STRIPE_WEBHOOK_SECRET;
+  const value = getEnv().STRIPE_WEBHOOK_SECRET
 
   if (!value) {
-    throw new Error("STRIPE_WEBHOOK_SECRET is required");
+    throw new Error("STRIPE_WEBHOOK_SECRET is required")
   }
 
-  return value;
+  return value
 }
 
 export function hasStripeBillingConfig() {
   try {
-    getStripeSecretKey();
-    return true;
+    getStripeSecretKey()
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
 export function getControlPlaneBaseUrl() {
-  const env = getEnv();
+  const env = getEnv()
 
   return (
     deriveBaseUrlFromDomain(env.LANDING_PAGE_DOMAIN) ??
@@ -217,28 +217,28 @@ export function getControlPlaneBaseUrl() {
         env.SLACK_REDIRECT_URI ??
         env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
     )
-  );
+  )
 }
 
 export function getOpenAiProxyBaseUrl() {
-  const env = getEnv();
+  const env = getEnv()
 
-  return env.OTTO_OPENAI_PROXY_BASE_URL ?? getControlPlaneBaseUrl();
+  return env.OTTO_OPENAI_PROXY_BASE_URL ?? getControlPlaneBaseUrl()
 }
 
 export function getOpenAiProxyTransport() {
-  return getEnv().OTTO_OPENAI_PROXY_TRANSPORT;
+  return getEnv().OTTO_OPENAI_PROXY_TRANSPORT
 }
 
 export function getSlackOAuthConfig() {
-  const env = getEnv();
+  const env = getEnv()
 
   if (
     !env.SLACK_CLIENT_ID ||
     !env.SLACK_CLIENT_SECRET ||
     !env.SLACK_REDIRECT_URI
   ) {
-    throw new Error("Slack OAuth is not fully configured");
+    throw new Error("Slack OAuth is not fully configured")
   }
 
   return {
@@ -248,27 +248,27 @@ export function getSlackOAuthConfig() {
     clientId: env.SLACK_CLIENT_ID,
     clientSecret: env.SLACK_CLIENT_SECRET,
     redirectUri: env.SLACK_REDIRECT_URI,
-  };
+  }
 }
 
 export function hasSlackOAuthConfig() {
   try {
-    getSlackOAuthConfig();
-    return true;
+    getSlackOAuthConfig()
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
 export function getLinearOAuthConfig() {
-  const env = getEnv();
+  const env = getEnv()
 
   if (
     !env.LINEAR_CLIENT_ID ||
     !env.LINEAR_CLIENT_SECRET ||
     !env.LINEAR_REDIRECT_URI
   ) {
-    throw new Error("Linear OAuth is not fully configured");
+    throw new Error("Linear OAuth is not fully configured")
   }
 
   return {
@@ -279,115 +279,115 @@ export function getLinearOAuthConfig() {
     scopes: env.LINEAR_OAUTH_SCOPES.split(",")
       .map((scope) => scope.trim())
       .filter(Boolean),
-  };
+  }
 }
 
 export function hasLinearOAuthConfig() {
   try {
-    getLinearOAuthConfig();
-    return true;
+    getLinearOAuthConfig()
+    return true
   } catch {
-    return false;
+    return false
   }
 }
 
 export function normalizePrivateKeyValue(value: string) {
-  let normalized = value.trim();
+  let normalized = value.trim()
 
   if (
     (normalized.startsWith('"') && normalized.endsWith('"')) ||
     (normalized.startsWith("'") && normalized.endsWith("'"))
   ) {
-    normalized = normalized.slice(1, -1);
+    normalized = normalized.slice(1, -1)
   }
 
   normalized = normalized
     .replaceAll("\\r\\n", "\n")
     .replaceAll("\\n", "\n")
-    .replaceAll("\r\n", "\n");
+    .replaceAll("\r\n", "\n")
 
   if (normalized.includes("-----BEGIN ") && normalized.includes("-----END ")) {
     normalized = normalized
       .replace(/(-----BEGIN [^-]+-----)\s*/, "$1\n")
-      .replace(/\s*(-----END [^-]+-----)/, "\n$1");
+      .replace(/\s*(-----END [^-]+-----)/, "\n$1")
   }
 
-  return normalized;
+  return normalized
 }
 
 function deriveBaseUrlFromUri(uri?: string) {
   if (!uri) {
-    return "";
+    return ""
   }
 
   try {
-    return new URL(uri).origin;
+    return new URL(uri).origin
   } catch {
-    return "";
+    return ""
   }
 }
 
 function deriveBaseUrlFromDomain(domain?: string) {
   if (!domain) {
-    return "";
+    return ""
   }
 
-  return `https://${domain}`;
+  return `https://${domain}`
 }
 
 function validateRuntimeSshEnv(env: AppEnv) {
-  const authSource = resolveRuntimeSshAuthSource(env);
+  const authSource = resolveRuntimeSshAuthSource(env)
 
   if (authSource === "env") {
-    const privateKey = env.RUNTIME_DEPLOY_PRIVATE_KEY;
+    const privateKey = env.RUNTIME_DEPLOY_PRIVATE_KEY
 
     if (!privateKey) {
       throw new Error(
         "RUNTIME_DEPLOY_PRIVATE_KEY auth was selected but the variable is empty",
-      );
+      )
     }
 
     assertPrivateKeyIsValid(
       normalizePrivateKeyValue(privateKey),
       "RUNTIME_DEPLOY_PRIVATE_KEY",
-    );
-    return;
+    )
+    return
   }
 
   if (authSource === "path") {
-    const keyPath = env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH;
+    const keyPath = env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH
 
     if (!keyPath) {
       throw new Error(
         "RUNTIME_DEPLOY_PRIVATE_KEY_PATH auth was selected but the variable is empty",
-      );
+      )
     }
 
     if (!fs.existsSync(keyPath)) {
       throw new Error(
         `RUNTIME_DEPLOY_PRIVATE_KEY_PATH does not exist: ${keyPath}`,
-      );
+      )
     }
 
-    const key = fs.readFileSync(keyPath, "utf8");
-    assertPrivateKeyIsValid(key, "RUNTIME_DEPLOY_PRIVATE_KEY_PATH");
+    const key = fs.readFileSync(keyPath, "utf8")
+    assertPrivateKeyIsValid(key, "RUNTIME_DEPLOY_PRIVATE_KEY_PATH")
   }
 }
 
 function assertPrivateKeyIsValid(key: string, source: string) {
-  const normalizedKey = normalizePrivateKeyValue(key);
+  const normalizedKey = normalizePrivateKeyValue(key)
 
   try {
-    crypto.createPrivateKey(normalizedKey);
+    crypto.createPrivateKey(normalizedKey)
   } catch (error) {
     if (looksLikePrivateKey(normalizedKey)) {
-      return;
+      return
     }
 
     const message =
-      error instanceof Error ? error.message : "Unknown private key error";
+      error instanceof Error ? error.message : "Unknown private key error"
 
-    throw new Error(`${source} is not a valid private key: ${message}`);
+    throw new Error(`${source} is not a valid private key: ${message}`)
   }
 }
 
@@ -395,23 +395,23 @@ function looksLikePrivateKey(value: string) {
   return (
     /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(value) &&
     /-----END [A-Z ]*PRIVATE KEY-----/.test(value)
-  );
+  )
 }
 
 function resolveRuntimeSshAuthSource(env: AppEnv) {
   if (env.RUNTIME_DEPLOY_PRIVATE_KEY) {
-    return "env";
+    return "env"
   }
 
   if (env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH) {
-    return "path";
+    return "path"
   }
 
   if (process.env.SSH_AUTH_SOCK) {
-    return "agent";
+    return "agent"
   }
 
-  return "none";
+  return "none"
 }
 
 function resolveControlPlaneSecret(
@@ -419,18 +419,18 @@ function resolveControlPlaneSecret(
   envVarName: string,
 ) {
   if (value) {
-    return deriveFixedLengthSecret(value);
+    return deriveFixedLengthSecret(value)
   }
 
   if (process.env.WORKOS_COOKIE_PASSWORD) {
-    return deriveFixedLengthSecret(process.env.WORKOS_COOKIE_PASSWORD);
+    return deriveFixedLengthSecret(process.env.WORKOS_COOKIE_PASSWORD)
   }
 
   throw new Error(
     `${envVarName} is not set and WORKOS_COOKIE_PASSWORD is unavailable for fallback`,
-  );
+  )
 }
 
 function deriveFixedLengthSecret(value: string) {
-  return crypto.createHash("sha256").update(value).digest();
+  return crypto.createHash("sha256").update(value).digest()
 }

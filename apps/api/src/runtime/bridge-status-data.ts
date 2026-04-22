@@ -1,6 +1,5 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { tenantRuntimeBridgeStatuses } from "@otto/feature-integrations-runtime/db/schema"
-import { eq } from "drizzle-orm"
 
 import type { TenantRuntimeBridgeStatusReport } from "./bridge-status"
 
@@ -10,10 +9,12 @@ export async function upsertTenantRuntimeBridgeStatus(input: {
 }) {
   const db = getDb()
   const now = new Date()
-  const normalizedInstalledPluginIds = [...new Set(input.report.runtime.installedPluginIds)]
-    .sort((left, right) => left.localeCompare(right))
-  const normalizedEnabledPluginIds = [...new Set(input.report.runtime.enabledPluginIds)]
-    .sort((left, right) => left.localeCompare(right))
+  const normalizedInstalledPluginIds = [
+    ...new Set(input.report.runtime.installedPluginIds),
+  ].sort((left, right) => left.localeCompare(right))
+  const normalizedEnabledPluginIds = [
+    ...new Set(input.report.runtime.enabledPluginIds),
+  ].sort((left, right) => left.localeCompare(right))
 
   const [status] = await db
     .insert(tenantRuntimeBridgeStatuses)
@@ -35,7 +36,8 @@ export async function upsertTenantRuntimeBridgeStatus(input: {
       set: {
         bridgeId: input.report.bridgeId,
         bridgeStatus: "online",
-        controlPlaneBaseUrl: input.report.runtime.controlPlaneBaseUrl ?? undefined,
+        controlPlaneBaseUrl:
+          input.report.runtime.controlPlaneBaseUrl ?? undefined,
         enabledPluginIds: normalizedEnabledPluginIds,
         gatewayHealthy: input.report.gateway.healthy,
         gatewayPort: input.report.gateway.port ?? undefined,

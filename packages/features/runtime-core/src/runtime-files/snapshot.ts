@@ -166,4 +166,3 @@ function buildShellCommand(lines: string[]) {
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`
 }
-

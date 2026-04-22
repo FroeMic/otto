@@ -23,7 +23,9 @@ export function BraveIntegrationOverviewItem({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{entry.label}</span>
-            {entry.connected ? <Badge variant="secondary">Managed</Badge> : null}
+            {entry.connected ? (
+              <Badge variant="secondary">Managed</Badge>
+            ) : null}
             {entry.needsAttention ? (
               <Badge variant="destructive">Needs attention</Badge>
             ) : null}

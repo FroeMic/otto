@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   SettingsCard,
   SettingsRow,
@@ -6,6 +5,7 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import type { ConnectedAccount } from "../types"
 
@@ -62,13 +62,16 @@ export function ConnectedAccountsCard({
           <div className="flex items-center gap-3">
             <Avatar className="size-9 rounded-lg border bg-background">
               <AvatarImage
-                alt={providerMeta[identity.provider]?.label ?? identity.provider}
+                alt={
+                  providerMeta[identity.provider]?.label ?? identity.provider
+                }
                 className="size-5 object-contain"
                 src={providerMeta[identity.provider]?.icon}
               />
               <AvatarFallback className="rounded-lg text-xs uppercase">
-                {(providerMeta[identity.provider]?.label ?? identity.provider)
-                  .slice(0, 2)}
+                {(
+                  providerMeta[identity.provider]?.label ?? identity.provider
+                ).slice(0, 2)}
               </AvatarFallback>
             </Avatar>
             <SettingsRowLabel>
@@ -84,7 +87,10 @@ export function ConnectedAccountsCard({
             </SettingsRowLabel>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            <span aria-hidden="true" className="size-2 rounded-full bg-emerald-500" />
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-full bg-emerald-500"
+            />
             <span className="text-sm text-muted-foreground">Connected</span>
           </div>
         </SettingsRow>

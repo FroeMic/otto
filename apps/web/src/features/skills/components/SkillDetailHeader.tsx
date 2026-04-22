@@ -43,7 +43,10 @@ import {
   workspaceSkillsQueryOptions,
 } from "../api/skills"
 import { formatSkillOriginLabel } from "../skill-presentation"
-import type { WorkspaceSkillDetail, WorkspaceSkillLibraryDetail } from "../types"
+import type {
+  WorkspaceSkillDetail,
+  WorkspaceSkillLibraryDetail,
+} from "../types"
 
 export type SkillDetailHeaderProps =
   | {
@@ -63,7 +66,8 @@ export function SkillDetailHeader({
   orgSlug,
 }: SkillDetailHeaderProps) {
   const isInstalledDetail = mode === "installed" && "version" in detail
-  const isReadOnly = mode === "library" || (isInstalledDetail && !detail.editable)
+  const isReadOnly =
+    mode === "library" || (isInstalledDetail && !detail.editable)
   const originLabel =
     mode === "library" ? "From library" : formatSkillOriginLabel(detail.origin)
 
@@ -176,7 +180,10 @@ interface InstalledSkillActionsProps {
   orgSlug: string
 }
 
-function InstalledSkillActions({ detail, orgSlug }: InstalledSkillActionsProps) {
+function InstalledSkillActions({
+  detail,
+  orgSlug,
+}: InstalledSkillActionsProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isPending, startTransition] = useTransition()
@@ -255,7 +262,9 @@ function InstalledSkillActions({ detail, orgSlug }: InstalledSkillActionsProps) 
 
   return (
     <>
-      {isPending ? <IntegrationFloatingStatusChip message="Applying Changes" /> : null}
+      {isPending ? (
+        <IntegrationFloatingStatusChip message="Applying Changes" />
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -272,7 +281,10 @@ function InstalledSkillActions({ detail, orgSlug }: InstalledSkillActionsProps) 
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
           {resettableFiles.length > 0 ? (
-            <DropdownMenuItem disabled={isPending} onClick={handleRestoreDefaults}>
+            <DropdownMenuItem
+              disabled={isPending}
+              onClick={handleRestoreDefaults}
+            >
               <ArrowsClockwiseIcon className="size-4" />
               Restore Defaults
             </DropdownMenuItem>

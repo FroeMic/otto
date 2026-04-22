@@ -13,11 +13,11 @@ export function FilesPendingSetupPage() {
         <SettingsSection>
           <SettingsSectionTitle>Files</SettingsSectionTitle>
           <SettingsSectionDescription>
-            Files will appear here once this workspace has a ready tenant runtime.
+            Files will appear here once this workspace has a ready tenant
+            runtime.
           </SettingsSectionDescription>
         </SettingsSection>
       </SettingsPageContent>
     </SettingsPage>
   )
 }
-

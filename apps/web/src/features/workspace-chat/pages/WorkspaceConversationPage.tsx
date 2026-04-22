@@ -73,9 +73,7 @@ export function WorkspaceConversationPage({
     },
   })
   const stopMessageMutation = useMutation({
-    mutationFn: async (input: {
-      assistantMessageId: string
-    }) =>
+    mutationFn: async (input: { assistantMessageId: string }) =>
       cancelWorkspaceChatAssistantMessage({
         assistantMessageId: input.assistantMessageId,
         conversationId,
@@ -147,10 +145,7 @@ export function WorkspaceConversationPage({
         className="pointer-events-none fixed bottom-0 z-30"
         style={dockStyle}
       >
-        <div
-          className="pointer-events-auto w-full px-4 pb-5"
-          ref={composerRef}
-        >
+        <div className="pointer-events-auto w-full px-4 pb-5" ref={composerRef}>
           <ConversationComposer
             disabled={sendMessageMutation.isPending}
             isRunning={Boolean(activeAssistantMessage)}

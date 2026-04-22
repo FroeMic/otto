@@ -31,13 +31,12 @@ import {
   webSearchRuntimeConfigUiHints,
 } from "@otto/feature-integrations-runtime/lib/web-search-config"
 import { and, eq } from "drizzle-orm"
-
+import { buildRuntimeIntegrationConnectionAction } from "./integration-connection"
 import {
   applySlackRuntimeIntegrationSettingsForTenant,
   getSlackRuntimeIntegrationSettingsForTenant,
   validateSlackRuntimeIntegrationSettingsForTenant,
 } from "./slack-settings"
-import { buildRuntimeIntegrationConnectionAction } from "./integration-connection"
 
 type RuntimeStatusRow = {
   connectedAt: Date | null

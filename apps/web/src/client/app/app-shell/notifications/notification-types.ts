@@ -1,10 +1,6 @@
 import type { ReactNode } from "react"
 
-export type ShellNotificationTone =
-  | "info"
-  | "success"
-  | "warning"
-  | "danger"
+export type ShellNotificationTone = "info" | "success" | "warning" | "danger"
 
 export interface ShellNotificationBase {
   detail?: string

@@ -33,7 +33,7 @@ export interface RuntimeFileBrowserProps {
   hiddenPaths?: string[]
   isRefreshing?: boolean
   missingRootMessage: string
-  onRefresh: () => void | Promise<unknown>
+  onRefresh: () => undefined | Promise<unknown>
   preferredFilePath?: string
   rootPathFallback: string
   snapshot: RuntimeDirectorySnapshot

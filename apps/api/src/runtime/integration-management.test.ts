@@ -10,12 +10,17 @@ describe("runtime integration management", () => {
 
     const result = await manageRuntimeIntegrationConnection({
       action: "enable",
-      enableRuntimeIntegrationForTenant: async ({ integrationKey, tenantId }) => {
+      enableRuntimeIntegrationForTenant: async ({
+        integrationKey,
+        tenantId,
+      }) => {
         enabled = true
         assert.equal(integrationKey, "gandi")
         assert.equal(tenantId, "tenant_123")
       },
-      getRuntimeIntegrationConnectionActionForTenant: async ({ integrationKey }) => {
+      getRuntimeIntegrationConnectionActionForTenant: async ({
+        integrationKey,
+      }) => {
         if (!enabled) {
           return {
             availableActions: ["open_workspace", "enable"],
@@ -33,7 +38,8 @@ describe("runtime integration management", () => {
               integrationStatus: null,
               needsAttention: false,
             },
-            workspaceUrl: "https://otto.test/acme/settings/agent/integrations/gandi/status",
+            workspaceUrl:
+              "https://otto.test/acme/settings/agent/integrations/gandi/status",
           }
         }
 
@@ -53,7 +59,8 @@ describe("runtime integration management", () => {
             integrationStatus: "connected",
             needsAttention: false,
           },
-          workspaceUrl: "https://otto.test/acme/settings/agent/integrations/gandi/status",
+          workspaceUrl:
+            "https://otto.test/acme/settings/agent/integrations/gandi/status",
         }
       },
       integrationKey: "gandi",
@@ -74,7 +81,9 @@ describe("runtime integration management", () => {
       enableRuntimeIntegrationForTenant: async () => {
         enabled = true
       },
-      getRuntimeIntegrationConnectionActionForTenant: async ({ integrationKey }) => ({
+      getRuntimeIntegrationConnectionActionForTenant: async ({
+        integrationKey,
+      }) => ({
         availableActions: ["open_workspace", "connect"],
         connectUrl: "https://otto.test/oauth/start/integration/slack",
         integrationKey,
@@ -90,7 +99,8 @@ describe("runtime integration management", () => {
           integrationStatus: null,
           needsAttention: false,
         },
-        workspaceUrl: "https://otto.test/acme/settings/agent/integrations/slack/status",
+        workspaceUrl:
+          "https://otto.test/acme/settings/agent/integrations/slack/status",
       }),
       integrationKey: "slack",
       tenantId: "tenant_123",

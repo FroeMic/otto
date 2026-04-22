@@ -1,10 +1,4 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-
-import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
-import {
-  formatPreciseDateTime,
-  resolvePlatformDateTimePreferences,
-} from "@/features/platform/date-time"
 import {
   SettingsCard,
   SettingsPage,
@@ -28,6 +22,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
+import {
+  formatPreciseDateTime,
+  resolvePlatformDateTimePreferences,
+} from "@/features/platform/date-time"
 
 function formatStatus(status: string | null) {
   if (!status) {
@@ -83,7 +82,9 @@ export interface PlatformOrganizationLogsPageProps {
 export function PlatformOrganizationLogsPage({
   orgSlug,
 }: PlatformOrganizationLogsPageProps) {
-  const { data } = useSuspenseQuery(platformOrganizationDetailQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    platformOrganizationDetailQueryOptions(orgSlug),
+  )
   const organization = data.organization
   const dateTimePreferences = resolvePlatformDateTimePreferences({
     locale: organization.locale,
@@ -190,7 +191,10 @@ export function PlatformOrganizationLogsPage({
                             <MetadataRow label="Host" value={job.result.host} />
                           ) : null}
                           {typeof job.result?.image === "string" ? (
-                            <MetadataRow label="Image" value={job.result.image} />
+                            <MetadataRow
+                              label="Image"
+                              value={job.result.image}
+                            />
                           ) : null}
                           {job.error ? (
                             <MetadataRow label="Error" value={job.error} />
@@ -229,7 +233,9 @@ export function PlatformOrganizationLogsPage({
           </SettingsSection>
 
           <SettingsSection>
-            <SettingsSectionTitle>Config apply diagnostics</SettingsSectionTitle>
+            <SettingsSectionTitle>
+              Config apply diagnostics
+            </SettingsSectionTitle>
             <SettingsSectionDescription>
               Review the most recent file-write and verification output from
               tenant config apply runs.
@@ -272,7 +278,10 @@ export function PlatformOrganizationLogsPage({
                     <AccordionContent>
                       <div className="flex flex-col gap-4">
                         <SettingsCard>
-                          <MetadataRow label="Apply run ID" value={applyRun.id} />
+                          <MetadataRow
+                            label="Apply run ID"
+                            value={applyRun.id}
+                          />
                           <MetadataRow
                             label="Started"
                             value={formatPreciseDateTime(

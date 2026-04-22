@@ -20,7 +20,9 @@ describe("web build config", () => {
       throw new Error("Expected a single Rollup output config.")
     }
 
-    expect(output.entryFileNames?.({ name: "landing" })).toBe("assets/landing.js")
+    expect(output.entryFileNames?.({ name: "landing" })).toBe(
+      "assets/landing.js",
+    )
     expect(output.entryFileNames?.({ name: "workspace" })).toBe(
       "assets/workspace.js",
     )

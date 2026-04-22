@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearTeamChildCollectionCommandResult,
@@ -10,7 +10,7 @@ import {
   mapLinearWorkflowState,
   normalizeLimit,
   resolveLinearTeamId,
-} from "../../client";
+} from "../../client"
 
 const LIST_TEAM_WORKFLOW_STATES_QUERY = `
   query OttoLinearTeamListWorkflowStates($id: String!, $limit: Int!) {
@@ -62,38 +62,38 @@ const LIST_TEAM_WORKFLOW_STATES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearTeamListWorkflowStates: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const teamIdOrKey =
-      typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : "";
+      typeof args.teamIdOrKey === "string" ? args.teamIdOrKey.trim() : ""
 
     if (!teamIdOrKey) {
-      throw new Error("linear team.list_workflow_states requires teamIdOrKey.");
+      throw new Error("linear team.list_workflow_states requires teamIdOrKey.")
     }
 
     const teamId = await resolveLinearTeamId({
       accessToken: context.auth.accessToken,
       teamIdOrKey,
-    });
+    })
     const limit = normalizeLimit({
       defaultLimit: 50,
       max: 200,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       team?:
         | (LinearTeamNode & {
             states?: {
-              nodes?: LinearWorkflowStateNode[] | null;
-            } | null;
+              nodes?: LinearWorkflowStateNode[] | null
+            } | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_TEAM_WORKFLOW_STATES_QUERY,
@@ -101,17 +101,17 @@ export const executeLinearTeamListWorkflowStates: IntegrationCommandExecute =
         id: teamId,
         limit,
       },
-    });
+    })
 
     const team =
       data.team ??
       (await findLinearTeamByIdOrKey({
         accessToken: context.auth.accessToken,
         teamIdOrKey,
-      }));
+      }))
 
     if (!team) {
-      throw new Error(`Linear could not find team ${teamIdOrKey}.`);
+      throw new Error(`Linear could not find team ${teamIdOrKey}.`)
     }
 
     return {
@@ -122,5 +122,5 @@ export const executeLinearTeamListWorkflowStates: IntegrationCommandExecute =
         team,
       }),
       lookup: teamIdOrKey,
-    };
-  };
+    }
+  }

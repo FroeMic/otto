@@ -16,12 +16,12 @@ import { IntegrationSettingsShell } from "@/features/integrations/components/Int
 import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
 
 import {
+  type BraveRuntimeConfig,
   buildBraveDefaultRows,
   buildBraveProviderRows,
   formatBraveAvailabilityLabel,
   formatBraveManagedByLabel,
   formatBraveProviderLabel,
-  type BraveRuntimeConfig,
 } from "../formatters"
 
 export interface BraveIntegrationStatusPageProps {
@@ -31,7 +31,9 @@ export interface BraveIntegrationStatusPageProps {
   orgSlug: string
 }
 
-function getBraveConfig(detail: WorkspaceIntegrationDetail): BraveRuntimeConfig {
+function getBraveConfig(
+  detail: WorkspaceIntegrationDetail,
+): BraveRuntimeConfig {
   const config = detail.settings?.surface.config
 
   if (!config || typeof config !== "object" || Array.isArray(config)) {
@@ -59,7 +61,11 @@ export function BraveIntegrationStatusPage({
     <div className="flex w-full max-w-3xl flex-col gap-6 pb-12">
       <section className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <img alt="" className="size-8" src={detail.integration.iconSrc ?? ""} />
+          <img
+            alt=""
+            className="size-8"
+            src={detail.integration.iconSrc ?? ""}
+          />
           <h1 className="text-3xl font-semibold tracking-tight">
             {detail.integration.label}
           </h1>
@@ -76,7 +82,8 @@ export function BraveIntegrationStatusPage({
               <SettingsSection>
                 <SettingsSectionTitle>Capabilities</SettingsSectionTitle>
                 <SettingsSectionDescription>
-                  These are the Brave-backed tools Otto can use in this workspace.
+                  These are the Brave-backed tools Otto can use in this
+                  workspace.
                 </SettingsSectionDescription>
                 <IntegrationCapabilitiesList rows={detail.capabilities} />
               </SettingsSection>
@@ -164,7 +171,8 @@ export function BraveIntegrationStatusPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Status</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Otto can only use Brave search when a provider is configured.
+                        Otto can only use Brave search when a provider is
+                        configured.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     <Badge
@@ -222,7 +230,8 @@ export function BraveIntegrationStatusPage({
                       <SettingsRowLabel>
                         <SettingsRowTitle>Attention</SettingsRowTitle>
                         <SettingsRowDescription>
-                          Otto cannot rely on Brave search until the issue below is resolved.
+                          Otto cannot rely on Brave search until the issue below
+                          is resolved.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <Badge variant="destructive">Needs attention</Badge>

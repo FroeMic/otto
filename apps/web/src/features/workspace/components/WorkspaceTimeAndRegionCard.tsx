@@ -2,7 +2,13 @@ import { GlobeHemisphereEastIcon } from "@phosphor-icons/react/ssr"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsRowDescription,
+  SettingsRowLabel,
+  SettingsRowTitle,
+} from "@/client/app/app-shell/SettingsLayout"
 import {
   Combobox,
   ComboboxCollection,
@@ -23,13 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsRowDescription,
-  SettingsRowLabel,
-  SettingsRowTitle,
-} from "@/client/app/app-shell/SettingsLayout"
 import { updateWorkspaceSettings } from "@/features/workspace/api/workspace"
 import {
   getGroupedTimeZoneOptions,
@@ -115,7 +114,9 @@ export function WorkspaceTimeAndRegionCard({
     },
   })
 
-  async function updatePreference<Key extends keyof WorkspaceDateTimePreferences>(
+  async function updatePreference<
+    Key extends keyof WorkspaceDateTimePreferences,
+  >(
     key: Key,
     value: WorkspaceDateTimePreferences[Key],
     action: "update-locale" | "update-time-format" | "update-timezone",

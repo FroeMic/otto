@@ -139,79 +139,79 @@ export function createWorkspaceRouter(
   return app
     .route("/", createWorkspaceChatRouter())
     .get(
-    "/api/web/bootstrap/:orgSlug",
-    zValidator("param", workspaceParamsSchema),
-    async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
+      "/api/web/bootstrap/:orgSlug",
+      zValidator("param", workspaceParamsSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
 
-      if ("response" in authResult) {
-        return authResult.response
-      }
+        if ("response" in authResult) {
+          return authResult.response
+        }
 
-      return handleWorkspaceBootstrapRequest({
-        getCurrentWorkspace: dependencies.getCurrentWorkspace,
-        getDashboardOrganizations: dependencies.getDashboardOrganizations,
-        hasPlatformAdminRole: dependencies.hasPlatformAdminRole,
-        onBootstrapFailure: (payload) => {
-          console.error("[workspace-bootstrap] failed", payload)
-        },
-        orgSlug: context.req.valid("param").orgSlug,
-        syncUserFromSession: dependencies.syncUserFromSession,
-        user: authResult.user,
-      })
-    },
-  )
+        return handleWorkspaceBootstrapRequest({
+          getCurrentWorkspace: dependencies.getCurrentWorkspace,
+          getDashboardOrganizations: dependencies.getDashboardOrganizations,
+          hasPlatformAdminRole: dependencies.hasPlatformAdminRole,
+          onBootstrapFailure: (payload) => {
+            console.error("[workspace-bootstrap] failed", payload)
+          },
+          orgSlug: context.req.valid("param").orgSlug,
+          syncUserFromSession: dependencies.syncUserFromSession,
+          user: authResult.user,
+        })
+      },
+    )
     .get(
-    "/api/workspace/:orgSlug/usage",
-    zValidator("param", workspaceParamsSchema),
-    zValidator("query", workspaceUsageQuerySchema),
-    async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
+      "/api/workspace/:orgSlug/usage",
+      zValidator("param", workspaceParamsSchema),
+      zValidator("query", workspaceUsageQuerySchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
 
-      if ("response" in authResult) {
-        return authResult.response
-      }
+        if ("response" in authResult) {
+          return authResult.response
+        }
 
-      const search = context.req.valid("query")
+        const search = context.req.valid("query")
 
-      return handleWorkspaceUsageRequest({
-        from: new Date(search.from),
-        getOrganizationTenantForBilling:
-          dependencies.getOrganizationTenantForBilling,
-        getOrganizationWorkspaceBySlug:
-          dependencies.getOrganizationWorkspaceBySlug,
-        getTenantProviderUsageOverview:
-          dependencies.getTenantProviderUsageOverview,
-        orgSlug: context.req.valid("param").orgSlug,
-        syncUserFromSession: dependencies.syncUserFromSession,
-        to: new Date(search.to),
-        user: authResult.user,
-      })
-    },
-  )
+        return handleWorkspaceUsageRequest({
+          from: new Date(search.from),
+          getOrganizationTenantForBilling:
+            dependencies.getOrganizationTenantForBilling,
+          getOrganizationWorkspaceBySlug:
+            dependencies.getOrganizationWorkspaceBySlug,
+          getTenantProviderUsageOverview:
+            dependencies.getTenantProviderUsageOverview,
+          orgSlug: context.req.valid("param").orgSlug,
+          syncUserFromSession: dependencies.syncUserFromSession,
+          to: new Date(search.to),
+          user: authResult.user,
+        })
+      },
+    )
     .post(
-    "/api/workspace/:orgSlug/settings",
-    zValidator("param", workspaceParamsSchema),
-    zValidator("json", workspaceSettingsUpdateSchema),
-    async (context) => {
-      const authResult = await authenticateUser(context.req.raw)
+      "/api/workspace/:orgSlug/settings",
+      zValidator("param", workspaceParamsSchema),
+      zValidator("json", workspaceSettingsUpdateSchema),
+      async (context) => {
+        const authResult = await authenticateUser(context.req.raw)
 
-      if ("response" in authResult) {
-        return authResult.response
-      }
+        if ("response" in authResult) {
+          return authResult.response
+        }
 
-      return handleWorkspaceSettingsUpdateRequest({
-        body: context.req.valid("json"),
-        getOrganizationWorkspaceBySlug:
-          dependencies.getOrganizationWorkspaceBySlug,
-        orgSlug: context.req.valid("param").orgSlug,
-        renameOrganization: dependencies.renameOrganization,
-        syncUserFromSession: dependencies.syncUserFromSession,
-        updateOrganizationSlug: dependencies.updateOrganizationSlug,
-        updateWorkspaceDateTimePreferences:
-          dependencies.updateWorkspaceDateTimePreferences,
-        user: authResult.user,
-      })
-    },
-  )
+        return handleWorkspaceSettingsUpdateRequest({
+          body: context.req.valid("json"),
+          getOrganizationWorkspaceBySlug:
+            dependencies.getOrganizationWorkspaceBySlug,
+          orgSlug: context.req.valid("param").orgSlug,
+          renameOrganization: dependencies.renameOrganization,
+          syncUserFromSession: dependencies.syncUserFromSession,
+          updateOrganizationSlug: dependencies.updateOrganizationSlug,
+          updateWorkspaceDateTimePreferences:
+            dependencies.updateWorkspaceDateTimePreferences,
+          user: authResult.user,
+        })
+      },
+    )
 }

@@ -21,7 +21,9 @@ describe("API Bun server adapter", () => {
       env: {},
     })
 
-    await expect(Promise.resolve(fetch(request, server))).resolves.toBe(response)
+    await expect(Promise.resolve(fetch(request, server))).resolves.toBe(
+      response,
+    )
 
     expect(calls).toEqual([[request, { server }]])
   })

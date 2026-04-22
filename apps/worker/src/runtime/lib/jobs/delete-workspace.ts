@@ -1,28 +1,25 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
+import { getDb } from "../../db/client"
 import {
   organizations,
   providerAccounts,
   providerCredentials,
-  tenants,
   tenantServers,
-} from "../../db/schema";
-import { HetznerApiError, HetznerClient } from "../hetzner/client";
-import {
-  getWorkOS,
-  hasWorkOSConfig,
-} from "../workos";
-import { OpenAiProvisioner } from "../providers/openai/provisioning";
+  tenants,
+} from "../../db/schema"
+import { HetznerApiError, HetznerClient } from "../hetzner/client"
+import { OpenAiProvisioner } from "../providers/openai/provisioning"
+import { getWorkOS, hasWorkOSConfig } from "../workos"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   type ClaimedJob,
-  JOB_TYPES,
   type DeleteWorkspacePayload,
-} from "./types";
+  JOB_TYPES,
+} from "./types"
 
-const OPENAI_PROVIDER_KEY = "openai";
+const OPENAI_PROVIDER_KEY = "openai"
 
 const DELETE_WORKSPACE_EVENTS = {
   archivingOpenAiProject: "archiving_openai_project",
@@ -37,38 +34,41 @@ const DELETE_WORKSPACE_EVENTS = {
   skippedMissingOrganization: "skipped_missing_workspace",
   skippedMissingProviderServer: "skipped_missing_provider_server",
   skippedOpenAiProjectArchive: "skipped_openai_project_archive",
-  skippedOpenAiServiceAccountDeletion: "skipped_openai_service_account_deletion",
+  skippedOpenAiServiceAccountDeletion:
+    "skipped_openai_service_account_deletion",
   skippedWorkOsDeletion: "skipped_workos_deletion",
   succeeded: "delete_workspace_succeeded",
-} as const;
+} as const
 
-const openAiProvisioner = new OpenAiProvisioner();
+const openAiProvisioner = new OpenAiProvisioner()
 
 type DeleteOpenAiResourcesDependencies = {
-  appendJobEvent: typeof appendJobEvent;
+  appendJobEvent: typeof appendJobEvent
   openAiProvisioner: Pick<
     OpenAiProvisioner,
     "archiveProject" | "deleteTenantCredential"
-  >;
-};
+  >
+}
 
 const defaultDeleteOpenAiResourcesDependencies: DeleteOpenAiResourcesDependencies =
   {
     appendJobEvent,
     openAiProvisioner,
-  };
+  }
 
-export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> {
+export async function processDeleteWorkspaceJob(
+  job: ClaimedJob,
+): Promise<void> {
   if (job.jobType !== JOB_TYPES.deleteWorkspace) {
     throw new Error(
       `Unsupported job type for workspace deletion handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseDeleteWorkspacePayload(job.payload);
+  const payload = parseDeleteWorkspacePayload(job.payload)
 
   try {
-    const snapshot = await getWorkspaceDeletionSnapshot(payload.organizationId);
+    const snapshot = await getWorkspaceDeletionSnapshot(payload.organizationId)
 
     if (!snapshot.organization) {
       await appendJobEvent(
@@ -79,28 +79,28 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
           organizationId: payload.organizationId,
           organizationSlug: payload.organizationSlug,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         alreadyDeleted: true,
         organizationId: payload.organizationId,
         organizationSlug: payload.organizationSlug,
-      });
-      return;
+      })
+      return
     }
 
     const deletedOpenAiServiceAccounts = await deleteOpenAiResources({
       jobId: job.id,
       openAiCredentials: snapshot.openAiCredentials,
-    });
+    })
     const deletedHetznerServers = await deleteTenantServers({
       jobId: job.id,
       tenantServers: snapshot.tenantServers,
-    });
+    })
     const deletedWorkOsOrganization = await deleteWorkOsOrganization({
       externalOrganizationId: snapshot.organization.externalOrganizationId,
       jobId: job.id,
       organizationSlug: snapshot.organization.organizationSlug,
-    });
+    })
 
     await appendJobEvent(
       job.id,
@@ -110,11 +110,11 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
         organizationId: snapshot.organization.organizationId,
         organizationSlug: snapshot.organization.organizationSlug,
       },
-    );
+    )
 
     await getDb()
       .delete(organizations)
-      .where(eq(organizations.id, snapshot.organization.organizationId));
+      .where(eq(organizations.id, snapshot.organization.organizationId))
 
     await appendJobEvent(
       job.id,
@@ -124,7 +124,7 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
         organizationId: snapshot.organization.organizationId,
         organizationSlug: snapshot.organization.organizationSlug,
       },
-    );
+    )
 
     await appendJobEvent(
       job.id,
@@ -137,7 +137,7 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
         organizationId: snapshot.organization.organizationId,
         organizationSlug: snapshot.organization.organizationSlug,
       },
-    );
+    )
     await markJobSucceeded(job.id, {
       deletedHetznerServers,
       deletedOpenAiServiceAccounts,
@@ -145,9 +145,9 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
       organizationId: snapshot.organization.organizationId,
       organizationSlug: snapshot.organization.organizationSlug,
       tenantCount: snapshot.tenantCount,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
@@ -158,14 +158,14 @@ export async function processDeleteWorkspaceJob(job: ClaimedJob): Promise<void> 
         organizationId: payload.organizationId,
         organizationSlug: payload.organizationSlug,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 async function getWorkspaceDeletionSnapshot(organizationId: string) {
-  const db = getDb();
+  const db = getDb()
   const [organization] = await db
     .select({
       externalOrganizationId: organizations.externalId,
@@ -175,7 +175,7 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
     })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
-    .limit(1);
+    .limit(1)
 
   if (!organization) {
     return {
@@ -183,7 +183,7 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
       organization: null,
       tenantCount: 0,
       tenantServers: [],
-    };
+    }
   }
 
   const tenantRows = await db
@@ -191,9 +191,9 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
       id: tenants.id,
     })
     .from(tenants)
-    .where(eq(tenants.organizationId, organizationId));
+    .where(eq(tenants.organizationId, organizationId))
 
-  const tenantIds = tenantRows.map((tenant) => tenant.id);
+  const tenantIds = tenantRows.map((tenant) => tenant.id)
 
   const openAiCredentialRows =
     tenantIds.length > 0
@@ -215,7 +215,7 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
               eq(providerAccounts.providerKey, OPENAI_PROVIDER_KEY),
             ),
           )
-      : [];
+      : []
 
   return {
     openAiCredentials: openAiCredentialRows,
@@ -233,21 +233,21 @@ async function getWorkspaceDeletionSnapshot(organizationId: string) {
             .innerJoin(tenants, eq(tenantServers.tenantId, tenants.id))
             .where(eq(tenants.organizationId, organizationId))
         : [],
-  };
+  }
 }
 
 async function deleteOpenAiResources(input: {
-  appendJobEvent?: typeof appendJobEvent;
-  jobId: string;
+  appendJobEvent?: typeof appendJobEvent
+  jobId: string
   openAiCredentials: Array<{
-    projectId: string | null;
-    serviceAccountId: string | null;
-    tenantId: string;
-  }>;
+    projectId: string | null
+    serviceAccountId: string | null
+    tenantId: string
+  }>
   openAiProvisioner?: Pick<
     OpenAiProvisioner,
     "archiveProject" | "deleteTenantCredential"
-  >;
+  >
 }) {
   const dependencies: DeleteOpenAiResourcesDependencies = {
     appendJobEvent:
@@ -256,9 +256,9 @@ async function deleteOpenAiResources(input: {
     openAiProvisioner:
       input.openAiProvisioner ??
       defaultDeleteOpenAiResourcesDependencies.openAiProvisioner,
-  };
-  const uniqueCredentials = dedupeCredentialTargets(input.openAiCredentials);
-  let deletedCredentialCount = 0;
+  }
+  const uniqueCredentials = dedupeCredentialTargets(input.openAiCredentials)
+  let deletedCredentialCount = 0
 
   for (const target of uniqueCredentials) {
     await dependencies.appendJobEvent(
@@ -269,14 +269,14 @@ async function deleteOpenAiResources(input: {
         projectId: target.projectId,
         serviceAccountId: target.serviceAccountId,
       },
-    );
+    )
 
     try {
       await dependencies.openAiProvisioner.deleteTenantCredential({
         projectId: target.projectId,
         serviceAccountId: target.serviceAccountId,
-      });
-      deletedCredentialCount += 1;
+      })
+      deletedCredentialCount += 1
       await dependencies.appendJobEvent(
         input.jobId,
         DELETE_WORKSPACE_EVENTS.deletedOpenAiServiceAccount,
@@ -285,7 +285,7 @@ async function deleteOpenAiResources(input: {
           projectId: target.projectId,
           serviceAccountId: target.serviceAccountId,
         },
-      );
+      )
     } catch (error) {
       if (isOpenAiNotFoundError(error) || isOpenAiProjectArchivedError(error)) {
         await dependencies.appendJobEvent(
@@ -298,11 +298,11 @@ async function deleteOpenAiResources(input: {
             projectId: target.projectId,
             serviceAccountId: target.serviceAccountId,
           },
-        );
-        continue;
+        )
+        continue
       }
 
-      throw error;
+      throw error
     }
   }
 
@@ -314,10 +314,10 @@ async function deleteOpenAiResources(input: {
       {
         projectId,
       },
-    );
+    )
 
     try {
-      await dependencies.openAiProvisioner.archiveProject(projectId);
+      await dependencies.openAiProvisioner.archiveProject(projectId)
     } catch (error) {
       if (isOpenAiNotFoundError(error) || isOpenAiProjectArchivedError(error)) {
         await dependencies.appendJobEvent(
@@ -329,32 +329,32 @@ async function deleteOpenAiResources(input: {
           {
             projectId,
           },
-        );
-        continue;
+        )
+        continue
       }
 
-      throw error;
+      throw error
     }
   }
 
-  return deletedCredentialCount;
+  return deletedCredentialCount
 }
 
 async function deleteTenantServers(input: {
-  jobId: string;
+  jobId: string
   tenantServers: Array<{
-    provider: string;
-    providerServerId: string | null;
-    tenantId: string;
-  }>;
+    provider: string
+    providerServerId: string | null
+    tenantId: string
+  }>
 }) {
-  const hetznerTargets = dedupeHetznerTargets(input.tenantServers);
+  const hetznerTargets = dedupeHetznerTargets(input.tenantServers)
 
   if (hetznerTargets.length === 0) {
-    return 0;
+    return 0
   }
 
-  const hetznerClient = new HetznerClient();
+  const hetznerClient = new HetznerClient()
 
   for (const target of hetznerTargets) {
     await appendJobEvent(
@@ -365,10 +365,10 @@ async function deleteTenantServers(input: {
         providerServerId: target.providerServerId,
         tenantId: target.tenantId,
       },
-    );
+    )
 
     try {
-      await hetznerClient.deleteServer(target.providerServerId);
+      await hetznerClient.deleteServer(target.providerServerId)
       await appendJobEvent(
         input.jobId,
         DELETE_WORKSPACE_EVENTS.deletedHetznerServer,
@@ -377,7 +377,7 @@ async function deleteTenantServers(input: {
           providerServerId: target.providerServerId,
           tenantId: target.tenantId,
         },
-      );
+      )
     } catch (error) {
       if (isHetznerNotFoundError(error)) {
         await appendJobEvent(
@@ -388,21 +388,21 @@ async function deleteTenantServers(input: {
             providerServerId: target.providerServerId,
             tenantId: target.tenantId,
           },
-        );
-        continue;
+        )
+        continue
       }
 
-      throw error;
+      throw error
     }
   }
 
-  return hetznerTargets.length;
+  return hetznerTargets.length
 }
 
 async function deleteWorkOsOrganization(input: {
-  externalOrganizationId: string;
-  jobId: string;
-  organizationSlug: string;
+  externalOrganizationId: string
+  jobId: string
+  organizationSlug: string
 }) {
   if (!hasWorkOSConfig()) {
     await appendJobEvent(
@@ -413,8 +413,8 @@ async function deleteWorkOsOrganization(input: {
         externalOrganizationId: input.externalOrganizationId,
         organizationSlug: input.organizationSlug,
       },
-    );
-    return false;
+    )
+    return false
   }
 
   await appendJobEvent(
@@ -425,11 +425,13 @@ async function deleteWorkOsOrganization(input: {
       externalOrganizationId: input.externalOrganizationId,
       organizationSlug: input.organizationSlug,
     },
-  );
+  )
 
   try {
-    await getWorkOS().organizations.deleteOrganization(input.externalOrganizationId);
-    return true;
+    await getWorkOS().organizations.deleteOrganization(
+      input.externalOrganizationId,
+    )
+    return true
   } catch (error) {
     if (isWorkOsNotFoundError(error)) {
       await appendJobEvent(
@@ -440,27 +442,27 @@ async function deleteWorkOsOrganization(input: {
           externalOrganizationId: input.externalOrganizationId,
           organizationSlug: input.organizationSlug,
         },
-      );
-      return false;
+      )
+      return false
     }
 
-    throw error;
+    throw error
   }
 }
 
 function parseDeleteWorkspacePayload(
   payload: Record<string, unknown>,
 ): DeleteWorkspacePayload {
-  const organizationId = payload.organizationId;
-  const organizationSlug = payload.organizationSlug;
-  const organizationExternalId = payload.organizationExternalId;
+  const organizationId = payload.organizationId
+  const organizationSlug = payload.organizationSlug
+  const organizationExternalId = payload.organizationExternalId
 
   if (typeof organizationId !== "string" || organizationId.length === 0) {
-    throw new Error("Delete workspace job payload is missing organizationId");
+    throw new Error("Delete workspace job payload is missing organizationId")
   }
 
   if (typeof organizationSlug !== "string" || organizationSlug.length === 0) {
-    throw new Error("Delete workspace job payload is missing organizationSlug");
+    throw new Error("Delete workspace job payload is missing organizationSlug")
   }
 
   if (
@@ -469,123 +471,123 @@ function parseDeleteWorkspacePayload(
   ) {
     throw new Error(
       "Delete workspace job payload is missing organizationExternalId",
-    );
+    )
   }
 
   return {
     organizationExternalId,
     organizationId,
     organizationSlug,
-  };
+  }
 }
 
 function dedupeCredentialTargets(
   rows: Array<{
-    projectId: string | null;
-    serviceAccountId: string | null;
-    tenantId: string;
+    projectId: string | null
+    serviceAccountId: string | null
+    tenantId: string
   }>,
 ) {
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   const uniqueTargets: Array<{
-    projectId: string;
-    serviceAccountId: string;
-  }> = [];
+    projectId: string
+    serviceAccountId: string
+  }> = []
 
   for (const row of rows) {
     if (!row.projectId || !row.serviceAccountId) {
-      continue;
+      continue
     }
 
-    const key = `${row.projectId}:${row.serviceAccountId}`;
+    const key = `${row.projectId}:${row.serviceAccountId}`
 
     if (seen.has(key)) {
-      continue;
+      continue
     }
 
-    seen.add(key);
+    seen.add(key)
     uniqueTargets.push({
       projectId: row.projectId,
       serviceAccountId: row.serviceAccountId,
-    });
+    })
   }
 
-  return uniqueTargets;
+  return uniqueTargets
 }
 
 function dedupeProjectIds(
   rows: Array<{
-    projectId: string | null;
-    serviceAccountId: string | null;
-    tenantId: string;
+    projectId: string | null
+    serviceAccountId: string | null
+    tenantId: string
   }>,
 ) {
-  return [...new Set(rows.map((row) => row.projectId).filter(isNonEmptyString))];
+  return [...new Set(rows.map((row) => row.projectId).filter(isNonEmptyString))]
 }
 
 function dedupeHetznerTargets(
   rows: Array<{
-    provider: string;
-    providerServerId: string | null;
-    tenantId: string;
+    provider: string
+    providerServerId: string | null
+    tenantId: string
   }>,
 ) {
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   const uniqueTargets: Array<{
-    providerServerId: string;
-    tenantId: string;
-  }> = [];
+    providerServerId: string
+    tenantId: string
+  }> = []
 
   for (const row of rows) {
     if (row.provider !== "hetzner" || !row.providerServerId) {
-      continue;
+      continue
     }
 
-    const key = row.providerServerId;
+    const key = row.providerServerId
 
     if (seen.has(key)) {
-      continue;
+      continue
     }
 
-    seen.add(key);
+    seen.add(key)
     uniqueTargets.push({
       providerServerId: row.providerServerId,
       tenantId: row.tenantId,
-    });
+    })
   }
 
-  return uniqueTargets;
+  return uniqueTargets
 }
 
 function isHetznerNotFoundError(error: unknown) {
   return (
     error instanceof HetznerApiError &&
     (error.responseStatus === 404 || error.code === "not_found")
-  );
+  )
 }
 
 function isOpenAiNotFoundError(error: unknown) {
   if (!(error instanceof Error)) {
-    return false;
+    return false
   }
 
-  const normalizedMessage = error.message.toLowerCase();
-  return normalizedMessage.includes("not found");
+  const normalizedMessage = error.message.toLowerCase()
+  return normalizedMessage.includes("not found")
 }
 
 function isOpenAiProjectArchivedError(error: unknown) {
   if (!(error instanceof Error)) {
-    return false;
+    return false
   }
 
-  const normalizedMessage = error.message.toLowerCase();
-  return normalizedMessage.includes("code=project_archived");
+  const normalizedMessage = error.message.toLowerCase()
+  return normalizedMessage.includes("code=project_archived")
 }
 
 export const __testing = {
   deleteOpenAiResources,
   isOpenAiProjectArchivedError,
-};
+}
 
 function isWorkOsNotFoundError(error: unknown) {
   return (
@@ -593,17 +595,17 @@ function isWorkOsNotFoundError(error: unknown) {
     error !== null &&
     "status" in error &&
     error.status === 404
-  );
+  )
 }
 
 function isNonEmptyString(value: string | null): value is string {
-  return typeof value === "string" && value.length > 0;
+  return typeof value === "string" && value.length > 0
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown error";
+  return "Unknown error"
 }

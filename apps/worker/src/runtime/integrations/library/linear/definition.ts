@@ -1,18 +1,18 @@
-import type { IntegrationDefinition } from "../../framework/types";
-import type { AgentCapabilityDirection } from "../../../lib/agent-capabilities";
-import { executeLinearAttachmentCreate } from "./commands/attachment/create";
-import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file";
-import { executeLinearAttachmentGet } from "./commands/attachment/get";
-import { executeLinearAttachmentList } from "./commands/attachment/list";
-import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url";
-import { executeLinearAttachmentRequestUploadUrl } from "./commands/attachment/request-upload-url";
-import { executeLinearAttachmentUpdate } from "./commands/attachment/update";
-import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file";
-import { executeLinearCommentCreate } from "./commands/comment/create";
-import { executeLinearCommentDelete } from "./commands/comment/delete";
-import { executeLinearCommentGet } from "./commands/comment/get";
-import { executeLinearCommentList } from "./commands/comment/list";
-import { executeLinearCommentUpdate } from "./commands/comment/update";
+import type { AgentCapabilityDirection } from "../../../lib/agent-capabilities"
+import type { IntegrationDefinition } from "../../framework/types"
+import { executeLinearAttachmentCreate } from "./commands/attachment/create"
+import { executeLinearAttachmentCreateFromUploadedFile } from "./commands/attachment/create-from-uploaded-file"
+import { executeLinearAttachmentGet } from "./commands/attachment/get"
+import { executeLinearAttachmentList } from "./commands/attachment/list"
+import { executeLinearAttachmentListForUrl } from "./commands/attachment/list-for-url"
+import { executeLinearAttachmentRequestUploadUrl } from "./commands/attachment/request-upload-url"
+import { executeLinearAttachmentUpdate } from "./commands/attachment/update"
+import { executeLinearAttachmentUploadFile } from "./commands/attachment/upload-file"
+import { executeLinearCommentCreate } from "./commands/comment/create"
+import { executeLinearCommentDelete } from "./commands/comment/delete"
+import { executeLinearCommentGet } from "./commands/comment/get"
+import { executeLinearCommentList } from "./commands/comment/list"
+import { executeLinearCommentUpdate } from "./commands/comment/update"
 import {
   executeLinearCustomerCreate,
   executeLinearCustomerDelete,
@@ -20,7 +20,7 @@ import {
   executeLinearCustomerList,
   executeLinearCustomerListNeeds,
   executeLinearCustomerUpdate,
-} from "./commands/customer/commands";
+} from "./commands/customer/commands"
 import {
   executeLinearCustomerNeedArchive,
   executeLinearCustomerNeedCreate,
@@ -30,33 +30,33 @@ import {
   executeLinearCustomerNeedList,
   executeLinearCustomerNeedUnarchive,
   executeLinearCustomerNeedUpdate,
-} from "./commands/customer-need/commands";
+} from "./commands/customer-need/commands"
 import {
   executeLinearCustomerStatusCreate,
   executeLinearCustomerStatusDelete,
   executeLinearCustomerStatusGet,
   executeLinearCustomerStatusList,
   executeLinearCustomerStatusUpdate,
-} from "./commands/customer-status/commands";
+} from "./commands/customer-status/commands"
 import {
   executeLinearCustomerTierCreate,
   executeLinearCustomerTierDelete,
   executeLinearCustomerTierGet,
   executeLinearCustomerTierList,
   executeLinearCustomerTierUpdate,
-} from "./commands/customer-tier/commands";
-import { executeLinearCycleArchive } from "./commands/cycle/archive";
-import { executeLinearCycleCreate } from "./commands/cycle/create";
-import { executeLinearCycleGet } from "./commands/cycle/get";
-import { executeLinearCycleList } from "./commands/cycle/list";
-import { executeLinearCycleListIssues } from "./commands/cycle/list-issues";
-import { executeLinearCycleUpdate } from "./commands/cycle/update";
-import { executeLinearDocumentCreate } from "./commands/document/create";
-import { executeLinearDocumentDelete } from "./commands/document/delete";
-import { executeLinearDocumentGet } from "./commands/document/get";
-import { executeLinearDocumentList } from "./commands/document/list";
-import { executeLinearDocumentSearch } from "./commands/document/search";
-import { executeLinearDocumentUpdate } from "./commands/document/update";
+} from "./commands/customer-tier/commands"
+import { executeLinearCycleArchive } from "./commands/cycle/archive"
+import { executeLinearCycleCreate } from "./commands/cycle/create"
+import { executeLinearCycleGet } from "./commands/cycle/get"
+import { executeLinearCycleList } from "./commands/cycle/list"
+import { executeLinearCycleListIssues } from "./commands/cycle/list-issues"
+import { executeLinearCycleUpdate } from "./commands/cycle/update"
+import { executeLinearDocumentCreate } from "./commands/document/create"
+import { executeLinearDocumentDelete } from "./commands/document/delete"
+import { executeLinearDocumentGet } from "./commands/document/get"
+import { executeLinearDocumentList } from "./commands/document/list"
+import { executeLinearDocumentSearch } from "./commands/document/search"
+import { executeLinearDocumentUpdate } from "./commands/document/update"
 import {
   executeLinearInitiativeArchive,
   executeLinearInitiativeCreate,
@@ -67,23 +67,23 @@ import {
   executeLinearInitiativeListProjects,
   executeLinearInitiativeListUpdates,
   executeLinearInitiativeUpdate,
-} from "./commands/initiative/commands";
-import { executeLinearIssueAddLabel } from "./commands/issue/add-label";
-import { executeLinearIssueArchive } from "./commands/issue/archive";
-import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update";
-import { executeLinearIssueCreate } from "./commands/issue/create";
-import { executeLinearIssueDelete } from "./commands/issue/delete";
-import { executeLinearIssueGet } from "./commands/issue/get";
-import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image";
-import { executeLinearIssueList } from "./commands/issue/list";
-import { executeLinearIssueListAttachments } from "./commands/issue/list-attachments";
-import { executeLinearIssueListComments } from "./commands/issue/list-comments";
-import { executeLinearIssueListDocuments } from "./commands/issue/list-documents";
-import { executeLinearIssueListRelations } from "./commands/issue/list-relations";
-import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label";
-import { executeLinearIssueSearch } from "./commands/issue/search";
-import { executeLinearIssueUpdate } from "./commands/issue/update";
-import { executeLinearIssueUploadInlineImage } from "./commands/issue/upload-inline-image";
+} from "./commands/initiative/commands"
+import { executeLinearIssueAddLabel } from "./commands/issue/add-label"
+import { executeLinearIssueArchive } from "./commands/issue/archive"
+import { executeLinearIssueBatchUpdate } from "./commands/issue/batch-update"
+import { executeLinearIssueCreate } from "./commands/issue/create"
+import { executeLinearIssueDelete } from "./commands/issue/delete"
+import { executeLinearIssueGet } from "./commands/issue/get"
+import { executeLinearIssueInsertInlineImage } from "./commands/issue/insert-inline-image"
+import { executeLinearIssueList } from "./commands/issue/list"
+import { executeLinearIssueListAttachments } from "./commands/issue/list-attachments"
+import { executeLinearIssueListComments } from "./commands/issue/list-comments"
+import { executeLinearIssueListDocuments } from "./commands/issue/list-documents"
+import { executeLinearIssueListRelations } from "./commands/issue/list-relations"
+import { executeLinearIssueRemoveLabel } from "./commands/issue/remove-label"
+import { executeLinearIssueSearch } from "./commands/issue/search"
+import { executeLinearIssueUpdate } from "./commands/issue/update"
+import { executeLinearIssueUploadInlineImage } from "./commands/issue/upload-inline-image"
 import {
   executeLinearLabelCreateIssueLabel,
   executeLinearLabelDeleteIssueLabel,
@@ -92,7 +92,7 @@ import {
   executeLinearLabelRestoreIssueLabel,
   executeLinearLabelRetireIssueLabel,
   executeLinearLabelUpdateIssueLabel,
-} from "./commands/label/issue";
+} from "./commands/label/issue"
 import {
   executeLinearLabelCreateProjectLabel,
   executeLinearLabelDeleteProjectLabel,
@@ -101,20 +101,20 @@ import {
   executeLinearLabelRestoreProjectLabel,
   executeLinearLabelRetireProjectLabel,
   executeLinearLabelUpdateProjectLabel,
-} from "./commands/label/project";
-import { executeLinearProjectArchive } from "./commands/project/archive";
-import { executeLinearProjectCreate } from "./commands/project/create";
-import { executeLinearProjectCreateUpdate } from "./commands/project/create-update";
-import { executeLinearProjectDelete } from "./commands/project/delete";
-import { executeLinearProjectGet } from "./commands/project/get";
-import { executeLinearProjectList } from "./commands/project/list";
-import { executeLinearProjectListDocuments } from "./commands/project/list-documents";
-import { executeLinearProjectListIssues } from "./commands/project/list-issues";
-import { executeLinearProjectListLabels } from "./commands/project/list-labels";
-import { executeLinearProjectListMilestones } from "./commands/project/list-milestones";
-import { executeLinearProjectListUpdates } from "./commands/project/list-updates";
-import { executeLinearProjectSearch } from "./commands/project/search";
-import { executeLinearProjectUpdate } from "./commands/project/update";
+} from "./commands/label/project"
+import { executeLinearProjectArchive } from "./commands/project/archive"
+import { executeLinearProjectCreate } from "./commands/project/create"
+import { executeLinearProjectCreateUpdate } from "./commands/project/create-update"
+import { executeLinearProjectDelete } from "./commands/project/delete"
+import { executeLinearProjectGet } from "./commands/project/get"
+import { executeLinearProjectList } from "./commands/project/list"
+import { executeLinearProjectListDocuments } from "./commands/project/list-documents"
+import { executeLinearProjectListIssues } from "./commands/project/list-issues"
+import { executeLinearProjectListLabels } from "./commands/project/list-labels"
+import { executeLinearProjectListMilestones } from "./commands/project/list-milestones"
+import { executeLinearProjectListUpdates } from "./commands/project/list-updates"
+import { executeLinearProjectSearch } from "./commands/project/search"
+import { executeLinearProjectUpdate } from "./commands/project/update"
 import {
   executeLinearProjectMilestoneCreate,
   executeLinearProjectMilestoneDelete,
@@ -122,57 +122,57 @@ import {
   executeLinearProjectMilestoneList,
   executeLinearProjectMilestoneMove,
   executeLinearProjectMilestoneUpdate,
-} from "./commands/project-milestone/commands";
+} from "./commands/project-milestone/commands"
 import {
   executeLinearProjectStatusCreate,
   executeLinearProjectStatusGet,
   executeLinearProjectStatusList,
   executeLinearProjectStatusUpdate,
-} from "./commands/project-status/commands";
-import { executeLinearTeamCreate } from "./commands/team/create";
-import { executeLinearTeamDelete } from "./commands/team/delete";
-import { executeLinearTeamGet } from "./commands/team/get";
-import { executeLinearTeamList } from "./commands/team/list";
-import { executeLinearTeamListCycles } from "./commands/team/list-cycles";
-import { executeLinearTeamListIssues } from "./commands/team/list-issues";
-import { executeLinearTeamListLabels } from "./commands/team/list-labels";
-import { executeLinearTeamListProjects } from "./commands/team/list-projects";
-import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states";
-import { executeLinearTeamMembersAdd } from "./commands/team/members-add";
-import { executeLinearTeamMembersRemove } from "./commands/team/members-remove";
-import { executeLinearTeamMembersUpdate } from "./commands/team/members-update";
-import { executeLinearTeamUnarchive } from "./commands/team/unarchive";
-import { executeLinearTeamUpdate } from "./commands/team/update";
-import { executeLinearUserGet } from "./commands/user/get";
-import { executeLinearUserList } from "./commands/user/list";
-import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues";
-import { executeLinearUserListCreatedIssues } from "./commands/user/list-created-issues";
-import { executeLinearUserListTeamMemberships } from "./commands/user/list-team-memberships";
-import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization";
-import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer";
-import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses";
-import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams";
-import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users";
-import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states";
-import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite";
-import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel";
-import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-member/invite-resend";
-import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update";
-import { executeLinearWorkspaceMemberUpdate } from "./commands/workspace-member/update";
-import { linearOAuthProvider } from "./oauth/provider";
+} from "./commands/project-status/commands"
+import { executeLinearTeamCreate } from "./commands/team/create"
+import { executeLinearTeamDelete } from "./commands/team/delete"
+import { executeLinearTeamGet } from "./commands/team/get"
+import { executeLinearTeamList } from "./commands/team/list"
+import { executeLinearTeamListCycles } from "./commands/team/list-cycles"
+import { executeLinearTeamListIssues } from "./commands/team/list-issues"
+import { executeLinearTeamListLabels } from "./commands/team/list-labels"
+import { executeLinearTeamListProjects } from "./commands/team/list-projects"
+import { executeLinearTeamListWorkflowStates } from "./commands/team/list-workflow-states"
+import { executeLinearTeamMembersAdd } from "./commands/team/members-add"
+import { executeLinearTeamMembersRemove } from "./commands/team/members-remove"
+import { executeLinearTeamMembersUpdate } from "./commands/team/members-update"
+import { executeLinearTeamUnarchive } from "./commands/team/unarchive"
+import { executeLinearTeamUpdate } from "./commands/team/update"
+import { executeLinearUserGet } from "./commands/user/get"
+import { executeLinearUserList } from "./commands/user/list"
+import { executeLinearUserListAssignedIssues } from "./commands/user/list-assigned-issues"
+import { executeLinearUserListCreatedIssues } from "./commands/user/list-created-issues"
+import { executeLinearUserListTeamMemberships } from "./commands/user/list-team-memberships"
+import { executeLinearWorkspaceGetOrganization } from "./commands/workspace/get-organization"
+import { executeLinearWorkspaceGetViewer } from "./commands/workspace/get-viewer"
+import { executeLinearWorkspaceListProjectStatuses } from "./commands/workspace/list-project-statuses"
+import { executeLinearWorkspaceListTeams } from "./commands/workspace/list-teams"
+import { executeLinearWorkspaceListUsers } from "./commands/workspace/list-users"
+import { executeLinearWorkspaceListWorkflowStates } from "./commands/workspace/list-workflow-states"
+import { executeLinearWorkspaceMemberInvite } from "./commands/workspace-member/invite"
+import { executeLinearWorkspaceMemberInviteCancel } from "./commands/workspace-member/invite-cancel"
+import { executeLinearWorkspaceMemberInviteResend } from "./commands/workspace-member/invite-resend"
+import { executeLinearWorkspaceMemberInviteUpdate } from "./commands/workspace-member/invite-update"
+import { executeLinearWorkspaceMemberUpdate } from "./commands/workspace-member/update"
+import { linearOAuthProvider } from "./oauth/provider"
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
   minimum: 1,
   maximum: 100,
   description: "Maximum number of results to return.",
-} as const;
+} as const
 
 const IDENTIFIER_OR_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Issue identifier like ENG-123 or a Linear issue id.",
-} as const;
+} as const
 
 const IDENTIFIERS_OR_IDS_ARGUMENT_SCHEMA = {
   type: "array",
@@ -184,18 +184,18 @@ const IDENTIFIERS_OR_IDS_ARGUMENT_SCHEMA = {
   },
   description:
     "Issue identifiers like ENG-123 or Linear issue ids. Maximum 50 issues at a time.",
-} as const;
+} as const
 
 const TITLE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Issue title.",
-} as const;
+} as const
 
 const OPTIONAL_STRING_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-} as const;
+} as const
 
 const LABEL_IDS_ARGUMENT_SCHEMA = {
   type: "array",
@@ -204,7 +204,7 @@ const LABEL_IDS_ARGUMENT_SCHEMA = {
     minLength: 1,
   },
   description: "List of Linear issue label ids.",
-} as const;
+} as const
 
 const PRIORITY_ARGUMENT_SCHEMA = {
   type: "integer",
@@ -212,37 +212,37 @@ const PRIORITY_ARGUMENT_SCHEMA = {
   maximum: 4,
   description:
     "Issue priority where 0 = none, 1 = urgent, 2 = high, 3 = medium, 4 = low.",
-} as const;
+} as const
 
 const COMMENT_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear comment id.",
-} as const;
+} as const
 
 const COMMENT_BODY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Comment body in markdown.",
-} as const;
+} as const
 
 const PROJECT_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear project id.",
-} as const;
+} as const
 
 const PROJECT_NAME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Project name.",
-} as const;
+} as const
 
 const PROJECT_QUERY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Free-text project search query.",
-} as const;
+} as const
 
 const TEAM_IDS_ARGUMENT_SCHEMA = {
   type: "array",
@@ -252,26 +252,26 @@ const TEAM_IDS_ARGUMENT_SCHEMA = {
     minLength: 1,
   },
   description: "List of Linear team ids associated with the project.",
-} as const;
+} as const
 
 const TEAM_ID_OR_KEY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description:
     "Linear team id, preferably from workspace.list_teams, or a short team key such as INT.",
-} as const;
+} as const
 
 const TEAM_NAME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Team name.",
-} as const;
+} as const
 
 const TEAM_KEY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Optional short team key such as INT.",
-} as const;
+} as const
 
 const MEMBER_IDS_ARGUMENT_SCHEMA = {
   type: "array",
@@ -280,151 +280,151 @@ const MEMBER_IDS_ARGUMENT_SCHEMA = {
     minLength: 1,
   },
   description: "Optional list of Linear user ids for project members.",
-} as const;
+} as const
 
 const DATE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Timeless date in YYYY-MM-DD format.",
-} as const;
+} as const
 
 const PROJECT_UPDATE_HEALTH_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["onTrack", "atRisk", "offTrack"],
   description: "Project update health state.",
-} as const;
+} as const
 
 const CYCLE_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear cycle id.",
-} as const;
+} as const
 
 const USER_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear user id.",
-} as const;
+} as const
 
 const USER_ROLE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["admin", "app", "guest", "owner", "user"],
   description: "Linear user role.",
-} as const;
+} as const
 
 const TEAM_MEMBERSHIP_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear team membership id.",
-} as const;
+} as const
 
 const EMAIL_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Email address.",
-} as const;
+} as const
 
 const ORGANIZATION_INVITE_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear organization invite id.",
-} as const;
+} as const
 
 const DOCUMENT_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear document id.",
-} as const;
+} as const
 
 const ATTACHMENT_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear attachment id.",
-} as const;
+} as const
 
 const DOCUMENT_TITLE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Document title.",
-} as const;
+} as const
 
 const DOCUMENT_QUERY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Free-text document search query.",
-} as const;
+} as const
 
 const LABEL_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear label id.",
-} as const;
+} as const
 
 const LABEL_NAME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Label name.",
-} as const;
+} as const
 
 const MILESTONE_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear project milestone id.",
-} as const;
+} as const
 
 const PROJECT_STATUS_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear project status id.",
-} as const;
+} as const
 
 const INITIATIVE_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear initiative id.",
-} as const;
+} as const
 
 const INITIATIVE_STATUS_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["Planned", "Active", "Completed"],
   description: "Linear initiative status.",
-} as const;
+} as const
 
 const CUSTOMER_STATUS_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear customer status id.",
-} as const;
+} as const
 
 const CUSTOMER_TIER_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear customer tier id.",
-} as const;
+} as const
 
 const CUSTOMER_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear customer id.",
-} as const;
+} as const
 
 const CUSTOMER_NEED_ID_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Linear customer need id.",
-} as const;
+} as const
 
 const PROJECT_STATUS_TYPE_ARGUMENT_SCHEMA = {
   type: "string",
   enum: ["backlog", "canceled", "completed", "paused", "planned", "started"],
   description: "Linear project status type.",
-} as const;
+} as const
 
 const DATETIME_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "ISO-8601 datetime string.",
-} as const;
+} as const
 
 export const linearIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [
@@ -8328,13 +8328,13 @@ export const linearIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/linear/status`,
   showInWorkspaceCatalog: true,
-};
+}
 
 function buildCapability(input: {
-  description: string;
-  direction: AgentCapabilityDirection;
-  key: string;
-  label: string;
+  description: string
+  direction: AgentCapabilityDirection
+  key: string
+  label: string
 }) {
   return {
     description: input.description,
@@ -8342,5 +8342,5 @@ function buildCapability(input: {
     key: input.key,
     label: input.label,
     source: "integration" as const,
-  };
+  }
 }

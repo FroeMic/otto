@@ -15,30 +15,29 @@ import {
   type WorkspaceChatConversationListQuery,
   type WorkspaceChatConversationListResponse,
   type WorkspaceChatConversationSummary,
-  type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessage,
+  type WorkspaceChatMessageCreateRequest,
   type WorkspaceChatMessageCreateResponse,
   type WorkspaceChatUser,
   workspaceChatAttachmentUploadResponseSchema,
-  workspaceChatMessageCancelResponseSchema,
   workspaceChatConversationCreateRequestSchema,
   workspaceChatConversationListQuerySchema,
+  workspaceChatMessageCancelResponseSchema,
   workspaceChatMessageCreateRequestSchema,
 } from "@otto/feature-workspace-chat"
 import { Hono } from "hono"
 import { z } from "zod"
-
+import {
+  createWorkspaceChatAttachment,
+  getWorkspaceChatAttachmentContentForUser,
+  transcribeWorkspaceChatAttachmentForUser,
+} from "./chat-attachments-service"
 import {
   cancelWorkspaceChatAssistantMessageForUser,
   createWorkspaceChatConversation,
   getWorkspaceChatConversationDetail,
   listWorkspaceChatConversations,
 } from "./chat-data"
-import {
-  createWorkspaceChatAttachment,
-  getWorkspaceChatAttachmentContentForUser,
-  transcribeWorkspaceChatAttachmentForUser,
-} from "./chat-attachments-service"
 import { createWorkspaceChatRealtimeRouter } from "./chat-realtime-routes"
 import { createAndDispatchWorkspaceChatMessage } from "./chat-service"
 import { syncUserFromSession } from "./data"
@@ -87,7 +86,11 @@ export type WorkspaceChatRouteDependencies = {
     attachmentId: string
     orgSlug: string
     userExternalId: string
-  }) => Promise<{ bytes: Uint8Array; fileName: string; mimeType: string } | null>
+  }) => Promise<{
+    bytes: Uint8Array
+    fileName: string
+    mimeType: string
+  } | null>
   createMessage: (payload: {
     clientMessageId?: string
     conversationId: string
@@ -329,7 +332,7 @@ export function createWorkspaceChatRouter(
           return new Response(body, {
             headers: {
               "Cache-Control": "no-store",
-              "Content-Disposition": `${query.disposition === "inline" ? "inline" : "attachment"}; filename=\"${sanitizeDownloadFileName(download.fileName)}\"`,
+              "Content-Disposition": `${query.disposition === "inline" ? "inline" : "attachment"}; filename="${sanitizeDownloadFileName(download.fileName)}"`,
               "Content-Length": String(download.bytes.byteLength),
               "Content-Type": download.mimeType,
             },

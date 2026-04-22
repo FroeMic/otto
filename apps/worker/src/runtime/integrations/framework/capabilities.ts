@@ -1,4 +1,4 @@
-import type { AgentCapability } from "../../lib/agent-capabilities";
+import type { AgentCapability } from "../../lib/agent-capabilities"
 import type {
   IntegrationCapabilityPolicy,
   IntegrationCommandEffect,
@@ -7,9 +7,9 @@ import type {
   IntegrationRuntimeCommandGroupDefinition,
   RuntimeCapabilityState,
   RuntimeIntegrationStatus,
-} from "./types";
+} from "./types"
 
-const READ_COMMAND_VERBS = new Set(["get", "list", "list_for_url", "search"]);
+const READ_COMMAND_VERBS = new Set(["get", "list", "list_for_url", "search"])
 
 const WRITE_COMMAND_VERBS = new Set([
   "add",
@@ -35,120 +35,120 @@ const WRITE_COMMAND_VERBS = new Set([
   "update",
   "upload_file",
   "upload_inline_image",
-]);
+])
 
 function getCommandVerb(command: IntegrationRuntimeCommandDefinition) {
-  const pathVerb = command.commandPath.at(-1)?.trim().toLowerCase();
+  const pathVerb = command.commandPath.at(-1)?.trim().toLowerCase()
 
   if (pathVerb) {
-    return pathVerb;
+    return pathVerb
   }
 
-  return command.commandKey.split(".").at(-1)?.trim().toLowerCase() ?? "";
+  return command.commandKey.split(".").at(-1)?.trim().toLowerCase() ?? ""
 }
 
 export function getCommandEffect(
   command: IntegrationRuntimeCommandDefinition,
 ): IntegrationCommandEffect {
   if (command.effect) {
-    return command.effect;
+    return command.effect
   }
 
-  const verb = getCommandVerb(command);
+  const verb = getCommandVerb(command)
 
   if (READ_COMMAND_VERBS.has(verb)) {
-    return "read";
+    return "read"
   }
 
   if (WRITE_COMMAND_VERBS.has(verb)) {
-    return "write";
+    return "write"
   }
 
-  return "write";
+  return "write"
 }
 
 export function getCommandPolicy(input: {
-  policy: IntegrationCapabilityPolicy | null;
+  policy: IntegrationCapabilityPolicy | null
 }) {
-  return input.policy ?? null;
+  return input.policy ?? null
 }
 
 export function isCommandUserControllable(
   command: IntegrationRuntimeCommandDefinition,
 ) {
   if (typeof command.userControllable === "boolean") {
-    return command.userControllable;
+    return command.userControllable
   }
 
   if (command.agentAvailability?.available === false) {
-    return false;
+    return false
   }
 
-  return true;
+  return true
 }
 
 export function resolveCommandCapabilityState(input: {
-  command: IntegrationRuntimeCommandDefinition;
-  policy: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+  command: IntegrationRuntimeCommandDefinition
+  policy: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): RuntimeCapabilityState {
   if (input.status.needsAttention || !input.status.connected) {
     return {
       reason: "Integration disconnected.",
       status: "needs_attention",
-    };
+    }
   }
 
   if (input.command.agentAvailability?.available === false) {
     return {
       reason: input.command.agentAvailability.reason,
       status: "disabled",
-    };
+    }
   }
 
   if (input.policy?.policy === "block") {
     return {
       reason: "Disabled by workspace policy.",
       status: "disabled",
-    };
+    }
   }
 
   return {
     status: "enabled",
-  };
+  }
 }
 
 export type ResolvedIntegrationCommandCapability = {
-  capabilityKey: string;
-  capabilityState: RuntimeCapabilityState;
-  capabilityType: "command";
-  commandKey: string;
-  commandGroup: string | null;
-  commandPath: string[];
-  description: string;
-  effect: IntegrationCommandEffect;
-  integrationKey: string;
-  integrationLabel: string;
-  label: string;
-  policy: IntegrationCapabilityPolicy | null;
-  userControllable: boolean;
-};
+  capabilityKey: string
+  capabilityState: RuntimeCapabilityState
+  capabilityType: "command"
+  commandKey: string
+  commandGroup: string | null
+  commandPath: string[]
+  description: string
+  effect: IntegrationCommandEffect
+  integrationKey: string
+  integrationLabel: string
+  label: string
+  policy: IntegrationCapabilityPolicy | null
+  userControllable: boolean
+}
 
 export type ResolvedIntegrationAgentCapability = {
-  capabilityKey: string;
-  capabilityState: RuntimeCapabilityState;
-  capabilityType: "command" | "trigger";
-  commandKey: string;
-  commandGroup: string | null;
-  commandPath: string[];
-  description: string;
-  effect: IntegrationCommandEffect | null;
-  integrationKey: string;
-  integrationLabel: string;
-  label: string;
-  policy: IntegrationCapabilityPolicy | null;
-  userControllable: boolean;
-};
+  capabilityKey: string
+  capabilityState: RuntimeCapabilityState
+  capabilityType: "command" | "trigger"
+  commandKey: string
+  commandGroup: string | null
+  commandPath: string[]
+  description: string
+  effect: IntegrationCommandEffect | null
+  integrationKey: string
+  integrationLabel: string
+  label: string
+  policy: IntegrationCapabilityPolicy | null
+  userControllable: boolean
+}
 
 function collectCommandsFromGroup(
   group: IntegrationRuntimeCommandGroupDefinition,
@@ -156,67 +156,67 @@ function collectCommandsFromGroup(
   return [
     ...(group.commands ?? []),
     ...((group.childGroups ?? []).flatMap(collectCommandsFromGroup) ?? []),
-  ];
+  ]
 }
 
 export function listIntegrationCommands(input: {
   definition: IntegrationDefinition & {
-    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
-  };
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
+  }
 }) {
   return [
     ...input.definition.runtimeSurface.rootCommands,
     ...input.definition.runtimeSurface.commandGroups.flatMap(
       collectCommandsFromGroup,
     ),
-  ];
+  ]
 }
 
 function getAgentCapabilityEffect(
   capability: AgentCapability,
 ): IntegrationCommandEffect | null {
   if (capability.direction === "trigger") {
-    return null;
+    return null
   }
 
-  return capability.direction === "read" ? "read" : "write";
+  return capability.direction === "read" ? "read" : "write"
 }
 
 export function isAgentCapabilityUserControllable(capability: AgentCapability) {
-  return capability.userControllable ?? true;
+  return capability.userControllable ?? true
 }
 
 export function resolveAgentCapabilityState(input: {
-  capability: AgentCapability;
-  policy: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+  capability: AgentCapability
+  policy: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): RuntimeCapabilityState {
   if (input.status.needsAttention || !input.status.connected) {
     return {
       reason: "Integration disconnected.",
       status: "needs_attention",
-    };
+    }
   }
 
   if (input.policy?.policy === "block") {
     return {
       reason: "Disabled by workspace policy.",
       status: "disabled",
-    };
+    }
   }
 
   return {
     status: "enabled",
-  };
+  }
 }
 
 export function buildResolvedIntegrationCommandCapability(input: {
-  command: IntegrationRuntimeCommandDefinition;
+  command: IntegrationRuntimeCommandDefinition
   definition: IntegrationDefinition & {
-    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>;
-  };
-  policy: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+    runtimeSurface: NonNullable<IntegrationDefinition["runtimeSurface"]>
+  }
+  policy: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): ResolvedIntegrationCommandCapability {
   return {
     capabilityKey: input.command.commandKey,
@@ -238,14 +238,14 @@ export function buildResolvedIntegrationCommandCapability(input: {
       policy: input.policy,
     }),
     userControllable: isCommandUserControllable(input.command),
-  };
+  }
 }
 
 export function buildResolvedIntegrationAgentCapability(input: {
-  capability: AgentCapability;
-  definition: Pick<IntegrationDefinition, "key" | "label">;
-  policy: IntegrationCapabilityPolicy | null;
-  status: RuntimeIntegrationStatus;
+  capability: AgentCapability
+  definition: Pick<IntegrationDefinition, "key" | "label">
+  policy: IntegrationCapabilityPolicy | null
+  status: RuntimeIntegrationStatus
 }): ResolvedIntegrationAgentCapability {
   return {
     capabilityKey: input.capability.key,
@@ -268,5 +268,5 @@ export function buildResolvedIntegrationAgentCapability(input: {
       policy: input.policy,
     }),
     userControllable: isAgentCapabilityUserControllable(input.capability),
-  };
+  }
 }

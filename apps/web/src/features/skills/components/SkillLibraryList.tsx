@@ -1,7 +1,5 @@
 import { CaretRightIcon } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
-
-import { Badge } from "@/components/ui/badge"
 import {
   SettingsCard,
   SettingsRow,
@@ -9,6 +7,7 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { Badge } from "@/components/ui/badge"
 
 import type { WorkspaceSkillLibraryEntry } from "../types"
 import { SkillDependencyChips } from "./SkillDependencyChips"
@@ -44,7 +43,9 @@ export function SkillLibraryList({ orgSlug, skills }: SkillLibraryListProps) {
                   {skill.installed ? "Installed" : "Available"}
                 </Badge>
               </div>
-              <SettingsRowDescription>{skill.description}</SettingsRowDescription>
+              <SettingsRowDescription>
+                {skill.description}
+              </SettingsRowDescription>
               <div className="mt-2">
                 <SkillDependencyChips
                   integrations={skill.dependencies.integrations}

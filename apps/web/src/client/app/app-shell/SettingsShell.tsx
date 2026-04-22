@@ -9,10 +9,9 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
-
+import { SettingsSidebar } from "./SettingsSidebar"
 import { ShellStage } from "./ShellStage"
 import { ShellViewport } from "./ShellViewport"
-import { SettingsSidebar } from "./SettingsSidebar"
 
 interface BreadcrumbSegment {
   href: string | null

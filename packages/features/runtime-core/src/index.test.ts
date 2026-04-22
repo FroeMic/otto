@@ -260,7 +260,8 @@ describe("runtime core managed skills handlers", () => {
             integrations: ["gandi"],
             skills: [],
           },
-          description: "Research names, brandability, and domains for founders.",
+          description:
+            "Research names, brandability, and domains for founders.",
           displayName: "Name Generator",
           installable: true,
           installed: false,
@@ -281,7 +282,8 @@ describe("runtime core managed skills handlers", () => {
             integrations: ["gandi"],
             skills: [],
           },
-          description: "Research names, brandability, and domains for founders.",
+          description:
+            "Research names, brandability, and domains for founders.",
           displayName: "Name Generator",
           installable: true,
           installed: false,

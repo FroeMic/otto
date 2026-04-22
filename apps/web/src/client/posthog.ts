@@ -1,9 +1,9 @@
 import posthog from "posthog-js"
 
 import {
-  DEFAULT_POSTHOG_BROWSER_API_HOST,
   type BrowserPostHogConfig,
   type BrowserPostHogUserIdentity,
+  DEFAULT_POSTHOG_BROWSER_API_HOST,
   isBrowserPostHogConfigEnabled,
 } from "@/shared/posthog"
 

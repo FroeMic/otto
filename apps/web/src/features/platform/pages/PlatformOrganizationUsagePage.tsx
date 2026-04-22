@@ -1,13 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-
-import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
-import { PlatformUsageContent } from "@/features/platform/components/PlatformUsageContent"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
+import { PlatformUsageContent } from "@/features/platform/components/PlatformUsageContent"
 import { getPreviousBillingCycleRange } from "@/features/usage/date-ranges"
 
 export interface PlatformOrganizationUsagePageProps {

@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import type { WorkspaceIntegrationDetail } from "@otto/feature-integrations-runtime/workspace"
 import {
   SettingsCard,
   SettingsRow,
@@ -9,7 +9,7 @@ import {
   SettingsSectionDescription,
   SettingsSectionTitle,
 } from "@/client/app/app-shell/SettingsLayout"
-import type { WorkspaceIntegrationDetail } from "@otto/feature-integrations-runtime/workspace"
+import { Badge } from "@/components/ui/badge"
 
 export interface IntegrationStatusRowsProps {
   connectActionLabel: string
@@ -31,14 +31,16 @@ export function IntegrationStatusRows({
       <SettingsSection>
         <SettingsSectionTitle>Connection</SettingsSectionTitle>
         <SettingsSectionDescription>
-          See the current {detail.integration.label} connection for this workspace.
+          See the current {detail.integration.label} connection for this
+          workspace.
         </SettingsSectionDescription>
         <SettingsCard>
           <SettingsRow>
             <SettingsRowLabel>
               <SettingsRowTitle>Status</SettingsRowTitle>
               <SettingsRowDescription>
-                Whether Otto can currently use {detail.integration.label} in this workspace.
+                Whether Otto can currently use {detail.integration.label} in
+                this workspace.
               </SettingsRowDescription>
             </SettingsRowLabel>
             <Badge variant={statusVariant}>{statusLabel}</Badge>
@@ -50,7 +52,9 @@ export function IntegrationStatusRows({
                 The current workspace where this integration belongs.
               </SettingsRowDescription>
             </SettingsRowLabel>
-            <span className="text-sm font-medium">{detail.connection.workspaceUrl?.split("/")[1]}</span>
+            <span className="text-sm font-medium">
+              {detail.connection.workspaceUrl?.split("/")[1]}
+            </span>
           </SettingsRow>
           <SettingsRow>
             <SettingsRowLabel>

@@ -57,7 +57,7 @@ describe("skill file provenance", () => {
           truncated: false,
         },
         {
-          contentText: "{\"lastRun\":true}",
+          contentText: '{"lastRun":true}',
           contentType: "application/json",
           path: "state/cache.json",
           sizeBytes: 16,

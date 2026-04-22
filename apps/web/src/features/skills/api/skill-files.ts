@@ -10,15 +10,14 @@ export function workspaceSkillFilesQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].files.$get(
-          {
-            param: {
-              orgSlug: input.orgSlug,
-              skillKey: input.skillKey,
-            },
-          },
-        )
+      const response = await apiClient.api.workspace[":orgSlug"].skills[
+        ":skillKey"
+      ].files.$get({
+        param: {
+          orgSlug: input.orgSlug,
+          skillKey: input.skillKey,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         runtimeDirectoryListingResponseSchema.parse(data),

@@ -13,7 +13,9 @@ export interface ScheduledTasksPageProps {
 }
 
 export function ScheduledTasksPage({ orgSlug }: ScheduledTasksPageProps) {
-  const { data } = useSuspenseQuery(workspaceScheduledTasksQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    workspaceScheduledTasksQueryOptions(orgSlug),
+  )
   const syncState = getScheduledTasksSyncState({
     latestRefreshJob: data.latestRefreshJob,
     latestSyncedAt: data.latestSyncedAt,
@@ -48,4 +50,3 @@ export function ScheduledTasksPage({ orgSlug }: ScheduledTasksPageProps) {
     </ScheduledTasksShell>
   )
 }
-

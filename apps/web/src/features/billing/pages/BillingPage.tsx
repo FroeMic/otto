@@ -1,9 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Link, useSearch } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
-
+import { Link, useSearch } from "@tanstack/react-router"
 import {
   SettingsCard,
   SettingsPage,
@@ -16,6 +12,9 @@ import {
   SettingsSection,
   SettingsSectionTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { shellBootstrapQueryOptions } from "@/features/workspace/api/workspace"
 import { formatShortDate } from "@/features/workspace/date-time"
 
@@ -74,7 +73,9 @@ function getAutoTopOffBadgeVariant(status: string) {
 }
 
 export function BillingPage({ orgSlug }: BillingPageProps) {
-  const { data: shellData } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
+  const { data: shellData } = useSuspenseQuery(
+    shellBootstrapQueryOptions(orgSlug),
+  )
   const { data: billingOverview } = useSuspenseQuery(
     billingOverviewQueryOptions(orgSlug),
   )
@@ -237,7 +238,8 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
                   label="Change plan"
                   orgSlug={orgSlug}
                 />
-              ) : billingOverview.billingConfigured && billingOverview.plans[0] ? (
+              ) : billingOverview.billingConfigured &&
+                billingOverview.plans[0] ? (
                 <WorkspaceCheckoutButton
                   canManageBilling={billingOverview.billingConfigured}
                   label={`Start ${billingOverview.plans[0].name}`}
@@ -270,7 +272,9 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
               latestRunFailureReason={
                 billingOverview.autoTopOff.latestRun?.failureReason ?? null
               }
-              latestRunStatus={billingOverview.autoTopOff.latestRun?.status ?? null}
+              latestRunStatus={
+                billingOverview.autoTopOff.latestRun?.status ?? null
+              }
               locale={shellData.currentOrganization.locale}
               orgSlug={orgSlug}
             />
@@ -284,14 +288,18 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
               currentCycleSpendCents={currentCycleSpendCents}
               initialPreferences={billingOverview.preferences}
               locale={shellData.currentOrganization.locale}
-              nextAutoReloadChargeCents={billingOverview.nextAutoReloadChargeCents}
+              nextAutoReloadChargeCents={
+                billingOverview.nextAutoReloadChargeCents
+              }
               orgSlug={orgSlug}
               wouldBlockNextAutoReload={wouldBlockNextAutoReload}
             />
             {billingOverview.autoTopOff.latestRun ? (
               <SettingsRow>
                 <SettingsRowLabel>
-                  <SettingsRowTitle>Latest auto-reload attempt</SettingsRowTitle>
+                  <SettingsRowTitle>
+                    Latest auto-reload attempt
+                  </SettingsRowTitle>
                   <SettingsRowDescription>
                     {formatShortDate(
                       new Date(
@@ -334,7 +342,9 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
             {billingOverview.invoicesError ? (
               <SettingsRow>
                 <SettingsRowLabel>
-                  <SettingsRowTitle>Invoice history unavailable</SettingsRowTitle>
+                  <SettingsRowTitle>
+                    Invoice history unavailable
+                  </SettingsRowTitle>
                   <SettingsRowDescription>
                     {billingOverview.invoicesError}
                   </SettingsRowDescription>
@@ -380,7 +390,11 @@ export function BillingPage({ orgSlug }: BillingPageProps) {
                           href={invoice.hostedInvoiceUrl}
                           rel="noreferrer"
                           target="_blank"
-                        />
+                        >
+                          <span className="sr-only">
+                            View {invoice.number ?? "invoice"} in Stripe
+                          </span>
+                        </a>
                       }
                       size="sm"
                       variant="outline"

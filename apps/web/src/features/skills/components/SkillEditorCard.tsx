@@ -1,12 +1,11 @@
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { useEffect, useMemo, useState, useTransition } from "react"
-import { toast } from "sonner"
-
 import {
   buildManagedSkillMarkdown,
   MANAGED_SKILL_ENTRY_FILE_PATH,
   parseManagedSkillMarkdown,
 } from "@otto/feature-runtime-core"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { useEffect, useId, useMemo, useState, useTransition } from "react"
+import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,8 +58,12 @@ export function SkillEditorCard({
   const [skillBody, setSkillBody] = useState("")
   const [version, setVersion] = useState(detail.version)
   const [isPending, startTransition] = useTransition()
+  const skillBodyFieldId = useId()
+  const skillDescriptionFieldId = useId()
+  const skillNameFieldId = useId()
   const skillEntryFile =
-    detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ?? null
+    detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
   const parsedSkillDocument = useMemo(() => {
     if (
       !skillEntryFile ||
@@ -196,11 +199,11 @@ export function SkillEditorCard({
         <>
           <FieldGroup className="gap-6">
             <Field className="gap-3">
-              <FieldLabel htmlFor="skill-name">Title</FieldLabel>
+              <FieldLabel htmlFor={skillNameFieldId}>Title</FieldLabel>
               <FieldContent>
                 <Input
                   disabled={!detail.editable || isPending}
-                  id="skill-name"
+                  id={skillNameFieldId}
                   onChange={(event) => setName(event.target.value)}
                   value={name}
                 />
@@ -208,12 +211,14 @@ export function SkillEditorCard({
             </Field>
 
             <Field className="gap-3">
-              <FieldLabel htmlFor="skill-description">Description</FieldLabel>
+              <FieldLabel htmlFor={skillDescriptionFieldId}>
+                Description
+              </FieldLabel>
               <FieldContent>
                 <Textarea
                   className="min-h-24"
                   disabled={!detail.editable || isPending}
-                  id="skill-description"
+                  id={skillDescriptionFieldId}
                   onChange={(event) => setDescription(event.target.value)}
                   value={description}
                 />
@@ -255,12 +260,12 @@ export function SkillEditorCard({
             </FieldSet>
 
             <Field className="gap-3">
-              <FieldLabel htmlFor="skill-body">Instructions</FieldLabel>
+              <FieldLabel htmlFor={skillBodyFieldId}>Instructions</FieldLabel>
               <FieldContent>
                 <Textarea
                   className="min-h-[30rem] rounded-xl font-mono text-sm leading-6"
                   disabled={!detail.editable || isPending}
-                  id="skill-body"
+                  id={skillBodyFieldId}
                   onChange={(event) => setSkillBody(event.target.value)}
                   value={skillBody}
                 />

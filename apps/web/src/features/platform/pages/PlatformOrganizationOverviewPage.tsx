@@ -1,10 +1,4 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-
-import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
-import {
-  formatPreciseDateTime,
-  resolvePlatformDateTimePreferences,
-} from "@/features/platform/date-time"
 import {
   SettingsCard,
   SettingsPage,
@@ -22,6 +16,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
+import {
+  formatPreciseDateTime,
+  resolvePlatformDateTimePreferences,
+} from "@/features/platform/date-time"
 
 function formatStatus(status: string | null) {
   if (!status) {
@@ -129,7 +128,9 @@ export interface PlatformOrganizationOverviewPageProps {
 export function PlatformOrganizationOverviewPage({
   orgSlug,
 }: PlatformOrganizationOverviewPageProps) {
-  const { data } = useSuspenseQuery(platformOrganizationDetailQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    platformOrganizationDetailQueryOptions(orgSlug),
+  )
   const organization = data.organization
   const tenant = organization.tenant
   const dateTimePreferences = resolvePlatformDateTimePreferences({
@@ -292,9 +293,9 @@ export function PlatformOrganizationOverviewPage({
                         organization.observedRuntimeImage}
                     </a>
                   ) : (
-                    organization.observedRuntimeImageVersion ??
+                    (organization.observedRuntimeImageVersion ??
                     organization.observedRuntimeImage ??
-                    "Not available"
+                    "Not available")
                   )
                 }
               />
@@ -312,15 +313,17 @@ export function PlatformOrganizationOverviewPage({
                         organization.configuredRuntimeImage}
                     </a>
                   ) : (
-                    organization.configuredRuntimeImageVersion ??
+                    (organization.configuredRuntimeImageVersion ??
                     organization.configuredRuntimeImage ??
-                    "Not available"
+                    "Not available")
                   )
                 }
               />
               <OverviewRow
                 label="Slack workspace"
-                value={organization.slackIntegration?.teamName ?? "Not connected"}
+                value={
+                  organization.slackIntegration?.teamName ?? "Not connected"
+                }
               />
             </SettingsCard>
           </SettingsSection>

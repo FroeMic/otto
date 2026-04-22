@@ -17,7 +17,7 @@ describe("ConversationTurnHeader", () => {
 
     assert.match(markup, />Otto</)
     assert.match(markup, />10:30</)
-    assert.equal(markup.includes("data-slot=\"badge\""), false)
+    assert.equal(markup.includes('data-slot="badge"'), false)
   })
 
   it("right-aligns current user metadata before the avatar", () => {

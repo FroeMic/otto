@@ -19,7 +19,10 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 
-import { billingOverviewQueryOptions, updateBillingPreferences } from "../api/billing"
+import {
+  billingOverviewQueryOptions,
+  updateBillingPreferences,
+} from "../api/billing"
 import type { BillingPreferences } from "../types"
 
 const autoTopOffPacks = [
@@ -168,7 +171,10 @@ export function WorkspaceBillingPreferencesCard({
           <SelectContent align="end">
             <SelectGroup>
               {autoTopOffPacks.map((pack) => (
-                <SelectItem key={pack.amountCents} value={String(pack.amountCents)}>
+                <SelectItem
+                  key={pack.amountCents}
+                  value={String(pack.amountCents)}
+                >
                   <span className="flex items-center gap-1.5">
                     {formatUsd(pack.amountCents / 100, locale)} ·{" "}
                     {formatCredits(pack.creditsGranted, locale)} credits

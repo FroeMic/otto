@@ -46,10 +46,7 @@ export function SettingsPageTitle({
 
 export interface SettingsSectionProps extends ComponentProps<"section"> {}
 
-export function SettingsSection({
-  className,
-  ...props
-}: SettingsSectionProps) {
+export function SettingsSection({ className, ...props }: SettingsSectionProps) {
   return (
     <section
       data-slot="settings-section"

@@ -1,8 +1,8 @@
-import assert from "node:assert/strict";
+import assert from "node:assert/strict"
 
-import { describe, it } from "vitest";
+import { describe, it } from "vitest"
 
-import { buildRuntimeIntegrationConnectionAction } from "./integration-connection";
+import { buildRuntimeIntegrationConnectionAction } from "./integration-connection"
 
 describe("runtime integration connection action", () => {
   it("recommends enable for gandi when it is not yet enabled", () => {
@@ -20,8 +20,9 @@ describe("runtime integration connection action", () => {
         },
       },
       requestedAction: "",
-      workspaceUrl: "https://otto.test/acme/settings/agent/integrations/gandi/status",
-    });
+      workspaceUrl:
+        "https://otto.test/acme/settings/agent/integrations/gandi/status",
+    })
 
     assert.deepEqual(result, {
       availableActions: ["open_workspace", "enable"],
@@ -42,6 +43,6 @@ describe("runtime integration connection action", () => {
       },
       workspaceUrl:
         "https://otto.test/acme/settings/agent/integrations/gandi/status",
-    });
-  });
-});
+    })
+  })
+})

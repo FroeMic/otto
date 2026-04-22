@@ -5,6 +5,12 @@ import {
   jsonNoStore,
 } from "@otto/auth"
 import {
+  type WorkspaceSkillDeleteResponse,
+  type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillLibraryDetailResponse,
+  type WorkspaceSkillMutationResponse,
+  type WorkspaceSkillResetResponse,
+  type WorkspaceSkillsListResponse,
   workspaceSkillCreateRequestSchema,
   workspaceSkillDeleteRequestSchema,
   workspaceSkillDeleteResponseSchema,
@@ -15,20 +21,14 @@ import {
   workspaceSkillResetResponseSchema,
   workspaceSkillsListResponseSchema,
   workspaceSkillUpdateRequestSchema,
-  type WorkspaceSkillDetailResponse,
-  type WorkspaceSkillDeleteResponse,
-  type WorkspaceSkillLibraryDetailResponse,
-  type WorkspaceSkillMutationResponse,
-  type WorkspaceSkillResetResponse,
-  type WorkspaceSkillsListResponse,
 } from "@otto/feature-runtime-core"
 import { RuntimePathValidationError } from "@otto/feature-runtime-core/runtime-files/download"
 import {
-  runtimeDirectoryListingResponseSchema,
-  runtimeDownloadKindSchema,
   type RuntimeDirectoryListingResponse,
   type RuntimeDownloadKind,
   type RuntimeDownloadResult,
+  runtimeDirectoryListingResponseSchema,
+  runtimeDownloadKindSchema,
 } from "@otto/feature-runtime-core/runtime-files/types"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -37,8 +37,8 @@ import {
   createWorkspaceSkill,
   downloadWorkspaceSkillFile,
   getWorkspaceSkillDetail,
-  getWorkspaceSkillLibraryDetail,
   getWorkspaceSkillFilesDirectoryListing,
+  getWorkspaceSkillLibraryDetail,
   installWorkspaceLibrarySkill,
   isWorkspaceSkillInstallPrerequisiteError,
   listWorkspaceSkills,
@@ -444,13 +444,16 @@ export function createSkillsRouter(
           return authResult.response
         }
 
-        const response = await dependencies.getWorkspaceSkillFilesDirectoryListing({
-          orgSlug: context.req.valid("param").orgSlug,
-          skillKey: context.req.valid("param").skillKey,
-          userExternalId: authResult.user.id,
-        })
+        const response =
+          await dependencies.getWorkspaceSkillFilesDirectoryListing({
+            orgSlug: context.req.valid("param").orgSlug,
+            skillKey: context.req.valid("param").skillKey,
+            userExternalId: authResult.user.id,
+          })
 
-        return jsonNoStore(runtimeDirectoryListingResponseSchema.parse(response))
+        return jsonNoStore(
+          runtimeDirectoryListingResponseSchema.parse(response),
+        )
       },
     )
     .get(

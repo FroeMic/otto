@@ -1,19 +1,17 @@
 import {
+  upsertApiCredentialForTenantIntegration,
+  upsertTenantIntegrationState,
+} from "@otto/feature-integrations-runtime/db/api-credentials"
+import { getDb } from "@otto/feature-integrations-runtime/db/client"
+import { upsertTenantIntegrationCapabilityPolicy } from "@otto/feature-integrations-runtime/db/integration-capability-policies"
+import {
   appendIntegrationOauthEventTx,
   getConnectedOauthAccessForTenantIntegration,
 } from "@otto/feature-integrations-runtime/db/oauth"
 import {
-  upsertApiCredentialForTenantIntegration,
-  upsertTenantIntegrationState,
-} from "@otto/feature-integrations-runtime/db/api-credentials"
-import {
-  upsertTenantIntegrationCapabilityPolicy,
-} from "@otto/feature-integrations-runtime/db/integration-capability-policies"
-import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import {
+  integrationApiCredentials,
   integrationOauthConnections,
   integrationOauthCredentials,
-  integrationApiCredentials,
   tenantApplyRuns,
   tenantDesiredStates,
   tenantIntegrations,
@@ -198,7 +196,9 @@ export async function disconnectWorkspaceIntegration(input: {
       if (oauthConnection) {
         await tx
           .delete(integrationOauthCredentials)
-          .where(eq(integrationOauthCredentials.connectionId, oauthConnection.id))
+          .where(
+            eq(integrationOauthCredentials.connectionId, oauthConnection.id),
+          )
 
         await tx
           .update(integrationOauthConnections)
@@ -232,7 +232,9 @@ export async function disconnectWorkspaceIntegration(input: {
     if (providerKey === "posthog") {
       await tx
         .delete(integrationApiCredentials)
-        .where(eq(integrationApiCredentials.tenantIntegrationId, integration.id))
+        .where(
+          eq(integrationApiCredentials.tenantIntegrationId, integration.id),
+        )
     }
 
     await tx
@@ -320,10 +322,7 @@ export async function enableWorkspaceIntegration(input: {
         status: "connected",
         updatedAt: now,
       },
-      target: [
-        tenantIntegrations.tenantId,
-        tenantIntegrations.providerKey,
-      ],
+      target: [tenantIntegrations.tenantId, tenantIntegrations.providerKey],
     })
 
   return {
@@ -391,10 +390,7 @@ export async function connectWorkspaceApiKeyIntegration(input: {
         status: "connected",
         updatedAt: now,
       },
-      target: [
-        tenantIntegrations.tenantId,
-        tenantIntegrations.providerKey,
-      ],
+      target: [tenantIntegrations.tenantId, tenantIntegrations.providerKey],
     })
     .returning({
       id: tenantIntegrations.id,
@@ -477,12 +473,16 @@ export async function applyWorkspaceIntegrationSetup(input: {
   )
 
   if (selectedResources.length === 0) {
-    throw new Error("Select at least one discovered project before saving PostHog.")
+    throw new Error(
+      "Select at least one discovered project before saving PostHog.",
+    )
   }
 
   const defaultResourceKey =
     input.defaultResourceKey &&
-    selectedResources.some((resource) => resource.key === input.defaultResourceKey)
+    selectedResources.some(
+      (resource) => resource.key === input.defaultResourceKey,
+    )
       ? input.defaultResourceKey
       : selectedResources[0]?.key
 
@@ -519,10 +519,7 @@ export async function applyWorkspaceIntegrationSetup(input: {
         status: "connected",
         updatedAt: now,
       },
-      target: [
-        tenantIntegrations.tenantId,
-        tenantIntegrations.providerKey,
-      ],
+      target: [tenantIntegrations.tenantId, tenantIntegrations.providerKey],
     })
     .returning({
       id: tenantIntegrations.id,
@@ -593,7 +590,9 @@ async function validatePostHogApiKeyConnection(input: {
   )
 
   if (!response.ok) {
-    throw new Error("PostHog API key could not read the configured organization.")
+    throw new Error(
+      "PostHog API key could not read the configured organization.",
+    )
   }
 }
 
@@ -609,7 +608,9 @@ export async function enqueueWorkspaceSlackDirectoryResync(input: {
   })
 
   if (!integration?.status.connected) {
-    throw new Error("Slack must be connected before its directory can be synced.")
+    throw new Error(
+      "Slack must be connected before its directory can be synced.",
+    )
   }
 
   const jobId = await enqueueJob({
@@ -636,7 +637,9 @@ export async function updateWorkspaceIntegrationCapabilityPolicy(input: {
   userExternalId: string
 }) {
   const { tenantId } = await getAuthorizedTenantContext(input)
-  const definition = getIntegrationDefinition(input.providerKey.trim().toLowerCase())
+  const definition = getIntegrationDefinition(
+    input.providerKey.trim().toLowerCase(),
+  )
 
   if (!definition?.runtimeSurface) {
     throw new Error(
@@ -715,7 +718,9 @@ export async function updateWorkspaceIntegrationCapabilityPolicy(input: {
     orgSlug: input.orgSlug,
     tenantId,
   })
-  const row = rows.find((entry) => entry.capabilityKey === resolvedCapabilityKey)
+  const row = rows.find(
+    (entry) => entry.capabilityKey === resolvedCapabilityKey,
+  )
 
   if (!row) {
     throw new Error(

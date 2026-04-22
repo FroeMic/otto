@@ -4,10 +4,7 @@ import { WorkspaceSessionAuthError } from "@otto/auth"
 import { Hono } from "hono"
 import { describe, it } from "vitest"
 
-import {
-  createSessionsRouter,
-  type SessionsRouteDependencies,
-} from "./routes"
+import { createSessionsRouter, type SessionsRouteDependencies } from "./routes"
 
 const user = {
   email: "test@getyourotto.com",
@@ -55,7 +52,7 @@ function createDependencies(): SessionsRouteDependencies {
         status: "done",
         subject: "Deploy status",
         totalTokens: 2400,
-        transcriptJsonl: "{\"type\":\"message\"}",
+        transcriptJsonl: '{"type":"message"}',
       },
       state: "ready",
     }),
@@ -221,7 +218,7 @@ describe("sessions routes", () => {
         status: "done",
         subject: "Deploy status",
         totalTokens: 2400,
-        transcriptJsonl: "{\"type\":\"message\"}",
+        transcriptJsonl: '{"type":"message"}',
       },
       state: "ready",
     })

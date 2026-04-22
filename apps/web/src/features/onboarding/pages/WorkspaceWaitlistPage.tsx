@@ -9,9 +9,7 @@ export interface WorkspaceWaitlistPageProps {
   orgSlug: string
 }
 
-export function WorkspaceWaitlistPage({
-  orgSlug,
-}: WorkspaceWaitlistPageProps) {
+export function WorkspaceWaitlistPage({ orgSlug }: WorkspaceWaitlistPageProps) {
   const { data: summary } = useSuspenseQuery(
     workspaceOnboardingQueryOptions(orgSlug),
   )

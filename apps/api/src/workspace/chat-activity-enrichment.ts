@@ -53,7 +53,10 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
 }) {
   const toolCallsBySessionKey = new Map<string, Map<string, ParsedToolCall>>()
 
-  for (const [sessionKey, transcriptJsonl] of input.transcriptJsonlBySessionKey) {
+  for (const [
+    sessionKey,
+    transcriptJsonl,
+  ] of input.transcriptJsonlBySessionKey) {
     if (!transcriptJsonl?.trim()) {
       continue
     }
@@ -101,7 +104,7 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
           ? deriveFindIntegrationCommandsEnrichment(toolCall.args)
           : toolCall.name === "get_integration_details"
             ? deriveGetIntegrationDetailsEnrichment(toolCall.args)
-          : null
+            : null
 
     if (!enriched) {
       return event
@@ -163,7 +166,10 @@ function parseTranscriptToolCalls(jsonl: string) {
     for (const block of content) {
       const record = asRecord(block)
 
-      if (!record || !TOOL_CALL_BLOCK_TYPES.has(readString(record.type) ?? "")) {
+      if (
+        !record ||
+        !TOOL_CALL_BLOCK_TYPES.has(readString(record.type) ?? "")
+      ) {
         continue
       }
 
@@ -193,7 +199,9 @@ function parseTranscriptToolCalls(jsonl: string) {
   return toolCalls
 }
 
-function deriveExecuteIntegrationCommandEnrichment(args: Record<string, unknown>) {
+function deriveExecuteIntegrationCommandEnrichment(
+  args: Record<string, unknown>,
+) {
   const integrationKey = readString(args.integrationKey)?.toLowerCase()
   const commandKey = resolveCommandKey(args)
   const commandArguments =
@@ -205,9 +213,9 @@ function deriveExecuteIntegrationCommandEnrichment(args: Record<string, unknown>
 
   const integration = getIntegrationDefinition(integrationKey)
   const command = integration?.runtimeSurface
-    ? collectCommands(integration.runtimeSurface).find(
+    ? (collectCommands(integration.runtimeSurface).find(
         (entry) => entry.commandKey === commandKey,
-      ) ?? null
+      ) ?? null)
     : null
 
   const basePresentation = buildCommandPresentationBase({
@@ -230,7 +238,9 @@ function deriveExecuteIntegrationCommandEnrichment(args: Record<string, unknown>
   }
 }
 
-function deriveFindIntegrationCommandsEnrichment(args: Record<string, unknown>) {
+function deriveFindIntegrationCommandsEnrichment(
+  args: Record<string, unknown>,
+) {
   const query = readString(args.query)
   const title = query
     ? `Find integration commands for "${query}"`
@@ -254,7 +264,8 @@ function deriveGetIntegrationDetailsEnrichment(args: Record<string, unknown>) {
   }
 
   const integration = getIntegrationDefinition(integrationKey)
-  const integrationLabel = integration?.label ?? humanizeCommandKey(integrationKey)
+  const integrationLabel =
+    integration?.label ?? humanizeCommandKey(integrationKey)
 
   if (detailType === "command") {
     const commandKey =
@@ -276,9 +287,9 @@ function deriveGetIntegrationDetailsEnrichment(args: Record<string, unknown>) {
     }
 
     const command = integration?.runtimeSurface
-      ? collectCommands(integration.runtimeSurface).find(
+      ? (collectCommands(integration.runtimeSurface).find(
           (entry) => entry.commandKey === commandKey,
-        ) ?? null
+        ) ?? null)
       : null
     const label =
       command?.activityPresentation?.title ??
@@ -420,10 +431,7 @@ function resolveEventToolCallId(event: WorkspaceChatMessageEvent) {
 
 function getGenericIntegrationToolName(event: WorkspaceChatMessageEvent) {
   const payload = asRecord(event.payload)
-  const candidates = [
-    readString(payload?.name),
-    event.title,
-  ]
+  const candidates = [readString(payload?.name), event.title]
 
   for (const candidate of candidates) {
     const normalized = candidate?.trim().toLowerCase()
@@ -440,7 +448,10 @@ function hasExplicitActivityPresentation(payload: Record<string, unknown>) {
   return Boolean(asRecord(payload.activityPresentation))
 }
 
-function shouldReplaceSummary(summary: string | undefined, genericToolName: string) {
+function shouldReplaceSummary(
+  summary: string | undefined,
+  genericToolName: string,
+) {
   if (!summary?.trim()) {
     return true
   }
@@ -465,7 +476,9 @@ function normalizeToolCallId(value: string | null | undefined) {
   return primary || undefined
 }
 
-function inferPresentationKind(commandKey: string): EnrichedActivityPresentation["kind"] {
+function inferPresentationKind(
+  commandKey: string,
+): EnrichedActivityPresentation["kind"] {
   const action = commandKey.split(".").at(-1)?.trim().toLowerCase()
 
   if (action === "search" || action === "list") {

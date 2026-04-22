@@ -1,62 +1,62 @@
-import { createHash } from "node:crypto";
+import { createHash } from "node:crypto"
 
 import {
   deleteStaleTenantSessions,
   type TenantSessionUpsertInput,
   upsertTenantSessionBatch,
-} from "../../db/control-plane";
-import { getTenantRuntimeConnection } from "../runtime/connection";
-import { SshClient, type SshConnection } from "../ssh/client";
+} from "../../db/control-plane"
+import { getTenantRuntimeConnection } from "../runtime/connection"
+import { SshClient, type SshConnection } from "../ssh/client"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   type ClaimedJob,
   JOB_TYPES,
   type SyncTenantSessionsPayload,
-} from "./types";
+} from "./types"
 
 type RuntimeSessionEntry = {
-  sessionId?: string;
-  updatedAt?: number;
-  sessionFile?: string;
-  channel?: string;
-  lastChannel?: string;
-  chatType?: string;
-  displayName?: string;
-  label?: string;
-  subject?: string;
-  status?: string;
-  startedAt?: number;
-  endedAt?: number;
-  runtimeMs?: number;
-  model?: string;
-  modelProvider?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-  totalTokens?: number;
-  estimatedCostUsd?: number;
-  parentSessionKey?: string;
-  spawnDepth?: number;
-  subagentRole?: string;
-  lastAccountId?: string;
-  lastThreadId?: string | number;
+  sessionId?: string
+  updatedAt?: number
+  sessionFile?: string
+  channel?: string
+  lastChannel?: string
+  chatType?: string
+  displayName?: string
+  label?: string
+  subject?: string
+  status?: string
+  startedAt?: number
+  endedAt?: number
+  runtimeMs?: number
+  model?: string
+  modelProvider?: string
+  inputTokens?: number
+  outputTokens?: number
+  cacheRead?: number
+  cacheWrite?: number
+  totalTokens?: number
+  estimatedCostUsd?: number
+  parentSessionKey?: string
+  spawnDepth?: number
+  subagentRole?: string
+  lastAccountId?: string
+  lastThreadId?: string | number
   origin?: {
-    provider?: string;
-    chatType?: string;
-    from?: string;
-    to?: string;
-    accountId?: string;
-    threadId?: string | number;
-  };
-};
+    provider?: string
+    chatType?: string
+    from?: string
+    to?: string
+    accountId?: string
+    threadId?: string | number
+  }
+}
 
 const SESSIONS_JSON_PATH =
-  "/home/node/.openclaw/agents/main/sessions/sessions.json";
-const SESSIONS_DIR = "/home/node/.openclaw/agents/main/sessions";
+  "/home/node/.openclaw/agents/main/sessions/sessions.json"
+const SESSIONS_DIR = "/home/node/.openclaw/agents/main/sessions"
 
-const sshClient = new SshClient();
+const sshClient = new SshClient()
 
 export async function processSyncTenantSessionsJob(
   job: ClaimedJob,
@@ -64,87 +64,87 @@ export async function processSyncTenantSessionsJob(
   if (job.jobType !== JOB_TYPES.syncTenantSessions) {
     throw new Error(
       `Unsupported job type for sessions sync handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parsePayload(job.payload);
+  const payload = parsePayload(job.payload)
 
   try {
     await appendJobEvent(
       job.id,
       "connecting_runtime",
       "Connecting to tenant runtime",
-    );
+    )
 
     const connection = await getTenantRuntimeConnection(
       payload.tenantId,
       "session refresh",
-    );
+    )
 
     await appendJobEvent(
       job.id,
       "reading_session_store",
       "Reading sessions.json from runtime",
-    );
+    )
 
     const storeResult = await sshClient.exec(
       connection,
       buildShellCmd(`docker exec openclaw-gateway cat ${SESSIONS_JSON_PATH}`),
       { timeoutMs: 30_000 },
-    );
+    )
 
     if (storeResult.exitCode !== 0) {
       throw new Error(
         `Failed to read sessions.json: ${storeResult.stderr || storeResult.stdout}`,
-      );
+      )
     }
 
     const store = JSON.parse(storeResult.stdout) as Record<
       string,
       RuntimeSessionEntry
-    >;
+    >
 
     // Build set of sessionIds that have a :run: key so we can skip
     // base cron keys that point to the same session.
-    const runSessionIds = new Set<string>();
+    const runSessionIds = new Set<string>()
     for (const [key, entry] of Object.entries(store)) {
       if (key.includes(":run:") && entry?.sessionId) {
-        runSessionIds.add(entry.sessionId);
+        runSessionIds.add(entry.sessionId)
       }
     }
 
-    const sessionKeys = Object.keys(store);
+    const sessionKeys = Object.keys(store)
 
     await appendJobEvent(
       job.id,
       "reading_transcripts",
       `Reading transcripts for ${sessionKeys.length} sessions`,
-    );
+    )
 
-    const sessions: TenantSessionUpsertInput[] = [];
+    const sessions: TenantSessionUpsertInput[] = []
 
     for (const sessionKey of sessionKeys) {
-      const entry = store[sessionKey];
-      if (!entry?.sessionId) continue;
+      const entry = store[sessionKey]
+      if (!entry?.sessionId) continue
 
       // Skip base cron keys when a run-specific key exists for the same sessionId
       if (!sessionKey.includes(":run:") && runSessionIds.has(entry.sessionId)) {
-        continue;
+        continue
       }
 
-      const filePath = resolveTranscriptPath(entry);
+      const filePath = resolveTranscriptPath(entry)
       let transcript: {
-        transcriptJsonl: string;
-        transcriptHash: string;
-        messageCount: number;
-      } | null = null;
+        transcriptJsonl: string
+        transcriptHash: string
+        messageCount: number
+      } | null = null
 
       if (filePath) {
         transcript = await readTranscriptOverSsh(
           sshClient,
           connection,
           filePath,
-        );
+        )
       }
 
       sessions.push({
@@ -184,47 +184,43 @@ export async function processSyncTenantSessionsJob(
         sessionUpdatedAt: entry.updatedAt ?? null,
         syncSource: "reconciliation",
         ...(transcript ?? {}),
-      });
+      })
     }
 
-    await upsertTenantSessionBatch(payload.tenantId, sessions);
+    await upsertTenantSessionBatch(payload.tenantId, sessions)
 
     // Clean up rows for sessions no longer in the runtime session store
-    const activeKeys = sessions.map((s) => s.sessionKey);
+    const activeKeys = sessions.map((s) => s.sessionKey)
     const deletedCount = await deleteStaleTenantSessions(
       payload.tenantId,
       activeKeys,
-    );
+    )
 
-    const withTranscript = sessions.filter((s) => s.transcriptJsonl).length;
+    const withTranscript = sessions.filter((s) => s.transcriptJsonl).length
     await appendJobEvent(
       job.id,
       "succeeded",
       `Synced ${sessions.length} sessions (${withTranscript} with transcripts), cleaned up ${deletedCount} stale rows`,
-    );
+    )
     await markJobSucceeded(job.id, {
       syncedSessions: sessions.length,
       syncedTranscripts: withTranscript,
       deletedStale: deletedCount,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
-    await appendJobEvent(
-      job.id,
-      "failed",
-      `Session refresh failed: ${message}`,
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    const message = getErrorMessage(error)
+    await appendJobEvent(job.id, "failed", `Session refresh failed: ${message}`)
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 type TranscriptResult = {
-  transcriptJsonl: string;
-  transcriptHash: string;
-  messageCount: number;
-  lastMessageAt: number | null;
-};
+  transcriptJsonl: string
+  transcriptHash: string
+  messageCount: number
+  lastMessageAt: number | null
+}
 
 async function readTranscriptOverSsh(
   ssh: SshClient,
@@ -232,8 +228,8 @@ async function readTranscriptOverSsh(
   filePath: string,
 ): Promise<TranscriptResult | null> {
   // Try the primary path first
-  const content = await tryReadFileOverSsh(ssh, connection, filePath);
-  if (content) return buildTranscriptResult(content);
+  const content = await tryReadFileOverSsh(ssh, connection, filePath)
+  if (content) return buildTranscriptResult(content)
 
   // Fall back to .deleted.* or .reset.* variants (one-shot crons, pruned sessions)
   const lsResult = await ssh.exec(
@@ -242,19 +238,19 @@ async function readTranscriptOverSsh(
       `docker exec openclaw-gateway sh -c 'ls ${shellQuote(filePath)}.deleted.* ${shellQuote(filePath)}.reset.* 2>/dev/null | head -1'`,
     ),
     { timeoutMs: 10_000 },
-  );
+  )
 
-  const archivedPath = lsResult.exitCode === 0 ? lsResult.stdout.trim() : "";
-  if (!archivedPath) return null;
+  const archivedPath = lsResult.exitCode === 0 ? lsResult.stdout.trim() : ""
+  if (!archivedPath) return null
 
   const archivedContent = await tryReadFileOverSsh(
     ssh,
     connection,
     archivedPath,
-  );
-  if (archivedContent) return buildTranscriptResult(archivedContent);
+  )
+  if (archivedContent) return buildTranscriptResult(archivedContent)
 
-  return null;
+  return null
 }
 
 async function tryReadFileOverSsh(
@@ -267,26 +263,26 @@ async function tryReadFileOverSsh(
       connection,
       buildShellCmd(`docker exec openclaw-gateway cat ${shellQuote(filePath)}`),
       { timeoutMs: 30_000 },
-    );
-    return result.exitCode === 0 && result.stdout ? result.stdout : null;
+    )
+    return result.exitCode === 0 && result.stdout ? result.stdout : null
   } catch {
-    return null;
+    return null
   }
 }
 
 function buildTranscriptResult(content: string): TranscriptResult {
-  const hash = createHash("sha256").update(content).digest("hex");
-  const lines = content.split("\n").filter((l: string) => l.trim());
-  let lastMessageAt: number | null = null;
+  const hash = createHash("sha256").update(content).digest("hex")
+  const lines = content.split("\n").filter((l: string) => l.trim())
+  let lastMessageAt: number | null = null
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
-      const entry = JSON.parse(lines[i]);
+      const entry = JSON.parse(lines[i])
       if (
         entry.type === "message" &&
         typeof entry.message?.timestamp === "number"
       ) {
-        lastMessageAt = entry.message.timestamp;
-        break;
+        lastMessageAt = entry.message.timestamp
+        break
       }
     } catch {
       /* skip malformed lines */
@@ -297,33 +293,33 @@ function buildTranscriptResult(content: string): TranscriptResult {
     transcriptHash: hash,
     messageCount: Math.max(0, lines.length - 1),
     lastMessageAt,
-  };
+  }
 }
 
 function resolveTranscriptPath(entry: RuntimeSessionEntry): string | null {
-  if (entry.sessionFile) return entry.sessionFile;
-  if (entry.sessionId) return `${SESSIONS_DIR}/${entry.sessionId}.jsonl`;
-  return null;
+  if (entry.sessionFile) return entry.sessionFile
+  if (entry.sessionId) return `${SESSIONS_DIR}/${entry.sessionId}.jsonl`
+  return null
 }
 
 function buildShellCmd(command: string): string {
-  return `bash -lc ${shellQuote(command)}`;
+  return `bash -lc ${shellQuote(command)}`
 }
 
 function shellQuote(s: string): string {
-  return `'${s.replaceAll("'", `'"'"'`)}'`;
+  return `'${s.replaceAll("'", `'"'"'`)}'`
 }
 
 function parsePayload(
   payload: Record<string, unknown>,
 ): SyncTenantSessionsPayload {
-  const tenantId = payload.tenantId;
+  const tenantId = payload.tenantId
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Session sync payload is missing tenantId");
+    throw new Error("Session sync payload is missing tenantId")
   }
-  return { tenantId };
+  return { tenantId }
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return error instanceof Error ? error.message : String(error)
 }

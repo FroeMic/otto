@@ -2,9 +2,8 @@
 
 import { ArrowLeft } from "@phosphor-icons/react"
 import type { PropsWithChildren, ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
 import { OttoAvatar } from "@/components/OttoAvatar"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export interface OnboardingStepLayoutProps extends PropsWithChildren {
@@ -65,15 +64,17 @@ export function OnboardingStepLayout({
         {actions ? <div className="flex justify-center">{actions}</div> : null}
 
         <div className="flex items-center gap-2">
-          {Array.from({ length: totalSteps }, (_, index) => (
-            <span
-              className={cn(
-                "size-2 rounded-full bg-foreground/20 transition-colors",
-                index + 1 === currentStep && "w-5 bg-foreground",
-              )}
-              key={index}
-            />
-          ))}
+          {Array.from({ length: totalSteps }, (_, index) => index + 1).map(
+            (step) => (
+              <span
+                className={cn(
+                  "size-2 rounded-full bg-foreground/20 transition-colors",
+                  step === currentStep && "w-5 bg-foreground",
+                )}
+                key={step}
+              />
+            ),
+          )}
         </div>
 
         {footer ? (

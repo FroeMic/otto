@@ -14,7 +14,10 @@ describe("brave formatters", () => {
   it("formats workspace-managed labels consistently with the legacy page", () => {
     assert.equal(formatBraveProviderLabel("brave"), "Brave")
     assert.equal(formatBraveProviderLabel(undefined), "Not configured")
-    assert.equal(formatBraveManagedByLabel("control_plane_env"), "Workspace defaults")
+    assert.equal(
+      formatBraveManagedByLabel("control_plane_env"),
+      "Workspace defaults",
+    )
     assert.equal(formatBraveAvailabilityLabel("available"), "Available")
     assert.equal(formatBraveAvailabilityLabel("blocked"), "Unavailable")
   })
@@ -38,7 +41,8 @@ describe("brave formatters", () => {
 
     assert.deepEqual(buildBraveProviderRows(config), [
       {
-        description: "The workspace keeps the provider API key in this env var.",
+        description:
+          "The workspace keeps the provider API key in this env var.",
         title: "API key env var",
         value: "RUNTIME_BRAVE_API_KEY",
       },
