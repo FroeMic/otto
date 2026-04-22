@@ -22,12 +22,12 @@ import {
   persistProvisionedProviderCredential,
 } from "../../db/provider-accounts"
 import { organizations, tenantServers, tenants } from "../../db/schema"
-import { getEnv, getProvisioningProviderMode } from "../env"
-import { HetznerClient } from "../hetzner/client"
+import { getEnv } from "../env"
 import { renderCloudInit } from "../hetzner/cloud-init"
-import { FakeHetznerClient } from "../hetzner/fake"
 import { buildOpenClawTenantConfig } from "../openclaw/config"
 import { OpenAiProvisioner } from "../providers/openai/provisioning"
+import type { ProvisioningProvider } from "../provisioning-provider/interface"
+import { resolveProvisioningProvider } from "../provisioning-provider/resolver"
 import { RuntimeManager } from "../runtime/manager"
 import { SshClient } from "../ssh/client"
 
@@ -46,7 +46,6 @@ import {
   type ProvisionTenantServerPayload,
 } from "./types"
 
-const fakeHetznerClient = new FakeHetznerClient()
 const openAiProvisioner = new OpenAiProvisioner()
 const runtimeManager = new RuntimeManager()
 const sshClient = new SshClient()
@@ -146,26 +145,31 @@ async function createServer(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.createServer,
-    `creating ${getProvisioningProvider()} server`,
+    `creating ${provider.id} server`,
   )
-  const createdServer = await createProviderServer(payload.tenantId)
-  const provider = getProvisioningProvider()
+  const createdServer = await createProviderServer(payload.tenantId, provider)
 
   await updateTenantServer(payload.tenantId, {
-    provider,
+    provider: provider.id,
     providerServerId: createdServer.id,
     sshUsername: getEnv().RUNTIME_SSH_USERNAME,
     status: "creating_server",
   })
 
-  await appendJobEvent(jobId, "creating_server", `Created ${provider} server`, {
-    provider,
-    providerServerId: createdServer.id,
-  })
+  await appendJobEvent(
+    jobId,
+    "creating_server",
+    `Created ${provider.id} server`,
+    {
+      provider: provider.id,
+      providerServerId: createdServer.id,
+    },
+  )
 
   logRequeue(
     jobId,
@@ -181,7 +185,7 @@ async function createServer(
       providerServerId: createdServer.id,
       step: PROVISIONING_STEPS.waitForHetznerAction,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -195,16 +199,17 @@ async function waitForServerAction(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForHetznerAction,
     `waiting for action ${payload.actionId}`,
   )
-  await getProvisioningClient().waitForServerAction(
-    payload.providerServerId,
-    payload.actionId,
-  )
+  await provider.waitForHostAction({
+    actionId: payload.actionId,
+    providerServerId: payload.providerServerId,
+  })
 
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_server_action",
@@ -213,10 +218,10 @@ async function waitForServerAction(
   await appendJobEvent(
     jobId,
     "waiting_for_server_action",
-    `${getProvisioningProvider()} server action completed`,
+    `${provider.id} server action completed`,
     {
       actionId: payload.actionId,
-      provider: getProvisioningProvider(),
+      provider: provider.id,
       providerServerId: payload.providerServerId,
     },
   )
@@ -233,7 +238,7 @@ async function waitForServerAction(
       ...payload,
       step: PROVISIONING_STEPS.fetchServerIp,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -247,15 +252,20 @@ async function fetchServerIp(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.fetchServerIp,
     `fetching IP for ${payload.providerServerId}`,
   )
-  const server = await getProvisioningClient().getServer(
-    payload.providerServerId,
-  )
+  const server = await provider.getHost(payload.providerServerId)
+
+  if (!server.ipv4) {
+    throw new Error(
+      `Provisioning provider ${provider.id} did not return an IPv4 address for server ${payload.providerServerId}`,
+    )
+  }
 
   await updateTenantServer(payload.tenantId, {
     ipv4: server.ipv4,
@@ -265,16 +275,16 @@ async function fetchServerIp(
   await appendJobEvent(
     jobId,
     "fetching_server_ip",
-    `Fetched ${getProvisioningProvider()} server IP`,
+    `Fetched ${provider.id} server IP`,
     {
       ipv4: server.ipv4,
-      provider: getProvisioningProvider(),
+      provider: provider.id,
       providerServerId: payload.providerServerId,
     },
   )
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} got ${getProvisioningProvider()} IP ${server.ipv4}`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} got ${provider.id} IP ${server.ipv4}`,
   )
   logRequeue(
     jobId,
@@ -289,7 +299,7 @@ async function fetchServerIp(
       ipv4: server.ipv4,
       step: PROVISIONING_STEPS.waitForSsh,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -303,6 +313,7 @@ async function waitForSsh(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -313,7 +324,7 @@ async function waitForSsh(
     status: "waiting_for_ssh",
   })
 
-  if (getProvisioningProvider() === "hetzner") {
+  if (provider.id === "hetzner") {
     await appendJobEvent(
       jobId,
       "waiting_for_ssh",
@@ -334,7 +345,7 @@ async function waitForSsh(
   await appendJobEvent(
     jobId,
     "waiting_for_ssh",
-    `${getProvisioningProvider()} server is reachable over SSH`,
+    `${provider.id} server is reachable over SSH`,
     {
       ipv4: payload.ipv4,
     },
@@ -352,7 +363,7 @@ async function waitForSsh(
       ...payload,
       step: PROVISIONING_STEPS.waitForHostBootstrap,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -366,6 +377,7 @@ async function waitForHostBootstrap(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -376,7 +388,7 @@ async function waitForHostBootstrap(
     status: "waiting_for_host_bootstrap",
   })
 
-  if (getProvisioningProvider() === "hetzner") {
+  if (provider.id === "hetzner") {
     await appendJobEvent(
       jobId,
       "waiting_for_host_bootstrap",
@@ -416,7 +428,7 @@ async function waitForHostBootstrap(
       ...payload,
       step: PROVISIONING_STEPS.bootstrapRuntime,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -430,6 +442,7 @@ async function bootstrapRuntime(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -440,7 +453,7 @@ async function bootstrapRuntime(
     status: "bootstrapping_runtime",
   })
 
-  if (getProvisioningProvider() === "hetzner") {
+  if (provider.id === "hetzner") {
     await appendJobEvent(
       jobId,
       "bootstrapping_runtime",
@@ -525,7 +538,7 @@ async function bootstrapRuntime(
   await appendJobEvent(
     jobId,
     "bootstrapping_runtime",
-    `${getProvisioningProvider()} runtime bootstrap completed`,
+    `${provider.id} runtime bootstrap completed`,
     {
       ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
@@ -544,7 +557,7 @@ async function bootstrapRuntime(
       ...payload,
       step: PROVISIONING_STEPS.startRuntime,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -621,6 +634,7 @@ async function startRuntime(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -631,7 +645,7 @@ async function startRuntime(
     status: "starting_runtime",
   })
 
-  if (getProvisioningProvider() === "hetzner") {
+  if (provider.id === "hetzner") {
     await appendJobEvent(
       jobId,
       "starting_runtime",
@@ -662,7 +676,7 @@ async function startRuntime(
       ...payload,
       step: PROVISIONING_STEPS.verifyRuntime,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -676,6 +690,7 @@ async function verifyRuntime(
     )
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -686,7 +701,7 @@ async function verifyRuntime(
     status: "verifying_runtime",
   })
 
-  if (getProvisioningProvider() === "hetzner") {
+  if (provider.id === "hetzner") {
     await appendJobEvent(
       jobId,
       "verifying_runtime",
@@ -726,7 +741,7 @@ async function verifyRuntime(
       ...payload,
       step: PROVISIONING_STEPS.markServerReady,
     },
-    new Date(Date.now() + getProvisioningDelayMs()),
+    new Date(Date.now() + getProvisioningDelayMs(provider)),
   )
 }
 
@@ -738,6 +753,7 @@ async function markServerReady(
     throw new Error("Provisioning job cannot complete without server metadata")
   }
 
+  const provider = getProvisioningProvider()
   logStep(
     jobId,
     payload.tenantId,
@@ -763,7 +779,7 @@ async function markServerReady(
       .update(tenantServers)
       .set({
         ipv4: payload.ipv4,
-        provider: getProvisioningProvider(),
+        provider: provider.id,
         providerServerId: payload.providerServerId,
         status: "ready",
         updatedAt: new Date(),
@@ -811,13 +827,13 @@ async function markServerReady(
 
   await markJobSucceeded(jobId, {
     ipv4: payload.ipv4,
-    provider: getProvisioningProvider(),
+    provider: provider.id,
     providerServerId: payload.providerServerId,
     scheduledTasksRefreshJobId,
   })
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${getProvisioningProvider()} server ${payload.providerServerId} (${payload.ipv4})`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${provider.id} server ${payload.providerServerId} (${payload.ipv4})`,
   )
 }
 
@@ -895,8 +911,9 @@ function logRequeue(
   nextStep: ProvisioningStep,
   providerServerId?: string,
 ) {
+  const provider = getProvisioningProvider()
   const availableAt = new Date(
-    Date.now() + getProvisioningDelayMs(),
+    Date.now() + getProvisioningDelayMs(provider),
   ).toISOString()
   const serverText = providerServerId ? ` server ${providerServerId}` : ""
 
@@ -905,8 +922,11 @@ function logRequeue(
   )
 }
 
-async function createProviderServer(tenantId: string) {
-  if (getProvisioningProvider() === "hetzner") {
+async function createProviderServer(
+  tenantId: string,
+  provider: ProvisioningProvider,
+) {
+  if (provider.id === "hetzner") {
     const env = getEnv()
     const sshKeys = env.HETZNER_SSH_KEY_NAMES.split(",")
       .map((value) => value.trim())
@@ -916,48 +936,35 @@ async function createProviderServer(tenantId: string) {
       `[worker] tenant ${tenantId} hetzner config: server_type=${env.HETZNER_DEFAULT_SERVER_TYPE} image=${env.HETZNER_DEFAULT_IMAGE} location=${env.HETZNER_DEFAULT_LOCATION} ssh_keys=${sshKeys.join(",") || "none"}`,
     )
 
-    return getHetznerClient().createServer({
-      image: env.HETZNER_DEFAULT_IMAGE,
-      labels: {
-        "otto/managed": "true",
-        "otto/runtime": "openclaw",
-        "otto/tenant_id": tenantId,
+    return provider.createHost({
+      hetzner: {
+        image: env.HETZNER_DEFAULT_IMAGE,
+        labels: {
+          "otto/managed": "true",
+          "otto/runtime": "openclaw",
+          "otto/tenant_id": tenantId,
+        },
+        location: env.HETZNER_DEFAULT_LOCATION,
+        name: buildHetznerServerName(tenantId),
+        serverType: env.HETZNER_DEFAULT_SERVER_TYPE,
+        sshKeys,
+        userData: renderCloudInit(),
       },
-      location: env.HETZNER_DEFAULT_LOCATION,
-      name: buildHetznerServerName(tenantId),
-      serverType: env.HETZNER_DEFAULT_SERVER_TYPE,
-      sshKeys,
-      userData: renderCloudInit(),
+      tenantId,
     })
   }
 
-  return fakeHetznerClient.createServer({ tenantId })
+  return provider.createHost({ tenantId })
 }
 
 function buildHetznerServerName(tenantId: string) {
   return `otto-${tenantId.slice(0, 12)}`
 }
 
-function getProvisioningClient() {
-  return getProvisioningProvider() === "hetzner"
-    ? getHetznerClient()
-    : fakeHetznerClient
-}
-
-function getProvisioningDelayMs() {
-  return getProvisioningProvider() === "hetzner" ? 0 : STEP_DELAY_MS
+function getProvisioningDelayMs(provider: ProvisioningProvider) {
+  return provider.id === "hetzner" ? 0 : STEP_DELAY_MS
 }
 
 function getProvisioningProvider() {
-  return getProvisioningProviderMode()
-}
-
-let cachedHetznerClient: HetznerClient | null = null
-
-function getHetznerClient() {
-  if (!cachedHetznerClient) {
-    cachedHetznerClient = new HetznerClient()
-  }
-
-  return cachedHetznerClient
+  return resolveProvisioningProvider()
 }

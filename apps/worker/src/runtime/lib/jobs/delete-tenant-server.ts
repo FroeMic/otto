@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { getDb } from "../../db/client"
 import { organizations, tenantServers, tenants } from "../../db/schema"
-import { HetznerApiError, HetznerClient } from "../hetzner/client"
+import { deleteProviderHosts } from "../provisioning-provider/delete"
 
 import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
@@ -190,55 +190,17 @@ async function deleteProviderServers(input: {
     tenantId: string
   }>
 }) {
-  const hetznerTargets = dedupeHetznerTargets(input.tenantServers)
-
-  if (hetznerTargets.length === 0) {
-    return 0
-  }
-
-  const hetznerClient = new HetznerClient()
-
-  for (const target of hetznerTargets) {
-    await appendJobEvent(
-      input.jobId,
-      DELETE_TENANT_SERVER_EVENTS.deletingHetznerServer,
-      "Deleting the Hetzner tenant server",
-      {
-        providerServerId: target.providerServerId,
-        tenantId: target.tenantId,
-      },
-    )
-
-    try {
-      await hetznerClient.deleteServer(target.providerServerId)
-      await appendJobEvent(
-        input.jobId,
-        DELETE_TENANT_SERVER_EVENTS.deletedHetznerServer,
-        "Deleted the Hetzner tenant server",
-        {
-          providerServerId: target.providerServerId,
-          tenantId: target.tenantId,
-        },
-      )
-    } catch (error) {
-      if (isHetznerNotFoundError(error)) {
-        await appendJobEvent(
-          input.jobId,
-          DELETE_TENANT_SERVER_EVENTS.skippedMissingProviderServer,
-          "Skipped deleting a Hetzner server because it was already gone",
-          {
-            providerServerId: target.providerServerId,
-            tenantId: target.tenantId,
-          },
-        )
-        continue
-      }
-
-      throw error
-    }
-  }
-
-  return hetznerTargets.length
+  return deleteProviderHosts({
+    appendJobEvent: (eventType, message, metadata) =>
+      appendJobEvent(input.jobId, eventType, message, metadata),
+    events: {
+      deletedProviderServer: DELETE_TENANT_SERVER_EVENTS.deletedHetznerServer,
+      deletingProviderServer: DELETE_TENANT_SERVER_EVENTS.deletingHetznerServer,
+      skippedMissingProviderServer:
+        DELETE_TENANT_SERVER_EVENTS.skippedMissingProviderServer,
+    },
+    targets: input.tenantServers,
+  })
 }
 
 function parseDeleteTenantServerPayload(
@@ -253,45 +215,6 @@ function parseDeleteTenantServerPayload(
   return {
     tenantId,
   }
-}
-
-function dedupeHetznerTargets(
-  servers: Array<{
-    provider: string
-    providerServerId: string | null
-    tenantId: string
-  }>,
-) {
-  const seen = new Set<string>()
-  const targets: Array<{
-    providerServerId: string
-    tenantId: string
-  }> = []
-
-  for (const server of servers) {
-    if (server.provider !== "hetzner" || !server.providerServerId) {
-      continue
-    }
-
-    if (seen.has(server.providerServerId)) {
-      continue
-    }
-
-    seen.add(server.providerServerId)
-    targets.push({
-      providerServerId: server.providerServerId,
-      tenantId: server.tenantId,
-    })
-  }
-
-  return targets
-}
-
-function isHetznerNotFoundError(error: unknown) {
-  return (
-    error instanceof HetznerApiError &&
-    (error.responseStatus === 404 || error.code === "not_found")
-  )
 }
 
 function getErrorMessage(error: unknown) {

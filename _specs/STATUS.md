@@ -911,12 +911,12 @@
 
 ## Next recommended step
 
-Lock and execute Phase 0 from `_specs/TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md` before any Docker-provider implementation:
+Execute Phase 2 from `_specs/TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md`:
 
-- add explicit `TENANT_RUNTIME_PROVIDER` selection in worker env with temporary compatibility fallback
-- keep production behavior pinned to the current Hetzner path during this slice
-- add focused provider-resolution tests and validation guardrails
-- avoid Docker host lifecycle implementation work until this hardening slice is merged and verified
+- add per-tenant SSH endpoint metadata (`sshHost`, `sshPort`) in `tenant_servers` with Drizzle migration + metadata updates
+- keep `ipv4` as a compatibility fallback while wiring connection resolution precedence
+- update worker and API runtime connection resolution to prefer `sshHost/sshPort` over env/default fallback
+- add Docker-ready provider config schema wiring without enabling Docker host lifecycle yet
 
 ## Open questions
 

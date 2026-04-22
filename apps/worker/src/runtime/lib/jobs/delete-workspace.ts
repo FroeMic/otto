@@ -8,8 +8,8 @@ import {
   tenantServers,
   tenants,
 } from "../../db/schema"
-import { HetznerApiError, HetznerClient } from "../hetzner/client"
 import { OpenAiProvisioner } from "../providers/openai/provisioning"
+import { deleteProviderHosts } from "../provisioning-provider/delete"
 import { getWorkOS, hasWorkOSConfig } from "../workos"
 
 import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
@@ -92,7 +92,7 @@ export async function processDeleteWorkspaceJob(
       jobId: job.id,
       openAiCredentials: snapshot.openAiCredentials,
     })
-    const deletedHetznerServers = await deleteTenantServers({
+    const deletedProviderServers = await deleteTenantServers({
       jobId: job.id,
       tenantServers: snapshot.tenantServers,
     })
@@ -131,7 +131,7 @@ export async function processDeleteWorkspaceJob(
       DELETE_WORKSPACE_EVENTS.succeeded,
       "Workspace deletion completed successfully",
       {
-        deletedHetznerServers,
+        deletedProviderServers,
         deletedOpenAiServiceAccounts,
         deletedWorkOsOrganization,
         organizationId: snapshot.organization.organizationId,
@@ -139,7 +139,7 @@ export async function processDeleteWorkspaceJob(
       },
     )
     await markJobSucceeded(job.id, {
-      deletedHetznerServers,
+      deletedProviderServers,
       deletedOpenAiServiceAccounts,
       deletedWorkOsOrganization,
       organizationId: snapshot.organization.organizationId,
@@ -348,55 +348,17 @@ async function deleteTenantServers(input: {
     tenantId: string
   }>
 }) {
-  const hetznerTargets = dedupeHetznerTargets(input.tenantServers)
-
-  if (hetznerTargets.length === 0) {
-    return 0
-  }
-
-  const hetznerClient = new HetznerClient()
-
-  for (const target of hetznerTargets) {
-    await appendJobEvent(
-      input.jobId,
-      DELETE_WORKSPACE_EVENTS.deletingHetznerServer,
-      "Deleting the Hetzner tenant server for this workspace",
-      {
-        providerServerId: target.providerServerId,
-        tenantId: target.tenantId,
-      },
-    )
-
-    try {
-      await hetznerClient.deleteServer(target.providerServerId)
-      await appendJobEvent(
-        input.jobId,
-        DELETE_WORKSPACE_EVENTS.deletedHetznerServer,
-        "Deleted the Hetzner tenant server for this workspace",
-        {
-          providerServerId: target.providerServerId,
-          tenantId: target.tenantId,
-        },
-      )
-    } catch (error) {
-      if (isHetznerNotFoundError(error)) {
-        await appendJobEvent(
-          input.jobId,
-          DELETE_WORKSPACE_EVENTS.skippedMissingProviderServer,
-          "Skipped deleting a Hetzner server because it was already gone",
-          {
-            providerServerId: target.providerServerId,
-            tenantId: target.tenantId,
-          },
-        )
-        continue
-      }
-
-      throw error
-    }
-  }
-
-  return hetznerTargets.length
+  return deleteProviderHosts({
+    appendJobEvent: (eventType, message, metadata) =>
+      appendJobEvent(input.jobId, eventType, message, metadata),
+    events: {
+      deletedProviderServer: DELETE_WORKSPACE_EVENTS.deletedHetznerServer,
+      deletingProviderServer: DELETE_WORKSPACE_EVENTS.deletingHetznerServer,
+      skippedMissingProviderServer:
+        DELETE_WORKSPACE_EVENTS.skippedMissingProviderServer,
+    },
+    targets: input.tenantServers,
+  })
 }
 
 async function deleteWorkOsOrganization(input: {
@@ -523,47 +485,6 @@ function dedupeProjectIds(
   }>,
 ) {
   return [...new Set(rows.map((row) => row.projectId).filter(isNonEmptyString))]
-}
-
-function dedupeHetznerTargets(
-  rows: Array<{
-    provider: string
-    providerServerId: string | null
-    tenantId: string
-  }>,
-) {
-  const seen = new Set<string>()
-  const uniqueTargets: Array<{
-    providerServerId: string
-    tenantId: string
-  }> = []
-
-  for (const row of rows) {
-    if (row.provider !== "hetzner" || !row.providerServerId) {
-      continue
-    }
-
-    const key = row.providerServerId
-
-    if (seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    uniqueTargets.push({
-      providerServerId: row.providerServerId,
-      tenantId: row.tenantId,
-    })
-  }
-
-  return uniqueTargets
-}
-
-function isHetznerNotFoundError(error: unknown) {
-  return (
-    error instanceof HetznerApiError &&
-    (error.responseStatus === 404 || error.code === "not_found")
-  )
 }
 
 function isOpenAiNotFoundError(error: unknown) {
