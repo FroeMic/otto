@@ -107,6 +107,11 @@ documented here.
   separate allowlisted namespace and repairs any non-transcription model to
   `gpt-4o-mini-transcribe` in both the runtime plugin and control-plane proxy.
   These fixes target `ghcr.io/froemic/otto-openclaw:2026.4.21.4`.
+- Fresh-workspace provisioning now reconciles the current tenant desired state
+  before initial runtime bootstrap, matching the runtime apply path. This keeps
+  new compiled defaults such as `tools.media.audio` in the rendered
+  `openclaw.json` before bootstrap verification runs on a newly provisioned
+  tenant server.
 
 ## Risk Register
 

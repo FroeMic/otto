@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { getDb } from "../../db/client"
 import {
+  ensureCurrentTenantDesiredStateVersion,
   ensureTenantRuntimeGatewayToken,
   ensureTenantRuntimeTenantToken,
   getLatestTenantDesiredState,
@@ -482,7 +483,26 @@ async function bootstrapRuntime(
       )
     }
 
-    const desiredState = await getLatestTenantDesiredState(payload.tenantId)
+    const reconciledDesiredState = await reconcileDesiredStateForProvisioning({
+      ensureCurrentTenantDesiredStateVersion,
+      getLatestTenantDesiredState,
+      tenantId: payload.tenantId,
+    })
+    const desiredState = reconciledDesiredState.desiredState
+
+    if (reconciledDesiredState.changed) {
+      await appendJobEvent(
+        jobId,
+        "bootstrapping_runtime",
+        "Reconciled desired state before initial runtime bootstrap",
+        {
+          desiredStateVersion: desiredState.version,
+          previousDesiredStateVersion:
+            reconciledDesiredState.previousDesiredStateVersion,
+        },
+      )
+    }
+
     const gatewayToken = await ensureTenantRuntimeGatewayToken(payload.tenantId)
     const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId)
     const slackBotToken = await getTenantSlackBotToken(payload.tenantId)
@@ -892,6 +912,31 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unknown provisioning error"
+}
+
+async function reconcileDesiredStateForProvisioning(input: {
+  ensureCurrentTenantDesiredStateVersion: typeof ensureCurrentTenantDesiredStateVersion
+  getLatestTenantDesiredState: typeof getLatestTenantDesiredState
+  tenantId: string
+}) {
+  const [latestDesiredState, currentDesiredState] = await Promise.all([
+    input.getLatestTenantDesiredState(input.tenantId),
+    input.ensureCurrentTenantDesiredStateVersion({
+      tenantId: input.tenantId,
+    }),
+  ])
+
+  return {
+    changed:
+      currentDesiredState.changed ||
+      currentDesiredState.version !== latestDesiredState.version,
+    desiredState: currentDesiredState,
+    previousDesiredStateVersion: latestDesiredState.version,
+  }
+}
+
+export const __testing = {
+  reconcileDesiredStateForProvisioning,
 }
 
 function logStep(
