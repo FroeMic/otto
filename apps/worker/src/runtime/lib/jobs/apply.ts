@@ -3,10 +3,10 @@ import { and, eq } from "drizzle-orm"
 import { getDb } from "../../db/client"
 import {
   ensureTenantRuntimeTenantToken,
+  ensureCurrentTenantDesiredStateVersion,
   getLatestTenantManagedConfig,
   getManagedConfigVersionFromConfigJson,
   getManagedSkillVersionMapFromConfigJson,
-  getTenantDesiredStateByVersion,
   getTenantManagedConfigByVersion,
   getTenantRuntimeGatewayToken,
   getTenantSlackBotToken,
@@ -70,13 +70,31 @@ export async function processApplyTenantConfigJob(
       },
     )
 
-    const [desiredState, runtimeConnection] = await Promise.all([
-      getTenantDesiredStateByVersion({
+    const [reconciledDesiredState, runtimeConnection] = await Promise.all([
+      reconcileDesiredStateForApply({
+        ensureCurrentTenantDesiredStateVersion,
+        payloadDesiredStateVersion: payload.desiredStateVersion,
         tenantId: payload.tenantId,
-        version: payload.desiredStateVersion,
       }),
       getTenantRuntimeConnection(payload.tenantId, "runtime apply"),
     ])
+    const desiredState = reconciledDesiredState.desiredState
+    if (reconciledDesiredState.changed) {
+      await markApplyRun(job.id, {
+        desiredStateVersion: desiredState.version,
+        status: APPLY_STEPS.loadingDesiredState,
+      })
+      await appendJobEvent(
+        job.id,
+        APPLY_STEPS.loadingDesiredState,
+        "Reconciled desired state before apply",
+        {
+          desiredStateVersion: desiredState.version,
+          previousDesiredStateVersion:
+            reconciledDesiredState.payloadDesiredStateVersion,
+        },
+      )
+    }
     slackEnabledInDesiredState = desiredStateUsesSlack(desiredState.configJson)
     whatsAppEnabledInDesiredState = desiredStateUsesWhatsApp(
       desiredState.configJson,
@@ -416,6 +434,7 @@ function parseApplyPayload(
 async function markApplyRun(
   jobRunId: string,
   input: {
+    desiredStateVersion?: number
     error?: string
     finishedAt?: Date
     restartStderr?: string
@@ -432,6 +451,9 @@ async function markApplyRun(
     .update(tenantApplyRuns)
     .set({
       ...(input.error !== undefined ? { error: input.error } : {}),
+      ...(input.desiredStateVersion !== undefined
+        ? { desiredStateVersion: input.desiredStateVersion }
+        : {}),
       ...(input.finishedAt ? { finishedAt: input.finishedAt } : {}),
       ...(input.restartStderr !== undefined
         ? { restartStderr: input.restartStderr }
@@ -450,6 +472,36 @@ async function markApplyRun(
         : {}),
     })
     .where(eq(tenantApplyRuns.jobRunId, jobRunId))
+}
+
+async function reconcileDesiredStateForApply(input: {
+  ensureCurrentTenantDesiredStateVersion: typeof ensureCurrentTenantDesiredStateVersion
+  payloadDesiredStateVersion: number
+  tenantId: string
+}) {
+  const currentDesiredState = await input.ensureCurrentTenantDesiredStateVersion(
+    {
+      tenantId: input.tenantId,
+    },
+  )
+
+  if (currentDesiredState.version !== input.payloadDesiredStateVersion) {
+    return {
+      changed: true,
+      desiredState: currentDesiredState,
+      payloadDesiredStateVersion: input.payloadDesiredStateVersion,
+    }
+  }
+
+  return {
+    changed: currentDesiredState.changed,
+    desiredState: currentDesiredState,
+    payloadDesiredStateVersion: input.payloadDesiredStateVersion,
+  }
+}
+
+export const __testing = {
+  reconcileDesiredStateForApply,
 }
 
 async function markIntegrationStatus(
