@@ -1,4 +1,4 @@
-import { extractWorkspaceAudioTranscriptFromText } from "@otto/feature-runtime-core/sessions/audio-transcripts"
+import { extractWorkspaceAudioUserTextFromText } from "@otto/feature-runtime-core/sessions/audio-transcripts"
 
 export interface ParsedUserMessage {
   channel: string | null
@@ -113,9 +113,9 @@ function extractConversationInfo(
 }
 
 function extractCleanText(rawText: string) {
-  const audioTranscript = extractWorkspaceAudioTranscriptFromText(rawText)
-  if (audioTranscript) {
-    return audioTranscript
+  const audioUserText = extractWorkspaceAudioUserTextFromText(rawText)
+  if (audioUserText) {
+    return audioUserText
   }
 
   let text = rawText

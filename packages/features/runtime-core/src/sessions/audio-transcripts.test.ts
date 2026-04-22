@@ -47,7 +47,58 @@ Like his friend or something? Would that be possible?`,
     ).toEqual([
       {
         messageId: "205f0bf0-3489-4e3d-a508-93fd80341c88",
+        messageTranscriptIndex: 0,
         transcript: "Like his friend or something? Would that be possible?",
+      },
+    ])
+  })
+
+  it("indexes multiple voice-note transcripts in one workspace message", () => {
+    const baseEnvelope = `Conversation info (untrusted metadata):
+\`\`\`json
+{
+  "chat_id": "workspace:conversation_1",
+  "message_id": "message_1"
+}
+\`\`\`
+
+[Audio]
+User text:
+[Workspace Chat Michael Froehlich Wed 2026-04-22 10:10 GMT+2] Voice note attached.
+Transcript:`
+    const transcriptJsonl = [
+      JSON.stringify({
+        message: {
+          content: [
+            { text: `${baseEnvelope}\nFirst voice note.`, type: "text" },
+          ],
+          role: "user",
+        },
+        type: "message",
+      }),
+      JSON.stringify({
+        message: {
+          content: [
+            { text: `${baseEnvelope}\nSecond voice note.`, type: "text" },
+          ],
+          role: "user",
+        },
+        type: "message",
+      }),
+    ].join("\n")
+
+    expect(
+      extractWorkspaceAudioTranscriptsFromSessionJsonl(transcriptJsonl),
+    ).toEqual([
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 0,
+        transcript: "First voice note.",
+      },
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 1,
+        transcript: "Second voice note.",
       },
     ])
   })

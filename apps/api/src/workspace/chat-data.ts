@@ -254,19 +254,21 @@ export async function projectWorkspaceChatAudioTranscriptsFromSessionTranscript(
     return { updatedMessages: 0, updatedParts: 0 }
   }
 
-  const transcriptByMessageId = new Map(
-    observations.map((observation) => [
-      observation.messageId,
-      observation.transcript,
-    ]),
-  )
-  const messageIds = [...transcriptByMessageId.keys()]
+  const transcriptsByMessageId = new Map<string, string[]>()
+  for (const observation of observations) {
+    const transcripts = transcriptsByMessageId.get(observation.messageId) ?? []
+    transcripts[observation.messageTranscriptIndex] = observation.transcript
+    transcriptsByMessageId.set(observation.messageId, transcripts)
+  }
+
+  const messageIds = [...transcriptsByMessageId.keys()]
   const db = getDb()
   const audioPartRows = await db
     .select({
       conversationId: workspaceChatMessages.conversationId,
       id: workspaceChatMessageParts.id,
       messageId: workspaceChatMessageParts.messageId,
+      ordinal: workspaceChatMessageParts.ordinal,
       textValue: workspaceChatMessageParts.textValue,
     })
     .from(workspaceChatMessageParts)
@@ -285,12 +287,22 @@ export async function projectWorkspaceChatAudioTranscriptsFromSessionTranscript(
         inArray(workspaceChatMessageParts.messageId, messageIds),
       ),
     )
+    .orderBy(
+      workspaceChatMessageParts.messageId,
+      workspaceChatMessageParts.ordinal,
+    )
 
   const updatedConversationByMessageId = new Map<string, string>()
+  const audioPartIndexByMessageId = new Map<string, number>()
   let updatedParts = 0
 
   for (const partRow of audioPartRows) {
-    const transcript = transcriptByMessageId.get(partRow.messageId)
+    const audioPartIndex = audioPartIndexByMessageId.get(partRow.messageId) ?? 0
+    audioPartIndexByMessageId.set(partRow.messageId, audioPartIndex + 1)
+
+    const transcript = transcriptsByMessageId.get(partRow.messageId)?.[
+      audioPartIndex
+    ]
     if (!transcript || partRow.textValue === transcript) {
       continue
     }
