@@ -366,7 +366,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           audio: {
             ...(config.audio.attachmentsMode
               ? {
-                  attachmentsMode: config.audio.attachmentsMode,
+                  attachments: {
+                    mode: config.audio.attachmentsMode,
+                  },
                 }
               : {}),
             ...(typeof config.audio.echoTranscript === "boolean"

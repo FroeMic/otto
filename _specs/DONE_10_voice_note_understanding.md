@@ -77,7 +77,7 @@ Recommended v1 shape:
 - `media.audio.model`
 - `media.audio.maxBytes`
 - `media.audio.echoTranscript`
-- `media.audio.attachmentsMode`
+- `media.audio.attachmentsMode` in Otto desired state, projected to OpenClaw `tools.media.audio.attachments.mode`
 
 Recommended compiled defaults:
 
@@ -86,7 +86,7 @@ Recommended compiled defaults:
 - `model: "gpt-4o-mini-transcribe"`
 - `maxBytes: 20971520`
 - `echoTranscript: false`
-- `attachmentsMode: "all"`
+- `attachmentsMode: "all"` in Otto desired state
 
 V1 constraints:
 
@@ -104,6 +104,7 @@ The rendered OpenClaw config should include:
 
 - `tools.media.audio.enabled: true`
 - `tools.media.audio.maxBytes: 20971520`
+- `tools.media.audio.attachments.mode: "all"`
 - `tools.media.audio.models = [{ provider: "openai-proxy", model: "gpt-4o-mini-transcribe" }]` when Otto-managed AI proxying is available
 
 Runtime auth should use the existing tenant-scoped Otto runtime auth:

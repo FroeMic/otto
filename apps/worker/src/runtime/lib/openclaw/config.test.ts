@@ -156,7 +156,9 @@ describe("renderOpenClawConfig", () => {
       tools: {
         media?: {
           audio?: {
-            attachmentsMode?: string
+            attachments?: {
+              mode?: string
+            }
             enabled?: boolean
           }
         }
@@ -164,7 +166,9 @@ describe("renderOpenClawConfig", () => {
     }
 
     expect(rendered.tools.media?.audio).toMatchObject({
-      attachmentsMode: "all",
+      attachments: {
+        mode: "all",
+      },
       enabled: true,
     })
   })
