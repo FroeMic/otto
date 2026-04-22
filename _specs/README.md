@@ -91,6 +91,7 @@ This folder is the source of truth for implementation planning and session-to-se
 35. `TODO_35_posthog_integration.md`
 36. `TODO_36_openai_proxy_native_quality_rewrite.md`
 37. `DONE_37_audio_transcript_projection.md`
+38. `TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md`
 
 ## Trigger.dev decision
 

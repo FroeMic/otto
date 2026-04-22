@@ -911,12 +911,12 @@
 
 ## Next recommended step
 
-Implement Phase 1 from `_specs/TODO_25_app_shell_layout_and_notifications.md`:
+Lock and execute Phase 0 from `_specs/TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md` before any Docker-provider implementation:
 
-- introduce a shared `ShellViewport` and `ShellStage` in `apps/web/src/client/app/app-shell`
-- adopt them in `WorkspaceShell`, `SettingsShell`, and `PlatformShell`
-- keep the current Otto sidebar styling and current persistent shell header toggle
-- make shell height and scroll ownership explicit before adding shell-notification infrastructure
+- add explicit `TENANT_RUNTIME_PROVIDER` selection in worker env with temporary compatibility fallback
+- keep production behavior pinned to the current Hetzner path during this slice
+- add focused provider-resolution tests and validation guardrails
+- avoid Docker host lifecycle implementation work until this hardening slice is merged and verified
 
 ## Open questions
 
