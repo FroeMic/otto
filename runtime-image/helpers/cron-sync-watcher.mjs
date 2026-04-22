@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
 import { watch } from "node:fs";
+import {
+  CRON_JOBS_FILE,
+  CRON_JOBS_STATE_FILE,
+  CRON_RUN_LOG_EXTENSION,
+  isCronRunLogFileName,
+  isCronTaskRefreshFileName,
+} from "./cron-sync-watcher-rules.mjs";
 
 const CONTROL_PLANE_TIMEOUT_MS = 15_000;
 const DEFAULT_DEBOUNCE_MS = 1_500;
@@ -10,7 +17,6 @@ const GATEWAY_WATCH_RETRY_MS = 5_000;
 const INITIAL_SYNC_RETRY_MS = 10_000;
 const MAX_RUNS_PER_REQUEST = 200;
 const CRON_ROOT = "/home/node/.openclaw/cron";
-const CRON_JOBS_FILE = "jobs.json";
 const CRON_RUNS_DIR = `${CRON_ROOT}/runs`;
 
 const gatewayPort = process.env.OPENCLAW_GATEWAY_PORT || DEFAULT_GATEWAY_PORT;
@@ -150,8 +156,12 @@ function startCronRootWatcher() {
   startWatcherLoop({
     label: "cron-root",
     onEvent: (_, fileName) => {
-      if (fileName === CRON_JOBS_FILE) {
-        queueTaskRefresh("jobs_file_change");
+      if (isCronTaskRefreshFileName(fileName)) {
+        queueTaskRefresh(
+          fileName === CRON_JOBS_STATE_FILE
+            ? "jobs_state_file_change"
+            : "jobs_file_change",
+        );
         return;
       }
 
@@ -170,11 +180,11 @@ function startRunsWatcher() {
   startWatcherLoop({
     label: "cron-runs",
     onEvent: (_, fileName) => {
-      if (!fileName || !fileName.endsWith(".jsonl")) {
+      if (!isCronRunLogFileName(fileName)) {
         return;
       }
 
-      const jobId = fileName.slice(0, -".jsonl".length).trim();
+      const jobId = fileName.slice(0, -CRON_RUN_LOG_EXTENSION.length).trim();
       if (!jobId) {
         return;
       }

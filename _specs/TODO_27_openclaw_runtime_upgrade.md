@@ -9,14 +9,20 @@ OpenAI proxy behavior.
 
 ## Working Branch
 
-Current branch:
+Planning branch:
 
 ```text
 plan/openclaw-2026-4-21-upgrade
 ```
 
-Use this branch for the planning and first implementation slice. Keep commits
-small enough to separate:
+Implementation branch:
+
+```text
+codex/openclaw-2026-4-21-upgrade
+```
+
+Use the implementation branch for code changes after the planning PR has been
+merged. Keep commits small enough to separate:
 
 - spec/status updates
 - compatibility fixes
@@ -58,16 +64,21 @@ documented here.
 
 ## Current Implementation State
 
-- `runtime-image/Dockerfile` still defaults to
-  `ghcr.io/openclaw/openclaw:2026.4.15`.
-- `publish-runtime-image.sh` still defaults to `IMAGE_REVISION=3` and
-  `ghcr.io/openclaw/openclaw:2026.4.15`.
-- `apps/worker/src/runtime/lib/env.ts` still defaults
-  `RUNTIME_OPENCLAW_IMAGE` to the raw upstream `2026.4.15` image.
-- Runtime plugin package versions still align with custom image
-  `2026.4.15.3`.
+- `runtime-image/Dockerfile` now defaults to
+  `ghcr.io/openclaw/openclaw:2026.4.21`.
+- `publish-runtime-image.sh` now defaults to `IMAGE_REVISION=1` and
+  `ghcr.io/openclaw/openclaw:2026.4.21`.
+- `apps/worker/src/runtime/lib/env.ts` now defaults
+  `RUNTIME_OPENCLAW_IMAGE` to the raw upstream `2026.4.21` image.
+- Runtime plugin package versions now align with custom image
+  `2026.4.21.1`.
 - The custom runtime image copies managed plugins into `/app/dist/extensions`,
   which is still the correct packaged image discovery location.
+- `runtime-image/helpers/cron-sync-watcher.mjs` now treats `jobs-state.json`
+  changes as scheduled-task refresh triggers alongside `jobs.json`.
+- A local, unpushed custom image build completed for
+  `ghcr.io/froemic/otto-openclaw:2026.4.21.1`, and the image reports
+  `OpenClaw 2026.4.21`.
 - Session sync is now additive and audio transcript projection depends on
   OpenClaw session JSONL retaining the workspace chat metadata and transcript
   shape.
@@ -97,9 +108,10 @@ Mitigation:
 Risk: high.
 
 OpenClaw `2026.4.20` split cron runtime execution state into
-`jobs-state.json`. The current helper only treats `jobs.json` as a
-scheduled-task refresh trigger and separately watches `runs/*.jsonl`. Runtime
-state changes may not refresh the workspace scheduled-task surface.
+`jobs-state.json`. Otto now treats `jobs-state.json` as a scheduled-task refresh
+trigger alongside `jobs.json` and separately watches `runs/*.jsonl`. Live
+tenant canary still needs to confirm that runtime state changes refresh the
+workspace scheduled-task surface.
 
 Mitigation:
 
@@ -230,12 +242,12 @@ Exit criteria:
 
 ### Phase 1: Compatibility Fixes Before Version Bump
 
-- [ ] Patch `runtime-image/helpers/cron-sync-watcher.mjs` to queue a task
+- [x] Patch `runtime-image/helpers/cron-sync-watcher.mjs` to queue a task
   refresh when `jobs-state.json` changes.
-- [ ] Add or update focused verification for the cron watcher filename
+- [x] Add or update focused verification for the cron watcher filename
   behavior.
-- [ ] Re-run scheduled-task sync tests.
-- [ ] Re-run runtime helper or package tests that cover cron sync behavior.
+- [x] Re-run scheduled-task sync tests.
+- [x] Re-run runtime helper or package tests that cover cron sync behavior.
 
 Exit criteria:
 
@@ -245,16 +257,16 @@ Exit criteria:
 
 ### Phase 2: Mechanical Runtime Baseline Bump
 
-- [ ] Update `runtime-image/Dockerfile` to default to
+- [x] Update `runtime-image/Dockerfile` to default to
   `ghcr.io/openclaw/openclaw:2026.4.21`.
-- [ ] Update `publish-runtime-image.sh` defaults:
+- [x] Update `publish-runtime-image.sh` defaults:
   - `OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21`
   - `IMAGE_REVISION=1`
-- [ ] Update `apps/worker/src/runtime/lib/env.ts` default
+- [x] Update `apps/worker/src/runtime/lib/env.ts` default
   `RUNTIME_OPENCLAW_IMAGE`.
-- [ ] Update runtime image docs and examples to `2026.4.21.1`.
-- [ ] Update all managed runtime plugin package versions to `2026.4.21.1`.
-- [ ] Update any tests that assert configured/observed runtime image versions.
+- [x] Update runtime image docs and examples to `2026.4.21.1`.
+- [x] Update all managed runtime plugin package versions to `2026.4.21.1`.
+- [x] Update any tests that assert configured/observed runtime image versions.
 
 Exit criteria:
 
@@ -263,17 +275,23 @@ Exit criteria:
 
 ### Phase 3: Static And Local Test Gate
 
-- [ ] Run managed runtime plugin manifest tests.
-- [ ] Run `otto-ai-provider` provider contract tests.
-- [ ] Run `otto-web-provider` tests.
-- [ ] Run `otto-workspace-chat` tests.
-- [ ] Run OpenAI proxy tests in `apps/api`.
-- [ ] Run scheduled-task sync tests.
-- [ ] Run session sync and audio transcript projection tests.
-- [ ] Run affected package builds:
+- [x] Run managed runtime plugin manifest tests.
+- [x] Run `otto-ai-provider` provider contract tests.
+- [x] Run `otto-web-provider` tests.
+- [x] Run `otto-workspace-chat` tests.
+- [x] Run OpenAI proxy tests in `apps/api`.
+- [x] Run scheduled-task sync tests.
+- [x] Run session sync and audio transcript projection tests.
+- [x] Run affected package builds:
   - `apps/api`
   - `apps/worker`
   - `packages/features/runtime-core`
+
+Build note:
+
+- `apps/worker` bundling needed the same `--external ssh2` treatment already
+  used by `apps/api` because Bun otherwise tries to bundle `ssh2`'s native
+  `cpu-features.node` dependency.
 
 Exit criteria:
 
@@ -282,7 +300,7 @@ Exit criteria:
 
 ### Phase 4: Local Custom Image Build
 
-- [ ] Build locally without pushing:
+- [x] Build locally without pushing:
 
 ```bash
 OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21 \
@@ -292,12 +310,20 @@ LOAD_IMAGE=1 \
 ./publish-runtime-image.sh
 ```
 
-- [ ] Confirm the local image tag resolves to
+- [x] Confirm the local image tag resolves to
   `ghcr.io/froemic/otto-openclaw:2026.4.21.1`.
 - [ ] Start a tenant-like runtime from the local image.
 - [ ] Confirm gateway `/healthz` succeeds.
-- [ ] Confirm managed plugin discovery from `/app/dist/extensions`.
+- [x] Confirm managed plugin discovery from `/app/dist/extensions`.
 - [ ] Confirm no repeated bundled runtime dependency repair occurs.
+
+Local image verification:
+
+- `docker run --rm --entrypoint openclaw ghcr.io/froemic/otto-openclaw:2026.4.21.1 --version`
+  reported `OpenClaw 2026.4.21`.
+- A container file inspection found all managed plugin manifests under
+  `/app/dist/extensions` and confirmed `/app/otto-helpers/cron-sync-watcher-rules.mjs`
+  is packaged.
 
 Exit criteria:
 
@@ -464,10 +490,10 @@ Exit criteria:
 - [x] Branch created.
 - [x] Detailed upgrade tracker written.
 - [x] Status file updated.
-- [ ] Cron `jobs-state.json` compatibility patched.
-- [ ] Runtime defaults bumped.
-- [ ] Tests passed.
-- [ ] Local image built.
+- [x] Cron `jobs-state.json` compatibility patched.
+- [x] Runtime defaults bumped.
+- [x] Tests passed.
+- [x] Local image built.
 - [ ] Tenant-like local boot verified.
 - [ ] Custom image published.
 - [ ] Single-tenant canary passed.

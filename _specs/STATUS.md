@@ -230,13 +230,16 @@
   - `memory-core` is currently disabled by default in rendered tenant config, so managed memory requires explicit config projection and allowlist updates
   - OpenClaw `Active Memory` is present in current docs/main but not in the stable `v2026.4.9` tag Otto is currently aligned to, so it is a canary/follow-on feature rather than part of the first stable spec
 - The OpenClaw `2026.4.21` runtime-base upgrade planning now lives in `TODO_27_openclaw_runtime_upgrade.md`:
-  - active branch: `plan/openclaw-2026-4-21-upgrade`
+  - planning PR #586 merged, and active implementation branch is now `codex/openclaw-2026-4-21-upgrade`
   - latest verified upstream package signal is `openclaw@2026.4.21`, with `v2026.4.21` tagged April 22, 2026 and `v2026.4.20` carrying the larger compatibility/security batch
-  - the current repo defaults still point at `2026.4.15`; the bump should happen only after the compatibility patch lands
-  - the first implementation task is to patch `runtime-image/helpers/cron-sync-watcher.mjs` so OpenClaw's new `jobs-state.json` cron state file triggers scheduled-task refreshes alongside `jobs.json`
+  - the repo defaults now point at OpenClaw `2026.4.21`, custom image revision `2026.4.21.1`, and runtime plugin package versions `2026.4.21.1`
+  - `runtime-image/helpers/cron-sync-watcher.mjs` now treats OpenClaw's new `jobs-state.json` cron state file as a scheduled-task refresh trigger alongside `jobs.json`
   - the main Otto-side risks for this upgrade are OpenAI Responses transport/reasoning changes, the cron `jobs-state.json` split, stricter plugin registration/runtime dependency behavior, owner-enforced command identity, reused bundled channel plugins, gateway readiness/scope changes, and the new audio transcript projection dependency on OpenClaw session JSONL shape
-  - the target custom image is `ghcr.io/froemic/otto-openclaw:2026.4.21.1`; rollback remains `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
-  - the recommended strategy is: patch cron compatibility, bump defaults and plugin package versions, run focused tests, build locally, boot a tenant-like runtime, canary OpenAI proxy/workspace chat/session transcript/scheduled-task/channel paths, then publish and refresh exactly one tenant before broader rollout
+  - local unpushed Docker build of `ghcr.io/froemic/otto-openclaw:2026.4.21.1` succeeded and reports `OpenClaw 2026.4.21`; packaged image inspection found all managed plugin manifests under `/app/dist/extensions`
+  - focused tests and builds passed for cron watcher rules, managed runtime plugins, OpenAI proxy/platform routes, scheduled-task API/worker paths, session sync, audio transcript projection, `packages/features/runtime-core`, `apps/api`, and `apps/worker`
+  - `apps/worker` build now externalizes `ssh2` like `apps/api` to avoid bundling `ssh2`'s native `cpu-features.node` dependency
+  - remaining rollout work is live canary only: boot a tenant-like runtime, verify gateway/plugin readiness, canary OpenAI proxy/workspace chat/session transcript/scheduled-task/channel paths, then publish and refresh exactly one tenant before broader rollout
+  - target custom image remains `ghcr.io/froemic/otto-openclaw:2026.4.21.1`; rollback remains `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
 - The first raw OpenAI usage-ingestion foundation now exists:
   - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
   - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
