@@ -2,10 +2,10 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export const workspaceChatPromptSuggestions = [
-  "Research the market for my next idea",
-  "Summarize what changed in this workspace",
-  "Turn this rough plan into next steps",
-  "Set up a recurring check-in",
+  "Brainstorm a new business idea",
+  "Review a business",
+  "Work on an existing business",
+  "Set up a recurring task",
 ] as const
 
 export interface WorkspaceChatPromptSuggestionsProps {

@@ -114,15 +114,11 @@ export function WorkspaceAgentPage({ orgSlug }: WorkspaceAgentPageProps) {
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 pb-8 pt-14 text-center">
           <Empty className="border-0 p-0">
             <EmptyHeader className="max-w-2xl gap-3">
-              <p className="text-sm font-medium tracking-[0.18em] text-primary/80 uppercase">
-                Workspace conversation
-              </p>
               <EmptyTitle className="text-4xl font-semibold text-foreground/94">
-                Ask Otto to work through something in this workspace
+                What should Otto help with?
               </EmptyTitle>
               <EmptyDescription className="max-w-xl text-base leading-8">
-                Research, summarize, or take action. Pick a starting point or
-                write your own message below.
+                Pick a start or write below.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="max-w-2xl">
