@@ -22,6 +22,26 @@ describe("session sync reconciliation helpers", () => {
     ])
   })
 
+  it("prefers run-specific cron keys over base cron keys for the same job even when runtime session ids differ", () => {
+    const baseCronKey = "agent:main:cron:job-1"
+    const runCronKey = `${baseCronKey}:run:run-1`
+    const workspaceChatKey =
+      "agent:main:otto-workspace-chat:channel:workspace:conversation-1"
+    const keys = __testing.selectCanonicalSessionKeys({
+      [baseCronKey]: {
+        sessionId: "base_session",
+      },
+      [runCronKey]: {
+        sessionId: "run_session",
+      },
+      [workspaceChatKey]: {
+        sessionId: "workspace_session",
+      },
+    })
+
+    expect(keys).toEqual([runCronKey, workspaceChatKey])
+  })
+
   it("reconciles missing, newer, and transcript-missing sessions only", () => {
     expect(
       __testing.shouldReconcileSession({

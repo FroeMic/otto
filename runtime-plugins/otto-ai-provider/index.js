@@ -4,6 +4,7 @@ import { buildProviderStreamFamilyHooks } from "openclaw/plugin-sdk/provider-str
 import { buildOpenAiProxyProvider } from "./openai-proxy-provider.js";
 import {
   normalizeControlPlaneBaseUrl,
+  resolveOpenAiProxyApiBaseUrl,
   resolveOpenAiProxyRuntimeAuth,
 } from "./runtime-auth.js";
 
@@ -41,7 +42,7 @@ export default defineSingleProviderPluginEntry({
 });
 
 function resolveProxyBaseUrl(value) {
-  const explicit = normalizeControlPlaneBaseUrl(value);
+  const explicit = resolveOpenAiProxyApiBaseUrl(value);
   if (explicit) {
     return explicit;
   }

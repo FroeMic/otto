@@ -233,8 +233,13 @@ function selectCanonicalSessionKeys(
   store: Record<string, RuntimeSessionEntry>,
 ): string[] {
   const runSessionIds = new Set<string>()
+  const runBaseSessionKeys = new Set<string>()
   for (const [key, entry] of Object.entries(store)) {
-    if (key.includes(":run:") && entry?.sessionId) {
+    const runBaseSessionKey = getCronRunBaseSessionKey(key)
+    if (runBaseSessionKey) {
+      runBaseSessionKeys.add(runBaseSessionKey)
+    }
+    if (runBaseSessionKey && entry?.sessionId) {
       runSessionIds.add(entry.sessionId)
     }
   }
@@ -243,8 +248,17 @@ function selectCanonicalSessionKeys(
     const entry = store[sessionKey]
     if (!entry?.sessionId) return false
 
+    if (runBaseSessionKeys.has(sessionKey)) {
+      return false
+    }
+
     return sessionKey.includes(":run:") || !runSessionIds.has(entry.sessionId)
   })
+}
+
+function getCronRunBaseSessionKey(sessionKey: string): string | null {
+  const match = /^(agent:[^:]+:cron:[^:]+):run:[^:]+$/.exec(sessionKey)
+  return match?.[1] ?? null
 }
 
 function shouldReconcileSession(input: {

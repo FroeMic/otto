@@ -87,6 +87,13 @@ documented here.
   pre-creates only `/opt/openclaw/home/workspace/.openclaw` as
   `openclaw:openclaw` mode `770` while keeping the managed workspace root
   `root:openclaw` mode `755`, and the workspace files surface hides `.openclaw`.
+- Follow-on tenant testing found two additional compatibility issues:
+  OpenClaw now keeps stable cron base session keys alongside per-run
+  `...:cron:<job>:run:<run>` keys, and audio transcription can call the
+  OpenAI-compatible media provider with a raw control-plane base URL. Otto now
+  filters base cron placeholders and empty placeholder sessions from the
+  Sessions list, and normalizes raw OpenAI proxy media base URLs to the
+  internal `/api/internal/runtime/ai/openai/v1` path before transcription.
 
 ## Risk Register
 
@@ -223,6 +230,47 @@ Mitigation:
 - Hide `.openclaw` and its children from the workspace settings/files surface.
 - Re-apply tenant config or run the permission normalization path on upgraded
   tenants before re-testing workspace chat.
+
+### Cron Session Projection
+
+Risk: medium.
+
+OpenClaw `2026.4.21` deliberately writes both the stable cron base key and
+ephemeral per-run keys for isolated cron runs. Otto previously imported base
+rows before the first run and did not hide them once run-specific rows existed,
+so the Sessions list could show both:
+
+```text
+agent:main:cron:<job>
+agent:main:cron:<job>:run:<run>
+```
+
+Mitigation:
+
+- Prefer run-specific cron keys over base cron keys during session sync.
+- Filter already-synced base cron placeholders from the Sessions list whenever
+  a matching run-specific row exists.
+- Filter empty placeholder sessions from the Sessions list so failed pre-model
+  turns do not show as transcript-less chats.
+
+### Audio Transcription Proxy
+
+Risk: high.
+
+Workspace voice notes reached OpenClaw media-understanding, but transcription
+failed with `Audio transcription failed (HTTP 404)`, leaving the model to see
+raw media paths and try local Whisper/ffmpeg. The expected path is the
+Otto-owned OpenAI audio proxy, not local transcription binaries in the tenant
+runtime.
+
+Mitigation:
+
+- Normalize raw control-plane OpenAI proxy base URLs in `otto-ai-provider` to
+  `/api/internal/runtime/ai/openai/v1` before the OpenAI-compatible audio
+  helper appends `/audio/transcriptions`.
+- Publish a new custom runtime image because this fix lives in a runtime
+  plugin.
+- Re-test workspace voice notes after applying the new image.
 
 ### Session Transcript Projection
 
@@ -392,6 +440,10 @@ Pending live canary.
 - [x] Patch live tenant permission regression where OpenClaw `2026.4.21` needs
   workspace-local `.openclaw` state under the protected managed workspace root.
 - [x] Hide `.openclaw` from the workspace settings/files surface.
+- [x] Filter OpenClaw cron base session placeholders when matching per-run
+  session rows exist.
+- [x] Filter transcript-less placeholder sessions from the Sessions list.
+- [x] Normalize raw OpenAI proxy media base URLs before audio transcription.
 - [ ] Workspace chat text turn succeeds.
 - [ ] Workspace chat attachment turn succeeds.
 - [ ] Workspace chat voice-note turn succeeds.
@@ -538,6 +590,8 @@ Exit criteria:
 - [x] Local image built.
 - [x] Workspace-local `.openclaw` state permission hotfix added after live
   tenant failure.
+- [x] Cron session projection and audio transcription proxy follow-up hotfixes
+  added after live tenant testing.
 - [ ] Tenant-like local boot verified.
 - [ ] Custom image published.
 - [ ] Single-tenant canary passed.

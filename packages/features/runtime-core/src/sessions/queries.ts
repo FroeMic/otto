@@ -38,6 +38,37 @@ export type TenantSessionUpsertInput = {
   transcriptJsonl?: string | null
 }
 
+type VisibleSessionRow = {
+  lastMessageAt: number | null
+  messageCount: number | null
+  sessionKey: string
+}
+
+function getCronRunBaseSessionKey(sessionKey: string): string | null {
+  const match = /^(agent:[^:]+:cron:[^:]+):run:[^:]+$/.exec(sessionKey)
+  return match?.[1] ?? null
+}
+
+function selectVisibleSessionRows<TRow extends VisibleSessionRow>(
+  rows: TRow[],
+): TRow[] {
+  const runBaseSessionKeys = new Set<string>()
+  for (const row of rows) {
+    const runBaseSessionKey = getCronRunBaseSessionKey(row.sessionKey)
+    if (runBaseSessionKey) {
+      runBaseSessionKeys.add(runBaseSessionKey)
+    }
+  }
+
+  return rows.filter((row) => {
+    if (runBaseSessionKeys.has(row.sessionKey)) {
+      return false
+    }
+
+    return Boolean(row.lastMessageAt || (row.messageCount ?? 0) > 0)
+  })
+}
+
 function extractStartedAtFromTranscript(
   transcriptJsonl: string | null | undefined,
 ): number | null {
@@ -215,7 +246,7 @@ export async function listTenantSessions(input: {
   const limit = input.limit ?? 100
   const offset = input.offset ?? 0
 
-  return db
+  const rows = await db
     .select({
       createdAt: tenantSessions.createdAt,
       displayName: tenantSessions.displayName,
@@ -247,6 +278,8 @@ export async function listTenantSessions(input: {
     .orderBy(desc(tenantSessions.lastMessageAt))
     .limit(limit)
     .offset(offset)
+
+  return selectVisibleSessionRows(rows)
 }
 
 export async function getTenantSession(input: {
@@ -291,4 +324,8 @@ export async function getTenantSession(input: {
     .limit(1)
 
   return session ?? null
+}
+
+export const __testing = {
+  selectVisibleSessionRows,
 }
