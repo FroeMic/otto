@@ -9284,7 +9284,7 @@ async function compileTenantDesiredStateConfig(
       tenantId,
     },
   )
-  const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
+  const [workspace, slackIntegration] = await Promise.all([
     tx
       .select({
         locale: organizations.locale,
@@ -9322,9 +9322,6 @@ async function compileTenantDesiredStateConfig(
       )
       .limit(1)
       .then((rows) => rows[0] ?? null),
-    getWhatsAppIntegrationForTenant(tx, {
-      tenantId,
-    }),
   ])
   const slackProfile = slackIntegration
     ? buildSlackConnectionProfile({
@@ -9401,41 +9398,6 @@ async function compileTenantDesiredStateConfig(
         slackBotUserId: slackProfile.slackBotUserId,
         teamId: slackProfile.teamId,
         teamName: slackProfile.teamName,
-      }
-    }
-  }
-
-  if (whatsAppIntegration) {
-    const whatsAppRuntimeConfig =
-      await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
-        tenantId,
-      })
-
-    if (
-      whatsAppRuntimeConfig.installState === "installed" &&
-      whatsAppRuntimeConfig.enabled
-    ) {
-      const integrations = Array.isArray(config.integrations)
-        ? [...config.integrations]
-        : []
-
-      if (!integrations.includes("whatsapp")) {
-        integrations.push("whatsapp")
-      }
-
-      config.integrations = integrations
-      config.whatsapp = {
-        ackReactionEnabled: whatsAppRuntimeConfig.config.ackReactionEnabled,
-        allowedGroupIds: whatsAppRuntimeConfig.config.allowedGroupIds,
-        allowedNumbers: whatsAppRuntimeConfig.config.allowedNumbers,
-        dmPolicy: whatsAppRuntimeConfig.config.dmPolicy,
-        groupAllowedNumbers:
-          whatsAppRuntimeConfig.config.groupAllowedNumbers.length > 0
-            ? whatsAppRuntimeConfig.config.groupAllowedNumbers
-            : whatsAppRuntimeConfig.config.allowedNumbers,
-        groupPolicy: whatsAppRuntimeConfig.config.groupPolicy,
-        requireMentionInGroups:
-          whatsAppRuntimeConfig.config.requireMentionInGroups,
       }
     }
   }
