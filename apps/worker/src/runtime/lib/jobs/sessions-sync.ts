@@ -379,10 +379,7 @@ function parsePayload(
     throw new Error("Session sync payload is missing tenantId")
   }
   const mode = payload.mode
-  if (
-    mode !== undefined &&
-    mode !== "new_or_changed"
-  ) {
+  if (mode !== undefined && mode !== "new_or_changed") {
     throw new Error(`Unsupported session sync mode: ${String(mode)}`)
   }
 
