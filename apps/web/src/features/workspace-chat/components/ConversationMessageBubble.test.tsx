@@ -172,5 +172,6 @@ describe("ConversationMessageBubble", () => {
     assert.match(markup, /aria-expanded="true"/)
     assert.match(markup, /with enough words\./)
     assert.match(markup, /with different words\./)
+    assert.match(markup, /class="[^"]*flex-1[^"]*"/)
   })
 })
