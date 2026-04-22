@@ -12,6 +12,12 @@ export function normalizeVoiceNoteMimeType(mimeType: string) {
   return normalized || "audio/webm"
 }
 
+export function isTranscribableMediaMimeType(mimeType: string) {
+  const normalized = mimeType.trim().toLowerCase()
+
+  return normalized.startsWith("audio/") || normalized.startsWith("video/")
+}
+
 export function formatVoiceNoteDuration(durationMs: number) {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
   const minutes = Math.floor(totalSeconds / 60)

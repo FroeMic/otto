@@ -33,7 +33,10 @@ import {
   type WorkspaceChatComposerAttachmentDraft,
 } from "../composer-parts"
 import { extractWorkspaceChatDropFiles } from "../drop-files"
-import { formatVoiceNoteDuration } from "../voice-note"
+import {
+  formatVoiceNoteDuration,
+  isTranscribableMediaMimeType,
+} from "../voice-note"
 import { ConversationVoiceNoteRecorder } from "./ConversationVoiceNoteRecorder"
 
 export interface ConversationComposerProps {
@@ -156,10 +159,24 @@ export function ConversationComposer({
       )
       setAttachments((current) => [
         ...current,
-        ...uploaded.map((attachment) => ({
-          attachment,
-          kind: "file" as const,
-        })),
+        ...uploaded.map((attachment, index) => {
+          if (isTranscribableMediaMimeType(attachment.mimeType)) {
+            const sourceFile = files[index]
+
+            return {
+              attachment,
+              kind: "audio" as const,
+              ...(sourceFile
+                ? { previewUrl: URL.createObjectURL(sourceFile) }
+                : {}),
+            }
+          }
+
+          return {
+            attachment,
+            kind: "file" as const,
+          }
+        }),
       ])
     } catch (error) {
       toast.error(
@@ -314,7 +331,9 @@ export function ConversationComposer({
               )}
               <span className="max-w-44 truncate">
                 {attachment.kind === "audio"
-                  ? `Voice note${typeof attachment.durationMs === "number" ? ` · ${formatVoiceNoteDuration(attachment.durationMs)}` : ""}`
+                  ? typeof attachment.durationMs === "number"
+                    ? `Voice note · ${formatVoiceNoteDuration(attachment.durationMs)}`
+                    : attachment.attachment.fileName
                   : attachment.attachment.fileName}
               </span>
               {attachment.kind === "audio" ? (

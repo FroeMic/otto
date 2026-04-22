@@ -36,7 +36,7 @@ export async function prepareWorkspaceChatInboundParts(input, dependencies = {})
     });
     const baseLine = `- ${attachment.fileName} (${attachment.mimeType}) at ${localPath}`;
 
-    if (part.type === "audio") {
+    if (part.type === "audio" || isTranscribableMediaMimeType(normalizedPartMimeType)) {
       const transcript =
         typeof part.transcript === "string" ? part.transcript.trim() : "";
       mediaAttachments.push({
@@ -90,6 +90,13 @@ function normalizeWorkspaceChatAudioMimeType(mimeType) {
   }
 
   return normalized || "audio/webm";
+}
+
+function isTranscribableMediaMimeType(mimeType) {
+  const normalized =
+    typeof mimeType === "string" ? mimeType.trim().toLowerCase() : "";
+
+  return normalized.startsWith("audio/") || normalized.startsWith("video/");
 }
 
 async function saveWorkspaceChatAttachmentBuffer(input) {
