@@ -451,7 +451,7 @@ export function ConversationComposer({
 
               {isRunning && onStop ? (
                 <Button
-                  className="rounded-full border-destructive/35 bg-destructive px-5 text-destructive-foreground shadow-none hover:bg-destructive/90"
+                  className="rounded-full border-black bg-black px-5 text-white shadow-none hover:bg-black/90"
                   disabled={isStopping}
                   onClick={() => void onStop()}
                   type="button"
