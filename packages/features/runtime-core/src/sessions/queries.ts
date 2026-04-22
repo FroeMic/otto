@@ -1,6 +1,6 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { tenantSessions } from "@otto/feature-integrations-runtime/db/schema"
-import { and, desc, eq, notInArray } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 export type TenantSessionUpsertInput = {
   cacheReadTokens?: number | null
@@ -291,36 +291,4 @@ export async function getTenantSession(input: {
     .limit(1)
 
   return session ?? null
-}
-
-export async function deleteStaleTenantSessions(
-  tenantId: string,
-  activeSessionKeys: string[],
-) {
-  const db = getDb()
-
-  if (activeSessionKeys.length === 0) {
-    const deletedRows = await db
-      .delete(tenantSessions)
-      .where(eq(tenantSessions.tenantId, tenantId))
-      .returning({
-        id: tenantSessions.id,
-      })
-
-    return deletedRows.length
-  }
-
-  const deletedRows = await db
-    .delete(tenantSessions)
-    .where(
-      and(
-        eq(tenantSessions.tenantId, tenantId),
-        notInArray(tenantSessions.sessionKey, activeSessionKeys),
-      ),
-    )
-    .returning({
-      id: tenantSessions.id,
-    })
-
-  return deletedRows.length
 }

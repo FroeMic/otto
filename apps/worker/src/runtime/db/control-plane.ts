@@ -6,7 +6,7 @@ import type {
   Role,
   User,
 } from "@workos-inc/node"
-import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import {
   buildResolvedIntegrationAgentCapability,
   buildResolvedIntegrationCommandCapability,
@@ -11225,26 +11225,6 @@ export async function getTenantSession(input: {
     .limit(1)
 
   return session ?? null
-}
-
-export async function deleteStaleTenantSessions(
-  tenantId: string,
-  activeSessionKeys: string[],
-) {
-  if (activeSessionKeys.length === 0) return 0
-
-  const db = getDb()
-  const result = await db
-    .delete(tenantSessions)
-    .where(
-      and(
-        eq(tenantSessions.tenantId, tenantId),
-        notInArray(tenantSessions.sessionKey, activeSessionKeys),
-      ),
-    )
-    .returning({ id: tenantSessions.id })
-
-  return result.length
 }
 
 // ---------------------------------------------------------------------------

@@ -411,6 +411,8 @@ export async function refreshWorkspaceSessions(input: {
   const jobId = await enqueueJob({
     jobType: JOB_TYPES.syncTenantSessions,
     payload: {
+      mode: "new_or_changed",
+      reason: "manual",
       tenantId: tenant.id,
     },
   })
