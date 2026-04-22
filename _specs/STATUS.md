@@ -229,12 +229,14 @@
   - managed memory should reuse Otto's AI proxy boundary for embeddings through `agents.defaults.memorySearch.remote`, while keeping upstream provider keys out of tenant runtimes
   - `memory-core` is currently disabled by default in rendered tenant config, so managed memory requires explicit config projection and allowlist updates
   - OpenClaw `Active Memory` is present in current docs/main but not in the stable `v2026.4.9` tag Otto is currently aligned to, so it is a canary/follow-on feature rather than part of the first stable spec
-- The OpenClaw `2026.4.15` runtime-base upgrade planning now lives in `TODO_27_openclaw_runtime_upgrade.md`:
-  - the latest verified upstream release is `v2026.4.15` published April 16, 2026
-  - the main Otto-side risks are stricter plugin dependency isolation, tool-name collision validation, and changed OpenAI Responses stream/failover behavior
-  - Otto's bundled runtime plugins now all carry `package.json` metadata plus `openclaw.extensions`, including `otto-web-provider`, `otto-integrations`, `otto-session-reporter`, and `otto-workspace-chat`
-  - the repo defaults and custom runtime image baseline are now bumped from `2026.4.12` to `2026.4.15`
-  - the recommended strategy remains: build and publish the custom image, refresh one tenant runtime, then compare OpenAI Responses stream behavior before broader rollout
+- The OpenClaw `2026.4.21` runtime-base upgrade planning now lives in `TODO_27_openclaw_runtime_upgrade.md`:
+  - active branch: `plan/openclaw-2026-4-21-upgrade`
+  - latest verified upstream package signal is `openclaw@2026.4.21`, with `v2026.4.21` tagged April 22, 2026 and `v2026.4.20` carrying the larger compatibility/security batch
+  - the current repo defaults still point at `2026.4.15`; the bump should happen only after the compatibility patch lands
+  - the first implementation task is to patch `runtime-image/helpers/cron-sync-watcher.mjs` so OpenClaw's new `jobs-state.json` cron state file triggers scheduled-task refreshes alongside `jobs.json`
+  - the main Otto-side risks for this upgrade are OpenAI Responses transport/reasoning changes, the cron `jobs-state.json` split, stricter plugin registration/runtime dependency behavior, owner-enforced command identity, reused bundled channel plugins, gateway readiness/scope changes, and the new audio transcript projection dependency on OpenClaw session JSONL shape
+  - the target custom image is `ghcr.io/froemic/otto-openclaw:2026.4.21.1`; rollback remains `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
+  - the recommended strategy is: patch cron compatibility, bump defaults and plugin package versions, run focused tests, build locally, boot a tenant-like runtime, canary OpenAI proxy/workspace chat/session transcript/scheduled-task/channel paths, then publish and refresh exactly one tenant before broader rollout
 - The first raw OpenAI usage-ingestion foundation now exists:
   - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
   - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
