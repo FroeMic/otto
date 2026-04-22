@@ -9343,7 +9343,17 @@ async function compileTenantDesiredStateConfig(
     managedSkills: {
       versions: managedSkillVersionMap,
     },
-    media: {},
+    media: {
+      audio: {
+        attachmentsMode: "all",
+        maxAttachments: 10,
+        echoTranscript: false,
+        enabled: true,
+        maxBytes: 20 * 1024 * 1024,
+        model: "gpt-4o-mini-transcribe",
+        provider: "openai",
+      },
+    },
     prompts: {},
     timeFormat: workspace?.timeFormatPreference ?? "auto",
     timezone: workspace?.timezone ?? "UTC",
@@ -9392,18 +9402,6 @@ async function compileTenantDesiredStateConfig(
         teamId: slackProfile.teamId,
         teamName: slackProfile.teamName,
       }
-    }
-
-    config.media = {
-      audio: {
-        attachmentsMode: "all",
-        maxAttachments: 10,
-        echoTranscript: false,
-        enabled: true,
-        maxBytes: 20 * 1024 * 1024,
-        model: "gpt-4o-mini-transcribe",
-        provider: "openai",
-      },
     }
   }
 
