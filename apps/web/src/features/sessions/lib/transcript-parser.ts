@@ -1,4 +1,7 @@
-import { extractWorkspaceAudioUserTextFromText } from "@otto/feature-runtime-core/sessions/audio-transcripts"
+import {
+  extractWorkspaceAudioTranscriptsFromText,
+  extractWorkspaceAudioUserTextFromText,
+} from "@otto/feature-runtime-core/sessions/audio-transcripts"
 
 export interface ParsedUserMessage {
   channel: string | null
@@ -12,6 +15,7 @@ export type ProviderParser = (rawText: string) => ParsedUserMessage | null
 
 export type ParsedContentBlock =
   | { type: "text"; text: string }
+  | { type: "audio_transcript"; text: string }
   | { type: "thinking"; text: string }
   | {
       type: "tool_call"
@@ -212,6 +216,20 @@ function parseContentBlocks(
         const raw = typeof block.text === "string" ? block.text : ""
         const text = role === "assistant" ? stripDirectives(raw) : raw
 
+        if (role === "user") {
+          const parsedUser = parseUserMessageText(text)
+          if (parsedUser.text) {
+            blocks.push({ type: "text", text: parsedUser.text })
+          }
+
+          for (const transcript of extractWorkspaceAudioTranscriptsFromText(
+            text,
+          )) {
+            blocks.push({ text: transcript, type: "audio_transcript" })
+          }
+          break
+        }
+
         if (text) {
           blocks.push({ type: "text", text })
         }
@@ -347,8 +365,18 @@ export function parseTranscript(jsonl: string | null): ParsedMessage[] {
         }
 
         const parsed = parseUserMessageText(rawText)
+        const blocks: ParsedContentBlock[] = []
+        if (parsed.text) {
+          blocks.push({ text: parsed.text, type: "text" })
+        }
+        for (const transcript of extractWorkspaceAudioTranscriptsFromText(
+          rawText,
+        )) {
+          blocks.push({ text: transcript, type: "audio_transcript" })
+        }
+
         messages.push({
-          blocks: [{ text: parsed.text, type: "text" }],
+          blocks,
           id: line.id ?? `msg-${messages.length}`,
           kind: "user",
           model: null,

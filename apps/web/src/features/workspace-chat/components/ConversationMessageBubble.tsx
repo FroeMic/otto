@@ -362,10 +362,13 @@ function AudioAttachmentBlock({
   const displayLabel = transcriptPreview ?? label
 
   return (
-    <Collapsible className="max-w-full">
+    <Collapsible
+      className="w-80 max-w-full"
+      defaultOpen={Boolean(normalizedTranscript)}
+    >
       <div
         className={cn(
-          "inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
+          "inline-flex w-full max-w-full items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
           className,
         )}
       >
@@ -411,9 +414,9 @@ function AudioAttachmentBlock({
         {normalizedTranscript ? (
           <CollapsibleTrigger
             aria-label="Show voice note transcript"
-            className="group rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
+            className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground [&[aria-expanded=true]>svg]:rotate-90"
           >
-            <TraceCaretIcon className="transition-transform duration-150 group-data-[state=open]:rotate-90" />
+            <TraceCaretIcon className="transition-transform duration-150" />
           </CollapsibleTrigger>
         ) : (
           <span aria-hidden="true" className="size-5" />
@@ -421,7 +424,7 @@ function AudioAttachmentBlock({
       </div>
       {normalizedTranscript ? (
         <CollapsibleContent className="pt-1.5">
-          <div className="ml-6 max-w-full whitespace-pre-wrap break-words border-l border-border/80 pl-3 text-xs leading-5 text-muted-foreground">
+          <div className="ml-6 min-w-0 max-w-[calc(100%-1.5rem)] whitespace-pre-wrap break-words border-l border-border/80 pl-3 text-xs leading-5 text-muted-foreground">
             {normalizedTranscript}
           </div>
         </CollapsibleContent>

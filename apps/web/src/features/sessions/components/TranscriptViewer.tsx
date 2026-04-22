@@ -223,6 +223,15 @@ function TextBlock({ text }: { text: string }) {
   )
 }
 
+function AudioTranscriptBlock({ text }: { text: string }) {
+  return (
+    <div className="border-l border-border/80 pl-3 text-xs leading-5 text-muted-foreground">
+      <div className="mb-1 font-medium text-foreground/70">Transcript</div>
+      <div className="whitespace-pre-wrap break-words">{text}</div>
+    </div>
+  )
+}
+
 function SenderAvatar({
   isOtto = false,
   name,
@@ -558,6 +567,15 @@ export function TranscriptViewer({
                               )
                             }
 
+                            if (block.type === "audio_transcript") {
+                              return (
+                                <AudioTranscriptBlock
+                                  key={`${message.id}:audio-transcript:${blockIndex}`}
+                                  text={resolveText(block.text)}
+                                />
+                              )
+                            }
+
                             return (
                               <TextBlock
                                 key={`${message.id}:text:${blockIndex}`}
@@ -577,29 +595,31 @@ export function TranscriptViewer({
                           : "items-start",
                       )}
                     >
-                      {turn.messages.map((message) => {
-                        const textBlock = message.blocks.find(
-                          (block) => block.type === "text",
-                        )
-
-                        if (!textBlock || textBlock.type !== "text") {
-                          return null
-                        }
-
-                        return (
-                          <div
-                            className={cn(
-                              "max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm",
-                              turn.kind === "current_user"
-                                ? "bg-secondary text-foreground"
-                                : "bg-muted text-foreground",
-                            )}
-                            key={message.id}
-                          >
-                            <TextBlock text={resolveText(textBlock.text)} />
-                          </div>
-                        )
-                      })}
+                      {turn.messages.map((message) => (
+                        <div
+                          className={cn(
+                            "flex max-w-[85%] flex-col gap-2 rounded-lg px-3.5 py-2.5 text-sm",
+                            turn.kind === "current_user"
+                              ? "bg-secondary text-foreground"
+                              : "bg-muted text-foreground",
+                          )}
+                          key={message.id}
+                        >
+                          {message.blocks.map((block, blockIndex) =>
+                            block.type === "audio_transcript" ? (
+                              <AudioTranscriptBlock
+                                key={`${message.id}:audio-transcript:${blockIndex}`}
+                                text={resolveText(block.text)}
+                              />
+                            ) : block.type === "text" ? (
+                              <TextBlock
+                                key={`${message.id}:text:${blockIndex}`}
+                                text={resolveText(block.text)}
+                              />
+                            ) : null,
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
