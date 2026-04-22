@@ -32,7 +32,7 @@ merged. Keep commits small enough to separate:
 ## Target Release
 
 - Target upstream runtime image: `ghcr.io/openclaw/openclaw:2026.4.21`
-- Target custom image tag: `ghcr.io/froemic/otto-openclaw:2026.4.21.1`
+- Target custom image tag: `ghcr.io/froemic/otto-openclaw:2026.4.21.2`
 - Rollback image: `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
 - Latest verified upstream package signal: `openclaw@2026.4.21`
 
@@ -66,12 +66,12 @@ documented here.
 
 - `runtime-image/Dockerfile` now defaults to
   `ghcr.io/openclaw/openclaw:2026.4.21`.
-- `publish-runtime-image.sh` now defaults to `IMAGE_REVISION=1` and
+- `publish-runtime-image.sh` now defaults to `IMAGE_REVISION=2` and
   `ghcr.io/openclaw/openclaw:2026.4.21`.
 - `apps/worker/src/runtime/lib/env.ts` now defaults
   `RUNTIME_OPENCLAW_IMAGE` to the raw upstream `2026.4.21` image.
 - Runtime plugin package versions now align with custom image
-  `2026.4.21.1`.
+  `2026.4.21.2`.
 - The custom runtime image copies managed plugins into `/app/dist/extensions`,
   which is still the correct packaged image discovery location.
 - `runtime-image/helpers/cron-sync-watcher.mjs` now treats `jobs-state.json`
@@ -94,6 +94,8 @@ documented here.
   filters base cron placeholders and empty placeholder sessions from the
   Sessions list, and normalizes raw OpenAI proxy media base URLs to the
   internal `/api/internal/runtime/ai/openai/v1` path before transcription.
+  These post-canary fixes are carried by the next custom image revision,
+  `ghcr.io/froemic/otto-openclaw:2026.4.21.2`.
 
 ## Risk Register
 
@@ -339,11 +341,11 @@ Exit criteria:
   `ghcr.io/openclaw/openclaw:2026.4.21`.
 - [x] Update `publish-runtime-image.sh` defaults:
   - `OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21`
-  - `IMAGE_REVISION=1`
+  - `IMAGE_REVISION=2`
 - [x] Update `apps/worker/src/runtime/lib/env.ts` default
   `RUNTIME_OPENCLAW_IMAGE`.
-- [x] Update runtime image docs and examples to `2026.4.21.1`.
-- [x] Update all managed runtime plugin package versions to `2026.4.21.1`.
+- [x] Update runtime image docs and examples to `2026.4.21.2`.
+- [x] Update all managed runtime plugin package versions to `2026.4.21.2`.
 - [x] Update any tests that assert configured/observed runtime image versions.
 
 Exit criteria:
@@ -402,6 +404,8 @@ Local image verification:
 - A container file inspection found all managed plugin manifests under
   `/app/dist/extensions` and confirmed `/app/otto-helpers/cron-sync-watcher-rules.mjs`
   is packaged.
+- The deployable follow-up image is `2026.4.21.2`; publish and tenant canary
+  verification are tracked in Phase 9.
 
 Exit criteria:
 
@@ -517,14 +521,14 @@ Exit criteria:
 
 ```bash
 OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21 \
-IMAGE_REVISION=1 \
+IMAGE_REVISION=2 \
 ./publish-runtime-image.sh
 ```
 
 - [ ] Set or confirm:
 
 ```text
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.21.1
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.21.2
 ```
 
 - [ ] Refresh exactly one tenant runtime:
