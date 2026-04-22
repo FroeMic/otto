@@ -279,6 +279,16 @@ async function forwardSlackIngressForTeam(input: {
     })
     const finishedAt = new Date()
 
+    console.info("[integration-webhook] slack request forwarded", {
+      endpointKey: input.requestType,
+      responseBodyPreview: previewResponseBody(response.body),
+      responseStatus: response.status,
+      targetPath: TENANT_RUNTIME_SLACK_WEBHOOK_PATH,
+      teamId: input.teamId,
+      tenantId: target.tenantId,
+      tenantIntegrationId: target.tenantIntegrationId,
+    })
+
     await db.transaction(async (tx) => {
       await tx
         .update(integrationIngressDeliveries)
@@ -438,6 +448,16 @@ function parseRawHttpHeaders(value: string) {
   }
 
   return headers
+}
+
+function previewResponseBody(body: string) {
+  const normalized = body.replace(/\s+/g, " ").trim()
+
+  if (normalized.length <= 240) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, 240)}...`
 }
 
 function parseJsonObject(value: string) {
