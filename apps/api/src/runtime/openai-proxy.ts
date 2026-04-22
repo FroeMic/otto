@@ -20,6 +20,11 @@ const OPENAI_PROXY_QUIET_WARNING_MS = 8_000
 const OPENAI_PROXY_QUIET_WARNING_INTERVAL_MS = 1_000
 const AUDIO_PROXY_ERROR_BODY_LOG_LIMIT = 4_000
 const REDACTED_HEADER_VALUE = "[redacted]"
+const OPENAI_AUDIO_TRANSCRIPTION_MODELS = new Set([
+  "gpt-4o-mini-transcribe",
+  "gpt-4o-transcribe",
+  "whisper-1",
+])
 const HOP_BY_HOP_HEADERS = new Set([
   "authorization",
   "connection",
@@ -102,9 +107,9 @@ export function resolveOpenAiAudioTranscriptionModel(
   }
 
   const normalized = trimmed.toLowerCase()
-  return normalized === "undefined" || normalized === "null"
-    ? fallback
-    : trimmed
+  return OPENAI_AUDIO_TRANSCRIPTION_MODELS.has(normalized)
+    ? normalized
+    : fallback
 }
 
 type AudioProxyMultipartFieldLog = {
