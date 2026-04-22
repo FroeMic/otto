@@ -22,7 +22,7 @@ import {
   persistProvisionedProviderCredential,
 } from "../../db/provider-accounts"
 import { organizations, tenantServers, tenants } from "../../db/schema"
-import { getEnv } from "../env"
+import { getEnv, getProvisioningProviderMode } from "../env"
 import { HetznerClient } from "../hetzner/client"
 import { renderCloudInit } from "../hetzner/cloud-init"
 import { FakeHetznerClient } from "../hetzner/fake"
@@ -949,7 +949,7 @@ function getProvisioningDelayMs() {
 }
 
 function getProvisioningProvider() {
-  return getEnv().HETZNER_API_TOKEN ? "hetzner" : "fake"
+  return getProvisioningProviderMode()
 }
 
 let cachedHetznerClient: HetznerClient | null = null
