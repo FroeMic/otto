@@ -60,6 +60,40 @@ describe("RuntimeManager.applyTenantConfig", () => {
 })
 
 describe("RuntimeManager runtime home bootstrap", () => {
+  it("verifies workspace chat runtimes include audio media config", async () => {
+    const execMock = vi.fn(async () => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    }))
+    const manager = new RuntimeManager({
+      exec: execMock,
+    } as never)
+
+    await manager.verifyTenantConfigFiles(
+      {
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      },
+      {
+        managedSkillFiles: [],
+        metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+        openClawConfig: {
+          ...buildConfig(),
+          ottoPlugins: [{ id: "otto-workspace-chat" }],
+        },
+      },
+    )
+
+    const command =
+      (execMock.mock.calls as unknown as Array<[unknown, string]>)[0]?.[1] ?? ""
+
+    expect(command).toContain("grep -F")
+    expect(command).toContain("audio")
+    expect(command).toContain("/opt/openclaw/home/openclaw.json")
+  })
+
   it("writes the OpenAI proxy transport switch to the tenant runtime env", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL
     const previousTransport = process.env.OTTO_OPENAI_PROXY_TRANSPORT

@@ -333,8 +333,11 @@ export class RuntimeManager {
       )
     }
 
-    if (input.openClawConfig.audio?.enabled) {
-      const firstAudioModel = input.openClawConfig.audio.models[0]?.model
+    if (
+      input.openClawConfig.audio?.enabled ||
+      requiresWorkspaceChatAudioConfig(input.openClawConfig)
+    ) {
+      const firstAudioModel = input.openClawConfig.audio?.models[0]?.model
 
       commands.push(
         "grep -F '\"audio\"' /opt/openclaw/home/openclaw.json >/dev/null",
@@ -1111,6 +1114,13 @@ export class RuntimeManager {
 
     return (result.stdout || result.stderr || "unknown").trim()
   }
+}
+
+function requiresWorkspaceChatAudioConfig(config: OpenClawTenantConfig) {
+  return (
+    config.ottoPlugins?.some((plugin) => plugin.id === "otto-workspace-chat") ??
+    false
+  )
 }
 
 function buildShellCommand(commands: string[]) {
