@@ -79,15 +79,10 @@ export function ConversationMessageList({
       <div className="flex h-full min-h-[20rem] items-center justify-center">
         <Empty className="border-0 px-6 py-0">
           <EmptyHeader>
-            <p className="text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              Workspace Chat
-            </p>
             <EmptyTitle className="text-3xl font-semibold">
-              Start a conversation with Otto
+              What should Otto help with?
             </EmptyTitle>
-            <EmptyDescription>
-              Ask Otto to research, summarize, or take action in this workspace.
-            </EmptyDescription>
+            <EmptyDescription>Pick a start or write below.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent className="max-w-2xl">
             <WorkspaceChatPromptSuggestions

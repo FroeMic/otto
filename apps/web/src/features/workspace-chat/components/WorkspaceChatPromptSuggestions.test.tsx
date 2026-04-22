@@ -11,9 +11,9 @@ describe("WorkspaceChatPromptSuggestions", () => {
       <WorkspaceChatPromptSuggestions onSelect={() => undefined} />,
     )
 
-    assert.match(markup, /Research the market/)
-    assert.match(markup, /Summarize what changed/)
-    assert.match(markup, /Turn this rough plan/)
-    assert.match(markup, /Set up a recurring/)
+    assert.match(markup, /Brainstorm a new business idea/)
+    assert.match(markup, /Review a business/)
+    assert.match(markup, /Work on an existing business/)
+    assert.match(markup, /Set up a recurring task/)
   })
 })
